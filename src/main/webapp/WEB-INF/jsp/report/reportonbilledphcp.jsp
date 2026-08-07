@@ -150,9 +150,9 @@
                         for (int i = 0; i < VEC_PROVIDER[0].size(); i++) {
                     %>
                     <option
-                            value="<%=((Properties)VEC_PROVIDER[0].get(i)).getProperty("providerNo", "")  %>">
-                        <%= ((Properties) VEC_PROVIDER[0].get(i)).getProperty("firstName", "") + " " +
-                                ((Properties) VEC_PROVIDER[0].get(i)).getProperty("lastName", "") %>
+                            value="<carlos:encode value='<%= ((Properties) VEC_PROVIDER[0].get(i)).getProperty("providerNo", "") %>' context="htmlAttribute"/>">
+                        <carlos:encode value='<%= ((Properties) VEC_PROVIDER[0].get(i)).getProperty("firstName", "") + " " +
+                                ((Properties) VEC_PROVIDER[0].get(i)).getProperty("lastName", "") %>' context="html"/>
                     </option>
                     <%
                         }
@@ -163,9 +163,9 @@
                         for (int i = 0; i < VEC_PROVIDER[1].size(); i++) {
                     %>
                     <option
-                            value="<%=((Properties)VEC_PROVIDER[1].get(i)).getProperty("providerNo", "")  %>">
-                        <%= ((Properties) VEC_PROVIDER[1].get(i)).getProperty("firstName", "") + " " +
-                                ((Properties) VEC_PROVIDER[1].get(i)).getProperty("lastName", "") %>
+                            value="<carlos:encode value='<%= ((Properties) VEC_PROVIDER[1].get(i)).getProperty("providerNo", "") %>' context="htmlAttribute"/>">
+                        <carlos:encode value='<%= ((Properties) VEC_PROVIDER[1].get(i)).getProperty("firstName", "") + " " +
+                                ((Properties) VEC_PROVIDER[1].get(i)).getProperty("lastName", "") %>' context="html"/>
                     </option>
                     <%
                         }
@@ -176,9 +176,9 @@
                         for (int i = 0; i < VEC_PROVIDER[2].size(); i++) {
                     %>
                     <option
-                            value="<%=((Properties)VEC_PROVIDER[2].get(i)).getProperty("providerNo", "")  %>">
-                        <%= ((Properties) VEC_PROVIDER[2].get(i)).getProperty("firstName", "") + " " +
-                                ((Properties) VEC_PROVIDER[2].get(i)).getProperty("lastName", "") %>
+                            value="<carlos:encode value='<%= ((Properties) VEC_PROVIDER[2].get(i)).getProperty("providerNo", "") %>' context="htmlAttribute"/>">
+                        <carlos:encode value='<%= ((Properties) VEC_PROVIDER[2].get(i)).getProperty("firstName", "") + " " +
+                                ((Properties) VEC_PROVIDER[2].get(i)).getProperty("lastName", "") %>' context="html"/>
                     </option>
                     <%
                         }
@@ -189,9 +189,9 @@
                         for (int i = 0; i < VEC_PROVIDER[3].size(); i++) {
                     %>
                     <option
-                            value="<%=((Properties)VEC_PROVIDER[3].get(i)).getProperty("providerNo", "")  %>">
-                        <%= ((Properties) VEC_PROVIDER[3].get(i)).getProperty("firstName", "") + " " +
-                                ((Properties) VEC_PROVIDER[3].get(i)).getProperty("lastName", "") %>
+                            value="<carlos:encode value='<%= ((Properties) VEC_PROVIDER[3].get(i)).getProperty("providerNo", "") %>' context="htmlAttribute"/>">
+                        <carlos:encode value='<%= ((Properties) VEC_PROVIDER[3].get(i)).getProperty("firstName", "") + " " +
+                                ((Properties) VEC_PROVIDER[3].get(i)).getProperty("lastName", "") %>' context="html"/>
                     </option>
                     <%
                         }

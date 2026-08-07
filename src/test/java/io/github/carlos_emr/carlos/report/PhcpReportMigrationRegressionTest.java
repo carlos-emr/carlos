@@ -59,7 +59,11 @@ class PhcpReportMigrationRegressionTest {
                 .contains("if (bDx) {\n                    sql = \"select dxcode, level1, level2 from dxphcpgroup")
                 .contains("serviceCode.matches(\"[0-9]{1,3}\")")
                 .contains("<carlos:encode value='<%= curCatName %>' context=\"html\"/>")
+                .contains("getProperty(\"providerNo\", \"\") %>' context=\"htmlAttribute\"/>")
+                .contains("getProperty(\"lastName\", \"\") %>' context=\"html\"/>")
                 .doesNotContain("<td colspan=\"24\"><%= curCatName %>")
+                .doesNotContain("value=\"<%=((Properties)VEC_PROVIDER")
+                .doesNotContain("\n                        <%= ((Properties) VEC_PROVIDER")
                 .doesNotContain("catch (Exception e)")
                 .doesNotContain("request.getRequestDispatcher(\"/WEB-INF/jsp/error/errorpage.jsp\")");
     }
