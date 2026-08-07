@@ -304,7 +304,7 @@ CSS:
             //  insert headings for table
             sb.append("<th class=\"reportHeader\">");
             sb.append(Encode.forHtml(columnNames[i]));
-            sb.append("</th>");
+            sb.append(HEADER_END);
         }
         sb.append("</tr></thead><tbody>");
 
@@ -317,10 +317,10 @@ CSS:
                 for (int j = 0; j < columns; j++) {
                     sb.append("<td>");
                     sb.append(Encode.forHtml(Misc.getString(rs, columnNames[j])));
-                    sb.append("</td>");
+                    sb.append(CELL_END);
 
                 }
-                sb.append("</tr>");
+                sb.append(ROW_END);
             } while (rs.next());
         }
         if (results) {

@@ -73,54 +73,82 @@
         <link rel="stylesheet" type="text/css"
               href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/encounter/encounterStyles.css"/>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/global.js"></script>
+        <style>
+            .report-favorite-layout {
+                display: grid;
+                grid-template-columns: minmax(0, 130px) minmax(400px, 1fr);
+            }
+            .report-favorite-layout > div {
+                box-sizing: border-box;
+            }
+            .report-favorite-title {
+                align-items: center;
+                display: flex;
+                padding: 0 6px;
+            }
+            .report-favorite-content {
+                height: auto;
+                padding: 8px 6px;
+            }
+            .report-favorite-fields {
+                display: grid;
+                gap: 8px;
+            }
+            .report-favorite-field {
+                align-items: center;
+                display: flex;
+                gap: 8px;
+            }
+            .report-favorite-field label {
+                flex: 0 0 100px;
+                font-weight: bold;
+            }
+            .report-favorite-query-field {
+                align-items: flex-start;
+            }
+            .report-favorite-actions {
+                padding-left: 108px;
+            }
+        </style>
         <title><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/></title>
     </head>
 
     <body vlink="#0000FF" class="BodyStyle">
     <form action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/oscarReport/RptByExamplesFavorite" method="post">
         <input type="hidden" name="id" value="${carlos:forHtmlAttribute(id)}"/>
-    <table class="MainTable" id="scrollNumber1" role="presentation">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar" role="presentation">
-                    <tr>
-                        <td><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn" valign="top"></td>
-            <td class="MainTableRightColumn">
-                <table role="presentation">
-                    <tr>
-                       <td>
-                           <label for="favoriteName"><fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/></label>
-                           <input id="favoriteName" type="text" name="favoriteName" size="40"
-                                  value="${carlos:forHtmlAttribute(favoriteName)}"/>
-                       </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <label for="query"><fmt:message key="oscarReport.RptByExample.MsgQuery"/></label>
-                            <textarea id="query" name="query" cols="80" rows="3">${carlos:forHtmlContent(query)}</textarea>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><input type="submit" value="<fmt:message key='global.btnAdd'/>"/> <input
-                                type="button"
-                                value="<fmt:message key='oscarReport.RptByExample.MsgCancel'/>"
-                                onclick="history.back();"/></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
+        <div class="MainTable report-favorite-layout" id="scrollNumber1">
+            <div class="MainTableTopRowLeftColumn report-favorite-title">
+                <fmt:message key="oscarReport.CDMReport.msgReport"/>
+            </div>
+            <div class="MainTableTopRowRightColumn report-favorite-title">
+                <div class="TopStatusBar report-favorite-title">
+                    <fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> -
+                    <fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/>
+                </div>
+            </div>
+            <div class="MainTableLeftColumn"></div>
+            <div class="MainTableRightColumn report-favorite-content">
+                <div class="report-favorite-fields">
+                    <div class="report-favorite-field">
+                        <label for="favoriteName"><fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/></label>
+                        <input id="favoriteName" type="text" name="favoriteName" size="40"
+                               value="${carlos:forHtmlAttribute(favoriteName)}"/>
+                    </div>
+                    <div class="report-favorite-field report-favorite-query-field">
+                        <label for="query"><fmt:message key="oscarReport.RptByExample.MsgQuery"/></label>
+                        <textarea id="query" name="query" cols="80" rows="3">${carlos:forHtmlContent(query)}</textarea>
+                    </div>
+                    <div class="report-favorite-field report-favorite-actions">
+                        <input type="submit" value="<fmt:message key='global.btnAdd'/>"/>
+                        <input type="button"
+                               value="<fmt:message key='oscarReport.RptByExample.MsgCancel'/>"
+                               onclick="history.back();"/>
+                    </div>
+                </div>
+            </div>
+            <div class="MainTableBottomRowLeftColumn"></div>
+            <div class="MainTableBottomRowRightColumn"></div>
+        </div>
     </form>
     </body>
 </html>

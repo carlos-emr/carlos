@@ -215,18 +215,16 @@ public final class QueryByExampleSqlValidator {
                 quote = sqlQuoteDelimiter(current);
                 stripped.append(quote == '\0' ? current : ' ');
                 i++;
-                continue;
-            }
-            if (current == quote && next == quote) {
+            } else if (current == quote && next == quote) {
                 stripped.append("  ");
                 i += 2;
-                continue;
+            } else {
+                if (current == quote) {
+                    quote = '\0';
+                }
+                stripped.append(' ');
+                i++;
             }
-            if (current == quote) {
-                quote = '\0';
-            }
-            stripped.append(' ');
-            i++;
         }
         return stripped.toString();
     }

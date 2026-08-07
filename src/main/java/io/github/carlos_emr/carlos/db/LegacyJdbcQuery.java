@@ -627,20 +627,20 @@ public final class LegacyJdbcQuery {
                 quote = sqlQuoteDelimiter(current);
                 stripped.append(quote == '\0' ? current : ' ');
                 i++;
-                continue;
+            } else {
+                boolean escapedPair = (quote != '`' && current == '\\' && next != '\0')
+                        || (current == quote && next == quote);
+                if (escapedPair) {
+                    stripped.append("  ");
+                    i += 2;
+                } else {
+                    if (current == quote) {
+                        quote = '\0';
+                    }
+                    stripped.append(' ');
+                    i++;
+                }
             }
-            boolean escapedPair = (quote != '`' && current == '\\' && next != '\0')
-                    || (current == quote && next == quote);
-            if (escapedPair) {
-                stripped.append("  ");
-                i += 2;
-                continue;
-            }
-            if (current == quote) {
-                quote = '\0';
-            }
-            stripped.append(' ');
-            i++;
         }
         return stripped.toString();
     }
