@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS dxphcpgroup (
 -- audit-column convention required for new CARLOS tables. Legacy tables used an
 -- integer key, which collapsed distinct zero-padded diagnoses (for example, BC
 -- 0320 and 320) into one group. The source diagnostic code is at most five
--- characters, so converting the key to varchar preserves exact billing semantics.
+-- characters, so use its exact string representation for new mappings.
 ALTER TABLE dxphcpgroup
   MODIFY COLUMN dxcode varchar(5) NOT NULL,
   ADD COLUMN IF NOT EXISTS lastUpdateUser varchar(100) NOT NULL DEFAULT 'migration',
@@ -25,6 +25,32 @@ ALTER TABLE dxphcpgroup
 ALTER TABLE dxphcpgroup
   ENGINE=InnoDB,
   CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+
+-- An adopted integer key has already lost its original padding. Preserve the
+-- clinic's legacy matching behavior by expanding that mapping to every exact
+-- diagnostic-code spelling that previously normalized to the same integer. This
+-- intentionally copies an ambiguous legacy 320 mapping to both 320 and 0320;
+-- future exact-string lookups can then distinguish newly edited mappings.
+INSERT INTO dxphcpgroup (dxcode, level1, level2, lastUpdateUser, lastUpdateDate)
+SELECT codes.dxcode,
+       legacy.level1,
+       legacy.level2,
+       legacy.lastUpdateUser,
+       legacy.lastUpdateDate
+FROM (
+  SELECT diagnostic_code AS dxcode,
+         CAST(diagnostic_code AS UNSIGNED) AS numeric_code
+  FROM diagnosticcode
+  WHERE diagnostic_code REGEXP '^[0-9]{1,5}$'
+  GROUP BY diagnostic_code
+) codes
+JOIN dxphcpgroup legacy
+  ON legacy.dxcode REGEXP '^[0-9]{1,5}$'
+  AND legacy.dxcode = CAST(CAST(legacy.dxcode AS UNSIGNED) AS CHAR)
+  AND CAST(legacy.dxcode AS UNSIGNED) = codes.numeric_code
+LEFT JOIN dxphcpgroup exact_mapping
+  ON exact_mapping.dxcode = codes.dxcode
+WHERE exact_mapping.dxcode IS NULL;
 
 INSERT INTO dxphcpgroup (dxcode, level1, level2, lastUpdateUser, lastUpdateDate)
 SELECT codes.dxcode,

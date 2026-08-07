@@ -257,7 +257,7 @@ jobs:
 
           # Some live clinics already have the legacy PHCP lookup. Prove the forward migration
           # adopts its old shape, preserves clinic-specific mappings, and seeds missing codes.
-          $MYSQL "${ADOPT_DB}" -e "CREATE TABLE dxphcpgroup (dxcode int NOT NULL, level1 varchar(100) NOT NULL, level2 varchar(100) NOT NULL, PRIMARY KEY (dxcode)) ENGINE=MyISAM DEFAULT CHARSET=latin1; INSERT INTO dxphcpgroup (dxcode, level1, level2) VALUES (250, 'Clinic PHCP sentinel', 'Custom diabetes grouping');"
+          $MYSQL "${ADOPT_DB}" -e "CREATE TABLE dxphcpgroup (dxcode int NOT NULL, level1 varchar(100) NOT NULL, level2 varchar(100) NOT NULL, PRIMARY KEY (dxcode)) ENGINE=MyISAM DEFAULT CHARSET=latin1; INSERT INTO dxphcpgroup (dxcode, level1, level2) VALUES (2, 'Clinic padded sentinel', 'Custom padded grouping'), (250, 'Clinic PHCP sentinel', 'Custom diabetes grouping'), (320, 'Clinic collision sentinel', 'Custom collision grouping');"
 
           # Real BC installs can already have this live legacy form even though the consolidated
           # V1.0.1 fixture does not. Verify V1.0.6's IF NOT EXISTS contract preserves it verbatim.
@@ -297,15 +297,21 @@ jobs:
           fi
 
           ADOPT_PHCP_SENTINEL=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='250' AND level1='Clinic PHCP sentinel' AND level2='Custom diabetes grouping'")
-          ADOPT_PHCP_SEED=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='002' AND level2='ICD-9 001-139'")
+          ADOPT_PHCP_PADDED=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='002' AND level1='Clinic padded sentinel' AND level2='Custom padded grouping'")
+          ADOPT_PHCP_SEED=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='003' AND level2='ICD-9 001-139'")
           ADOPT_PHCP_KEY_TYPE=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='${ADOPT_DB}' AND table_name='dxphcpgroup' AND column_name='dxcode' AND data_type='varchar' AND character_maximum_length=5")
           ADOPT_PHCP_AUDIT=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='${ADOPT_DB}' AND table_name='dxphcpgroup' AND column_name IN ('lastUpdateUser','lastUpdateDate')")
-          if [ "${ADOPT_PHCP_SENTINEL}" != "1" ] || [ "${ADOPT_PHCP_SEED}" != "1" ] || [ "${ADOPT_PHCP_KEY_TYPE}" != "1" ] || [ "${ADOPT_PHCP_AUDIT}" != "2" ]; then
-            echo "::error::adopted PHCP lookup did not preserve its clinic mapping, exact code keys, seed code 002, or add audit columns for ${PROV}"
+          if [ "${ADOPT_PHCP_SENTINEL}" != "1" ] || [ "${ADOPT_PHCP_PADDED}" != "1" ] || [ "${ADOPT_PHCP_SEED}" != "1" ] || [ "${ADOPT_PHCP_KEY_TYPE}" != "1" ] || [ "${ADOPT_PHCP_AUDIT}" != "2" ]; then
+            echo "::error::adopted PHCP lookup did not preserve clinic mappings, expand padded keys, seed code 003, or add audit columns for ${PROV}"
             exit 1
           fi
 
           if [ "${PROV}" = "bc" ]; then
+            ADOPT_BC_PHCP_COLLISION=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode IN ('0320','320') AND level1='Clinic collision sentinel' AND level2='Custom collision grouping'")
+            if [ "${ADOPT_BC_PHCP_COLLISION}" != "2" ]; then
+              echo "::error::adopted BC PHCP lookup did not preserve the legacy 0320/320 collision mapping"
+              exit 1
+            fi
             ADOPT_BC_TYPE=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='${ADOPT_DB}' AND table_name='formBCNewBorn2008' AND column_name='Section16Text' AND data_type='varchar' AND character_maximum_length=255")
             ADOPT_BC_SENTINEL=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM formBCNewBorn2008 WHERE demographic_no=-2008 AND Section16Text='legacy-sentinel'")
             if [ "${ADOPT_BC_TYPE}" != "1" ] || [ "${ADOPT_BC_SENTINEL}" != "1" ]; then

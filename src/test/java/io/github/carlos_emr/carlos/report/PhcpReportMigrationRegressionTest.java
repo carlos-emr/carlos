@@ -49,6 +49,9 @@ class PhcpReportMigrationRegressionTest {
                 .contains("SELECT diagnostic_code AS dxcode")
                 .contains("CAST(LEFT(diagnostic_code, 3) AS UNSIGNED) AS category_code")
                 .contains("GROUP BY diagnostic_code")
+                .contains("JOIN dxphcpgroup legacy")
+                .contains("CAST(legacy.dxcode AS UNSIGNED) = codes.numeric_code")
+                .contains("LEFT JOIN dxphcpgroup exact_mapping")
                 .contains("WHEN codes.category_code <= 279 THEN '03 Endocrine")
                 .contains("WHERE NOT EXISTS (")
                 .contains("ICD-9 001-139", "ICD-9 800-999");
@@ -65,6 +68,7 @@ class PhcpReportMigrationRegressionTest {
                 .contains("if (bDx) { sql = \"select dxcode, level1, level2 from dxphcpgroup")
                 .contains("propCatCode.containsKey(serviceCode)")
                 .doesNotContain("Integer.parseInt(serviceCode)")
+                .contains("only unmapped diagnoses are gold")
                 .contains("<carlos:encode value='<%= curCatName %>' context=\"html\"/>")
                 .contains("getProperty(\"providerNo\", \"\") %>' context=\"htmlAttribute\"/>")
                 .contains("getProperty(\"lastName\", \"\") %>' context=\"html\"/>")

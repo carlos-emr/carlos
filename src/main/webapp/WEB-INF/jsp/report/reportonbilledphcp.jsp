@@ -843,6 +843,9 @@
                 } else {
                     color = "gold";
                 }
+            } else {
+                // Preserve the legacy ServiceCode rendering: only unmapped diagnoses are gold.
+                color = "";
             }
         %>
         <tr bgcolor="<%=color %>" align="center">
