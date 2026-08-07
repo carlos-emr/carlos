@@ -53,8 +53,10 @@ public class AppointmentType2Action extends ActionSupport {
     private static final String DELETE = "del";
     private static final int NAME_MAX_LENGTH = 50;
     private static final int TEXT_MAX_LENGTH = 80;
-    private static final int LOCATION_MAX_LENGTH = 30;
+    private static final int LOCATION_MAX_LENGTH = 255;
     private static final int RESOURCES_MAX_LENGTH = 10;
+    private static final String DELETE_SUCCESS_FLASH =
+            AppointmentType2Action.class.getName() + ".deleteSuccess";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -74,6 +76,8 @@ public class AppointmentType2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
+
+        restoreDeleteSuccessMessage();
 
         int typeNo = resolveTypeNumber();
         if ((EDIT.equals(sOper) || DELETE.equals(sOper)) && typeNo <= 0 && !hasActionErrors()) {
@@ -125,6 +129,7 @@ public class AppointmentType2Action extends ActionSupport {
             } else if (DELETE.equals(sOper)) {
                 try {
                     appDao.remove(typeNo);
+                    request.getSession().setAttribute(DELETE_SUCCESS_FLASH, Boolean.TRUE);
                     return "redirect";
                 } catch (Exception e) {
                     addActionError(getText("appointment.type.delete.error"));
@@ -139,6 +144,13 @@ public class AppointmentType2Action extends ActionSupport {
         populateLocations();
 
         return SUCCESS;
+    }
+
+    private void restoreDeleteSuccessMessage() {
+        if (Boolean.TRUE.equals(request.getSession().getAttribute(DELETE_SUCCESS_FLASH))) {
+            request.getSession().removeAttribute(DELETE_SUCCESS_FLASH);
+            addActionMessage(getText("appointment.type.deleted.message"));
+        }
     }
 
     private String failure() {

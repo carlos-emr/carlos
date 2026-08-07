@@ -208,7 +208,7 @@
                                                         <c:if test="${empty locationsList}">
                                                             <input type="text" name="location"
                                                                    value="${carlos:forHtmlAttribute(location)}"
-                                                                   width="30" height="20" border="0" hspace="2" maxlength="30"/>
+                                                                   width="30" height="20" border="0" hspace="2" maxlength="255"/>
                                                         </c:if>
                                                     </td>
                                                     <td>
