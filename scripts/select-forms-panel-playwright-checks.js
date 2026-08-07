@@ -44,6 +44,9 @@ const consoleIssues = [];
 // means the AJAX handler injected an error fragment or an empty body rather than the panel.
 const MIN_PANEL_BYTES = 500;
 
+// Playwright resource types whose 4xx/5xx responses are cosmetic for this check.
+const IGNORED_FAILING_RESOURCE_TYPES = new Set(['image', 'font', 'stylesheet', 'media']);
+
 // Matches a full dotted-quad IPv4 address only (anchored start-to-end), so a
 // hostname like "10.attacker.example" cannot be mistaken for the private
 // 10.0.0.0/8 range just because it starts with the same characters as one.
@@ -110,9 +113,17 @@ function wirePage(page, label) {
   });
   page.on('response', (response) => {
     const status = response.status();
-    if (status >= 400) {
-      badResponses.push({ label, status, url: response.url() });
+    if (status < 400) {
+      return;
     }
+    // Decorative assets are not what this check is about: a missing icon or font in the
+    // administration shell must not be reported as a Select Forms panel regression.
+    // Documents, scripts, and XHR/fetch traffic are still captured, so a failing
+    // navigation or a failing panel POST does fail the run.
+    if (IGNORED_FAILING_RESOURCE_TYPES.has(response.request().resourceType())) {
+      return;
+    }
+    badResponses.push({ label, status, url: response.url() });
   });
   page.on('console', (message) => {
     const text = message.text();
@@ -336,9 +347,16 @@ async function restoreSubject(page, subject) {
       formName: subject,
     });
     assertPanelRendered(afterUp, 'move up');
+    // Add appends the subject last. On an install where nothing was selected to begin
+    // with it is also first, and Move Up correctly no-ops rather than moving it off the
+    // top of the list — assert that boundary instead of demanding a position change.
+    const addedIndex = afterAdd.selected.indexOf(subject);
+    const expectedUpIndex = addedIndex === 0 ? 0 : addedIndex - 1;
     assert(
-      afterUp.selected.indexOf(subject) === afterAdd.selected.indexOf(subject) - 1,
-      `move up did not raise ${subject} by one position`,
+      afterUp.selected.indexOf(subject) === expectedUpIndex,
+      addedIndex === 0
+        ? `move up should have left ${subject} at the top of a single-entry list`
+        : `move up did not raise ${subject} by one position`,
     );
 
     const afterDown = await clickPanelButton(page, {
@@ -348,8 +366,11 @@ async function restoreSubject(page, subject) {
       formName: subject,
     });
     assertPanelRendered(afterDown, 'move down');
+    // Symmetric to Move Up: normally this puts the subject back where Add left it, and
+    // when Move Up was a no-op the subject is still last, so Move Down no-ops too. Both
+    // cases land on addedIndex.
     assert(
-      afterDown.selected.indexOf(subject) === afterAdd.selected.indexOf(subject),
+      afterDown.selected.indexOf(subject) === addedIndex,
       `move down did not restore the original position of ${subject}`,
     );
 
