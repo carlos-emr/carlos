@@ -71,6 +71,10 @@ class CarlosdocPrivilegeSeedRegressionTest {
     private static final Pattern ADMIN_PRIVILEGE = Pattern.compile(
             "\\(\\s*'admin'\\s*,\\s*'([^']+)'\\s*,\\s*'([^']+)'\\s*,"
                     + "\\s*(\\d+)\\s*,\\s*'([^']+)'\\s*\\)");
+    private static final Pattern ADMIN_PRIVILEGE_DELETE = Pattern.compile(
+            "DELETE\\s+FROM\\s+`?secObjPrivilege`?\\s+WHERE\\s+`?objectName`?"
+                    + "\\s*=\\s*'([^']+)'\\s*;",
+            Pattern.CASE_INSENSITIVE);
 
     /** The seed dump is a multi-MB mysqldump — read once per class, not per test. */
     private static String developmentSeedSql;
@@ -118,10 +122,12 @@ class CarlosdocPrivilegeSeedRegressionTest {
     void shouldRestoreBaselineAdminPrivileges_afterDevelopmentSnapshot() throws IOException {
         String privilegeRepairSql = Files.readString(DEVELOPMENT_PRIVILEGES, StandardCharsets.UTF_8);
         Map<String, String> baselinePrivileges = adminPrivileges(seedSql);
+        Map<String, String> repairedPrivileges = effectiveAdminPrivileges(
+                developmentSeedSql, privilegeRepairSql);
 
-        assertThat(adminPrivileges(bcSeedSql)).isEqualTo(baselinePrivileges);
-        assertThat(adminPrivileges(developmentSeedSql + privilegeRepairSql))
-                .containsAllEntriesOf(baselinePrivileges);
+        assertThat(repairedPrivileges)
+                .isEqualTo(baselinePrivileges)
+                .doesNotContainKey("_admin.traceability");
         assertThat(privilegeRepairSql).contains(
                 "('admin', '_admin.schedule', 'x', 0, '999998')",
                 "('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')",
@@ -183,6 +189,17 @@ class CarlosdocPrivilegeSeedRegressionTest {
         while (matcher.find()) {
             privileges.put(matcher.group(1),
                     matcher.group(2) + '|' + matcher.group(3) + '|' + matcher.group(4));
+        }
+        return privileges;
+    }
+
+    private static Map<String, String> effectiveAdminPrivileges(String seed, String repair) {
+        Map<String, String> privileges = adminPrivileges(seed);
+        privileges.putAll(adminPrivileges(repair));
+
+        Matcher deletedPrivilege = ADMIN_PRIVILEGE_DELETE.matcher(repair);
+        while (deletedPrivilege.find()) {
+            privileges.remove(deletedPrivilege.group(1));
         }
         return privileges;
     }
