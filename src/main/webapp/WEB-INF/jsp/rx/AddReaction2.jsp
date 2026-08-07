@@ -37,6 +37,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -137,6 +138,9 @@
                     <tr>
                         <td id="addAllergyDialogue"><form action="<%=request.getContextPath()%>/rx/addAllergy2" method="post"
                                                                name="RxAddAllergyForm" id="RxAddAllergyForm" focus="reactionDescription">
+                            <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+                            <input type="hidden" name="formDemographicNo"
+                                   value="<carlos:encode value='<%= String.valueOf(patient.getDemographicNo()) %>' context="htmlAttribute"/>"/>
 
                             <script type="text/javascript">
                                 function checkStartDate() {
@@ -203,7 +207,6 @@
                                         <input type="hidden" name="ID" value="<carlos:encode value='<%= drugrefId %>' context="htmlAttribute"/>"/>
                                         <input type="hidden" name="name" id="name" value="<carlos:encode value='<%= name %>' context="htmlAttribute"/>"/>
                                         <input type="hidden" name="allergyToArchive" id="allergyToArchive" value="<carlos:encode value='<%= allergyToArchive %>' context="htmlAttribute"/>"/>
-                                        <%-- CSRF token auto-injected by CSRFGuard (injectIntoForms=true) --%>
                                     </td>
                                 </tr>
 

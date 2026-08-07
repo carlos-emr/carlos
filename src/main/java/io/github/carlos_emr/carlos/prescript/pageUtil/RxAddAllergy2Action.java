@@ -64,6 +64,23 @@ public final class RxAddAllergy2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_allergy)");
         }
 
+        String formDemographicNo = request.getParameter("formDemographicNo");
+        RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+        if (patient == null || formDemographicNo == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
+
+        try {
+            if (Integer.parseInt(formDemographicNo) != patient.getDemographicNo()) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
+
         String id = request.getParameter("ID");
 
             if (id == null || "null".equals(id)) {
@@ -83,7 +100,6 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         String nonDrug = request.getParameter("nonDrug");
 
-        RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
         Allergy allergy = new Allergy();
             allergy.setDrugrefId(id);
 			// this can be overwritten with the conditions further down this code block
