@@ -84,6 +84,20 @@ public class RptByExampleData {
         this.connectionProvider = connectionProvider;
     }
 
+    /**
+     * Validates and executes one bounded, read-only Query-by-Example submission.
+     * The outcome and elapsed time are audited in all cases; raw SQL text is not
+     * included in the audit event.
+     *
+     * @param sql request-submitted SQL; only one validated {@code SELECT} is permitted
+     * @param properties application properties used to resolve the allowed database schema
+     * @param providerNo requesting provider identifier used for audit metadata
+     * @return the encoded, size-bounded query result
+     * @throws QueryByExampleValidationException if the SQL fails structural validation
+     * @throws SQLTimeoutException if execution exceeds {@link #QUERY_TIMEOUT_SECONDS}
+     * @throws SQLException if the query or JDBC resource handling fails
+     * @throws RuntimeException if an unexpected validation, execution, or rendering failure occurs
+     */
     @SuppressFBWarnings(
             value = "THROWS_METHOD_THROWS_RUNTIMEEXCEPTION",
             justification = "Runtime failures are audited and handled by the action")

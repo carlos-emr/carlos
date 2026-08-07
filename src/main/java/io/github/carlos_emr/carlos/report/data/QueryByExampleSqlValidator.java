@@ -209,19 +209,24 @@ public final class QueryByExampleSqlValidator {
             throw new QueryByExampleValidationException("The query uses a function outside the allowed set");
         }
         for (String table : tables) {
-            String normalizedTable = unquoteIdentifier(table);
-            int lastDot = normalizedTable.lastIndexOf('.');
-            if (lastDot > 0) {
-                String qualifier = normalizedTable.substring(0, lastDot);
-                if (!canonicalIdentifier(qualifier).equals(canonicalIdentifier(applicationSchema))) {
-                    throw new QueryByExampleValidationException("Queries may only read the application database schema");
-                }
+            rejectUnsafeTableReference(table, applicationSchema);
+        }
+    }
+
+    private static void rejectUnsafeTableReference(String table, String applicationSchema)
+            throws QueryByExampleValidationException {
+        String normalizedTable = unquoteIdentifier(table);
+        int lastDot = normalizedTable.lastIndexOf('.');
+        if (lastDot > 0) {
+            String qualifier = normalizedTable.substring(0, lastDot);
+            if (!canonicalIdentifier(qualifier).equals(canonicalIdentifier(applicationSchema))) {
+                throw new QueryByExampleValidationException("Queries may only read the application database schema");
             }
-            String unqualifiedTable = lastDot >= 0 ? normalizedTable.substring(lastDot + 1) : normalizedTable;
-            if (SECURITY_SENSITIVE_TABLES.contains(canonicalIdentifier(unqualifiedTable))) {
-                throw new QueryByExampleValidationException(
-                        "Queries may not read tables containing authentication secrets");
-            }
+        }
+        String unqualifiedTable = lastDot >= 0 ? normalizedTable.substring(lastDot + 1) : normalizedTable;
+        if (SECURITY_SENSITIVE_TABLES.contains(canonicalIdentifier(unqualifiedTable))) {
+            throw new QueryByExampleValidationException(
+                    "Queries may not read tables containing authentication secrets");
         }
     }
 

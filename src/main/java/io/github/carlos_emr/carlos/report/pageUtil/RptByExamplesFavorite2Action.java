@@ -60,6 +60,18 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
 
     private ReportByExamplesFavoriteDao dao = SpringUtils.getBean(ReportByExamplesFavoriteDao.class);
 
+    /**
+     * Handles the POST-only create, edit, update, and delete workflows for the
+     * current provider's Query-by-Example favorites. The caller must hold
+     * {@code _admin} or {@code _report} read privilege, and stored records are
+     * checked for provider ownership before mutation.
+     *
+     * @return {@link #NONE} after rejecting a non-POST request, {@code "edit"}
+     *         when preparing the editor, or {@link #SUCCESS} after a completed mutation
+     * @throws ServletException if servlet processing fails
+     * @throws IOException if the method-rejection response cannot be written
+     * @throws SecurityException if authorization or provider ownership validation fails
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws ServletException, IOException {
@@ -105,6 +117,16 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Creates a favorite or updates the first exact provider/name/query match.
+     * A null or empty query is ignored. Authorization is enforced by the calling
+     * {@link #execute()} workflow.
+     *
+     * @param providerNo owner of the favorite
+     * @param favoriteName display name for the favorite
+     * @param query SQL text to store
+     * @throws RuntimeException if favorite lookup or persistence fails
+     */
     public void write2Database(String providerNo, String favoriteName, String query) {
         if (query == null || query.compareTo("") == 0) {
             return;
@@ -128,6 +150,15 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
 
     }
 
+    /**
+     * Deletes a favorite after verifying that it belongs to the supplied provider.
+     * Authorization is enforced by the calling {@link #execute()} workflow.
+     *
+     * @param providerNo expected owner of the favorite
+     * @param id numeric favorite identifier
+     * @throws SecurityException if the identifier is invalid or the favorite is not provider-owned
+     * @throws RuntimeException if persistence fails
+     */
     public void deleteQuery(String providerNo, String id) {
         dao.remove(requireOwnedFavorite(providerNo, id));
     }
