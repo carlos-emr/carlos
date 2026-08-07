@@ -419,6 +419,23 @@ public interface DemographicDao {
 
     // public List<Demographic> findByCriterion(DemographicCriterion c);
 
+    /**
+     * Patients eligible for an influenza (G590A/G591A) recall, for the Flu Billing Report.
+     *
+     * <p>Selects demographics aged 65 or over whose {@code patient_status} is
+     * {@code AC} or {@code UHIP} and whose {@code roster_status} is one of
+     * {@code RO}, {@code NR}, {@code FS}, {@code RF}, or {@code PL}, ordered by
+     * last name. Age is computed in the database against the current date, so
+     * results shift as patients cross the age-65 boundary.</p>
+     *
+     * @param providerNo the demographic's assigned provider to filter on;
+     *                   {@code "-1"} or {@code null} means all providers
+     * @return one row per eligible patient, never {@code null}. Every component
+     *         is a non-null String — a NULL column arrives as the empty string,
+     *         so callers render blanks rather than the literal text "null".
+     *         The projection carries no billing data; the claim date per patient
+     *         is resolved separately by the report layer.
+     */
     public List<FluReportDemographicRow> findDemographicsForFluReport(String providerNo);
 
     public List<Integer> getActiveDemographicIdsOlderThan(int age);

@@ -428,6 +428,17 @@ async function run() {
       phone: primary.phone,
       billingDate: `${reportYear}-10-20`,
     });
+    // The no-claim fixture is assigned to this provider, so filtering must keep it
+    // and must keep its billing-date cell blank rather than dropping the row.
+    assertPatientRow(fixtureRow(individualProviderRows, unvaccinated.patientName), {
+      name: unvaccinated.patientName,
+      dateOfBirth: '1942-03-09',
+      age: expectedUnvaccinatedAge,
+      rosterStatus: unvaccinated.rosterStatus,
+      patientStatus: unvaccinated.patientStatus,
+      phone: unvaccinated.phone,
+      billingDate: '',
+    });
     assert(!individualProviderRows.some((row) => row[0] === secondary.patientName),
       'Individual-provider filtering included the synthetic patient assigned to another provider');
     assert(browserFindings.length === 0, `Browser findings: ${JSON.stringify(browserFindings)}`);
@@ -440,7 +451,7 @@ async function run() {
         'latest valid selected-year flu claim is displayed',
         'a patient with no claim that year renders a blank billing date',
         'All Providers includes every synthetic patient',
-        'individual provider includes only its assigned synthetic patients',
+        'individual provider keeps both of its assigned synthetic patients and excludes the other',
       ],
     }, null, 2));
   } finally {
@@ -467,11 +478,11 @@ async function run() {
       `Synthetic rows were left in the database and must be removed by hand:\n  ${cleanupFailures.join('\n  ')}`
     );
   }
-  console.log('PASS Flu Billing Report demographic mapping and provider filters');
+  console.log('PASS CARLOS EMR Flu Billing Report demographic mapping and provider filters');
 }
 
 run().catch((error) => {
-  console.error('FAIL Flu Billing Report Playwright check');
+  console.error('FAIL CARLOS EMR Flu Billing Report Playwright check');
   console.error(error.stack || error.message);
   // A row mismatch is usually caused by something the page already reported —
   // an HTTP 500 on the report action, a JS error that broke rendering. Print the

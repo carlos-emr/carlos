@@ -29,6 +29,36 @@
 
 --%>
 
+<%--
+    CARLOS EMR — Flu Billing Report
+
+    Purpose:
+        Influenza recall worklist. Lists every patient aged 65 or over who is
+        eligible for an Ontario G590A/G591A influenza claim, alongside the date
+        of their latest such claim in the selected year. A blank Billing Date
+        marks a patient who still needs a flu shot — the rows this report
+        exists to surface.
+
+    Features:
+        - Seven patient columns: name, date of birth, age, enrolment (roster)
+          status, patient status, phone, and billing date.
+        - Year selector spanning the selected year plus or minus two.
+        - Provider filter defaulting to All Providers.
+        - Renders as a fragment loaded into #dynamic-content by the
+          administration left navigation, and standalone in the popup opened
+          from admin/admin.jsp.
+
+    Request parameters:
+        numMonth - four-digit report year; defaults to the current year.
+        proNo    - provider number to filter on; "-1" means all providers.
+
+    Security:
+        Requires read rights on _report or _admin.reporting; unauthorized
+        requests are redirected to the security error page.
+
+    @since 2026-08-06
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>

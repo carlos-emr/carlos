@@ -63,6 +63,19 @@ public class RptFluReportData {
         return pList;
     }
 
+    /**
+     * Loads the flu-recall patient list into {@link #demoList} and records the
+     * report year in {@link #years} for the JSP to read back.
+     *
+     * <p>Each {@link DemoFluDataStruct} carries the seven rendered patient
+     * columns — number, name, phone, roster status, patient status, date of
+     * birth, and age — all non-null. The Billing Date column is not loaded
+     * here; the JSP resolves it per row through
+     * {@link DemoFluDataStruct#getBillingDate(String)}.</p>
+     *
+     * @param s  the provider filter; {@code "-1"} means all providers
+     * @param s1 the four-digit report year used to scope the billing lookup
+     */
     public void fluReportGenerate(String s, String s1) {
         years = s1;
 

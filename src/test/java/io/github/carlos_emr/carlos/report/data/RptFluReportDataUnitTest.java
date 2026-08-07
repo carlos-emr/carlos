@@ -24,80 +24,74 @@ package io.github.carlos_emr.carlos.report.data;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@Tag("unit")
-@Tag("fast")
+/**
+ * Mapping contract between the DAO projection and the fields the Flu Billing
+ * Report JSP renders.
+ *
+ * <p>{@code RptFluReportData} resolves its DAOs through {@code SpringUtils},
+ * so this extends {@link CarlosUnitTestBase} for the shared static mock and its
+ * deterministic teardown rather than opening its own.</p>
+ */
 @DisplayName("Flu billing report demographic projection mapping")
-class RptFluReportDataUnitTest {
+class RptFluReportDataUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should map every demographic query column to its patient detail field")
     void shouldMapEveryQueryColumn_toItsPatientDetailField() {
-        DemographicDao demographicDao = mock(DemographicDao.class);
+        DemographicDao demographicDao = createAndRegisterMock(DemographicDao.class);
         when(demographicDao.findDemographicsForFluReport("-1"))
             .thenReturn(List.of(new FluReportDemographicRow(
                 "714", "Patient,Flu", "416-555-0714", "RO", "AC", "1940-06-15", "85"
             )));
 
-        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
-            springUtils.when(() -> SpringUtils.getBean(DemographicDao.class)).thenReturn(demographicDao);
+        RptFluReportData reportData = new RptFluReportData();
+        reportData.fluReportGenerate("-1", "2026");
 
-            RptFluReportData reportData = new RptFluReportData();
-            reportData.fluReportGenerate("-1", "2026");
-
-            assertThat(reportData.years).isEqualTo("2026");
-            assertThat(reportData.demoList).singleElement().satisfies(patient -> {
-                assertThat(patient.demoNo).isEqualTo("714");
-                assertThat(patient.demoName).isEqualTo("Patient,Flu");
-                assertThat(patient.demoPhone).isEqualTo("416-555-0714");
-                assertThat(patient.demoRosterStatus).isEqualTo("RO");
-                assertThat(patient.demoPatientStatus).isEqualTo("AC");
-                assertThat(patient.demoDOB).isEqualTo("1940-06-15");
-                assertThat(patient.demoAge).isEqualTo("85");
-            });
-            verify(demographicDao).findDemographicsForFluReport("-1");
-        }
+        assertThat(reportData.years).isEqualTo("2026");
+        assertThat(reportData.demoList).singleElement().satisfies(patient -> {
+            assertThat(patient.demoNo).isEqualTo("714");
+            assertThat(patient.demoName).isEqualTo("Patient,Flu");
+            assertThat(patient.demoPhone).isEqualTo("416-555-0714");
+            assertThat(patient.demoRosterStatus).isEqualTo("RO");
+            assertThat(patient.demoPatientStatus).isEqualTo("AC");
+            assertThat(patient.demoDOB).isEqualTo("1940-06-15");
+            assertThat(patient.demoAge).isEqualTo("85");
+        });
+        verify(demographicDao).findDemographicsForFluReport("-1");
     }
 
     @Test
     @DisplayName("should render empty patient details instead of literal null values")
     void shouldRenderEmptyStrings_forNullQueryColumns() {
-        DemographicDao demographicDao = mock(DemographicDao.class);
+        DemographicDao demographicDao = createAndRegisterMock(DemographicDao.class);
         when(demographicDao.findDemographicsForFluReport("999998"))
             .thenReturn(List.of(new FluReportDemographicRow(null, null, null, null, null, null, null)));
 
-        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
-            springUtils.when(() -> SpringUtils.getBean(DemographicDao.class)).thenReturn(demographicDao);
+        RptFluReportData reportData = new RptFluReportData();
+        reportData.fluReportGenerate("999998", "2026");
 
-            RptFluReportData reportData = new RptFluReportData();
-            reportData.fluReportGenerate("999998", "2026");
-
-            assertThat(reportData.demoList).singleElement().satisfies(patient -> {
-                assertThat(patient.demoNo).isEmpty();
-                assertThat(patient.demoName).isEmpty();
-                assertThat(patient.demoPhone).isEmpty();
-                assertThat(patient.demoRosterStatus).isEmpty();
-                assertThat(patient.demoPatientStatus).isEmpty();
-                assertThat(patient.demoDOB).isEmpty();
-                assertThat(patient.demoAge).isEmpty();
-            });
-        }
+        assertThat(reportData.demoList).singleElement().satisfies(patient -> {
+            assertThat(patient.demoNo).isEmpty();
+            assertThat(patient.demoName).isEmpty();
+            assertThat(patient.demoPhone).isEmpty();
+            assertThat(patient.demoRosterStatus).isEmpty();
+            assertThat(patient.demoPatientStatus).isEmpty();
+            assertThat(patient.demoDOB).isEmpty();
+            assertThat(patient.demoAge).isEmpty();
+        });
     }
 
     @Test
@@ -107,24 +101,19 @@ class RptFluReportDataUnitTest {
         // through <carlos:encode context="html"/>, which escapes the ampersand and
         // printed the literal characters "&nbsp;" for every unvaccinated patient —
         // exactly the rows this recall report exists to surface.
-        DemographicDao demographicDao = mock(DemographicDao.class);
+        DemographicDao demographicDao = createAndRegisterMock(DemographicDao.class);
         when(demographicDao.findDemographicsForFluReport("-1"))
             .thenReturn(List.of(new FluReportDemographicRow(
                 "714", "Patient,Flu", "416-555-0714", "RO", "AC", "1940-06-15", "85"
             )));
-        BillingONCHeader1Dao billingDao = mock(BillingONCHeader1Dao.class);
+        BillingONCHeader1Dao billingDao = createAndRegisterMock(BillingONCHeader1Dao.class);
         when(billingDao.findBillingsByDemoNoCh1HeaderServiceCodeAndDate(
             any(), anyList(), any(), any())).thenReturn(List.of());
 
-        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
-            springUtils.when(() -> SpringUtils.getBean(DemographicDao.class)).thenReturn(demographicDao);
-            springUtils.when(() -> SpringUtils.getBean(BillingONCHeader1Dao.class)).thenReturn(billingDao);
+        RptFluReportData reportData = new RptFluReportData();
+        reportData.fluReportGenerate("-1", "2026");
 
-            RptFluReportData reportData = new RptFluReportData();
-            reportData.fluReportGenerate("-1", "2026");
-
-            assertThat(reportData.demoList).singleElement().satisfies(patient ->
-                assertThat(patient.getBillingDate("2026")).isEmpty());
-        }
+        assertThat(reportData.demoList).singleElement().satisfies(patient ->
+            assertThat(patient.getBillingDate("2026")).isEmpty());
     }
 }
