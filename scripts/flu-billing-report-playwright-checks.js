@@ -386,17 +386,22 @@ function redactFinding(text) {
   return engineError ? engineError[1] : `[redacted ${firstLine.length} chars]`;
 }
 
-// Resource fetches whose failure says nothing about the report. Both handlers
-// below consult this: Chromium reports a failed subresource twice, once as a
-// response and once as a console error, so tolerating it in only one place would
-// fail the run on exactly the 404 the other is written to ignore -- and, since
-// console text is redacted, with nothing but "[redacted N chars]" to explain it.
+// Resource fetches that are allowed to be missing. Both handlers below consult
+// this: Chromium reports a failed subresource twice, once as a response and once
+// as a console error, so tolerating it in only one place would fail the run on
+// exactly the 404 the other is written to ignore -- and, since console text is
+// redacted, with nothing but "[redacted N chars]" to explain it.
+//
+// Only a 404 is benign. A 403 or 500 on these paths is a real signal and is
+// still reported by the response handler, which is the side that sees a status;
+// the console duplicate stays suppressed to avoid reporting it twice.
 const IGNORABLE_RESOURCE = /\/favicon\.ico$|\/imageRenderingServlet\?/;
 
 function wirePage(page) {
   page.on('response', (response) => {
     const responseUrl = response.url();
-    if (response.status() >= 400 && !IGNORABLE_RESOURCE.test(responseUrl)) {
+    if (response.status() >= 400
+        && !(response.status() === 404 && IGNORABLE_RESOURCE.test(responseUrl))) {
       // Path only: report URLs carry proNo, a real provider number.
       browserFindings.push({ type: 'http', status: response.status(), path: new URL(responseUrl).pathname });
     }
@@ -686,11 +691,13 @@ async function run() {
       }
     }
 
-    // Whitespace around the provider must not turn into a literal filter. This is
-    // the same "empty worklist under an All Providers label" failure as an absent
-    // proNo, reachable from a hand-edited or copied URL.
-    const paddedAllRows = await reportRows(page, null, ' -1 ', '-1');
-    fixtureRow(paddedAllRows, primary.patientName);
+    // Whitespace around a real provider must be trimmed rather than turned into a
+    // literal filter. A padded provider is the only shape that pins the trim: if
+    // it were not trimmed the value would be unselectable, fall back to All
+    // Providers, and admit the other provider's patient, which the exclusion
+    // below catches. Padding the "-1" sentinel proves nothing by comparison --
+    // trimmed or not it ends at All Providers, which the unknown-provider case
+    // already covers.
     const paddedProviderRows = await reportRows(page, null, ` ${providerNo} `, providerNo);
     fixtureRow(paddedProviderRows, primary.patientName);
     assert(!paddedProviderRows.some((row) => row[0] === secondary.patientName),
