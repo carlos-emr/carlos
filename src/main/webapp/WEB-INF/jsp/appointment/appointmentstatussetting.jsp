@@ -30,6 +30,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/struts-tags" prefix="s" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
@@ -43,15 +44,15 @@
 
 <html>
 <head>
-    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
+    <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/global.js"></script>
     <title><fmt:message key="admin.appt.status.mgr.title"/></title>
-    <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
+    <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/jquery/jquery-compat.js"></script>
     <script>
         jQuery.noConflict();
     </script>
-    <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+    <link rel="stylesheet" type="text/css" media="all" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/css/extractedFromPages.css"/>
 <style>
     .inline-action { display: inline; }
     .link-button { background: none; border: 0; color: #0000EE; cursor: pointer; padding: 0; text-decoration: underline; }
@@ -62,7 +63,7 @@
     <tr bgcolor="#486ebd">
         <th align="CENTER" NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.appt.status.mgr.title"/></font></th>
         <th align="right" NOWRAP><font face="Helvetica" color="#CCCCCC">
-            <form class="inline-action" action="${pageContext.request.contextPath}/appointment/apptStatusSetting" method="post">
+            <form class="inline-action" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/apptStatusSetting" method="post">
                 <input type="hidden" name="dispatch" value="reset"/>
                 <button class="link-button" type="submit"><fmt:message key="admin.appt.status.mgr.label.reset"/></button>
             </form>
@@ -117,13 +118,18 @@
                 url = url + iStatusID;
             %> <a href="<%=SafeEncode.forHtmlAttribute(url)%>">Edit</a> &nbsp;&nbsp;&nbsp; <%
             int iToStatus = (iActive > 0) ? 0 : 1;
+            String activationMessageKey = (iActive > 0)
+                    ? "admin.appt.status.mgr.label.disable"
+                    : "admin.appt.status.mgr.label.enableAction";
             if (iEditable == 1) {
         %>
-            <form class="inline-action" action="${pageContext.request.contextPath}/appointment/apptStatusSetting" method="post">
+            <form class="inline-action" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/apptStatusSetting" method="post">
                 <input type="hidden" name="dispatch" value="changestatus"/>
                 <input type="hidden" name="id" value="<%=iStatusID%>"/>
                 <input type="hidden" name="active" value="<%=iToStatus%>"/>
-                <button class="link-button" type="submit"><%=(iActive > 0) ? "Disable" : "Enable"%></button>
+                <button class="link-button" type="submit">
+                    <fmt:message key="<%=activationMessageKey%>"/>
+                </button>
             </form>
             <%
                 }

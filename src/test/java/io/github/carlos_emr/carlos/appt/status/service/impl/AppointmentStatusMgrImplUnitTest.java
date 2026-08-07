@@ -43,12 +43,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.times;
 
 /**
  * Unit tests for {@link AppointmentStatusMgrImpl} legacy cache invalidation hooks.
@@ -206,13 +202,11 @@ class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should reset descriptions and colours by stable status code")
     void shouldResetDescriptionsAndColoursByStableStatusCode() {
-        AtomicInteger idSequence = new AtomicInteger(100);
-        when(appointmentStatusDao.findByStatus(anyString())).thenAnswer(invocation -> {
-            AppointmentStatus status = new AppointmentStatus();
-            status.setId(idSequence.getAndIncrement());
-            status.setStatus(invocation.getArgument(0));
-            return status;
-        });
+        when(appointmentStatusDao.findByStatus("f")).thenReturn(status(702, "f"));
+        when(appointmentStatusDao.findByStatus("h")).thenReturn(status(311, "h"));
+        when(appointmentStatusDao.findByStatus("N")).thenReturn(status(905, "N"));
+        when(appointmentStatusDao.findByStatus("C")).thenReturn(status(417, "C"));
+        when(appointmentStatusDao.findByStatus("B")).thenReturn(status(608, "B"));
 
         new AppointmentStatusMgrImpl().reset();
 
@@ -221,11 +215,17 @@ class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
         verify(appointmentStatusDao).findByStatus("N");
         verify(appointmentStatusDao).findByStatus("C");
         verify(appointmentStatusDao).findByStatus("B");
-        verify(appointmentStatusDao).modifyStatus(110, "Customized 6", "#897DF8");
-        verify(appointmentStatusDao).modifyStatus(111, "Confirmed", "#2fcccf");
-        verify(appointmentStatusDao).modifyStatus(112, "No Show", "#cccccc");
-        verify(appointmentStatusDao).modifyStatus(113, "Cancelled", "#999999");
-        verify(appointmentStatusDao).modifyStatus(114, "Billed", "#3ea4e1");
-        verify(appointmentStatusDao, times(15)).modifyStatus(anyInt(), anyString(), anyString());
+        verify(appointmentStatusDao).modifyStatus(702, "Customized 6", "#897DF8");
+        verify(appointmentStatusDao).modifyStatus(311, "Confirmed", "#2fcccf");
+        verify(appointmentStatusDao).modifyStatus(905, "No Show", "#cccccc");
+        verify(appointmentStatusDao).modifyStatus(417, "Cancelled", "#999999");
+        verify(appointmentStatusDao).modifyStatus(608, "Billed", "#3ea4e1");
+    }
+
+    private AppointmentStatus status(int id, String code) {
+        AppointmentStatus status = new AppointmentStatus();
+        status.setId(id);
+        status.setStatus(code);
+        return status;
     }
 }
