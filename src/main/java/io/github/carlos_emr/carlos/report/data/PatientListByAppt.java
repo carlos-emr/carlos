@@ -99,8 +99,7 @@ public class PatientListByAppt extends HttpServlet {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
-            auditExport(null, request.getRemoteAddr(), null, null, null,
-                    0, "rejected", "Unauthenticated");
+            auditUnauthenticatedExport(request.getRemoteAddr());
             return;
         }
 
@@ -165,7 +164,7 @@ public class PatientListByAppt extends HttpServlet {
             errorType = e.getClass().getSimpleName();
             throw e;
         } finally {
-            auditExport(loggedInInfo, loggedInInfo.getIp(), providerFilter, datefrom, dateto,
+            auditExport(loggedInInfo, providerFilter, datefrom, dateto,
                     rowCount[0], outcome, errorType);
         }
     }
@@ -220,14 +219,27 @@ public class PatientListByAppt extends HttpServlet {
         response.sendError(status, message);
         // Rejected parameters are deliberately omitted: malformed attacker-controlled
         // values must not become PHI or log-injection content in the audit record.
-        auditExport(loggedInInfo, loggedInInfo.getIp(), null, null, null,
-                0, "rejected", reason);
+        auditExport(loggedInInfo, null, null, null, 0, "rejected", reason);
     }
 
-    private void auditExport(LoggedInInfo loggedInInfo, String remoteAddress,
-                             String providerFilter,
+    private void auditUnauthenticatedExport(String remoteAddress) {
+        OscarLog auditLog = createExportAuditLog(null, remoteAddress, null);
+        persistExportAuditResult(auditLog, null, null, 0,
+                "rejected", "Unauthenticated");
+    }
+
+    private void auditExport(LoggedInInfo loggedInInfo, String providerFilter,
                              String dateFrom, String dateTo, int rowCount,
                              String outcome, String errorType) {
+        OscarLog auditLog = createExportAuditLog(
+                loggedInInfo, loggedInInfo.getIp(), providerFilter);
+        persistExportAuditResult(
+                auditLog, dateFrom, dateTo, rowCount, outcome, errorType);
+    }
+
+    private OscarLog createExportAuditLog(LoggedInInfo loggedInInfo,
+                                          String remoteAddress,
+                                          String providerFilter) {
         OscarLog auditLog = new OscarLog();
         if (loggedInInfo != null && loggedInInfo.getLoggedInSecurity() != null) {
             auditLog.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
@@ -239,6 +251,12 @@ public class PatientListByAppt extends HttpServlet {
         auditLog.setContent("patient_list_by_appointment");
         auditLog.setContentId(providerFilter);
         auditLog.setIp(remoteAddress);
+        return auditLog;
+    }
+
+    private void persistExportAuditResult(OscarLog auditLog, String dateFrom,
+                                          String dateTo, int rowCount,
+                                          String outcome, String errorType) {
         String data = "dateFrom=" + dateFrom + "; dateTo=" + dateTo
                 + "; rows=" + rowCount + "; outcome=" + outcome;
         if (errorType != null) {
