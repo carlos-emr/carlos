@@ -52,10 +52,25 @@ class DevelopmentAdminSeedRegressionTest {
                 "INSERT INTO incomingLabRules",
                 "INSERT INTO incomingLabRulesType",
                 "INSERT INTO eform_groups",
+                "INSERT INTO eform_data",
                 "INSERT INTO reportByExamplesFavorite",
                 "INSERT INTO demographicQueryFavourites",
                 "INSERT INTO appointmentType",
                 "INSERT INTO PreventionsLotNrs");
+    }
+
+    @Test
+    @DisplayName("should seed current and deleted patient-independent eForms")
+    void shouldSeedPatientIndependentEforms_forBothAdministrationViews() throws IOException {
+        String seed = Files.readString(ADMIN_SEED, StandardCharsets.UTF_8);
+
+        assertThat(seed).contains(
+                "'Local Test - Independent Checklist'",
+                "'Local Test - Shared Operations Note'",
+                "'Local Test - Monthly Safety Review'",
+                "'Local Test - Quarterly Operations Review'",
+                "'Local Test - Archived Safety Draft'",
+                "patient_independent");
     }
 
     @Test
