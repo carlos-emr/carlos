@@ -468,27 +468,38 @@ class StartupUnitTest extends CarlosUnitTestBase {
 
     @Test
     @Tag("read")
-    @DisplayName("should treat a key-only property set as insufficient config for the WEB-INF merge")
-    void shouldFlagKeyOnlyStub_asInsufficientConfigForWebInfMerge() {
-        //#2969 fix: only a lone encryption key counts as a
-        // "stub" that must not suppress the WEB-INF load.
+    @DisplayName("should treat missing or key-only DB config as insufficient for the WEB-INF merge")
+    void shouldFlagMissingDbConfig_asInsufficientForWebInfMerge() {
+        // The fallback is keyed on a usable DB connection, not the size of the properties bag:
+        // a key-only stub and non-DB boilerplate both count as "no DB config yet".
         Properties keyOnly = new Properties();
         keyOnly.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "AAAA");
-        assertThat(Startup.containsOnlyGeneratedEncryptionKey(keyOnly)).isTrue();
+        assertThat(Startup.hasDatabaseConfiguration(keyOnly)).isFalse();
 
-        // Empty is handled by the separate p.isEmpty() branch, so the predicate itself is false here.
-        assertThat(Startup.containsOnlyGeneratedEncryptionKey(new Properties())).isFalse();
+        // Empty set: no DB config.
+        assertThat(Startup.hasDatabaseConfiguration(new Properties())).isFalse();
 
-        // Real config alongside the key (the common user-home deployment) must NOT trigger a re-read.
+        // Non-DB boilerplate only (classpath /carlos.properties pollution): still no DB config.
+        Properties boilerplate = new Properties();
+        boilerplate.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "AAAA");
+        boilerplate.setProperty("buildVersion", "test-build");
+        boilerplate.setProperty("confidentiality_statement.v1", "synthetic notice");
+        assertThat(Startup.hasDatabaseConfiguration(boilerplate)).isFalse();
+
+        // A blank db_username is treated as absent, not as usable config.
+        Properties blankUsername = new Properties();
+        blankUsername.setProperty("db_username", "   ");
+        assertThat(Startup.hasDatabaseConfiguration(blankUsername)).isFalse();
+
+        // Real DB config present (with or without a key) must NOT trigger a re-read.
         Properties keyPlusConfig = new Properties();
         keyPlusConfig.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "AAAA");
         keyPlusConfig.setProperty("db_username", "carlos_test_user");
-        assertThat(Startup.containsOnlyGeneratedEncryptionKey(keyPlusConfig)).isFalse();
+        assertThat(Startup.hasDatabaseConfiguration(keyPlusConfig)).isTrue();
 
-        // Config present but no key (e.g. user-home config awaiting first key generation).
         Properties configNoKey = new Properties();
         configNoKey.setProperty("db_username", "carlos_test_user");
-        assertThat(Startup.containsOnlyGeneratedEncryptionKey(configNoKey)).isFalse();
+        assertThat(Startup.hasDatabaseConfiguration(configNoKey)).isTrue();
     }
 
     @Test
@@ -603,13 +614,66 @@ class StartupUnitTest extends CarlosUnitTestBase {
             assertThat(props.getProperty("db_username")).isEqualTo("carlos_test_user");
             assertThat(props.getProperty("db_name")).isEqualTo("carlos_test_db");
             // ...but the real user-home key survives the merge - the WEB-INF placeholder must not win.
-            // Before the fix, Properties.load() would replace userHomeKey with the all-zero placeholder.
+            // The overwrite hazard comes from Properties.load() of a /WEB-INF/ file that also defines
+            // encryption.util.secret.key; the retain-existingKey line above guards it.
             assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR)).isEqualTo(userHomeKey);
 
             // The preserved key is valid and prepared, so encryption round-trips under the real key.
             assertThat(keySpecField.get(null)).isNotNull();
             String encrypted = EncryptionUtils.encrypt("merge-guard-password");
             assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo("merge-guard-password");
+        } finally {
+            restoreUserHome(originalUserHome);
+            props.clear();
+            props.putAll(snapshot);
+            keySpecField.set(null, originalKeySpec);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should load WEB-INF config when singleton carries only non-DB defaults and user-home is a key-only stub")
+    void shouldLoadWebInfConfig_whenSingletonHasNonDbDefaultsAndUserHomeIsKeyOnlyStub(@TempDir Path tempDir) throws Exception {
+        // The singleton is pre-loaded from classpath /carlos.properties (non-DB boilerplate). With no DB
+        // config there, a key-only user-home stub must still trigger the WEB-INF merge - so this test
+        // seeds boilerplate instead of clearing the singleton, unlike the sibling tests.
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalUserHome = System.getProperty("user.home");
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
+
+        // Context "carlosmerge" -> /WEB-INF/carlosmerge.properties (db config, no key).
+        ServletContextEvent event = newStartupEvent(tempDir, "carlosmerge");
+        Path userHomeStub = tempDir.resolve("carlosmerge.properties");
+
+        try {
+            System.setProperty("user.home", tempDir.toString());
+            keySpecField.set(null, null);
+
+            // Classpath /carlos.properties contribution: non-DB boilerplate, no DB config.
+            props.clear();
+            props.setProperty("buildVersion", "test-build");
+            props.setProperty("confidentiality_statement.v1", "synthetic notice");
+
+            // user-home holds ONLY a real generated key - the second-boot stub.
+            String userHomeKey = EncryptionUtils.generateSecretKey();
+            Properties stub = new Properties();
+            stub.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, userHomeKey);
+            try (var out = Files.newOutputStream(userHomeStub)) {
+                stub.store(out, "issue #2969 key-only stub");
+            }
+
+            new Startup().contextInitialized(event);
+
+            // The key-only user-home stub must NOT suppress the WEB-INF DB config merge.
+            assertThat(props.getProperty("db_username")).isEqualTo("carlos_test_user");
+            assertThat(props.getProperty("db_name")).isEqualTo("carlos_test_db");
+            // The real user-home key survives (carlosmerge WEB-INF defines no key of its own).
+            assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR)).isEqualTo(userHomeKey);
         } finally {
             restoreUserHome(originalUserHome);
             props.clear();

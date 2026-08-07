@@ -98,14 +98,14 @@ public class Startup implements ServletContextListener {
             } catch (java.io.FileNotFoundException ex) {
                 logger.info(propFileName + " not found");
             }
-            if (p.isEmpty() || containsOnlyGeneratedEncryptionKey(p)) {
-                /* if the file not found in the user root, look in the WEB-INF directory */
+            if (!hasDatabaseConfiguration(p)) {
+                // No usable DB config yet: fall back to /WEB-INF/. Keyed on real DB config, not on the
+                // singleton's size - it is pre-loaded from classpath /carlos.properties (non-DB
+                // boilerplate) plus a key-only stub, so a size/key-only check would wrongly skip the merge.
                 try {
                     logger.info("looking up  /WEB-INF/" + propName);
-                    // Preserve an already-generated user-home key across the WEB-INF merge. A key-only
-                    // user-home stub triggers this fallback (see containsOnlyGeneratedEncryptionKey), and
-                    // Properties.load() would otherwise let a placeholder key in /WEB-INF/ overwrite the
-                    // real generated key, breaking decryption of data encrypted since first startup.
+                    // Preserve the user-home key across the merge: Properties.load() would otherwise let a
+                    // placeholder key in /WEB-INF/ overwrite the real key, breaking decryption of stored data.
                     String existingKey = p.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR); // may be null
                     p.readFromFile("/WEB-INF/" + propName);
                     if (existingKey != null && !existingKey.isBlank()) {
@@ -209,11 +209,12 @@ public class Startup implements ServletContextListener {
         }
     }
 
-    // Returns true if the properties contain only the generated encryption key. A key-only stub
-    // is not a complete configuration, so /WEB-INF/ must still be loaded and merged.
-    // Package-private for unit testing.
-    static boolean containsOnlyGeneratedEncryptionKey(Properties props) {
-        return props.size() == 1 && props.containsKey(EncryptionUtils.SECRET_KEY_ENV_VAR);
+    // True when a usable DB connection is configured. Decides whether the /WEB-INF/ fallback is still
+    // needed: db_username presence marks that real config loaded, so a key-only or boilerplate-only set
+    // still triggers the merge. Package-private for unit testing.
+    static boolean hasDatabaseConfiguration(Properties props) {
+        String dbUsername = props.getProperty("db_username");
+        return dbUsername != null && !dbUsername.isBlank();
     }
 
     // Checks for default property with name propName. If the property does not exist,
