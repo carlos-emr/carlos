@@ -29,12 +29,14 @@
 
 package io.github.carlos_emr.carlos.report.data;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Date;
@@ -63,6 +65,8 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 public class PatientListByAppt extends HttpServlet {
     private static final Pattern PROVIDER_FILTER_PATTERN =
             Pattern.compile("[A-Za-z0-9_-]{1,6}");
+    private static final ExportScope EMPTY_EXPORT_SCOPE =
+            new ExportScope(null, null, null);
 
     private static final Logger log = MiscUtils.getLogger();
 
@@ -89,37 +93,38 @@ public class PatientListByAppt extends HttpServlet {
     }
 
     /**
-     * Validates and streams one export request. The response output stream is
-     * container-owned and must remain open; closing it during exception unwinding
-     * can commit an empty success response before {@link HttpServletResponse#sendError}
-     * can replace it.
+     * Validates and processes one export request. Rows are streamed from the DAO
+     * into an owner-only spool file before the response is committed, preventing a
+     * database failure from returning a successful but truncated export. The
+     * container-owned response stream deliberately remains open.
      */
-    @SuppressWarnings("java:S2093")
     private void processExportRequest(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
-            auditUnauthenticatedExport(request.getRemoteAddr());
+            // The shared resolver emits a sanitized rejection event. Do not add a
+            // synchronous database insert here: this public route would otherwise
+            // let anonymous traffic amplify writes to the clinical audit database.
             return;
         }
 
         if (!hasReportPrivilege(loggedInInfo)) {
             rejectExport(response, loggedInInfo, HttpServletResponse.SC_FORBIDDEN,
-                    "Report read privilege is required", "Forbidden");
+                    "Report read privilege is required", "Forbidden", EMPTY_EXPORT_SCOPE);
             return;
         }
 
         String providerFilter = request.getParameter("provider_no");
         if (providerFilter == null || providerFilter.isBlank()) {
             rejectExport(response, loggedInInfo, HttpServletResponse.SC_BAD_REQUEST,
-                    "provider_no is required", "MissingProvider");
+                    "provider_no is required", "MissingProvider", EMPTY_EXPORT_SCOPE);
             return;
         }
         if (!providerFilter.equals("all")
                 && !PROVIDER_FILTER_PATTERN.matcher(providerFilter).matches()) {
             rejectExport(response, loggedInInfo, HttpServletResponse.SC_BAD_REQUEST,
-                    "provider_no is invalid", "InvalidProvider");
+                    "provider_no is invalid", "InvalidProvider", EMPTY_EXPORT_SCOPE);
             return;
         }
         // clear dr no value for all doc's
@@ -129,42 +134,55 @@ public class PatientListByAppt extends HttpServlet {
 
         Date from = parseRequiredDate(datefrom);
         Date to = parseRequiredDate(dateto);
+        ExportScope validatedScope = new ExportScope(
+                providerFilter, canonicalDate(from), canonicalDate(to));
         if (from == null || to == null) {
             rejectExport(response, loggedInInfo, HttpServletResponse.SC_BAD_REQUEST,
-                    "date_from and date_to must use YYYY-MM-DD", "InvalidDate");
+                    "date_from and date_to must use YYYY-MM-DD", "InvalidDate",
+                    validatedScope);
             return;
         }
         if (from.after(to)) {
             rejectExport(response, loggedInInfo, HttpServletResponse.SC_BAD_REQUEST,
-                    "date_from must not be after date_to", "ReversedDateRange");
+                    "date_from must not be after date_to", "ReversedDateRange",
+                    validatedScope);
             return;
         }
-
-        response.setContentType("text/plain; charset=UTF-8");
-        response.setHeader("Content-disposition", "attachment; filename=patientlist.txt");
 
         int[] rowCount = {0};
         String outcome = "error";
         String errorType = null;
+        Path spoolFile = null;
 
         try {
+            spoolFile = createExportSpoolFile();
             OscarAppointmentDao dao = getAppointmentDao();
-            PrintWriter pw = new PrintWriter(new OutputStreamWriter(
-                    response.getOutputStream(), StandardCharsets.UTF_8), true);
-            dao.streamPatientAppointments(providerNo, from, to, row -> {
-                writeCsvRow(pw, row);
-                if (pw.checkError()) {
-                    throw new UncheckedIOException(new IOException(
-                            "Unable to write patient appointment export response"));
-                }
-                rowCount[0]++;
-            });
+            try (BufferedWriter writer = Files.newBufferedWriter(
+                    spoolFile, StandardCharsets.UTF_8)) {
+                dao.streamPatientAppointments(providerNo, from, to, row -> {
+                    try {
+                        writer.write(formatCsvRow(row));
+                        rowCount[0]++;
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                });
+            }
+
+            // Commit the response only after the DAO cursor and spool write have
+            // completed, so a database failure cannot look like a valid truncated
+            // HTTP 200 export to the caller.
+            response.setContentType("text/plain; charset=UTF-8");
+            response.setHeader("Content-disposition", "attachment; filename=patientlist.txt");
+            Files.copy(spoolFile, response.getOutputStream());
             outcome = "success";
         } catch (IOException | RuntimeException e) {
             errorType = e.getClass().getSimpleName();
             throw e;
         } finally {
-            auditExport(loggedInInfo, providerFilter, datefrom, dateto,
+            deleteExportSpoolFile(spoolFile);
+            auditExport(loggedInInfo, validatedScope.providerFilter(),
+                    validatedScope.dateFrom(), validatedScope.dateTo(),
                     rowCount[0], outcome, errorType);
         }
     }
@@ -190,21 +208,14 @@ public class PatientListByAppt extends HttpServlet {
         }
     }
 
-    // FindSecBugs XSS_SERVLET: this is an attachment-only CSV context and every
-    // database string passes through escapeCsv(), including formula protection.
-    @SuppressFBWarnings(value = "XSS_SERVLET",
-            justification = "attachment-only CSV output; all database strings use escapeCsv")
-    private static void writeCsvRow(PrintWriter pw, PatientAppointmentExportRow row) {
-        // CSV export rows — each pw.print() carries a full-id nosemgrep because
-        // Semgrep Cloud does not honor preceding-line suppressions for this rule.
-        // Content-Type is set to text/plain with Content-Disposition: attachment,
-        // values pass through escapeCsv(), not an HTML context.
-        pw.print(escapeCsv(row.patientLastName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-        pw.print(escapeCsv(row.patientFirstName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-        pw.print(escapeCsv(row.phone()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-        pw.print(escapeCsv(row.alternatePhone()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-        pw.print(ConversionUtils.toTimeString(row.startTime()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, formatted time
-        pw.print(ConversionUtils.toDateString(row.appointmentDate()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, formatted date
+    private static String formatCsvRow(PatientAppointmentExportRow row) {
+        StringBuilder csv = new StringBuilder();
+        csv.append(escapeCsv(row.patientLastName())).append(',');
+        csv.append(escapeCsv(row.patientFirstName())).append(',');
+        csv.append(escapeCsv(row.phone())).append(',');
+        csv.append(escapeCsv(row.alternatePhone())).append(',');
+        csv.append(ConversionUtils.toTimeString(row.startTime())).append(',');
+        csv.append(ConversionUtils.toDateString(row.appointmentDate())).append(',');
         // Appointment type is free text and optional. Strip CR and LF
         // individually — the legacy replaceAll("\r\n", "") only matched
         // CRLF pairs, so a lone newline survived, escapeCsv quoted the
@@ -214,10 +225,11 @@ public class PatientListByAppt extends HttpServlet {
         String appointmentType = Objects.toString(row.appointmentType(), "")
                 .replace("\r", "")
                 .replace("\n", "");
-        pw.print(escapeCsv(appointmentType) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-        pw.print(escapeCsv(formatProviderName(row.providerFirstName(), row.providerLastName())) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-        pw.print(escapeCsv(row.location())); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-        pw.print("\n"); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download literal newline
+        csv.append(escapeCsv(appointmentType)).append(',');
+        csv.append(escapeCsv(formatProviderName(
+                row.providerFirstName(), row.providerLastName()))).append(',');
+        csv.append(escapeCsv(row.location())).append('\n');
+        return csv.toString();
     }
 
     private static String formatProviderName(String firstName, String lastName) {
@@ -231,17 +243,12 @@ public class PatientListByAppt extends HttpServlet {
     }
 
     private void rejectExport(HttpServletResponse response, LoggedInInfo loggedInInfo,
-                              int status, String message, String reason) throws IOException {
+                              int status, String message, String reason,
+                              ExportScope validatedScope) throws IOException {
         response.sendError(status, message);
-        // Rejected parameters are deliberately omitted: malformed attacker-controlled
-        // values must not become PHI or log-injection content in the audit record.
-        auditExport(loggedInInfo, null, null, null, 0, "rejected", reason);
-    }
-
-    private void auditUnauthenticatedExport(String remoteAddress) {
-        OscarLog auditLog = createExportAuditLog(null, remoteAddress, null);
-        persistExportAuditResult(auditLog, null, null, 0,
-                "rejected", "Unauthenticated");
+        auditExport(loggedInInfo, validatedScope.providerFilter(),
+                validatedScope.dateFrom(), validatedScope.dateTo(),
+                0, "rejected", reason);
     }
 
     private void auditExport(LoggedInInfo loggedInInfo, String providerFilter,
@@ -296,6 +303,33 @@ public class PatientListByAppt extends HttpServlet {
         } catch (DateTimeParseException | IllegalArgumentException e) {
             return null;
         }
+    }
+
+    private static String canonicalDate(Date value) {
+        return value == null ? null : ConversionUtils.toDateString(value);
+    }
+
+    private static Path createExportSpoolFile() throws IOException {
+        if (FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
+            return Files.createTempFile("carlos-patient-export-", ".csv",
+                    PosixFilePermissions.asFileAttribute(
+                            PosixFilePermissions.fromString("rw-------")));
+        }
+        return Files.createTempFile("carlos-patient-export-", ".csv");
+    }
+
+    private static void deleteExportSpoolFile(Path spoolFile) {
+        if (spoolFile == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(spoolFile);
+        } catch (IOException e) {
+            log.error("Unable to delete patient export spool file", e);
+        }
+    }
+
+    private record ExportScope(String providerFilter, String dateFrom, String dateTo) {
     }
 
     /**

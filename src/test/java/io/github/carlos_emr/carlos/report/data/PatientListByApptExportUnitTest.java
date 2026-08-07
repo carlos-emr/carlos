@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.report.data;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -422,8 +423,8 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("response write failures should abort streaming before consuming another row")
-    void shouldAbortStreamingAndAuditPartialCount_whenResponseWriteFails() throws Exception {
+    @DisplayName("response write failures should occur only after DAO streaming completes")
+    void shouldAuditSpoolCount_whenResponseWriteFails() throws Exception {
         Date appointmentDate = ConversionUtils.fromDateString("2026-08-07");
         Date startTime = ConversionUtils.fromTimestampString("2026-08-07 09:00:00");
         PatientAppointmentExportRow firstRow = row(
@@ -464,14 +465,41 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
             }
         };
 
-        servlet.processRequest(request, response);
+        assertThatThrownBy(() -> servlet.processRequest(request, response))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("disconnected client detail");
 
-        assertThat(consumedRows).hasValue(1);
-        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(consumedRows).hasValue(2);
         assertThat(persistedAuditLog.getData())
-                .isEqualTo("dateFrom=2026-08-07; dateTo=2026-08-10; rows=0; "
-                        + "outcome=error; error=UncheckedIOException")
+                .isEqualTo("dateFrom=2026-08-07; dateTo=2026-08-10; rows=2; "
+                        + "outcome=error; error=IOException")
                 .doesNotContain("disconnected client", "PrivateFirst", "PrivateLast");
+    }
+
+    @Test
+    @DisplayName("DAO failures after a row should not return a partial successful export")
+    void shouldReturnErrorWithoutPartialExport_whenDaoFailsAfterFirstRow() throws Exception {
+        Date appointmentDate = ConversionUtils.fromDateString("2026-08-07");
+        Date startTime = ConversionUtils.fromTimestampString("2026-08-07 09:00:00");
+        PatientAppointmentExportRow firstRow = row(
+                demographic("PrivateFirst", "PrivateLast", "555-0100", null),
+                appointment(appointmentDate, startTime, null, "PrivateLocation"),
+                provider("Doris", "Doctor"));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            Consumer<PatientAppointmentExportRow> rowConsumer = invocation.getArgument(3);
+            rowConsumer.accept(firstRow);
+            throw new IllegalStateException("database detail must not be audited");
+        }).when(appointmentDao).streamPatientAppointments(any(), any(), any(), any());
+
+        MockHttpServletResponse response = export("all", "2026-08-07", "2026-08-10");
+
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getHeader("Content-disposition")).isNull();
+        assertThat(response.getContentAsString()).isBlank();
+        assertThat(persistedAuditLog.getData())
+                .isEqualTo("dateFrom=2026-08-07; dateTo=2026-08-10; rows=1; "
+                        + "outcome=error; error=IllegalStateException")
+                .doesNotContain("database detail", "PrivateFirst", "PrivateLast");
     }
 
     @Test
@@ -484,12 +512,7 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(401);
         verifyNoInteractions(appointmentDao);
-        assertThat(persistedAuditLog.getAction()).isEqualTo(LogConst.EXPORT);
-        assertThat(persistedAuditLog.getContent()).isEqualTo("patient_list_by_appointment");
-        assertThat(persistedAuditLog.getData())
-                .isEqualTo("dateFrom=null; dateTo=null; rows=0; "
-                        + "outcome=rejected; error=Unauthenticated")
-                .doesNotContain("2026-08-07", "2026-08-10", "all");
+        assertThat(persistedAuditLog).isNull();
     }
 
     @Test
@@ -512,16 +535,22 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
     @DisplayName("export should reject missing or invalid dates instead of running an unbounded query")
     void shouldReturnBadRequestAndSkipQuery_whenDatesAreMissingInvalidOrReversed() throws Exception {
         MockHttpServletResponse missing = export("all", null, "2026-08-10");
+        assertThat(persistedAuditLog.getContentId()).isEqualTo("all");
         assertThat(persistedAuditLog.getData())
-                .isEqualTo("dateFrom=null; dateTo=null; rows=0; "
+                .isEqualTo("dateFrom=null; dateTo=2026-08-10; rows=0; "
                         + "outcome=rejected; error=InvalidDate")
-                .doesNotContain("2026-08-10");
+                .doesNotContain("private invalid date");
         MockHttpServletResponse invalid = export("all", "private invalid date", "2026-08-10");
-        assertThat(persistedAuditLog.getData()).doesNotContain("private invalid date", "2026-08-10");
-        MockHttpServletResponse reversed = export("all", "2026-08-11", "2026-08-10");
+        assertThat(persistedAuditLog.getContentId()).isEqualTo("all");
         assertThat(persistedAuditLog.getData())
-                .endsWith("outcome=rejected; error=ReversedDateRange")
-                .doesNotContain("2026-08-11", "2026-08-10");
+                .isEqualTo("dateFrom=null; dateTo=2026-08-10; rows=0; "
+                        + "outcome=rejected; error=InvalidDate")
+                .doesNotContain("private invalid date");
+        MockHttpServletResponse reversed = export("all", "2026-08-11", "2026-08-10");
+        assertThat(persistedAuditLog.getContentId()).isEqualTo("all");
+        assertThat(persistedAuditLog.getData())
+                .isEqualTo("dateFrom=2026-08-11; dateTo=2026-08-10; rows=0; "
+                        + "outcome=rejected; error=ReversedDateRange");
 
         List<MockHttpServletResponse> responses = List.of(missing, invalid, reversed);
 
