@@ -60,6 +60,24 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
 
     private static final Logger logger = MiscUtils.getLogger();
 
+    private static final StatusDefault[] STATUS_DEFAULTS = {
+            new StatusDefault("t", "To Do", "#FDFEC7"),
+            new StatusDefault("T", "Daysheet Printed", "#FDFEC7"),
+            new StatusDefault("H", "Here", "#00ee00"),
+            new StatusDefault("P", "Picked", "#FFBBFF"),
+            new StatusDefault("E", "Empty Room", "#FFFF33"),
+            new StatusDefault("a", "Customized 1", "#897DF8"),
+            new StatusDefault("b", "Customized 2", "#897DF8"),
+            new StatusDefault("c", "Customized 3", "#897DF8"),
+            new StatusDefault("d", "Customized 4", "#897DF8"),
+            new StatusDefault("e", "Customized 5", "#897DF8"),
+            new StatusDefault("f", "Customized 6", "#897DF8"),
+            new StatusDefault("h", "Confirmed", "#2fcccf"),
+            new StatusDefault("N", "No Show", "#cccccc"),
+            new StatusDefault("C", "Cancelled", "#999999"),
+            new StatusDefault("B", "Billed", "#3ea4e1")
+    };
+
     private static AppointmentStatusDao getAppointmentStatusDao() {
         return SpringUtils.getBean(AppointmentStatusDao.class);
     }
@@ -175,19 +193,24 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
     }
 
     public void reset() {
-        getAppointmentStatusDao().modifyStatus(1, "To Do", "#FDFEC7");
-        getAppointmentStatusDao().modifyStatus(2, "Daysheet Printed", "#FDFEC7");
-        getAppointmentStatusDao().modifyStatus(3, "Here", "#00ee00");
-        getAppointmentStatusDao().modifyStatus(4, "Picked", "#FFBBFF");
-        getAppointmentStatusDao().modifyStatus(5, "Empty Room", "#FFFF33");
-        getAppointmentStatusDao().modifyStatus(6, "Customized 1", "#897DF8");
-        getAppointmentStatusDao().modifyStatus(7, "Customized 2", "#897DF8");
-        getAppointmentStatusDao().modifyStatus(8, "Customized 3", "#897DF8");
-        getAppointmentStatusDao().modifyStatus(9, "Customized 4", "#897DF8");
-        getAppointmentStatusDao().modifyStatus(10, "Customized 5", "#897DF8");
-        getAppointmentStatusDao().modifyStatus(11, "Customized 6", "#897DF8");
-        getAppointmentStatusDao().modifyStatus(12, "No Show", "#cccccc");
-        getAppointmentStatusDao().modifyStatus(13, "Cancelled", "#999999");
-        getAppointmentStatusDao().modifyStatus(14, "Billed", "#3ea4e1");
+        AppointmentStatusDao appointmentStatusDao = getAppointmentStatusDao();
+        for (StatusDefault statusDefault : STATUS_DEFAULTS) {
+            AppointmentStatus status = appointmentStatusDao.findByStatus(statusDefault.status);
+            if (status != null) {
+                appointmentStatusDao.modifyStatus(status.getId(), statusDefault.description, statusDefault.color);
+            }
+        }
+    }
+
+    private static final class StatusDefault {
+        private final String status;
+        private final String description;
+        private final String color;
+
+        private StatusDefault(String status, String description, String color) {
+            this.status = status;
+            this.description = description;
+            this.color = color;
+        }
     }
 }

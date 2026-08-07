@@ -1,0 +1,200 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ */
+package io.github.carlos_emr.carlos.appt.status.web;
+
+import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr;
+import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.struts2.ActionSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@DisplayName("AppointmentStatus2Action")
+@Tag("unit")
+@Tag("appointment")
+class AppointmentStatus2ActionTest extends CarlosWebTestBase {
+
+    private AppointmentStatusMgr appointmentStatusMgr;
+    private TestAppointmentStatus2Action action;
+
+    @BeforeEach
+    void setUpAction() {
+        appointmentStatusMgr = mock(AppointmentStatusMgr.class);
+        when(appointmentStatusMgr.getAllStatus()).thenReturn(List.of());
+
+        AppointmentStatus existingStatus = new AppointmentStatus();
+        existingStatus.setId(13);
+        existingStatus.setStatus("N");
+        existingStatus.setDescription("No Show");
+        existingStatus.setColor("#cccccc");
+        when(appointmentStatusMgr.getStatus(13)).thenReturn(existingStatus);
+
+        action = new TestAppointmentStatus2Action(appointmentStatusMgr);
+    }
+
+    @Test
+    void shouldLoadExistingStatusForEdit() throws Exception {
+        addRequestParameter("dispatch", "modify");
+        action.setId(13);
+
+        assertThat(executeAction(action)).isEqualTo("edit");
+        assertThat(action.getId()).isEqualTo(13);
+        assertThat(action.getApptStatus()).isEqualTo("N");
+        assertThat(action.getApptDesc()).isEqualTo("No Show");
+        assertThat(action.getApptColor()).isEqualTo("#cccccc");
+    }
+
+    @Test
+    void shouldShowValidationErrorWhenEditIdDoesNotExist() throws Exception {
+        addRequestParameter("dispatch", "modify");
+        action.setId(9999);
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.getActionErrors()).isNotEmpty();
+    }
+
+    @Test
+    void shouldPersistValidatedDescriptionAndColour() throws Exception {
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "update");
+        action.setId(13);
+        action.setApptDesc("  Missed appointment  ");
+        action.setApptColor("#abcdef");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        verify(appointmentStatusMgr).modifyStatus(13, "Missed appointment", "#abcdef");
+        assertThat(action.getActionMessages()).isNotEmpty();
+    }
+
+    @Test
+    void shouldPersistDescriptionOnlyEdit() throws Exception {
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "update");
+        action.setId(13);
+        action.setApptDesc("Missed appointment");
+        action.setApptColor("#cccccc");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        verify(appointmentStatusMgr).modifyStatus(13, "Missed appointment", "#cccccc");
+    }
+
+    @Test
+    void shouldPersistColourOnlyEdit() throws Exception {
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "update");
+        action.setId(13);
+        action.setApptDesc("No Show");
+        action.setApptColor("#123456");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        verify(appointmentStatusMgr).modifyStatus(13, "No Show", "#123456");
+    }
+
+    @Test
+    void shouldRejectInvalidUpdateValuesWithoutMutation() throws Exception {
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "update");
+        action.setId(13);
+        action.setApptDesc(" ");
+        action.setApptColor("red");
+
+        assertThat(executeAction(action)).isEqualTo("edit");
+        assertThat(action.getActionErrors()).hasSize(2);
+        verify(appointmentStatusMgr, never()).modifyStatus(anyInt(), anyString(), anyString());
+    }
+
+    @Test
+    void shouldRejectMissingUpdateIdWithoutMutation() throws Exception {
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "update");
+        action.setApptDesc("Valid description");
+        action.setApptColor("#abcdef");
+
+        assertThat(executeAction(action)).isEqualTo("edit");
+        assertThat(action.getActionErrors()).isNotEmpty();
+        verify(appointmentStatusMgr, never()).modifyStatus(anyInt(), anyString(), anyString());
+    }
+
+    @Test
+    void shouldChangeStatusWhenPostValuesAreValid() throws Exception {
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "changestatus");
+        action.setId(13);
+        action.setActive(0);
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        verify(appointmentStatusMgr).changeStatus(13, 0);
+    }
+
+    @Test
+    void shouldRejectInvalidActiveValue() throws Exception {
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "changestatus");
+        action.setId(13);
+        action.setActive(2);
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.getActionErrors()).isNotEmpty();
+        verify(appointmentStatusMgr, never()).changeStatus(13, 2);
+    }
+
+    @Test
+    void shouldResetStatusesOnPost() throws Exception {
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "reset");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        verify(appointmentStatusMgr).reset();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"update", "changestatus", "reset"})
+    void shouldRejectMutationDispatchesOverGet(String dispatch) throws Exception {
+        mockRequest.setMethod("GET");
+        addRequestParameter("dispatch", dispatch);
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        verify(appointmentStatusMgr, never()).reset();
+        verify(appointmentStatusMgr, never()).changeStatus(anyInt(), anyInt());
+        verify(appointmentStatusMgr, never()).modifyStatus(anyInt(), anyString(), anyString());
+    }
+
+    private static final class TestAppointmentStatus2Action extends AppointmentStatus2Action {
+        private final AppointmentStatusMgr appointmentStatusMgr;
+
+        private TestAppointmentStatus2Action(AppointmentStatusMgr appointmentStatusMgr) {
+            this.appointmentStatusMgr = appointmentStatusMgr;
+        }
+
+        @Override
+        public AppointmentStatusMgr getApptStatusMgr() {
+            return appointmentStatusMgr;
+        }
+
+        @Override
+        public String getText(String key) {
+            return key;
+        }
+    }
+}

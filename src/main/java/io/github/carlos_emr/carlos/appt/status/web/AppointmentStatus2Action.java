@@ -45,6 +45,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class AppointmentStatus2Action extends ActionSupport {
+    private static final String EDIT = "edit";
+    private static final int DESCRIPTION_MAX_LENGTH = 30;
+    private static final String HEX_COLOR_PATTERN = "^#[0-9A-Fa-f]{6}$";
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -59,6 +63,12 @@ public class AppointmentStatus2Action extends ActionSupport {
         }
 
         String method = request.getParameter("dispatch");
+        if (isMutation(method) && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         if ("view".equals(method)) {
             return view();
         } else if ("reset".equals(method)) {
@@ -83,6 +93,7 @@ public class AppointmentStatus2Action extends ActionSupport {
         logger.warn("reset");
         AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
         apptStatusMgr.reset();
+        addActionMessage(getText("admin.appt.status.mgr.message.reset"));
         populateAllStatus(request);
         return SUCCESS;
     }
@@ -90,9 +101,17 @@ public class AppointmentStatus2Action extends ActionSupport {
     public String changestatus() {
         logger.warn("changestatus");
         AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
-        int ID = Integer.parseInt(request.getParameter("statusID"));
-        int iActive = Integer.parseInt(request.getParameter("iActive"));
-        apptStatusMgr.changeStatus(ID, iActive);
+        AppointmentStatus appointmentStatus = getExistingStatus(apptStatusMgr);
+        if (appointmentStatus == null || (active == null || (active != 0 && active != 1))) {
+            if (appointmentStatus != null) {
+                addActionError(getText("admin.appt.status.mgr.error.invalidActive"));
+            }
+            populateAllStatus(request);
+            return SUCCESS;
+        }
+
+        apptStatusMgr.changeStatus(id, active);
+        addActionMessage(getText("admin.appt.status.mgr.message.activationUpdated"));
         populateAllStatus(request);
         return SUCCESS;
     }
@@ -100,29 +119,72 @@ public class AppointmentStatus2Action extends ActionSupport {
     public String modify() {
         logger.warn("modify");
         AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
-        int ID = Integer.parseInt(request.getParameter("statusID"));
-        AppointmentStatus appt = apptStatusMgr.getStatus(ID);
+        AppointmentStatus appt = getExistingStatus(apptStatusMgr);
+        if (appt == null) {
+            populateAllStatus(request);
+            return SUCCESS;
+        }
 
-        this.setID(ID);
-        this.setApptStatus(appt.getStatus());
-        this.setApptDesc(appt.getDescription());
-        this.setApptOldColor(appt.getColor());
+        populateEditFields(appt, true);
 
-        return "edit";
+        return EDIT;
     }
 
     public String update() {
         logger.warn("update");
         AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
+        AppointmentStatus appointmentStatus = getExistingStatus(apptStatusMgr);
+        validateUpdate();
+        if (appointmentStatus == null || hasActionErrors()) {
+            if (appointmentStatus != null) {
+                populateEditFields(appointmentStatus, false);
+            }
+            return EDIT;
+        }
 
-        int ID = this.getID();
-        String strDesc = this.getApptDesc();
-        String strColor = this.getApptColor();
-        if (null == strColor || strColor.equals(""))
-            strColor = this.getApptOldColor();
-        apptStatusMgr.modifyStatus(ID, strDesc, strColor);
+        apptStatusMgr.modifyStatus(id, apptDesc.trim(), apptColor);
+        addActionMessage(getText("admin.appt.status.mgr.message.updated"));
         populateAllStatus(request);
         return SUCCESS;
+    }
+
+    private boolean isMutation(String dispatch) {
+        return "reset".equals(dispatch) || "changestatus".equals(dispatch) || "update".equals(dispatch);
+    }
+
+    private AppointmentStatus getExistingStatus(AppointmentStatusMgr apptStatusMgr) {
+        if (id == null || id <= 0) {
+            addActionError(getText("admin.appt.status.mgr.error.invalidId"));
+            return null;
+        }
+
+        AppointmentStatus appointmentStatus = apptStatusMgr.getStatus(id);
+        if (appointmentStatus == null) {
+            addActionError(getText("admin.appt.status.mgr.error.notFound"));
+        }
+        return appointmentStatus;
+    }
+
+    private void validateUpdate() {
+        if (apptDesc == null || apptDesc.trim().isEmpty()) {
+            addActionError(getText("admin.appt.status.mgr.error.descriptionRequired"));
+        } else if (apptDesc.trim().length() > DESCRIPTION_MAX_LENGTH) {
+            addActionError(getText("admin.appt.status.mgr.error.descriptionLength"));
+        }
+
+        if (apptColor == null || !apptColor.matches(HEX_COLOR_PATTERN)) {
+            addActionError(getText("admin.appt.status.mgr.error.color"));
+        }
+    }
+
+    private void populateEditFields(AppointmentStatus appointmentStatus, boolean includeEditableFields) {
+        id = appointmentStatus.getId();
+        apptStatus = appointmentStatus.getStatus();
+        apptOldColor = appointmentStatus.getColor();
+        if (includeEditableFields) {
+            apptDesc = appointmentStatus.getDescription();
+            apptColor = appointmentStatus.getColor();
+        }
     }
 
     public WebApplicationContext getApptContext() {
@@ -143,26 +205,35 @@ public class AppointmentStatus2Action extends ActionSupport {
         }
     }
 
-    private int ID;
+    private Integer id;
+    private Integer active;
     private String apptStatus;
     private String apptDesc;
     private String apptOldColor;
     private String apptColor;
 
-    public int getID() {
-        return ID;
+    public Integer getId() {
+        return id;
     }
 
     @StrutsParameter
-    public void setID(int ID) {
-        this.ID = ID;
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public Integer getActive() {
+        return active;
+    }
+
+    @StrutsParameter
+    public void setActive(Integer active) {
+        this.active = active;
     }
 
     public String getApptStatus() {
         return apptStatus;
     }
 
-    @StrutsParameter
     public void setApptStatus(String apptStatus) {
         this.apptStatus = apptStatus;
     }
@@ -180,7 +251,6 @@ public class AppointmentStatus2Action extends ActionSupport {
         return apptOldColor;
     }
 
-    @StrutsParameter
     public void setApptOldColor(String apptOldColor) {
         this.apptOldColor = apptOldColor;
     }

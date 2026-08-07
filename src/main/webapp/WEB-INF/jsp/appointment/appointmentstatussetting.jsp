@@ -29,6 +29,8 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="/struts-tags" prefix="s" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -49,20 +51,27 @@
     <script>
         jQuery.noConflict();
     </script>
+    <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+<style>
+    .inline-action { display: inline; }
+    .link-button { background: none; border: 0; color: #0000EE; cursor: pointer; padding: 0; text-decoration: underline; }
+</style>
 </head>
-<link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 <body>
-<%
-    String reseturl = request.getContextPath();
-    reseturl = reseturl + "/appointment/apptStatusSetting?dispatch=reset";
-%>
 <table border=0 cellspacing=0 cellpadding=0 width="100%">
     <tr bgcolor="#486ebd">
         <th align="CENTER" NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.appt.status.mgr.title"/></font></th>
-        <th align="right" NOWRAP><font face="Helvetica" color="#CCCCCC"><a
-                href=<%=reseturl%>>reset</a></font></th>
+        <th align="right" NOWRAP><font face="Helvetica" color="#CCCCCC">
+            <form class="inline-action" action="${pageContext.request.contextPath}/appointment/apptStatusSetting" method="post">
+                <input type="hidden" name="dispatch" value="reset"/>
+                <button class="link-button" type="submit"><fmt:message key="admin.appt.status.mgr.label.reset"/></button>
+            </form>
+        </font></th>
     </tr>
 </table>
+
+<s:actionerror/>
+<s:actionmessage/>
 
 
 <table class="borderAll" width="100%">
@@ -93,29 +102,29 @@
             iEditable = apptStatus.getEditable();
     %>
     <tr class=<%=(i % 2 == 0) ? "even" : "odd"%>>
-        <td class="nowrap"><%=strStatus%>
+        <td class="nowrap"><%=SafeEncode.forHtmlContent(strStatus)%>
         </td>
-        <td class="nowrap"><%=strDesc%>
+        <td class="nowrap"><%=SafeEncode.forHtmlContent(strDesc)%>
         </td>
-        <td class="nowrap" bgcolor="<%=strColor%>"><%=strColor%>
+        <td class="nowrap" bgcolor="<%=SafeEncode.forHtmlAttribute(strColor)%>"><%=SafeEncode.forHtmlContent(strColor)%>
         </td>
         <td class="nowrap"><%=iActive%>
         </td>
         <td class="nowrap">
             <%
                 String url = request.getContextPath();
-                url = url + "/appointment/apptStatusSetting?dispatch=modify&statusID=";
+                url = url + "/appointment/apptStatusSetting?dispatch=modify&id=";
                 url = url + iStatusID;
-            %> <a href=<%=url%>>Edit</a> &nbsp;&nbsp;&nbsp; <%
+            %> <a href="<%=SafeEncode.forHtmlAttribute(url)%>">Edit</a> &nbsp;&nbsp;&nbsp; <%
             int iToStatus = (iActive > 0) ? 0 : 1;
-            url = request.getContextPath();
-            url = url + "/appointment/apptStatusSetting?dispatch=changestatus&iActive=";
-            url = url + iToStatus;
-            url = url + "&statusID=";
-            url = url + iStatusID;
             if (iEditable == 1) {
-        %> <a href=<%=url%>><%=(iActive > 0) ? "Disable" : "Enable"%>
-        </a>
+        %>
+            <form class="inline-action" action="${pageContext.request.contextPath}/appointment/apptStatusSetting" method="post">
+                <input type="hidden" name="dispatch" value="changestatus"/>
+                <input type="hidden" name="id" value="<%=iStatusID%>"/>
+                <input type="hidden" name="active" value="<%=iToStatus%>"/>
+                <button class="link-button" type="submit"><%=(iActive > 0) ? "Disable" : "Enable"%></button>
+            </form>
             <%
                 }
             %>

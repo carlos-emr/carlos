@@ -43,8 +43,12 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
 
 /**
  * Unit tests for {@link AppointmentStatusMgrImpl} legacy cache invalidation hooks.
@@ -197,5 +201,31 @@ class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
         AppointmentStatusMgrImpl.setCacheIsDirty(true);
 
         verify(cacheManager).getCache("appointmentStatuses");
+    }
+
+    @Test
+    @DisplayName("should reset descriptions and colours by stable status code")
+    void shouldResetDescriptionsAndColoursByStableStatusCode() {
+        AtomicInteger idSequence = new AtomicInteger(100);
+        when(appointmentStatusDao.findByStatus(anyString())).thenAnswer(invocation -> {
+            AppointmentStatus status = new AppointmentStatus();
+            status.setId(idSequence.getAndIncrement());
+            status.setStatus(invocation.getArgument(0));
+            return status;
+        });
+
+        new AppointmentStatusMgrImpl().reset();
+
+        verify(appointmentStatusDao).findByStatus("f");
+        verify(appointmentStatusDao).findByStatus("h");
+        verify(appointmentStatusDao).findByStatus("N");
+        verify(appointmentStatusDao).findByStatus("C");
+        verify(appointmentStatusDao).findByStatus("B");
+        verify(appointmentStatusDao).modifyStatus(110, "Customized 6", "#897DF8");
+        verify(appointmentStatusDao).modifyStatus(111, "Confirmed", "#2fcccf");
+        verify(appointmentStatusDao).modifyStatus(112, "No Show", "#cccccc");
+        verify(appointmentStatusDao).modifyStatus(113, "Cancelled", "#999999");
+        verify(appointmentStatusDao).modifyStatus(114, "Billed", "#3ea4e1");
+        verify(appointmentStatusDao, times(15)).modifyStatus(anyInt(), anyString(), anyString());
     }
 }
