@@ -188,7 +188,14 @@ function createMysqlDefaultsFile() {
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-flu-report-mysql-'));
   const file = path.join(dir, 'client.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`, { mode: 0o600 });
+  try {
+    fs.writeFileSync(file, `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`, { mode: 0o600 });
+  } catch (error) {
+    // This runs before the run-level cleanup exists, so a partial write would
+    // otherwise strand the directory -- possibly holding the password.
+    fs.rmSync(dir, { recursive: true, force: true });
+    throw error;
+  }
   return { dir, file };
 }
 
@@ -217,6 +224,8 @@ function describeMysqlFailure(error) {
     .replace(/\d{3,}/g, '###')
     .slice(0, 200);
 }
+
+const MYSQL_TIMEOUT_MS = 30000;
 
 function sql(query) {
   try {
@@ -659,7 +668,14 @@ async function run() {
 
     // A malformed year must fall back to the current year, not error and not
     // drive the year-select loop past Integer.MAX_VALUE.
-    const currentYear = sql('SELECT YEAR(CURRENT_DATE)');
+    // Read the current year from the report itself rather than from the database.
+    // The JSP derives it from the Tomcat JVM's clock while the fixtures come from
+    // MySQL's, and in the devcontainer those are separate images; comparing across
+    // them would fail at a year boundary even though the server behaved correctly.
+    // The parameterless URL loaded just above shows the server's own default year.
+    const currentYear = await page.locator('select[name="numMonth"]').inputValue();
+    assert(/^\d{4}$/.test(currentYear),
+      `Default report year was not a four-digit year: ${currentYear}`);
     for (const badYear of ['abc', '+2023', '2147483645', '-5', '0025']) {
       const rows = await reportRows(page, badYear, '-1');
       assert(rows.length > 0, `Malformed numMonth=${badYear} produced no rows at all`);
