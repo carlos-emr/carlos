@@ -40,9 +40,11 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only for an intentional non-local test target
  *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-local test database
  *
- * BASE_URL and MYSQL_HOST are both restricted to local hosts by default. The
- * database opt-in is the one that matters most: this check inserts synthetic
- * patients and OHIP claims, so it must never be pointed at a real schema.
+ * BASE_URL and MYSQL_HOST are both restricted to local targets by default, but
+ * MYSQL_HOST is held to a stricter definition. Browsing accepts any private
+ * network address; seeding does not, because a shared clinic database usually
+ * lives on one. Only loopback and the devcontainer/docker service names reach
+ * the database without ALLOW_NON_LOCAL_MYSQL_HOST=true.
  */
 
 const { execFileSync } = require('child_process');
@@ -76,9 +78,24 @@ function isPrivateIpv4(host) {
   return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
 }
 
+function normalizeHost(rawHost) {
+  return rawHost.toLowerCase().replace(/^\[|\]$/g, '');
+}
+
 function isLocalHost(rawHost) {
-  const host = rawHost.toLowerCase().replace(/^\[|\]$/g, '');
+  const host = normalizeHost(rawHost);
   return LOCAL_HOSTS.has(host) || isPrivateIpv4(host);
+}
+
+/*
+ * Deliberately stricter than isLocalHost: no private-IPv4 carve-out. Browsing a
+ * private-network host is read-only and harmless, but a shared clinic database
+ * typically sits on exactly such an address, and this check writes patients and
+ * claims. Only loopback and the known devcontainer/docker service names pass
+ * without an explicit opt-in.
+ */
+function isLocalDatabaseHost(rawHost) {
+  return LOCAL_HOSTS.has(normalizeHost(rawHost));
 }
 
 function validateBaseUrl(rawBaseUrl) {
@@ -99,13 +116,13 @@ function validateBaseUrl(rawBaseUrl) {
 }
 
 /*
- * This check writes synthetic patients and OHIP claims, so the database target
- * gets the same local-by-default treatment as BASE_URL. Without this an
+ * This check writes synthetic patients and OHIP claims, so the database target is
+ * gated harder than the browsing target — see isLocalDatabaseHost. Without this an
  * exported MYSQL_HOST could seed fixtures straight into a shared or production
  * patient schema, which no amount of cleanup fully undoes.
  */
 function validateMysqlHost(rawHost) {
-  if (!isLocalHost(rawHost) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
+  if (!isLocalDatabaseHost(rawHost) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
     throw new Error(`Refusing to seed synthetic patients into non-local MYSQL_HOST ${rawHost}; set ALLOW_NON_LOCAL_MYSQL_HOST=true for a disposable test database`);
   }
   return rawHost;
