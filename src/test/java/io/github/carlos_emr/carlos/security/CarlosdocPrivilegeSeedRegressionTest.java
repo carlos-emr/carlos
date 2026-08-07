@@ -126,10 +126,14 @@ class CarlosdocPrivilegeSeedRegressionTest {
     void shouldRestoreBaselineAdminPrivileges_afterDevelopmentSnapshot() throws IOException {
         String privilegeRepairSql = Files.readString(DEVELOPMENT_PRIVILEGES, StandardCharsets.UTF_8);
         Map<PrivilegeKey, String> baselinePrivileges = privileges(seedSql);
+        Map<PrivilegeKey, String> bcBaselinePrivileges = privileges(bcSeedSql);
+        Map<PrivilegeKey, String> repairPrivileges = privileges(privilegeRepairSql);
         Map<PrivilegeKey, String> repairedPrivileges = effectivePrivileges(
                 developmentSeedSql, privilegeRepairSql);
 
         assertThat(repairedPrivileges).isEqualTo(baselinePrivileges);
+        assertThat(baselinePrivileges).containsAllEntriesOf(repairPrivileges);
+        assertThat(bcBaselinePrivileges).containsAllEntriesOf(repairPrivileges);
         assertThat(repairedPrivileges.keySet())
                 .noneMatch(key -> key.objectName().equals("_admin.traceability"));
         assertThat(privilegeTupleCount(privilegeRepairSql))
