@@ -51,6 +51,8 @@ const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
 
+// 'carlos' and 'db' are the devcontainer compose service names for the app and
+// the MariaDB container; both resolve only inside that private network.
 const LOCAL_HOSTS = new Set([
   'localhost',
   '127.0.0.1',
@@ -58,6 +60,7 @@ const LOCAL_HOSTS = new Set([
   '0.0.0.0',
   'host.docker.internal',
   'carlos',
+  'db',
 ]);
 
 function isPrivateIpv4(host) {

@@ -435,6 +435,8 @@ public interface DemographicDao {
      *         so callers render blanks rather than the literal text "null".
      *         The projection carries no billing data; the claim date per patient
      *         is resolved separately by the report layer.
+     * @since 2026-08-06 typed projection; the method itself predates the
+     *        {@code Object[]} to {@link FluReportDemographicRow} migration.
      */
     public List<FluReportDemographicRow> findDemographicsForFluReport(String providerNo);
 

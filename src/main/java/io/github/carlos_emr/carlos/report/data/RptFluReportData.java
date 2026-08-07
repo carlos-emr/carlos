@@ -73,6 +73,7 @@ public class RptFluReportData {
      *
      * @param s  the provider filter; {@code "-1"} means all providers
      * @param s1 the four-digit report year used to scope the billing lookup
+     * @since 2026-08-06 typed projection mapping; the method itself predates it.
      */
     public void fluReportGenerate(String s, String s1) {
         years = s1;
