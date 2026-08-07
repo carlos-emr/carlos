@@ -28,6 +28,21 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    showHistory.jsp — Renders the "Note History" popup for a case management note
+    or CPP issue (e.g. Family History, Other Meds, Risk Factors).
+
+    Reached via CaseManagementEntry?method=notehistory (single note revision
+    history) or method=issuehistory (all notes linked to one or more issues).
+    The controller (CaseManagementEntry2Action) sets request attributes
+    "title", "demoName", "history" (List<CaseManagementNote>), and, for the
+    issuehistory path, "current" (parallel List<Boolean> flags).
+
+    When "history" is empty — a legitimate state when no unlocked notes exist
+    for the issue — an empty-state message is shown instead of a blank body.
+
+    @since 2026-08-07
+--%>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
