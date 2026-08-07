@@ -62,6 +62,18 @@ public class RptByExampleData {
             long durationMillis) {
     }
 
+    private static final class ExecutionProgress {
+        private int rowCount;
+
+        int rowCount() {
+            return rowCount;
+        }
+
+        void recordRows(int renderedRows) {
+            rowCount = renderedRows;
+        }
+    }
+
     private final ConnectionProvider connectionProvider;
 
     public RptByExampleData() {
@@ -78,11 +90,10 @@ public class RptByExampleData {
     public QueryResult execute(String sql, Properties properties, String providerNo) throws SQLException {
         long startedAt = System.nanoTime();
         String outcome = "failed";
-        int rowCount = 0;
+        ExecutionProgress progress = new ExecutionProgress();
         try {
             LegacyJdbcQuery.TrustedSql trustedSql = QueryByExampleSqlValidator.validate(sql, properties);
-            QueryResult queryResult = executeWithConnection(trustedSql);
-            rowCount = queryResult.rowCount();
+            QueryResult queryResult = executeWithConnection(trustedSql, progress);
             outcome = "success";
             return new QueryResult(queryResult.html(), queryResult.rowCount(), queryResult.truncated(),
                     queryResult.rowLimitReached(), elapsedMillis(startedAt));
@@ -99,7 +110,7 @@ public class RptByExampleData {
             logFailure(providerNo, sql, null, e.getClass().getSimpleName());
             throw e;
         } finally {
-            audit(providerNo, sql, elapsedMillis(startedAt), rowCount, outcome);
+            audit(providerNo, sql, elapsedMillis(startedAt), progress.rowCount(), outcome);
         }
     }
 
@@ -113,24 +124,25 @@ public class RptByExampleData {
                 ResultSet.CONCUR_READ_ONLY); // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- validated TrustedSql boundary
     }
 
-    private QueryResult executeWithConnection(LegacyJdbcQuery.TrustedSql trustedSql) throws SQLException {
+    private QueryResult executeWithConnection(LegacyJdbcQuery.TrustedSql trustedSql, ExecutionProgress progress)
+            throws SQLException {
         try (Connection connection = connectionProvider.getConnection()) {
-            return executeValidatedQuery(connection, trustedSql);
+            return executeValidatedQuery(connection, trustedSql, progress);
         }
     }
 
-    private static QueryResult executeValidatedQuery(Connection connection, LegacyJdbcQuery.TrustedSql trustedSql)
-            throws SQLException {
+    private static QueryResult executeValidatedQuery(Connection connection, LegacyJdbcQuery.TrustedSql trustedSql,
+            ExecutionProgress progress) throws SQLException {
         boolean originalReadOnly = connection.isReadOnly();
         try {
             connection.setReadOnly(true);
-        } catch (SQLException setupFailure) {
+        } catch (SQLException | RuntimeException setupFailure) {
             restoreReadOnlyAfterFailure(connection, originalReadOnly, setupFailure);
             throw setupFailure;
         }
         QueryResult result;
         try {
-            result = executeStatement(connection, trustedSql);
+            result = executeStatement(connection, trustedSql, progress);
         } catch (SQLException | RuntimeException executionFailure) {
             restoreReadOnlyAfterFailure(connection, originalReadOnly, executionFailure);
             throw executionFailure;
@@ -139,19 +151,21 @@ public class RptByExampleData {
         return result;
     }
 
-    private static QueryResult executeStatement(Connection connection, LegacyJdbcQuery.TrustedSql trustedSql)
-            throws SQLException {
+    private static QueryResult executeStatement(Connection connection, LegacyJdbcQuery.TrustedSql trustedSql,
+            ExecutionProgress progress) throws SQLException {
         try (PreparedStatement statement = prepareValidatedStatement(connection, trustedSql)) {
             statement.setMaxRows(MAX_ROWS + 1);
             statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
-            return readStatementResult(statement);
+            return readStatementResult(statement, progress);
         }
     }
 
-    private static QueryResult readStatementResult(PreparedStatement statement) throws SQLException {
+    private static QueryResult readStatementResult(PreparedStatement statement, ExecutionProgress progress)
+            throws SQLException {
         try (ResultSet resultSet = statement.executeQuery()) {
             RptResultStruct.StructuredResult structured = RptResultStruct.getStructureWithCount(
                     resultSet, MAX_OUTPUT_CHARACTERS, MAX_ROWS);
+            progress.recordRows(structured.rowCount());
             return new QueryResult(structured.html(), structured.rowCount(), structured.truncated(),
                     structured.rowLimitReached(), 0);
         }
@@ -161,7 +175,7 @@ public class RptByExampleData {
             Exception executionFailure) {
         try {
             connection.setReadOnly(originalReadOnly);
-        } catch (SQLException restoreFailure) {
+        } catch (SQLException | RuntimeException restoreFailure) {
             if (restoreFailure != executionFailure) {
                 executionFailure.addSuppressed(restoreFailure);
             }

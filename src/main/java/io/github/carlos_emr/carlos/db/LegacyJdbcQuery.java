@@ -616,6 +616,12 @@ public final class LegacyJdbcQuery {
         return false;
     }
 
+    /**
+     * Masks quoted sections while preserving input length for keyword checks.
+     * Backslash escapes are handled here to match MySQL literal parsing. This intentionally differs
+     * from the Query-by-Example validator's scanner, which must match JSqlParser's configured parsing
+     * and therefore handles only doubled quote delimiters. The two scanners must not be merged.
+     */
     private static String stripQuotedSqlSections(String sql) {
         StringBuilder stripped = new StringBuilder(sql.length());
         char quote = '\0';

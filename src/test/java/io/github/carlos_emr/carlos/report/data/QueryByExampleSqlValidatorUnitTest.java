@@ -131,7 +131,7 @@ class QueryByExampleSqlValidatorUnitTest {
                 "select @@version",
                 "select next value for report_sequence",
                 "select * from demographic for update",
-                "select '\\' as value from demographic for update",
+                "select '\\\\' as value from demographic for update",
                 "select * from demographic for share",
                 "select demographic_no into @number from demographic");
     }

@@ -23,9 +23,13 @@ package io.github.carlos_emr.carlos.report.data;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -40,11 +44,15 @@ import java.sql.SQLException;
 import java.sql.SQLTimeoutException;
 import java.util.Properties;
 
+import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
+import org.mockito.MockedStatic;
+
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 @Tag("unit")
 @Tag("report")
@@ -132,19 +140,44 @@ class RptByExampleDataUnitTest {
     }
 
     @Test
+    @DisplayName("restores connection state after an unchecked read-only setup failure")
+    void shouldRestoreConnection_whenReadOnlySetupThrowsRuntimeException() throws SQLException {
+        IllegalStateException setupFailure = new IllegalStateException("read-only setup failed");
+        when(connection.isReadOnly()).thenReturn(false);
+        doThrow(setupFailure).when(connection).setReadOnly(true);
+
+        assertThatThrownBy(() -> reportData.execute(
+                "select demographic_no from demographic", properties, "999998"))
+                .isSameAs(setupFailure);
+
+        verify(connection).setReadOnly(false);
+        verify(connection).close();
+        verify(connection, never()).prepareStatement(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
     @DisplayName("reports a connection restore failure after a successful query")
     void shouldReportRestoreFailure_whenQuerySucceeds() throws SQLException {
         SQLException restoreFailure = new SQLException("restore failed");
         when(connection.isReadOnly()).thenReturn(false);
         doThrow(restoreFailure).when(connection).setReadOnly(false);
+        Logger logger = mock(Logger.class);
 
-        assertThatThrownBy(() -> reportData.execute(
-                "select demographic_no from demographic", properties, "999998"))
-                .isSameAs(restoreFailure);
+        try (MockedStatic<MiscUtils> miscUtils = mockStatic(MiscUtils.class)) {
+            miscUtils.when(MiscUtils::getLogger).thenReturn(logger);
+
+            assertThatThrownBy(() -> reportData.execute(
+                    "select demographic_no from demographic", properties, "999998"))
+                    .isSameAs(restoreFailure);
+        }
 
         verify(statement).executeQuery();
         verify(connection).setReadOnly(false);
         verify(connection).close();
+        verify(logger).info(
+                eq("Query-by-Example audit provider={} queryHash={} queryLength={} durationMs={} rowCount={} outcome={}"),
+                eq("999998"), anyString(), eq(38), anyLong(), eq(1), eq("failed"));
     }
 
     @Test
@@ -159,6 +192,24 @@ class RptByExampleDataUnitTest {
         assertThatThrownBy(() -> reportData.execute(
                 "select demographic_no from demographic", properties, "999998"))
                 .isSameAs(timeout)
+                .satisfies(thrown -> assertThat(thrown.getSuppressed()).containsExactly(restoreFailure));
+
+        verify(connection).setReadOnly(false);
+        verify(connection).close();
+    }
+
+    @Test
+    @DisplayName("preserves query failure when restoring state throws an unchecked exception")
+    void shouldPreserveQueryFailure_whenRestoreThrowsRuntimeException() throws SQLException {
+        SQLException queryFailure = new SQLException("query failed");
+        IllegalStateException restoreFailure = new IllegalStateException("restore failed");
+        when(connection.isReadOnly()).thenReturn(false);
+        when(statement.executeQuery()).thenThrow(queryFailure);
+        doThrow(restoreFailure).when(connection).setReadOnly(false);
+
+        assertThatThrownBy(() -> reportData.execute(
+                "select demographic_no from demographic", properties, "999998"))
+                .isSameAs(queryFailure)
                 .satisfies(thrown -> assertThat(thrown.getSuppressed()).containsExactly(restoreFailure));
 
         verify(connection).setReadOnly(false);
