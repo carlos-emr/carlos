@@ -116,8 +116,28 @@
     }
 
     RptFluReportData fluData = new RptFluReportData();
-    fluData.fluReportGenerate(pros, years);
     List<Provider> providers = fluData.providerList();
+
+    // Only a provider the dropdown can actually show is a filter we can label
+    // honestly. A proNo that is unknown or since-deactivated would otherwise
+    // filter the table to nothing while no <option> carried "selected", so the
+    // browser fell back to displaying "All Providers" over an empty worklist --
+    // the same misleading state as an absent proNo, reached from a bookmarked
+    // or shared URL.
+    if (!"-1".equals(pros)) {
+        boolean selectableProvider = false;
+        for (Provider candidate : providers) {
+            if (pros.equals(candidate.getProviderNo())) {
+                selectableProvider = true;
+                break;
+            }
+        }
+        if (!selectableProvider) {
+            pros = "-1";
+        }
+    }
+
+    fluData.fluReportGenerate(pros, years);
 %>
 <%!
     // Bounds shared by the numMonth validation and the year dropdown, so the

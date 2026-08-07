@@ -24,11 +24,15 @@ package io.github.carlos_emr.carlos.report.data;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
+import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -119,5 +123,42 @@ class RptFluReportDataUnitTest extends CarlosUnitTestBase {
 
         assertThat(reportData.demoList).singleElement().satisfies(patient ->
             assertThat(patient.getBillingDate("2026")).isEmpty());
+    }
+
+    @Test
+    @DisplayName("should scope the billing lookup to the report year and both flu service codes")
+    void shouldScopeBillingLookup_toTheReportYearAndFluCodes() {
+        // Pins the arguments, not just the outcome. With any() matchers a swapped
+        // date range, the current year in place of the report year, or a dropped
+        // G591A all still produced a plausible-looking blank cell -- and a blank
+        // cell in this report means "this patient still needs a flu shot".
+        DemographicDao demographicDao = createAndRegisterMock(DemographicDao.class);
+        when(demographicDao.findDemographicsForFluReport("-1"))
+            .thenReturn(List.of(new FluReportDemographicRow(
+                "714", "Patient,Flu", "416-555-0714", "RO", "AC", "1940-06-15", "85"
+            )));
+        BillingONCHeader1 claim = new BillingONCHeader1();
+        claim.setBillingDate(ConversionUtils.fromDateString("2025-10-20"));
+        BillingONCHeader1Dao billingDao = createAndRegisterMock(BillingONCHeader1Dao.class);
+        when(billingDao.findBillingsByDemoNoCh1HeaderServiceCodeAndDate(
+            any(), anyList(), any(), any())).thenReturn(List.of(claim));
+
+        RptFluReportData reportData = new RptFluReportData();
+        reportData.fluReportGenerate("-1", "2025");
+
+        assertThat(reportData.demoList).singleElement().satisfies(patient ->
+            assertThat(patient.getBillingDate("2025")).isEqualTo("2025-10-20"));
+
+        ArgumentCaptor<Integer> demographicNo = ArgumentCaptor.forClass(Integer.class);
+        ArgumentCaptor<List<String>> serviceCodes = ArgumentCaptor.captor();
+        ArgumentCaptor<Date> from = ArgumentCaptor.forClass(Date.class);
+        ArgumentCaptor<Date> to = ArgumentCaptor.forClass(Date.class);
+        verify(billingDao).findBillingsByDemoNoCh1HeaderServiceCodeAndDate(
+            demographicNo.capture(), serviceCodes.capture(), from.capture(), to.capture());
+
+        assertThat(demographicNo.getValue()).isEqualTo(714);
+        assertThat(serviceCodes.getValue()).containsExactlyInAnyOrder("G590A", "G591A");
+        assertThat(ConversionUtils.toDateString(from.getValue())).isEqualTo("2025-01-01");
+        assertThat(ConversionUtils.toDateString(to.getValue())).isEqualTo("2025-12-31");
     }
 }

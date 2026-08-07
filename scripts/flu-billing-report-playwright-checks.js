@@ -363,6 +363,10 @@ async function reportRows(page, reportYear, providerNo, expectedSelectedProvider
   ));
 }
 
+function offeredYears(page) {
+  return page.locator('select[name="numMonth"] option').evaluateAll((options) => options.map((o) => o.value));
+}
+
 function fixtureRow(rows, expectedName) {
   const matches = rows.filter((row) => row[0] === expectedName);
   assert(matches.length === 1, `Expected exactly one synthetic row for ${expectedName}, found ${matches.length}`);
@@ -542,6 +546,27 @@ async function run() {
         `Malformed numMonth=${badYear} fell back to ${shownYear} instead of the current year ${currentYear}`);
     }
 
+    // The selector must never offer a year its own validation would reject.
+    // Both clamps are no-ops at the current year, so this has to drive the
+    // boundaries: every offered option must round-trip to itself rather than
+    // silently falling back.
+    const maxYear = String(Number(currentYear) + 2);
+    for (const boundaryYear of [maxYear, '1900']) {
+      await reportRows(page, boundaryYear, '-1');
+      const offered = await offeredYears(page);
+      assert(offered.length > 0, `No year options offered for numMonth=${boundaryYear}`);
+      assert(offered.every((year) => Number(year) >= 1900 && Number(year) <= Number(maxYear)),
+        `Year selector offered out-of-range options for numMonth=${boundaryYear}: ${offered.join(',')}`);
+      assert(offered.includes(boundaryYear),
+        `Year selector dropped the selected year ${boundaryYear}: ${offered.join(',')}`);
+      for (const offeredYear of offered) {
+        await reportRows(page, offeredYear, '-1');
+        const shown = await page.locator('select[name="numMonth"]').inputValue();
+        assert(shown === offeredYear,
+          `Year selector offered ${offeredYear} but selecting it fell back to ${shown}`);
+      }
+    }
+
     // Whitespace around the provider must not turn into a literal filter. This is
     // the same "empty worklist under an All Providers label" failure as an absent
     // proNo, reachable from a hand-edited or copied URL.
@@ -551,6 +576,13 @@ async function run() {
     fixtureRow(paddedProviderRows, primary.patientName);
     assert(!paddedProviderRows.some((row) => row[0] === secondary.patientName),
       'Padded provider filter did not actually filter by provider');
+
+    // A provider the dropdown cannot show -- unknown, or deactivated since a URL
+    // was bookmarked -- must fall back to All Providers rather than filtering the
+    // table to nothing while the dropdown still reads All Providers.
+    const unknownProviderRows = await reportRows(page, null, 'ZZZNOPE', '-1');
+    fixtureRow(unknownProviderRows, primary.patientName);
+    fixtureRow(unknownProviderRows, secondary.patientName);
 
     assert(browserFindings.length === 0, `Browser findings: ${JSON.stringify(browserFindings)}`);
 
@@ -568,6 +600,8 @@ async function run() {
         'individual provider keeps both of its assigned synthetic patients and excludes the other',
         'the parameterless entry-point URL lists every patient and selects All Providers',
         'a malformed report year falls back to the current year instead of erroring',
+        'every year the selector offers round-trips to itself at both boundaries',
+        'an unknown or deactivated provider falls back to All Providers',
       ],
     }, null, 2));
   } finally {
