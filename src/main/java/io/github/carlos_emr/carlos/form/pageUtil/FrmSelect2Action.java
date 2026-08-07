@@ -59,6 +59,18 @@ public class FrmSelect2Action extends ActionSupport {
 
     @Override
     public String execute() throws ServletException, IOException {
+        // Every branch below mutates encounter form display order, and CSRFGuard only
+        // validates non-GET methods — so a crafted GET such as
+        // /form/select?forward=delete&selectedDeleteTypes=... would hide forms for any
+        // signed-in administrator without a token. Reject before the privilege check so
+        // no mutation can fire. Rendering the panel is the separate form/setupSelect route;
+        // the only caller here is the POST form in formselect.jsp.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
             throw new SecurityException("missing required sec object (_form)");
         }
