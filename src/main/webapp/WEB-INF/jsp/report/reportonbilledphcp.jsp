@@ -225,11 +225,11 @@
                     try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, new DBPreparedHandlerParam[0])) {
                         while (rs.next()) {
                             prop = new Properties();
-                            prop.setProperty("dxcode", "" + rs.getInt("dxcode"));
+                            prop.setProperty("dxcode", Misc.getString(rs, "dxcode"));
                             prop.setProperty("level1", Misc.getString(rs, "level1"));
                             prop.setProperty("level2", Misc.getString(rs, "level2"));
                             vec.add(prop);
-                            propCatCode.setProperty("" + rs.getInt("dxcode"), "" + indexNum);
+                            propCatCode.setProperty(Misc.getString(rs, "dxcode"), "" + indexNum);
                             indexNum++;
                         }
                     }
@@ -809,7 +809,6 @@
         <%
             String catName = "";
             String color = "";
-            int codeNum = 0;
             int vecNum = 0;
             for (int i = 0; i < vServiceCode.size(); i++) {
                 if (bDx) {
@@ -817,12 +816,8 @@
 
                     // sync vServiceCode and vec
                     String serviceCode = (String) vServiceCode.get(i);
-                    boolean numericServiceCode = serviceCode != null && serviceCode.matches("[0-9]{1,5}");
-                    if (numericServiceCode) {
-                        codeNum = Integer.parseInt(serviceCode);
-                    }
-                    if (numericServiceCode && propCatCode.containsKey("" + codeNum)) {
-                        vecNum = Integer.parseInt(propCatCode.getProperty("" + codeNum));
+                    if (serviceCode != null && propCatCode.containsKey(serviceCode)) {
+                        vecNum = Integer.parseInt(propCatCode.getProperty(serviceCode));
 
                         // display the category name if necessary
                         String curCatName = ((Properties) vec.get(vecNum)).getProperty("level1", "").toUpperCase() + " - " +

@@ -4,7 +4,7 @@
 -- diagnosis the report can parse has a stable, non-misleading category.
 
 CREATE TABLE IF NOT EXISTS dxphcpgroup (
-  dxcode int NOT NULL,
+  dxcode varchar(5) NOT NULL,
   level1 varchar(100) NOT NULL,
   level2 varchar(100) NOT NULL,
   lastUpdateUser varchar(100) NOT NULL DEFAULT 'migration',
@@ -13,8 +13,12 @@ CREATE TABLE IF NOT EXISTS dxphcpgroup (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Preserve clinic-specific legacy groupings while bringing adopted tables up to the
--- audit-column convention required for new CARLOS tables.
+-- audit-column convention required for new CARLOS tables. Legacy tables used an
+-- integer key, which collapsed distinct zero-padded diagnoses (for example, BC
+-- 0320 and 320) into one group. The source diagnostic code is at most five
+-- characters, so converting the key to varchar preserves exact billing semantics.
 ALTER TABLE dxphcpgroup
+  MODIFY COLUMN dxcode varchar(5) NOT NULL,
   ADD COLUMN IF NOT EXISTS lastUpdateUser varchar(100) NOT NULL DEFAULT 'migration',
   ADD COLUMN IF NOT EXISTS lastUpdateDate timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP;
 
@@ -65,17 +69,11 @@ SELECT codes.dxcode,
        'migration',
        CURRENT_TIMESTAMP
 FROM (
-  SELECT CAST(diagnostic_code AS UNSIGNED) AS dxcode,
-         COALESCE(
-           MAX(CASE
-             WHEN diagnostic_code = CAST(CAST(diagnostic_code AS UNSIGNED) AS CHAR)
-               THEN CAST(LEFT(diagnostic_code, 3) AS UNSIGNED)
-           END),
-           MIN(CAST(LEFT(diagnostic_code, 3) AS UNSIGNED))
-         ) AS category_code
+  SELECT diagnostic_code AS dxcode,
+         CAST(LEFT(diagnostic_code, 3) AS UNSIGNED) AS category_code
   FROM diagnosticcode
   WHERE diagnostic_code REGEXP '^[0-9]{1,5}$'
-  GROUP BY CAST(diagnostic_code AS UNSIGNED)
+  GROUP BY diagnostic_code
 ) codes
 WHERE NOT EXISTS (
   SELECT 1

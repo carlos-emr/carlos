@@ -162,12 +162,17 @@ jobs:
             exit 1
           fi
           if [ "${PROV}" = "bc" ]; then
-            BC_PRECISE_PHCP_GROUP=$($MYSQL -N carlos_bc -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode=2740 AND level2='ICD-9 240-279'")
+            BC_PRECISE_PHCP_GROUP=$($MYSQL -N carlos_bc -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='2740' AND level2='ICD-9 240-279'")
             if [ "${BC_PRECISE_PHCP_GROUP:-0}" != "1" ]; then
               echo "::error::BC four-digit diagnosis 2740 was not grouped by its 274 chapter prefix"
               exit 1
             fi
-            BC_CANONICAL_PHCP_GROUP=$($MYSQL -N carlos_bc -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode=320 AND level2='ICD-9 320-389'")
+            BC_PADDED_PHCP_GROUP=$($MYSQL -N carlos_bc -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='0320' AND level2='ICD-9 001-139'")
+            BC_CANONICAL_PHCP_GROUP=$($MYSQL -N carlos_bc -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='320' AND level2='ICD-9 320-389'")
+            if [ "${BC_PADDED_PHCP_GROUP:-0}" != "1" ]; then
+              echo "::error::BC zero-padded diagnosis 0320 was not kept distinct in its 032 chapter"
+              exit 1
+            fi
             if [ "${BC_CANONICAL_PHCP_GROUP:-0}" != "1" ]; then
               echo "::error::BC diagnosis 320 did not prefer its canonical non-zero-padded chapter"
               exit 1
@@ -291,11 +296,12 @@ jobs:
             exit 1
           fi
 
-          ADOPT_PHCP_SENTINEL=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode=250 AND level1='Clinic PHCP sentinel' AND level2='Custom diabetes grouping'")
-          ADOPT_PHCP_SEED=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode=2 AND level2='ICD-9 001-139'")
+          ADOPT_PHCP_SENTINEL=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='250' AND level1='Clinic PHCP sentinel' AND level2='Custom diabetes grouping'")
+          ADOPT_PHCP_SEED=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='002' AND level2='ICD-9 001-139'")
+          ADOPT_PHCP_KEY_TYPE=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='${ADOPT_DB}' AND table_name='dxphcpgroup' AND column_name='dxcode' AND data_type='varchar' AND character_maximum_length=5")
           ADOPT_PHCP_AUDIT=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='${ADOPT_DB}' AND table_name='dxphcpgroup' AND column_name IN ('lastUpdateUser','lastUpdateDate')")
-          if [ "${ADOPT_PHCP_SENTINEL}" != "1" ] || [ "${ADOPT_PHCP_SEED}" != "1" ] || [ "${ADOPT_PHCP_AUDIT}" != "2" ]; then
-            echo "::error::adopted PHCP lookup did not preserve its clinic mapping, seed code 002, or add audit columns for ${PROV}"
+          if [ "${ADOPT_PHCP_SENTINEL}" != "1" ] || [ "${ADOPT_PHCP_SEED}" != "1" ] || [ "${ADOPT_PHCP_KEY_TYPE}" != "1" ] || [ "${ADOPT_PHCP_AUDIT}" != "2" ]; then
+            echo "::error::adopted PHCP lookup did not preserve its clinic mapping, exact code keys, seed code 002, or add audit columns for ${PROV}"
             exit 1
           fi
 
