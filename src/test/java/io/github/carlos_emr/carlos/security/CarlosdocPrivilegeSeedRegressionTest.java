@@ -68,10 +68,14 @@ class CarlosdocPrivilegeSeedRegressionTest {
     private static final Path BC_SEED = Path.of("database", "mysql", "migration", "bc", "V1.0.2__bc_data.sql");
     private static final Path MIGRATION = Path.of("database", "mysql", "updates",
             "update-2026-05-21-carlosdoc-schedule-group-privilege.sql");
-    private static final Pattern ADMIN_PRIVILEGE = Pattern.compile(
-            "\\(\\s*'admin'\\s*,\\s*'([^']+)'\\s*,\\s*'([^']+)'\\s*,"
+    private static final Pattern SEC_OBJ_PRIVILEGE_INSERT = Pattern.compile(
+            "INSERT\\s+INTO\\s+`?secObjPrivilege`?(?:\\s*\\([^)]*\\))?"
+                    + "\\s+VALUES\\s+([^;]+)",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern PRIVILEGE_TUPLE = Pattern.compile(
+            "\\(\\s*'(admin|999998)'\\s*,\\s*'([^']+)'\\s*,\\s*'([^']+)'\\s*,"
                     + "\\s*(\\d+)\\s*,\\s*'([^']+)'\\s*\\)");
-    private static final Pattern ADMIN_PRIVILEGE_DELETE = Pattern.compile(
+    private static final Pattern PRIVILEGE_DELETE = Pattern.compile(
             "DELETE\\s+FROM\\s+`?secObjPrivilege`?\\s+WHERE\\s+`?objectName`?"
                     + "\\s*=\\s*'([^']+)'\\s*;",
             Pattern.CASE_INSENSITIVE);
@@ -121,15 +125,15 @@ class CarlosdocPrivilegeSeedRegressionTest {
     @DisplayName("should restore baseline admin privileges after development snapshot")
     void shouldRestoreBaselineAdminPrivileges_afterDevelopmentSnapshot() throws IOException {
         String privilegeRepairSql = Files.readString(DEVELOPMENT_PRIVILEGES, StandardCharsets.UTF_8);
-        Map<String, String> baselinePrivileges = adminPrivileges(seedSql);
-        Map<String, String> repairedPrivileges = effectiveAdminPrivileges(
+        Map<PrivilegeKey, String> baselinePrivileges = privileges(seedSql);
+        Map<PrivilegeKey, String> repairedPrivileges = effectivePrivileges(
                 developmentSeedSql, privilegeRepairSql);
 
-        assertThat(repairedPrivileges)
-                .isEqualTo(baselinePrivileges)
-                .doesNotContainKey("_admin.traceability");
-        assertThat(adminPrivilegeTupleCount(privilegeRepairSql))
-                .isEqualTo(adminPrivileges(privilegeRepairSql).size());
+        assertThat(repairedPrivileges).isEqualTo(baselinePrivileges);
+        assertThat(repairedPrivileges.keySet())
+                .noneMatch(key -> key.objectName().equals("_admin.traceability"));
+        assertThat(privilegeTupleCount(privilegeRepairSql))
+                .isEqualTo(privileges(privilegeRepairSql).size());
         assertThat(privilegeRepairSql).contains(
                 "('admin', '_admin.schedule', 'x', 0, '999998')",
                 "('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')",
@@ -185,30 +189,40 @@ class CarlosdocPrivilegeSeedRegressionTest {
                 "('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')");
     }
 
-    private static Map<String, String> adminPrivileges(String sql) {
-        Map<String, String> privileges = new LinkedHashMap<>();
-        Matcher matcher = ADMIN_PRIVILEGE.matcher(sql);
-        while (matcher.find()) {
-            // The table key is (roleUserGroup, objectName), so later repair upserts
-            // replace the effective tuple for the same admin object.
-            privileges.put(matcher.group(1),
-                    matcher.group(2) + '|' + matcher.group(3) + '|' + matcher.group(4));
+    private static Map<PrivilegeKey, String> privileges(String sql) {
+        Map<PrivilegeKey, String> privileges = new LinkedHashMap<>();
+        Matcher insert = SEC_OBJ_PRIVILEGE_INSERT.matcher(sql);
+        while (insert.find()) {
+            Matcher tuple = PRIVILEGE_TUPLE.matcher(insert.group(1));
+            while (tuple.find()) {
+                // The table key is (roleUserGroup, objectName), so later repair upserts
+                // replace the effective tuple for the same role and security object.
+                privileges.put(new PrivilegeKey(tuple.group(1), tuple.group(2)),
+                        tuple.group(3) + '|' + tuple.group(4) + '|' + tuple.group(5));
+            }
         }
         return privileges;
     }
 
-    private static long adminPrivilegeTupleCount(String sql) {
-        return ADMIN_PRIVILEGE.matcher(sql).results().count();
+    private static long privilegeTupleCount(String sql) {
+        long count = 0;
+        Matcher insert = SEC_OBJ_PRIVILEGE_INSERT.matcher(sql);
+        while (insert.find()) {
+            count += PRIVILEGE_TUPLE.matcher(insert.group(1)).results().count();
+        }
+        return count;
     }
 
-    private static Map<String, String> effectiveAdminPrivileges(String seed, String repair) {
-        Map<String, String> privileges = adminPrivileges(seed);
-        privileges.putAll(adminPrivileges(repair));
+    private static Map<PrivilegeKey, String> effectivePrivileges(String seed, String repair) {
+        Map<PrivilegeKey, String> privileges = privileges(seed);
+        privileges.putAll(privileges(repair));
 
-        Matcher deletedPrivilege = ADMIN_PRIVILEGE_DELETE.matcher(repair);
+        Matcher deletedPrivilege = PRIVILEGE_DELETE.matcher(repair);
         while (deletedPrivilege.find()) {
-            privileges.remove(deletedPrivilege.group(1));
+            privileges.keySet().removeIf(key -> key.objectName().equals(deletedPrivilege.group(1)));
         }
         return privileges;
     }
+
+    private record PrivilegeKey(String roleUserGroup, String objectName) {}
 }
