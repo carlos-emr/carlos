@@ -48,7 +48,7 @@ import org.mockito.InOrder;
 @Tag("unit")
 @Tag("report")
 @Tag("security")
-class RptByExampleDataTest {
+class RptByExampleDataUnitTest {
     private Connection connection;
     private PreparedStatement statement;
     private ResultSet resultSet;

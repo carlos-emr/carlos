@@ -36,7 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 @Tag("unit")
 @Tag("report")
 @Tag("security")
-class QueryByExampleSqlValidatorTest {
+class QueryByExampleSqlValidatorUnitTest {
     private final Properties properties = properties("oscar_mcmaster?useUnicode=true");
 
     @Test
