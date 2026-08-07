@@ -320,8 +320,9 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
         org.mockito.Mockito.doThrow(new IllegalStateException("database detail must not be audited"))
                 .when(appointmentDao).streamPatientAppointments(any(), any(), any(), any());
 
-        export("999998", "2026-08-07", "2026-08-10");
+        MockHttpServletResponse response = export("999998", "2026-08-07", "2026-08-10");
 
+        assertThat(response.getStatus()).isEqualTo(500);
         assertThat(persistedAuditLog.getData())
                 .isEqualTo("dateFrom=2026-08-07; dateTo=2026-08-10; rows=0; "
                         + "outcome=error; error=IllegalStateException")

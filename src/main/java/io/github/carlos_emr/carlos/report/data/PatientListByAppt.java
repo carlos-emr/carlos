@@ -119,17 +119,21 @@ public class PatientListByAppt extends HttpServlet {
             String errorType = null;
 
             try {
-                try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(
-                        response.getOutputStream(), StandardCharsets.UTF_8), true)) {
-                    dao.streamPatientAppointments(providerNo, from, to, row -> {
-                        writeCsvRow(pw, row);
-                        rowCount[0]++;
-                    });
-                    if (pw.checkError()) {
-                        throw new IOException("Unable to complete patient appointment export response");
-                    }
-                    outcome = "success";
+                // The servlet container owns the response stream. Closing it while an
+                // exception unwinds can commit an empty 200 response before the outer
+                // error handler has a chance to send a 500. checkError() flushes a
+                // successful export; on failure, any uncommitted response buffer remains
+                // available for sendError() to reset.
+                PrintWriter pw = new PrintWriter(new OutputStreamWriter(
+                        response.getOutputStream(), StandardCharsets.UTF_8), true);
+                dao.streamPatientAppointments(providerNo, from, to, row -> {
+                    writeCsvRow(pw, row);
+                    rowCount[0]++;
+                });
+                if (pw.checkError()) {
+                    throw new IOException("Unable to complete patient appointment export response");
                 }
+                outcome = "success";
             } catch (IOException | RuntimeException e) {
                 errorType = e.getClass().getSimpleName();
                 throw e;
