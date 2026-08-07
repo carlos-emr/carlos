@@ -224,16 +224,26 @@ async function clickPanelButton(page, { buttonSelector, listName, formName, labe
   return { ...(await readPanel(page)), responseBytes };
 }
 
+/**
+ * Asserts the AJAX handler injected a real panel rather than an empty body or an
+ * error fragment. Deliberately says nothing about how many forms are selected: an
+ * install with every encounter form hidden renders a valid panel with an empty
+ * selected list, and failing that would be a false alarm rather than a regression.
+ */
 function assertPanelRendered(panel, label) {
   assert(panel.hasSelectForm, `${label}: #dynamic-content lost the Select Forms form`);
   assert(
     panel.bytes >= MIN_PANEL_BYTES,
     `${label}: #dynamic-content collapsed to ${panel.bytes} bytes (issue #3377 blank panel)`,
   );
-  assert(
-    panel.selected.length > 0,
-    `${label}: Select Forms panel rendered without any selected forms`,
-  );
+}
+
+function sameOrder(actual, expected) {
+  return actual.length === expected.length && actual.every((value, i) => value === expected[i]);
+}
+
+function sameMembers(actual, expected) {
+  return sameOrder([...actual].sort(), [...expected].sort());
 }
 
 /**
@@ -241,13 +251,20 @@ function assertPanelRendered(panel, label) {
  *
  * Deleting the subject undoes the whole sequence: Add appends it last, and Delete
  * zeroes its display order while decrementing everything above it, so any form the
- * Move Up/Move Down steps displaced lands back on its original order. Failures here
- * are swallowed — the real assertion error must be what surfaces.
+ * Move Up/Move Down steps displaced lands back on its original order.
+ *
+ * The decision is made against a panel freshly reloaded from the server, not the
+ * DOM left behind by the failure. A mutation whose POST succeeded but whose panel
+ * refresh did not would otherwise look un-applied in stale markup and be skipped,
+ * leaving the change on disk. Exactly one compensating delete is issued, and only
+ * when the server still reports the subject as selected. Failures here are
+ * swallowed — the real assertion error must be what surfaces.
  */
 async function restoreSubject(page, subject) {
   try {
+    await openSelectFormsPanel(page);
     const panel = await readPanel(page);
-    if (!panel.hasSelectForm || !panel.selected.includes(subject)) {
+    if (!panel.selected.includes(subject)) {
       return;
     }
     await clickPanelButton(page, {
@@ -297,8 +314,8 @@ async function restoreSubject(page, subject) {
     const noSelection = await clickPanelButton(page, { buttonSelector: '#add', label: 'add with no selection' });
     assertPanelRendered(noSelection, 'add with no selection');
     assert(
-      noSelection.available.length === initial.available.length
-        && noSelection.selected.length === initial.selected.length,
+      sameOrder(noSelection.selected, initial.selected)
+        && sameMembers(noSelection.available, initial.available),
       'add with no selection changed the form lists',
     );
 
@@ -345,6 +362,20 @@ async function restoreSubject(page, subject) {
     assertPanelRendered(afterDelete, 'delete');
     assert(afterDelete.available.includes(subject), `delete did not return ${subject} to the available list`);
     assert(!afterDelete.selected.includes(subject), `delete left ${subject} in the selected list`);
+    // Enforce the state-neutrality this check claims: the add/up/down/delete sequence
+    // must leave the selected forms in exactly their original order, not merely the same
+    // set. Hidden forms all share display order 0, so their order carries no meaning and
+    // only membership is compared.
+    assert(
+      sameOrder(afterDelete.selected, initial.selected),
+      `selected form order was not restored: expected ${JSON.stringify(initial.selected)},`
+        + ` got ${JSON.stringify(afterDelete.selected)}`,
+    );
+    assert(
+      sameMembers(afterDelete.available, initial.available),
+      `available form list was not restored: expected ${JSON.stringify(initial.available)},`
+        + ` got ${JSON.stringify(afterDelete.available)}`,
+    );
     // The Delete step is itself the rollback; nothing is left for the finally block to undo.
     subjectRestored = true;
 
