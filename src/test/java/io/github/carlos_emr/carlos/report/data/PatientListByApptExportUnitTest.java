@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -45,10 +46,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import io.github.carlos_emr.carlos.appointment.dto.PatientAppointmentExportRow;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -100,6 +104,7 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
     private final LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
 
     private PatientListByAppt servlet;
+    private OscarLog persistedAuditLog;
 
     @BeforeEach
     void setUpServlet() {
@@ -108,7 +113,12 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(
                 loggedInInfo, "_report,_admin.reporting", "r", null))
                 .thenReturn(true);
-        servlet = new PatientListByAppt();
+        servlet = new PatientListByAppt() {
+            @Override
+            protected void persistExportAudit(OscarLog auditLog) {
+                persistedAuditLog = auditLog;
+            }
+        };
     }
 
     @Test
@@ -194,10 +204,11 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getContentAsString().lines().findFirst()).hasValue(
                 "Dunn,Cara,555-0200,,10:00:00,2026-08-08,Follow Up,Ravi Singh,Annex");
-        org.mockito.Mockito.verify(appointmentDao).findPatientAppointments(
+        org.mockito.Mockito.verify(appointmentDao).streamPatientAppointments(
                 eq("999998"),
                 eq(ConversionUtils.fromDateString("2026-08-07")),
-                eq(ConversionUtils.fromDateString("2026-08-10")));
+                eq(ConversionUtils.fromDateString("2026-08-10")),
+                any());
     }
 
     @Test
@@ -274,10 +285,47 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
         export("all", "2026-08-07", "2026-08-10");
 
-        org.mockito.Mockito.verify(appointmentDao).findPatientAppointments(
+        org.mockito.Mockito.verify(appointmentDao).streamPatientAppointments(
                 eq(null),
                 eq(ConversionUtils.fromDateString("2026-08-07")),
-                eq(ConversionUtils.fromDateString("2026-08-10")));
+                eq(ConversionUtils.fromDateString("2026-08-10")),
+                any());
+    }
+
+    @Test
+    @DisplayName("successful exports should write a PHI-free audit record")
+    void shouldAuditExportMetadata_whenExportSucceeds() throws Exception {
+        Date appointmentDate = ConversionUtils.fromDateString("2026-08-07");
+        Date startTime = ConversionUtils.fromTimestampString("2026-08-07 09:00:00");
+        stubAppointments(row(
+                demographic("PrivateFirst", "PrivateLast", "555-0100", null),
+                appointment(appointmentDate, startTime, null, "PrivateLocation"),
+                provider("Doris", "Doctor")));
+
+        MockHttpServletResponse response = export("all", "2026-08-07", "2026-08-10");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(persistedAuditLog).isNotNull();
+        assertThat(persistedAuditLog.getAction()).isEqualTo(LogConst.EXPORT);
+        assertThat(persistedAuditLog.getContent()).isEqualTo("patient_list_by_appointment");
+        assertThat(persistedAuditLog.getContentId()).isEqualTo("all");
+        assertThat(persistedAuditLog.getData())
+                .isEqualTo("dateFrom=2026-08-07; dateTo=2026-08-10; rows=1; outcome=success")
+                .doesNotContain("PrivateFirst", "PrivateLast", "PrivateLocation", "555-0100");
+    }
+
+    @Test
+    @DisplayName("failed exports should audit the non-PHI failure type and partial row count")
+    void shouldAuditFailureMetadata_whenStreamingFails() throws Exception {
+        org.mockito.Mockito.doThrow(new IllegalStateException("database detail must not be audited"))
+                .when(appointmentDao).streamPatientAppointments(any(), any(), any(), any());
+
+        export("999998", "2026-08-07", "2026-08-10");
+
+        assertThat(persistedAuditLog.getData())
+                .isEqualTo("dateFrom=2026-08-07; dateTo=2026-08-10; rows=0; "
+                        + "outcome=error; error=IllegalStateException")
+                .doesNotContain("database detail");
     }
 
     @Test
@@ -352,13 +400,22 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
         return request;
     }
 
-    private void stubAppointments(Object[]... rows) {
-        List<Object[]> results = new ArrayList<>(List.of(rows));
-        when(appointmentDao.findPatientAppointments(any(), any(), any())).thenReturn(results);
+    private void stubAppointments(PatientAppointmentExportRow... rows) {
+        List<PatientAppointmentExportRow> results = new ArrayList<>(List.of(rows));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            Consumer<PatientAppointmentExportRow> rowConsumer = invocation.getArgument(3);
+            results.forEach(rowConsumer);
+            return null;
+        }).when(appointmentDao).streamPatientAppointments(any(), any(), any(), any());
     }
 
-    private static Object[] row(Demographic demographic, Appointment appointment, Provider provider) {
-        return new Object[] { demographic, appointment, provider };
+    private static PatientAppointmentExportRow row(
+            Demographic demographic, Appointment appointment, Provider provider) {
+        return new PatientAppointmentExportRow(
+                demographic.getLastName(), demographic.getFirstName(),
+                demographic.getPhone(), demographic.getPhone2(), appointment.getStartTime(),
+                appointment.getAppointmentDate(), appointment.getType(), provider.getFirstName(),
+                provider.getLastName(), appointment.getLocation());
     }
 
     private static Demographic demographic(String firstName, String lastName, String phone, String phone2) {

@@ -45,10 +45,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.appointment.dto.PatientAppointmentExportRow;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
-import io.github.carlos_emr.carlos.commn.model.Appointment;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -69,8 +70,6 @@ public class PatientListByAppt extends HttpServlet {
      * @param request  servlet request
      * @param response servlet response
      */
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
         try {
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -87,16 +86,14 @@ public class PatientListByAppt extends HttpServlet {
                 return;
             }
 
-            String drNo = request.getParameter("provider_no");
-            if (drNo == null || drNo.isBlank()) {
+            String providerFilter = request.getParameter("provider_no");
+            if (providerFilter == null || providerFilter.isBlank()) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST,
                         "provider_no is required");
                 return;
             }
             // clear dr no value for all doc's
-            if (drNo.equals("all")) {
-                drNo = null;
-            }
+            String providerNo = providerFilter.equals("all") ? null : providerFilter;
             String datefrom = request.getParameter("date_from");
             String dateto = request.getParameter("date_to");
 
@@ -117,40 +114,28 @@ public class PatientListByAppt extends HttpServlet {
             response.setHeader("Content-disposition", "attachment; filename=patientlist.txt");
 
             OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
+            int[] rowCount = {0};
+            String outcome = "error";
+            String errorType = null;
 
-            try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(
-                    response.getOutputStream(), StandardCharsets.UTF_8), true)) {
-
-                for (Object[] o : dao.findPatientAppointments(drNo, from, to)) {
-                    Demographic d = (Demographic) o[0];
-                    Appointment a = (Appointment) o[1];
-                    Provider p = (Provider) o[2];
-
-                    // CSV export rows — each pw.print() carries a full-id nosemgrep because
-                    // Semgrep Cloud does not honor preceding-line suppressions for this rule.
-                    // Content-Type is set to text/plain with Content-Disposition: attachment,
-                    // values pass through escapeCsv(), not an HTML context.
-                    pw.print(escapeCsv(d.getLastName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-                    pw.print(escapeCsv(d.getFirstName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-                    pw.print(escapeCsv(d.getPhone()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-                    pw.print(escapeCsv(d.getPhone2()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-                    pw.print(ConversionUtils.toTimeString(a.getStartTime()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, formatted time
-                    pw.print(ConversionUtils.toDateString(a.getAppointmentDate()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, formatted date
-                    // Appointment type is free text and optional. Strip CR and LF
-                    // individually — the legacy replaceAll("\r\n", "") only matched
-                    // CRLF pairs, so a lone newline survived, escapeCsv quoted the
-                    // field, and one appointment spilled across two output lines.
-                    // Objects.toString keeps this null-safe independently of the
-                    // entity getter's own null coalescing.
-                    String appointmentType = Objects.toString(a.getType(), "")
-                            .replace("\r", "")
-                            .replace("\n", "");
-                    pw.print(escapeCsv(appointmentType) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-                    pw.print(escapeCsv(p.getFirstName() + " " + p.getLastName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-                    pw.print(escapeCsv(a.getLocation())); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-                    pw.print("\n"); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download literal newline
+            try {
+                try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(
+                        response.getOutputStream(), StandardCharsets.UTF_8), true)) {
+                    dao.streamPatientAppointments(providerNo, from, to, row -> {
+                        writeCsvRow(pw, row);
+                        rowCount[0]++;
+                    });
+                    if (pw.checkError()) {
+                        throw new IOException("Unable to complete patient appointment export response");
+                    }
+                    outcome = "success";
                 }
-                pw.println("");
+            } catch (IOException | RuntimeException e) {
+                errorType = e.getClass().getSimpleName();
+                throw e;
+            } finally {
+                auditExport(loggedInInfo, providerFilter, datefrom, dateto,
+                        rowCount[0], outcome, errorType);
             }
         } catch (IOException e) {
             throw e;
@@ -161,6 +146,64 @@ public class PatientListByAppt extends HttpServlet {
                     "An internal error occurred. Please try again or contact your system administrator.");
             }
         }
+    }
+
+    // FindSecBugs XSS_SERVLET: this is an attachment-only CSV context and every
+    // database string passes through escapeCsv(), including formula protection.
+    @SuppressFBWarnings(value = "XSS_SERVLET",
+            justification = "attachment-only CSV output; all database strings use escapeCsv")
+    private static void writeCsvRow(PrintWriter pw, PatientAppointmentExportRow row) {
+        // CSV export rows — each pw.print() carries a full-id nosemgrep because
+        // Semgrep Cloud does not honor preceding-line suppressions for this rule.
+        // Content-Type is set to text/plain with Content-Disposition: attachment,
+        // values pass through escapeCsv(), not an HTML context.
+        pw.print(escapeCsv(row.patientLastName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+        pw.print(escapeCsv(row.patientFirstName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+        pw.print(escapeCsv(row.phone()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+        pw.print(escapeCsv(row.alternatePhone()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+        pw.print(ConversionUtils.toTimeString(row.startTime()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, formatted time
+        pw.print(ConversionUtils.toDateString(row.appointmentDate()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, formatted date
+        // Appointment type is free text and optional. Strip CR and LF
+        // individually — the legacy replaceAll("\r\n", "") only matched
+        // CRLF pairs, so a lone newline survived, escapeCsv quoted the
+        // field, and one appointment spilled across two output lines.
+        // Objects.toString keeps this null-safe independently of the
+        // entity getter's own null coalescing.
+        String appointmentType = Objects.toString(row.appointmentType(), "")
+                .replace("\r", "")
+                .replace("\n", "");
+        pw.print(escapeCsv(appointmentType) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+        pw.print(escapeCsv(row.providerFirstName() + " " + row.providerLastName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+        pw.print(escapeCsv(row.location())); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+        pw.print("\n"); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download literal newline
+    }
+
+    private void auditExport(LoggedInInfo loggedInInfo, String providerFilter,
+                             String dateFrom, String dateTo, int rowCount,
+                             String outcome, String errorType) {
+        OscarLog auditLog = new OscarLog();
+        if (loggedInInfo.getLoggedInSecurity() != null) {
+            auditLog.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+        }
+        if (loggedInInfo.getLoggedInProvider() != null) {
+            auditLog.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        }
+        auditLog.setAction(LogConst.EXPORT);
+        auditLog.setContent("patient_list_by_appointment");
+        auditLog.setContentId(providerFilter);
+        auditLog.setIp(loggedInInfo.getIp());
+        String data = "dateFrom=" + dateFrom + "; dateTo=" + dateTo
+                + "; rows=" + rowCount + "; outcome=" + outcome;
+        if (errorType != null) {
+            data += "; error=" + errorType;
+        }
+        auditLog.setData(data);
+        persistExportAudit(auditLog);
+    }
+
+    /** Test seam for verifying audit contents without persisting them. */
+    protected void persistExportAudit(OscarLog auditLog) {
+        LogAction.addLogSynchronous(auditLog);
     }
 
     private static Date parseRequiredDate(String value) {

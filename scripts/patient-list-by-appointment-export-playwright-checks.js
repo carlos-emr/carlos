@@ -57,35 +57,20 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-loopback HTTPS test app
+ *   TEST_USER, TEST_PASSWORD, and TEST_PIN are all required for non-loopback targets
  */
 
 const { chromium } = require('playwright');
 const fs = require('fs');
 
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
-// Matches a full dotted-quad IPv4 address only (anchored start-to-end), so a
-// hostname like "10.attacker.example" cannot be mistaken for the private
-// 10.0.0.0/8 range just because it starts with the same characters as one.
-function isPrivateIpv4(host) {
-  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (!match) {
-    return false;
-  }
-  const octets = match.slice(1).map(Number);
-  if (octets.some((octet) => octet > 255)) {
-    return false;
-  }
-  const [a, b] = octets;
-  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
-}
-
-function isLocalHost(rawHost) {
+function isLoopbackHost(rawHost) {
   // URL.hostname keeps the brackets on IPv6 literals (e.g. "[::1]"); strip
   // them so bracketed loopback addresses match the same as their bare form.
   const host = rawHost.toLowerCase().replace(/^\[|\]$/g, '');
-  return LOCAL_HOSTS.has(host) || isPrivateIpv4(host);
+  return LOOPBACK_HOSTS.has(host);
 }
 
 function validateBaseUrl(rawBaseUrl) {
@@ -95,8 +80,12 @@ function validateBaseUrl(rawBaseUrl) {
   }
 
   const host = parsed.hostname.toLowerCase();
-  if (!isLocalHost(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+  const loopback = isLoopbackHost(host);
+  if (!loopback && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
+  }
+  if (!loopback && parsed.protocol !== 'https:') {
+    throw new Error(`Non-loopback BASE_URL must use https, got ${parsed.protocol}`);
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
@@ -104,6 +93,10 @@ function validateBaseUrl(rawBaseUrl) {
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
+const loopbackTarget = isLoopbackHost(baseUrl.hostname);
+if (!loopbackTarget && ['TEST_USER', 'TEST_PASSWORD', 'TEST_PIN'].some((name) => !process.env[name])) {
+  throw new Error('TEST_USER, TEST_PASSWORD, and TEST_PIN are required for non-loopback targets');
+}
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
@@ -363,7 +356,7 @@ function checkRows(label, rows, expected) {
 }
 
 async function checkUnauthenticatedRejection(browser) {
-  const anonymous = await browser.newContext({ ignoreHTTPSErrors: isLocalHost(baseUrl.hostname) });
+  const anonymous = await browser.newContext({ ignoreHTTPSErrors: loopbackTarget });
   try {
     const response = await anonymous.request.get(
       appUrl(`/patientlistbyappt?provider_no=all&date_from=${SEED_DATE_FROM}&date_to=${SEED_DATE_TO}`),
@@ -385,12 +378,12 @@ async function checkUnauthenticatedRejection(browser) {
   }
   const browser = await chromium.launch(launchOptions);
   try {
-    // Certificate validation is only relaxed for local targets (self-signed dev
-    // certs are common there). A non-local target reached via ALLOW_NON_LOCAL_BASE_URL
+    // Certificate validation is only relaxed for loopback targets (self-signed dev
+    // certs are common there). A non-loopback target reached via ALLOW_NON_LOCAL_BASE_URL
     // still gets full TLS validation, so a spoofed/invalid cert can't silently
     // intercept the credentialed login this script performs.
     const context = await browser.newContext({
-      ignoreHTTPSErrors: isLocalHost(baseUrl.hostname),
+      ignoreHTTPSErrors: loopbackTarget,
       viewport: { width: 1440, height: 1000 },
       acceptDownloads: true,
     });
