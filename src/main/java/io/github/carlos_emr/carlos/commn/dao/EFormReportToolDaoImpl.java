@@ -192,9 +192,9 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         if (eformReportTool != null) {
             String tableName = getValidatedTableName(eformReportTool);
             Query q = entityManager.createNativeQuery("select count(*) from " + tableName);
-            List<Number> results = q.getResultList();
+            List<?> results = q.getResultList();
             if (!results.isEmpty()) {
-                return results.get(0).intValue();
+                return ((Number) results.get(0)).intValue();
             }
         }
         return null;

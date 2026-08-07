@@ -168,6 +168,7 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
                 assertThat(result.getName()).isEqualTo("empty_report");
                 assertThat(result.getNumRecordsInTable()).isZero();
             });
+            verify(mockEFormReportToolManager).getNumRecords(loggedInInfo, reportTool);
         }
     }
 
