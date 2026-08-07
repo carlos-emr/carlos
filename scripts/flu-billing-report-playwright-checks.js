@@ -577,6 +577,8 @@ async function run() {
       fixture.patientName = `${fixture.lastName},${fixture.firstName}`;
       fixture.expectedAge = expectedAgeFor(fixture);
       fixture.expectedDateOfBirth = `${fixture.birthYear}-${fixture.birthMonth}-${fixture.birthDay}`;
+      // Latest claim seeded below for this fixture, or blank where none is.
+      fixture.expectedBillingDate = '';
     }
 
     const primaryId = seedDemographic(primary);
@@ -584,7 +586,9 @@ async function run() {
     seedDemographic(unvaccinated);
     seedFluClaim(primaryId, primary.providerNo, primary.patientName, `${reportYear}-01-15`, 'G590A');
     seedFluClaim(primaryId, primary.providerNo, primary.patientName, `${reportYear}-10-20`, 'G591A');
+    primary.expectedBillingDate = `${reportYear}-10-20`;
     seedFluClaim(secondaryId, secondary.providerNo, secondary.patientName, `${reportYear}-05-05`, 'G590A');
+    secondary.expectedBillingDate = `${reportYear}-05-05`;
 
     const launchOptions = {
       headless: true,
@@ -657,17 +661,8 @@ async function run() {
 
     // The shape both real entry points use: no numMonth, no proNo. This must list
     // every eligible patient rather than filtering on an empty provider number.
-    // The year defaults to the current one, so the fixtures' previous-year claims
-    // correctly show as blank billing dates here.
     const defaultEntryRows = await reportRows(page, null, null, '-1');
-    for (const fixture of [primary, secondary, unvaccinated]) {
-      const row = fixtureRow(defaultEntryRows, fixture.patientName);
-      assert(row[6] === '',
-        `Default entry point showed a billing date for ${fixture.patientName} whose only claims predate the current year`);
-    }
 
-    // A malformed year must fall back to the current year, not error and not
-    // drive the year-select loop past Integer.MAX_VALUE.
     // Read the current year from the report itself rather than from the database.
     // The JSP derives it from the Tomcat JVM's clock while the fixtures come from
     // MySQL's, and in the devcontainer those are separate images; comparing across
@@ -676,6 +671,18 @@ async function run() {
     const currentYear = await page.locator('select[name="numMonth"]').inputValue();
     assert(/^\d{4}$/.test(currentYear),
       `Default report year was not a four-digit year: ${currentYear}`);
+
+    // Claims are seeded into reportYear, which is normally the year before the
+    // one this view defaults to, so the cells are blank. If the two clocks
+    // straddle a year boundary the years coincide and the claim is genuinely due
+    // to show -- expecting blank unconditionally would fail a correct server.
+    const defaultViewShowsSeededYear = currentYear === reportYear;
+    for (const fixture of [primary, secondary, unvaccinated]) {
+      const row = fixtureRow(defaultEntryRows, fixture.patientName);
+      const expected = defaultViewShowsSeededYear ? fixture.expectedBillingDate : '';
+      assert(row[6] === expected,
+        `Default entry point billing date for ${fixture.lastName} was "${row[6]}", expected "${expected}"`);
+    }
     for (const badYear of ['abc', '+2023', '2147483645', '-5', '0025']) {
       const rows = await reportRows(page, badYear, '-1');
       assert(rows.length > 0, `Malformed numMonth=${badYear} produced no rows at all`);
