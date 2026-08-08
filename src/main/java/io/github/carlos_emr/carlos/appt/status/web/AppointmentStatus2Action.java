@@ -98,6 +98,7 @@ public class AppointmentStatus2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    @SuppressWarnings("java:S3516") // Struts actions must return a configured result name on every branch.
     public String changestatus() {
         logger.warn("changestatus");
         AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();

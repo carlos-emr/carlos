@@ -59,6 +59,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
 
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String CUSTOM_STATUS_COLOR = "#897DF8";
 
     private static final StatusDefault[] STATUS_DEFAULTS = {
             new StatusDefault("t", "To Do", "#FDFEC7"),
@@ -66,12 +67,12 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
             new StatusDefault("H", "Here", "#00ee00"),
             new StatusDefault("P", "Picked", "#FFBBFF"),
             new StatusDefault("E", "Empty Room", "#FFFF33"),
-            new StatusDefault("a", "Customized 1", "#897DF8"),
-            new StatusDefault("b", "Customized 2", "#897DF8"),
-            new StatusDefault("c", "Customized 3", "#897DF8"),
-            new StatusDefault("d", "Customized 4", "#897DF8"),
-            new StatusDefault("e", "Customized 5", "#897DF8"),
-            new StatusDefault("f", "Customized 6", "#897DF8"),
+            new StatusDefault("a", "Customized 1", CUSTOM_STATUS_COLOR),
+            new StatusDefault("b", "Customized 2", CUSTOM_STATUS_COLOR),
+            new StatusDefault("c", "Customized 3", CUSTOM_STATUS_COLOR),
+            new StatusDefault("d", "Customized 4", CUSTOM_STATUS_COLOR),
+            new StatusDefault("e", "Customized 5", CUSTOM_STATUS_COLOR),
+            new StatusDefault("f", "Customized 6", CUSTOM_STATUS_COLOR),
             new StatusDefault("h", "Confirmed", "#2fcccf"),
             new StatusDefault("N", "No Show", "#cccccc"),
             new StatusDefault("C", "Cancelled", "#999999"),

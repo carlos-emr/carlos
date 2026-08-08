@@ -97,23 +97,23 @@
     <input type="hidden" name="id" value="${carlos:forHtmlAttribute(id)}"/>
     <table>
         <tr>
-            <td class="tdLabel"><fmt:message key="admin.appt.status.mgr.label.status"/>:
+            <td class="tdLabel"><label for="apptStatus"><fmt:message key="admin.appt.status.mgr.label.status"/>:</label>
             </td>
-            <td><input type="text" readonly="readonly" value="${carlos:forHtmlAttribute(apptStatus)}" size="40"/></td>
+            <td><input id="apptStatus" type="text" readonly="readonly" value="${carlos:forHtmlAttribute(apptStatus)}" size="40"/></td>
         </tr>
         <tr>
-            <td class="tdLabel"><fmt:message key="admin.appt.status.mgr.label.desc"/>:
+            <td class="tdLabel"><label for="apptDesc"><fmt:message key="admin.appt.status.mgr.label.desc"/>:</label>
             </td>
-            <td><input type="text" name="apptDesc" value="${carlos:forHtmlAttribute(apptDesc)}" size="40" maxlength="30" required /></td>
+            <td><input id="apptDesc" type="text" name="apptDesc" value="${carlos:forHtmlAttribute(apptDesc)}" size="40" maxlength="30" required /></td>
         </tr>
         <tr>
-            <td class="tdLabel"><fmt:message key="admin.appt.status.mgr.label.oldcolor"/>:
+            <td class="tdLabel"><label for="old_color"><fmt:message key="admin.appt.status.mgr.label.oldcolor"/>:</label>
             </td>
             <td><input type="text" readonly="true" id="old_color" value="${carlos:forHtmlAttribute(apptOldColor)}" size="40"/>
             </td>
         </tr>
         <tr>
-            <td class="tdLabel"><fmt:message key="admin.appt.status.mgr.label.newcolor"/>:
+            <td class="tdLabel"><label for="apptColor"><fmt:message key="admin.appt.status.mgr.label.newcolor"/>:</label>
             </td>
             <td>
                 <input id="apptColor" name="apptColor" value="${carlos:forHtmlAttribute(apptColor)}" size="20"

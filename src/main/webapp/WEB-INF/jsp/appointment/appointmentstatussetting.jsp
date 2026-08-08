@@ -56,18 +56,21 @@
 <style>
     .inline-action { display: inline; }
     .link-button { background: none; border: 0; color: #0000EE; cursor: pointer; padding: 0; text-decoration: underline; }
+    .status-header { background-color: #486ebd; }
+    .status-title { color: #FFFFFF; font-family: Helvetica, sans-serif; text-align: center; white-space: nowrap; }
+    .status-reset { color: #CCCCCC; font-family: Helvetica, sans-serif; text-align: right; white-space: nowrap; }
 </style>
 </head>
 <body>
 <table border=0 cellspacing=0 cellpadding=0 width="100%">
-    <tr bgcolor="#486ebd">
-        <th align="CENTER" NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.appt.status.mgr.title"/></font></th>
-        <th align="right" NOWRAP><font face="Helvetica" color="#CCCCCC">
+    <tr class="status-header">
+        <th class="status-title"><fmt:message key="admin.appt.status.mgr.title"/></th>
+        <th class="status-reset">
             <form class="inline-action" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/apptStatusSetting" method="post">
                 <input type="hidden" name="dispatch" value="reset"/>
                 <button class="link-button" type="submit"><fmt:message key="admin.appt.status.mgr.label.reset"/></button>
             </form>
-        </font></th>
+        </th>
     </tr>
 </table>
 
@@ -99,6 +102,8 @@
             strStatus = apptStatus.getStatus();
             strDesc = apptStatus.getDescription();
             strColor = apptStatus.getColor();
+            String displayColor = strColor != null && strColor.matches("#[0-9A-Fa-f]{6}")
+                    ? strColor : "#FFFFFF";
             iActive = apptStatus.getActive();
             iEditable = apptStatus.getEditable();
     %>
@@ -107,7 +112,7 @@
         </td>
         <td class="nowrap"><%=SafeEncode.forHtmlContent(strDesc)%>
         </td>
-        <td class="nowrap" bgcolor="<%=SafeEncode.forHtmlAttribute(strColor)%>"><%=SafeEncode.forHtmlContent(strColor)%>
+        <td class="nowrap" style="background-color: <%=SafeEncode.forHtmlAttribute(displayColor)%>"><%=SafeEncode.forHtmlContent(strColor)%>
         </td>
         <td class="nowrap"><%=iActive%>
         </td>
