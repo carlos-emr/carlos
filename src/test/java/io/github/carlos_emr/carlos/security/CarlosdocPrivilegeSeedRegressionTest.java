@@ -85,6 +85,8 @@ class CarlosdocPrivilegeSeedRegressionTest {
             "`?objectName`?\\s*=\\s*'([^']+)'", Pattern.CASE_INSENSITIVE);
     private static final Pattern ROLE_USER_GROUP_CONDITION = Pattern.compile(
             "`?roleUserGroup`?\\s*=\\s*'([^']+)'", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PRIVILEGE_CONDITION = Pattern.compile(
+            "`?privilege`?\\s*=\\s*'([^']+)'", Pattern.CASE_INSENSITIVE);
 
     /** The seed dump is a multi-MB mysqldump — read once per class, not per test. */
     private static String developmentSeedSql;
@@ -158,9 +160,11 @@ class CarlosdocPrivilegeSeedRegressionTest {
                 "('admin', '_admin.schedule', 'x', 0, '999998')",
                 "`roleUserGroup` = '999998'",
                 "`objectName` = '_admin.schedule.groupCreate'",
+                "`privilege` = 'o'",
                 "ON DUPLICATE KEY UPDATE");
         assertThat(privilegeRepairSql)
                 .doesNotContain("('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')");
+        assertPreservesCustomGroupCreateGrant(privilegeRepairSql);
     }
 
     @Test
@@ -225,6 +229,7 @@ class CarlosdocPrivilegeSeedRegressionTest {
                 "DELETE FROM `secObjPrivilege`",
                 "`roleUserGroup` = '999998'",
                 "`objectName` = '_admin.schedule.groupCreate'",
+                "`privilege` = 'o'",
                 "`provider_no` = '999998'");
         assertThat(migrationSql)
                 .doesNotContain("('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')");
@@ -232,7 +237,11 @@ class CarlosdocPrivilegeSeedRegressionTest {
                 "DELETE FROM secObjPrivilege",
                 "roleUserGroup = '999998'",
                 "objectName = '_admin.schedule.groupCreate'",
+                "privilege = 'o'",
                 "provider_no = '999998'");
+
+        assertPreservesCustomGroupCreateGrant(migrationSql);
+        assertPreservesCustomGroupCreateGrant(flywayGroupPrivilegeMigrationSql);
     }
 
     private static Map<PrivilegeKey, String> privileges(String sql) {
@@ -273,12 +282,25 @@ class CarlosdocPrivilegeSeedRegressionTest {
 
             Matcher roleUserGroup = ROLE_USER_GROUP_CONDITION.matcher(conditions);
             if (roleUserGroup.find()) {
-                privileges.remove(new PrivilegeKey(roleUserGroup.group(1), objectName.group(1)));
+                PrivilegeKey key = new PrivilegeKey(roleUserGroup.group(1), objectName.group(1));
+                Matcher privilege = PRIVILEGE_CONDITION.matcher(conditions);
+                if (!privilege.find()
+                        || privileges.getOrDefault(key, "").startsWith(privilege.group(1) + '|')) {
+                    privileges.remove(key);
+                }
             } else {
                 privileges.keySet().removeIf(key -> key.objectName().equals(objectName.group(1)));
             }
         }
         return privileges;
+    }
+
+    private static void assertPreservesCustomGroupCreateGrant(String repairSql) {
+        String customGrant = "INSERT INTO secObjPrivilege VALUES "
+                + "('999998','_admin.schedule.groupCreate','x',0,'999998');";
+        assertThat(effectivePrivileges(customGrant, repairSql))
+                .containsEntry(new PrivilegeKey("999998", "_admin.schedule.groupCreate"),
+                        "x|0|999998");
     }
 
     private record PrivilegeKey(String roleUserGroup, String objectName) {}

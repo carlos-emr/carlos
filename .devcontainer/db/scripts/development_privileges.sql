@@ -51,6 +51,7 @@ ON DUPLICATE KEY UPDATE
 DELETE FROM `secObjPrivilege`
 WHERE `roleUserGroup` = '999998'
   AND `objectName` = '_admin.schedule.groupCreate'
+  AND `privilege` = 'o'
   AND `provider_no` = '999998';
 
 -- Keep the development snapshot aligned with the current baseline cleanup.
