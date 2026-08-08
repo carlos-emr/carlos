@@ -46,7 +46,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldCreateAppointmentTypeWithValidatedValues() throws Exception {
+    void shouldCreateAppointmentType_withValidatedValues() throws Exception {
         configureSave(" 30 ");
         action.setName("  Follow Up  ");
         action.setReason("  Follow-up reason  ");
@@ -72,7 +72,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldUpdateThenReturnToAddMode() throws Exception {
+    void shouldUpdateAppointmentType_thenReturnToAddMode() throws Exception {
         AppointmentType existing = mock(AppointmentType.class);
         when(appointmentTypeDao.find(42)).thenReturn(existing);
         configureSave("45");
@@ -98,7 +98,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     @ParameterizedTest
     @NullSource
     @ValueSource(strings = {"", "0", "30:00", "abc", "-1", "2147483648"})
-    void shouldRejectInvalidDurationsWithoutMutation(String duration) throws Exception {
+    void shouldRejectSave_withoutMutationWhenDurationInvalid(String duration) throws Exception {
         configureSave(duration);
         action.setName("Invalid Duration");
 
@@ -109,7 +109,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldRejectValuesThatExceedDatabaseColumns() throws Exception {
+    void shouldRejectSave_whenValuesExceedDatabaseColumns() throws Exception {
         configureSave("15");
         action.setName("Length Test");
         action.setReason("r".repeat(81));
@@ -128,7 +128,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
 
     @ParameterizedTest
     @ValueSource(ints = {-1, 0})
-    void shouldAcceptValuesAtAndImmediatelyBelowColumnLimits(int offset) throws Exception {
+    void shouldAcceptValues_atAndImmediatelyBelowColumnLimits(int offset) throws Exception {
         configureSave("15");
         action.setName("n".repeat(50 + offset));
         action.setReason("r".repeat(80 + offset));
@@ -149,7 +149,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldAcceptAFullLengthMultisiteName() throws Exception {
+    void shouldAcceptLocation_whenMultisiteNameAtFullLength() throws Exception {
         SiteDao siteDao = mock(SiteDao.class);
         Site site = mock(Site.class);
         String siteName = "s".repeat(255);
@@ -170,7 +170,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"0", "Unknown Site"})
-    void shouldRejectUnknownLocationWhenMultisitesEnabled(String location) throws Exception {
+    void shouldRejectLocation_whenUnknownAndMultisitesEnabled(String location) throws Exception {
         SiteDao siteDao = mock(SiteDao.class);
         Site site = mock(Site.class);
         when(site.getName()).thenReturn("Main Site");
@@ -186,7 +186,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldAllowFreeTextLocationWhenMultisiteHasNoActiveSites() throws Exception {
+    void shouldAllowFreeTextLocation_whenMultisiteHasNoActiveSites() throws Exception {
         SiteDao siteDao = mock(SiteDao.class);
         when(siteDao.getAllActiveSites()).thenReturn(List.of());
         action.enableMultisites(siteDao);
@@ -201,7 +201,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     @ParameterizedTest
     @NullSource
     @ValueSource(strings = {"", " ", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"})
-    void shouldRejectInvalidNamesWithoutMutation(String name) throws Exception {
+    void shouldRejectSave_withoutMutationWhenNameInvalid(String name) throws Exception {
         configureSave("15");
         action.setName(name);
 
@@ -212,7 +212,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldPreserveSubmittedValuesWhenValidationFails() throws Exception {
+    void shouldPreserveSubmittedValues_whenValidationFails() throws Exception {
         configureSave("30:00");
         action.setName("Preserved Type");
         action.setReason("Preserved reason");
@@ -224,7 +224,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldLoadExistingTypeForEdit() throws Exception {
+    void shouldLoadExistingType_forEdit() throws Exception {
         AppointmentType existing = mock(AppointmentType.class);
         when(existing.getId()).thenReturn(42);
         when(existing.getName()).thenReturn("Consult");
@@ -246,7 +246,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldIgnoreInvalidIdentifierOnPlainListView() throws Exception {
+    void shouldIgnoreInvalidIdentifier_onPlainListView() throws Exception {
         mockRequest.setMethod("GET");
         addRequestParameter("id", "invalid");
         addRequestParameter("no", "also-invalid");
@@ -257,7 +257,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldRejectInvalidIdentifierInsteadOfCreatingNewType() throws Exception {
+    void shouldRejectSave_insteadOfCreatingWhenIdentifierInvalid() throws Exception {
         configureSave("30");
         addRequestParameter("id", "invalid");
         action.setName("Must Not Save");
@@ -267,7 +267,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldRejectUpdateWhenTypeNoLongerExists() throws Exception {
+    void shouldRejectUpdate_whenTypeNoLongerExists() throws Exception {
         configureSave("30");
         addRequestParameter("id", "42");
         action.setId(42);
@@ -280,7 +280,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldDeleteExistingTypeOnPost() throws Exception {
+    void shouldDeleteExistingType_whenRequestIsPost() throws Exception {
         mockRequest.setMethod("POST");
         addRequestParameter("oper", "del");
         addRequestParameter("no", "42");
@@ -301,7 +301,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldReportDeleteFailure() throws Exception {
+    void shouldReportFailure_whenDeleteThrows() throws Exception {
         doThrow(new RuntimeException("database failure")).when(appointmentTypeDao).remove(42);
         mockRequest.setMethod("POST");
         addRequestParameter("oper", "del");
@@ -313,7 +313,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"save", "del"})
-    void shouldRejectMutationsOverGet(String operation) throws Exception {
+    void shouldRejectMutations_whenRequestIsGet(String operation) throws Exception {
         mockRequest.setMethod("GET");
         addRequestParameter("oper", operation);
 
