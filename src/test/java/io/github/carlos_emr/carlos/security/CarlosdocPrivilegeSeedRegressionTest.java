@@ -199,12 +199,12 @@ class CarlosdocPrivilegeSeedRegressionTest {
         assertThat(bcSeedSql).contains(
                 "('999998','_admin.schedule.groupCreate','o',1,'999998')");
 
-        assertThat(effectivePrivileges(seedSql, flywayGroupPrivilegeMigrationSql).entrySet()).noneMatch(entry ->
-                entry.getKey().roleUserGroup().equals("999998")
-                        && entry.getValue().startsWith("o|"));
-        assertThat(effectivePrivileges(bcSeedSql, flywayGroupPrivilegeMigrationSql).entrySet()).noneMatch(entry ->
-                entry.getKey().roleUserGroup().equals("999998")
-                        && entry.getValue().startsWith("o|"));
+        PrivilegeKey carlosdocGroupCreate =
+                new PrivilegeKey("999998", "_admin.schedule.groupCreate");
+        assertThat(effectivePrivileges(seedSql, flywayGroupPrivilegeMigrationSql))
+                .doesNotContainKey(carlosdocGroupCreate);
+        assertThat(effectivePrivileges(bcSeedSql, flywayGroupPrivilegeMigrationSql))
+                .doesNotContainKey(carlosdocGroupCreate);
     }
 
     @Test
