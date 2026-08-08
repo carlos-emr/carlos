@@ -66,6 +66,9 @@ class CarlosdocPrivilegeSeedRegressionTest {
             Path.of(".devcontainer", "development", "setup", "seed_data.sh");
     private static final Path SEED = Path.of("database", "mysql", "migration", "on", "V1.0.2__on_data.sql");
     private static final Path BC_SEED = Path.of("database", "mysql", "migration", "bc", "V1.0.2__bc_data.sql");
+    private static final Path FLYWAY_GROUP_PRIVILEGE_MIGRATION = Path.of(
+            "database", "mysql", "migration", "common",
+            "V1.0.8__remove_carlosdoc_schedule_group_denial.sql");
     private static final Path MIGRATION = Path.of("database", "mysql", "updates",
             "update-2026-05-21-carlosdoc-schedule-group-privilege.sql");
     private static final Pattern SEC_OBJ_PRIVILEGE_INSERT = Pattern.compile(
@@ -76,20 +79,26 @@ class CarlosdocPrivilegeSeedRegressionTest {
             "\\(\\s*'(admin|999998)'\\s*,\\s*'([^']+)'\\s*,\\s*'([^']+)'\\s*,"
                     + "\\s*(\\d+)\\s*,\\s*'([^']+)'\\s*\\)");
     private static final Pattern PRIVILEGE_DELETE = Pattern.compile(
-            "DELETE\\s+FROM\\s+`?secObjPrivilege`?\\s+WHERE\\s+`?objectName`?"
-                    + "\\s*=\\s*'([^']+)'\\s*;",
-            Pattern.CASE_INSENSITIVE);
+            "DELETE\\s+FROM\\s+`?secObjPrivilege`?\\s+WHERE\\s+(.+?);",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern OBJECT_NAME_CONDITION = Pattern.compile(
+            "`?objectName`?\\s*=\\s*'([^']+)'", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ROLE_USER_GROUP_CONDITION = Pattern.compile(
+            "`?roleUserGroup`?\\s*=\\s*'([^']+)'", Pattern.CASE_INSENSITIVE);
 
     /** The seed dump is a multi-MB mysqldump — read once per class, not per test. */
     private static String developmentSeedSql;
     private static String seedSql;
     private static String bcSeedSql;
+    private static String flywayGroupPrivilegeMigrationSql;
 
     @BeforeAll
     static void loadSeed() throws IOException {
         developmentSeedSql = Files.readString(DEVELOPMENT_SEED, StandardCharsets.UTF_8);
         seedSql = Files.readString(SEED, StandardCharsets.UTF_8);
         bcSeedSql = Files.readString(BC_SEED, StandardCharsets.UTF_8);
+        flywayGroupPrivilegeMigrationSql = Files.readString(
+                FLYWAY_GROUP_PRIVILEGE_MIGRATION, StandardCharsets.UTF_8);
     }
 
     @Test
@@ -130,21 +139,28 @@ class CarlosdocPrivilegeSeedRegressionTest {
         Map<PrivilegeKey, String> repairPrivileges = privileges(privilegeRepairSql);
         Map<PrivilegeKey, String> repairedPrivileges = effectivePrivileges(
                 developmentSeedSql, privilegeRepairSql);
+        Map<PrivilegeKey, String> onFinalPrivileges = effectivePrivileges(
+                seedSql, flywayGroupPrivilegeMigrationSql);
+        Map<PrivilegeKey, String> bcFinalPrivileges = effectivePrivileges(
+                bcSeedSql, flywayGroupPrivilegeMigrationSql);
 
         assertThat(baselinePrivileges).isNotEmpty();
         assertThat(bcBaselinePrivileges).isNotEmpty();
-        assertThat(repairPrivileges).hasSize(8);
-        assertThat(repairedPrivileges).isEqualTo(baselinePrivileges);
-        assertThat(baselinePrivileges).containsAllEntriesOf(repairPrivileges);
-        assertThat(bcBaselinePrivileges).containsAllEntriesOf(repairPrivileges);
+        assertThat(repairPrivileges).hasSize(7);
+        assertThat(repairedPrivileges).isEqualTo(onFinalPrivileges);
+        assertThat(onFinalPrivileges).containsAllEntriesOf(repairPrivileges);
+        assertThat(bcFinalPrivileges).containsAllEntriesOf(repairPrivileges);
         assertThat(repairedPrivileges.keySet())
                 .noneMatch(key -> key.objectName().equals("_admin.traceability"));
         assertThat(privilegeTupleCount(privilegeRepairSql))
                 .isEqualTo(privileges(privilegeRepairSql).size());
         assertThat(privilegeRepairSql).contains(
                 "('admin', '_admin.schedule', 'x', 0, '999998')",
-                "('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')",
+                "`roleUserGroup` = '999998'",
+                "`objectName` = '_admin.schedule.groupCreate'",
                 "ON DUPLICATE KEY UPDATE");
+        assertThat(privilegeRepairSql)
+                .doesNotContain("('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')");
     }
 
     @Test
@@ -166,12 +182,25 @@ class CarlosdocPrivilegeSeedRegressionTest {
     }
 
     @Test
-    @DisplayName("should deny carlosdoc schedule group creation in seed")
-    void shouldDenyCarlosdocGroupCreation_whenSeeded() throws IOException {
+    @DisplayName("should grant schedule group creation through the carlosdoc admin role")
+    void shouldGrantCarlosdocGroupCreation_whenSeeded() {
         assertThat(seedSql).contains(
                 "('_admin.schedule.groupCreate','Create schedule provider groups',0)",
-                "('admin','_admin.schedule.groupCreate','x',0,'999998')",
+                "('admin','_admin.schedule.groupCreate','x',0,'999998')");
+        assertThat(bcSeedSql).contains(
+                "('_admin.schedule.groupCreate','Create schedule provider groups',0)",
+                "('admin','_admin.schedule.groupCreate','x',0,'999998')");
+        assertThat(seedSql).contains(
                 "('999998','_admin.schedule.groupCreate','o',1,'999998')");
+        assertThat(bcSeedSql).contains(
+                "('999998','_admin.schedule.groupCreate','o',1,'999998')");
+
+        assertThat(effectivePrivileges(seedSql, flywayGroupPrivilegeMigrationSql).entrySet()).noneMatch(entry ->
+                entry.getKey().roleUserGroup().equals("999998")
+                        && entry.getValue().startsWith("o|"));
+        assertThat(effectivePrivileges(bcSeedSql, flywayGroupPrivilegeMigrationSql).entrySet()).noneMatch(entry ->
+                entry.getKey().roleUserGroup().equals("999998")
+                        && entry.getValue().startsWith("o|"));
     }
 
     @Test
@@ -186,14 +215,24 @@ class CarlosdocPrivilegeSeedRegressionTest {
     }
 
     @Test
-    @DisplayName("should apply carlosdoc group creation override in migration")
-    void shouldApplyCarlosdocOverride_whenMigrationRuns() throws IOException {
+    @DisplayName("should remove the carlosdoc group creation override in migration")
+    void shouldRemoveCarlosdocOverride_whenMigrationRuns() throws IOException {
         String migrationSql = Files.readString(MIGRATION, StandardCharsets.UTF_8);
 
         assertThat(migrationSql).contains(
                 "('_admin.schedule.groupCreate', 'Create schedule provider groups', 0)",
                 "('admin', '_admin.schedule.groupCreate', 'x', 0, '999998')",
-                "('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')");
+                "DELETE FROM `secObjPrivilege`",
+                "`roleUserGroup` = '999998'",
+                "`objectName` = '_admin.schedule.groupCreate'",
+                "`provider_no` = '999998'");
+        assertThat(migrationSql)
+                .doesNotContain("('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')");
+        assertThat(flywayGroupPrivilegeMigrationSql).contains(
+                "DELETE FROM secObjPrivilege",
+                "roleUserGroup = '999998'",
+                "objectName = '_admin.schedule.groupCreate'",
+                "provider_no = '999998'");
     }
 
     private static Map<PrivilegeKey, String> privileges(String sql) {
@@ -226,7 +265,18 @@ class CarlosdocPrivilegeSeedRegressionTest {
 
         Matcher deletedPrivilege = PRIVILEGE_DELETE.matcher(repair);
         while (deletedPrivilege.find()) {
-            privileges.keySet().removeIf(key -> key.objectName().equals(deletedPrivilege.group(1)));
+            String conditions = deletedPrivilege.group(1);
+            Matcher objectName = OBJECT_NAME_CONDITION.matcher(conditions);
+            if (!objectName.find()) {
+                continue;
+            }
+
+            Matcher roleUserGroup = ROLE_USER_GROUP_CONDITION.matcher(conditions);
+            if (roleUserGroup.find()) {
+                privileges.remove(new PrivilegeKey(roleUserGroup.group(1), objectName.group(1)));
+            } else {
+                privileges.keySet().removeIf(key -> key.objectName().equals(objectName.group(1)));
+            }
         }
         return privileges;
     }

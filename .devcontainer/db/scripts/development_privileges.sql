@@ -40,12 +40,18 @@ VALUES
     ('admin', '_admin.misc', 'x', 0, '999998'),
     ('admin', '_admin.schedule', 'x', 0, '999998'),
     ('admin', '_admin.schedule.groupCreate', 'x', 0, '999998'),
-    ('admin', '_site_access_privacy', 'x', 0, '999998'),
-    ('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')
+    ('admin', '_site_access_privacy', 'x', 0, '999998')
 ON DUPLICATE KEY UPDATE
     `privilege` = VALUES(`privilege`),
     `priority` = VALUES(`priority`),
     `provider_no` = VALUES(`provider_no`);
+
+-- carlosdoc is the local test administrator and should inherit the admin role
+-- grant rather than a higher-priority provider-specific denial.
+DELETE FROM `secObjPrivilege`
+WHERE `roleUserGroup` = '999998'
+  AND `objectName` = '_admin.schedule.groupCreate'
+  AND `provider_no` = '999998';
 
 -- Keep the development snapshot aligned with the current baseline cleanup.
 DELETE FROM `secObjPrivilege`
