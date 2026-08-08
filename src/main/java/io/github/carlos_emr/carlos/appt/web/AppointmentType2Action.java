@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.AppointmentType;
 import io.github.carlos_emr.carlos.commn.model.Site;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
@@ -55,10 +56,12 @@ public class AppointmentType2Action extends ActionSupport {
     private static final int TEXT_MAX_LENGTH = 80;
     private static final int LOCATION_MAX_LENGTH = 255;
     private static final int RESOURCES_MAX_LENGTH = 10;
+    private static final String DURATION_ERROR = "appointment.type.duration.error";
     private static final String DELETE_SUCCESS_FLASH =
             AppointmentType2Action.class.getName() + ".deleteSuccess";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private List<Site> activeSites;
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -135,6 +138,7 @@ public class AppointmentType2Action extends ActionSupport {
                     request.getSession().setAttribute(DELETE_SUCCESS_FLASH, Boolean.TRUE);
                     return "redirect";
                 } catch (Exception e) {
+                    MiscUtils.getLogger().error("Could not delete appointment type {}", typeNo, e);
                     addActionError(getText("appointment.type.delete.error"));
                     return failure();
                 }
@@ -164,9 +168,7 @@ public class AppointmentType2Action extends ActionSupport {
     private void populateLocations() {
         if (isMultisitesEnabled()) {
             List<LabelValueBean> locations = new ArrayList<LabelValueBean>();
-            SiteDao siteDao = getSiteDao();
-            List<Site> sites = siteDao.getAllActiveSites();
-            for (Site site : sites) {
+            for (Site site : getActiveSites()) {
                 locations.add(new LabelValueBean(site.getName(), Integer.toString(site.getSiteId())));
             }
             request.setAttribute("locationsList", locations);
@@ -206,20 +208,21 @@ public class AppointmentType2Action extends ActionSupport {
         validateLength(normalize(notes), TEXT_MAX_LENGTH, "appointment.type.notes.length.error");
         validateLength(normalize(location), LOCATION_MAX_LENGTH, "appointment.type.location.length.error");
         validateLength(normalize(resources), RESOURCES_MAX_LENGTH, "appointment.type.resources.length.error");
+        validateMultisiteLocation();
 
-        if (duration == null || duration.isEmpty() || !duration.matches("[0-9]+")) {
-            addActionError(getText("appointment.type.duration.error"));
+        if (duration == null || duration.isEmpty() || !duration.matches("\\d+")) {
+            addActionError(getText(DURATION_ERROR));
             return null;
         }
         try {
             int parsed = Integer.parseInt(duration);
             if (parsed <= 0) {
-                addActionError(getText("appointment.type.duration.error"));
+                addActionError(getText(DURATION_ERROR));
                 return null;
             }
             return parsed;
         } catch (NumberFormatException e) {
-            addActionError(getText("appointment.type.duration.error"));
+            addActionError(getText(DURATION_ERROR));
             return null;
         }
     }
@@ -228,6 +231,33 @@ public class AppointmentType2Action extends ActionSupport {
         if (value != null && value.length() > maximum) {
             addActionError(getText(messageKey));
         }
+    }
+
+    private void validateMultisiteLocation() {
+        if (!isMultisitesEnabled()) {
+            return;
+        }
+
+        List<Site> sites = getActiveSites();
+        if (sites.isEmpty()) {
+            return;
+        }
+
+        String normalizedLocation = normalize(location);
+        for (Site site : sites) {
+            String siteName = normalize(site.getName());
+            if (siteName != null && siteName.equals(normalizedLocation)) {
+                return;
+            }
+        }
+        addActionError(getText("appointment.type.location.error"));
+    }
+
+    private List<Site> getActiveSites() {
+        if (activeSites == null) {
+            activeSites = getSiteDao().getAllActiveSites();
+        }
+        return activeSites;
     }
 
     private void populateBean(AppointmentType bean, int parsedDuration) {

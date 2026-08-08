@@ -25,6 +25,7 @@ import org.mockito.ArgumentCaptor;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -160,6 +161,36 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"0", "Unknown Site"})
+    void shouldRejectUnknownLocationWhenMultisitesEnabled(String location) throws Exception {
+        SiteDao siteDao = mock(SiteDao.class);
+        Site site = mock(Site.class);
+        when(site.getName()).thenReturn("Main Site");
+        when(siteDao.getAllActiveSites()).thenReturn(List.of(site));
+        action.enableMultisites(siteDao);
+        configureSave("15");
+        action.setName("Multisite Type");
+        action.setLocation(location);
+
+        assertThat(executeAction(action)).isEqualTo("failure");
+        assertThat(action.getActionErrors()).contains("appointment.type.location.error");
+        verify(appointmentTypeDao, never()).persist(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void shouldAllowFreeTextLocationWhenMultisiteHasNoActiveSites() throws Exception {
+        SiteDao siteDao = mock(SiteDao.class);
+        when(siteDao.getAllActiveSites()).thenReturn(List.of());
+        action.enableMultisites(siteDao);
+        configureSave("15");
+        action.setName("Remote Type");
+        action.setLocation("Remote");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        verify(appointmentTypeDao).persist(org.mockito.ArgumentMatchers.any());
+    }
+
+    @ParameterizedTest
     @NullSource
     @ValueSource(strings = {"", " ", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"})
     void shouldRejectInvalidNamesWithoutMutation(String name) throws Exception {
@@ -259,6 +290,17 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
         TestAppointmentType2Action refreshedAction = new TestAppointmentType2Action(appointmentTypeDao);
         assertThat(executeAction(refreshedAction)).isEqualTo(ActionSupport.SUCCESS);
         assertThat(refreshedAction.getActionMessages()).isEmpty();
+    }
+
+    @Test
+    void shouldReportDeleteFailure() throws Exception {
+        doThrow(new RuntimeException("database failure")).when(appointmentTypeDao).remove(42);
+        mockRequest.setMethod("POST");
+        addRequestParameter("oper", "del");
+        addRequestParameter("no", "42");
+
+        assertThat(executeAction(action)).isEqualTo("failure");
+        assertThat(action.getActionErrors()).containsExactly("appointment.type.delete.error");
     }
 
     @ParameterizedTest

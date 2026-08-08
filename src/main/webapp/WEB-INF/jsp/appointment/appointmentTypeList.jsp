@@ -104,6 +104,8 @@
     <style>
         .inline-action { display: inline; }
         .link-button { background: none; border: 0; color: #0000EE; cursor: pointer; padding: 0; text-decoration: underline; }
+        .form-title { font-family: Helvetica, sans-serif; }
+        .field-label { font-family: Arial, sans-serif; }
     </style>
 </head>
 <body topmargin="0" leftmargin="0" rightmargin="0">
@@ -117,12 +119,10 @@
             <table border="0" cellspacing="0" cellpadding="0" width="100%">
                 <tr bgcolor="#486ebd" height="30">
                     <th align="LEFT" width="90%">
-                        <font face="Helvetica" color="#FFFFFF">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                        </font>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                     </th>
                     <td nowrap>
-                        <font size="-1" color="#FFFFFF">&nbsp;
-                        </font>
+                        &nbsp;
                     </td>
                 </tr>
             </table>
@@ -144,12 +144,12 @@
                                        VALUE="${carlos:forHtmlAttribute(id)}"/>
                                 <table border=0 cellspacing=0 cellpadding=0 width="100%">
                                     <tr bgcolor="#CCCCFF">
-                                        <th><font face="Helvetica">
+                                        <th class="form-title">
                                             <c:choose>
                                                 <c:when test="${not empty id}"><fmt:message key="appointment.appointmentTypeList.formEditTitle"/></c:when>
                                                 <c:otherwise><fmt:message key="appointment.appointmentTypeList.formAddTitle"/></c:otherwise>
                                             </c:choose>
-                                        </font></th>
+                                        </th>
                                     </tr>
                                 </table>
                                 <table border="0" cellpadding="0" cellspacing="0" width="100%">
@@ -159,42 +159,40 @@
                                                    BGCOLOR="#C0C0C0">
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
                                                     <td width="30%">
-                                                        <div align="right"><font face="arial"><fmt:message key="name"/><fmt:message key="global.labelSeparator"/></font></div>
+                                                        <div align="right"><label class="field-label" for="appointmentTypeName"><fmt:message key="name"/><fmt:message key="global.labelSeparator"/></label></div>
                                                     </td>
-                                                    <td width="25%"><INPUT TYPE="TEXT" NAME="name"
+                                                    <td width="25%"><INPUT TYPE="TEXT" NAME="name" id="appointmentTypeName"
                                                                            VALUE="${carlos:forHtmlAttribute(name)}"
-                                                                           WIDTH="10" HEIGHT="20" border="0" hspace="2"
-                                                                           maxlength="50"
-                                                                           required>
+                                                                           size="10" maxlength="50"
+                                                                           required></td>
                                                     <td width="20%">
-                                                        <div align="right"><font face="arial"><fmt:message key="duration"/><fmt:message key="global.labelSeparator"/></font></div>
+                                                        <div align="right"><label class="field-label" for="appointmentTypeDuration"><fmt:message key="duration"/><fmt:message key="global.labelSeparator"/></label></div>
                                                     </td>
-                                                    <td width="25%"><INPUT TYPE="text" NAME="duration"
+                                                    <td width="25%"><INPUT TYPE="text" NAME="duration" id="appointmentTypeDuration"
                                                                            VALUE="${carlos:forHtmlAttribute(duration)}"
-                                                                           WIDTH="5" HEIGHT="20" border="0"
+                                                                           size="5"
                                                                            inputmode="numeric" pattern="[0-9]+"
                                                                            maxlength="10" required></td>
                                                 </tr>
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
                                                     <td>
-                                                        <div align="right"><font face="arial"><font
-                                                                face="arial"><fmt:message key="reason"/><fmt:message key="global.labelSeparator"/></font></font></div>
+                                                        <div align="right"><label class="field-label" for="appointmentTypeReason"><fmt:message key="reason"/><fmt:message key="global.labelSeparator"/></label></div>
                                                     </td>
-                                                    <td><TEXTAREA NAME="reason" COLS="40" ROWS="2" border="0" hspace="2"
+                                                    <td><TEXTAREA NAME="reason" id="appointmentTypeReason" COLS="40" ROWS="2"
                                                                   maxlength="80">${carlos:forHtmlContent(reason)}</TEXTAREA>
                                                     </td>
                                                     <td>
-                                                        <div align="right"><font face="arial"><fmt:message key="Appointment.formNotes"/><fmt:message key="global.labelSeparator"/></font></div>
+                                                        <div align="right"><label class="field-label" for="appointmentTypeNotes"><fmt:message key="Appointment.formNotes"/><fmt:message key="global.labelSeparator"/></label></div>
                                                     </td>
-                                                    <td><TEXTAREA NAME="notes" COLS="40" ROWS="2" border="0" hspace="2"
+                                                    <td><TEXTAREA NAME="notes" id="appointmentTypeNotes" COLS="40" ROWS="2"
                                                                   maxlength="80">${carlos:forHtmlContent(notes)}</TEXTAREA>
                                                     </td>
                                                 </tr>
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
-                                                    <td align="right"><font face="arial"><fmt:message key="location"/><fmt:message key="global.labelSeparator"/></font></td>
+                                                    <td align="right"><label class="field-label" for="appointmentTypeLocation"><fmt:message key="location"/><fmt:message key="global.labelSeparator"/></label></td>
                                                     <td>
                                                         <c:if test="${not empty locationsList}">
-                                                            <select name="location">
+                                                            <select name="location" id="appointmentTypeLocation">
                                                                 <option value="0"><fmt:message key="appointment.appointmentTypeList.lblSelectLocation"/></option>
                                                                 <c:forEach var="siteLocation" items="${locationsList}">
                                                                     <c:set var="locValue" value="${siteLocation.label}" />
@@ -206,18 +204,17 @@
                                                         </c:if>
 
                                                         <c:if test="${empty locationsList}">
-                                                            <input type="text" name="location"
+                                                            <input type="text" name="location" id="appointmentTypeLocation"
                                                                    value="${carlos:forHtmlAttribute(location)}"
-                                                                   width="30" height="20" border="0" hspace="2" maxlength="255"/>
+                                                                   size="30" maxlength="255"/>
                                                         </c:if>
                                                     </td>
                                                     <td>
-                                                        <div align="right"><font face="arial"><fmt:message key="Appointment.formResources"/><fmt:message key="global.labelSeparator"/></font></div>
+                                                        <div align="right"><label class="field-label" for="appointmentTypeResources"><fmt:message key="Appointment.formResources"/><fmt:message key="global.labelSeparator"/></label></div>
                                                     </td>
-                                                    <td><INPUT TYPE="TEXT" NAME="resources"
+                                                    <td><INPUT TYPE="TEXT" NAME="resources" id="appointmentTypeResources"
                                                                VALUE="${carlos:forHtmlAttribute(resources)}"
-                                                               WIDTH="10" HEIGHT="20" maxlength="10" border="0"
-                                                               hspace="2"></td>
+                                                               size="10" maxlength="10"></td>
                                                 </tr>
                                             </table>
                                         </td>
