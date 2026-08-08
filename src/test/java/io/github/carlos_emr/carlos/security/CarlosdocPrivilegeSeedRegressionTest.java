@@ -81,6 +81,11 @@ class CarlosdocPrivilegeSeedRegressionTest {
     private static final Pattern PRIVILEGE_DELETE = Pattern.compile(
             "DELETE\\s+FROM\\s+`?secObjPrivilege`?\\s+WHERE\\s+(.+?);",
             Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern PRIVILEGE_OPERATION = Pattern.compile(
+            "INSERT\\s+INTO\\s+`?secObjPrivilege`?(?:\\s*\\([^)]*\\))?"
+                    + "\\s+VALUES\\s+[^;]+;"
+                    + "|DELETE\\s+FROM\\s+`?secObjPrivilege`?\\s+WHERE\\s+.+?;",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
     private static final Pattern OBJECT_NAME_CONDITION = Pattern.compile(
             "`?objectName`?\\s*=\\s*'([^']+)'", Pattern.CASE_INSENSITIVE);
     private static final Pattern ROLE_USER_GROUP_CONDITION = Pattern.compile(
@@ -244,6 +249,23 @@ class CarlosdocPrivilegeSeedRegressionTest {
         assertPreservesCustomGroupCreateGrant(flywayGroupPrivilegeMigrationSql);
     }
 
+    @Test
+    @DisplayName("should model privilege repair statements in source order")
+    void shouldModelPrivilegeRepairs_inSourceOrder() {
+        PrivilegeKey key = new PrivilegeKey("999998", "_admin.schedule.groupCreate");
+        String delete = "DELETE FROM secObjPrivilege "
+                + "WHERE roleUserGroup = '999998' "
+                + "AND objectName = '_admin.schedule.groupCreate' "
+                + "AND privilege = 'o';";
+        String insert = "INSERT INTO secObjPrivilege VALUES "
+                + "('999998','_admin.schedule.groupCreate','o',1,'999998');";
+
+        assertThat(effectivePrivileges("", delete + insert))
+                .containsEntry(key, "o|1|999998");
+        assertThat(effectivePrivileges("", insert + delete))
+                .doesNotContainKey(key);
+    }
+
     private static Map<PrivilegeKey, String> privileges(String sql) {
         Map<PrivilegeKey, String> privileges = new LinkedHashMap<>();
         Matcher insert = SEC_OBJ_PRIVILEGE_INSERT.matcher(sql);
@@ -270,10 +292,19 @@ class CarlosdocPrivilegeSeedRegressionTest {
 
     private static Map<PrivilegeKey, String> effectivePrivileges(String seed, String repair) {
         Map<PrivilegeKey, String> privileges = privileges(seed);
-        privileges.putAll(privileges(repair));
+        Matcher operation = PRIVILEGE_OPERATION.matcher(repair);
+        while (operation.find()) {
+            String statement = operation.group();
+            Map<PrivilegeKey, String> insertedPrivileges = privileges(statement);
+            if (!insertedPrivileges.isEmpty()) {
+                privileges.putAll(insertedPrivileges);
+                continue;
+            }
 
-        Matcher deletedPrivilege = PRIVILEGE_DELETE.matcher(repair);
-        while (deletedPrivilege.find()) {
+            Matcher deletedPrivilege = PRIVILEGE_DELETE.matcher(statement);
+            if (!deletedPrivilege.find()) {
+                continue;
+            }
             String conditions = deletedPrivilege.group(1);
             Matcher objectName = OBJECT_NAME_CONDITION.matcher(conditions);
             if (!objectName.find()) {
