@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AppointmentStatus2ActionStrutsBindingIntegrationTest extends CarlosWebTestBase {
 
     @Test
-    void shouldBindRawRequestValuesThroughTheStrutsParameterInterceptor() throws Exception {
+    void shouldBindRawRequestValues_throughStrutsParameterInterceptor() throws Exception {
         AppointmentStatus2Action bindingAction = bindRawParametersThroughStruts(Map.of(
                 "id", "13",
                 "active", "0",
@@ -43,7 +43,7 @@ class AppointmentStatus2ActionStrutsBindingIntegrationTest extends CarlosWebTest
     }
 
     @Test
-    void shouldRejectRawValuesThatCannotBeCoercedByStruts() throws Exception {
+    void shouldRejectRawValues_whenStrutsCannotCoerceThem() throws Exception {
         AppointmentStatus2Action bindingAction = bindRawParametersThroughStruts(
                 Map.of("id", "not-a-number", "active", "false"));
 

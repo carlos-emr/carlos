@@ -201,7 +201,7 @@ class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reset descriptions and colours by stable status code")
-    void shouldResetDescriptionsAndColoursByStableStatusCode() {
+    void shouldResetDescriptionsAndColours_byStableStatusCode() {
         when(appointmentStatusDao.findByStatus("f")).thenReturn(status(702, "f"));
         when(appointmentStatusDao.findByStatus("h")).thenReturn(status(311, "h"));
         when(appointmentStatusDao.findByStatus("N")).thenReturn(status(905, "N"));

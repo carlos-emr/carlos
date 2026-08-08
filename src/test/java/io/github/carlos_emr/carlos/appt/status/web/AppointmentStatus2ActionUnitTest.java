@@ -51,7 +51,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldLoadExistingStatusForEdit() throws Exception {
+    void shouldLoadExistingStatus_forEdit() throws Exception {
         addRequestParameter("dispatch", "modify");
         action.setId(13);
 
@@ -63,7 +63,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldUseSafeDefaultWhenEditingStatusWithLegacyBlankColour() throws Exception {
+    void shouldUseSafeDefault_whenEditingStatusWithLegacyBlankColour() throws Exception {
         AppointmentStatus legacyStatus = new AppointmentStatus();
         legacyStatus.setId(14);
         legacyStatus.setStatus("C");
@@ -79,7 +79,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldShowValidationErrorWhenEditIdDoesNotExist() throws Exception {
+    void shouldShowValidationError_whenEditIdDoesNotExist() throws Exception {
         addRequestParameter("dispatch", "modify");
         action.setId(9999);
 
@@ -88,7 +88,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldPersistValidatedDescriptionAndColour() throws Exception {
+    void shouldPersistValidatedDescriptionAndColour_whenUpdatingStatus() throws Exception {
         mockRequest.setMethod("POST");
         addRequestParameter("dispatch", "update");
         action.setId(13);
@@ -101,7 +101,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldPersistDescriptionOnlyEdit() throws Exception {
+    void shouldPersistDescription_whenOnlyDescriptionEdited() throws Exception {
         mockRequest.setMethod("POST");
         addRequestParameter("dispatch", "update");
         action.setId(13);
@@ -113,7 +113,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldPersistColourOnlyEdit() throws Exception {
+    void shouldPersistColour_whenOnlyColourEdited() throws Exception {
         mockRequest.setMethod("POST");
         addRequestParameter("dispatch", "update");
         action.setId(13);
@@ -125,7 +125,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldRejectInvalidUpdateValuesWithoutMutation() throws Exception {
+    void shouldRejectUpdate_withoutMutationWhenValuesInvalid() throws Exception {
         mockRequest.setMethod("POST");
         addRequestParameter("dispatch", "update");
         action.setId(13);
@@ -138,7 +138,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldRejectOverlengthDescriptionWithoutMutation() throws Exception {
+    void shouldRejectUpdate_withoutMutationWhenDescriptionOverlength() throws Exception {
         mockRequest.setMethod("POST");
         addRequestParameter("dispatch", "update");
         action.setId(13);
@@ -152,7 +152,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldRejectMissingUpdateIdWithoutMutation() throws Exception {
+    void shouldRejectUpdate_withoutMutationWhenIdMissing() throws Exception {
         mockRequest.setMethod("POST");
         addRequestParameter("dispatch", "update");
         action.setApptDesc("Valid description");
@@ -165,7 +165,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldChangeStatusWhenPostValuesAreValid() throws Exception {
+    void shouldChangeStatus_whenPostValuesValid() throws Exception {
         mockRequest.setMethod("POST");
         addRequestParameter("dispatch", "changestatus");
         action.setId(13);
@@ -176,7 +176,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldRejectInvalidActiveValue() throws Exception {
+    void shouldRejectChange_whenActiveValueInvalid() throws Exception {
         mockRequest.setMethod("POST");
         addRequestParameter("dispatch", "changestatus");
         action.setId(13);
@@ -188,7 +188,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldResetStatusesOnPost() throws Exception {
+    void shouldResetStatuses_whenRequestIsPost() throws Exception {
         mockRequest.setMethod("POST");
         addRequestParameter("dispatch", "reset");
 
@@ -198,7 +198,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"update", "changestatus", "reset"})
-    void shouldRejectMutationDispatchesOverGet(String dispatch) throws Exception {
+    void shouldRejectMutationDispatches_whenRequestIsGet(String dispatch) throws Exception {
         mockRequest.setMethod("GET");
         addRequestParameter("dispatch", dispatch);
 
