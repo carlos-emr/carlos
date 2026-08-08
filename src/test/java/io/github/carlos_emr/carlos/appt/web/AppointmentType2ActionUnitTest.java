@@ -47,7 +47,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
 
     @Test
     void shouldCreateAppointmentTypeWithValidatedValues() throws Exception {
-        configureSave("30");
+        configureSave(" 30 ");
         action.setName("  Follow Up  ");
         action.setReason("  Follow-up reason  ");
         action.setNotes("  Bring results  ");
@@ -97,7 +97,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
 
     @ParameterizedTest
     @NullSource
-    @ValueSource(strings = {"", "0", "30:00", " 30 ", "abc", "-1", "2147483648"})
+    @ValueSource(strings = {"", "0", "30:00", "abc", "-1", "2147483648"})
     void shouldRejectInvalidDurationsWithoutMutation(String duration) throws Exception {
         configureSave(duration);
         action.setName("Invalid Duration");
@@ -137,7 +137,15 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
         action.setResources("x".repeat(10 + offset));
 
         assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
-        verify(appointmentTypeDao).persist(org.mockito.ArgumentMatchers.any());
+        ArgumentCaptor<AppointmentType> captor = ArgumentCaptor.forClass(AppointmentType.class);
+        verify(appointmentTypeDao).persist(captor.capture());
+        AppointmentType saved = captor.getValue();
+        assertThat(saved.getName()).isEqualTo("n".repeat(50 + offset));
+        assertThat(saved.getDuration()).isEqualTo(15);
+        assertThat(saved.getReason()).isEqualTo("r".repeat(80 + offset));
+        assertThat(saved.getNotes()).isEqualTo("o".repeat(80 + offset));
+        assertThat(saved.getLocation()).isEqualTo("l".repeat(255 + offset));
+        assertThat(saved.getResources()).isEqualTo("x".repeat(10 + offset));
     }
 
     @Test

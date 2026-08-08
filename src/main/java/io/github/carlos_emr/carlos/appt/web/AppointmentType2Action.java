@@ -28,25 +28,26 @@
 package io.github.carlos_emr.carlos.appt.web;
 
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
-import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.AppointmentType;
 import io.github.carlos_emr.carlos.commn.model.Site;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.util.LabelValueBean;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class AppointmentType2Action extends ActionSupport {
     private static final String EDIT = "edit";
@@ -210,12 +211,14 @@ public class AppointmentType2Action extends ActionSupport {
         validateLength(normalize(resources), RESOURCES_MAX_LENGTH, "appointment.type.resources.length.error");
         validateMultisiteLocation();
 
-        if (duration == null || duration.isEmpty() || !duration.matches("\\d+")) {
+        String normalizedDuration = normalize(duration);
+        if (normalizedDuration == null || normalizedDuration.isEmpty()
+                || !normalizedDuration.matches("\\d+")) {
             addActionError(getText(DURATION_ERROR));
             return null;
         }
         try {
-            int parsed = Integer.parseInt(duration);
+            int parsed = Integer.parseInt(normalizedDuration);
             if (parsed <= 0) {
                 addActionError(getText(DURATION_ERROR));
                 return null;
