@@ -5,6 +5,6 @@
 <struts>
     <package name="appointment-status-binding-test" namespace="/" extends="struts-default">
         <action name="appointment-status-binding-test"
-                class="io.github.carlos_emr.carlos.appt.status.web.AppointmentStatus2Action"/>
+                class="io.github.carlos_emr.carlos.appt.status.web.AppointmentStatusBindingTestAction"/>
     </package>
 </struts>
