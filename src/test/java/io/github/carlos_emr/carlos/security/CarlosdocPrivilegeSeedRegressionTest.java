@@ -92,6 +92,8 @@ class CarlosdocPrivilegeSeedRegressionTest {
             "`?roleUserGroup`?\\s*=\\s*'([^']+)'", Pattern.CASE_INSENSITIVE);
     private static final Pattern PRIVILEGE_CONDITION = Pattern.compile(
             "`?privilege`?\\s*=\\s*'([^']+)'", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PROVIDER_NUMBER_CONDITION = Pattern.compile(
+            "`?provider_no`?\\s*=\\s*'([^']+)'", Pattern.CASE_INSENSITIVE);
 
     /** The seed dump is a multi-MB mysqldump — read once per class, not per test. */
     private static String developmentSeedSql;
@@ -214,7 +216,7 @@ class CarlosdocPrivilegeSeedRegressionTest {
 
     @Test
     @DisplayName("should force password reset for default carlosdoc seed")
-    void shouldForcePasswordResetForDefaultCarlosdocSeed() {
+    void shouldForcePasswordReset_forDefaultCarlosdocSeed() {
         assertThat(seedSql)
                 .contains("(128,'carlosdoc'")
                 .contains(",'999998','2026',1,'2100-01-01'");
@@ -259,10 +261,16 @@ class CarlosdocPrivilegeSeedRegressionTest {
                 + "AND privilege = 'o';";
         String insert = "INSERT INTO secObjPrivilege VALUES "
                 + "('999998','_admin.schedule.groupCreate','o',1,'999998');";
+        String otherProviderDelete = delete.replace(";", " AND provider_no = '123456';");
+        String carlosdocDelete = delete.replace(";", " AND provider_no = '999998';");
 
         assertThat(effectivePrivileges("", delete + insert))
                 .containsEntry(key, "o|1|999998");
         assertThat(effectivePrivileges("", insert + delete))
+                .doesNotContainKey(key);
+        assertThat(effectivePrivileges("", insert + otherProviderDelete))
+                .containsEntry(key, "o|1|999998");
+        assertThat(effectivePrivileges("", insert + carlosdocDelete))
                 .doesNotContainKey(key);
     }
 
@@ -314,16 +322,29 @@ class CarlosdocPrivilegeSeedRegressionTest {
             Matcher roleUserGroup = ROLE_USER_GROUP_CONDITION.matcher(conditions);
             if (roleUserGroup.find()) {
                 PrivilegeKey key = new PrivilegeKey(roleUserGroup.group(1), objectName.group(1));
-                Matcher privilege = PRIVILEGE_CONDITION.matcher(conditions);
-                if (!privilege.find()
-                        || privileges.getOrDefault(key, "").startsWith(privilege.group(1) + '|')) {
+                if (matchesDeleteConditions(privileges.get(key), conditions)) {
                     privileges.remove(key);
                 }
             } else {
-                privileges.keySet().removeIf(key -> key.objectName().equals(objectName.group(1)));
+                privileges.entrySet().removeIf(entry ->
+                        entry.getKey().objectName().equals(objectName.group(1))
+                                && matchesDeleteConditions(entry.getValue(), conditions));
             }
         }
         return privileges;
+    }
+
+    private static boolean matchesDeleteConditions(String encodedPrivilege, String conditions) {
+        if (encodedPrivilege == null) {
+            return false;
+        }
+        String[] fields = encodedPrivilege.split("\\|", -1);
+        Matcher privilege = PRIVILEGE_CONDITION.matcher(conditions);
+        if (privilege.find() && !privilege.group(1).equals(fields[0])) {
+            return false;
+        }
+        Matcher providerNumber = PROVIDER_NUMBER_CONDITION.matcher(conditions);
+        return !providerNumber.find() || providerNumber.group(1).equals(fields[2]);
     }
 
     private static void assertPreservesCustomGroupCreateGrant(String repairSql) {
