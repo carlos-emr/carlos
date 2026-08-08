@@ -158,8 +158,9 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
         action.setApptDesc("Valid description");
         action.setApptColor("#abcdef");
 
-        assertThat(executeAction(action)).isEqualTo("edit");
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
         assertThat(action.getActionErrors()).isNotEmpty();
+        assertThat(mockRequest.getAttribute("allStatus")).isEqualTo(List.of());
         verify(appointmentStatusMgr, never()).modifyStatus(anyInt(), anyString(), anyString());
     }
 

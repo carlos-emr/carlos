@@ -136,11 +136,14 @@ public class AppointmentStatus2Action extends ActionSupport {
         logger.warn("update");
         AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
         AppointmentStatus appointmentStatus = getExistingStatus(apptStatusMgr);
+        if (appointmentStatus == null) {
+            populateAllStatus(request);
+            return SUCCESS;
+        }
+
         validateUpdate();
-        if (appointmentStatus == null || hasActionErrors()) {
-            if (appointmentStatus != null) {
-                populateEditFields(appointmentStatus, false);
-            }
+        if (hasActionErrors()) {
+            populateEditFields(appointmentStatus, false);
             return EDIT;
         }
 
