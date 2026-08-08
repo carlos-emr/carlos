@@ -15,6 +15,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Email sender implementation utilizing a local SMTP server configuration for transmission.
+ */
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 
     public LocalSMTPEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, 

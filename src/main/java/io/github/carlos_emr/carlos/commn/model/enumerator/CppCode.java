@@ -3,6 +3,9 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Core domain representation and logic for CppCode within the CARLOS EMR system.
+ */
 public enum CppCode {
     OMEDS("OMeds"),
     SOC_HISTORY("SocHistory"),

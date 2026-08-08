@@ -16,6 +16,9 @@ import org.apache.xmlbeans.XmlBoolean;
 import org.apache.xmlbeans.SchemaType;
 import org.apache.xmlbeans.XmlObject;
 
+/**
+ * Enumeration defining the NormalAbnormalNullType domain concepts for the CARLOS EMR system.
+ */
 public interface NormalAbnormalNullType extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(NormalAbnormalNullType.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("normalabnormalnulltypef227type");

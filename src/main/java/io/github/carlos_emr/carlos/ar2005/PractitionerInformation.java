@@ -16,6 +16,9 @@ import org.apache.xmlbeans.XmlString;
 import org.apache.xmlbeans.SchemaType;
 import org.apache.xmlbeans.XmlObject;
 
+/**
+ * Core domain representation and logic for PractitionerInformation within the CARLOS EMR system.
+ */
 public interface PractitionerInformation extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(PractitionerInformation.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("practitionerinformation4497type");

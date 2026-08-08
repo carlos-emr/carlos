@@ -14,6 +14,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+/**
+ * Base Struts action class designed to handle and respond to AJAX requests with JSON payloads.
+ */
 public class JSONAction extends ActionSupport {
 
     private final String ENCODING = "UTF-8";

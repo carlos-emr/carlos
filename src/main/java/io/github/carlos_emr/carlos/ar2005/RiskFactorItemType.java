@@ -16,6 +16,9 @@ import org.apache.xmlbeans.XmlString;
 import org.apache.xmlbeans.SchemaType;
 import org.apache.xmlbeans.XmlObject;
 
+/**
+ * Enumeration defining the RiskFactorItemType domain concepts for the CARLOS EMR system.
+ */
 public interface RiskFactorItemType extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(RiskFactorItemType.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("riskfactoritemtype3062type");

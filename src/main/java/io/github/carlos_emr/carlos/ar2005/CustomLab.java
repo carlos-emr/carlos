@@ -16,6 +16,9 @@ import org.apache.xmlbeans.XmlString;
 import org.apache.xmlbeans.SchemaType;
 import org.apache.xmlbeans.XmlObject;
 
+/**
+ * Core domain representation and logic for CustomLab within the CARLOS EMR system.
+ */
 public interface CustomLab extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(CustomLab.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("customlab8a81type");

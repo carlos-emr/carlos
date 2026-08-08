@@ -7,6 +7,9 @@ import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
 
+/**
+ * Configures the core Servlet context and application-wide settings for the CARLOS EMR web application.
+ */
 @Configuration
 public class ServletContextConfig implements ServletContextAware {
 
