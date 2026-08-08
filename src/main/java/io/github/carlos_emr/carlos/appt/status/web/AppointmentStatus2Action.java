@@ -48,6 +48,7 @@ public class AppointmentStatus2Action extends ActionSupport {
     private static final String EDIT = "edit";
     private static final int DESCRIPTION_MAX_LENGTH = 30;
     private static final String HEX_COLOR_PATTERN = "^#[0-9A-Fa-f]{6}$";
+    private static final String DEFAULT_COLOR = "#FFFFFF";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -173,9 +174,13 @@ public class AppointmentStatus2Action extends ActionSupport {
             addActionError(getText("admin.appt.status.mgr.error.descriptionLength"));
         }
 
-        if (apptColor == null || !apptColor.matches(HEX_COLOR_PATTERN)) {
+        if (!isValidColor(apptColor)) {
             addActionError(getText("admin.appt.status.mgr.error.color"));
         }
+    }
+
+    private boolean isValidColor(String color) {
+        return color != null && color.matches(HEX_COLOR_PATTERN);
     }
 
     private void populateEditFields(AppointmentStatus appointmentStatus, boolean includeEditableFields) {
@@ -184,7 +189,8 @@ public class AppointmentStatus2Action extends ActionSupport {
         apptOldColor = appointmentStatus.getColor();
         if (includeEditableFields) {
             apptDesc = appointmentStatus.getDescription();
-            apptColor = appointmentStatus.getColor();
+            apptColor = isValidColor(appointmentStatus.getColor())
+                    ? appointmentStatus.getColor() : DEFAULT_COLOR;
         }
     }
 

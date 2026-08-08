@@ -63,6 +63,22 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    void shouldUseSafeDefaultWhenEditingStatusWithLegacyBlankColour() throws Exception {
+        AppointmentStatus legacyStatus = new AppointmentStatus();
+        legacyStatus.setId(14);
+        legacyStatus.setStatus("C");
+        legacyStatus.setDescription("Cancelled");
+        legacyStatus.setColor("");
+        when(appointmentStatusMgr.getStatus(14)).thenReturn(legacyStatus);
+        addRequestParameter("dispatch", "modify");
+        action.setId(14);
+
+        assertThat(executeAction(action)).isEqualTo("edit");
+        assertThat(action.getApptOldColor()).isEmpty();
+        assertThat(action.getApptColor()).isEqualTo("#FFFFFF");
+    }
+
+    @Test
     void shouldShowValidationErrorWhenEditIdDoesNotExist() throws Exception {
         addRequestParameter("dispatch", "modify");
         action.setId(9999);

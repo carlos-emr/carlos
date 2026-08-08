@@ -112,7 +112,7 @@
         </td>
         <td class="nowrap"><%=SafeEncode.forHtmlContent(strDesc)%>
         </td>
-        <td class="nowrap" style="background-color: <%=SafeEncode.forHtmlAttribute(displayColor)%>"><%=SafeEncode.forHtmlContent(strColor)%>
+        <td class="nowrap" style="background-color: <%=SafeEncode.forCssString(displayColor)%>"><%=SafeEncode.forHtmlContent(strColor)%>
         </td>
         <td class="nowrap"><%=iActive%>
         </td>
