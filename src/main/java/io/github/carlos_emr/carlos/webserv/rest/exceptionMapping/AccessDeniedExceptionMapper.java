@@ -59,6 +59,14 @@ public class AccessDeniedExceptionMapper implements ExceptionMapper<AccessDenied
     @Context
     private UriInfo uriInfo;
 
+    /**
+     * Maps the denial to a {@code 403 Forbidden} JSON {@link ErrorResponse}. The denied
+     * {@code permission} and {@code action} are surfaced under {@code details}; the
+     * PHI-correlating subject and the full exception are logged server-side only.
+     *
+     * @param exception the access denial raised by a privilege check
+     * @return a {@code 403} JSON response with code {@code ACCESS_DENIED}
+     */
     @Override
     public Response toResponse(AccessDeniedException exception) {
         // Log with the exception so the full stack trace is captured server-side.

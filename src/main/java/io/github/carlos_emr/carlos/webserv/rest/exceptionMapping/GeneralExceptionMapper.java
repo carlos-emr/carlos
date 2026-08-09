@@ -60,6 +60,14 @@ public class GeneralExceptionMapper implements ExceptionMapper<Throwable> {
     @Context
     private UriInfo uriInfo;
 
+    /**
+     * Maps any otherwise-unmapped {@link Throwable} to a {@code 500 Internal Server Error}
+     * JSON {@link ErrorResponse}. The full exception (with stack trace) is logged
+     * server-side; the client body carries only a generic, static message.
+     *
+     * @param exception the unhandled failure
+     * @return a {@code 500} JSON response with code {@code INTERNAL_ERROR}
+     */
     @Override
     public Response toResponse(Throwable exception) {
         // Log the full exception (with stack trace) server-side for diagnosis.

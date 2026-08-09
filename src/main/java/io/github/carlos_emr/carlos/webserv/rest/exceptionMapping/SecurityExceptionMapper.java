@@ -54,6 +54,14 @@ public class SecurityExceptionMapper implements ExceptionMapper<SecurityExceptio
     @Context
     private UriInfo uriInfo;
 
+    /**
+     * Maps the security failure to a {@code 403 Forbidden} JSON {@link ErrorResponse}.
+     * The client receives a generic message; the raw exception message (which may name
+     * internal security objects) is logged server-side only.
+     *
+     * @param exception the security failure raised by a privilege gate
+     * @return a {@code 403} JSON response with code {@code SECURITY_ERROR}
+     */
     @Override
     public Response toResponse(SecurityException exception) {
         logger.warn("Security check failed at " + safePath()

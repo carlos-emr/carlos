@@ -62,6 +62,14 @@ public class IllegalArgumentExceptionMapper implements ExceptionMapper<IllegalAr
     @Context
     private UriInfo uriInfo;
 
+    /**
+     * Maps the invalid argument to a {@code 400 Bad Request} JSON {@link ErrorResponse}.
+     * The exception message is surfaced as client validation feedback (display-sanitized);
+     * a {@code null} message falls back to a generic description.
+     *
+     * @param exception the invalid-argument (or {@code NumberFormatException}) failure
+     * @return a {@code 400} JSON response with code {@code VALIDATION_ERROR}
+     */
     @Override
     public Response toResponse(IllegalArgumentException exception) {
         logger.debug("Rejected invalid request parameter at " + safePath()

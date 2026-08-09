@@ -57,6 +57,14 @@ public class ConversionExceptionMapper implements ExceptionMapper<ConversionExce
     @Context
     private UriInfo uriInfo;
 
+    /**
+     * Maps the conversion failure to a {@code 400 Bad Request} JSON {@link ErrorResponse}.
+     * The client receives a generic message; the raw exception message (which may reference
+     * field values) is logged server-side only.
+     *
+     * @param exception the transfer-object conversion failure
+     * @return a {@code 400} JSON response with code {@code CONVERSION_ERROR}
+     */
     @Override
     public Response toResponse(ConversionException exception) {
         logger.warn("REST conversion failed at " + safePath()

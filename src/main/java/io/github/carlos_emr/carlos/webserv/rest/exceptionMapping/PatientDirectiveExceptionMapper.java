@@ -58,6 +58,14 @@ public class PatientDirectiveExceptionMapper implements ExceptionMapper<PatientD
     @Context
     private UriInfo uriInfo;
 
+    /**
+     * Maps the directive-based restriction to a {@code 403 Forbidden} JSON
+     * {@link ErrorResponse}. This is an expected, policy-driven outcome, so it is logged
+     * at {@code INFO} rather than as a privilege denial.
+     *
+     * @param exception the patient-directive restriction encountered
+     * @return a {@code 403} JSON response with code {@code PATIENT_DIRECTIVE}
+     */
     @Override
     public Response toResponse(PatientDirectiveException exception) {
         // Expected, policy-driven outcome — INFO, not WARN/ERROR.
