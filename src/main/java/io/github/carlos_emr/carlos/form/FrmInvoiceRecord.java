@@ -15,6 +15,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Domain model for invoice records tied to specific form instances, capturing billing transactions and amounts.
+ */
 public class FrmInvoiceRecord extends FrmRecord {
     private String _dateFormat = "yyyy/MM/dd";
 

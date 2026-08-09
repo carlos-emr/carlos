@@ -12,6 +12,9 @@ import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Domain entity representing the metadata (filename, size, type) of an eReferral attachment, linking the referral to its data payload.
+ */
 @Entity
 @Table(name = "erefer_attachment")
 public class EReferAttachment extends AbstractModel<Integer> {

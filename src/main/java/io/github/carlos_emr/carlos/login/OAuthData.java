@@ -4,6 +4,9 @@ package io.github.carlos_emr.carlos.login;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Data model storing OAuth token information and related metadata during external authentication flows.
+ */
 public class OAuthData {
   private String applicationName;
   private String applicationURI;

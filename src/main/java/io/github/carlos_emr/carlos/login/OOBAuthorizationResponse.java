@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.login;
 
+/**
+ * Model representing the response for Out-Of-Band (OOB) authorization flows, such as MFA challenges during login.
+ */
 public class OOBAuthorizationResponse {
   private String requestToken;
   private String verifier;

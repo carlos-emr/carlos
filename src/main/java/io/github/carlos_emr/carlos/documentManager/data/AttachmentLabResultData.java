@@ -6,6 +6,9 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.DateUtils;
 
+/**
+ * Data wrapper class for lab result attachments, linking diagnostic report files with their respective patient and encounter records.
+ */
 public class AttachmentLabResultData {
     private String segmentID;
     private String labName;

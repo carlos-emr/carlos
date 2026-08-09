@@ -14,6 +14,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+/**
+ * Base class or interface representing a generic action that yields a JSON response, primarily used in legacy Struts-to-Spring bridging.
+ */
 public class JSONAction extends ActionSupport {
 
     private final String ENCODING = "UTF-8";

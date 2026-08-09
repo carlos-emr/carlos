@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.util;
 
+/**
+ * Generic data structure representing a key-value pair, commonly used for populating dropdown lists in the UI.
+ */
 public class LabelValueBean {
 
     public LabelValueBean() {

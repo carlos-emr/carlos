@@ -12,6 +12,9 @@ import io.woo.htmltopdf.HtmlToPdf;
 import io.woo.htmltopdf.HtmlToPdfObject;
 import io.woo.htmltopdf.PdfPageSize;
 
+/**
+ * Internal implementation for converting electronic documents using local, native processing libraries instead of external services.
+ */
 public class InternalEDocConverter implements EDocConverterInterface {
     /**
      * Converts HTML to PDF using the internal io.woo.htmltopdf library.

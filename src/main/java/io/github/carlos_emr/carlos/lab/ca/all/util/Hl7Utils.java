@@ -5,6 +5,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ca.uhn.hl7v2.HL7Exception;
 
+/**
+ * Utility class containing helper methods for parsing, generating, and manipulating HL7 messages in the laboratory module.
+ */
 public final class Hl7Utils {
 
     private static final Logger logger = LoggerFactory.getLogger(Hl7Utils.class);

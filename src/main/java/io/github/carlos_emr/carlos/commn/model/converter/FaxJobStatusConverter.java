@@ -3,6 +3,9 @@ package io.github.carlos_emr.carlos.commn.model.converter;
 import io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS;
 import jakarta.persistence.Converter;
 
+/**
+ * JPA Attribute Converter for mapping internal fax job status enums to the underlying database column strings.
+ */
 @Converter
 public class FaxJobStatusConverter extends NullSafeEnumConverter<STATUS> {
     public FaxJobStatusConverter() {

@@ -13,6 +13,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Data structure managing the association of arbitrary uploaded documents to various system entities like charts or messages.
+ */
 public class DocumentAttach {
     private final ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
     private final EFormDocsDao eFormDocsDao = SpringUtils.getBean(EFormDocsDao.class);
