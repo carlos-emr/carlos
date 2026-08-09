@@ -113,7 +113,9 @@ public class zip {
         Enumeration<? extends ZipEntry> entries;
         boolean result = false;
         if (fName == null || fName.length() < 4 || !fName.toLowerCase().endsWith(".zip")) {
-            logger.error("unzipXML: " + fName + " does not have .zip extension.");
+            if (logger.isErrorEnabled()) {
+                logger.error("unzipXML rejected file without .zip extension; file name omitted from log.");
+            }
             return result;
         }
         File targetDir;
@@ -148,7 +150,7 @@ public class zip {
                     try {
                         z = PathValidationUtils.validateZipEntryPath(new ZipEntry(zName), targetDir);
                     } catch (SecurityException e) {
-                        logger.error("Skipping potentially malicious zip entry: {}", LogSafe.sanitize(zName));
+                        logger.error("Skipping potentially malicious zip entry: {}", LogSafe.sanitize(zName)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         continue;
                     }
 
@@ -160,9 +162,9 @@ public class zip {
 
                     try (BufferedOutputStream dest = new BufferedOutputStream(new FileOutputStream(z), BUFFER)) {
                         while ((count = is.read(data, 0, BUFFER)) != -1) {
-                            dest.write(data, 0, count);
+                            dest.write(data, 0, count); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- writes ZIP entry bytes to a validated file target, not HTTP response HTML
                         }
-                        dest.flush();
+                        dest.flush(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- flushes file output stream, not HTTP response HTML
                     }
                 }
             }
@@ -179,13 +181,12 @@ public class zip {
             if (!dir.exists()) dir.mkdirs();
             boolean success = afile.renameTo(PathValidationUtils.validateGeneratedChildPath(afile.getName(), dir));
             if (!success) {
-                logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML: the zip file {} was not archived", LogSafe.sanitize(fullpath));
+                logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML: the zip file {} was not archived", LogSafe.sanitize(fullpath)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             }
         } catch (Exception e) {
-            logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML: failed to archive the zip file {}", LogSafe.sanitize(fullpath), e);
+            logger.error("io.github.carlos_emr.carlos.util.zip.unzipXML: failed to archive the zip file {}", LogSafe.sanitize(fullpath), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
         }
         result = true;
         return result;
     }
 }
-

@@ -28,6 +28,7 @@
 package io.github.carlos_emr.carlos.utility.password;
 
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -35,20 +36,38 @@ import java.security.MessageDigest;
 
 
 /**
- * This class uses insecure SHA hashing for backwards compatibility while migrating to a newer hashing method.
- * It will be removed in the future.
+ * Verifies legacy unprefixed SHA-1 password hashes while accounts migrate to BCrypt.
+ * This encoder must not create new SHA-1 hashes; new password creation is handled by
+ * {@link PasswordHashHelper} through Spring Security's BCrypt encoder.
+ *
+ * @deprecated Legacy verification adapter retained for pre-BCrypt password rows only.
+ * Do not use for new password hashes; use {@link PasswordHashHelper}.
  */
+@Deprecated(since = "2026-06-20", forRemoval = false)
+@SuppressWarnings("java:S1133") // Sonar: removal depends on completion of legacy password migration.
 public class Deprecated_SHA_PasswordEncoder implements PasswordEncoder {
 
+    /**
+     * Rejects creation of new legacy SHA-1 password hashes.
+     *
+     * @param rawPassword ignored; SHA-1 password hash creation is disabled.
+     * @return never returns normally.
+     * @throws UnsupportedOperationException always, because legacy SHA-1 is verification-only.
+     */
     @Override
     public String encode(CharSequence rawPassword) {
-        try {
-            return this.encodeShaPassword(rawPassword.toString());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        throw new UnsupportedOperationException(
+                "Legacy SHA-1 password hashes are verification-only; use PasswordHashHelper for new hashes");
     }
 
+    /**
+     * Verifies a raw password against an existing legacy unprefixed SHA-1 hash.
+     *
+     * @param rawPassword candidate password; must not be {@code null}.
+     * @param encodedPassword existing legacy SHA-1 hash in signed-byte concatenation format.
+     * @return {@code true} when the password matches the legacy hash, otherwise {@code false}.
+     * @throws NullPointerException when {@code rawPassword} is {@code null}.
+     */
     @Override
     public boolean matches(CharSequence rawPassword, String encodedPassword) {
         return this.validateShaPassword(rawPassword.toString(), encodedPassword);
@@ -68,9 +87,15 @@ public class Deprecated_SHA_PasswordEncoder implements PasswordEncoder {
         return false;
     }
 
+    // FindSecBugs WEAK_MESSAGE_DIGEST_SHA1: existing unprefixed password rows need SHA-1 verification.
+    // BCrypt remains the password write path because encode() rejects legacy SHA-1 creation.
+    @SuppressFBWarnings(value = "WEAK_MESSAGE_DIGEST_SHA1",
+            justification = "SHA-1 retained only to verify legacy unprefixed password rows; "
+                    + "encode() rejects SHA-1 creation and new hashes use BCrypt")
+    @SuppressWarnings("java:S4790") // Sonar: legacy SHA-1 verifier only; new hashes use BCrypt.
     private String encodeShaPassword(String password) throws Exception {
 
-        MessageDigest md = MessageDigest.getInstance("SHA");
+        MessageDigest md = MessageDigest.getInstance("SHA-1"); // nosemgrep: java.lang.security.audit.crypto.use-of-sha1.use-of-sha1 -- legacy prefixless password rows require SHA-1 verification; new hashes use BCrypt
 
         StringBuilder sbTemp = new StringBuilder();
         byte[] btNewPasswd = md.digest(password.getBytes());

@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.webserv.transfer_objects;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 public final class ScheduleTemplateCodeTransfer {
@@ -101,6 +102,11 @@ public final class ScheduleTemplateCodeTransfer {
         this.bookinglimit = bookinglimit;
     }
 
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public static ScheduleTemplateCodeTransfer toTransfer(ScheduleTemplateCode scheduleTemplateCode) {
         if (scheduleTemplateCode == null) return (null);
 

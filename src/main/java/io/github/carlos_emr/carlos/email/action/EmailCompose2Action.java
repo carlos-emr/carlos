@@ -8,13 +8,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
-import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -58,7 +59,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * Security Considerations:
  * <ul>
  *   <li>Validates fid parameter to ensure numeric format (prevents injection)</li>
- *   <li>Uses OWASP Encode.forJava() for sanitizing invalid fid values in logs</li>
+ *   <li>Uses log-safe sanitization for invalid fid values in logs</li>
  *   <li>Generates patient-specific PDF passwords based on demographic information</li>
  *   <li>Sanitizes attachment filenames through EmailComposeManager</li>
  *   <li>Session cleanup prevents information leakage across requests</li>
@@ -80,6 +81,8 @@ public class EmailCompose2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     private EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
+    private PdfPreviewCapabilityService pdfPreviewCapabilityService =
+            SpringUtils.getBean(PdfPreviewCapabilityService.class);
 
     private static final String[] EMAIL_SESSION_KEYS = {
         "attachEFormItSelf", "fdid", "demographicId",
@@ -226,8 +229,10 @@ public class EmailCompose2Action extends ActionSupport {
 
         // Validate fid is numeric if provided
         if (fid != null && !fid.matches("\\d+")) {
-            String sanitizedFid = Encode.forJava(fid);
-            logger.warn("Invalid fid parameter received: {}", sanitizedFid);
+            if (logger.isWarnEnabled()) {
+                String sanitizedFid = LogSafe.sanitize(fid);
+                logger.warn("Invalid fid parameter received: {}", sanitizedFid);
+            }
             fid = null;
         }
 
@@ -253,11 +258,15 @@ public class EmailCompose2Action extends ActionSupport {
             emailAttachmentList.addAll(emailComposeManager.prepareLabAttachments(loggedInInfo, attachedLabs));
             emailAttachmentList.addAll(emailComposeManager.prepareHRMAttachments(loggedInInfo, attachedHRMDocuments));
             emailAttachmentList.addAll(emailComposeManager.prepareFormAttachments(request, response, attachedForms, Integer.parseInt(demographicId)));
-        } catch (PDFGenerationException e) {
+            emailComposeManager.sanitizeAttachments(emailAttachmentList);
+            for (EmailAttachment attachment : emailAttachmentList) {
+                attachment.setPreviewToken(pdfPreviewCapabilityService.issue(
+                        request, loggedInInfo, java.nio.file.Path.of(attachment.getFilePath())));
+            }
+        } catch (PDFGenerationException | RuntimeException e) {
             logger.error(e.getMessage(), e);
             return emailComposeError(request, "This eForm (and attachments, if applicable) could not be emailed. \\n\\n" + e.getMessage());
         }
-        emailComposeManager.sanitizeAttachments(emailAttachmentList);
 
         // Set request attributes for JSP (from session and computed values)
         request.setAttribute("transactionType", TransactionType.EFORM);

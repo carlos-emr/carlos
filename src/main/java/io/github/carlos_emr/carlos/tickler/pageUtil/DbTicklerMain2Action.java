@@ -81,7 +81,8 @@ public final class DbTicklerMain2Action extends ActionSupport {
      * @throws SecurityException if the user lacks {@code _tickler} update privilege
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws Exception {
 
@@ -110,9 +111,9 @@ public final class DbTicklerMain2Action extends ActionSupport {
                 sortOrder = TicklerManager.SORT_ASC;
             }
 
-            response.sendRedirect(request.getContextPath()
-                    + "/tickler/ViewTicklerMain?sort_column=" + Encode.forUriComponent(sortColumn)
-                    + "&sort_order=" + Encode.forUriComponent(sortOrder));
+            String redirect = request.getContextPath() + "/tickler/ViewTicklerMain?sort_column="
+                    + Encode.forUriComponent(sortColumn) + "&sort_order=" + Encode.forUriComponent(sortOrder);
+            response.sendRedirect(appendScheduleNav(redirect));
             return NONE;
         }
 
@@ -145,11 +146,18 @@ public final class DbTicklerMain2Action extends ActionSupport {
             }
         }
 
-        String redirect = request.getContextPath() + "/tickler/ViewTicklerMain";
+        String redirect = appendScheduleNav(request.getContextPath() + "/tickler/ViewTicklerMain");
         if (failCount > 0) {
-            redirect += "?failCount=" + failCount;
+            redirect += (redirect.contains("?") ? "&" : "?") + "failCount=" + failCount;
         }
         response.sendRedirect(redirect);
         return NONE;
+    }
+
+    private String appendScheduleNav(String redirect) {
+        if (!"1".equals(request.getParameter("scheduleNav"))) {
+            return redirect;
+        }
+        return redirect + (redirect.contains("?") ? "&" : "?") + "scheduleNav=1";
     }
 }

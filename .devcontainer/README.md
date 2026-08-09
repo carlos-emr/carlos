@@ -85,7 +85,7 @@ Exploded WAR".
 
 ## Access the application
 
-* Open your web browser and navigate to `http://localhost:8080`.
+* Open your web browser and navigate to `http://localhost:8080/carlos`.
 * You should see the CARLOS EMR application running.
 * Login credentials for local development are: 
     * Username: carlosdoc
@@ -180,8 +180,11 @@ docker-compose down -v
 # Remove all unused Docker resources
 docker system prune -f
 
-# Remove specific volumes if they persist
-docker volume rm open-o_mariadb-files open-o_m2-volume
+# Remove specific volumes if they persist (scoped by Compose project+volume labels so
+# volumes belonging to unrelated projects are never touched)
+for key in mariadb-11-flyway-files m2-volume; do
+  docker volume ls -q --filter "label=com.docker.compose.project=carlos-emr" --filter "label=com.docker.compose.volume=${key}" | while read -r vol; do docker volume rm "$vol"; done
+done
 ```
 
 **Note:** Complete cleanup removes both database data AND Maven cache, requiring full dependency re-download on next build (~15-30 minutes).
@@ -201,7 +204,7 @@ docker-compose up --build -d
 docker exec carlos-tomcat-dev du -sh /root/.m2
 
 # Clear Maven cache (forces fresh download of all dependencies)
-docker volume rm open-o_m2-volume
+docker volume ls --format '{{.Name}}' | grep -E 'm2-volume$' | while read -r vol; do docker volume rm "$vol"; done
 
 # Or clear cache while container is running
 docker exec carlos-tomcat-dev rm -rf /root/.m2/repository
@@ -216,24 +219,49 @@ docker exec carlos-tomcat-dev rm -rf /root/.m2/repository
 ### **Database troubleshooting:**
 ```bash
 # Check database users
-docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e "SELECT user_name, pin FROM security;"
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e "SELECT user_name, pin FROM security;"
 
 # Reset database only (keeps app container and Maven cache)
 docker-compose stop db
-docker volume rm open-o_mariadb-files
+docker volume ls --format '{{.Name}}' | grep -E 'mariadb-11-flyway-files$' | while read -r vol; do docker volume rm "$vol"; done
 docker-compose up db -d
 ```
+
+**Symptom: the app fails to start with `Access denied for user 'root'@'...'` while
+`docker ps` still shows the database as `(healthy)`.**
+
+The MariaDB entrypoint runs `/docker-entrypoint-initdb.d` only on an *empty* datadir, so the root
+password is baked into the volume the first time it initializes. If the container ever started with
+a wrong `MARIADB_ROOT_PASSWORD`, every later start reuses that stored password and the app can never
+connect — restarting the stack or rebuilding the image does **not** fix it. Remove the volume so it
+re-initializes:
+
+```bash
+docker compose stop db
+docker volume ls --format '{{.Name}}' | grep -E 'mariadb-11-flyway-files$' | while read -r vol; do docker volume rm "$vol"; done
+docker compose up db -d
+```
+
+Then confirm the credential the app actually uses (`root`/`password`, per `carlos.properties`):
+
+```bash
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root -h 127.0.0.1 -e 'SELECT 1'
+```
+
+Note that `mariadb-admin ping` is useless for diagnosing this: it exits 0 even on "Access denied",
+because the server answered. The container healthcheck therefore runs a real authenticated query
+instead of a ping.
 
 ### **Database Volume Management:**
 Database volumes persist data between container restarts. This means that even after rebuilding containers, your database may contain old data unless the volume is explicitly removed.
 
 ```bash
 # Check database state
-docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e "SHOW TABLES;" | wc -l
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e "SHOW TABLES;" | wc -l
 
 # Force complete database rebuild from SQL files
 docker-compose stop db
-docker volume rm open-o_mariadb-files
+docker volume ls --format '{{.Name}}' | grep -E 'mariadb-11-flyway-files$' | while read -r vol; do docker volume rm "$vol"; done
 docker-compose up db -d
 
 # Wait for initialization, then verify clean state
@@ -258,8 +286,8 @@ Several important fixes have been applied to ensure stable database initializati
 
 **Hibernate Schema Management:**
 - Changed from `update` to `validate` mode to prevent automatic schema modifications
-- Database schema is now managed entirely through SQL initialization files
-- Configuration in `src/main/resources/spring_hibernate.xml`
+- Database schema is now managed through the Flyway migration set loaded by the DB initializer
+- Runtime schema validation is controlled by `carlos.flyway.onBoot` in `src/main/resources/spring_jpa.xml`
 
 **Application Startup Dependencies:**
 - Added health checks to ensure database is fully ready before application starts
@@ -277,7 +305,7 @@ docker ps --format "table {{.Names}}\t{{.Status}}"
 docker inspect carlos-mariadb-dev --format='{{json .State.Health}}' | jq
 
 # Force health check manually
-docker exec carlos-mariadb-dev mysqladmin ping -h localhost -u root -ppassword
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb-admin ping -h localhost -u root
 ```
 
 The application container will wait up to 10 minutes (60s start period + 10 retries × 10s interval) for the database to become healthy. This prevents connection failures during fresh database initialization.
@@ -293,15 +321,15 @@ python3 scripts/generate_bcrypt_password.py
 # Copy the generated hash (starts with {bcrypt}$2b$...)
 
 # Update the database with the new hash
-docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e \
   "UPDATE security SET password='YOUR_BCRYPT_HASH_HERE' WHERE user_name='carlosdoc';"
 
 # Optional: Force password reset on next login
-docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e \
   "UPDATE security SET forcePasswordReset=1 WHERE user_name='carlosdoc';"
 
 # Verify the change
-docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e \
   "SELECT user_name, LEFT(password, 20) as password_start FROM security WHERE user_name='carlosdoc';"
 ```
 
@@ -313,7 +341,7 @@ Enter password: mynewpassword
 Generated BCrypt hash: {bcrypt}$2b$12$abc123...xyz789
 
 # Update database
-$ docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
+$ docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e \
   "UPDATE security SET password='{bcrypt}\$2b\$12\$abc123...xyz789' WHERE user_name='carlosdoc';"
 ```
 
@@ -410,7 +438,7 @@ This script checks that:
 
 ### Quick Reference
 
-- **Playwright Version**: Defined in `.devcontainer/development/Dockerfile`
+- **Playwright Version**: `1.60.0`, defined in `.devcontainer/development/Dockerfile`
 - **Configuration File**: `.mcp.json` in repository root
 - **Verification Script**: `.devcontainer/scripts/verify-playwright-path.sh`
 

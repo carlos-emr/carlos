@@ -1501,7 +1501,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
 
         if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
-            (new HL7A04Generator()).generateHL7A04(demographic);
+            if (!(new HL7A04Generator()).generateHL7A04(demographic)) {
+                log.warn("HL7 A04 generation did not complete for a saved demographic");
+            }
         }
 
         // the new way
@@ -2084,8 +2086,11 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             entityManager().persist(client);
         }
 
-        if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists)
-            (new HL7A04Generator()).generateHL7A04(client);
+        if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
+            if (!(new HL7A04Generator()).generateHL7A04(client)) {
+                log.warn("HL7 A04 generation did not complete for a saved demographic");
+            }
+        }
 
         // the new way
         if (objExists == false) {
@@ -2421,17 +2426,17 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
 
         EntityManager s = entityManager();
-            Query q = s.createQuery(sql); // nosemgrep: hibernate-sqli — query uses named parameter :fieldValue bound via setParameter below
-            if (!isFieldValueEmpty) {
-                q.setParameter("fieldValue", fieldValue);
-            }
+        Query q = s.createQuery(sql); // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string, java.lang.security.audit.sqli.jpa-sqli.jpa-sqli -- field/order names are allowlisted above; fieldValue is bound via setParameter below
+        if (!isFieldValueEmpty) {
+            q.setParameter("fieldValue", fieldValue);
+        }
 
-            q.setMaxResults(10);
+        q.setMaxResults(10);
 
-            if (offset > 0) {
-                q.setFirstResult(offset);
-            }
-            return q.getResultList();
+        if (offset > 0) {
+            q.setFirstResult(offset);
+        }
+        return q.getResultList();
     }
 
     @SuppressWarnings("unchecked")
@@ -2654,7 +2659,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         MiscUtils.getLogger().debug("demographicQuery: {}", LogSafe.sanitize(demographicQuery, 1000));
 
         EntityManager session = entityManager();
-            Query sqlQuery = session.createNativeQuery(demographicQuery);
+            Query sqlQuery = session.createNativeQuery(demographicQuery); // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- generateDemographicSearchQuery builds SQL from enum-selected column/order fragments plus a server-owned inactive_statuses config list; all request values flow through bound params (setParameter below)
             for (String key : params.keySet()) {
                 sqlQuery.setParameter(key, params.get(key));
                 MiscUtils.getLogger().debug("query param: {}={}", LogSafe.sanitize(key),
@@ -2676,7 +2681,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                 "p.first_name as providerFirstName,d.hin,dm.merged_to");
 
         EntityManager session = entityManager();
-        NativeQuery<?> baseQuery = session.createNativeQuery(demographicQuery).unwrap(NativeQuery.class);
+        NativeQuery<?> baseQuery = session.createNativeQuery(demographicQuery).unwrap(NativeQuery.class); // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- generateDemographicSearchQuery builds SQL from enum-selected column/order fragments plus a server-owned inactive_statuses config list; all request values flow through bound params (setParameter below)
 
         for (String key : params.keySet()) {
             baseQuery.setParameter(key, params.get(key));

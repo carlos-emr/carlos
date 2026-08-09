@@ -30,7 +30,9 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.Misc;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
@@ -49,6 +51,12 @@ public class HtmlTeleplanHelper {
     public HtmlTeleplanHelper() {
     }
 
+    // FindSecBugs POTENTIAL_XML_INJECTION: Teleplan validation producers encode billing/message data and return fixed table-row HTML fragments for report assembly.
+    @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "Teleplan validation producers encode billing/message data and return fixed table-row HTML fragments for report assembly")
+    private static void appendTrustedTeleplanValidationRows(StringBuilder html, String validationRowsHtml) {
+        html.append(validationRowsHtml);
+    }
+
 
     public static String htmlHeaderGen(String errorMsg) {
         StringBuilder htmlContentHeader = new StringBuilder();
@@ -56,22 +64,16 @@ public class HtmlTeleplanHelper {
         htmlContentHeader.append("<head><script type='text/javascript'>function openBrWindow(theURL,winName,features) { window.open(theURL,winName,features);}</script> </head>");
         htmlContentHeader.append("<body><style type='text/css'><!-- .bodytext{  font-family: Tahoma, Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>\n");
         htmlContentHeader.append("<table width='100%' border='0' cellspacing='0' cellpadding='0'> \n");
-        htmlContentHeader.append("<tr> \n");
-        htmlContentHeader.append("<td colspan='11' class='bodytext'>" + errorMsg + "</td> \n");
-        htmlContentHeader.append("</tr> \n");
+        appendTrustedTeleplanValidationRows(htmlContentHeader, errorMsg);
         return htmlContentHeader.toString();
     }
 
     public static String htmlNewProviderSection(String providerNo, Date date) {
-        String dateStr = "";
-        try {
-            dateStr = new SimpleDateFormat("yyyyMMdd").format(new Date());
-        } catch (Exception e) {
-        }
+        String dateStr = new SimpleDateFormat("yyyyMMdd").format(new Date());
         StringBuilder htmlContentHeader = new StringBuilder();
         htmlContentHeader.append("<tr> \n");
-        htmlContentHeader.append("<td colspan='4' class='bodytext'>Billing Invoice for Billing No." + providerNo + "</td> \n");
-        htmlContentHeader.append("<td colspan='7' class='bodytext'>Payment date of " + dateStr + "</td> \n");
+        htmlContentHeader.append("<td colspan='4' class='bodytext'>Billing Invoice for Billing No.").append(SafeEncode.forHtmlContent(providerNo)).append("</td> \n");
+        htmlContentHeader.append("<td colspan='7' class='bodytext'>Payment date of ").append(SafeEncode.forHtmlContent(dateStr)).append("</td> \n");
         htmlContentHeader.append("</tr> \n");
 
         htmlContentHeader.append("<tr> \n");
@@ -95,8 +97,8 @@ public class HtmlTeleplanHelper {
         htmlContentHeader.append("<html><body><style type='text/css'><!-- .bodytext{  font-family: Tahoma, Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>");
         htmlContentHeader.append("<table width='100%' border='0' cellspacing='0' cellpadding='0'>");
         htmlContentHeader.append("<tr>");
-        htmlContentHeader.append("<td colspan='4' class='bodytext'>Billing Invoice for Billing No." + providerNo + "</td>");
-        htmlContentHeader.append("<td colspan='7' class='bodytext'>Payment date of " + output + "</td>");
+        htmlContentHeader.append("<td colspan='4' class='bodytext'>Billing Invoice for Billing No.").append(SafeEncode.forHtmlContent(providerNo)).append("</td>");
+        htmlContentHeader.append("<td colspan='7' class='bodytext'>Payment date of ").append(SafeEncode.forHtmlContent(output)).append("</td>");
         htmlContentHeader.append("</tr>");
         htmlContentHeader.append("<tr>");
         htmlContentHeader.append("<td width='9%' class='bodytext'>INVOICE</td>");
@@ -111,7 +113,7 @@ public class HtmlTeleplanHelper {
         htmlContentHeader.append("<td width='8%' align='right' class='bodytext'>SEQUENCE</td>");
         htmlContentHeader.append("<td width='5%' align='right' class='bodytext'>COMMENT</td>");
         htmlContentHeader.append("</tr>");
-        htmlContentHeader.append(errorMsg);
+        appendTrustedTeleplanValidationRows(htmlContentHeader, errorMsg);
         return htmlContentHeader.toString();
     }
 
@@ -120,20 +122,20 @@ public class HtmlTeleplanHelper {
         htmlContent.append("<tr> \n");
         htmlContent.append("<td class='bodytext'> \n");
         htmlContent.append("<a href='#' onClick=\"openBrWindow('adjustBill.jsp?billingmaster_no=");
-        htmlContent.append(Misc.forwardZero(billingMasterNo, 7));
+        htmlContent.append(SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(Misc.forwardZero(billingMasterNo, 7))));
         htmlContent.append("','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">");
-        htmlContent.append(invNo);
+        htmlContent.append(SafeEncode.forHtmlContent(invNo));
         htmlContent.append("</a>");
         htmlContent.append("</td>\n");
-        htmlContent.append("<td class='bodytext'>" + demoName + "</td>\n");
-        htmlContent.append("<td class='bodytext'>" + phn + "</td>\n");
-        htmlContent.append("<td class='bodytext'>" + serviceDate + "</td>\n");
-        htmlContent.append("<td class='bodytext'>" + billingCode + "</td>\n");
-        htmlContent.append("<td align='right' class='bodytext'>" + billAmount + "</td>\n");
-        htmlContent.append("<td align='right' class='bodytext'>" + Misc.backwardSpace(dx1, 5) + "</td>\n");
-        htmlContent.append("<td align='right' class='bodytext'>" + Misc.backwardSpace(dx2, 5) + "</td>\n");
-        htmlContent.append("<td align='right' class='bodytext'>" + Misc.backwardSpace(dx3, 5) + "</td>\n");
-        htmlContent.append("<td class='bodytext'>" + Misc.forwardZero(billingMasterNo, 7) + "</td>\n");
+        htmlContent.append("<td class='bodytext'>").append(SafeEncode.forHtmlContent(demoName)).append("</td>\n");
+        htmlContent.append("<td class='bodytext'>").append(SafeEncode.forHtmlContent(phn)).append("</td>\n");
+        htmlContent.append("<td class='bodytext'>").append(SafeEncode.forHtmlContent(serviceDate)).append("</td>\n");
+        htmlContent.append("<td class='bodytext'>").append(SafeEncode.forHtmlContent(billingCode)).append("</td>\n");
+        htmlContent.append("<td align='right' class='bodytext'>").append(SafeEncode.forHtmlContent(billAmount)).append("</td>\n");
+        htmlContent.append("<td align='right' class='bodytext'>").append(SafeEncode.forHtmlContent(Misc.backwardSpace(dx1, 5))).append("</td>\n");
+        htmlContent.append("<td align='right' class='bodytext'>").append(SafeEncode.forHtmlContent(Misc.backwardSpace(dx2, 5))).append("</td>\n");
+        htmlContent.append("<td align='right' class='bodytext'>").append(SafeEncode.forHtmlContent(Misc.backwardSpace(dx3, 5))).append("</td>\n");
+        htmlContent.append("<td class='bodytext'>").append(SafeEncode.forHtmlContent(Misc.forwardZero(billingMasterNo, 7))).append("</td>\n");
         htmlContent.append("<td class='bodytext'>&nbsp;</td>\n");
         htmlContent.append("</tr>\n");
         return htmlContent.toString();
@@ -142,7 +144,7 @@ public class HtmlTeleplanHelper {
     public static String htmlFooter(String providerNo, int count, BigDecimal total) {
         StringBuilder htmlFooter = new StringBuilder();
         htmlFooter.append("<tr><td colspan='11' class='bodytext'>&nbsp;</td>  </tr>  <tr>    <td colspan='5' class='bodytext'>Billing No: ");
-        htmlFooter.append(providerNo);
+        htmlFooter.append(SafeEncode.forHtmlContent(providerNo));
         htmlFooter.append(": ");
         htmlFooter.append(count);
         htmlFooter.append(" RECORDS PROCESSED</td>    <td colspan='6' class='bodytext'>TOTAL: ");

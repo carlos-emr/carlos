@@ -30,10 +30,13 @@
 
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.concurrent.TimeUnit;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -65,6 +68,9 @@ public class PGPEncrypt {
             MiscUtils.getLogger().debug("Warning: PGP environment variable (PGP_ENV) not set!");
     }
 
+    // FindSecBugs COMMAND_INJECTION: only static touch and configured PGP argv arrays run in a validated directory.
+    // Do not add request-controlled command fragments under this suppression.
+    @SuppressFBWarnings(value = "COMMAND_INJECTION", justification = "only a static touch command and configured PGP argv arrays run in a PathValidationUtils-validated directory; no request-controlled command fragments")
     public boolean check(String dirName) throws Exception {
         if (!Util.checkDir(dirName)) {
             MiscUtils.getLogger().debug("Error! Cannot write to directory [" + dirName + "]");
@@ -76,30 +82,25 @@ public class PGPEncrypt {
 
         boolean rtrn = false;
         try {
-            Process proc = rt.exec("touch null.tmp", env, dir);
-            int ecode = proc.waitFor();
-            if (ecode == 0) {
+            Process touch = rt.exec("touch null.tmp", env, dir);
+            if (!awaitProcess(touch)) {
+                return false;
+            }
+            if (touch.exitValue() == 0) {
                 String[] cmd = {this.bin, this.cmd, "null.tmp", this.key};
                 env[0] = this.env;
-                proc = rt.exec(cmd, env, dir);
-                BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
-                BufferedReader stdError = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
-
-                // read the output from the command
-                String s = null;
-                while ((s = stdInput.readLine()) != null) {
-                    MiscUtils.getLogger().info(s);
-                }
-
-                // read any errors from the attempted command
-                while ((s = stdError.readLine()) != null) {
-                    MiscUtils.getLogger().info(s);
-                }
-
-                ecode = proc.waitFor();
-                if (ecode == 0) {
-                    Util.cleanFile("null.tmp.pgp", dirName);
-                    rtrn = true;
+                Process proc = rt.exec(cmd, env, dir);
+                // Drain stdout AND stderr concurrently: reading them sequentially deadlocks if the
+                // child fills the stderr pipe buffer while the parent is still blocked reading stdout.
+                Thread outDrain = drainAsync(proc.getInputStream());
+                Thread errDrain = drainAsync(proc.getErrorStream());
+                if (awaitProcess(proc)) {
+                    joinQuietly(outDrain);
+                    joinQuietly(errDrain);
+                    if (proc.exitValue() == 0) {
+                        Util.cleanFile("null.tmp.pgp", dirName);
+                        rtrn = true;
+                    }
                 }
                 Util.cleanFile("null.tmp", dirName);
             }
@@ -109,6 +110,61 @@ public class PGPEncrypt {
         return rtrn;
     }
 
+    /** Maximum time to wait for a PGP subprocess before forcibly terminating it. */
+    private static final long PROCESS_TIMEOUT_SECONDS = 120L;
+
+    /**
+     * Waits for {@code proc} up to {@link #PROCESS_TIMEOUT_SECONDS}, forcibly terminating it (and
+     * returning {@code false}) if it does not exit — a bare {@code waitFor()} with no timeout can hang
+     * the calling request thread indefinitely on a wedged PGP child.
+     */
+    private static boolean awaitProcess(Process proc) {
+        try {
+            if (proc.waitFor(PROCESS_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                return true;
+            }
+            proc.destroyForcibly();
+            MiscUtils.getLogger().error("PGP subprocess timed out after " + PROCESS_TIMEOUT_SECONDS + "s and was terminated");
+            return false;
+        } catch (InterruptedException e) {
+            proc.destroyForcibly();
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    /**
+     * Consumes and discards a subprocess stream on a daemon thread so its pipe never fills.
+     * Child output is intentionally never logged: external tools may emit patient-bearing filenames,
+     * configured paths, key identifiers, or other values this class cannot reliably classify.
+     *
+     * @param stream the child's stdout or stderr; closed by this thread
+     * @return the started daemon thread, so the caller can join it before reaping the process
+     */
+    private static Thread drainAsync(InputStream stream) {
+        Thread t = new Thread(() -> {
+            try (InputStream input = stream) {
+                input.transferTo(OutputStream.nullOutputStream());
+            } catch (IOException ignored) {
+                // Stream closed as the process ended; nothing actionable.
+            }
+        });
+        t.setDaemon(true);
+        t.start();
+        return t;
+    }
+
+    private static void joinQuietly(Thread t) {
+        try {
+            t.join(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    // FindSecBugs COMMAND_INJECTION: PGP invocation uses an argv array from trusted configuration in a validated work directory.
+    // Do not add request-controlled command fragments under this suppression.
+    @SuppressFBWarnings(value = "COMMAND_INJECTION", justification = "PGP invocation uses an argv array from trusted configuration in a PathValidationUtils-validated work directory; no shell expansion")
     boolean encrypt(String srcFile, String workDir) throws Exception {
         if (!Util.checkDir(workDir)) {
             MiscUtils.getLogger().debug("Error! Cannot write to directory [" + workDir + "]");
@@ -129,9 +185,16 @@ public class PGPEncrypt {
 
         try {
             Process proc = rt.exec(cmd, env, dir);
-            int ecode = proc.waitFor();
-            if (ecode == 0) return true;
-
+            // Drain both streams concurrently and bound the wait — the previous code drained neither
+            // stream and used an unbounded waitFor(), so any child output could deadlock the request
+            // thread indefinitely.
+            Thread outDrain = drainAsync(proc.getInputStream());
+            Thread errDrain = drainAsync(proc.getErrorStream());
+            if (awaitProcess(proc)) {
+                joinQuietly(outDrain);
+                joinQuietly(errDrain);
+                if (proc.exitValue() == 0) return true;
+            }
         } catch (IOException ex) {
             MiscUtils.getLogger().error("Error", ex);
         }
