@@ -185,6 +185,50 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
         verify(appointmentTypeDao, never()).persist(org.mockito.ArgumentMatchers.any());
     }
 
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "   "})
+    void shouldAcceptBlankLocation_whenMultisitesEnabled(String blankLocation) throws Exception {
+        SiteDao siteDao = mock(SiteDao.class);
+        Site site = mock(Site.class);
+        when(site.getName()).thenReturn("Main Site");
+        when(siteDao.getAllActiveSites()).thenReturn(List.of(site));
+        action.enableMultisites(siteDao);
+        configureSave("15");
+        action.setName("Unassigned Type");
+        action.setLocation(blankLocation);
+
+        String result = executeAction(action);
+        assertThat(result)
+                .withFailMessage("result=%s errors=%s", result, action.getActionErrors())
+                .isEqualTo(ActionSupport.SUCCESS);
+        verify(appointmentTypeDao).persist(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void shouldRetainStoredLocation_whenSiteNoLongerActive() throws Exception {
+        AppointmentType existing = mock(AppointmentType.class);
+        when(existing.getLocation()).thenReturn("Retired Site");
+        when(appointmentTypeDao.find(42)).thenReturn(existing);
+        SiteDao siteDao = mock(SiteDao.class);
+        Site site = mock(Site.class);
+        when(site.getName()).thenReturn("Main Site");
+        when(siteDao.getAllActiveSites()).thenReturn(List.of(site));
+        action.enableMultisites(siteDao);
+        configureSave("15");
+        addRequestParameter("id", "42");
+        action.setId(42);
+        action.setName("Legacy Type");
+        action.setLocation("Retired Site");
+
+        String result = executeAction(action);
+        assertThat(result)
+                .withFailMessage("result=%s errors=%s", result, action.getActionErrors())
+                .isEqualTo(ActionSupport.SUCCESS);
+        verify(existing).setLocation("Retired Site");
+        verify(appointmentTypeDao).merge(existing);
+    }
+
     @Test
     void shouldAllowFreeTextLocation_whenMultisiteHasNoActiveSites() throws Exception {
         SiteDao siteDao = mock(SiteDao.class);

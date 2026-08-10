@@ -279,7 +279,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
         // Security/MFA: execute() renders a view on a bare GET; only the method=resetMfa dispatch
         // (a privileged reset of another account's MFA) is POST-only (see MfaActions2ActionUnitTest).
-        "io.github.carlos_emr.carlos.security.MfaActions2Action"
+        "io.github.carlos_emr.carlos.security.MfaActions2Action",
+        // Appointment types: a bare GET (and oper=edit) renders the list/edit form; only
+        // oper=save and oper=del are POST-only (see AppointmentType2ActionUnitTest).
+        "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action"
     );
 
     /**
@@ -340,6 +343,9 @@ class MutatorActionGetRejectionContractUnitTest {
      * manifests above and participates in discovery drift checks.
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        // appt slice: AppointmentType2Action is the only migrated mutator; the appt package is
+        // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
+        "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         "io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",

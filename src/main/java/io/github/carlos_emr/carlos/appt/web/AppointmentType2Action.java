@@ -112,24 +112,28 @@ public class AppointmentType2Action extends ActionSupport {
                     return failure();
                 }
             } else if (SAVE.equals(sOper)) {
-                Integer parsedDuration = validateSave();
+                AppointmentType existing = typeNo > 0 ? appDao.find(typeNo) : null;
+                if (typeNo > 0 && existing == null) {
+                    addActionError(getText("appointment.type.notfound.error"));
+                    return failure();
+                }
+
+                // The record is loaded before validation so the multisite location check can
+                // grandfather the value already stored on it: sites get renamed and deactivated,
+                // and an edit to an unrelated field must not be blocked by a location the user
+                // never touched.
+                Integer parsedDuration = validateSave(existing == null ? null : existing.getLocation());
                 if (hasActionErrors()) {
                     return failure();
                 }
 
-                if (typeNo <= 0) {
+                if (existing == null) {
                     AppointmentType bean = new AppointmentType();
                     populateBean(bean, parsedDuration);
                     appDao.persist(bean);
                 } else {
-                    AppointmentType bean = appDao.find(typeNo);
-                    if (bean != null) {
-                        populateBean(bean, parsedDuration);
-                        appDao.merge(bean);
-                    } else {
-                        addActionError(getText("appointment.type.notfound.error"));
-                        return failure();
-                    }
+                    populateBean(existing, parsedDuration);
+                    appDao.merge(existing);
                 }
                 clearForm();
                 addActionMessage(getText("appointment.type.saved.message"));
@@ -201,7 +205,12 @@ public class AppointmentType2Action extends ActionSupport {
         }
     }
 
-    private Integer validateSave() {
+    /**
+     * @param storedLocation location currently persisted on the record being updated, or
+     *                       {@code null} when creating; accepted as-is by the multisite check
+     *                       so a retired site name still round-trips through an edit
+     */
+    private Integer validateSave(String storedLocation) {
         if (name == null || name.trim().isEmpty() || name.trim().length() > NAME_MAX_LENGTH) {
             addActionError(getText("appointment.type.name.error"));
         }
@@ -209,7 +218,7 @@ public class AppointmentType2Action extends ActionSupport {
         validateLength(normalize(notes), TEXT_MAX_LENGTH, "appointment.type.notes.length.error");
         validateLength(normalize(location), LOCATION_MAX_LENGTH, "appointment.type.location.length.error");
         validateLength(normalize(resources), RESOURCES_MAX_LENGTH, "appointment.type.resources.length.error");
-        validateMultisiteLocation();
+        validateMultisiteLocation(storedLocation);
 
         String normalizedDuration = normalize(duration);
         if (normalizedDuration == null || normalizedDuration.isEmpty()
@@ -236,8 +245,16 @@ public class AppointmentType2Action extends ActionSupport {
         }
     }
 
-    private void validateMultisiteLocation() {
+    private void validateMultisiteLocation(String storedLocation) {
         if (!isMultisitesEnabled()) {
+            return;
+        }
+
+        // Location stays optional under multisite: the list page submits an empty value for the
+        // "Select Location" placeholder, and requiring a site would make the form unsubmittable
+        // for clinics that do not tag appointment types by site.
+        String normalizedLocation = normalize(location);
+        if (normalizedLocation == null || normalizedLocation.isEmpty()) {
             return;
         }
 
@@ -246,7 +263,10 @@ public class AppointmentType2Action extends ActionSupport {
             return;
         }
 
-        String normalizedLocation = normalize(location);
+        if (normalizedLocation.equals(normalize(storedLocation))) {
+            return;
+        }
+
         for (Site site : sites) {
             String siteName = normalize(site.getName());
             if (siteName != null && siteName.equals(normalizedLocation)) {

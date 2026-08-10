@@ -192,14 +192,26 @@
                                                     <td align="right"><label class="field-label" for="appointmentTypeLocation"><fmt:message key="location"/><fmt:message key="global.labelSeparator"/></label></td>
                                                     <td>
                                                         <c:if test="${not empty locationsList}">
+                                                            <%-- A stored location can name a site that has since been renamed or
+                                                                 deactivated. Offer it as a selected option so an edit to another
+                                                                 field round-trips it instead of silently clearing it. --%>
+                                                            <c:set var="locationIsActiveSite" value="false"/>
+                                                            <c:forEach var="siteLocation" items="${locationsList}">
+                                                                <c:if test="${siteLocation.label eq location}">
+                                                                    <c:set var="locationIsActiveSite" value="true"/>
+                                                                </c:if>
+                                                            </c:forEach>
                                                             <select name="location" id="appointmentTypeLocation">
-                                                                <option value="0"><fmt:message key="appointment.appointmentTypeList.lblSelectLocation"/></option>
+                                                                <%-- Empty, not "0": the action treats a blank location as "no site". --%>
+                                                                <option value="" <c:if test="${empty location}">selected</c:if>><fmt:message key="appointment.appointmentTypeList.lblSelectLocation"/></option>
                                                                 <c:forEach var="siteLocation" items="${locationsList}">
-                                                                    <c:set var="locValue" value="${siteLocation.label}" />
-                                                                    <option value="${carlos:forHtmlAttribute(locValue)}" <c:if test="${siteLocation.label eq location}">selected</c:if>>
+                                                                    <option value="${carlos:forHtmlAttribute(siteLocation.label)}" <c:if test="${siteLocation.label eq location}">selected</c:if>>
                                                                         ${carlos:forHtmlContent(siteLocation.label)}
                                                                     </option>
                                                                 </c:forEach>
+                                                                <c:if test="${not empty location and not locationIsActiveSite}">
+                                                                    <option value="${carlos:forHtmlAttribute(location)}" selected>${carlos:forHtmlContent(location)}</option>
+                                                                </c:if>
                                                             </select>
                                                         </c:if>
 
