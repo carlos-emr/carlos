@@ -40,6 +40,7 @@
  *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=oscar
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  *   ALLOW_NON_LOCAL_MYSQL_HOST=true only when intentionally targeting a non-local test database
+ *   A non-local BASE_URL also requires an explicit MYSQL_HOST for that same disposable test environment
  */
 
 const { chromium } = require('playwright');
@@ -67,10 +68,14 @@ const LOCAL_MYSQL_HOSTS = new Set([
 const MYSQL_TIMEOUT_MS = 30000;
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+const baseUrlIsLocal = LOCAL_HOSTS.has(normalizedHostname(baseUrl));
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
+if (!baseUrlIsLocal && !process.env.MYSQL_HOST) {
+  throw new Error('A non-local BASE_URL requires an explicit MYSQL_HOST for the same disposable test environment');
+}
 const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'db');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
@@ -347,7 +352,14 @@ async function createFlowsheet(page) {
   await page.locator('#warningColour').fill('red');
   await page.locator('#recommendationColour').fill('yellow');
   const [response] = await Promise.all([
-    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+    page.waitForResponse((candidate) => {
+      const request = candidate.request();
+      const url = new URL(candidate.url());
+      return request.isNavigationRequest()
+        && request.method() === 'POST'
+        && isWithinConfiguredApp(url)
+        && url.pathname.endsWith('/encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction');
+    }, { timeout: 30000 }),
     page.locator('input[type="submit"][value="Create"]').click(),
   ]);
   await assertEditor(page, 'create', response);
