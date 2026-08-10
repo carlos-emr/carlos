@@ -104,8 +104,11 @@ public class AppointmentStatus2Action extends ActionSupport {
         logger.warn("changestatus");
         AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
         AppointmentStatus appointmentStatus = getExistingStatus(apptStatusMgr);
-        if (appointmentStatus == null || (active == null || (active != 0 && active != 1))) {
-            if (appointmentStatus != null) {
+        if (appointmentStatus == null || appointmentStatus.getEditable() != 1
+                || (active == null || (active != 0 && active != 1))) {
+            if (appointmentStatus != null && appointmentStatus.getEditable() != 1) {
+                addActionError(getText("admin.appt.status.mgr.error.notEditable"));
+            } else if (appointmentStatus != null) {
                 addActionError(getText("admin.appt.status.mgr.error.invalidActive"));
             }
             populateAllStatus(request);
@@ -147,7 +150,11 @@ public class AppointmentStatus2Action extends ActionSupport {
             return EDIT;
         }
 
-        apptStatusMgr.modifyStatus(id, apptDesc.trim(), apptColor);
+        String colorToPersist = apptColor;
+        if (!isValidColor(appointmentStatus.getColor()) && DEFAULT_COLOR.equalsIgnoreCase(apptColor)) {
+            colorToPersist = appointmentStatus.getColor();
+        }
+        apptStatusMgr.modifyStatus(id, apptDesc.trim(), colorToPersist);
         addActionMessage(getText("admin.appt.status.mgr.message.updated"));
         populateAllStatus(request);
         return SUCCESS;

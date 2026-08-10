@@ -45,6 +45,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
         existingStatus.setStatus("N");
         existingStatus.setDescription("No Show");
         existingStatus.setColor("#cccccc");
+        existingStatus.setEditable(1);
         when(appointmentStatusMgr.getStatus(13)).thenReturn(existingStatus);
 
         action = new TestAppointmentStatus2Action(appointmentStatusMgr);
@@ -125,6 +126,25 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    void shouldPreserveLegacyColour_whenOnlyDescriptionEdited() throws Exception {
+        AppointmentStatus legacyStatus = new AppointmentStatus();
+        legacyStatus.setId(14);
+        legacyStatus.setStatus("C");
+        legacyStatus.setDescription("Cancelled");
+        legacyStatus.setColor("");
+        legacyStatus.setEditable(1);
+        when(appointmentStatusMgr.getStatus(14)).thenReturn(legacyStatus);
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "update");
+        action.setId(14);
+        action.setApptDesc("Patient cancelled");
+        action.setApptColor("#FFFFFF");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        verify(appointmentStatusMgr).modifyStatus(14, "Patient cancelled", "");
+    }
+
+    @Test
     void shouldRejectUpdate_withoutMutationWhenValuesInvalid() throws Exception {
         mockRequest.setMethod("POST");
         addRequestParameter("dispatch", "update");
@@ -185,6 +205,23 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
         assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
         assertThat(action.getActionErrors()).isNotEmpty();
         verify(appointmentStatusMgr, never()).changeStatus(13, 2);
+    }
+
+    @Test
+    void shouldRejectChange_whenStatusIsNotEditable() throws Exception {
+        AppointmentStatus protectedStatus = new AppointmentStatus();
+        protectedStatus.setId(14);
+        protectedStatus.setEditable(0);
+        when(appointmentStatusMgr.getStatus(14)).thenReturn(protectedStatus);
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "changestatus");
+        action.setId(14);
+        action.setActive(0);
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.getActionErrors())
+                .containsExactly("admin.appt.status.mgr.error.notEditable");
+        verify(appointmentStatusMgr, never()).changeStatus(14, 0);
     }
 
     @Test
