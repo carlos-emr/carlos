@@ -17,6 +17,11 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 
 import org.apache.struts2.ActionSupport;
@@ -41,6 +46,23 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class AdminGroupActionsTest extends CarlosWebTestBase {
 
     private static final String SCHEDULE_GROUP_CREATE_OBJECT = "_admin.schedule.groupCreate";
+    private static final Path LEGACY_ADMIN_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/admin/admin.jsp");
+    private static final Path ADMINISTRATION_LEFT_NAV =
+            Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf");
+
+    @Test
+    @DisplayName("should navigate to group create form without mutation parameters")
+    void shouldNavigateWithoutMutationParameters_toGroupCreateForm() throws IOException {
+        String legacyAdmin = Files.readString(LEGACY_ADMIN_JSP, StandardCharsets.UTF_8);
+        String administrationLeftNav =
+                Files.readString(ADMINISTRATION_LEFT_NAV, StandardCharsets.UTF_8);
+
+        assertThat(legacyAdmin).contains("/admin/AdminNewGroup");
+        assertThat(administrationLeftNav).contains("rel=\"${ctx}/admin/AdminNewGroup\"");
+        assertThat(legacyAdmin).doesNotContain("AdminNewGroup?submit=");
+        assertThat(administrationLeftNav).doesNotContain("AdminNewGroup?submit=");
+    }
 
     @Test
     @DisplayName("should return success when group create privilege is granted")
