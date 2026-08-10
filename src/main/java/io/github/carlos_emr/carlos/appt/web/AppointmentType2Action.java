@@ -75,7 +75,7 @@ public class AppointmentType2Action extends ActionSupport {
         }
 
         String sOper = request.getParameter("oper");
-        if (isMutation(sOper) && !"POST".equalsIgnoreCase(request.getMethod())) {
+        if (isMutation(sOper) && !"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
