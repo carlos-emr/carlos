@@ -1,6 +1,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %><%--
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
+<%@ page import="jakarta.servlet.http.HttpServletResponse" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -72,6 +73,10 @@
         <%
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
             RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+            if (patient == null) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
             String name = (String) request.getAttribute("name");
             String type = (String) request.getAttribute("type");
             String drugrefId = (String) request.getAttribute("drugrefId");

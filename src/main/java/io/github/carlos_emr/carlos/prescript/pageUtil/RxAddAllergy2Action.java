@@ -64,6 +64,12 @@ public final class RxAddAllergy2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_allergy)");
         }
 
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         String formDemographicNo = request.getParameter("formDemographicNo");
         RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
         if (patient == null || formDemographicNo == null) {

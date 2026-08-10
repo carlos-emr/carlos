@@ -88,6 +88,7 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
         mocks = MockitoAnnotations.openMocks(this);
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
+        mockRequest.setMethod("POST");
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("w"), isNull()))
@@ -137,9 +138,38 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject a non-POST request before adding an allergy")
+    void shouldRejectAdd_whenRequestMethodIsNotPost() throws Exception {
+        mockRequest.setMethod("GET");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
     @DisplayName("should reject a missing rendered patient context before adding an allergy")
     void shouldRejectAdd_whenFormDemographicNoIsMissing() throws Exception {
         mockRequest.removeParameter("formDemographicNo");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should reject a missing session patient before adding an allergy")
+    void shouldRejectAdd_whenSessionPatientIsMissing() throws Exception {
+        mockRequest.getSession().removeAttribute("Patient");
 
         String result = action.execute();
 

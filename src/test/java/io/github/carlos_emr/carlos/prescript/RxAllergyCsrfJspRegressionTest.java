@@ -40,12 +40,30 @@ class RxAllergyCsrfJspRegressionTest {
 
     @Test
     @DisplayName("AJAX-rendered allergy form should include its CSRF token and rendered patient context")
-    void addReactionJspShouldRenderCsrfTokenAndPatientContext() throws IOException {
+    void shouldRenderCsrfTokenAndPatientContext_whenAddReactionJspIsRendered() throws IOException {
         String jsp = Files.readString(ADD_REACTION_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp).contains("<%@ taglib uri=\"https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld\" prefix=\"csrf\" %>");
         assertThat(jsp).contains("name=\"<csrf:tokenname/>\" value=\"<csrf:tokenvalue/>\"");
         assertThat(jsp).contains("name=\"formDemographicNo\"");
         assertThat(jsp).contains("patient.getDemographicNo()");
+    }
+
+    @Test
+    @DisplayName("AJAX-rendered allergy form should fail closed when the session patient is missing")
+    void shouldFailClosed_whenSessionPatientIsMissing() throws IOException {
+        String jsp = Files.readString(ADD_REACTION_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("if (patient == null) {");
+        assertThat(jsp).contains("response.sendError(HttpServletResponse.SC_FORBIDDEN);");
+        assertThat(jsp).contains("return;");
+    }
+
+    @Test
+    @DisplayName("AJAX-rendered allergy form should declare only one server-rendered CSRF field")
+    void shouldDeclareOnlyOneServerRenderedCsrfField_whenAddReactionJspIsRendered() throws IOException {
+        String jsp = Files.readString(ADD_REACTION_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).containsOnlyOnce("name=\"<csrf:tokenname/>\" value=\"<csrf:tokenvalue/>\"");
     }
 }
