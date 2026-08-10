@@ -96,8 +96,10 @@ public class AddDemographicRelationship2Action extends ActionSupport {
         // only present once the form is actually submitted. Gating on their presence (rather
         // than method alone) also lets the intermediate "select a contact from search results"
         // POST step render without persisting a relationship row before the user has chosen one.
-        boolean isMutation = linkingDemo != null && relation != null;
+        boolean isMutation = isNonBlank(linkingDemo) && isNonBlank(relation);
         if (isMutation && !"POST".equalsIgnoreCase(request.getMethod())) {
+            // RFC 7231 §6.5.5: 405 responses MUST include the Allow header.
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
@@ -129,6 +131,13 @@ public class AddDemographicRelationship2Action extends ActionSupport {
 
     private static boolean isValidDemographicNo(String demographicNo) {
         return demographicNo != null && demographicNo.matches("[a-zA-Z0-9]+");
+    }
+
+    // Blank (as opposed to absent) linkingDemo/relation must not count as mutation intent either —
+    // ConversionUtils.fromIntString("") coerces to 0 the same as fromIntString(null), so treating a
+    // blank value as "real" would persist the same garbage relationship row this gate exists to stop.
+    private static boolean isNonBlank(String value) {
+        return value != null && !value.isBlank();
     }
 
     // Relations for the dropdowns should be stored in a table in the database and not hardcoded.

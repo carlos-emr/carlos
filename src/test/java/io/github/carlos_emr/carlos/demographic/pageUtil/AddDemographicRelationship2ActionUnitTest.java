@@ -25,18 +25,22 @@ import io.github.carlos_emr.carlos.commn.dao.CtlRelationshipsDao;
 import io.github.carlos_emr.carlos.commn.dao.RelationshipsDao;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -57,176 +61,136 @@ import static org.mockito.Mockito.when;
  * {@code demo} to render the contact-search form. {@code linkingDemo}/{@code relation} are only
  * present once the form is actually submitted. The action must render on the parameter-less GET
  * without persisting anything, must reject a GET that carries save data (linkingDemo + relation)
- * with 405, and must persist only on a genuine POST save. See issue #3352.</p>
+ * with 405, must not treat blank linkingDemo/relation as save data, and must persist only on a
+ * genuine POST save. See issue #3352.</p>
  */
 @Tag("unit")
 @Tag("security")
 @DisplayName("AddDemographicRelationship2Action GET/POST mutation gate")
-class AddDemographicRelationship2ActionUnitTest {
+class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
+
+    private MockedStatic<ServletActionContext> servletActionContextMock;
+    private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private AutoCloseable mocks;
+
+    @Mock private SecurityInfoManager securityInfoManager;
+    @Mock private RelationshipsDao relationshipsDao;
+    @Mock private CtlRelationshipsDao ctlRelationshipsDao;
+    @Mock private LoggedInInfo mockLoggedInInfo;
+
+    private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
+
+    @BeforeEach
+    void setUp() {
+        mocks = MockitoAnnotations.openMocks(this);
+
+        request = new MockHttpServletRequest();
+        response = new MockHttpServletResponse();
+
+        servletActionContextMock = mockStatic(ServletActionContext.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+        loggedInInfoMock = mockStatic(LoggedInInfo.class);
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(mockLoggedInInfo);
+
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(RelationshipsDao.class, relationshipsDao);
+        registerMock(CtlRelationshipsDao.class, ctlRelationshipsDao);
+        registerMock(DemographicManager.class, mock(DemographicManager.class));
+
+        when(securityInfoManager.hasPrivilege(
+                any(LoggedInInfo.class), eq("_demographic"), eq("w"), nullable(String.class)))
+                .thenReturn(true);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (loggedInInfoMock != null) loggedInInfoMock.close();
+        if (servletActionContextMock != null) servletActionContextMock.close();
+        if (mocks != null) mocks.close();
+    }
 
     @Test
     @DisplayName("should render contact-search form and never persist when GET has no mutation params")
     void shouldRenderContactSearchForm_whenGetWithoutMutationParams() throws Exception {
-        MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("GET");
         request.setParameter("demo", "1373");
-        MockHttpServletResponse response = new MockHttpServletResponse();
 
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        RelationshipsDao relationshipsDao = mock(RelationshipsDao.class);
-        CtlRelationshipsDao ctlRelationshipsDao = mock(CtlRelationshipsDao.class);
+        String result = new AddDemographicRelationship2Action().execute();
 
-        try (MockedStatic<ServletActionContext> servletCtx = mockStatic(ServletActionContext.class);
-             MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class);
-             MockedStatic<LoggedInInfo> loggedInInfo = mockStatic(LoggedInInfo.class)) {
-
-            servletCtx.when(ServletActionContext::getRequest).thenReturn(request);
-            servletCtx.when(ServletActionContext::getResponse).thenReturn(response);
-            wireBeans(springUtils, securityInfoManager, relationshipsDao, ctlRelationshipsDao);
-            grantSession(loggedInInfo, securityInfoManager);
-
-            AddDemographicRelationship2Action action = new AddDemographicRelationship2Action();
-
-            String result = action.execute();
-
-            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-            verifyNoInteractions(relationshipsDao);
-            verifyNoInteractions(ctlRelationshipsDao);
-        }
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verifyNoInteractions(relationshipsDao);
+        verifyNoInteractions(ctlRelationshipsDao);
     }
 
     @Test
     @DisplayName("should reject GET carrying linkingDemo+relation mutation intent with 405 and never persist")
     void shouldReject405_whenGetCarriesLinkingDemoAndRelationMutationIntent() throws Exception {
-        MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("GET");
         // A GET carrying save data is the CSRF-via-GET attempt the gate must stop.
         request.setParameter("origDemo", "1373");
         request.setParameter("linkingDemo", "1374");
         request.setParameter("relation", "Spouse");
-        MockHttpServletResponse response = new MockHttpServletResponse();
 
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        RelationshipsDao relationshipsDao = mock(RelationshipsDao.class);
-        CtlRelationshipsDao ctlRelationshipsDao = mock(CtlRelationshipsDao.class);
+        String result = new AddDemographicRelationship2Action().execute();
 
-        try (MockedStatic<ServletActionContext> servletCtx = mockStatic(ServletActionContext.class);
-             MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class);
-             MockedStatic<LoggedInInfo> loggedInInfo = mockStatic(LoggedInInfo.class)) {
+        // Rejected with 405 before any persist — the method gate runs ahead of the DAO calls.
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(relationshipsDao);
+        verifyNoInteractions(ctlRelationshipsDao);
+    }
 
-            servletCtx.when(ServletActionContext::getRequest).thenReturn(request);
-            servletCtx.when(ServletActionContext::getResponse).thenReturn(response);
-            wireBeans(springUtils, securityInfoManager, relationshipsDao, ctlRelationshipsDao);
-            grantSession(loggedInInfo, securityInfoManager);
+    @Test
+    @DisplayName("should never persist when POST carries blank linkingDemo and relation")
+    void shouldNotPersist_whenPostCarriesBlankLinkingDemoAndRelation() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("origDemo", "1373");
+        // Blank (present-but-empty) values must not count as mutation intent: fromIntString("")
+        // coerces to 0 the same as fromIntString(null), so this is the same garbage-row risk the
+        // null-value gate exists to stop.
+        request.setParameter("linkingDemo", "   ");
+        request.setParameter("relation", "");
 
-            AddDemographicRelationship2Action action = new AddDemographicRelationship2Action();
+        String result = new AddDemographicRelationship2Action().execute();
 
-            String result = action.execute();
-
-            // Rejected with 405 before any persist — the method gate runs ahead of the DAO calls.
-            assertThat(result).isEqualTo(ActionSupport.NONE);
-            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            verifyNoInteractions(relationshipsDao);
-            verifyNoInteractions(ctlRelationshipsDao);
-        }
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verifyNoInteractions(relationshipsDao);
+        verifyNoInteractions(ctlRelationshipsDao);
     }
 
     @Test
     @DisplayName("should return pmmClient and never persist when GET carries the Finished param")
     void shouldReturnPmmClient_whenGetCarriesFinishedParam() throws Exception {
-        MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("GET");
         request.setParameter("origDemo", "1373");
         request.setParameter("pmmClient", "Finished");
-        MockHttpServletResponse response = new MockHttpServletResponse();
 
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        RelationshipsDao relationshipsDao = mock(RelationshipsDao.class);
-        CtlRelationshipsDao ctlRelationshipsDao = mock(CtlRelationshipsDao.class);
+        String result = new AddDemographicRelationship2Action().execute();
 
-        try (MockedStatic<ServletActionContext> servletCtx = mockStatic(ServletActionContext.class);
-             MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class);
-             MockedStatic<LoggedInInfo> loggedInInfo = mockStatic(LoggedInInfo.class)) {
-
-            servletCtx.when(ServletActionContext::getRequest).thenReturn(request);
-            servletCtx.when(ServletActionContext::getResponse).thenReturn(response);
-            wireBeans(springUtils, securityInfoManager, relationshipsDao, ctlRelationshipsDao);
-            grantSession(loggedInInfo, securityInfoManager);
-
-            AddDemographicRelationship2Action action = new AddDemographicRelationship2Action();
-
-            String result = action.execute();
-
-            assertThat(result).isEqualTo("pmmClient");
-            verifyNoInteractions(relationshipsDao);
-            verifyNoInteractions(ctlRelationshipsDao);
-        }
+        assertThat(result).isEqualTo("pmmClient");
+        verifyNoInteractions(relationshipsDao);
+        verifyNoInteractions(ctlRelationshipsDao);
     }
 
     @Test
     @DisplayName("should persist the relationship when POST carries linkingDemo and relation")
     void shouldPersistRelationship_whenPostCarriesLinkingDemoAndRelation() throws Exception {
-        MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
         request.setParameter("origDemo", "1373");
         request.setParameter("linkingDemo", "1374");
         request.setParameter("relation", "Spouse");
         request.getSession().setAttribute("user", "999998");
-        MockHttpServletResponse response = new MockHttpServletResponse();
-
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        RelationshipsDao relationshipsDao = mock(RelationshipsDao.class);
-        CtlRelationshipsDao ctlRelationshipsDao = mock(CtlRelationshipsDao.class);
         // No configured inverse relation: the inverse-linking branch is skipped cleanly.
         when(ctlRelationshipsDao.findByValue("Spouse")).thenReturn(null);
 
-        try (MockedStatic<ServletActionContext> servletCtx = mockStatic(ServletActionContext.class);
-             MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class);
-             MockedStatic<LoggedInInfo> loggedInInfo = mockStatic(LoggedInInfo.class)) {
+        String result = new AddDemographicRelationship2Action().execute();
 
-            servletCtx.when(ServletActionContext::getRequest).thenReturn(request);
-            servletCtx.when(ServletActionContext::getResponse).thenReturn(response);
-            wireBeans(springUtils, securityInfoManager, relationshipsDao, ctlRelationshipsDao);
-            grantSession(loggedInInfo, securityInfoManager);
-
-            AddDemographicRelationship2Action action = new AddDemographicRelationship2Action();
-
-            String result = action.execute();
-
-            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-            verify(relationshipsDao).persist(any());
-        }
-    }
-
-    private static void wireBeans(MockedStatic<SpringUtils> springUtils,
-            SecurityInfoManager securityInfoManager, RelationshipsDao relationshipsDao,
-            CtlRelationshipsDao ctlRelationshipsDao) {
-        springUtils.when(() -> SpringUtils.getBean(any(Class.class)))
-                .thenAnswer(inv -> {
-                    Class<?> beanType = inv.getArgument(0);
-                    if (beanType.equals(SecurityInfoManager.class)) {
-                        return securityInfoManager;
-                    }
-                    if (beanType.equals(RelationshipsDao.class)) {
-                        return relationshipsDao;
-                    }
-                    if (beanType.equals(CtlRelationshipsDao.class)) {
-                        return ctlRelationshipsDao;
-                    }
-                    if (beanType.equals(DemographicManager.class)) {
-                        return mock(DemographicManager.class);
-                    }
-                    return mock(beanType);
-                });
-    }
-
-    private static void grantSession(MockedStatic<LoggedInInfo> loggedInInfo,
-            SecurityInfoManager securityInfoManager) {
-        LoggedInInfo sessionInfo = mock(LoggedInInfo.class);
-        loggedInInfo.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                .thenReturn(sessionInfo);
-        when(securityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), eq("_demographic"), eq("w"), nullable(String.class)))
-                .thenReturn(true);
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verify(relationshipsDao).persist(any());
     }
 }
