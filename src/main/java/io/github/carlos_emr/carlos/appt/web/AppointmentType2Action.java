@@ -49,6 +49,33 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Backs the Appointment Types list and editor reached from
+ * <em>Administration &gt; Appointment Types</em>. Requires {@code _appointment} write rights.
+ *
+ * <p>A single {@code oper} request parameter selects the operation, and the same value drives
+ * both the HTTP method guard and the dispatch below it, so a duplicated or case-shifted
+ * {@code oper} cannot reach a mutation through the guard:
+ * <ul>
+ *   <li>absent — renders the list with an empty Add form ({@code success})</li>
+ *   <li>{@code edit} — loads one record into the form; read-only, so GET is permitted</li>
+ *   <li>{@code save} — creates or updates; POST-only</li>
+ *   <li>{@code del} — deletes, then {@code redirect} so a refresh cannot repeat it; POST-only</li>
+ *   <li>anything else — rejected rather than silently ignored</li>
+ * </ul>
+ *
+ * <p>{@code save} and {@code del} answer 405 with {@code Allow: POST} before any DAO call, and
+ * both validate before mutating: invalid input returns {@code failure}, which re-renders the
+ * form with the submitted values intact instead of surfacing a bare {@code CARLOS Error: 0}.
+ * Field limits mirror the {@code appointmentType} columns, and under multisite a non-blank
+ * location must name an active site — except the value already stored on the record being
+ * edited, which is accepted so a renamed or deactivated site still round-trips.
+ *
+ * <p>The DAO and multisite lookups are exposed as {@code protected} seams so unit tests can
+ * substitute them without a Spring context; they are not an extension point for callers.
+ *
+ * @since 2024-11-20
+ */
 public class AppointmentType2Action extends ActionSupport {
     private static final String EDIT = "edit";
     private static final String SAVE = "save";
