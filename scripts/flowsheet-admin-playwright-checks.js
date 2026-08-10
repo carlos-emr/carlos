@@ -360,6 +360,11 @@ async function createFlowsheet(page) {
         && isWithinConfiguredApp(url)
         && url.pathname.endsWith('/encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction');
     }, { timeout: 30000 }),
+    page.waitForURL((url) => isWithinConfiguredApp(url)
+      && url.pathname.endsWith('/encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction'), {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    }),
     page.locator('input[type="submit"][value="Create"]').click(),
   ]);
   await assertEditor(page, 'create', response);
