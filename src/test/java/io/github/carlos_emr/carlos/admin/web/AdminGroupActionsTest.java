@@ -48,6 +48,8 @@ class AdminGroupActionsTest extends CarlosWebTestBase {
     private static final String SCHEDULE_GROUP_CREATE_OBJECT = "_admin.schedule.groupCreate";
     private static final Path LEGACY_ADMIN_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/admin/admin.jsp");
+    private static final Path NEW_GROUP_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/admin/adminnewgroup.jsp");
     private static final Path ADMINISTRATION_LEFT_NAV =
             Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf");
 
@@ -62,6 +64,14 @@ class AdminGroupActionsTest extends CarlosWebTestBase {
         assertThat(administrationLeftNav).contains("rel=\"${ctx}/admin/AdminNewGroup\"");
         assertThat(legacyAdmin).doesNotContain("AdminNewGroup?submit=");
         assertThat(administrationLeftNav).doesNotContain("AdminNewGroup?submit=");
+    }
+
+    @Test
+    @DisplayName("should tolerate administration shells without legacy resize helper")
+    void shouldTolerateMissingResizeHelper_whenGroupCreateFormLoads() throws IOException {
+        String newGroup = Files.readString(NEW_GROUP_JSP, StandardCharsets.UTF_8);
+
+        assertThat(newGroup).contains("typeof parent.parent.resizeIframe === 'function'");
     }
 
     @Test
