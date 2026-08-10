@@ -22,7 +22,9 @@
 
 -- Restore current baseline Administration privileges after development.sql
 -- replaces secObjPrivilege with its older demo snapshot. This local-only seed
--- is also safe to run against an existing development database.
+-- is also safe to run against an existing development database. The default
+-- carlosdoc account is intentionally a full administrator in development, so
+-- remove its production/demo schedule group-creation override below.
 
 INSERT IGNORE INTO `secObjectName`
     (`objectName`, `description`, `orgapplicable`)
@@ -40,12 +42,15 @@ VALUES
     ('admin', '_admin.misc', 'x', 0, '999998'),
     ('admin', '_admin.schedule', 'x', 0, '999998'),
     ('admin', '_admin.schedule.groupCreate', 'x', 0, '999998'),
-    ('admin', '_site_access_privacy', 'x', 0, '999998'),
-    ('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')
+    ('admin', '_site_access_privacy', 'x', 0, '999998')
 ON DUPLICATE KEY UPDATE
     `privilege` = VALUES(`privilege`),
     `priority` = VALUES(`priority`),
     `provider_no` = VALUES(`provider_no`);
+
+DELETE FROM `secObjPrivilege`
+WHERE `roleUserGroup` = '999998'
+  AND `objectName` = '_admin.schedule.groupCreate';
 
 -- Keep the development snapshot aligned with the current baseline cleanup.
 DELETE FROM `secObjPrivilege`
