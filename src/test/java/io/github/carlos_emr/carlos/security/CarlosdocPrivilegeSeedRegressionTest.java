@@ -150,6 +150,7 @@ class CarlosdocPrivilegeSeedRegressionTest {
         assertThat(baselinePrivileges).containsAllEntriesOf(repairPrivileges);
         assertThat(bcBaselinePrivileges).containsAllEntriesOf(repairPrivileges);
         assertThat(repairedPrivileges.keySet())
+                .isNotEmpty()
                 .doesNotContain(carlosdocGroupCreation)
                 .noneMatch(key -> key.objectName().equals("_admin.traceability"));
         assertThat(repairedExistingBaselinePrivileges.keySet())
