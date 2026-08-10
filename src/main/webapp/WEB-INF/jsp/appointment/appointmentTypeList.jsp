@@ -52,8 +52,6 @@
 <html>
 <head>
     <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
-    <fmt:message key="appointment.appointmentTypeList.errAppointmentTypeName" var="msgAppointmentTypeName"/>
-    <fmt:message key="appointment.appointmentTypeList.errNamesField" var="msgNamesField"/>
     <fmt:message key="appointment.appointmentTypeList.msgAppointmentType" var="msgAppointmentType"/>
     <fmt:message key="global.confirmDeleteItem" var="msgDeleteConfirm">
         <fmt:param value="${msgAppointmentType}"/>
@@ -62,9 +60,6 @@
         <fmt:message key="appointment.appointmentTypeList.title"/>
     </title>
     <script language="JavaScript">
-        const i18nAppointmentTypeName = "${carlos:forJavaScript(msgAppointmentTypeName)}";
-        const i18nNamesField = "${carlos:forJavaScript(msgNamesField)}";
-
         function popupPage(vheight, vwidth, title, varpage) {
             var page = "" + varpage;
             var leftVal = (screen.width - 850) / 2;
@@ -91,13 +86,6 @@
 
         function upCaseCtrl(ctrl) {
             ctrl.value = ctrl.value.toUpperCase();
-        }
-
-        function onBlockFieldFocus(obj) {
-            obj.blur();
-            document.forms[0].name.focus();
-            document.forms[0].name.select();
-            window.alert(i18nAppointmentTypeName);
         }
 
     </script>
