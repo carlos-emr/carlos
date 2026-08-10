@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DisplayName("Error page HTTP status regression")
+@DisplayName("Error page HTTP status source regression")
 @Tag("unit")
 @Tag("fast")
 class ErrorPageHttpStatusRegressionTest {
@@ -40,8 +40,8 @@ class ErrorPageHttpStatusRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/error/errorpage.jsp");
 
     @Test
-    @DisplayName("should convert successful Struts error forwards to HTTP 500")
-    void shouldSetServerErrorStatus_whenForwardedWithSuccessStatus() throws Exception {
+    @DisplayName("should retain the forwarded-error status normalization source guard")
+    void shouldRetainForwardedErrorStatusNormalizationSourceGuard() throws Exception {
         String jsp = Files.readString(ERROR_PAGE, StandardCharsets.UTF_8);
 
         assertThat(jsp)

@@ -39,6 +39,7 @@
  *   TEST_PIN=2026
  *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=oscar
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *   ALLOW_NON_LOCAL_MYSQL_HOST=true only when intentionally targeting a non-local test database
  */
 
 const { chromium } = require('playwright');
@@ -57,13 +58,22 @@ const LOCAL_HOSTS = new Set([
   'host.docker.internal',
   'carlos',
 ]);
+const LOCAL_MYSQL_HOSTS = new Set([
+  'localhost',
+  '127.0.0.1',
+  '::1',
+  '0:0:0:0:0:0:0:1',
+  'host.docker.internal',
+  'db',
+]);
+const MYSQL_TIMEOUT_MS = 30000;
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const mysqlHost = process.env.MYSQL_HOST || 'db';
+const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'db');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
@@ -111,6 +121,19 @@ function validateBaseUrl(rawBaseUrl) {
   return parsed;
 }
 
+function validateMysqlHost(rawMysqlHost) {
+  const host = rawMysqlHost.trim().toLowerCase();
+  if (!host) {
+    throw new Error('MYSQL_HOST must not be empty');
+  }
+  if (!LOCAL_MYSQL_HOSTS.has(host) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
+    throw new Error(
+      `Refusing non-local MYSQL_HOST ${host}; set ALLOW_NON_LOCAL_MYSQL_HOST=true for an intentional test database`
+    );
+  }
+  return rawMysqlHost;
+}
+
 function appUrl(appPath) {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {
     throw new Error(`Application path must be root-relative, got ${appPath}`);
@@ -131,10 +154,18 @@ function createMysqlDefaultsFile() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
   }
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-flowsheet-mysql-'));
-  const file = path.join(dir, 'client.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
-  return { dir, file };
+  let dir;
+  try {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-flowsheet-mysql-'));
+    const file = path.join(dir, 'client.cnf');
+    fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+    return { dir, file };
+  } catch (error) {
+    if (dir) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+    throw error;
+  }
 }
 
 function sql(query) {
@@ -147,7 +178,11 @@ function sql(query) {
     '-B',
     '-e',
     query,
-  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  ], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: MYSQL_TIMEOUT_MS,
+  }).trim();
 }
 
 function escapeSql(value) {
@@ -307,6 +342,55 @@ async function verifyEditorFailureStatus(page) {
   checks.push({ label: 'editor-error-status', status: response.status(), url: page.url() });
 }
 
+let browser;
+let cleanupPromise;
+
+function cleanupResources() {
+  if (cleanupPromise) {
+    return cleanupPromise;
+  }
+  cleanupPromise = (async () => {
+    const errors = [];
+    try {
+      if (browser) {
+        try {
+          await browser.close();
+        } catch (error) {
+          errors.push(error);
+        } finally {
+          browser = undefined;
+        }
+      }
+      try {
+        cleanupCreatedRows();
+      } catch (error) {
+        errors.push(error);
+      }
+    } finally {
+      try {
+        fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true });
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length) {
+      throw new AggregateError(errors, 'One or more flowsheet test cleanup operations failed');
+    }
+  })();
+  return cleanupPromise;
+}
+
+function installSignalHandler(signal, exitCode) {
+  process.once(signal, () => {
+    cleanupResources()
+      .catch((error) => console.error(`Cleanup after ${signal} failed`, error))
+      .finally(() => process.exit(exitCode));
+  });
+}
+
+installSignalHandler('SIGINT', 130);
+installSignalHandler('SIGTERM', 143);
+
 (async () => {
   const launchOptions = {
     headless: true,
@@ -315,8 +399,6 @@ async function verifyEditorFailureStatus(page) {
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
-
-  let browser;
   try {
     cleanupCreatedRows();
     browser = await chromium.launch(launchOptions);
@@ -340,11 +422,7 @@ async function verifyEditorFailureStatus(page) {
     console.log(JSON.stringify({ displayName, checks, findings }, null, 2));
     console.log('PASS flowsheet create and system/user edit workflows rendered successfully');
   } finally {
-    if (browser) {
-      await browser.close();
-    }
-    cleanupCreatedRows();
-    fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true });
+    await cleanupResources();
   }
 })().catch((error) => {
   console.error('FAIL flowsheet admin Playwright checks');
