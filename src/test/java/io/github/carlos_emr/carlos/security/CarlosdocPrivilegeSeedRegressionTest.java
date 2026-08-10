@@ -148,6 +148,10 @@ class CarlosdocPrivilegeSeedRegressionTest {
         Map<PrivilegeKey, String> repairPrivileges = privileges(privilegeRepairSql);
         Map<PrivilegeKey, String> repairedPrivileges = effectivePrivileges(
                 developmentSeedSql, privilegeRepairSql);
+        Map<PrivilegeKey, String> repairedExistingBaselinePrivileges = effectivePrivileges(
+                seedSql, privilegeRepairSql);
+        PrivilegeKey carlosdocGroupCreation =
+                new PrivilegeKey("999998", "_admin.schedule.groupCreate");
         Map<PrivilegeKey, String> onFinalPrivileges = effectivePrivileges(
                 seedSql, flywayGroupPrivilegeMigrationSql);
         Map<PrivilegeKey, String> bcFinalPrivileges = effectivePrivileges(
@@ -157,10 +161,18 @@ class CarlosdocPrivilegeSeedRegressionTest {
         assertThat(bcBaselinePrivileges).isNotEmpty();
         assertThat(repairPrivileges).hasSize(7);
         assertThat(repairedPrivileges).isEqualTo(onFinalPrivileges);
+        assertThat(repairedExistingBaselinePrivileges).isEqualTo(onFinalPrivileges);
         assertThat(onFinalPrivileges).containsAllEntriesOf(repairPrivileges);
         assertThat(bcFinalPrivileges).containsAllEntriesOf(repairPrivileges);
+        assertThat(baselinePrivileges).containsAllEntriesOf(repairPrivileges);
+        assertThat(bcBaselinePrivileges).containsAllEntriesOf(repairPrivileges);
         assertThat(repairedPrivileges.keySet())
+                .isNotEmpty()
+                .doesNotContain(carlosdocGroupCreation)
                 .noneMatch(key -> key.objectName().equals("_admin.traceability"));
+        assertThat(repairedExistingBaselinePrivileges.keySet())
+                .isNotEmpty()
+                .doesNotContain(carlosdocGroupCreation);
         assertThat(privilegeTupleCount(privilegeRepairSql))
                 .isEqualTo(privileges(privilegeRepairSql).size());
         assertThat(privilegeRepairSql).contains(
@@ -168,6 +180,8 @@ class CarlosdocPrivilegeSeedRegressionTest {
                 "`roleUserGroup` = '999998'",
                 "`objectName` = '_admin.schedule.groupCreate'",
                 "`privilege` = 'o'",
+                "DELETE FROM `secObjPrivilege`\n"
+                        + "WHERE `objectName` = '_admin.traceability';",
                 "ON DUPLICATE KEY UPDATE");
         assertThat(privilegeRepairSql)
                 .doesNotContain("('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')");
@@ -331,6 +345,7 @@ class CarlosdocPrivilegeSeedRegressionTest {
                                 && matchesDeleteConditions(entry.getValue(), conditions));
             }
         }
+
         return privileges;
     }
 

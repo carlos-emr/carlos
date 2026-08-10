@@ -22,7 +22,9 @@
 
 -- Restore current baseline Administration privileges after development.sql
 -- replaces secObjPrivilege with its older demo snapshot. This local-only seed
--- is also safe to run against an existing development database.
+-- is also safe to run against an existing development database. The default
+-- carlosdoc account is intentionally a full administrator in development, so
+-- remove its production/demo schedule group-creation override below.
 
 INSERT IGNORE INTO `secObjectName`
     (`objectName`, `description`, `orgapplicable`)
