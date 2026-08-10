@@ -175,11 +175,10 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
     @Override public void batchRemoveWithIndependentCommits(List<AppointmentStatus> list, int size) { super.batchRemoveWithIndependentCommits(list, size); }
 
     /**
-     * I don't know about this one...but i'm just converting it to a JPA entity for
-     * now.
+     * Finds the first inactive status that still has associated appointments.
      *
-     * @param allStatus
-     * @return int
+     * @param allStatus statuses to check, in the order referenced by the returned index
+     * @return the index of the first inactive status in use, or {@code -1} when none are in use
      */
     @Override
     public int checkStatusUsuage(List<AppointmentStatus> allStatus) {

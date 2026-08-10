@@ -16,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import java.util.List;
 
@@ -121,19 +122,20 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
         assertThat(mockRequest.getAttribute("useStatus")).isEqualTo("c");
     }
 
-    @Test
-    void shouldUseSafeDefault_whenEditingStatusWithLegacyBlankColour() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"", "invalid"})
+    void shouldUseSafeDefault_whenEditingStatusWithLegacyInvalidColour(String legacyColour) throws Exception {
         AppointmentStatus legacyStatus = new AppointmentStatus();
         legacyStatus.setId(14);
         legacyStatus.setStatus("C");
         legacyStatus.setDescription("Cancelled");
-        legacyStatus.setColor("");
+        legacyStatus.setColor(legacyColour);
         when(appointmentStatusMgr.getStatus(14)).thenReturn(legacyStatus);
         addRequestParameter("dispatch", "modify");
         action.setId(14);
 
         assertThat(executeAction(action)).isEqualTo("edit");
-        assertThat(action.getApptOldColor()).isEmpty();
+        assertThat(action.getApptOldColor()).isEqualTo(legacyColour);
         assertThat(action.getApptColor()).isEqualTo("#FFFFFF");
         assertThat(action.isLegacyColor()).isTrue();
     }
@@ -313,9 +315,17 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"update", "changestatus", "reset"})
-    void shouldRejectMutationDispatches_whenRequestIsGet(String dispatch) throws Exception {
-        mockRequest.setMethod("GET");
+    @CsvSource({
+            "GET, update",
+            "GET, changestatus",
+            "GET, reset",
+            "HEAD, update",
+            "HEAD, changestatus",
+            "HEAD, reset"
+    })
+    void shouldRejectMutationDispatches_whenRequestIsNotPost(String requestMethod, String dispatch)
+            throws Exception {
+        mockRequest.setMethod(requestMethod);
         addRequestParameter("dispatch", dispatch);
 
         assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
