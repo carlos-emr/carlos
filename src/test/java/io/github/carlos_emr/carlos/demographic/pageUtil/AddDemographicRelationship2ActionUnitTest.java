@@ -38,11 +38,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -145,16 +150,18 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(ctlRelationshipsDao);
     }
 
-    @Test
-    @DisplayName("should never persist when POST carries blank linkingDemo and relation")
-    void shouldNotPersist_whenPostCarriesBlankLinkingDemoAndRelation() throws Exception {
+    // Blank (present-but-empty) values must not count as mutation intent: fromIntString("")
+    // coerces to 0 the same as fromIntString(null), so this is the same garbage-row risk the
+    // null-value gate exists to stop. The AND (not OR) semantics of the gate are guarded by
+    // covering both-blank and each single-field-blank case.
+    @ParameterizedTest(name = "should never persist when POST carries {2}")
+    @MethodSource("blankMutationParams")
+    void shouldNotPersist_whenPostCarriesBlankMutationParam(String linkingDemo, String relation, String description)
+            throws Exception {
         request.setMethod("POST");
         request.setParameter("origDemo", "1373");
-        // Blank (present-but-empty) values must not count as mutation intent: fromIntString("")
-        // coerces to 0 the same as fromIntString(null), so this is the same garbage-row risk the
-        // null-value gate exists to stop.
-        request.setParameter("linkingDemo", "   ");
-        request.setParameter("relation", "");
+        request.setParameter("linkingDemo", linkingDemo);
+        request.setParameter("relation", relation);
 
         String result = new AddDemographicRelationship2Action().execute();
 
@@ -163,36 +170,11 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(ctlRelationshipsDao);
     }
 
-    @Test
-    @DisplayName("should never persist when POST carries blank linkingDemo but non-blank relation")
-    void shouldNotPersist_whenPostCarriesBlankLinkingDemoOnly() throws Exception {
-        // Guards the AND (not OR) semantics of the mutation gate.
-        request.setMethod("POST");
-        request.setParameter("origDemo", "1373");
-        request.setParameter("linkingDemo", "   ");
-        request.setParameter("relation", "Spouse");
-
-        String result = new AddDemographicRelationship2Action().execute();
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        verifyNoInteractions(relationshipsDao);
-        verifyNoInteractions(ctlRelationshipsDao);
-    }
-
-    @Test
-    @DisplayName("should never persist when POST carries blank relation but non-blank linkingDemo")
-    void shouldNotPersist_whenPostCarriesBlankRelationOnly() throws Exception {
-        // Guards the AND (not OR) semantics of the mutation gate.
-        request.setMethod("POST");
-        request.setParameter("origDemo", "1373");
-        request.setParameter("linkingDemo", "1374");
-        request.setParameter("relation", "");
-
-        String result = new AddDemographicRelationship2Action().execute();
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        verifyNoInteractions(relationshipsDao);
-        verifyNoInteractions(ctlRelationshipsDao);
+    private static Stream<Arguments> blankMutationParams() {
+        return Stream.of(
+                Arguments.of("   ", "", "blank linkingDemo and relation"),
+                Arguments.of("   ", "Spouse", "blank linkingDemo only"),
+                Arguments.of("1374", "", "blank relation only"));
     }
 
     @Test
