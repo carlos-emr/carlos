@@ -244,10 +244,6 @@ public class AppointmentStatus2Action extends ActionSupport {
         return apptStatus;
     }
 
-    public void setApptStatus(String apptStatus) {
-        this.apptStatus = apptStatus;
-    }
-
     public String getApptDesc() {
         return apptDesc;
     }
@@ -259,10 +255,6 @@ public class AppointmentStatus2Action extends ActionSupport {
 
     public String getApptOldColor() {
         return apptOldColor;
-    }
-
-    public void setApptOldColor(String apptOldColor) {
-        this.apptOldColor = apptOldColor;
     }
 
     public String getApptColor() {
