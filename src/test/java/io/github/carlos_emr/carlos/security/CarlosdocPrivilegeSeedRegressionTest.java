@@ -154,6 +154,7 @@ class CarlosdocPrivilegeSeedRegressionTest {
                 .doesNotContain(carlosdocGroupCreation)
                 .noneMatch(key -> key.objectName().equals("_admin.traceability"));
         assertThat(repairedExistingBaselinePrivileges.keySet())
+                .isNotEmpty()
                 .doesNotContain(carlosdocGroupCreation);
         assertThat(privilegeTupleCount(privilegeRepairSql))
                 .isEqualTo(privileges(privilegeRepairSql).size());
