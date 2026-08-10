@@ -163,6 +163,8 @@ class CarlosdocPrivilegeSeedRegressionTest {
                         "('admin', '_admin.schedule', 'x', 0, '999998')",
                         "WHERE `roleUserGroup` = '999998'",
                         "AND `objectName` = '_admin.schedule.groupCreate'",
+                        "DELETE FROM `secObjPrivilege`\n"
+                                + "WHERE `objectName` = '_admin.traceability';",
                         "ON DUPLICATE KEY UPDATE")
                 .doesNotContain("('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')");
     }
