@@ -28,8 +28,9 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Ensures the allergy form remains submit-safe when it is rendered as an
- * AJAX fragment after the page-level CSRFGuard script has already initialized.
+ * Source-level guardrails for the AJAX allergy form fragment. Runtime CSRF
+ * token rendering is covered by the application-level page flow, while this
+ * test keeps the JSP contract wired to CSRFGuard and the session patient.
  *
  * @since 2026-08-07
  */
@@ -47,15 +48,16 @@ class RxAllergyCsrfJspRegressionTest {
             + "response.sendError(HttpServletResponse.SC_FORBIDDEN); return; }";
 
     @Test
-    @DisplayName("AJAX-rendered allergy form should include its CSRF token and rendered patient context")
-    void shouldRenderCsrfTokenAndPatientContext_whenAddReactionJspIsRendered() throws IOException {
+    @DisplayName("AJAX allergy form source should declare CSRFGuard tags and rendered patient context")
+    void shouldDeclareCsrfGuardTagsAndPatientContext_whenAddReactionJspSourceIsChecked() throws IOException {
         Element form = addAllergyForm();
         Elements hiddenInputs = form.select("input[type=hidden]");
 
         assertThat(hiddenInputs)
-                .filteredOn(input -> "<csrf:tokenname/>".equals(input.attr("name")))
-                .singleElement()
-                .satisfies(input -> assertThat(input.attr("value")).isEqualTo("<csrf:tokenvalue/>"));
+                .as("source-level CSRFGuard tag placeholder input")
+                .filteredOn(input -> "<csrf:tokenname/>".equals(input.attr("name"))
+                        && "<csrf:tokenvalue/>".equals(input.attr("value")))
+                .singleElement();
         assertThat(hiddenInputs)
                 .filteredOn(input -> "formDemographicNo".equals(input.attr("name")))
                 .singleElement();

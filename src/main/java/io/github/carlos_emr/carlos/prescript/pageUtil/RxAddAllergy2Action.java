@@ -64,8 +64,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
      * Requests must use {@code POST}; other methods return HTTP 405 with
      * {@code Allow: POST} and {@link #NONE}. Missing, malformed, or
      * mismatched rendered patient context returns HTTP 403 and {@link #NONE}.
-     * Valid add requests return {@link #SUCCESS}; archive requests return
-     * {@link #NONE} after the allergy list response is rendered.
+     * Valid add and archive requests return {@link #SUCCESS}.
      */
     public String execute() throws IOException, ServletException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_allergy", "w", null)) {
