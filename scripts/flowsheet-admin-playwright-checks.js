@@ -44,6 +44,7 @@
 
 const { chromium } = require('playwright');
 const { execFileSync } = require('node:child_process');
+const { randomBytes } = require('node:crypto');
 const fs = require('node:fs');
 const net = require('node:net');
 const os = require('node:os');
@@ -63,7 +64,6 @@ const LOCAL_MYSQL_HOSTS = new Set([
   '127.0.0.1',
   '::1',
   '0:0:0:0:0:0:0:1',
-  'host.docker.internal',
   'db',
 ]);
 const MYSQL_TIMEOUT_MS = 30000;
@@ -77,7 +77,7 @@ const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'db');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
-const displayName = `PW Flowsheet 3400 ${Date.now()}`;
+const displayName = `PW Flowsheet 3400 ${Date.now()} ${randomBytes(4).toString('hex')}`;
 
 const mysqlDefaults = createMysqlDefaultsFile();
 const findings = [];
@@ -131,7 +131,7 @@ function validateMysqlHost(rawMysqlHost) {
       `Refusing non-local MYSQL_HOST ${host}; set ALLOW_NON_LOCAL_MYSQL_HOST=true for an intentional test database`
     );
   }
-  return rawMysqlHost;
+  return host;
 }
 
 function appUrl(appPath) {
@@ -150,6 +150,13 @@ function isWithinConfiguredApp(url) {
     && (appRoot === '/' || url.pathname === appRoot || url.pathname.startsWith(`${appRoot}/`));
 }
 
+// In MySQL option files, an unquoted '#' starts a comment and backslashes are
+// escape characters. Quote the password and escape the two characters that
+// retain special meaning inside a double-quoted option value.
+function encodeMysqlOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function createMysqlDefaultsFile() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
@@ -158,7 +165,7 @@ function createMysqlDefaultsFile() {
   try {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-flowsheet-mysql-'));
     const file = path.join(dir, 'client.cnf');
-    fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+    fs.writeFileSync(file, `[client]\npassword=${encodeMysqlOptionFileValue(mysqlPassword)}\n`, { mode: 0o600 });
     return { dir, file };
   } catch (error) {
     if (dir) {
@@ -168,21 +175,41 @@ function createMysqlDefaultsFile() {
   }
 }
 
+function sanitizedMysqlFailure(error) {
+  const stderr = String(error && error.stderr ? error.stderr : '');
+  const errorLine = stderr.split(/\r?\n/).find((line) => /^ERROR\b/i.test(line.trim()));
+  if (!errorLine) {
+    return error && (error.killed || error.code === 'ETIMEDOUT')
+      ? 'mysql command timed out'
+      : 'mysql command failed';
+  }
+  const detail = errorLine
+    .replace(/'[^']*'/g, "'<redacted>'")
+    .replace(/\d+/g, '#')
+    .replace(/[^\x20-\x7e]/g, ' ')
+    .slice(0, 300);
+  return `mysql command failed: ${detail}`;
+}
+
 function sql(query) {
-  return execFileSync('mysql', [
-    `--defaults-extra-file=${mysqlDefaults.file}`,
-    '-h', mysqlHost,
-    '-u', mysqlUser,
-    mysqlDatabase,
-    '-N',
-    '-B',
-    '-e',
-    query,
-  ], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: MYSQL_TIMEOUT_MS,
-  }).trim();
+  try {
+    return execFileSync('mysql', [
+      `--defaults-extra-file=${mysqlDefaults.file}`,
+      '-h', mysqlHost,
+      '-u', mysqlUser,
+      mysqlDatabase,
+      '-N',
+      '-B',
+      '-e',
+      query,
+    ], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: MYSQL_TIMEOUT_MS,
+    }).trim();
+  } catch (error) {
+    throw new Error(sanitizedMysqlFailure(error));
+  }
 }
 
 function escapeSql(value) {
@@ -383,7 +410,7 @@ function cleanupResources() {
 function installSignalHandler(signal, exitCode) {
   process.once(signal, () => {
     cleanupResources()
-      .catch((error) => console.error(`Cleanup after ${signal} failed`, error))
+      .catch((error) => console.error(`Cleanup after ${signal} failed: ${error.message}`))
       .finally(() => process.exit(exitCode));
   });
 }

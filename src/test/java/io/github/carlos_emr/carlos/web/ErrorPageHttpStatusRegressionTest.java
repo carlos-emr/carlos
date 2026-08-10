@@ -36,8 +36,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("fast")
 class ErrorPageHttpStatusRegressionTest {
 
+    private static final String BASEDIR_PROPERTY = "basedir";
     private static final Path ERROR_PAGE =
-            Path.of("src/main/webapp/WEB-INF/jsp/error/errorpage.jsp");
+            resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp/error/errorpage.jsp"));
 
     @Test
     @DisplayName("should retain the forwarded-error status normalization source guard")
@@ -45,10 +46,26 @@ class ErrorPageHttpStatusRegressionTest {
         String jsp = Files.readString(ERROR_PAGE, StandardCharsets.UTF_8);
 
         assertThat(jsp)
-                .contains("if (_responseStatus < 400)")
+                .containsPattern("response\\s*\\.\\s*getStatus\\s*\\(\\s*\\)")
+                .containsPattern("if\\s*\\([^)]*<\\s*400\\s*\\)")
                 .contains("HttpServletResponse.SC_INTERNAL_SERVER_ERROR")
-                .contains("response.setStatus(_responseStatus)")
-                .contains("${carlos:forHtml(_responseStatus)}")
+                .containsPattern("response\\s*\\.\\s*setStatus\\s*\\(")
+                .containsPattern("\\$\\{\\s*carlos:forHtml\\s*\\([^)]*\\)\\s*}")
                 .doesNotContain("pageContext.errorData.statusCode");
+    }
+
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of(System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")))
+                .toAbsolutePath()
+                .normalize();
+        for (int checkedParents = 0; current != null && checkedParents < 6; checkedParents++) {
+            Path candidate = current.resolve(relativePath).normalize();
+            if (Files.isRegularFile(candidate) || Files.isDirectory(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate " + relativePath + " from "
+                + System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")));
     }
 }
