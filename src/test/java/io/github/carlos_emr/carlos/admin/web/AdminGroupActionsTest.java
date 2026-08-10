@@ -64,10 +64,10 @@ class AdminGroupActionsTest extends CarlosWebTestBase {
                 Files.readString(ADMINISTRATION_LEFT_NAV, StandardCharsets.UTF_8);
 
         assertThat(legacyAdmin)
-                .contains("/admin/AdminNewGroup")
+                .contains("${pageContext.request.contextPath}/admin/AdminNewGroup")
                 .doesNotContain("AdminNewGroup?submit=");
         assertThat(administrationLeftNav)
-                .contains("/admin/AdminNewGroup")
+                .contains("${ctx}/admin/AdminNewGroup")
                 .doesNotContain("AdminNewGroup?submit=");
     }
 
