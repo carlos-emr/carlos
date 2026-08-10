@@ -325,6 +325,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
 
     @Test
     void shouldDeleteExistingType_whenRequestIsPost() throws Exception {
+        when(appointmentTypeDao.remove(42)).thenReturn(true);
         mockRequest.setMethod("POST");
         addRequestParameter("oper", "del");
         addRequestParameter("no", "42");
@@ -342,6 +343,18 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
         TestAppointmentType2Action refreshedAction = new TestAppointmentType2Action(appointmentTypeDao);
         assertThat(executeAction(refreshedAction)).isEqualTo(ActionSupport.SUCCESS);
         assertThat(refreshedAction.getActionMessages()).isEmpty();
+    }
+
+    @Test
+    void shouldReportFailure_whenDeleteTargetAlreadyGone() throws Exception {
+        when(appointmentTypeDao.remove(42)).thenReturn(false);
+        mockRequest.setMethod("POST");
+        addRequestParameter("oper", "del");
+        addRequestParameter("no", "42");
+
+        assertThat(executeAction(action)).isEqualTo("failure");
+        assertThat(action.getActionErrors()).containsExactly("appointment.type.notfound.error");
+        assertThat(action.getActionMessages()).isEmpty();
     }
 
     @Test

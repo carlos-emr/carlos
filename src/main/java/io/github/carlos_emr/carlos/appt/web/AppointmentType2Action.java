@@ -139,7 +139,13 @@ public class AppointmentType2Action extends ActionSupport {
                 addActionMessage(getText("appointment.type.saved.message"));
             } else if (DELETE.equals(sOper)) {
                 try {
-                    appDao.remove(typeNo);
+                    // remove(id) returns false for an already-deleted record instead of throwing,
+                    // so a stale list page or a double submit would otherwise report success for a
+                    // delete that never happened.
+                    if (!appDao.remove(typeNo)) {
+                        addActionError(getText("appointment.type.notfound.error"));
+                        return failure();
+                    }
                     request.getSession().setAttribute(DELETE_SUCCESS_FLASH, Boolean.TRUE);
                     return "redirect";
                 } catch (Exception e) {
