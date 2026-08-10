@@ -27,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -71,12 +72,13 @@ class CarlosdocPrivilegeSeedRegressionTest {
             "V1.0.9__remove_carlosdoc_schedule_group_denial.sql");
     private static final Path MIGRATION = Path.of("database", "mysql", "updates",
             "update-2026-05-21-carlosdoc-schedule-group-privilege.sql");
+    private static final Set<String> ADMIN_ROLE_GROUPS = Set.of("admin", "999998");
     private static final Pattern SEC_OBJ_PRIVILEGE_INSERT = Pattern.compile(
             "INSERT\\s+INTO\\s+`?secObjPrivilege`?(?:\\s*\\([^)]*\\))?"
                     + "\\s+VALUES\\s+([^;]+)",
             Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
     private static final Pattern PRIVILEGE_TUPLE = Pattern.compile(
-            "\\(\\s*'(admin|999998)'\\s*,\\s*'([^']+)'\\s*,\\s*'([^']+)'\\s*,"
+            "\\(\\s*'([^']+)'\\s*,\\s*'([^']+)'\\s*,\\s*'([^']+)'\\s*,"
                     + "\\s*(\\d+)\\s*,\\s*'([^']+)'\\s*\\)");
     private static final Pattern PRIVILEGE_DELETE = Pattern.compile(
             "DELETE\\s+FROM\\s+`?secObjPrivilege`?\\s+WHERE\\s+(.+?);",
@@ -143,19 +145,24 @@ class CarlosdocPrivilegeSeedRegressionTest {
     @DisplayName("should restore baseline admin privileges after development snapshot")
     void shouldRestoreBaselineAdminPrivileges_afterDevelopmentSnapshot() throws IOException {
         String privilegeRepairSql = Files.readString(DEVELOPMENT_PRIVILEGES, StandardCharsets.UTF_8);
-        Map<PrivilegeKey, String> baselinePrivileges = privileges(seedSql);
-        Map<PrivilegeKey, String> bcBaselinePrivileges = privileges(bcSeedSql);
-        Map<PrivilegeKey, String> repairPrivileges = privileges(privilegeRepairSql);
-        Map<PrivilegeKey, String> repairedPrivileges = effectivePrivileges(
-                developmentSeedSql, privilegeRepairSql);
-        Map<PrivilegeKey, String> repairedExistingBaselinePrivileges = effectivePrivileges(
-                seedSql, privilegeRepairSql);
+        Map<PrivilegeKey, String> baselinePrivileges = administrationPrivileges(privileges(seedSql));
+        Map<PrivilegeKey, String> bcBaselinePrivileges = administrationPrivileges(privileges(bcSeedSql));
+        Map<PrivilegeKey, String> repairPrivileges =
+                administrationPrivileges(privileges(privilegeRepairSql));
+        Map<PrivilegeKey, String> allRepairedPrivileges =
+                effectivePrivileges(developmentSeedSql, privilegeRepairSql);
+        Map<PrivilegeKey, String> repairedPrivileges =
+                administrationPrivileges(allRepairedPrivileges);
+        Map<PrivilegeKey, String> repairedExistingBaselinePrivileges = administrationPrivileges(
+                effectivePrivileges(seedSql, privilegeRepairSql));
         PrivilegeKey carlosdocGroupCreation =
                 new PrivilegeKey("999998", "_admin.schedule.groupCreate");
-        Map<PrivilegeKey, String> onFinalPrivileges = effectivePrivileges(
-                seedSql, flywayGroupPrivilegeMigrationSql);
-        Map<PrivilegeKey, String> bcFinalPrivileges = effectivePrivileges(
-                bcSeedSql, flywayGroupPrivilegeMigrationSql);
+        PrivilegeKey doctorTraceability =
+                new PrivilegeKey("doctor", "_admin.traceability");
+        Map<PrivilegeKey, String> onFinalPrivileges = administrationPrivileges(
+                effectivePrivileges(seedSql, flywayGroupPrivilegeMigrationSql));
+        Map<PrivilegeKey, String> bcFinalPrivileges = administrationPrivileges(
+                effectivePrivileges(bcSeedSql, flywayGroupPrivilegeMigrationSql));
 
         assertThat(baselinePrivileges).isNotEmpty();
         assertThat(bcBaselinePrivileges).isNotEmpty();
@@ -173,6 +180,10 @@ class CarlosdocPrivilegeSeedRegressionTest {
         assertThat(repairedExistingBaselinePrivileges.keySet())
                 .isNotEmpty()
                 .doesNotContain(carlosdocGroupCreation);
+        assertThat(privileges(developmentSeedSql)).containsKey(doctorTraceability);
+        assertThat(allRepairedPrivileges.keySet())
+                .isNotEmpty()
+                .noneMatch(key -> key.objectName().equals("_admin.traceability"));
         assertThat(privilegeTupleCount(privilegeRepairSql))
                 .isEqualTo(privileges(privilegeRepairSql).size());
         assertThat(privilegeRepairSql).contains(
@@ -292,15 +303,32 @@ class CarlosdocPrivilegeSeedRegressionTest {
         Map<PrivilegeKey, String> privileges = new LinkedHashMap<>();
         Matcher insert = SEC_OBJ_PRIVILEGE_INSERT.matcher(sql);
         while (insert.find()) {
-            Matcher tuple = PRIVILEGE_TUPLE.matcher(insert.group(1));
-            while (tuple.find()) {
-                // The table key is (roleUserGroup, objectName), so later repair upserts
-                // replace the effective tuple for the same role and security object.
-                privileges.put(new PrivilegeKey(tuple.group(1), tuple.group(2)),
-                        tuple.group(3) + '|' + tuple.group(4) + '|' + tuple.group(5));
-            }
+            privileges.putAll(privilegeTuples(insert.group(1)));
         }
         return privileges;
+    }
+
+    private static Map<PrivilegeKey, String> privilegeTuples(String sql) {
+        Map<PrivilegeKey, String> privileges = new LinkedHashMap<>();
+        Matcher tuple = PRIVILEGE_TUPLE.matcher(sql);
+        while (tuple.find()) {
+            // The table key is (roleUserGroup, objectName), so later repair upserts
+            // replace the effective tuple for the same role and security object.
+            privileges.put(new PrivilegeKey(tuple.group(1), tuple.group(2)),
+                    tuple.group(3) + '|' + tuple.group(4) + '|' + tuple.group(5));
+        }
+        return privileges;
+    }
+
+    private static Map<PrivilegeKey, String> administrationPrivileges(
+            Map<PrivilegeKey, String> allPrivileges) {
+        Map<PrivilegeKey, String> administrationPrivileges = new LinkedHashMap<>();
+        allPrivileges.forEach((key, value) -> {
+            if (ADMIN_ROLE_GROUPS.contains(key.roleUserGroup())) {
+                administrationPrivileges.put(key, value);
+            }
+        });
+        return administrationPrivileges;
     }
 
     private static long privilegeTupleCount(String sql) {
