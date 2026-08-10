@@ -151,13 +151,13 @@ Studied the issue, identified the vulnerable file and root cause, wrote and comm
 **Summary of Contribution:** Added a patient-scoped authorization check to `ScatterPlotChartServlet` (issue #2623), which previously had no per-patient access control — any authenticated user could view any patient's clinical measurement chart by changing the `demographicNo` request parameter. The fix checks `_measurement` and `_demographic` read privilege scoped to the requested patient, rejects requests with a missing `demographicNo` outright, and adds `isAllowedAccessToPatientRecord()` as an additional patient-level access check. All changes are scoped to the single file the maintainer asked for.
 
 **Feedback Received & Next Steps:**
-- Maintainer (issue comment, pre-PR): asked to target `develop`, stay scoped to this one file, flag rather than silently decide on `_demographic`, add tests or clear manual-verification notes, and DCO-sign commits. Addressed by grepping the codebase for the `_demographic` pattern instead of guessing, keeping the change single-file, and signing commits with `-s`.
+- Maintainer (issue comment, pre-PR): asked to target `develop`, stay scoped to this one file, flag rather than silently decide on `_demographic`, add tests or clear manual-verification notes, and DCO-sign commits. Addressed.
 - Sourcery (automated review): confirmed both privilege checks are present, correctly scoped, and satisfy the linked issue's stated objectives.
-- `cubic-dev-ai` (automated review, second pass): flagged that a missing `demographicNo` and a lack of patient-specific role mapping could both still fall back to a general privilege check. Addressed by rejecting `null` `demographicNo` outright and adding `isAllowedAccessToPatientRecord()` as defense-in-depth; documented the remaining limitation (the shared `hasPrivilege()` fallback itself) as out of scope for this PR rather than silently leaving it unaddressed.
-- DCO check failed once on a merge commit missing a sign-off; fixed by amending that commit with `-s` and force-pushing.
+- `cubic-dev-ai` (automated review): flagged that a missing `demographicNo` and a lack of patient-specific role mapping could both fall back to a general privilege check. Addressed by rejecting `null` `demographicNo` outright and adding `isAllowedAccessToPatientRecord()` as defense-in-depth; the remaining limitation in the shared `hasPrivilege()` fallback is documented as out of scope for this PR.
+- DCO check failed once on a merge commit missing a sign-off; fixed by amending with `-s` and force-pushing.
 - Next step: awaiting a human maintainer re-review of the latest changes.
 
-**Status:** Iterating
+**Status:** Awaiting review
 
 ---
 
