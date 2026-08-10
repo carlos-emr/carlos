@@ -64,7 +64,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_allergy)");
         }
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;

@@ -43,10 +43,11 @@ class RxAllergyCsrfJspRegressionTest {
     void shouldRenderCsrfTokenAndPatientContext_whenAddReactionJspIsRendered() throws IOException {
         String jsp = Files.readString(ADD_REACTION_JSP, StandardCharsets.UTF_8);
 
-        assertThat(jsp).contains("<%@ taglib uri=\"https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld\" prefix=\"csrf\" %>");
-        assertThat(jsp).contains("name=\"<csrf:tokenname/>\" value=\"<csrf:tokenvalue/>\"");
-        assertThat(jsp).contains("name=\"formDemographicNo\"");
-        assertThat(jsp).contains("patient.getDemographicNo()");
+        assertThat(jsp)
+                .contains("<%@ taglib uri=\"https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld\" prefix=\"csrf\" %>")
+                .contains("name=\"<csrf:tokenname/>\" value=\"<csrf:tokenvalue/>\"")
+                .contains("name=\"formDemographicNo\"")
+                .contains("patient.getDemographicNo()");
     }
 
     @Test
@@ -54,9 +55,10 @@ class RxAllergyCsrfJspRegressionTest {
     void shouldFailClosed_whenSessionPatientIsMissing() throws IOException {
         String jsp = Files.readString(ADD_REACTION_JSP, StandardCharsets.UTF_8);
 
-        assertThat(jsp).contains("if (patient == null) {");
-        assertThat(jsp).contains("response.sendError(HttpServletResponse.SC_FORBIDDEN);");
-        assertThat(jsp).contains("return;");
+        assertThat(jsp)
+                .contains("if (patient == null) {")
+                .contains("response.sendError(HttpServletResponse.SC_FORBIDDEN);")
+                .contains("return;");
     }
 
     @Test

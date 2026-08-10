@@ -153,6 +153,21 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject a lower-case post request before adding an allergy")
+    void shouldRejectAdd_whenRequestMethodIsLowerCasePost() throws Exception {
+        mockRequest.setMethod("post");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
     @DisplayName("should reject a missing rendered patient context before adding an allergy")
     void shouldRejectAdd_whenFormDemographicNoIsMissing() throws Exception {
         mockRequest.removeParameter("formDemographicNo");
