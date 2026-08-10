@@ -46,7 +46,6 @@ const { chromium } = require('playwright');
 const { execFileSync } = require('node:child_process');
 const { randomBytes } = require('node:crypto');
 const fs = require('node:fs');
-const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
 
@@ -56,7 +55,6 @@ const LOCAL_HOSTS = new Set([
   '::1',
   '0:0:0:0:0:0:0:1',
   '0.0.0.0',
-  'host.docker.internal',
   'carlos',
 ]);
 const LOCAL_MYSQL_HOSTS = new Set([
@@ -84,20 +82,11 @@ const findings = [];
 const checks = [];
 const expectedErrorUrls = new Set();
 const confirmedExpectedErrorUrls = new Set();
+let csrfToken = '';
 
 function normalizedHostname(url) {
   const host = url.hostname.toLowerCase();
   return host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
-}
-
-function isPrivateIpv4(host) {
-  if (!net.isIPv4(host)) {
-    return false;
-  }
-  const [first, second] = host.split('.').map(Number);
-  return first === 10
-    || (first === 192 && second === 168)
-    || (first === 172 && second >= 16 && second <= 31);
 }
 
 function validateBaseUrl(rawBaseUrl) {
@@ -110,7 +99,7 @@ function validateBaseUrl(rawBaseUrl) {
   }
   const host = normalizedHostname(parsed);
   const localHost = LOCAL_HOSTS.has(host);
-  if (!localHost && !isPrivateIpv4(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+  if (!localHost && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
   if (!localHost && parsed.protocol !== 'https:') {
@@ -246,10 +235,13 @@ async function cleanupCreatedRowsThroughApplication() {
   if (!browserContext) {
     throw new Error('Cannot reload flowsheets during cleanup without an authenticated browser context');
   }
+  if (!csrfToken) {
+    throw new Error('Cannot reload flowsheets during cleanup without a CSRF token');
+  }
   for (const row of rows) {
     sql(`DELETE FROM flowsheet_customization WHERE flowsheet='${escapeSql(row.name)}'`);
     const response = await browserContext.request.post(appUrl('/admin/Flowsheet'), {
-      form: { method: 'deleteFlowsheet', id: row.id },
+      form: { method: 'deleteFlowsheet', id: row.id, 'CSRF-TOKEN': csrfToken },
       timeout: 30000,
     });
     if (!response.ok()) {
@@ -324,6 +316,14 @@ async function assertEditor(page, label, response) {
   checks.push({ label, status: response.status(), url: page.url() });
 }
 
+async function captureCsrfToken(page) {
+  await page.waitForFunction(() => {
+    const input = document.querySelector('input[name="CSRF-TOKEN"]');
+    return Boolean(input && input.value);
+  }, null, { timeout: 30000 });
+  csrfToken = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+}
+
 async function login(page) {
   await safeGoto(page, '/');
   await page.locator('#username').fill(testUser);
@@ -351,6 +351,7 @@ async function createFlowsheet(page) {
     page.locator('input[type="submit"][value="Create"]').click(),
   ]);
   await assertEditor(page, 'create', response);
+  await captureCsrfToken(page);
 
   const rows = createdRows();
   if (rows.length !== 1) {
