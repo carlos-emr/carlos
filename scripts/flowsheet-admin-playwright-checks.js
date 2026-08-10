@@ -83,6 +83,7 @@ const mysqlDefaults = createMysqlDefaultsFile();
 const findings = [];
 const checks = [];
 const expectedErrorUrls = new Set();
+const confirmedExpectedErrorUrls = new Set();
 
 function normalizedHostname(url) {
   const host = url.hostname.toLowerCase();
@@ -237,6 +238,30 @@ function cleanupCreatedRows() {
   sql(`DELETE FROM FlowSheetUserCreated WHERE displayName='${escapeSql(displayName)}'`);
 }
 
+async function cleanupCreatedRowsThroughApplication() {
+  const rows = createdRows();
+  if (!rows.length) {
+    return;
+  }
+  if (!browserContext) {
+    throw new Error('Cannot reload flowsheets during cleanup without an authenticated browser context');
+  }
+  for (const row of rows) {
+    sql(`DELETE FROM flowsheet_customization WHERE flowsheet='${escapeSql(row.name)}'`);
+    const response = await browserContext.request.post(appUrl('/admin/Flowsheet'), {
+      form: { method: 'deleteFlowsheet', id: row.id },
+      timeout: 30000,
+    });
+    if (!response.ok()) {
+      throw new Error(`Application flowsheet cleanup returned HTTP ${response.status()}`);
+    }
+    const result = await response.json();
+    if (result.success !== true || String(result.id) !== row.id) {
+      throw new Error('Application flowsheet cleanup returned an unexpected response');
+    }
+  }
+}
+
 async function installNavigationGuard(context) {
   await context.route('**/*', async (route) => {
     const request = route.request();
@@ -251,6 +276,10 @@ async function installNavigationGuard(context) {
 
 function wirePage(page) {
   page.on('response', (response) => {
+    if (expectedErrorUrls.has(response.url()) && response.status() === 500) {
+      confirmedExpectedErrorUrls.add(response.url());
+      return;
+    }
     if (response.status() >= 400
         && !expectedErrorUrls.has(response.url())
         && !/\/favicon\.ico$/.test(response.url())) {
@@ -262,8 +291,7 @@ function wirePage(page) {
   });
   page.on('console', (message) => {
     const text = message.text();
-    const expectedErrorResponse = expectedErrorUrls.has(message.location().url)
-      && /Failed to load resource:.*status of 500/i.test(text);
+    const expectedErrorResponse = confirmedExpectedErrorUrls.has(message.location().url);
     if (message.type() === 'error'
         && !expectedErrorResponse
         && !/Content Security Policy.*report-only/i.test(text)) {
@@ -370,6 +398,7 @@ async function verifyEditorFailureStatus(page) {
 }
 
 let browser;
+let browserContext;
 let cleanupPromise;
 
 function cleanupResources() {
@@ -379,6 +408,16 @@ function cleanupResources() {
   cleanupPromise = (async () => {
     const errors = [];
     try {
+      try {
+        await cleanupCreatedRowsThroughApplication();
+      } catch (error) {
+        errors.push(error);
+      }
+      try {
+        cleanupCreatedRows();
+      } catch (error) {
+        errors.push(error);
+      }
       if (browser) {
         try {
           await browser.close();
@@ -386,12 +425,8 @@ function cleanupResources() {
           errors.push(error);
         } finally {
           browser = undefined;
+          browserContext = undefined;
         }
-      }
-      try {
-        cleanupCreatedRows();
-      } catch (error) {
-        errors.push(error);
       }
     } finally {
       try {
@@ -429,9 +464,9 @@ installSignalHandler('SIGTERM', 143);
   try {
     cleanupCreatedRows();
     browser = await chromium.launch(launchOptions);
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
-    await installNavigationGuard(context);
-    const page = await context.newPage();
+    browserContext = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    await installNavigationGuard(browserContext);
+    const page = await browserContext.newPage();
     wirePage(page);
 
     await login(page);
