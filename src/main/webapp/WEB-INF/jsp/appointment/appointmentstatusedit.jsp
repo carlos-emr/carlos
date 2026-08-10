@@ -67,12 +67,14 @@
 <script type="text/javascript">
     $(document).ready(function () {
         var colorInput = $('#apptColor');
+        var colorChangedInput = $('#apptColorChanged');
         var exactTypedColor = colorInput.val();
         var typedSincePickerUse = false;
 
         colorInput.on('input', function () {
             exactTypedColor = this.value;
             typedSincePickerUse = true;
+            colorChangedInput.val('true');
         });
 
         var initialColor = colorInput.val();
@@ -85,9 +87,11 @@
         exactTypedColor = initialColor;
         colorInput.val(exactTypedColor);
         typedSincePickerUse = false;
+        colorChangedInput.val('false');
         colorInput.closest('.colorpicker').on('mousedown touchstart', function (event) {
             if (event.target !== colorInput[0]) {
                 typedSincePickerUse = false;
+                colorChangedInput.val('true');
             }
         });
         colorInput.closest('form').on('submit', function () {
@@ -110,6 +114,7 @@
     <s:actionerror/>
     <input type="hidden" name="dispatch" value="update"/>
     <input type="hidden" name="id" value="${carlos:forHtmlAttribute(id)}"/>
+    <input type="hidden" id="apptColorChanged" name="apptColorChanged" value="false"/>
     <table>
         <tr>
             <td class="tdLabel"><label for="apptStatus"><fmt:message key="admin.appt.status.mgr.label.status"/>:</label>

@@ -151,7 +151,8 @@ public class AppointmentStatus2Action extends ActionSupport {
         }
 
         String colorToPersist = apptColor;
-        if (!isValidColor(appointmentStatus.getColor()) && DEFAULT_COLOR.equalsIgnoreCase(apptColor)) {
+        if (!apptColorChanged && !isValidColor(appointmentStatus.getColor())
+                && DEFAULT_COLOR.equalsIgnoreCase(apptColor)) {
             colorToPersist = appointmentStatus.getColor();
         }
         apptStatusMgr.modifyStatus(id, apptDesc.trim(), colorToPersist);
@@ -228,6 +229,7 @@ public class AppointmentStatus2Action extends ActionSupport {
     private String apptDesc;
     private String apptOldColor;
     private String apptColor;
+    private boolean apptColorChanged;
 
     public Integer getId() {
         return id;
@@ -271,5 +273,14 @@ public class AppointmentStatus2Action extends ActionSupport {
     @StrutsParameter
     public void setApptColor(String apptColor) {
         this.apptColor = apptColor;
+    }
+
+    public boolean isApptColorChanged() {
+        return apptColorChanged;
+    }
+
+    @StrutsParameter
+    public void setApptColorChanged(boolean apptColorChanged) {
+        this.apptColorChanged = apptColorChanged;
     }
 }

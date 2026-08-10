@@ -34,12 +34,14 @@ class AppointmentStatus2ActionStrutsBindingIntegrationTest extends CarlosWebTest
                 "id", "13",
                 "active", "0",
                 "apptDesc", "d".repeat(30),
-                "apptColor", "#ABCDEF"));
+                "apptColor", "#ABCDEF",
+                "apptColorChanged", "true"));
 
         assertThat(bindingAction.getId()).isEqualTo(13);
         assertThat(bindingAction.getActive()).isZero();
         assertThat(bindingAction.getApptDesc()).hasSize(30);
         assertThat(bindingAction.getApptColor()).isEqualTo("#ABCDEF");
+        assertThat(bindingAction.isApptColorChanged()).isTrue();
     }
 
     @Test

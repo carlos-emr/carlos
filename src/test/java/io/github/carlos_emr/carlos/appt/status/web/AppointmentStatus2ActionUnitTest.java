@@ -145,6 +145,26 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    void shouldPersistWhite_whenLegacyColourExplicitlyChanged() throws Exception {
+        AppointmentStatus legacyStatus = new AppointmentStatus();
+        legacyStatus.setId(14);
+        legacyStatus.setStatus("C");
+        legacyStatus.setDescription("Cancelled");
+        legacyStatus.setColor("");
+        legacyStatus.setEditable(1);
+        when(appointmentStatusMgr.getStatus(14)).thenReturn(legacyStatus);
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "update");
+        action.setId(14);
+        action.setApptDesc("Patient cancelled");
+        action.setApptColor("#FFFFFF");
+        action.setApptColorChanged(true);
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        verify(appointmentStatusMgr).modifyStatus(14, "Patient cancelled", "#FFFFFF");
+    }
+
+    @Test
     void shouldRejectUpdate_withoutMutationWhenValuesInvalid() throws Exception {
         mockRequest.setMethod("POST");
         addRequestParameter("dispatch", "update");
