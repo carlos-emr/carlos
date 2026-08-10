@@ -20,6 +20,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -62,6 +63,62 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
         assertThat(action.getApptDesc()).isEqualTo("No Show");
         assertThat(action.getApptColor()).isEqualTo("#cccccc");
         assertThat(action.isLegacyColor()).isFalse();
+    }
+
+    @Test
+    void shouldRequireScheduleAdminReadPrivilege_forViews() {
+        denyPrivilege("_admin.schedule", "r");
+        allowPrivilege("_appointment", "w");
+        addRequestParameter("dispatch", "view");
+
+        assertThatThrownBy(() -> executeAction(action))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_admin.schedule");
+    }
+
+    @Test
+    void shouldRequireScheduleAdminWritePrivilege_forMutations() {
+        denyPrivilege("_admin.schedule", "w");
+        allowPrivilege("_appointment", "w");
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "reset");
+
+        assertThatThrownBy(() -> executeAction(action))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_admin.schedule");
+        verify(appointmentStatusMgr, never()).reset();
+    }
+
+    @Test
+    void shouldReportUsedInactiveStatus_fromReturnedListIndex() throws Exception {
+        AppointmentStatus firstStatus = new AppointmentStatus();
+        firstStatus.setId(901);
+        firstStatus.setStatus("H");
+        AppointmentStatus usedInactiveStatus = new AppointmentStatus();
+        usedInactiveStatus.setId(477);
+        usedInactiveStatus.setStatus("c");
+        List<AppointmentStatus> reorderedStatuses = List.of(firstStatus, usedInactiveStatus);
+        when(appointmentStatusMgr.getAllStatus()).thenReturn(reorderedStatuses);
+        when(appointmentStatusMgr.checkStatusUsuage(reorderedStatuses)).thenReturn(1);
+        addRequestParameter("dispatch", "view");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(mockRequest.getAttribute("useStatus")).isEqualTo("c");
+        verify(appointmentStatusMgr, never()).getStatus(2);
+    }
+
+    @Test
+    void shouldReportUsedInactiveStatus_whenItIsFirstListEntry() throws Exception {
+        AppointmentStatus usedInactiveStatus = new AppointmentStatus();
+        usedInactiveStatus.setId(477);
+        usedInactiveStatus.setStatus("c");
+        List<AppointmentStatus> statuses = List.of(usedInactiveStatus);
+        when(appointmentStatusMgr.getAllStatus()).thenReturn(statuses);
+        when(appointmentStatusMgr.checkStatusUsuage(statuses)).thenReturn(0);
+        addRequestParameter("dispatch", "view");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(mockRequest.getAttribute("useStatus")).isEqualTo("c");
     }
 
     @Test

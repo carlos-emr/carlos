@@ -46,6 +46,9 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class AppointmentStatus2Action extends ActionSupport {
     private static final String EDIT = "edit";
+    private static final String SCHEDULE_ADMIN_SECURITY_OBJECT = "_admin.schedule";
+    private static final String READ = "r";
+    private static final String WRITE = "w";
     private static final int DESCRIPTION_MAX_LENGTH = 30;
     private static final String HEX_COLOR_PATTERN = "^#[0-9A-Fa-f]{6}$";
     private static final String DEFAULT_COLOR = "#FFFFFF";
@@ -58,27 +61,30 @@ public class AppointmentStatus2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
 
     public String execute() {
+        String dispatch = request.getParameter("dispatch");
+        boolean mutation = isMutation(dispatch);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
-            throw new SecurityException("missing required sec object (_appointment)");
+        String requiredPrivilege = mutation ? WRITE : READ;
+        if (!securityInfoManager.hasPrivilege(
+                loggedInInfo, SCHEDULE_ADMIN_SECURITY_OBJECT, requiredPrivilege, null)) {
+            throw new SecurityException("missing required sec object (_admin.schedule)");
         }
 
-        String method = request.getParameter("dispatch");
-        if (isMutation(method) && !"POST".equals(request.getMethod())) {
+        if (mutation && !"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
 
-        if ("view".equals(method)) {
+        if ("view".equals(dispatch)) {
             return view();
-        } else if ("reset".equals(method)) {
+        } else if ("reset".equals(dispatch)) {
             return reset();
-        } else if ("changestatus".equals(method)) {
+        } else if ("changestatus".equals(dispatch)) {
             return changestatus();
-        } else if ("modify".equals(method)) {
+        } else if ("modify".equals(dispatch)) {
             return modify();
-        } else if ("update".equals(method)) {
+        } else if ("update".equals(dispatch)) {
             return update();
         }
         return view();
@@ -215,11 +221,11 @@ public class AppointmentStatus2Action extends ActionSupport {
 
     private void populateAllStatus(HttpServletRequest request) {
         AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
-        List allStatus = apptStatusMgr.getAllStatus();
+        List<AppointmentStatus> allStatus = apptStatusMgr.getAllStatus();
         request.setAttribute("allStatus", allStatus);
-        int iUseStatus = apptStatusMgr.checkStatusUsuage(allStatus);
-        if (iUseStatus > 0) {
-            request.setAttribute("useStatus", apptStatusMgr.getStatus(iUseStatus + 1).getStatus());
+        int usedStatusIndex = apptStatusMgr.checkStatusUsuage(allStatus);
+        if (usedStatusIndex >= 0 && usedStatusIndex < allStatus.size()) {
+            request.setAttribute("useStatus", allStatus.get(usedStatusIndex).getStatus());
         }
     }
 

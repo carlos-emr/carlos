@@ -168,7 +168,7 @@
     String strUseStatus = (String) request.getAttribute("useStatus");
     if (null != strUseStatus && strUseStatus.length() > 0) {
 %>
-The code [<%=strUseStatus%>] has been used before, please enable that
+The code [<%=SafeEncode.forHtmlContent(strUseStatus)%>] has been used before, please enable that
 status.
 <%
     }

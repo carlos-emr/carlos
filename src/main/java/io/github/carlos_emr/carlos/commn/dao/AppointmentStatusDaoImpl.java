@@ -183,26 +183,22 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
      */
     @Override
     public int checkStatusUsuage(List<AppointmentStatus> allStatus) {
-        int iUsuage = 0;
-        AppointmentStatus apptStatus = null;
-        String sql = null;
         for (int i = 0; i < allStatus.size(); i++) {
-            apptStatus = allStatus.get(i);
-            if (apptStatus.getActive() == 1)
+            AppointmentStatus apptStatus = allStatus.get(i);
+            if (apptStatus.getActive() == 1) {
                 continue;
-            sql = "select count(*) as total from appointment a where a.status like ?1 ";
+            }
+            String sql = "select count(*) as total from appointment a where a.status like ?1 ";
             // sql = sql + "collate latin1_general_cs";
 
             Query q = entityManager.createNativeQuery(sql);
             q.setParameter(1, apptStatus.getStatus() + "%");
             Object result = q.getSingleResult();
 
-            iUsuage = ((Number) result).intValue();
-            if (iUsuage > 0) {
-                iUsuage = i;
-                break;
+            if (((Number) result).intValue() > 0) {
+                return i;
             }
         }
-        return iUsuage;
+        return -1;
     }
 }
