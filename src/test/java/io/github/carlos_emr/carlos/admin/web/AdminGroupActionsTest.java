@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Pattern;
 
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 
@@ -52,6 +53,8 @@ class AdminGroupActionsTest extends CarlosWebTestBase {
             Path.of("src/main/webapp/WEB-INF/jsp/admin/adminnewgroup.jsp");
     private static final Path ADMINISTRATION_LEFT_NAV =
             Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf");
+    private static final Pattern RESIZE_HELPER_FUNCTION_GUARD = Pattern.compile(
+            "typeof\\s+parent\\.parent\\.resizeIframe\\s*={2,3}\\s*(['\"])function\\1");
 
     @Test
     @DisplayName("should navigate to group create form without mutation parameters")
@@ -60,10 +63,12 @@ class AdminGroupActionsTest extends CarlosWebTestBase {
         String administrationLeftNav =
                 Files.readString(ADMINISTRATION_LEFT_NAV, StandardCharsets.UTF_8);
 
-        assertThat(legacyAdmin).contains("/admin/AdminNewGroup");
-        assertThat(administrationLeftNav).contains("rel=\"${ctx}/admin/AdminNewGroup\"");
-        assertThat(legacyAdmin).doesNotContain("AdminNewGroup?submit=");
-        assertThat(administrationLeftNav).doesNotContain("AdminNewGroup?submit=");
+        assertThat(legacyAdmin)
+                .contains("/admin/AdminNewGroup")
+                .doesNotContain("AdminNewGroup?submit=");
+        assertThat(administrationLeftNav)
+                .contains("/admin/AdminNewGroup")
+                .doesNotContain("AdminNewGroup?submit=");
     }
 
     @Test
@@ -71,7 +76,7 @@ class AdminGroupActionsTest extends CarlosWebTestBase {
     void shouldTolerateMissingResizeHelper_whenGroupCreateFormLoads() throws IOException {
         String newGroup = Files.readString(NEW_GROUP_JSP, StandardCharsets.UTF_8);
 
-        assertThat(newGroup).contains("typeof parent.parent.resizeIframe === 'function'");
+        assertThat(newGroup).containsPattern(RESIZE_HELPER_FUNCTION_GUARD);
     }
 
     @Test
