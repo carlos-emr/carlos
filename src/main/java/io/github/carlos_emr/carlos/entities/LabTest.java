@@ -30,6 +30,11 @@
 package io.github.carlos_emr.carlos.entities;
 
 //
+/**
+ * Defines a specific laboratory test type or panel orderable within the system.
+ *
+ * @since 2026-08-06
+ */
 public class LabTest
         extends Test {
     private String observationDateTime = "";

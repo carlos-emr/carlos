@@ -27,6 +27,11 @@
 
 package io.github.carlos_emr.carlos.caisi;
 
+/**
+ * Utility functions for the CAISI (Client Access to Integrated Services and Information) module integration.
+ *
+ * @since 2026-08-06
+ */
 public class CaisiUtil {
     public static String removeAttr(String str, String attr) {
         if (str == null) return (null);

@@ -30,6 +30,11 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 
+/**
+ * Validates patient age against age-restricted service codes for MSP claims.
+ *
+ * @since 2026-08-06
+ */
 public class AgeValidator
         extends ServiceCodeValidator {
     private int maxAge = 150;
@@ -73,6 +78,7 @@ public class AgeValidator
     }
 
     public boolean isValid() {
+        // Validates inputAge against defined minAge and maxAge bounds which map to age-restricted fee codes in the BC MSP Teleplan schedule.
         return (this.inputAge >= minAge && this.inputAge <= maxAge);
     }
 }

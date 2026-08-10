@@ -46,6 +46,11 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Maintains the dictionary of MSP rejection and adjustment error codes.
+ *
+ * @since 2026-08-06
+ */
 public class MspErrorCodes extends Properties {
 
     /**

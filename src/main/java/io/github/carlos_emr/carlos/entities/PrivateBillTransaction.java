@@ -32,6 +32,11 @@ package io.github.carlos_emr.carlos.entities;
 import java.math.BigDecimal;
 import java.util.Date;
 
+/**
+ * Tracks transactions related to private billing, separate from provincial health plans.
+ *
+ * @since 2026-08-06
+ */
 public class PrivateBillTransaction {
     private int id;
     private int billingmaster_no;

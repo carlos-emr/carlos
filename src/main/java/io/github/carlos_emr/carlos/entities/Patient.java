@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Primary demographic and identity record for a patient within the CARLOS EMR system.
+ *
+ * @since 2026-08-06
+ */
 public class Patient {
     private String firstName;
     private String lastName;

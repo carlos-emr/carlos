@@ -37,6 +37,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+/**
+ * Helper class for Chronic Disease Management (CDM) billing reminders and eligibility.
+ *
+ * @since 2026-08-06
+ */
 public class CDMReminderHlp {
     public CDMReminderHlp() {
     }

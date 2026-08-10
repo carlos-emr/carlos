@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Represents various clinical risk factors or observational parameters for a patient.
+ *
+ * @since 2026-08-06
+ */
 public class ClinicalFactor {
     // Fields
     //

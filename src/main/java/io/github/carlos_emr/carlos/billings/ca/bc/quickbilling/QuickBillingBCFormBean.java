@@ -38,6 +38,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+/**
+ * Form bean backing the BC quick billing user interface.
+ *
+ * @since 2026-08-06
+ */
 public class QuickBillingBCFormBean {
 
     /**

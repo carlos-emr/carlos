@@ -24,6 +24,11 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
+/**
+ * Validates BC MSP service codes against active fee schedules and rules.
+ *
+ * @since 2026-08-06
+ */
 public class ServiceCodeValidator {
     protected boolean valid = true;
     protected String serviceCode = "";
@@ -46,6 +51,7 @@ public class ServiceCodeValidator {
     }
 
     public boolean isValid() {
+        // Returns the base validity state of the service code. Subclasses override this method to inject specific validation rules (e.g., AgeValidator, GenderValidator).
         return valid;
     }
 

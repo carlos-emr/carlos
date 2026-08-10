@@ -50,6 +50,11 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Presentation bean formatting billing data for the user interface.
+ *
+ * @since 2026-08-06
+ */
 public class BillingViewBean {
 
     private String apptProviderNo = null;

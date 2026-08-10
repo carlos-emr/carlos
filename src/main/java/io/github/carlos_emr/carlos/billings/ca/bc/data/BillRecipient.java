@@ -36,6 +36,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Defines the recipient entity (patient, insurer, or third party) for a bill.
+ *
+ * @since 2026-08-06
+ */
 public class BillRecipient {
 
     private Integer id;

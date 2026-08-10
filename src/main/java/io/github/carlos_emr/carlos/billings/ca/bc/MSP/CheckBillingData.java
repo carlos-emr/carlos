@@ -41,6 +41,11 @@ import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
 
+/**
+ * Performs pre-submission validation checks on billing data for compliance.
+ *
+ * @since 2026-08-06
+ */
 public class CheckBillingData {
 
     // check batchHeader VS1

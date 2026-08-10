@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Defines the available methods of payment for private or uninsured services.
+ *
+ * @since 2026-08-06
+ */
 public class PaymentType {
     private String id;
     private String paymentType;

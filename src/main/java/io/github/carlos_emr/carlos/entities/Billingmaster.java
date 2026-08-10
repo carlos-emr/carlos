@@ -71,6 +71,11 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
         }
 )
 
+/**
+ * Core entity orchestrating billing transactions and master records for accounting.
+ *
+ * @since 2026-08-06
+ */
 public class Billingmaster {
 
     /**

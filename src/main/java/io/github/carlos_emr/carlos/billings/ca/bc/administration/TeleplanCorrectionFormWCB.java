@@ -43,6 +43,11 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Form bean for capturing WCB correction data before resubmission.
+ *
+ * @since 2026-08-06
+ */
 public class TeleplanCorrectionFormWCB {
 
     private static Logger logger = MiscUtils.getLogger();

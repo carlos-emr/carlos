@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
+/**
+ * Standardized codes and descriptions for injury locations used in WCB claims.
+ *
+ * @since 2026-08-06
+ */
 public class InjuryLocation {
     private String sidetype;
     private String sidedesc;

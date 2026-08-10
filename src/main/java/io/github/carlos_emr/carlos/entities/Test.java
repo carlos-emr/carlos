@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Generic entity for medical tests performed or ordered.
+ *
+ * @since 2026-08-06
+ */
 public class Test {
     private String id;
     private String description;

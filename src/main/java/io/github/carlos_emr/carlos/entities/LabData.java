@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Stores laboratory test results and associated metadata for a patient.
+ *
+ * @since 2026-08-06
+ */
 public class LabData {
     private String a1c;
     private String ldl;

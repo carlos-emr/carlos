@@ -59,6 +59,11 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 
 
+/**
+ * Generates the formatted Teleplan extract file for MSP batch submission.
+ *
+ * @since 2026-08-06
+ */
 public class ExtractBean extends Object implements Serializable {
     private static Logger logger = MiscUtils.getLogger();
     private LogTeleplanTxDao logTeleplanTxDao = SpringUtils.getBean(LogTeleplanTxDao.class);
