@@ -102,7 +102,6 @@
         <th><fmt:message key="admin.appt.status.mgr.label.color"/></th>
         <th><fmt:message key="admin.appt.status.mgr.label.enable"/></th>
         <th><fmt:message key="admin.appt.status.mgr.label.active"/></th>
-        <th>&nbsp;</th>
     </tr>
     <%
         List apptsList = (List) request.getAttribute("allStatus");
@@ -138,7 +137,7 @@
                 String url = request.getContextPath();
                 url = url + "/appointment/apptStatusSetting?dispatch=modify&id=";
                 url = url + iStatusID;
-            %> <a href="<%=SafeEncode.forHtmlAttribute(url)%>">Edit</a> &nbsp;&nbsp;&nbsp; <%
+            %> <a href="<%=SafeEncode.forHtmlAttribute(url)%>"><fmt:message key="oscar.appt.status.mgr.label.edit"/></a> &nbsp;&nbsp;&nbsp; <%
             int iToStatus = (iActive > 0) ? 0 : 1;
             String activationMessageKey = (iActive > 0)
                     ? "admin.appt.status.mgr.label.disable"

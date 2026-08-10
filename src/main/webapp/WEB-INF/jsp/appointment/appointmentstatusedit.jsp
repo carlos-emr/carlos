@@ -149,8 +149,6 @@
                 </td>
             </tr>
         </s:if>
-
-        <div id="list_entries"></div>
         <tr>
             <td colspan="2">
                 <input type="submit"
