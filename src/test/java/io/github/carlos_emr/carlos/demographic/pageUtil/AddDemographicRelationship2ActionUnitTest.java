@@ -164,6 +164,73 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should never persist when POST carries blank linkingDemo but non-blank relation")
+    void shouldNotPersist_whenPostCarriesBlankLinkingDemoOnly() throws Exception {
+        // Guards the AND (not OR) semantics of the mutation gate.
+        request.setMethod("POST");
+        request.setParameter("origDemo", "1373");
+        request.setParameter("linkingDemo", "   ");
+        request.setParameter("relation", "Spouse");
+
+        String result = new AddDemographicRelationship2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verifyNoInteractions(relationshipsDao);
+        verifyNoInteractions(ctlRelationshipsDao);
+    }
+
+    @Test
+    @DisplayName("should never persist when POST carries blank relation but non-blank linkingDemo")
+    void shouldNotPersist_whenPostCarriesBlankRelationOnly() throws Exception {
+        // Guards the AND (not OR) semantics of the mutation gate.
+        request.setMethod("POST");
+        request.setParameter("origDemo", "1373");
+        request.setParameter("linkingDemo", "1374");
+        request.setParameter("relation", "");
+
+        String result = new AddDemographicRelationship2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verifyNoInteractions(relationshipsDao);
+        verifyNoInteractions(ctlRelationshipsDao);
+    }
+
+    @Test
+    @DisplayName("should reject POST with missing origDemo with 400 and never persist")
+    void shouldReject400_whenPostHasMissingOrigDemo() throws Exception {
+        request.setMethod("POST");
+        // origDemo intentionally omitted — fromIntString(null) would coerce to demographic 0.
+        request.setParameter("linkingDemo", "1374");
+        request.setParameter("relation", "Spouse");
+        request.getSession().setAttribute("user", "999998");
+
+        String result = new AddDemographicRelationship2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(relationshipsDao);
+        verifyNoInteractions(ctlRelationshipsDao);
+    }
+
+    @Test
+    @DisplayName("should reject POST with non-numeric linkingDemo with 400 and never persist")
+    void shouldReject400_whenPostHasNonNumericLinkingDemo() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("origDemo", "1373");
+        // Non-blank but non-numeric — fromIntString("abc") would also coerce to demographic 0.
+        request.setParameter("linkingDemo", "abc");
+        request.setParameter("relation", "Spouse");
+        request.getSession().setAttribute("user", "999998");
+
+        String result = new AddDemographicRelationship2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(relationshipsDao);
+        verifyNoInteractions(ctlRelationshipsDao);
+    }
+
+    @Test
     @DisplayName("should return pmmClient and never persist when GET carries the Finished param")
     void shouldReturnPmmClient_whenGetCarriesFinishedParam() throws Exception {
         request.setMethod("GET");
@@ -173,6 +240,26 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
         String result = new AddDemographicRelationship2Action().execute();
 
         assertThat(result).isEqualTo("pmmClient");
+        verifyNoInteractions(relationshipsDao);
+        verifyNoInteractions(ctlRelationshipsDao);
+    }
+
+    @Test
+    @DisplayName("should reject GET carrying pmmClient=Finished with mutation intent with 405, not pmmClient")
+    void shouldReject405_whenGetCarriesPmmClientFinishedWithMutationIntent() throws Exception {
+        // The method gate must run before the pmmClient short-circuit, or pmmClient=Finished
+        // could be used to slip a non-POST save attempt past the 405 check.
+        request.setMethod("GET");
+        request.setParameter("origDemo", "1373");
+        request.setParameter("linkingDemo", "1374");
+        request.setParameter("relation", "Spouse");
+        request.setParameter("pmmClient", "Finished");
+
+        String result = new AddDemographicRelationship2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
         verifyNoInteractions(relationshipsDao);
         verifyNoInteractions(ctlRelationshipsDao);
     }
