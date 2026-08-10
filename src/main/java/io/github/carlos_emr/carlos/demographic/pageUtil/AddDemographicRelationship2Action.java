@@ -82,11 +82,11 @@ public class AddDemographicRelationship2Action extends ActionSupport {
         String emergContact = request.getParameter("emergContact");
         String notes = request.getParameter("notes");
 
-	    if (origDemo != null && origDemo.matches("[a-zA-Z0-9]+")) {
-        request.setAttribute("demographicNo", origDemo);
-	    }
+        if (isValidDemographicNo(origDemo)) {
+            request.setAttribute("demographicNo", origDemo);
+        }
 
-        if (request.getParameter("pmmClient") != null && request.getParameter("pmmClient").equals("Finished")) {
+        if ("Finished".equals(request.getParameter("pmmClient"))) {
             return "pmmClient";
         }
 
@@ -107,14 +107,8 @@ public class AddDemographicRelationship2Action extends ActionSupport {
 
         String providerNo = (String) request.getSession().getAttribute("user");
 
-        boolean sdmBool = false;
-        boolean eBool = false;
-        if (sdm != null && sdm.equals("yes")) {
-            sdmBool = true;
-        }
-        if (emergContact != null && emergContact.equals("yes")) {
-            eBool = true;
-        }
+        boolean sdmBool = "yes".equals(sdm);
+        boolean eBool = "yes".equals(emergContact);
 
         // if we're in a facility tag this association with the facility
         Facility facility = (Facility) request.getSession().getAttribute(SessionConstants.CURRENT_FACILITY);
@@ -124,33 +118,24 @@ public class AddDemographicRelationship2Action extends ActionSupport {
         DemographicRelationship demo = new DemographicRelationship();
         demo.addDemographicRelationship(origDemo, linkingDemo, relation, sdmBool, eBool, notes, providerNo, facilityId);
 
-	    if (origDemo != null && origDemo.matches("[a-zA-Z0-9]+")) {
-		    request.setAttribute("demo", origDemo);
-	    }
-        // ***** NEW CODE *****
-        // Now link in the opposite direction
-        // First work out which pairs match up
-        // From AddAlternateConcact.jsp
+        if (isValidDemographicNo(origDemo)) {
+            request.setAttribute("demo", origDemo);
+        }
 
-        // Relations for the dropdowns should be stored in a table in the database and not hardcoded
+        linkInverseRelationship(origDemo, linkingDemo, relation, sdmBool, eBool, notes, providerNo, facilityId);
 
-         /*
-         This is better:
+        return SUCCESS;
+    }
 
-                Parent
-                StepParent
-                Child
-                Sibling
-                Spouse
-                Partner
-                Grandparent
-                Other Relative
-                Other
+    private static boolean isValidDemographicNo(String demographicNo) {
+        return demographicNo != null && demographicNo.matches("[a-zA-Z0-9]+");
+    }
 
-         Sex will determine whether it is a brother,
-        grandfather, wife, husband or spouse of the same sex
-          */
-
+    // Relations for the dropdowns should be stored in a table in the database and not hardcoded.
+    // Sex determines whether the inverse is e.g. brother/sister, grandfather/grandmother,
+    // husband/wife of the same relation (from AddAlternateContact.jsp's original logic).
+    private void linkInverseRelationship(String origDemo, String linkingDemo, String relation, boolean sdmBool,
+            boolean eBool, String notes, String providerNo, Integer facilityId) {
         boolean relationset = false;
 
         CtlRelationshipsDao ctlRelationshipsDao = SpringUtils.getBean(CtlRelationshipsDao.class);
@@ -166,14 +151,11 @@ public class AddDemographicRelationship2Action extends ActionSupport {
                 relation = cr.getFemaleInverse();
                 relationset = true;
             }
-
         }
-
 
         if (relationset) {
             // flip the demographics
-            String tempdemo;
-            tempdemo = origDemo;
+            String tempdemo = origDemo;
             origDemo = linkingDemo;
             linkingDemo = tempdemo;
 
@@ -181,9 +163,6 @@ public class AddDemographicRelationship2Action extends ActionSupport {
             DemographicRelationship demo2 = new DemographicRelationship();
             demo2.addDemographicRelationship(origDemo, linkingDemo, relation, sdmBool, eBool, notes, providerNo, facilityId);
         }
-
-
-        return SUCCESS;
     }
 
 }
