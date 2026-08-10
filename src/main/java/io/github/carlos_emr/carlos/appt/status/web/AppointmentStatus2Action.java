@@ -151,8 +151,8 @@ public class AppointmentStatus2Action extends ActionSupport {
         }
 
         String colorToPersist = apptColor;
-        if (!apptColorChanged && !isValidColor(appointmentStatus.getColor())
-                && DEFAULT_COLOR.equalsIgnoreCase(apptColor)) {
+        if (!replaceLegacyColor && !isValidColor(appointmentStatus.getColor())
+                && DEFAULT_COLOR.equals(apptColor)) {
             colorToPersist = appointmentStatus.getColor();
         }
         apptStatusMgr.modifyStatus(id, apptDesc.trim(), colorToPersist);
@@ -229,7 +229,7 @@ public class AppointmentStatus2Action extends ActionSupport {
     private String apptDesc;
     private String apptOldColor;
     private String apptColor;
-    private boolean apptColorChanged;
+    private boolean replaceLegacyColor;
 
     public Integer getId() {
         return id;
@@ -275,12 +275,16 @@ public class AppointmentStatus2Action extends ActionSupport {
         this.apptColor = apptColor;
     }
 
-    public boolean isApptColorChanged() {
-        return apptColorChanged;
+    public boolean isLegacyColor() {
+        return !isValidColor(apptOldColor);
+    }
+
+    public boolean isReplaceLegacyColor() {
+        return replaceLegacyColor;
     }
 
     @StrutsParameter
-    public void setApptColorChanged(boolean apptColorChanged) {
-        this.apptColorChanged = apptColorChanged;
+    public void setReplaceLegacyColor(boolean replaceLegacyColor) {
+        this.replaceLegacyColor = replaceLegacyColor;
     }
 }

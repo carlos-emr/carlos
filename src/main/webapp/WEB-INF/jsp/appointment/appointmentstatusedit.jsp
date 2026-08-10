@@ -67,19 +67,21 @@
 <script type="text/javascript">
     $(document).ready(function () {
         var colorInput = $('#apptColor');
-        var colorChangedInput = $('#apptColorChanged');
+        var replaceLegacyColorInput = $('#replaceLegacyColor');
         var exactTypedColor = colorInput.val();
         var typedSincePickerUse = false;
 
         colorInput.on('input', function () {
             exactTypedColor = this.value;
             typedSincePickerUse = true;
-            colorChangedInput.val('true');
+            replaceLegacyColorInput.prop('checked', true);
         });
 
         var initialColor = colorInput.val();
         colorInput.colorPicker({format: 'hex'});
-        colorInput.colorPicker('setColor', initialColor);
+        if (/^#[0-9A-Fa-f]{6}$/.test(initialColor)) {
+            colorInput.colorPicker('setColor', initialColor);
+        }
 
         // The legacy picker converts typed hex through rounded HSL values, which can
         // change valid input (for example #123456 to #113456) on blur. Preserve an
@@ -87,11 +89,10 @@
         exactTypedColor = initialColor;
         colorInput.val(exactTypedColor);
         typedSincePickerUse = false;
-        colorChangedInput.val('false');
         colorInput.closest('.colorpicker').on('mousedown touchstart', function (event) {
             if (event.target !== colorInput[0]) {
                 typedSincePickerUse = false;
-                colorChangedInput.val('true');
+                replaceLegacyColorInput.prop('checked', true);
             }
         });
         colorInput.closest('form').on('submit', function () {
@@ -114,7 +115,6 @@
     <s:actionerror/>
     <input type="hidden" name="dispatch" value="update"/>
     <input type="hidden" name="id" value="${carlos:forHtmlAttribute(id)}"/>
-    <input type="hidden" id="apptColorChanged" name="apptColorChanged" value="false"/>
     <table>
         <tr>
             <td class="tdLabel"><label for="apptStatus"><fmt:message key="admin.appt.status.mgr.label.status"/>:</label>
@@ -140,6 +140,15 @@
                        maxlength="7" pattern="#[0-9A-Fa-f]{6}" required/>
             </td>
         </tr>
+        <s:if test="legacyColor">
+            <tr>
+                <td></td>
+                <td>
+                    <input type="checkbox" id="replaceLegacyColor" name="replaceLegacyColor" value="true"/>
+                    <label for="replaceLegacyColor"><fmt:message key="admin.appt.status.mgr.label.replaceLegacyColor"/></label>
+                </td>
+            </tr>
+        </s:if>
 
         <div id="list_entries"></div>
         <tr>

@@ -61,6 +61,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
         assertThat(action.getApptStatus()).isEqualTo("N");
         assertThat(action.getApptDesc()).isEqualTo("No Show");
         assertThat(action.getApptColor()).isEqualTo("#cccccc");
+        assertThat(action.isLegacyColor()).isFalse();
     }
 
     @Test
@@ -77,6 +78,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
         assertThat(executeAction(action)).isEqualTo("edit");
         assertThat(action.getApptOldColor()).isEmpty();
         assertThat(action.getApptColor()).isEqualTo("#FFFFFF");
+        assertThat(action.isLegacyColor()).isTrue();
     }
 
     @Test
@@ -158,7 +160,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
         action.setId(14);
         action.setApptDesc("Patient cancelled");
         action.setApptColor("#FFFFFF");
-        action.setApptColorChanged(true);
+        action.setReplaceLegacyColor(true);
 
         assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
         verify(appointmentStatusMgr).modifyStatus(14, "Patient cancelled", "#FFFFFF");
