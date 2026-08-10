@@ -241,6 +241,10 @@ function sql(query) {
     ], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      // Without this an unreachable host blocks forever, and the signal handler
+      // calls straight back into here -- so an interrupted run would hang while
+      // trying to remove its own seeded rows.
+      timeout: MYSQL_TIMEOUT_MS,
     }).trim();
   } catch (error) {
     throw new Error(`mysql command failed: ${describeMysqlFailure(error)}`);
