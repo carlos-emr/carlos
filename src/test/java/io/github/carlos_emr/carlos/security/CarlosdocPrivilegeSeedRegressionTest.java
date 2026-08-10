@@ -74,7 +74,7 @@ class CarlosdocPrivilegeSeedRegressionTest {
             "update-2026-05-21-carlosdoc-schedule-group-privilege.sql");
     private static final Set<String> ADMIN_ROLE_GROUPS = Set.of("admin", "999998");
     private static final Pattern SEC_OBJ_PRIVILEGE_INSERT = Pattern.compile(
-            "INSERT\\s+INTO\\s+`?secObjPrivilege`?(?:\\s*\\([^)]*\\))?"
+            "INSERT\\s+(?:IGNORE\\s+)?INTO\\s+`?secObjPrivilege`?(?:\\s*\\([^)]*\\))?"
                     + "\\s+VALUES\\s+([^;]+)",
             Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
     private static final Pattern PRIVILEGE_TUPLE = Pattern.compile(
@@ -84,7 +84,7 @@ class CarlosdocPrivilegeSeedRegressionTest {
             "DELETE\\s+FROM\\s+`?secObjPrivilege`?\\s+WHERE\\s+(.+?);",
             Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
     private static final Pattern PRIVILEGE_OPERATION = Pattern.compile(
-            "INSERT\\s+INTO\\s+`?secObjPrivilege`?(?:\\s*\\([^)]*\\))?"
+            "INSERT\\s+(?:IGNORE\\s+)?INTO\\s+`?secObjPrivilege`?(?:\\s*\\([^)]*\\))?"
                     + "\\s+VALUES\\s+[^;]+;"
                     + "|DELETE\\s+FROM\\s+`?secObjPrivilege`?\\s+WHERE\\s+.+?;",
             Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
@@ -286,10 +286,13 @@ class CarlosdocPrivilegeSeedRegressionTest {
                 + "AND privilege = 'o';";
         String insert = "INSERT INTO secObjPrivilege VALUES "
                 + "('999998','_admin.schedule.groupCreate','o',1,'999998');";
+        String insertIgnore = insert.replace("INSERT INTO", "INSERT IGNORE INTO");
         String otherProviderDelete = delete.replace(";", " AND provider_no = '123456';");
         String carlosdocDelete = delete.replace(";", " AND provider_no = '999998';");
 
         assertThat(effectivePrivileges("", delete + insert))
+                .containsEntry(key, "o|1|999998");
+        assertThat(effectivePrivileges("", insertIgnore))
                 .containsEntry(key, "o|1|999998");
         assertThat(effectivePrivileges("", insert + delete))
                 .doesNotContainKey(key);
