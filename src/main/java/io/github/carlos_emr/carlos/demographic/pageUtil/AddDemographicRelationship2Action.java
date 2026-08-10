@@ -124,7 +124,12 @@ public class AddDemographicRelationship2Action extends ActionSupport {
             request.setAttribute("demo", origDemo);
         }
 
-        linkInverseRelationship(origDemo, linkingDemo, relation, sdmBool, eBool, notes, providerNo, facilityId);
+        InverseRelation inverse = computeInverseRelation(origDemo, linkingDemo, relation);
+        if (inverse != null) {
+            DemographicRelationship demo2 = new DemographicRelationship();
+            demo2.addDemographicRelationship(inverse.origDemo(), inverse.linkingDemo(), inverse.relation(),
+                    sdmBool, eBool, notes, providerNo, facilityId);
+        }
 
         return SUCCESS;
     }
@@ -143,8 +148,8 @@ public class AddDemographicRelationship2Action extends ActionSupport {
     // Relations for the dropdowns should be stored in a table in the database and not hardcoded.
     // Sex determines whether the inverse is e.g. brother/sister, grandfather/grandmother,
     // husband/wife of the same relation (from AddAlternateContact.jsp's original logic).
-    private void linkInverseRelationship(String origDemo, String linkingDemo, String relation, boolean sdmBool,
-            boolean eBool, String notes, String providerNo, Integer facilityId) {
+    // Returns null when no inverse relation applies (e.g. relation type has no sex-specific inverse).
+    private InverseRelation computeInverseRelation(String origDemo, String linkingDemo, String relation) {
         boolean relationset = false;
 
         CtlRelationshipsDao ctlRelationshipsDao = SpringUtils.getBean(CtlRelationshipsDao.class);
@@ -162,16 +167,14 @@ public class AddDemographicRelationship2Action extends ActionSupport {
             }
         }
 
-        if (relationset) {
-            // flip the demographics
-            String tempdemo = origDemo;
-            origDemo = linkingDemo;
-            linkingDemo = tempdemo;
-
-            //now save this
-            DemographicRelationship demo2 = new DemographicRelationship();
-            demo2.addDemographicRelationship(origDemo, linkingDemo, relation, sdmBool, eBool, notes, providerNo, facilityId);
+        if (!relationset) {
+            return null;
         }
+        // flip the demographics
+        return new InverseRelation(linkingDemo, origDemo, relation);
+    }
+
+    private record InverseRelation(String origDemo, String linkingDemo, String relation) {
     }
 
 }
