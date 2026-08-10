@@ -17,8 +17,6 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.regex.Pattern;
-
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -43,13 +41,10 @@ class RxAllergyCsrfJspRegressionTest {
 
     private static final Path ADD_REACTION_JSP = projectRoot()
             .resolve(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "rx", "AddReaction2.jsp"));
-    private static final Pattern PATIENT_LOOKUP = Pattern.compile(
-            "RxPatientData\\.Patient\\s+patient\\s*=\\s*\\(RxPatientData\\.Patient\\)\\s*"
-                    + "request\\.getSession\\(\\)\\.getAttribute\\(\\\"Patient\\\"\\)\\s*;");
-    private static final Pattern MISSING_PATIENT_GUARD = Pattern.compile(
-            "if\\s*\\(\\s*patient\\s*==\\s*null\\s*\\)\\s*\\{(?s:.*?)"
-                    + "response\\.sendError\\s*\\(\\s*HttpServletResponse\\.SC_FORBIDDEN\\s*\\)\\s*;(?s:.*?)"
-                    + "return\\s*;(?s:.*?)\\}");
+    private static final String PATIENT_LOOKUP = "RxPatientData.Patient patient = "
+            + "(RxPatientData.Patient) request.getSession().getAttribute(\"Patient\");";
+    private static final String MISSING_PATIENT_GUARD = "if (patient == null) { "
+            + "response.sendError(HttpServletResponse.SC_FORBIDDEN); return; }";
 
     @Test
     @DisplayName("AJAX-rendered allergy form should include its CSRF token and rendered patient context")
@@ -69,10 +64,10 @@ class RxAllergyCsrfJspRegressionTest {
     @Test
     @DisplayName("AJAX-rendered allergy form should fail closed when the session patient is missing")
     void shouldFailClosed_whenSessionPatientIsMissing() throws IOException {
-        String jsp = readAddReactionJsp();
+        String jsp = normalizeWhitespace(readAddReactionJsp());
         int patientLookup = indexOfRequired(jsp, PATIENT_LOOKUP);
         int missingPatientGuard = indexOfRequired(jsp, MISSING_PATIENT_GUARD);
-        int allergyForm = indexOfRequired(jsp, Pattern.compile("<form\\b(?s:.*?)\\bid=\\\"RxAddAllergyForm\\\""));
+        int allergyForm = indexOfRequired(jsp, "id=\"RxAddAllergyForm\"");
 
         assertThat(missingPatientGuard)
                 .as("missing-patient guard must run immediately after loading the session patient")
@@ -104,10 +99,14 @@ class RxAllergyCsrfJspRegressionTest {
         return Files.readString(ADD_REACTION_JSP, StandardCharsets.UTF_8);
     }
 
-    private static int indexOfRequired(String jsp, Pattern pattern) {
-        java.util.regex.Matcher matcher = pattern.matcher(jsp);
-        assertThat(matcher.find()).as("required JSP contract: %s", pattern).isTrue();
-        return matcher.start();
+    private static String normalizeWhitespace(String value) {
+        return value.replaceAll("\\s+", " ").trim();
+    }
+
+    private static int indexOfRequired(String jsp, String token) {
+        int index = jsp.indexOf(token);
+        assertThat(index).as("required JSP contract: %s", token).isGreaterThanOrEqualTo(0);
+        return index;
     }
 
     private static Path projectRoot() {
