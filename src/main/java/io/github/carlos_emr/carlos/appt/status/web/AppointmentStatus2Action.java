@@ -64,7 +64,7 @@ public class AppointmentStatus2Action extends ActionSupport {
         }
 
         String method = request.getParameter("dispatch");
-        if (isMutation(method) && !"POST".equalsIgnoreCase(request.getMethod())) {
+        if (isMutation(method) && !"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;

@@ -22,6 +22,23 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Appointment Status Settings
+
+    Purpose:
+      Lists appointment statuses and provides the administration controls used
+      to edit, reset, enable, and disable them.
+
+    Features:
+      Encoded status rendering, edit links, action feedback, and CSRF-protected
+      POST forms for reset and activation changes.
+
+    Request attributes:
+      allStatus - appointment statuses rendered in the settings table.
+      useStatus - status-usage data populated by the paired action.
+
+    @since 2026-08-07
+--%>
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.AppointmentStatus" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

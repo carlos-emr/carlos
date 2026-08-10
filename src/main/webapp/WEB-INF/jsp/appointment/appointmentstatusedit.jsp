@@ -22,6 +22,21 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Appointment Status Edit
+
+    Purpose:
+      Edits the description and colour of one existing appointment status.
+
+    Features:
+      Server- and browser-side validation, an exact-value colour picker, inline
+      action errors, and a CSRF-protected POST update with a cancel path.
+
+    Parameters:
+      id - numeric appointment-status identifier loaded by the paired action.
+
+    @since 2026-08-07
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/struts-tags" prefix="s" %>
