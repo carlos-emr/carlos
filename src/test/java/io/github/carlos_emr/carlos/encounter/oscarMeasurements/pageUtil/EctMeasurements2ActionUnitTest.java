@@ -89,11 +89,12 @@ class EctMeasurements2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should not copy request-controlled view attributes after validation failure")
-    void shouldNotCopyRequestControlledViewAttributes_afterValidationFailure() throws Exception {
+    @DisplayName("should not reflect request-controlled view parameters in an AJAX validation failure")
+    void shouldNotReflectViewParameters_inAjaxValidationFailure() throws Exception {
         request.setParameter("demographicNo", "123");
         request.setParameter("groupName", "Vitals");
         request.setParameter("numType", "1");
+        request.setParameter("ajax", "true");
         request.setParameter("parentChanged", "false");
         request.setParameter("inputValue-0", "1");
         request.setParameter("inputType-0", "TEST");
@@ -106,11 +107,11 @@ class EctMeasurements2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(response.getRedirectedUrl())
-                .isEqualTo("/encounter/oscarMeasurements/ViewAddMeasurementData");
-        assertThat(request.getAttribute("css")).isNull();
-        assertThat(request.getAttribute("groupName")).isNull();
-        assertThat(request.getAttribute("demographicNo")).isNull();
+        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(response.getContentAsString())
+                .contains("errors.invalidDate")
+                .doesNotContain("javascript:alert", "Vitals", "123");
     }
 
     @Test
