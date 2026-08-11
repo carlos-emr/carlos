@@ -11,6 +11,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
@@ -116,9 +117,11 @@ class SaveAntenatalRiskConfig2ActionTest {
     @DisplayName("should reject non-POST requests without invoking persistence")
     void shouldReject_nonPostRequest() throws Exception {
         request.setMethod("GET");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_form", "w", null)).thenReturn(false);
 
         assertThat(action.execute()).isEqualTo("methodNotAllowed");
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(securityInfoManager);
         verify(configService, never()).save(any());
     }
 

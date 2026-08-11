@@ -57,13 +57,13 @@ public final class SaveAntenatalRiskConfig2Action extends ActionSupport {
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        requireWritePrivileges(loggedInInfo);
-
         if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             return "methodNotAllowed";
         }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        requireWritePrivileges(loggedInInfo);
 
         String checklist = request.getParameter("checklist");
         try {
