@@ -292,17 +292,18 @@
                                                             </td>
                                                             <td>
                                                                 <c:set var="attributeName" value="mInstrcs${ctr.index}" />
-                                                                <c:forEach var="mInstrc" items="${sessionScope[attributeName].measuringInstructionList}">
-                                                                    <input type="radio" name="inputMInstrc-${ctr.index}" value="${carlos:forHtmlAttribute(mInstrc.measuringInstrc)}" checked />
-                                                                    ${carlos:forHtmlContent(mInstrc.measuringInstrc)}<br>
+                                                                <c:forEach var="mInstrc" items="${sessionScope[attributeName].measuringInstructionList}" varStatus="instructionStatus">
+                                                                    <input type="radio" name="inputMInstrc-${ctr.index}" id="inputMInstrc-${ctr.index}-${instructionStatus.index}" value="${carlos:forHtmlAttribute(mInstrc.measuringInstrc)}" checked />
+                                                                    <label for="inputMInstrc-${ctr.index}-${instructionStatus.index}">${carlos:forHtmlContent(mInstrc.measuringInstrc)}</label><br>
                                                                 </c:forEach>
                                                             </td>
 
                                                             <c:choose>
                                                                 <c:when test="${measurementType.measuringInstrc.startsWith('Choose radio')}">
                                                                     <td>
-                                                                        <c:forEach var="option" items="${fn:split(measurementType.measuringInstrc.substring(12), ',')}">
-                                                                            <input type="radio" name="inputValue-${ctr.index}" value="${carlos:forHtmlAttribute(fn:trim(option))}"> ${carlos:forHtmlContent(fn:trim(option))}&nbsp;
+                                                                        <c:forEach var="option" items="${fn:split(measurementType.measuringInstrc.substring(12), ',')}" varStatus="optionStatus">
+                                                                            <input type="radio" name="inputValue-${ctr.index}" id="inputValue-${ctr.index}-${optionStatus.index}" value="${carlos:forHtmlAttribute(fn:trim(option))}">
+                                                                            <label for="inputValue-${ctr.index}-${optionStatus.index}">${carlos:forHtmlContent(fn:trim(option))}</label>&nbsp;
                                                                         </c:forEach>
                                                                     </td>
                                                                 </c:when>

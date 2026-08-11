@@ -46,7 +46,7 @@ class MeasurementsJspEncodingRegressionTest {
                     + "|measurementType\\.measuringInstrc\\.startsWith\\('Choose radio'\\)"
                     + "|measurementTypes\\.measurementTypeVector|sessionScope\\[attributeName]\\.measuringInstructionList)");
     private static final Pattern SAFE_RENDERED_EXPRESSION = Pattern.compile(
-            "(?:pageContext\\.request\\.contextPath|ctr\\.index"
+            "(?:pageContext\\.request\\.contextPath|ctr\\.index|instructionStatus\\.index|optionStatus\\.index"
                     + "|fn:length\\(measurementTypes\\.measurementTypeVector\\))");
     private static final Path JSP = resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF", "jsp",
             "encounter", "oscarMeasurements", "Measurements.jsp"));
@@ -122,6 +122,18 @@ class MeasurementsJspEncodingRegressionTest {
                 .doesNotContain("\"")
                 .doesNotContain("'")
                 .doesNotContain("<");
+    }
+
+    @Test
+    @DisplayName("should associate radio controls with their visible labels")
+    void shouldAssociateRadioControls_withVisibleLabels() throws Exception {
+        String jsp = readJsp();
+
+        assertThat(jsp)
+                .contains("id=\"inputMInstrc-${ctr.index}-${instructionStatus.index}\"")
+                .contains("for=\"inputMInstrc-${ctr.index}-${instructionStatus.index}\"")
+                .contains("id=\"inputValue-${ctr.index}-${optionStatus.index}\"")
+                .contains("for=\"inputValue-${ctr.index}-${optionStatus.index}\"");
     }
 
     @Test
