@@ -105,6 +105,8 @@ class MeasurementsJspEncodingRegressionTest {
                 .doesNotContain("elements[\"value(parentChanged)\"]")
                 .contains("elements[\"parentChanged\"].value = \"true\";")
                 .contains("<fmt:param value=\"${patientNameAge}\"/>")
+                .contains("${carlos:forHtmlAttribute(carlos:forUriComponent(demo))}")
+                .contains("${carlos:forJavaScriptAttribute(carlos:forUriComponent(measurementType.type))}")
                 .contains("<carlos:encode value='<%= error %>' context=\"html\"/>")
                 .contains("Trusted clinic decision-support template HTML")
                 .contains("<%=measurementManager.getDShtml(groupName)%>");
