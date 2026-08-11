@@ -23,6 +23,9 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.CtlRelationshipsDao;
 import io.github.carlos_emr.carlos.commn.dao.RelationshipsDao;
+import io.github.carlos_emr.carlos.commn.model.CtlRelationships;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.Relationships;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -41,20 +44,22 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.util.List;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -81,6 +86,7 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
     @Mock private SecurityInfoManager securityInfoManager;
     @Mock private RelationshipsDao relationshipsDao;
     @Mock private CtlRelationshipsDao ctlRelationshipsDao;
+    @Mock private DemographicManager demographicManager;
     @Mock private LoggedInInfo mockLoggedInInfo;
 
     private MockHttpServletRequest request;
@@ -104,7 +110,7 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(RelationshipsDao.class, relationshipsDao);
         registerMock(CtlRelationshipsDao.class, ctlRelationshipsDao);
-        registerMock(DemographicManager.class, mock(DemographicManager.class));
+        registerMock(DemographicManager.class, demographicManager);
 
         when(securityInfoManager.hasPrivilege(
                 any(LoggedInInfo.class), eq("_demographic"), eq("w"), nullable(String.class)))
@@ -123,10 +129,15 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
     void shouldRenderContactSearchForm_whenGetWithoutMutationParams() throws Exception {
         request.setMethod("GET");
         request.setParameter("demo", "1373");
+        request.setParameter("origDemo", "1373");
 
         String result = new AddDemographicRelationship2Action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        // The "demo" request attribute must populate on every render path (not just after a
+        // save) since AddAlternateContact.jsp falls back to it for creatorDemo when the demo/
+        // remarks query params are absent, e.g. the intermediate "select a contact" step.
+        assertThat(request.getAttribute("demo")).isEqualTo("1373");
         verifyNoInteractions(relationshipsDao);
         verifyNoInteractions(ctlRelationshipsDao);
     }
@@ -231,6 +242,25 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject POST with linkingDemo=0 with 400 and never persist")
+    void shouldReject400_whenPostHasZeroLinkingDemo() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("origDemo", "1373");
+        // "0" is digit-only and parses as a valid int, but demographic_no is an auto-increment
+        // PK starting at 1 -- 0 is the exact placeholder fromIntString(null/blank) coerces to.
+        request.setParameter("linkingDemo", "0");
+        request.setParameter("relation", "Spouse");
+        request.getSession().setAttribute("user", "999998");
+
+        String result = new AddDemographicRelationship2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(relationshipsDao);
+        verifyNoInteractions(ctlRelationshipsDao);
+    }
+
+    @Test
     @DisplayName("should return pmmClient and never persist when GET carries the Finished param")
     void shouldReturnPmmClient_whenGetCarriesFinishedParam() throws Exception {
         request.setMethod("GET");
@@ -279,5 +309,45 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         verify(relationshipsDao).persist(any());
+    }
+
+    @Test
+    @DisplayName("should persist a flipped inverse row when the relation has a sex-specific inverse")
+    void shouldPersistInverseRelationship_whenRelationHasMaleInverseAndOrigDemoIsMale() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("origDemo", "1373");
+        request.setParameter("linkingDemo", "1374");
+        request.setParameter("relation", "Parent");
+        request.getSession().setAttribute("user", "999998");
+
+        CtlRelationships parentRelation = new CtlRelationships();
+        parentRelation.setValue("Parent");
+        parentRelation.setMaleInverse("Son");
+        parentRelation.setFemaleInverse("Daughter");
+        when(ctlRelationshipsDao.findByValue("Parent")).thenReturn(parentRelation);
+
+        Demographic origDemographic = new Demographic();
+        origDemographic.setSex("M");
+        when(demographicManager.getDemographic(eq(mockLoggedInInfo), eq("1373"))).thenReturn(origDemographic);
+
+        String result = new AddDemographicRelationship2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+
+        ArgumentCaptor<Relationships> captor = ArgumentCaptor.forClass(Relationships.class);
+        verify(relationshipsDao, times(2)).persist(captor.capture());
+        List<Relationships> persisted = captor.getAllValues();
+
+        // Forward row: origDemo -> linkingDemo, the relation as submitted.
+        assertThat(persisted.get(0).getDemographicNo()).isEqualTo(1373);
+        assertThat(persisted.get(0).getRelationDemographicNo()).isEqualTo(1374);
+        assertThat(persisted.get(0).getRelation()).isEqualTo("Parent");
+
+        // Inverse row: flipped linkingDemo -> origDemo, using the male inverse since origDemo's
+        // sex is "M" (computeInverseRelation resolves the inverse relative to the ORIGINAL
+        // demographic's sex before flipping which side each demographic is on).
+        assertThat(persisted.get(1).getDemographicNo()).isEqualTo(1374);
+        assertThat(persisted.get(1).getRelationDemographicNo()).isEqualTo(1373);
+        assertThat(persisted.get(1).getRelation()).isEqualTo("Son");
     }
 }

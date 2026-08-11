@@ -102,6 +102,7 @@ public class AddDemographicRelationship2Action extends ActionSupport {
 
         if (isValidDemographicNo(origDemo)) {
             request.setAttribute("demographicNo", origDemo);
+            request.setAttribute("demo", origDemo);
         }
 
         // Creating a relationship is a mutation and must arrive via POST. The "Add Relation"
@@ -149,10 +150,6 @@ public class AddDemographicRelationship2Action extends ActionSupport {
         DemographicRelationship demo = new DemographicRelationship();
         demo.addDemographicRelationship(origDemo, linkingDemo, relation, sdmBool, eBool, notes, providerNo, facilityId);
 
-        if (isValidDemographicNo(origDemo)) {
-            request.setAttribute("demo", origDemo);
-        }
-
         InverseRelation inverse = computeInverseRelation(origDemo, linkingDemo, relation);
         if (inverse != null) {
             DemographicRelationship demo2 = new DemographicRelationship();
@@ -165,14 +162,15 @@ public class AddDemographicRelationship2Action extends ActionSupport {
 
     // A digit-only string that overflows int (e.g. "2147483648") still coerces to 0 in
     // ConversionUtils.fromIntString via the caught NumberFormatException, so the digit check
-    // alone isn't enough -- confirm it actually parses as an int before accepting it.
+    // alone isn't enough -- confirm it actually parses as an int before accepting it. "0" is
+    // rejected too: demographic_no is an auto-increment PK starting at 1, so 0 is never a real
+    // patient -- it's the exact placeholder fromIntString(null/blank) coerces to.
     private static boolean isValidDemographicNo(String demographicNo) {
         if (demographicNo == null || !demographicNo.matches("^\\d+$")) {
             return false;
         }
         try {
-            Integer.parseInt(demographicNo);
-            return true;
+            return Integer.parseInt(demographicNo) > 0;
         } catch (NumberFormatException e) {
             return false;
         }
