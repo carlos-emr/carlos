@@ -54,7 +54,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
         action.setLocation("  Main  ");
         action.setResources("  Room 1  ");
 
-        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(executeAction(action)).isEqualTo("redirect");
 
         ArgumentCaptor<AppointmentType> captor = ArgumentCaptor.forClass(AppointmentType.class);
         verify(appointmentTypeDao).persist(captor.capture());
@@ -65,14 +65,31 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
         assertThat(saved.getNotes()).isEqualTo("Bring results");
         assertThat(saved.getLocation()).isEqualTo("Main");
         assertThat(saved.getResources()).isEqualTo("Room 1");
-        assertThat(action.getActionMessages()).isNotEmpty();
-        assertThat(action.getId()).isNull();
-        assertThat(action.getName()).isNull();
-        assertThat(action.getDuration()).isNull();
     }
 
     @Test
-    void shouldUpdateAppointmentType_thenReturnToAddMode() throws Exception {
+    void shouldSurfaceSavedMessage_onTheRedirectedRender() throws Exception {
+        configureSave("30");
+        action.setName("Follow Up");
+        assertThat(executeAction(action)).isEqualTo("redirect");
+        assertThat(action.getActionMessages())
+                .withFailMessage("the notice belongs on the redirected GET, not the POST")
+                .isEmpty();
+
+        mockRequest.removeAllParameters();
+        mockRequest.setMethod("GET");
+        TestAppointmentType2Action listAction = new TestAppointmentType2Action(appointmentTypeDao);
+        assertThat(executeAction(listAction)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(listAction.getActionMessages()).containsExactly("appointment.type.saved.message");
+
+        // Single-shot: a refresh of the list must not repeat it.
+        TestAppointmentType2Action refreshed = new TestAppointmentType2Action(appointmentTypeDao);
+        assertThat(executeAction(refreshed)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(refreshed.getActionMessages()).isEmpty();
+    }
+
+    @Test
+    void shouldUpdateAppointmentType_thenRedirect() throws Exception {
         AppointmentType existing = mock(AppointmentType.class);
         when(appointmentTypeDao.find(42)).thenReturn(existing);
         configureSave("45");
@@ -83,16 +100,13 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
         String result = executeAction(action);
         assertThat(result)
                 .withFailMessage("result=%s errors=%s", result, action.getActionErrors())
-                .isEqualTo(ActionSupport.SUCCESS);
+                .isEqualTo("redirect");
 
         verify(existing).setName("Updated Type");
         verify(existing).setDuration(45);
         verify(appointmentTypeDao).find(42);
         verify(appointmentTypeDao).merge(existing);
         verify(appointmentTypeDao, never()).persist(existing);
-        assertThat(action.getId()).isNull();
-        assertThat(action.getName()).isNull();
-        assertThat(action.getDuration()).isNull();
     }
 
     @ParameterizedTest
@@ -136,7 +150,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
         action.setLocation("l".repeat(255 + offset));
         action.setResources("x".repeat(10 + offset));
 
-        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(executeAction(action)).isEqualTo("redirect");
         ArgumentCaptor<AppointmentType> captor = ArgumentCaptor.forClass(AppointmentType.class);
         verify(appointmentTypeDao).persist(captor.capture());
         AppointmentType saved = captor.getValue();
@@ -161,7 +175,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
         action.setName("Multisite Type");
         action.setLocation(siteName);
 
-        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(executeAction(action)).isEqualTo("redirect");
 
         ArgumentCaptor<AppointmentType> captor = ArgumentCaptor.forClass(AppointmentType.class);
         verify(appointmentTypeDao).persist(captor.capture());
@@ -201,7 +215,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
         String result = executeAction(action);
         assertThat(result)
                 .withFailMessage("result=%s errors=%s", result, action.getActionErrors())
-                .isEqualTo(ActionSupport.SUCCESS);
+                .isEqualTo("redirect");
         verify(appointmentTypeDao).persist(org.mockito.ArgumentMatchers.any());
     }
 
@@ -224,7 +238,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
         String result = executeAction(action);
         assertThat(result)
                 .withFailMessage("result=%s errors=%s", result, action.getActionErrors())
-                .isEqualTo(ActionSupport.SUCCESS);
+                .isEqualTo("redirect");
         verify(existing).setLocation("Retired Site");
         verify(appointmentTypeDao).merge(existing);
     }
@@ -238,7 +252,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
         action.setName("Remote Type");
         action.setLocation("Remote");
 
-        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(executeAction(action)).isEqualTo("redirect");
         verify(appointmentTypeDao).persist(org.mockito.ArgumentMatchers.any());
     }
 
@@ -346,29 +360,54 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldHoldDeleteFlash_whenNextRequestIsAnUnrelatedSave() throws Exception {
-        when(appointmentTypeDao.remove(42)).thenReturn(true);
-        mockRequest.setMethod("POST");
-        addRequestParameter("oper", "del");
-        addRequestParameter("no", "42");
-        assertThat(executeAction(action)).isEqualTo("redirect");
+    void shouldHoldDeleteFlash_whenInterveningOperIsRejected() throws Exception {
+        pendingDeleteFlash();
 
-        // A stale page posting a save must not absorb the pending "deleted" notice.
+        // An unrecognised oper is not a mutation, but it is not a read render either: it must not
+        // swallow the notice on its way to being rejected.
         mockRequest.removeAllParameters();
-        TestAppointmentType2Action saveAction = new TestAppointmentType2Action(appointmentTypeDao);
         mockRequest.setMethod("POST");
-        addRequestParameter("oper", "save");
-        saveAction.setName("Unrelated Save");
-        saveAction.setDuration("15");
-        assertThat(executeAction(saveAction)).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(saveAction.getActionMessages()).containsExactly("appointment.type.saved.message");
+        addRequestParameter("oper", "bogus");
+        TestAppointmentType2Action rejected = new TestAppointmentType2Action(appointmentTypeDao);
+        assertThat(executeAction(rejected)).isEqualTo("failure");
+        assertThat(rejected.getActionErrors()).containsExactly("appointment.type.oper.error");
+        assertThat(rejected.getActionMessages()).isEmpty();
 
-        // It is still pending for the next plain render, which is where it belongs.
         mockRequest.removeAllParameters();
         mockRequest.setMethod("GET");
         TestAppointmentType2Action listAction = new TestAppointmentType2Action(appointmentTypeDao);
         assertThat(executeAction(listAction)).isEqualTo(ActionSupport.SUCCESS);
         assertThat(listAction.getActionMessages()).containsExactly("appointment.type.deleted.message");
+    }
+
+    @Test
+    void shouldReplaceDeleteFlash_whenInterveningSaveSucceeds() throws Exception {
+        pendingDeleteFlash();
+
+        // A stale page's save must not render the previous notice on its own response; its own
+        // newer outcome supersedes the pending one for the render that follows.
+        mockRequest.removeAllParameters();
+        TestAppointmentType2Action saveAction = new TestAppointmentType2Action(appointmentTypeDao);
+        mockRequest.setMethod("POST");
+        addRequestParameter("oper", "save");
+        saveAction.setName("Intervening Save");
+        saveAction.setDuration("15");
+        assertThat(executeAction(saveAction)).isEqualTo("redirect");
+        assertThat(saveAction.getActionMessages()).isEmpty();
+
+        mockRequest.removeAllParameters();
+        mockRequest.setMethod("GET");
+        TestAppointmentType2Action listAction = new TestAppointmentType2Action(appointmentTypeDao);
+        assertThat(executeAction(listAction)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(listAction.getActionMessages()).containsExactly("appointment.type.saved.message");
+    }
+
+    private void pendingDeleteFlash() throws Exception {
+        when(appointmentTypeDao.remove(42)).thenReturn(true);
+        mockRequest.setMethod("POST");
+        addRequestParameter("oper", "del");
+        addRequestParameter("no", "42");
+        assertThat(executeAction(action)).isEqualTo("redirect");
     }
 
     @Test

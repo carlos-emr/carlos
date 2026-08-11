@@ -59,14 +59,16 @@ import java.util.List;
  * <ul>
  *   <li>absent — renders the list with an empty Add form ({@code success})</li>
  *   <li>{@code edit} — loads one record into the form; read-only, so GET is permitted</li>
- *   <li>{@code save} — creates or updates; POST-only</li>
- *   <li>{@code del} — deletes, then {@code redirect} so a refresh cannot repeat it; POST-only</li>
+ *   <li>{@code save} — creates or updates, then {@code redirect}; POST-only</li>
+ *   <li>{@code del} — deletes, then {@code redirect}; POST-only</li>
  *   <li>anything else — rejected rather than silently ignored</li>
  * </ul>
  *
  * <p>{@code save} and {@code del} answer 405 with {@code Allow: POST} before any DAO call, and
  * both validate before mutating: invalid input returns {@code failure}, which re-renders the
  * form with the submitted values intact instead of surfacing a bare {@code CARLOS Error: 0}.
+ * A successful mutation redirects and carries its notice on a single-shot session flash, so a
+ * refresh cannot repeat it; only the two read renders consume that flash.
  * Field limits mirror the {@code appointmentType} columns, and under multisite a non-blank
  * location must name an active site — except the value already stored on the record being
  * edited, which is accepted so a renamed or deactivated site still round-trips.
@@ -85,8 +87,8 @@ public class AppointmentType2Action extends ActionSupport {
     private static final int LOCATION_MAX_LENGTH = 255;
     private static final int RESOURCES_MAX_LENGTH = 10;
     private static final String DURATION_ERROR = "appointment.type.duration.error";
-    private static final String DELETE_SUCCESS_FLASH =
-            AppointmentType2Action.class.getName() + ".deleteSuccess";
+    private static final String FLASH_MESSAGE_KEY =
+            AppointmentType2Action.class.getName() + ".flashMessage";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private List<Site> activeSites;
@@ -108,12 +110,14 @@ public class AppointmentType2Action extends ActionSupport {
             return NONE;
         }
 
-        // Only a page render may consume the flash. If an unrelated mutation arrives while one is
-        // pending — a stale page posting a save, or a delete submitted by XHR that never follows
-        // the redirect — the "deleted" notice would otherwise surface on that operation's result
-        // instead of on the list it describes.
-        if (!isMutation(sOper)) {
-            restoreDeleteSuccessMessage();
+        // Only the two read renders may consume the flash, and this must be an allow-list rather
+        // than "not a mutation": an unrecognised oper is not a mutation either, and would swallow
+        // a pending notice on its way to being rejected, losing it for the list render that
+        // follows. A mutation must not consume one either — a stale page posting a save, or a
+        // delete sent by XHR that never follows the redirect, would surface the previous
+        // operation's notice on this one's result.
+        if (sOper == null || EDIT.equals(sOper)) {
+            restoreFlashMessage();
         }
 
         int typeNo = -1;
@@ -168,8 +172,10 @@ public class AppointmentType2Action extends ActionSupport {
                     populateBean(existing, parsedDuration);
                     appDao.merge(existing);
                 }
-                clearForm();
-                addActionMessage(getText("appointment.type.saved.message"));
+                // Redirect rather than render: a refresh on the save response would otherwise
+                // re-post and create a duplicate type. The notice is carried across on the flash.
+                setFlashMessage("appointment.type.saved.message");
+                return "redirect";
             } else if (DELETE.equals(sOper)) {
                 try {
                     // remove(id) returns false for an already-deleted record instead of throwing,
@@ -179,7 +185,7 @@ public class AppointmentType2Action extends ActionSupport {
                         addActionError(getText("appointment.type.notfound.error"));
                         return failure();
                     }
-                    request.getSession().setAttribute(DELETE_SUCCESS_FLASH, Boolean.TRUE);
+                    setFlashMessage("appointment.type.deleted.message");
                     return "redirect";
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Could not delete appointment type {}", typeNo, e);
@@ -197,10 +203,15 @@ public class AppointmentType2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    private void restoreDeleteSuccessMessage() {
-        if (Boolean.TRUE.equals(request.getSession().getAttribute(DELETE_SUCCESS_FLASH))) {
-            request.getSession().removeAttribute(DELETE_SUCCESS_FLASH);
-            addActionMessage(getText("appointment.type.deleted.message"));
+    private void setFlashMessage(String messageKey) {
+        request.getSession().setAttribute(FLASH_MESSAGE_KEY, messageKey);
+    }
+
+    private void restoreFlashMessage() {
+        Object pending = request.getSession().getAttribute(FLASH_MESSAGE_KEY);
+        if (pending instanceof String messageKey) {
+            request.getSession().removeAttribute(FLASH_MESSAGE_KEY);
+            addActionMessage(getText(messageKey));
         }
     }
 
@@ -333,16 +344,6 @@ public class AppointmentType2Action extends ActionSupport {
 
     private String normalize(String value) {
         return value == null ? null : value.trim();
-    }
-
-    private void clearForm() {
-        id = null;
-        name = null;
-        notes = null;
-        reason = null;
-        location = null;
-        resources = null;
-        duration = null;
     }
 
     protected AppointmentTypeDao getAppointmentTypeDao() {
