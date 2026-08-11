@@ -25,8 +25,9 @@
  * Browser regression checks for Administration -> System Management flowsheets.
  *
  * Creates one uniquely named flowsheet, verifies the editor opens, verifies
- * Edit for both the built-in Periodic Health Visit flowsheet and the created
- * flowsheet, then removes all database rows created by this run.
+ * Edit for both built-in and created flowsheets, verifies that hiding and
+ * restoring a measurement remains CSRF-protected, then removes all database
+ * rows created by this run.
  *
  * Defaults are for the local devcontainer:
  *   npm run test:flowsheet-admin-playwright
@@ -88,6 +89,7 @@ const checks = [];
 const expectedErrorUrls = new Set();
 const confirmedExpectedErrorUrls = new Set();
 let csrfToken = '';
+let visibilityToggleNeedsRestore = false;
 
 function normalizedHostname(url) {
   const host = url.hostname.toLowerCase();
@@ -259,6 +261,31 @@ async function cleanupCreatedRowsThroughApplication() {
   }
 }
 
+async function restoreVisibilityToggleThroughApplication() {
+  if (!visibilityToggleNeedsRestore) {
+    return;
+  }
+  if (!browserContext || !csrfToken) {
+    throw new Error('Cannot restore the flowsheet visibility test without an authenticated browser context and CSRF token');
+  }
+  const response = await browserContext.request.post(
+    appUrl('/encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction'),
+    {
+      form: {
+        method: 'restore',
+        flowsheet: 'hyptension',
+        measurement: 'DRPW',
+        'CSRF-TOKEN': csrfToken,
+      },
+      timeout: 30000,
+    }
+  );
+  if (!response.ok()) {
+    throw new Error(`Flowsheet visibility cleanup returned HTTP ${response.status()}`);
+  }
+  visibilityToggleNeedsRestore = false;
+}
+
 async function installNavigationGuard(context) {
   await context.route('**/*', async (route) => {
     const request = route.request();
@@ -394,6 +421,51 @@ async function editFromManager(page, rowText, label) {
   await assertEditor(page, label, response);
 }
 
+async function submitVisibilityToggle(page, row, linkTitle, label) {
+  const [response] = await Promise.all([
+    page.waitForResponse((candidate) => {
+      const request = candidate.request();
+      const url = new URL(candidate.url());
+      return request.isNavigationRequest()
+        && request.method() === 'POST'
+        && isWithinConfiguredApp(url)
+        && url.pathname.endsWith('/encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction');
+    }, { timeout: 30000 }),
+    row.getByTitle(linkTitle).click(),
+  ]);
+  await response.finished();
+  await page.waitForLoadState('domcontentloaded', { timeout: 30000 });
+  if (response.status() !== 200) {
+    throw new Error(`${label} returned HTTP ${response.status()}`);
+  }
+  checks.push({ label, status: response.status(), url: response.url() });
+}
+
+async function verifyMeasurementVisibilityToggle(page) {
+  const target = new URL(appUrl('/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet'));
+  target.searchParams.set('flowsheet', 'hyptension');
+  target.searchParams.set('displayName', 'Hypertension Flowsheet');
+  const response = await page.goto(target.toString(), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- target is built from the validated application URL above // NOSONAR - same rationale
+  await assertEditor(page, 'visibility-editor', response);
+  await captureCsrfToken(page);
+
+  let row = page.locator('tbody tr').filter({ hasText: /drinks.*week/i }).first();
+  await row.waitFor({ state: 'visible', timeout: 30000 });
+  if (await row.getByTitle('Hide this measurement').count() !== 1) {
+    throw new Error('Drinks per Week must be visible before the visibility-toggle regression check');
+  }
+
+  visibilityToggleNeedsRestore = true;
+  await submitVisibilityToggle(page, row, 'Hide this measurement', 'measurement-hide');
+  row = page.locator('tbody tr').filter({ hasText: /drinks.*week/i }).first();
+  await row.getByTitle('Show this measurement').waitFor({ state: 'visible', timeout: 30000 });
+
+  await submitVisibilityToggle(page, row, 'Show this measurement', 'measurement-restore');
+  visibilityToggleNeedsRestore = false;
+  row = page.locator('tbody tr').filter({ hasText: /drinks.*week/i }).first();
+  await row.getByTitle('Hide this measurement').waitFor({ state: 'visible', timeout: 30000 });
+}
+
 async function verifyEditorFailureStatus(page) {
   const target = new URL(appUrl('/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet'));
   target.searchParams.set('flowsheet', `missing-${Date.now()}`);
@@ -426,6 +498,11 @@ function cleanupResources() {
   cleanupPromise = (async () => {
     const errors = [];
     try {
+      try {
+        await restoreVisibilityToggleThroughApplication();
+      } catch (error) {
+        errors.push(error);
+      }
       try {
         await cleanupCreatedRowsThroughApplication();
       } catch (error) {
@@ -490,6 +567,7 @@ installSignalHandler('SIGTERM', 143);
     await login(page);
     await createFlowsheet(page);
     await editFromManager(page, 'Periodic Health Visit', 'system-edit');
+    await verifyMeasurementVisibilityToggle(page);
     await editFromManager(page, displayName, 'user-edit');
     await verifyEditorFailureStatus(page);
 
@@ -500,7 +578,7 @@ installSignalHandler('SIGTERM', 143);
       );
     }
     console.log(JSON.stringify({ displayName, checks, findings }, null, 2));
-    console.log('PASS flowsheet create and system/user edit workflows rendered successfully');
+    console.log('PASS flowsheet create, visibility toggle, and system/user edit workflows rendered successfully');
   } finally {
     await cleanupResources();
   }

@@ -357,6 +357,19 @@
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <script>
+        function appendCsrfToken(form) {
+            var csrfElement = document.querySelector('input[name="CSRF-TOKEN"]');
+            if (csrfElement && csrfElement.value) {
+                var csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'CSRF-TOKEN';
+                csrfInput.value = csrfElement.value;
+                form.appendChild(csrfInput);
+            } else {
+                console.warn('CSRF token not found on page; form submission may be rejected by server.');
+            }
+        }
+
         function submitFlowsheetCustom(params) {
             var form = document.createElement('form');
             form.method = 'post';
@@ -370,6 +383,7 @@
                     form.appendChild(input);
                 }
             }
+            appendCsrfToken(form);
             document.body.appendChild(form);
             form.submit();
         }
