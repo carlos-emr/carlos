@@ -64,11 +64,14 @@ import static org.mockito.Mockito.when;
 @DisplayName("DemographicExportAction42Action export template validation")
 class DemographicExportAction42ActionTemplateValidationTest extends DemographicExportActionUnitTestBase {
 
-    private static final Path EXPORT_JSP =
-            Path.of("src/main/webapp/WEB-INF/jsp/demographic/demographicExport.jsp");
+    /** Bounded walk up from the working directory, so the test also runs from an IDE fork. */
+    private static final int MAX_PARENT_SEARCH_DEPTH = 4;
 
-    private static final Path ENGLISH_RESOURCES =
-            Path.of("src/main/resources/oscarResources_en.properties");
+    private static final Path EXPORT_JSP = resolveProjectPath(
+            Path.of("src/main/webapp/WEB-INF/jsp/demographic/demographicExport.jsp"));
+
+    private static final Path ENGLISH_RESOURCES = resolveProjectPath(
+            Path.of("src/main/resources/oscarResources_en.properties"));
 
     /** Resource key holding the localized text for {@code UNSUPPORTED_TEMPLATE_CODE}. */
     private static final String UNSUPPORTED_TEMPLATE_KEY =
@@ -165,7 +168,12 @@ class DemographicExportAction42ActionTemplateValidationTest extends DemographicE
             OscarLog auditLog = auditLogCaptor.getValue();
             assertThat(auditLog.getAction()).isEqualTo(LogConst.EXPORT);
             assertThat(auditLog.getContent()).isEqualTo(LogConst.CON_DEMOGRAPHIC);
-            assertThat(auditLog.getData()).contains("outcome=fail");
+            assertThat(auditLog.getData())
+                    .contains("Exported 0 records", "outcome=fail",
+                            "ids=" + DemographicExportAction42Action.NO_IDS_RESOLVED)
+                    // The request is refused before any patient is resolved, so the audit record
+                    // must not name the demographic that was asked for.
+                    .doesNotContain("123");
         }
     }
 
@@ -247,6 +255,24 @@ class DemographicExportAction42ActionTemplateValidationTest extends DemographicE
         }
         assertThat(templates).as("template options offered by %s", EXPORT_JSP).isNotEmpty();
         return templates;
+    }
+
+    /**
+     * Resolves a repository-relative path against the working directory, walking a bounded number
+     * of parents. Surefire runs with {@code basedir} as the working directory, but IDE and forked
+     * runs do not always, and a missing file must fail as a clear error rather than a mystery
+     * assertion.
+     */
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of("").toAbsolutePath().normalize();
+        for (int depth = 0; depth <= MAX_PARENT_SEARCH_DEPTH && current != null; depth++) {
+            Path candidate = current.resolve(relativePath);
+            if (Files.isRegularFile(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate project file: " + relativePath);
     }
 
     private static Integer resolveTemplateValue(String optionValue) throws Exception {

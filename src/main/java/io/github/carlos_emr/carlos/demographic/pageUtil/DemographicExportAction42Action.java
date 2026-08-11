@@ -306,6 +306,12 @@ public class DemographicExportAction42Action extends ActionSupport {
     /** Response header carrying the validation reason code for a rejected export request. */
     private static final String EXPORT_ERROR_HEADER = "X-Export-Error";
 
+    /**
+     * Audit placeholder used when a request is refused before any patient is resolved. The
+     * rejection is still recorded, but it names no demographic because none was ever looked up.
+     */
+    static final String NO_IDS_RESOLVED = "<none resolved>";
+
     /** Characters unsafe in filenames across common filesystems; used to sanitize patient name components. */
     private static final String UNSAFE_FILENAME_CHARS = "[/\\\\:*?\"<>|]";
     private static final Set<String> ONTARIOMD_EXPORT_SCHEMA_IMPORTS = Set.of("EMR_Data_Migration_Schema_DT.xsd");
@@ -359,6 +365,24 @@ public class DemographicExportAction42Action extends ActionSupport {
         String setName = this.getPatientSet();
         String templateOption = this.getTemplate();
 
+        // Validate the template BEFORE resolving the patient set. A request that cannot be
+        // accepted must not run saved-query or provider DAO work first, and refusing here also
+        // means no patient identifier is ever resolved for the rejection audit record.
+        int template = parseTemplate(templateOption);
+        if (!SUPPORTED_TEMPLATES.contains(template)) {
+            logger.warn("Rejected demographic export request for unsupported template value {}", template);
+            setExportStatusHeader(response, "error");
+            // Fixed, non-PHI reason code so the page can explain the refusal instead of showing
+            // the generic "export failed" message.
+            response.setHeader(EXPORT_ERROR_HEADER, UNSUPPORTED_TEMPLATE_CODE);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            writeExportAuditLog(loggedInInfo, 0, "fail", NO_IDS_RESOLVED, null);
+            // The 400 plus the reason headers is the complete response: returning a named result
+            // would forward the export page into it, and ResponseSanitizationFilter cannot replay
+            // a captured body of that size once the status is >= 400 (observed live as a 500).
+            return NONE;
+        }
+
         boolean exPersonalHistory = WebUtils.isChecked(request, "exPersonalHistory");
         boolean exFamilyHistory = WebUtils.isChecked(request, "exFamilyHistory");
         boolean exPastHealth = WebUtils.isChecked(request, "exPastHealth");
@@ -407,21 +431,11 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         String ffwd = "fail";
         boolean fileStreamed = false;
-        boolean templateRejected = false;
         String tmpDir = oscarProperties.getProperty("TMP_DIR") + File.separator + RandomStringUtils.random(8, true, false);
 
 
         // Sharing Center - holds the ID that will 'potentially' be exported.
         int documentExportId = 0;
-
-        // A value that will not parse must NOT fall back to CMS4: silently running a different
-        // export than the one requested is worse than refusing the request.
-        int template = UNPARSEABLE_TEMPLATE;
-        try {
-            template = Integer.parseInt(templateOption != null ? templateOption.trim() : "");
-        } catch (NumberFormatException e) {
-            logger.warn("Rejected demographic export: template parameter is not an integer");
-        }
 
         switch (template) {
             case CMS4:
@@ -2803,22 +2817,14 @@ public class DemographicExportAction42Action extends ActionSupport {
 
             // E2E was never a working template here (see GitHub issue #3405): its generator was
             // removed, so the branch fell through and the user got the generic export-failed UI
-            // with no explanation. The dead commented-out implementation has been deleted; any
-            // unsupported value now fails validation explicitly below.
+            // with no explanation. The dead commented-out implementation has been deleted, and
+            // unsupported values are refused by the SUPPORTED_TEMPLATES guard before any export
+            // work starts.
             default:
-                // Reject rather than fall through silently. Reached for the retired E2E value, a
-                // non-integer parameter, or anything a hand-crafted POST supplies that the UI
-                // does not offer.
-                logger.warn("Rejected demographic export request for unsupported template value {}", template);
-                setExportStatusHeader(response, "error");
-                // Header carries a fixed, non-PHI reason code so the page can show why the export
-                // was refused instead of the generic "export failed" message. exportError is NOT
-                // populated here: it is only ever read while assembling a CMS4 export bundle.
-                response.setHeader(EXPORT_ERROR_HEADER, UNSUPPORTED_TEMPLATE_CODE);
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                ffwd = "fail";
-                templateRejected = true;
-                break;
+                // Unreachable while SUPPORTED_TEMPLATES and the cases above agree. Failing loudly
+                // is deliberate: a value added to the allowlist without an implementation would
+                // otherwise "succeed" here having exported nothing at all.
+                throw new IllegalStateException("No export implementation for supported template " + template);
         }
 
         String exportedIds = null;
@@ -2861,33 +2867,7 @@ public class DemographicExportAction42Action extends ActionSupport {
             if (exportedIds == null) {
                 exportedIds = "<unavailable>";
             }
-            OscarLog exportAuditLog = new OscarLog();
-            if (loggedInInfo.getLoggedInSecurity() != null) {
-                exportAuditLog.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
-            }
-            if (loggedInInfo.getLoggedInProvider() != null) {
-                exportAuditLog.setProviderNo(loggedInInfo.getLoggedInProviderNo());
-            }
-            exportAuditLog.setAction(LogConst.EXPORT);
-            exportAuditLog.setContent(LogConst.CON_DEMOGRAPHIC);
-            exportAuditLog.setIp(loggedInInfo.getIp());
-            StringBuilder dataBuilder = new StringBuilder();
-            dataBuilder.append("Exported ").append(list.size()).append(" records; outcome=").append(exportOutcome);
-            if (exportException != null) {
-                dataBuilder.append("; error=").append(exportException);
-            }
-            dataBuilder.append("; ids=").append(exportedIds);
-            exportAuditLog.setData(dataBuilder.toString());
-            LogAction.addLogSynchronous(exportAuditLog);
-        }
-        // A rejected template is already fully answered by the 400 plus the reason headers, so the
-        // action owns this response and no result may render into it. Forwarding the export page
-        // here instead produced a 500: ResponseSanitizationFilter captures response bodies once the
-        // status is >= 400, and a full page exceeds its capture limit, so the buffer is committed
-        // before the filter can replay it ("Cannot reset buffer after response has been
-        // committed"). The fetch() caller reads the reason from the headers, not from a body.
-        if (templateRejected) {
-            return NONE;
+            writeExportAuditLog(loggedInInfo, list.size(), exportOutcome, exportedIds, exportException);
         }
         // When a file was streamed to the response, return null to prevent Struts
         // from rendering a JSP result into the already-committed response.
@@ -4057,6 +4037,60 @@ public class DemographicExportAction42Action extends ActionSupport {
     @StrutsParameter
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
+    }
+
+    /**
+     * Parses the submitted export template parameter.
+     *
+     * <p>A value that will not parse resolves to {@link #UNPARSEABLE_TEMPLATE} rather than to
+     * {@link #CMS4}: the historical fallback to {@code 0} silently ran a different export than
+     * the one the caller asked for.</p>
+     *
+     * @param templateOption raw {@code template} request parameter; may be {@code null}
+     * @return the parsed template value, or {@link #UNPARSEABLE_TEMPLATE} if it is not an integer
+     */
+    private int parseTemplate(String templateOption) {
+        try {
+            return Integer.parseInt(templateOption != null ? templateOption.trim() : "");
+        } catch (NumberFormatException e) {
+            logger.warn("Rejected demographic export: template parameter is not an integer");
+            return UNPARSEABLE_TEMPLATE;
+        }
+    }
+
+    /**
+     * Writes the demographic export audit record.
+     *
+     * <p>Shared by the completed-export tail and the early validation rejection so both attempts
+     * are audited identically. Callers own what goes in {@code exportedIds}; a request refused
+     * before any patient lookup passes {@link #NO_IDS_RESOLVED}.</p>
+     *
+     * @param loggedInInfo   session of the administrator who submitted the export
+     * @param recordCount    number of demographics the attempt covered; 0 for a refused request
+     * @param outcome        {@code success}, {@code fail} or {@code error}
+     * @param exportedIds    pre-formatted, length-capped identifier list for the audit trail
+     * @param exportException simple exception class name when the attempt threw, otherwise {@code null}
+     */
+    private void writeExportAuditLog(LoggedInInfo loggedInInfo, int recordCount, String outcome,
+                                     String exportedIds, String exportException) {
+        OscarLog exportAuditLog = new OscarLog();
+        if (loggedInInfo.getLoggedInSecurity() != null) {
+            exportAuditLog.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+        }
+        if (loggedInInfo.getLoggedInProvider() != null) {
+            exportAuditLog.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        }
+        exportAuditLog.setAction(LogConst.EXPORT);
+        exportAuditLog.setContent(LogConst.CON_DEMOGRAPHIC);
+        exportAuditLog.setIp(loggedInInfo.getIp());
+        StringBuilder dataBuilder = new StringBuilder();
+        dataBuilder.append("Exported ").append(recordCount).append(" records; outcome=").append(outcome);
+        if (exportException != null) {
+            dataBuilder.append("; error=").append(exportException);
+        }
+        dataBuilder.append("; ids=").append(exportedIds);
+        exportAuditLog.setData(dataBuilder.toString());
+        LogAction.addLogSynchronous(exportAuditLog);
     }
 
     /**

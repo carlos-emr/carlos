@@ -77,7 +77,11 @@ class DemographicExportAction42ActionRequestMethodTest extends DemographicExport
         OscarLog auditLog = auditLogCaptor.getValue();
         assertThat(auditLog.getAction()).isEqualTo(LogConst.EXPORT);
         assertThat(auditLog.getContent()).isEqualTo(LogConst.CON_DEMOGRAPHIC);
-        assertThat(auditLog.getData()).contains("Exported 1 records", "outcome=fail", "ids=123");
+        // Refused before the patient set is resolved, so nothing is exported and no demographic
+        // is named in the audit record.
+        assertThat(auditLog.getData())
+                .contains("Exported 0 records", "outcome=fail",
+                        "ids=" + DemographicExportAction42Action.NO_IDS_RESOLVED);
         verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull());
         verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographicExport"), eq("r"), isNull());
     }
