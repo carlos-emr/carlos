@@ -86,6 +86,12 @@ public class AppointmentType2Action extends ActionSupport {
     private static final int TEXT_MAX_LENGTH = 80;
     private static final int LOCATION_MAX_LENGTH = 255;
     private static final int RESOURCES_MAX_LENGTH = 10;
+    /**
+     * An appointment is stored as one {@code appointment_date} plus {@code start_time} and
+     * {@code end_time}, so it cannot run past the end of its day. A type longer than one day
+     * could never be booked, which makes 24h the ceiling rather than an arbitrary limit.
+     */
+    private static final int DURATION_MAX_MINUTES = 1440;
     private static final String DURATION_ERROR = "appointment.type.duration.error";
     private static final String FLASH_MESSAGE_KEY =
             AppointmentType2Action.class.getName() + ".flashMessage";
@@ -284,7 +290,7 @@ public class AppointmentType2Action extends ActionSupport {
         }
         try {
             int parsed = Integer.parseInt(normalizedDuration);
-            if (parsed <= 0) {
+            if (parsed <= 0 || parsed > DURATION_MAX_MINUTES) {
                 addActionError(getText(DURATION_ERROR));
                 return null;
             }

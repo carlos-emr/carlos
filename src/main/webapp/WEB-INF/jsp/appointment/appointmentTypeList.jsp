@@ -160,7 +160,7 @@
                                                                            VALUE="${carlos:forHtmlAttribute(duration)}"
                                                                            size="5"
                                                                            inputmode="numeric" pattern="[0-9]+"
-                                                                           maxlength="10" required></td>
+                                                                           maxlength="4" required></td>
                                                 </tr>
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
                                                     <td>

@@ -111,7 +111,7 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
 
     @ParameterizedTest
     @NullSource
-    @ValueSource(strings = {"", "0", "30:00", "abc", "-1", "2147483648"})
+    @ValueSource(strings = {"", "0", "30:00", "abc", "-1", "1441", "2147483647", "2147483648"})
     void shouldRejectSave_withoutMutationWhenDurationInvalid(String duration) throws Exception {
         configureSave(duration);
         action.setName("Invalid Duration");
@@ -120,6 +120,17 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
         assertThat(action.getActionErrors()).isNotEmpty();
         verify(appointmentTypeDao, never()).persist(org.mockito.ArgumentMatchers.any());
         verify(appointmentTypeDao, never()).merge(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void shouldAcceptDuration_atTheFullDayCeiling() throws Exception {
+        configureSave("1440");
+        action.setName("All Day Type");
+
+        assertThat(executeAction(action)).isEqualTo("redirect");
+        ArgumentCaptor<AppointmentType> captor = ArgumentCaptor.forClass(AppointmentType.class);
+        verify(appointmentTypeDao).persist(captor.capture());
+        assertThat(captor.getValue().getDuration()).isEqualTo(1440);
     }
 
     @Test
