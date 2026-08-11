@@ -262,14 +262,27 @@
                         document.getElementById('exportLoadingOverlay').style.display = 'none';
                         document.getElementById('exportSuccessMessage').style.display = 'block';
                     } else {
-                        document.getElementById('exportLoadingOverlay').style.display = 'none';
-                        document.getElementById('exportErrorMessage').style.display = 'block';
+                        // X-Export-Error carries a fixed, non-PHI validation reason (for example an
+                        // unsupported export template). Assigned via textContent so the server
+                        // string is never interpreted as markup.
+                        showExportError(response.headers.get('X-Export-Error'));
                     }
                 } catch (e) {
                     console.error('Export request failed:', e);
-                    document.getElementById('exportLoadingOverlay').style.display = 'none';
-                    document.getElementById('exportErrorMessage').style.display = 'block';
+                    showExportError('');
                 }
+            }
+
+            /**
+             * Hides the loading overlay and shows the error alert, adding the server-supplied
+             * validation reason when one is present.
+             *
+             * @param detail reason text from the X-Export-Error response header, may be null/empty
+             */
+            function showExportError(detail) {
+                document.getElementById('exportLoadingOverlay').style.display = 'none';
+                document.getElementById('exportErrorDetail').textContent = detail ? detail : '';
+                document.getElementById('exportErrorMessage').style.display = 'block';
             }
 
             /**
@@ -394,7 +407,8 @@
             <!-- Error message shown if export fails -->
             <div id="exportErrorMessage" class="alert alert-danger">
                 <fmt:message key="demographic.demographicexport.exportError"/>
-                <br/><br/>
+                <div id="exportErrorDetail"></div>
+                <br/>
                 <button type="button" class="btn btn-secondary" onclick="retryExport()"><fmt:message key="demographic.demographicexport.retry"/></button>
             </div>
 
@@ -449,10 +463,13 @@
 
 
                 <fmt:message key="demographic.demographicexport.exporttemplate"/><br>
+                <%-- Only templates in DemographicExportAction42Action.SUPPORTED_TEMPLATES may be
+                     offered here. The E2E option was removed because the action never had a working
+                     implementation for it (GitHub issue #3405);
+                     DemographicExportAction42ActionTemplateValidationTest fails the build if this
+                     select drifts from the supported set. --%>
                 <select style="width: 189px" name="template">
-                    <option
-                            value="<%=(new Integer(DemographicExportAction42Action.CMS4)).toString() %>">EMR DM 5.0</option>
-                    <option value="<%=(new Integer(DemographicExportAction42Action.E2E)).toString() %>">E2E</option>
+                    <option value="<%=DemographicExportAction42Action.CMS4%>">EMR DM 5.0</option>
                 </select>
 
                 <br>

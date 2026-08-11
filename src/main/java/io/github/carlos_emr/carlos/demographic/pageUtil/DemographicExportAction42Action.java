@@ -272,7 +272,34 @@ public class DemographicExportAction42Action extends ActionSupport {
     private static final String RISKFACTOR = "Risk";
     private static final String HTTP_METHOD_POST = "POST";
     public static final int CMS4 = 0;
+
+    /**
+     * Legacy E2E template value.
+     *
+     * <p>E2E export was never completed in this codebase: the generator it depended on was
+     * removed, so the branch that would have handled this value produced no file. The value is
+     * kept only so a submission carrying it is recognised and rejected with an explicit
+     * validation error, and so the JSP/action parity regression test can assert it is not
+     * offered in the UI. Do not re-add it to {@link #SUPPORTED_TEMPLATES} without a working,
+     * end-to-end covered implementation.</p>
+     */
     public static final int E2E = 1;
+
+    /** Sentinel for a template parameter that is missing or not an integer. */
+    static final int UNPARSEABLE_TEMPLATE = -1;
+
+    /**
+     * Template values the export actually implements. Anything else is rejected up front
+     * instead of falling through the export switch and returning the generic failure UI.
+     */
+    public static final Set<Integer> SUPPORTED_TEMPLATES = Set.of(CMS4);
+
+    /** Non-PHI message returned to the browser when an unsupported template is submitted. */
+    static final String UNSUPPORTED_TEMPLATE_MESSAGE =
+            "Unsupported export template. Only the EMR DM 5.0 template is available.";
+
+    /** Response header carrying the validation reason for a rejected export request. */
+    private static final String EXPORT_ERROR_HEADER = "X-Export-Error";
 
     /** Characters unsafe in filenames across common filesystems; used to sanitize patient name components. */
     private static final String UNSAFE_FILENAME_CHARS = "[/\\\\:*?\"<>|]";
@@ -381,11 +408,13 @@ public class DemographicExportAction42Action extends ActionSupport {
         // Sharing Center - holds the ID that will 'potentially' be exported.
         int documentExportId = 0;
 
-        int template = 0;
+        // A value that will not parse must NOT fall back to CMS4: silently running a different
+        // export than the one requested is worse than refusing the request.
+        int template = UNPARSEABLE_TEMPLATE;
         try {
-            template = Integer.parseInt(templateOption);
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Bad template Option");
+            template = Integer.parseInt(templateOption != null ? templateOption.trim() : "");
+        } catch (NumberFormatException e) {
+            logger.warn("Rejected demographic export: template parameter is not an integer");
         }
 
         switch (template) {
@@ -2766,108 +2795,23 @@ public class DemographicExportAction42Action extends ActionSupport {
                 }
                 break;
 
-            // Remove unused E2E tools.
-//		case E2E:
-//			if (!Util.checkDir(tmpDir)) {
-//				logger.debug("Error! Cannot write to TMP_DIR - Check carlos.properties or dir permissions.");
-//			} else {
-//				ArrayList<File> files = new ArrayList<File>();
-//				StringBuilder exportLog = new StringBuilder();
-//				for (String demoNo : list) {
-//					if (StringUtils.empty(demoNo)) {
-//						String msg = "Error! No Demographic Number";
-//						logger.error(msg);
-//						exportLog.append(msg);
-//						continue;
-//					}
-//
-//					// Populate Clinical Document
-//					ClinicalDocument clinicalDocument = E2ECreator.createEmrConversionDocument(Integer.parseInt(demoNo));
-//					if (clinicalDocument == null) {
-//						String msg = "[Demo ".concat(demoNo).concat("] Not active or failed to populate");
-//						logger.info(msg);
-//						exportLog.append(msg);
-//						continue;
-//					}
-//
-//					// Output Clinical Document as String
-//					String output = EverestUtils.generateDocumentToString(clinicalDocument, true);
-//
-//					//export file to temp directory
-//					try {
-//						File directory = new File(tmpDir);
-//						if (!directory.exists()){
-//							throw new Exception("Temporary Export Directory does not exist!");
-//						}
-//
-//						//Standard format for xml exported file : Demographic_PatientUniqueID
-//						String expFile = "Demographic_".concat(demoNo);
-//						files.add(new File(directory, expFile+".xml"));
-//					} catch (Exception e) {
-//						logger.error("Error", e);
-//					}
-////					BufferedWriter out = null;
-//					try(BufferedWriter out = new BufferedWriter(new FileWriter(files.get(files.size()-1)))) {
-//						out.write(output);
-//					} catch (IOException e) {
-//						logger.error("Error", e);
-//						throw new Exception("Cannot write .xml file(s) to export directory.\nPlease check directory permissions.");
-//					}
-//				}
-//
-//				// Create Export Log
-//				try {
-//					File exportLogFile = new File(files.get(0).getParentFile(), "ExportEvent.log");
-//					BufferedWriter out = new BufferedWriter(new FileWriter(exportLogFile));
-//					String pidRange = "Patient ID Range: ".concat(list.get(0));
-//					pidRange = pidRange.concat("-").concat(list.get(list.size()-1));
-//
-//					out.write(pidRange.concat(System.getProperty("line.separator")));
-//					out.write(System.getProperty("line.separator"));
-//					if (exportLog.toString().length() == 0) {
-//						out.write("Export contains no errors".concat(System.getProperty("line.separator")));
-//					} else {
-//						out.write(exportLog.toString());
-//					}
-//					out.close();
-//
-//					files.add(exportLogFile);
-//				} catch (IOException e) {
-//					logger.error("Error", e);
-//					throw new Exception("Cannot write .xml file(s) to export directory.\nPlease check directory permissions.");
-//				}
-//
-//				// Zip all export files
-//				String zipName = files.get(0).getName().replace(".xml", ".zip");
-//				if (setName!=null) zipName = "export_"+setName.replace(" ","")+"_"+UtilDateUtilities.getToday("yyyyMMddHHmmss")+".zip";
-//				//	if (setName!=null) zipName = "export_"+setName.replace(" ","")+"_"+UtilDateUtilities.getToday("yyyyMMddHHmmss")+".pgp";
-//				if (!Util.zipFiles(files, zipName, tmpDir)) {
-//					logger.debug("Error! Failed to zip export files");
-//				}
-//
-//				// Apply PGP if installed
-//				if (pgpReady.equals("Yes")) {
-//					//PGP encrypt zip file
-//					PGPEncrypt pgp = new PGPEncrypt();
-//					if (pgp.encrypt(zipName, tmpDir)) {
-//						Util.downloadFile(zipName+".pgp", tmpDir, response);
-//						Util.cleanFile(zipName+".pgp", tmpDir);
-//						ffwd = "success";
-//					} else {
-//						request.getSession().setAttribute("pgp_ready", "No");
-//					}
-//				} else {
-//					logger.info("Warning: PGP Encryption NOT available - unencrypted file exported!");
-//					Util.downloadFile(zipName, tmpDir, response);
-//					ffwd = "success";
-//				}
-//
-//				// Remove zip & export files from temp dir
-//				Util.cleanFile(zipName, tmpDir);
-//				Util.cleanFiles(files);
-//			}
-//			break;
+            // E2E was never a working template here (see GitHub issue #3405): its generator was
+            // removed, so the branch fell through and the user got the generic export-failed UI
+            // with no explanation. The dead commented-out implementation has been deleted; any
+            // unsupported value now fails validation explicitly below.
             default:
+                // Reject rather than fall through silently. Reached for the retired E2E value, a
+                // non-integer parameter, or anything a hand-crafted POST supplies that the UI
+                // does not offer.
+                logger.warn("Rejected demographic export request for unsupported template value {}", template);
+                exportError = new ArrayList<String>();
+                exportError.add(UNSUPPORTED_TEMPLATE_MESSAGE);
+                setExportStatusHeader(response, "error");
+                // Header carries a fixed, non-PHI reason so the page can show why the export was
+                // refused instead of the generic "export failed" message.
+                response.setHeader(EXPORT_ERROR_HEADER, UNSUPPORTED_TEMPLATE_MESSAGE);
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                ffwd = "fail";
                 break;
         }
 
