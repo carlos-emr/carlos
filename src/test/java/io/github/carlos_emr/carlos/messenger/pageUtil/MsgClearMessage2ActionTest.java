@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.StringReader;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -70,6 +71,7 @@ class MsgClearMessage2ActionTest extends CarlosWebTestBase {
     void shouldRedirectWithoutSessionId_whenMessageBeanIsMissing(boolean withSessionCookie) throws Exception {
         allowPrivilege("_msg", "w");
         getMockRequest().setContextPath("/carlos");
+        getMockRequest().setRequestURI("/carlos/messenger/ClearMessage");
         if (withSessionCookie) {
             getMockRequest().setCookies(new Cookie("JSESSIONID", "existing-session"));
         }
@@ -77,9 +79,12 @@ class MsgClearMessage2ActionTest extends CarlosWebTestBase {
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(getMockResponse().getRedirectedUrl())
-                .isEqualTo("/carlos/messenger/DisplayMessages")
+        String redirect = getMockResponse().getRedirectedUrl();
+        assertThat(redirect)
+                .isEqualTo("DisplayMessages")
                 .doesNotContainIgnoringCase("jsessionid");
+        assertThat(URI.create(getMockRequest().getRequestURL().toString()).resolve(redirect).getPath())
+                .isEqualTo("/carlos/messenger/DisplayMessages");
     }
 
     @Test
