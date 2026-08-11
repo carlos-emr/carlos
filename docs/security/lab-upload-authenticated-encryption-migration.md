@@ -68,11 +68,16 @@ the fixtures and this document before receiver code is merged.
 | `file` | AES-256-GCM ciphertext followed by the 16-byte authentication tag |
 | `signature` | Base64url RSA-PSS-SHA-256 signature of the canonical envelope |
 
-The GCM additional authenticated data is the byte sequence `carlos-lab-upload`, `0x00`,
-`2`, `0x00`, then the UTF-8 service identifier. The canonical signature input is the
-length-prefixed concatenation of the protocol marker, UTF-8 service, wrapped key, nonce,
-and ciphertext including the tag. Lengths are unsigned 32-bit big-endian byte counts.
-Binary values are decoded before canonicalization.
+The GCM additional authenticated data is the ASCII byte sequence `carlos-lab-upload`,
+one `0x00` byte, the ASCII byte `2` (`0x32`), one `0x00` byte, then the UTF-8 service
+identifier.
+
+The canonical signature input contains these six fields in order: the ASCII protocol
+marker `carlos-lab-upload`, the one-byte ASCII protocol version `2` (`0x32`), the UTF-8
+service identifier, the wrapped key, the nonce, and the ciphertext including its tag.
+Each field is prefixed with its unsigned 32-bit big-endian byte length. Base64url fields
+are decoded to binary before their lengths are calculated and before they are added to
+the canonical input.
 
 Each sender must generate a fresh AES key and nonce for every upload. Nonce reuse with a
 key is forbidden. RSA-OAEP uses SHA-256 for both the message digest and MGF1, with an
