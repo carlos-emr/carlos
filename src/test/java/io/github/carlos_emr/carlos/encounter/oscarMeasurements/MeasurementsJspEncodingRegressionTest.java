@@ -46,7 +46,7 @@ class MeasurementsJspEncodingRegressionTest {
                     + "|measurementType\\.measuringInstrc\\.startsWith\\('Choose radio'\\)"
                     + "|measurementTypes\\.measurementTypeVector|sessionScope\\[attributeName]\\.measuringInstructionList)");
     private static final Pattern SAFE_RENDERED_EXPRESSION = Pattern.compile(
-            "(?:pageContext\\.request\\.contextPath|ctr\\.index|instructionStatus\\.index|optionStatus\\.index"
+            "(?:ctr\\.index|instructionStatus\\.index|optionStatus\\.index"
                     + "|fn:length\\(measurementTypes\\.measurementTypeVector\\))");
     private static final Path JSP = resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF", "jsp",
             "encounter", "oscarMeasurements", "Measurements.jsp"));

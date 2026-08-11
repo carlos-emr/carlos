@@ -73,8 +73,8 @@
 <html>
 
     <head>
-    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/global.js"></script>
         <title><c:if test="${not empty groupName}">
             ${carlos:forHtmlContent(groupName)}
         </c:if> <fmt:message key="encounter.Index.measurements"/></title>
@@ -111,11 +111,11 @@
                 padding: 14px;
             }
         </style>
-        <script src="${ pageContext.request.contextPath }/share/calendar/calendar.js"></script>
-        <script src="${ pageContext.request.contextPath }/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
-        <script src="${ pageContext.request.contextPath }/share/calendar/calendar-setup.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/calendar/calendar.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/calendar/calendar-setup.js"></script>
         <link rel="stylesheet" type="text/css" media="all"
-              href="${ pageContext.request.contextPath }/share/calendar/calendar.css" title="win2k-cold-2"/>
+              href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/calendar/calendar.css" title="win2k-cold-2"/>
 
         <script type="text/javascript">
 
@@ -159,7 +159,7 @@
 
                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                     var csrfToken = csrfEl ? csrfEl.value : '';
-                    fetch('<%=request.getContextPath()%>/encounter/Measurements?ajax=true&skipCreateNote=true', {
+                    fetch('${carlos:forJavaScript(pageContext.request.contextPath)}/encounter/Measurements?ajax=true&skipCreateNote=true', {
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: {
@@ -208,7 +208,7 @@
         </script>
     </head>
     <body class="BodyStyle" onload="window.focus();">
-    <form action="${pageContext.request.contextPath}/encounter/Measurements" method="post" id="theForm" name="theForm">
+    <form action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/encounter/Measurements" method="post" id="theForm" name="theForm">
         <c:if test="${not empty css}">
             <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(css)}">
         </c:if>
