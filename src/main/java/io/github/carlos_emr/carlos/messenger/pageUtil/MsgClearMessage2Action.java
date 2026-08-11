@@ -113,8 +113,7 @@ public final class MsgClearMessage2Action extends ActionSupport {
         MsgSessionBean bean;
         bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
         if (bean == null) {
-            response.sendRedirect(response.encodeRedirectURL(
-                    request.getContextPath() + "/messenger/DisplayMessages"));
+            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages");
             return NONE;
         }
 
