@@ -66,7 +66,9 @@
     MeasurementManager measurementManager = SpringUtils.getBean(MeasurementManager.class);
     String groupName = (String) request.getAttribute("groupName");
 %>
-<fmt:message key="encounter.oscarMeasurements.Measurements.msgParentChanged" var="parentChangedMessage"/>
+<fmt:message key="encounter.oscarMeasurements.Measurements.msgParentChanged" var="parentChangedMessage">
+    <fmt:param value="${patientNameAge}"/>
+</fmt:message>
 
 <html>
 
@@ -142,7 +144,7 @@
                 if (parentChanged) {
                     document.forms[0].elements["parentChanged"].value = "true";
 
-                    if (!confirm("${carlos:forJavaScript(parentChangedMessage)} ${carlos:forJavaScript(patientNameAge)}"))
+                    if (!confirm("${carlos:forJavaScript(parentChangedMessage)}"))
                         ret = false;
                 }
 
