@@ -212,6 +212,25 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject POST with linkingDemo outside the int range with 400 and never persist")
+    void shouldReject400_whenPostHasLinkingDemoOutsideIntRange() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("origDemo", "1373");
+        // Digit-only but overflows int — fromIntString would still coerce this to demographic 0
+        // via its caught NumberFormatException, so the digit-only regex alone isn't enough.
+        request.setParameter("linkingDemo", "2147483648");
+        request.setParameter("relation", "Spouse");
+        request.getSession().setAttribute("user", "999998");
+
+        String result = new AddDemographicRelationship2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(relationshipsDao);
+        verifyNoInteractions(ctlRelationshipsDao);
+    }
+
+    @Test
     @DisplayName("should return pmmClient and never persist when GET carries the Finished param")
     void shouldReturnPmmClient_whenGetCarriesFinishedParam() throws Exception {
         request.setMethod("GET");

@@ -81,6 +81,8 @@ public class AddDemographicRelationship2Action extends ActionSupport {
      *         {@code "pmmClient"} when the request is the PMM client-finished callback, or
      *         {@link #NONE} after writing a {@code 405}/{@code 400} error response directly
      * @throws SecurityException if the caller lacks {@code _demographic w}
+     * @throws IOException if writing the {@code 405}/{@code 400} error response fails
+     * @since 2005-10-05
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -161,8 +163,19 @@ public class AddDemographicRelationship2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    // A digit-only string that overflows int (e.g. "2147483648") still coerces to 0 in
+    // ConversionUtils.fromIntString via the caught NumberFormatException, so the digit check
+    // alone isn't enough -- confirm it actually parses as an int before accepting it.
     private static boolean isValidDemographicNo(String demographicNo) {
-        return demographicNo != null && demographicNo.matches("^\\d+$");
+        if (demographicNo == null || !demographicNo.matches("^\\d+$")) {
+            return false;
+        }
+        try {
+            Integer.parseInt(demographicNo);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     // Blank (as opposed to absent) linkingDemo/relation must not count as mutation intent either —
