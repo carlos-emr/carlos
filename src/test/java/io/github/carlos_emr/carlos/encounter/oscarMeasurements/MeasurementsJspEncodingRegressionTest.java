@@ -149,9 +149,12 @@ class MeasurementsJspEncodingRegressionTest {
             assertThat(formatted)
                     .as("parameterized parent-changed message in %s", bundle.getFileName())
                     .contains("PATIENT_LABEL")
-                    .doesNotContain("{0}");
+                    .doesNotContain("{0}", "&#");
             if (bundle.getFileName().toString().equals("oscarResources_fr.properties")) {
                 assertThat(formatted).contains("L'\u00e9cran", "L'information");
+            }
+            if (bundle.getFileName().toString().equals("oscarResources_pl.properties")) {
+                assertThat(formatted).contains("si\u0119 ju\u017c");
             }
         }
     }
