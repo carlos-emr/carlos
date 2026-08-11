@@ -159,15 +159,20 @@
                                                     </td>
                                                     <%-- Deliberately text rather than number: a number input blanks any value it
                                                          cannot parse, which would discard the rejected entry the server re-renders
-                                                         for correction. The pattern encodes the same 1-1440 bound the action
-                                                         enforces, and title carries it into the browser's validation message. --%>
+                                                         for correction.
+
+                                                         The pattern mirrors AppointmentType2Action.validateSave exactly: the
+                                                         leading \s* and 0* match the action's trim() and Integer.parseInt, so a
+                                                         value the server would accept can never be blocked here on resubmission.
+                                                         The alternation caps it at the same 1-1440 ceiling, and title carries the
+                                                         range into the browser's validation message. --%>
                                                     <td width="25%"><INPUT TYPE="text" NAME="duration" id="appointmentTypeDuration"
                                                                            VALUE="${carlos:forHtmlAttribute(duration)}"
                                                                            size="5"
                                                                            inputmode="numeric"
-                                                                           pattern="[1-9][0-9]{0,2}|1[0-3][0-9]{2}|14[0-3][0-9]|1440"
+                                                                           pattern="\s*0*([1-9][0-9]{0,2}|1[0-3][0-9]{2}|14[0-3][0-9]|1440)\s*"
                                                                            title="${carlos:forHtmlAttribute(msgDurationRange)}"
-                                                                           maxlength="4" required></td>
+                                                                           maxlength="6" required></td>
                                                 </tr>
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
                                                     <td>
