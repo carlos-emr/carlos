@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
 import java.util.List;
+import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -55,7 +56,7 @@ class MeasurementsJspEncodingRegressionTest {
             .map(locale -> resolveProjectPath(Path.of("src", "main", "resources", "oscarResources_" + locale + ".properties")))
             .toList();
     private static final String PARENT_CHANGED_KEY =
-            "encounter.oscarMeasurements.Measurements.msgParentChanged=";
+            "encounter.oscarMeasurements.Measurements.msgParentChanged";
 
     @Test
     @DisplayName("should canonicalize the demographic identifier before rendering patient data")
@@ -137,16 +138,21 @@ class MeasurementsJspEncodingRegressionTest {
     @DisplayName("should let every locale position the patient label in the confirmation")
     void shouldParameterizeParentChangedMessage_forEverySupportedLocale() throws Exception {
         for (Path bundle : RESOURCE_BUNDLES) {
-            String pattern = Files.readAllLines(bundle, StandardCharsets.UTF_8).stream()
-                    .filter(line -> line.startsWith(PARENT_CHANGED_KEY))
-                    .map(line -> line.substring(PARENT_CHANGED_KEY.length()))
-                    .findFirst()
-                    .orElseThrow(() -> new AssertionError("Missing parent-changed message in " + bundle));
+            Properties messages = new Properties();
+            try (var reader = Files.newBufferedReader(bundle, StandardCharsets.UTF_8)) {
+                messages.load(reader);
+            }
+            String pattern = messages.getProperty(PARENT_CHANGED_KEY);
+            assertThat(pattern).as("parent-changed message in %s", bundle.getFileName()).isNotNull();
+            String formatted = MessageFormat.format(pattern, "PATIENT_LABEL");
 
-            assertThat(MessageFormat.format(pattern, "PATIENT_LABEL"))
+            assertThat(formatted)
                     .as("parameterized parent-changed message in %s", bundle.getFileName())
                     .contains("PATIENT_LABEL")
                     .doesNotContain("{0}");
+            if (bundle.getFileName().toString().equals("oscarResources_fr.properties")) {
+                assertThat(formatted).contains("L'\u00e9cran", "L'information");
+            }
         }
     }
 
