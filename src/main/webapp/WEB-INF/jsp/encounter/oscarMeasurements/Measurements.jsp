@@ -234,7 +234,7 @@
                     <table>
                         <tr>
                             <td><a
-                                    href="<%=request.getContextPath()%>/encounter/ViewCalculators?demo=${carlos:forHtmlAttribute(carlos:forUriComponent(demo))}"
+                                    href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/encounter/ViewCalculators?demo=${carlos:forHtmlAttribute(carlos:forUriComponent(demo))}"
                                     onClick="popupPage(150,200,this.href); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
                         </tr>
                     </table>

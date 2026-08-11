@@ -34,6 +34,7 @@ class MeasurementsJspEncodingRegressionTest {
 
     private static final int MAX_PARENT_SEARCH_DEPTH = 8;
     private static final Pattern EL_EXPRESSION = Pattern.compile("\\$\\{([^}]*)}");
+    private static final Pattern ATTRIBUTE_START = Pattern.compile("([\\w:-]+)\\s*=\\s*([\"'])");
     private static final Pattern CONTROL_EXPRESSION = Pattern.compile(
             "(?:empty css|not empty css|not empty groupName|not empty measurementType\\.lastMInstrc"
                     + "|fn:length\\(measurementTypes\\.measurementTypeVector\\)"
@@ -71,7 +72,7 @@ class MeasurementsJspEncodingRegressionTest {
             if (SENSITIVE_VALUES.stream().anyMatch(expression::contains) && isRenderedValue(expression)) {
                 assertThat(expression)
                         .as("rendered sensitive expression at character %s", expressions.start())
-                        .startsWith("carlos:");
+                        .startsWith(expectedEncoderForSink(jsp, expressions.start()));
             }
         }
 
@@ -79,7 +80,10 @@ class MeasurementsJspEncodingRegressionTest {
                 .doesNotContain("<oscar:nameage")
                 .doesNotContain("request.getServerName()")
                 .doesNotContain("elements[\"value(parentChanged)\"]")
-                .contains("elements[\"parentChanged\"].value = \"true\";");
+                .contains("elements[\"parentChanged\"].value = \"true\";")
+                .contains("<carlos:encode value='<%= error %>' context=\"html\"/>")
+                .contains("Trusted clinic decision-support template HTML")
+                .contains("<%=measurementManager.getDShtml(groupName)%>");
     }
 
     @Test
@@ -125,6 +129,27 @@ class MeasurementsJspEncodingRegressionTest {
 
     private static boolean isRenderedValue(String expression) {
         return !CONTROL_EXPRESSION.matcher(expression).matches();
+    }
+
+    private static String expectedEncoderForSink(String jsp, int expressionStart) {
+        Matcher attributes = ATTRIBUTE_START.matcher(jsp);
+        String containingAttribute = "";
+        while (attributes.find() && attributes.start() < expressionStart) {
+            char quote = attributes.group(2).charAt(0);
+            int attributeEnd = jsp.indexOf(quote, attributes.end());
+            if (attributeEnd >= expressionStart) {
+                containingAttribute = attributes.group(1);
+            }
+        }
+        if (!containingAttribute.isEmpty()) {
+            return containingAttribute.toLowerCase().startsWith("on")
+                    ? "carlos:forJavaScriptAttribute("
+                    : "carlos:forHtmlAttribute(";
+        }
+
+        int scriptStart = jsp.lastIndexOf("<script", expressionStart);
+        int scriptEnd = jsp.lastIndexOf("</script", expressionStart);
+        return scriptStart > scriptEnd ? "carlos:forJavaScript(" : "carlos:forHtmlContent(";
     }
 
     private static Path resolveProjectPath(Path relativePath) {
