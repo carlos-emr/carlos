@@ -3677,11 +3677,22 @@ function autoSave() {
     window.addEventListener("message", receiveMessage, false);
 
     function receiveMessage(event) {
-        var data = event.data;
-        if (!(typeof data === 'object')) {
-            data = JSON.parse(event.data);
+        if (event.origin !== window.location.origin) {
+            return;
         }
-        if (data != null && data.encounterText != null && data.encounterText.length > 0) {
+        var data = event.data;
+        if (typeof data === 'string') {
+            try {
+                data = JSON.parse(data);
+            } catch (error) {
+                return;
+            }
+        }
+        if (data == null || typeof data !== 'object'
+                || String(data.demographicNo) !== String(demographicNo)) {
+            return;
+        }
+        if (data.encounterText != null && data.encounterText.length > 0) {
             var x = {};
             x.responseText = data.encounterText;
             writeToEncounterNote(x);

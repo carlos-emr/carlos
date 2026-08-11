@@ -169,7 +169,12 @@
                         },
                         body: urlParams.toString()
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error("Measurement submission failed with status " + response.status);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         const errorsList = document.getElementById('errors_list');
                         const errorDiv = document.getElementById('errorDiv');
@@ -186,7 +191,9 @@
                             // Scroll to top to show validation errors
                             errorDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         } else {
-                            opener.postMessage(data, "*");
+                            if (window.opener && !window.opener.closed) {
+                                window.opener.postMessage(data, window.location.origin);
+                            }
                             window.close();
                         }
                     })

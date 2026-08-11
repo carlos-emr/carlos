@@ -164,7 +164,7 @@
                     }
 
                     if (opener != null && opener.opener != null) {
-                        opener.opener.postMessage(data, "*");
+                        opener.opener.postMessage(data, window.location.origin);
                     }
                     if (opener != null) {
                         opener.location.reload();

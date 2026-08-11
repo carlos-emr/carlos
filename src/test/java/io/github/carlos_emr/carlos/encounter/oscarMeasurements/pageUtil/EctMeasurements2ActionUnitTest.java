@@ -110,6 +110,23 @@ class EctMeasurements2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("css")).isNull();
     }
 
+    @Test
+    @DisplayName("should identify the patient in a successful AJAX response")
+    void shouldIdentifyPatient_inSuccessfulAjaxResponse() throws Exception {
+        request.getSession().setAttribute("user", "999998");
+        request.setParameter("demographicNo", "123");
+        request.setParameter("numType", "0");
+        request.setParameter("ajax", "true");
+        request.setParameter("skipCreateNote", "true");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString())
+                .contains("\"encounterText\":\"\"")
+                .contains("\"demographicNo\":\"123\"");
+    }
+
     private static final class TestableEctMeasurements2Action extends EctMeasurements2Action {
 
         @Override

@@ -355,6 +355,7 @@ public class EctMeasurements2Action extends ActionSupport {
         if (ajax) {
             ObjectNode json = objectMapper.createObjectNode();
             json.put("encounterText", textOnEncounter);
+            json.put("demographicNo", demographicNo);
 
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");

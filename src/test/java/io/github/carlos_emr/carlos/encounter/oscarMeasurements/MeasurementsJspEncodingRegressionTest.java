@@ -50,6 +50,10 @@ class MeasurementsJspEncodingRegressionTest {
                     + "|fn:length\\(measurementTypes\\.measurementTypeVector\\))");
     private static final Path JSP = resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF", "jsp",
             "encounter", "oscarMeasurements", "Measurements.jsp"));
+    private static final Path ADD_MEASUREMENT_JSP = resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF",
+            "jsp", "encounter", "oscarMeasurements", "AddMeasurementData.jsp"));
+    private static final Path CASE_MANAGEMENT_RECEIVER = resolveProjectPath(Path.of("src", "main", "webapp", "js",
+            "newCaseManagementView.js.jsp"));
     private static final List<Path> RESOURCE_BUNDLES = List.of("en", "es", "fr", "pl", "pt_BR").stream()
             .map(locale -> resolveProjectPath(Path.of("src", "main", "resources", "oscarResources_" + locale + ".properties")))
             .toList();
@@ -132,6 +136,28 @@ class MeasurementsJspEncodingRegressionTest {
                 .contains("for=\"inputMInstrc-${ctr.index}-${instructionStatus.index}\"")
                 .contains("id=\"inputValue-${ctr.index}-${optionStatus.index}\"")
                 .contains("for=\"inputValue-${ctr.index}-${optionStatus.index}\"");
+    }
+
+    @Test
+    @DisplayName("should keep measurement messages on the same origin")
+    void shouldKeepMeasurementMessages_onSameOrigin() throws Exception {
+        String jsp = readJsp();
+        String addMeasurementJsp = Files.readString(ADD_MEASUREMENT_JSP, StandardCharsets.UTF_8);
+        String receiver = Files.readString(CASE_MANAGEMENT_RECEIVER, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("if (!response.ok)")
+                .contains("if (window.opener && !window.opener.closed)")
+                .contains("window.opener.postMessage(data, window.location.origin)")
+                .doesNotContain("postMessage(data, \"*\")");
+        assertThat(addMeasurementJsp)
+                .contains("opener.opener.postMessage(data, window.location.origin)")
+                .doesNotContain("postMessage(data, \"*\")");
+        assertThat(receiver)
+                .contains("if (event.origin !== window.location.origin)")
+                .contains("String(data.demographicNo) !== String(demographicNo)")
+                .contains("try {")
+                .contains("data = JSON.parse(data);");
     }
 
     @Test
