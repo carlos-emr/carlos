@@ -173,7 +173,11 @@ public class AppointmentType2Action extends ActionSupport {
                     // check below, since a failure on another field is what re-renders the form.
                     duration = Integer.toString(parsedDuration);
                 }
-                if (hasActionErrors()) {
+                // A null duration always arrives with an action error today, but populateBean takes
+                // an int and would unbox it. Pair the two conditions rather than leaning on that
+                // coupling, so adding an error-free early return to validateSave cannot turn this
+                // into a null dereference.
+                if (hasActionErrors() || parsedDuration == null) {
                     return failure();
                 }
 
