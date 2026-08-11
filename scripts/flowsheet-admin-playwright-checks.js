@@ -449,9 +449,12 @@ async function editFromManager(page, rowText, label) {
   await safeGoto(page, '/admin/ManageFlowsheets');
   const row = page.locator('tbody tr').filter({ hasText: rowText }).first();
   await row.waitFor({ state: 'visible', timeout: 30000 });
-  const href = await row.getByRole('link', { name: /^Edit$/ }).getAttribute('href');
+  const editLink = row.locator(
+    'a[href*="/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?"]'
+  ).first();
+  const href = await editLink.getAttribute('href');
   if (!href) {
-    throw new Error(`${label} row did not contain an Edit link`);
+    throw new Error(`${label} row did not contain a flowsheet editor link`);
   }
   const target = new URL(href, baseUrl);
   if (!isWithinConfiguredApp(target)) {
