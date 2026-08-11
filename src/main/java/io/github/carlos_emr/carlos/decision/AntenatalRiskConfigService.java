@@ -47,6 +47,7 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
@@ -103,6 +104,8 @@ public final class AntenatalRiskConfigService {
         writeAtomically(serialized);
     }
 
+    // FindSecBugs XXE_DOCUMENT: the parser comes from XmlUtils, which requires DOCTYPE rejection and disables external entities.
+    @SuppressFBWarnings(value = "XXE_DOCUMENT", justification = "DocumentBuilder is created by XmlUtils.createSecureDocumentBuilderFactory(), which fails closed unless DOCTYPE declarations are disabled and also disables external entities")
     private Document parseAndValidate(String submittedXml) throws InvalidConfigurationException {
         if (submittedXml == null || submittedXml.isBlank()) {
             throw new InvalidConfigurationException("The risk-list XML cannot be empty.");
@@ -252,6 +255,8 @@ public final class AntenatalRiskConfigService {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: URI schemes are an ASCII protocol token and are folded with Locale.ROOT before an exact allowlist check.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-folding a parsed ASCII URI scheme with Locale.ROOT before an exact HTTP/HTTPS allowlist check")
     private static void validateHref(Element element) throws InvalidConfigurationException {
         if (!element.hasAttribute("href")) {
             return;
@@ -300,6 +305,8 @@ public final class AntenatalRiskConfigService {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: the parent path comes from trusted DOCUMENT_DIR configuration and the filename is constant, never request input.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "temporary file parent is derived from trusted DOCUMENT_DIR configuration and a constant filename, not user-controllable input")
     private void writeAtomically(byte[] serialized) throws IOException {
         Path parent = target.getParent();
         if (parent == null || !Files.isDirectory(parent)) {

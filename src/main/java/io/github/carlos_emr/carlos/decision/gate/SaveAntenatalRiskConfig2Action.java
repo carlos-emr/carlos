@@ -60,7 +60,7 @@ public final class SaveAntenatalRiskConfig2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         requireWritePrivileges(loggedInInfo);
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             return "methodNotAllowed";
         }
