@@ -35,22 +35,32 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
-<%@ page
-        import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBeanHandler, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MeasurementManager" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
-    String demo = request.getParameter("demographicNo"); //bean.getDemographicNo();
+    Object demographicNoSource = request.getAttribute("demographicNo");
+    if (demographicNoSource == null) {
+        demographicNoSource = request.getParameter("demographicNo");
+    }
+    Integer demographicNo = ConversionUtils.fromIntString(demographicNoSource);
+    String demo = demographicNo > 0 ? demographicNo.toString() : "";
+    String patientNameAge = demo.isEmpty()
+            ? ""
+            : DemographicNameAgeString.getInstance().getNameAgeString(
+                    LoggedInInfo.getLoggedInInfoFromSession(session), demographicNo);
     request.setAttribute("demo", demo);
+    request.setAttribute("patientNameAge", patientNameAge);
 
     MeasurementManager measurementManager = SpringUtils.getBean(MeasurementManager.class);
     String groupName = (String) request.getAttribute("groupName");
 %>
+<fmt:message key="encounter.oscarMeasurements.Measurements.msgParentChanged" var="parentChangedMessage"/>
 
 <html>
 
@@ -58,10 +68,10 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><c:if test="${not empty groupName}">
-            ${carlos:forHtml(groupName)}
+            ${carlos:forHtmlContent(groupName)}
         </c:if> <fmt:message key="encounter.Index.measurements"/></title>
 
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <base href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/">
 
 
         <link href="library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
@@ -126,7 +136,7 @@
                 if (parentChanged) {
                     document.forms[0].elements["value(parentChanged)"].value = "true";
 
-                    if (!confirm("<fmt:message key="encounter.oscarMeasurements.Measurements.msgParentChanged"/> <oscar:nameage demographicNo="<%=demo%>"/>"))
+                    if (!confirm("${carlos:forJavaScript(parentChangedMessage)} ${carlos:forJavaScript(patientNameAge)}"))
                         ret = false;
                 }
 
@@ -192,7 +202,7 @@
     <body class="BodyStyle" onload="window.focus();">
     <form action="${pageContext.request.contextPath}/encounter/Measurements" method="post" id="theForm" name="theForm">
         <c:if test="${not empty css}">
-            <link rel="stylesheet" type="text/css" href="${css}">
+            <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(css)}">
         </c:if>
         <c:if test="${empty css}">
             <!--<link rel="stylesheet" type="text/css" href="styles/measurementStyle.css">-->
@@ -200,15 +210,15 @@
 
         <table class="MainTable" id="scrollNumber1">
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><h4>
+                <td class="MainTableTopRowLeftColumn">
                     <c:if test="${not empty groupName}">
-                    <h4>${groupName}</h4>
+                        <h4>${carlos:forHtmlContent(groupName)}</h4>
                     </c:if>
                 </td>
                 <td class="MainTableTopRowRightColumn" style="padding:0px">
                     <table class="TopStatusBar" style="width:100%; height:100%;">
                         <tr>
-                            <td class="Header"><h3><oscar:nameage demographicNo="<%=demo%>"/></h3></td>
+                            <td class="Header"><h3>${carlos:forHtmlContent(patientNameAge)}</h3></td>
                         </tr>
                     </table>
                 </td>
@@ -218,13 +228,14 @@
                     <table>
                         <tr>
                             <td><a
-                                    href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/ViewCalculators?demo=<carlos:encode value='<%= demo %>' context="uriComponent"/>'); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
+                                    href="#"
+                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/ViewCalculators?demo=${carlos:forJavaScriptAttribute(carlos:forUriComponent(demo))}'); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
                         </tr>
                     </table>
                 </td>
                 <td class="MainTableRightColumn">
 
+                    <%-- Trusted clinic decision-support template HTML loaded from the configured allowlisted directory. --%>
                     <%=measurementManager.getDShtml(groupName)%>
                     <div id="errorDiv" style="display:none; margin: 10px 0; padding: 10px; border: 1px solid #dc3545; background-color: #f8d7da; border-radius: 4px;">
                         <strong style="color: #721c24;">Error:</strong>
@@ -267,15 +278,15 @@
                                                     </tr>
                                                     <% int i = 0;%>
                                                     <c:forEach var="measurementType" items="${measurementTypes.measurementTypeVector}" varStatus="ctr">
-                                                        <tr class="data" id="row-${measurementType.type}">
+                                                        <tr class="data" id="row-${carlos:forHtmlAttribute(measurementType.type)}">
                                                             <td>
-                                                                <span title="${measurementType.typeDesc}">${measurementType.typeDisplayName}</span>
+                                                                <span title="${carlos:forHtmlAttribute(measurementType.typeDesc)}">${carlos:forHtmlContent(measurementType.typeDisplayName)}</span>
                                                             </td>
                                                             <td>
                                                                 <c:set var="attributeName" value="mInstrcs${ctr.index}" />
                                                                 <c:forEach var="mInstrc" items="${sessionScope[attributeName].measuringInstructionList}">
-                                                                    <input type="radio" name="inputMInstrc-${ctr.index}" value="${mInstrc.measuringInstrc}" checked />
-                                                                    ${mInstrc.measuringInstrc}<br>
+                                                                    <input type="radio" name="inputMInstrc-${ctr.index}" value="${carlos:forHtmlAttribute(mInstrc.measuringInstrc)}" checked />
+                                                                    ${carlos:forHtmlContent(mInstrc.measuringInstrc)}<br>
                                                                 </c:forEach>
                                                             </td>
 
@@ -283,7 +294,7 @@
                                                                 <c:when test="${measurementType.measuringInstrc.startsWith('Choose radio')}">
                                                                     <td>
                                                                         <c:forEach var="option" items="${fn:split(measurementType.measuringInstrc.substring(12), ',')}">
-                                                                            <input type="radio" name="inputValue-${ctr.index}" value="${fn:trim(option)}"> ${fn:trim(option)}&nbsp;
+                                                                            <input type="radio" name="inputValue-${ctr.index}" value="${carlos:forHtmlAttribute(fn:trim(option))}"> ${carlos:forHtmlContent(fn:trim(option))}&nbsp;
                                                                         </c:forEach>
                                                                     </td>
                                                                 </c:when>
@@ -303,22 +314,22 @@
 
                                                             <td><input type="text" class="form-control" name="comments-${ctr.index}" id="comments-${ctr.index}"/></td>
                                                             <td>
-                                                                <input type="hidden" name="inputType-${ctr.index}" value="${measurementType.type}"/>
-                                                                <input type="hidden" name="inputTypeDisplayName-${ctr.index}" value="${measurementType.typeDisplayName}"/>
-                                                                <input type="hidden" name="validation-${ctr.index}" value="${measurementType.validation}"/>
+                                                                <input type="hidden" name="inputType-${ctr.index}" value="${carlos:forHtmlAttribute(measurementType.type)}"/>
+                                                                <input type="hidden" name="inputTypeDisplayName-${ctr.index}" value="${carlos:forHtmlAttribute(measurementType.typeDisplayName)}"/>
+                                                                <input type="hidden" name="validation-${ctr.index}" value="${carlos:forHtmlAttribute(measurementType.validation)}"/>
                                                             </td>
                                                         </tr>
 
                                                         <c:if test="${not empty measurementType.lastMInstrc}">
                                                             <tr class="note">
                                                                 <td><fmt:message key="oscarEncoutner.oscarMeasurements.msgTheLastValue"/>:</td>
-                                                                <td>&nbsp;${measurementType.lastMInstrc}</td>
-                                                                <td>&nbsp;${measurementType.lastData}</td>
-                                                                <td>&nbsp;${measurementType.lastDateEntered}</td>
-                                                                <td>&nbsp;${measurementType.lastComments}</td>
+                                                                <td>&nbsp;${carlos:forHtmlContent(measurementType.lastMInstrc)}</td>
+                                                                <td>&nbsp;${carlos:forHtmlContent(measurementType.lastData)}</td>
+                                                                <td>&nbsp;${carlos:forHtmlContent(measurementType.lastDateEntered)}</td>
+                                                                <td>&nbsp;${carlos:forHtmlContent(measurementType.lastComments)}</td>
                                                                 <td>
                                                                     <i class="fa-solid fa-clock fa-lg" title="<fmt:message key='encounter.Index.oldMeasurements'/>"
-                                                                       onclick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${measurementType.type}'); return false;">
+                                                                       onclick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forJavaScriptAttribute(carlos:forUriComponent(measurementType.type))}'); return false;">
                                                                     </i>
                                                                 </td>
                                                             </tr>
@@ -326,13 +337,13 @@
                                                     </c:forEach>
 
                                                     <input type="hidden" name="numType" value="${fn:length(measurementTypes.measurementTypeVector)}"/>
-                                                    <input type="hidden" name="groupName" value="${groupName}"/>
+                                                    <input type="hidden" name="groupName" value="${carlos:forHtmlAttribute(groupName)}"/>
                                                     <input type="hidden" name="parentChanged" value="false"/>
-                                                    <input type="hidden" name="demographicNo" value="${demo}"/>
-                                                    <input type="hidden" name="demographic_no" value="${demo}"/>
+                                                    <input type="hidden" name="demographicNo" value="${carlos:forHtmlAttribute(demo)}"/>
+                                                    <input type="hidden" name="demographic_no" value="${carlos:forHtmlAttribute(demo)}"/>
 
                                                     <c:if test="${not empty css}">
-                                                        <input type="hidden" name="css" value="${css}"/>
+                                                        <input type="hidden" name="css" value="${carlos:forHtmlAttribute(css)}"/>
                                                     </c:if>
                                                     <c:if test="${empty css}">
                                                         <input type="hidden" name="css" value=""/>
