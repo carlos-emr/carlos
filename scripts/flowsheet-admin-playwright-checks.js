@@ -559,7 +559,10 @@ installSignalHandler('SIGTERM', 143);
   try {
     cleanupCreatedRows();
     browser = await chromium.launch(launchOptions);
-    browserContext = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    browserContext = await browser.newContext({
+      ignoreHTTPSErrors: baseUrlIsLocal,
+      viewport: { width: 1440, height: 1000 },
+    });
     await installNavigationGuard(browserContext);
     const page = await browserContext.newPage();
     wirePage(page);
@@ -578,12 +581,12 @@ installSignalHandler('SIGTERM', 143);
       );
     }
     console.log(JSON.stringify({ displayName, checks, findings }, null, 2));
-    console.log('PASS flowsheet create, visibility toggle, and system/user edit workflows rendered successfully');
+    console.log('PASS CARLOS EMR flowsheet create, visibility toggle, and system/user edit workflows rendered successfully');
   } finally {
     await cleanupResources();
   }
 })().catch((error) => {
-  console.error('FAIL flowsheet admin Playwright checks');
+  console.error('FAIL CARLOS EMR flowsheet admin Playwright checks');
   console.error(error.stack || error.message);
   process.exit(1);
 });

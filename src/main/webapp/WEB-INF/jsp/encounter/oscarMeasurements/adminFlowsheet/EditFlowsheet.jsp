@@ -365,8 +365,10 @@
                 csrfInput.name = 'CSRF-TOKEN';
                 csrfInput.value = csrfElement.value;
                 form.appendChild(csrfInput);
+                return true;
             } else {
-                console.warn('CSRF token not found on page; form submission may be rejected by server.');
+                alert('The security token is unavailable. Reload this page and try again.');
+                return false;
             }
         }
 
@@ -383,7 +385,9 @@
                     form.appendChild(input);
                 }
             }
-            appendCsrfToken(form);
+            if (!appendCsrfToken(form)) {
+                return;
+            }
             document.body.appendChild(form);
             form.submit();
         }

@@ -50,7 +50,8 @@ class FlowSheetEditorJspRegressionTest {
                 .contains("input[name=\"CSRF-TOKEN\"]")
                 .contains("csrfInput.name = 'CSRF-TOKEN'")
                 .contains("csrfInput.value = csrfElement.value")
-                .contains("appendCsrfToken(form);")
-                .containsSubsequence("appendCsrfToken(form);", "form.submit();");
+                .contains("if (!appendCsrfToken(form))")
+                .contains("The security token is unavailable. Reload this page and try again.")
+                .containsSubsequence("if (!appendCsrfToken(form))", "return;", "form.submit();");
     }
 }
