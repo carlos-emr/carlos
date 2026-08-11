@@ -47,10 +47,11 @@
             Decision-support JSPs (annual review + antenatal planner/checklist/risk)
             all live under /WEB-INF/jsp/decision/ and route through
             ViewDecision2Action, which enforces _forms r on GET and _forms w +
-            POST when the request carries a "Save*" submit parameter. The save
-            logic remains embedded in the JSPs (scriptlet persistence to
-            DesAnnualReviewPlan / Desaprisk / XML config files) and is now
-            unreachable without POST + _forms w.
+            POST when the request carries a "Save*" submit parameter. Most
+            legacy save logic remains embedded in the JSPs. Antenatal risk-list
+            mutation is the exception: it uses the dedicated POST-only action
+            below, with configuration-admin authorization and validated atomic
+            XML persistence.
         -->
         <action name="decision/annualreview/annualreviewplanner" class="io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action">
             <result name="success">/WEB-INF/jsp/decision/annualreview/annualreviewplanner.jsp</result>
@@ -75,6 +76,16 @@
         </action>
         <action name="decision/antenatal/obarriskedit_99_12" class="io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action">
             <result name="success">/WEB-INF/jsp/decision/antenatal/obarriskedit_99_12.jsp</result>
+        </action>
+        <action name="decision/antenatal/SaveAntenatalRiskConfig" class="io.github.carlos_emr.carlos.decision.gate.SaveAntenatalRiskConfig2Action">
+            <result name="success" type="redirectAction">
+                <param name="actionName">decision/antenatal/obarriskedit_99_12</param>
+                <param name="saved">true</param>
+            </result>
+            <result name="input">/WEB-INF/jsp/decision/antenatal/obarriskedit_99_12.jsp</result>
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
         </action>
 
         <action name="encounter/MeasurementData" class="io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action"/>

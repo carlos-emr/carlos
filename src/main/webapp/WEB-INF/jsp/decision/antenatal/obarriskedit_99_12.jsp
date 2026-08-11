@@ -33,9 +33,8 @@
 
     String user_no = (String) session.getAttribute("user");
 %>
-<%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*" %>
+<%@ page import="java.util.*, java.io.*, java.nio.charset.StandardCharsets, java.nio.file.Files" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
@@ -58,21 +57,11 @@
 </head>
 <body onLoad="setfocus()" bgcolor="#c4e9f6" bgproperties="fixed"
       topmargin="0" leftmargin="1" rightmargin="1">
-<form name="checklistedit" action="<%= request.getContextPath() %>/decision/antenatal/obarriskedit_99_12" method="POST">
+<form name="checklistedit" action="<%= request.getContextPath() %>/decision/antenatal/SaveAntenatalRiskConfig" method="POST">
     <%
         char sep = oscarVariables.getProperty("file_separator").toCharArray()[0];
-        String str = null;
-        if (request.getParameter("submit") != null && request.getParameter("submit").compareTo(" Save ") == 0) {
-            //FileWriter inf = new FileWriter(".."+sep+"webapps"+sep+oscarVariables.getProperty("project_home")+sep+"decision"+sep+"antenatal"+sep+"desantenatalplannerrisks_99_12.xml");
-            FileWriter inf = new FileWriter(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml");
-            str = request.getParameter("checklist");
-            if (str == null) str = "";
-            str = SxmlMisc.replaceString(str, " & ", " &amp; ");
-            str = SxmlMisc.replaceString(str, " > ", " &gt; ");
-            str = SxmlMisc.replaceString(str, " < ", " &lt; ");
-            inf.write(str);
-            inf.close();
-        }
+        String submittedChecklist = (String) request.getAttribute("riskEditorChecklist");
+        String editorError = (String) request.getAttribute("riskEditorError");
     %>
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="#486ebd">
@@ -90,13 +79,29 @@
                 </div>
             </th>
         </tr>
+        <% if (editorError != null) { %>
+        <tr>
+            <td colspan="2" role="alert" style="color: #a00; font-weight: bold; padding: 0.5em;">
+                <%= SafeEncode.forHtmlContent(editorError) %>
+            </td>
+        </tr>
+        <% } else if ("true".equals(request.getParameter("saved"))) { %>
+        <tr>
+            <td colspan="2" role="status" style="color: #063; font-weight: bold; padding: 0.5em;">
+                The antenatal risk list was saved.
+            </td>
+        </tr>
+        <% } %>
         <tr>
             <td align=CENTER colspan="2"><font
                     face="Times New Roman, Times, serif"> <textarea
                     name="checklist" cols="100" rows="38" style="width: 100%">
-<%
+<% if (submittedChecklist != null) {
+       out.print(SafeEncode.forHtmlContent(submittedChecklist));
+   } else {
     boolean fileFound = true;
-    File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml");
+    File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"),
+            "desantenatalplannerrisks_99_12.xml");
     if (!file.isFile() || !file.canRead()) {
         file = new File(".." + sep + "webapps" + sep + oscarVariables.getProperty("project_home") + sep + "decision" + sep + "antenatal" + sep + "desantenatalplannerrisks_99_12.xml");
         if (!file.isFile() || !file.canRead()) {
@@ -105,25 +110,20 @@
     }
 
     if (fileFound) {
-        RandomAccessFile raf = new RandomAccessFile(file, "r");
-        String aline = ""; //, temp="";
-        while (true) {
-            aline = raf.readLine();
-            if (aline != null) {
+        try (BufferedReader reader = Files.newBufferedReader(file.toPath(), StandardCharsets.UTF_8)) {
+            String aline;
+            while ((aline = reader.readLine()) != null) {
                 out.println(SafeEncode.forHtml(aline));
-            } else {
-                break;
             }
         }
-        raf.close();
     }
+   }
 %>
 </textarea> </font></td>
         </tr>
         <TR>
-            <td><b>*</b> The Symbols ("&", "<", or ">") should be written as
-                " & ", " < ", or " > " in the content. Or use ("&amp;amp;","&amp;lt;",
-                or "&amp;gt;") instead.
+            <td><b>*</b> Enter a complete risk-list XML document. In text content,
+                write the symbols &amp;, &lt;, and &gt; as &amp;amp;, &amp;lt;, and &amp;gt;.
             </td>
         </tr>
     </table>
