@@ -53,6 +53,7 @@
 <head>
     <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
     <fmt:message key="appointment.appointmentTypeList.msgAppointmentType" var="msgAppointmentType"/>
+    <fmt:message key="appointment.type.duration.error" var="msgDurationRange"/>
     <fmt:message key="global.confirmDeleteItem" var="msgDeleteConfirm">
         <fmt:param value="${msgAppointmentType}"/>
     </fmt:message>
@@ -156,10 +157,16 @@
                                                     <td width="20%">
                                                         <div align="right"><label class="field-label" for="appointmentTypeDuration"><fmt:message key="duration"/><fmt:message key="global.labelSeparator"/></label></div>
                                                     </td>
+                                                    <%-- Deliberately text rather than number: a number input blanks any value it
+                                                         cannot parse, which would discard the rejected entry the server re-renders
+                                                         for correction. The pattern encodes the same 1-1440 bound the action
+                                                         enforces, and title carries it into the browser's validation message. --%>
                                                     <td width="25%"><INPUT TYPE="text" NAME="duration" id="appointmentTypeDuration"
                                                                            VALUE="${carlos:forHtmlAttribute(duration)}"
                                                                            size="5"
-                                                                           inputmode="numeric" pattern="[0-9]+"
+                                                                           inputmode="numeric"
+                                                                           pattern="[1-9][0-9]{0,2}|1[0-3][0-9]{2}|14[0-3][0-9]|1440"
+                                                                           title="${carlos:forHtmlAttribute(msgDurationRange)}"
                                                                            maxlength="4" required></td>
                                                 </tr>
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
