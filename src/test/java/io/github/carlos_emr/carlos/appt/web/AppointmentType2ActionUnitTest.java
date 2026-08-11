@@ -507,6 +507,16 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
             this.multisitesEnabled = true;
         }
 
+        /**
+         * Returns the resource key itself rather than localized text, so assertions can name the
+         * key they expect without depending on bundle wording. Every {@code getActionErrors()} and
+         * {@code getActionMessages()} assertion in this class reads keys for that reason. It also
+         * means these tests do not prove a key resolves — that parity is covered by the i18n CI job.
+         *
+         * @param key resource bundle key the action asked to resolve
+         * @return the key, verbatim
+         * @since 2026-08-07
+         */
         @Override
         public String getText(String key) {
             return key;

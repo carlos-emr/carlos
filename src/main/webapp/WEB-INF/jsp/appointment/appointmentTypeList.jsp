@@ -22,6 +22,39 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+
+<%--
+    appointmentTypeList.jsp
+    =======================
+    Purpose: Administration view for appointment types (Administration > Appointment Types).
+             Lists every configured type and hosts the single form used to both add a new one
+             and edit an existing one.
+
+    Features:
+    - One form serving Add and Edit, titled by whether an id is present, with New/Cancel
+      controls that drop back to Add mode
+    - Save and delete post to AppointmentType2Action; the action rejects GET for both, so
+      neither is reachable from a link
+    - Field limits mirror the appointmentType columns, and the duration pattern mirrors the
+      action's 1-1440 rule so both validators share one grammar
+    - Values submitted with an invalid field are re-rendered so nothing is retyped
+    - Multisite: location becomes a site picker, otherwise free text. A stored location whose
+      site was renamed or deactivated is offered as a selected option so it round-trips
+    - Delete is a per-row POST form with a confirmation prompt
+    - Success and error feedback via <s:actionmessage/> and <s:actionerror/>
+
+    Parameters (set by AppointmentType2Action):
+    - locationsList - List<LabelValueBean> of active sites; set only when multisites is on
+    - id, name, duration, location, notes, reason, resources - action properties holding
+      either the record being edited or the values just submitted
+
+    Security:
+    - Requires _appointment write privilege, enforced by the action
+    - All dynamic output encoded via carlos:forHtmlAttribute / forHtmlContent / SafeEncode
+    - CSRF token auto-injected into both forms by CsrfGuardScriptInjectionFilter
+
+    @since 2016-06-28
+--%>
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*, io.github.carlos_emr.carlos.appt.*, io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao, io.github.carlos_emr.carlos.commn.model.AppointmentType, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
