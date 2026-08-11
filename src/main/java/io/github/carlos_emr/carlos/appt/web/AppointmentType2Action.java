@@ -177,21 +177,27 @@ public class AppointmentType2Action extends ActionSupport {
                 setFlashMessage("appointment.type.saved.message");
                 return "redirect";
             } else if (DELETE.equals(sOper)) {
+                // Scoped to the DAO call alone: a wider try would let a failure inside failure()
+                // itself be caught, logged as a delete fault, and then re-thrown uncaught by the
+                // handler's own second failure() call.
+                boolean removed;
                 try {
-                    // remove(id) returns false for an already-deleted record instead of throwing,
-                    // so a stale list page or a double submit would otherwise report success for a
-                    // delete that never happened.
-                    if (!appDao.remove(typeNo)) {
-                        addActionError(getText("appointment.type.notfound.error"));
-                        return failure();
-                    }
-                    setFlashMessage("appointment.type.deleted.message");
-                    return "redirect";
+                    removed = appDao.remove(typeNo);
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Could not delete appointment type {}", typeNo, e);
                     addActionError(getText("appointment.type.delete.error"));
                     return failure();
                 }
+
+                // remove(id) returns false for an already-deleted record instead of throwing, so a
+                // stale list page or a double submit would otherwise report success for a delete
+                // that never happened.
+                if (!removed) {
+                    addActionError(getText("appointment.type.notfound.error"));
+                    return failure();
+                }
+                setFlashMessage("appointment.type.deleted.message");
+                return "redirect";
             } else {
                 addActionError(getText("appointment.type.oper.error"));
                 return failure();
