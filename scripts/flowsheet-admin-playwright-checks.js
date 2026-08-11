@@ -67,6 +67,8 @@ const LOCAL_MYSQL_HOSTS = new Set([
   'db',
 ]);
 const MYSQL_TIMEOUT_MS = 30000;
+const VISIBILITY_FLOWSHEET = 'hyptension';
+const VISIBILITY_MEASUREMENT = 'DRPW';
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const baseUrlIsLocal = LOCAL_HOSTS.has(normalizedHostname(baseUrl));
@@ -90,6 +92,7 @@ const expectedErrorUrls = new Set();
 const confirmedExpectedErrorUrls = new Set();
 let csrfToken = '';
 let visibilityToggleNeedsRestore = false;
+let visibilityCustomizationBaselineIds;
 
 function normalizedHostname(url) {
   const host = url.hostname.toLowerCase();
@@ -234,6 +237,43 @@ function cleanupCreatedRows() {
   sql(`DELETE FROM FlowSheetUserCreated WHERE displayName='${escapeSql(displayName)}'`);
 }
 
+function visibilityCustomizationIds() {
+  const output = sql(
+    `SELECT id FROM flowsheet_customization WHERE flowsheet='${escapeSql(VISIBILITY_FLOWSHEET)}' `
+      + `AND measurement='${escapeSql(VISIBILITY_MEASUREMENT)}' ORDER BY id`
+  );
+  if (!output) {
+    return [];
+  }
+  return output.split('\n').map((value) => {
+    const id = Number(value);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      throw new Error('Unexpected flowsheet customization ID returned during cleanup');
+    }
+    return id;
+  });
+}
+
+function cleanupVisibilityCustomizationRows() {
+  if (!visibilityCustomizationBaselineIds) {
+    return;
+  }
+  const baselineIds = new Set(visibilityCustomizationBaselineIds);
+  const createdIds = visibilityCustomizationIds().filter((id) => !baselineIds.has(id));
+  for (const id of createdIds) {
+    sql(
+      `DELETE FROM flowsheet_customization WHERE id=${id} `
+        + `AND flowsheet='${escapeSql(VISIBILITY_FLOWSHEET)}' `
+        + `AND measurement='${escapeSql(VISIBILITY_MEASUREMENT)}'`
+    );
+  }
+  const remainingCreatedIds = visibilityCustomizationIds().filter((id) => !baselineIds.has(id));
+  if (remainingCreatedIds.length) {
+    throw new Error('Flowsheet visibility cleanup left test-created customization rows behind');
+  }
+  visibilityToggleNeedsRestore = false;
+}
+
 async function cleanupCreatedRowsThroughApplication() {
   const rows = createdRows();
   if (!rows.length) {
@@ -273,8 +313,8 @@ async function restoreVisibilityToggleThroughApplication() {
     {
       form: {
         method: 'restore',
-        flowsheet: 'hyptension',
-        measurement: 'DRPW',
+        flowsheet: VISIBILITY_FLOWSHEET,
+        measurement: VISIBILITY_MEASUREMENT,
         'CSRF-TOKEN': csrfToken,
       },
       timeout: 30000,
@@ -443,7 +483,7 @@ async function submitVisibilityToggle(page, row, linkTitle, label) {
 
 async function verifyMeasurementVisibilityToggle(page) {
   const target = new URL(appUrl('/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet'));
-  target.searchParams.set('flowsheet', 'hyptension');
+  target.searchParams.set('flowsheet', VISIBILITY_FLOWSHEET);
   target.searchParams.set('displayName', 'Hypertension Flowsheet');
   const response = await page.goto(target.toString(), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- target is built from the validated application URL above // NOSONAR - same rationale
   await assertEditor(page, 'visibility-editor', response);
@@ -455,6 +495,7 @@ async function verifyMeasurementVisibilityToggle(page) {
     throw new Error('Drinks per Week must be visible before the visibility-toggle regression check');
   }
 
+  visibilityCustomizationBaselineIds = visibilityCustomizationIds();
   visibilityToggleNeedsRestore = true;
   await submitVisibilityToggle(page, row, 'Hide this measurement', 'measurement-hide');
   row = page.locator('tbody tr').filter({ hasText: /drinks.*week/i }).first();
@@ -498,9 +539,18 @@ function cleanupResources() {
   cleanupPromise = (async () => {
     const errors = [];
     try {
+      let applicationRestoreError;
       try {
         await restoreVisibilityToggleThroughApplication();
       } catch (error) {
+        applicationRestoreError = error;
+      }
+      try {
+        cleanupVisibilityCustomizationRows();
+      } catch (error) {
+        if (applicationRestoreError) {
+          errors.push(applicationRestoreError);
+        }
         errors.push(error);
       }
       try {
