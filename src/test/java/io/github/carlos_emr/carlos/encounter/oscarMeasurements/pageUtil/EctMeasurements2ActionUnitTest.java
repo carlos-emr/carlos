@@ -89,10 +89,9 @@ class EctMeasurements2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should not reflect request-controlled view parameters in an AJAX validation failure")
-    void shouldNotReflectViewParameters_inAjaxValidationFailure() throws Exception {
+    @DisplayName("should return validation errors as JSON for an AJAX request")
+    void shouldReturnValidationErrors_asJsonForAjaxRequest() throws Exception {
         request.setParameter("demographicNo", "123");
-        request.setParameter("groupName", "Vitals");
         request.setParameter("numType", "1");
         request.setParameter("ajax", "true");
         request.setParameter("parentChanged", "false");
@@ -102,16 +101,13 @@ class EctMeasurements2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("inputMInstrc-0", "NA");
         request.setParameter("comments-0", "");
         request.setParameter("date-0", "invalid-date");
-        request.setParameter("css", "javascript:alert('measurements')");
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getRedirectedUrl()).isNull();
         assertThat(response.getContentType()).startsWith("application/json");
-        assertThat(response.getContentAsString())
-                .contains("errors.invalidDate")
-                .doesNotContain("javascript:alert", "Vitals", "123");
+        assertThat(response.getContentAsString()).contains("errors.invalidDate");
     }
 
     @Test

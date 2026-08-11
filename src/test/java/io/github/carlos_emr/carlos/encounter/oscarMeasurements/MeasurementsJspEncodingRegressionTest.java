@@ -172,6 +172,21 @@ class MeasurementsJspEncodingRegressionTest {
     }
 
     @Test
+    @DisplayName("should render AJAX validation errors as text")
+    void shouldRenderAjaxValidationErrors_asText() throws Exception {
+        String jsp = readJsp();
+        String addMeasurementJsp = Files.readString(ADD_MEASUREMENT_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("li.textContent = data.errors[x]")
+                .doesNotContain("append(data.errors[x])");
+        assertThat(addMeasurementJsp)
+                .contains("li.textContent = data.errors[x]")
+                .contains("document.getElementById('errorList').appendChild(li)")
+                .doesNotContain("append(data.errors[x])");
+    }
+
+    @Test
     @DisplayName("should let every locale position the patient label in the confirmation")
     void shouldParameterizeParentChangedMessage_forEverySupportedLocale() throws Exception {
         for (Path bundle : RESOURCE_BUNDLES) {
