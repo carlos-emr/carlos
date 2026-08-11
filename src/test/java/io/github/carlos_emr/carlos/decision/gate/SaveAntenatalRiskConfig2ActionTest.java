@@ -117,7 +117,6 @@ class SaveAntenatalRiskConfig2ActionTest {
     @DisplayName("should reject non-POST requests without invoking persistence")
     void shouldReject_nonPostRequest() throws Exception {
         request.setMethod("GET");
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_form", "w", null)).thenReturn(false);
 
         assertThat(action.execute()).isEqualTo("methodNotAllowed");
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
