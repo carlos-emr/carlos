@@ -47,7 +47,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("demographic")
 @DisplayName("DemographicExportAction42Action request method handling")
-class DemographicExportAction42ActionRequestMethodTest extends DemographicExportActionUnitTestBase {
+class DemographicExportAction42ActionRequestMethodUnitTest extends DemographicExportActionUnitTestBase {
 
     @Test
     @DisplayName("should display export UI for GET requests")

@@ -62,7 +62,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("demographic")
 @DisplayName("DemographicExportAction42Action export template validation")
-class DemographicExportAction42ActionTemplateValidationTest extends DemographicExportActionUnitTestBase {
+class DemographicExportAction42ActionTemplateValidationUnitTest extends DemographicExportActionUnitTestBase {
 
     /** Bounded walk up from the working directory, so the test also runs from an IDE fork. */
     private static final int MAX_PARENT_SEARCH_DEPTH = 4;

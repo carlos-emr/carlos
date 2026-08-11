@@ -488,7 +488,7 @@
                 <%-- Only templates in DemographicExportAction42Action.SUPPORTED_TEMPLATES may be
                      offered here. The E2E option was removed because the action never had a working
                      implementation for it (GitHub issue #3405);
-                     DemographicExportAction42ActionTemplateValidationTest fails the build if this
+                     DemographicExportAction42ActionTemplateValidationUnitTest fails the build if
                      select drifts from the supported set. --%>
                 <select style="width: 189px" name="template">
                     <option value="<%=DemographicExportAction42Action.CMS4%>">EMR DM 5.0</option>
