@@ -154,10 +154,9 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
     // coerces to 0 the same as fromIntString(null), so this is the same garbage-row risk the
     // null-value gate exists to stop. The AND (not OR) semantics of the gate are guarded by
     // covering both-blank and each single-field-blank case.
-    @ParameterizedTest(name = "should never persist when POST carries {2}")
+    @ParameterizedTest(name = "should never persist when POST carries linkingDemo=\"{0}\" relation=\"{1}\"")
     @MethodSource("blankMutationParams")
-    void shouldNotPersist_whenPostCarriesBlankMutationParam(String linkingDemo, String relation, String description)
-            throws Exception {
+    void shouldNotPersist_whenPostCarriesBlankMutationParam(String linkingDemo, String relation) throws Exception {
         request.setMethod("POST");
         request.setParameter("origDemo", "1373");
         request.setParameter("linkingDemo", linkingDemo);
@@ -172,9 +171,9 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
 
     private static Stream<Arguments> blankMutationParams() {
         return Stream.of(
-                Arguments.of("   ", "", "blank linkingDemo and relation"),
-                Arguments.of("   ", "Spouse", "blank linkingDemo only"),
-                Arguments.of("1374", "", "blank relation only"));
+                Arguments.of("   ", ""),      // blank linkingDemo and relation
+                Arguments.of("   ", "Spouse"), // blank linkingDemo only
+                Arguments.of("1374", ""));     // blank relation only
     }
 
     @Test

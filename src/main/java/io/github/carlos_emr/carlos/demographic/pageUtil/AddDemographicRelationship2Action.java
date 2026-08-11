@@ -162,7 +162,7 @@ public class AddDemographicRelationship2Action extends ActionSupport {
     }
 
     private static boolean isValidDemographicNo(String demographicNo) {
-        return demographicNo != null && demographicNo.matches("[0-9]+");
+        return demographicNo != null && demographicNo.matches("^\\d+$");
     }
 
     // Blank (as opposed to absent) linkingDemo/relation must not count as mutation intent either —
