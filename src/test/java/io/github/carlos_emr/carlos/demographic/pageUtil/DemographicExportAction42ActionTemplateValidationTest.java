@@ -101,7 +101,10 @@ class DemographicExportAction42ActionTemplateValidationTest extends DemographicE
 
             String result = action.execute();
 
-            assertThat(result).isNotEqualTo(ActionSupport.SUCCESS);
+            // NONE, not "fail": a "fail" result forwards the export page into a 400 response, and
+            // ResponseSanitizationFilter cannot replay a captured 4xx body of that size, which
+            // surfaced live as a 500 error page instead of the validation error.
+            assertThat(result).isEqualTo(ActionSupport.NONE);
             verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
             verify(response).setHeader("X-Export-Status", "error");
             verify(response).setHeader("X-Export-Error",
@@ -119,7 +122,7 @@ class DemographicExportAction42ActionTemplateValidationTest extends DemographicE
 
             String result = action.execute();
 
-            assertThat(result).isNotEqualTo(ActionSupport.SUCCESS);
+            assertThat(result).isEqualTo(ActionSupport.NONE);
             verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
             verify(response).setHeader("X-Export-Status", "error");
             verify(response).setHeader("X-Export-Error",
@@ -143,7 +146,7 @@ class DemographicExportAction42ActionTemplateValidationTest extends DemographicE
 
             String result = action.execute();
 
-            assertThat(result).isNotEqualTo(ActionSupport.SUCCESS);
+            assertThat(result).isEqualTo(ActionSupport.NONE);
             verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
             verifyNoInteractions(demographicExtDao);
         }

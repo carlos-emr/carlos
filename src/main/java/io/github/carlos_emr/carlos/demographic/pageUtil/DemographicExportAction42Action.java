@@ -407,6 +407,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         String ffwd = "fail";
         boolean fileStreamed = false;
+        boolean templateRejected = false;
         String tmpDir = oscarProperties.getProperty("TMP_DIR") + File.separator + RandomStringUtils.random(8, true, false);
 
 
@@ -2816,6 +2817,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                 response.setHeader(EXPORT_ERROR_HEADER, UNSUPPORTED_TEMPLATE_CODE);
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 ffwd = "fail";
+                templateRejected = true;
                 break;
         }
 
@@ -2877,6 +2879,15 @@ public class DemographicExportAction42Action extends ActionSupport {
             dataBuilder.append("; ids=").append(exportedIds);
             exportAuditLog.setData(dataBuilder.toString());
             LogAction.addLogSynchronous(exportAuditLog);
+        }
+        // A rejected template is already fully answered by the 400 plus the reason headers, so the
+        // action owns this response and no result may render into it. Forwarding the export page
+        // here instead produced a 500: ResponseSanitizationFilter captures response bodies once the
+        // status is >= 400, and a full page exceeds its capture limit, so the buffer is committed
+        // before the filter can replay it ("Cannot reset buffer after response has been
+        // committed"). The fetch() caller reads the reason from the headers, not from a body.
+        if (templateRejected) {
+            return NONE;
         }
         // When a file was streamed to the response, return null to prevent Struts
         // from rendering a JSP result into the already-committed response.
