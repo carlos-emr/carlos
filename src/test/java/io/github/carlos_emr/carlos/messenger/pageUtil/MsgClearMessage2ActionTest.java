@@ -14,8 +14,12 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 import jakarta.servlet.http.Cookie;
 
@@ -28,6 +32,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.w3c.dom.Document;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
@@ -42,6 +49,9 @@ import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 @Tag("messenger")
 class MsgClearMessage2ActionTest extends CarlosWebTestBase {
 
+    private static final int MAX_PARENT_SEARCH_DEPTH = 8;
+    private static final Path WEB_XML = resolveProjectPath(
+            Path.of("src", "main", "webapp", "WEB-INF", "web.xml"));
     private MsgClearMessage2Action action;
 
     @BeforeEach
@@ -52,11 +62,6 @@ class MsgClearMessage2ActionTest extends CarlosWebTestBase {
         mockResponse = new UrlRewritingResponse();
         setUpActionContext();
         action = new MsgClearMessage2Action();
-
-        java.lang.reflect.Field securityManager =
-                MsgClearMessage2Action.class.getDeclaredField("securityInfoManager");
-        securityManager.setAccessible(true);
-        securityManager.set(action, mockSecurityInfoManager);
     }
 
     @ParameterizedTest(name = "existing session cookie: {0}")
@@ -74,7 +79,7 @@ class MsgClearMessage2ActionTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getRedirectedUrl())
                 .isEqualTo("/carlos/messenger/DisplayMessages")
-                .doesNotContain(";jsessionid=");
+                .doesNotContainIgnoringCase("jsessionid");
     }
 
     @Test
@@ -84,6 +89,8 @@ class MsgClearMessage2ActionTest extends CarlosWebTestBase {
         MsgSessionBean bean = new MsgSessionBean();
         bean.setAttachment("<item>document</item>");
         bean.setPDFAttachment("encoded-pdf");
+        bean.setTotalAttachmentCount(3);
+        bean.setCurrentAttachmentCount(2);
         getMockSession().setAttribute("msgSessionBean", bean);
 
         String result = executeAction(action);
@@ -92,17 +99,44 @@ class MsgClearMessage2ActionTest extends CarlosWebTestBase {
         assertThat(bean.getAttachment()).isNull();
         assertThat(bean.getPDFAttachment()).isNull();
         assertThat(bean.getTotalAttachmentCount()).isZero();
+        assertThat(bean.getCurrentAttachmentCount()).isZero();
         assertThat(getMockResponse().getRedirectedUrl()).isNull();
     }
 
     @Test
     @DisplayName("should configure the application for cookie-only session tracking")
     void shouldUseCookieOnlySessionTracking_inDeploymentDescriptor() throws Exception {
-        String webXml = Files.readString(Path.of("src", "main", "webapp", "WEB-INF", "web.xml"));
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setValidating(false);
+        factory.setNamespaceAware(false);
+        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        factory.setXIncludeAware(false);
+        factory.setExpandEntityReferences(false);
+        var builder = factory.newDocumentBuilder();
+        builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
+        Document webXml = builder.parse(WEB_XML.toFile());
+        NodeList trackingModes = webXml.getElementsByTagName("tracking-mode");
 
-        assertThat(webXml)
-                .contains("<tracking-mode>COOKIE</tracking-mode>")
-                .doesNotContain("<tracking-mode>URL</tracking-mode>");
+        assertThat(trackingModes.getLength()).isEqualTo(1);
+        assertThat(trackingModes.item(0).getTextContent().trim()).isEqualTo("COOKIE");
+    }
+
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of(System.getProperty("basedir", System.getProperty("user.dir")))
+                .toAbsolutePath()
+                .normalize();
+        for (int depth = 0; depth <= MAX_PARENT_SEARCH_DEPTH && current != null; depth++) {
+            Path candidate = current.resolve(relativePath);
+            if (Files.isRegularFile(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate project file: " + relativePath);
     }
 
     private static final class UrlRewritingResponse extends MockHttpServletResponse {
