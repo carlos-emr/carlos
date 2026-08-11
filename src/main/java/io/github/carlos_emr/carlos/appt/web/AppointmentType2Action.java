@@ -166,6 +166,13 @@ public class AppointmentType2Action extends ActionSupport {
                 // and an edit to an unrelated field must not be blocked by a location the user
                 // never touched.
                 Integer parsedDuration = validateSave(existing == null ? null : existing.getLocation());
+                if (parsedDuration != null) {
+                    // Canonical form for any re-render: padding this accepted ("  0030 ") comes
+                    // back as "30", so the field shows what would be saved and the input's
+                    // pattern needs to admit only canonical values. Must happen before the error
+                    // check below, since a failure on another field is what re-renders the form.
+                    duration = Integer.toString(parsedDuration);
+                }
                 if (hasActionErrors()) {
                     return failure();
                 }
@@ -268,9 +275,14 @@ public class AppointmentType2Action extends ActionSupport {
     }
 
     /**
+     * Validates the submitted form without altering it; the caller normalises what it returns.
+     *
      * @param storedLocation location currently persisted on the record being updated, or
      *                       {@code null} when creating; accepted as-is by the multisite check
      *                       so a retired site name still round-trips through an edit
+     * @return the parsed duration, or {@code null} if any duration rule was violated — callers
+     *         must consult {@link #hasActionErrors()} rather than this value alone, since a
+     *         failure on another field still yields a parsed duration
      */
     private Integer validateSave(String storedLocation) {
         if (name == null || name.trim().isEmpty() || name.trim().length() > NAME_MAX_LENGTH) {
@@ -294,11 +306,6 @@ public class AppointmentType2Action extends ActionSupport {
                 addActionError(getText(DURATION_ERROR));
                 return null;
             }
-            // Re-render the canonical form, so padding this accepted ("  0030 ") comes back as
-            // "30". The field shows exactly what would be saved, and the input's pattern needs to
-            // admit only canonical values rather than grow a padding grammar to match this method.
-            // A value that failed to parse is left as typed so the user can see what was wrong.
-            duration = Integer.toString(parsed);
             return parsed;
         } catch (NumberFormatException e) {
             addActionError(getText(DURATION_ERROR));
