@@ -63,8 +63,8 @@ class DefaultMeasurementGroupSeedRegressionTest {
         assertThat(MIGRATION).exists();
 
         String migrationSql = Files.readString(MIGRATION, StandardCharsets.UTF_8);
-        assertThat(migrationSql).contains(REQUIRED_MAPPINGS.toArray(String[]::new));
         assertThat(migrationSql)
+                .contains(REQUIRED_MAPPINGS.toArray(String[]::new))
                 .contains("INNER JOIN `measurementType`")
                 .contains("mg.`id` IS NULL")
                 .contains("INSERT INTO `measurementGroupStyle` (`groupName`, `cssID`)")
@@ -77,8 +77,8 @@ class DefaultMeasurementGroupSeedRegressionTest {
     void shouldProvideDefaults_whenDevelopmentDataSeeded() throws IOException {
         String developmentSql = Files.readString(DEVELOPMENT_SEED, StandardCharsets.UTF_8);
 
-        assertThat(developmentSql).contains(REQUIRED_MAPPINGS.toArray(String[]::new));
         assertThat(developmentSql)
+                .contains(REQUIRED_MAPPINGS.toArray(String[]::new))
                 .doesNotContain("INSERT INTO `measurementGroupStyle` VALUES (1,'Test',0)")
                 .contains("('Vitals',0)", "('Mental Health Scores',0)");
     }
