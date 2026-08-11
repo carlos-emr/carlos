@@ -542,18 +542,14 @@ function cleanupResources() {
   cleanupPromise = (async () => {
     const errors = [];
     try {
-      let applicationRestoreError;
       try {
         await restoreVisibilityToggleThroughApplication();
       } catch (error) {
-        applicationRestoreError = error;
+        errors.push(error);
       }
       try {
         cleanupVisibilityCustomizationRows();
       } catch (error) {
-        if (applicationRestoreError) {
-          errors.push(applicationRestoreError);
-        }
         errors.push(error);
       }
       try {
