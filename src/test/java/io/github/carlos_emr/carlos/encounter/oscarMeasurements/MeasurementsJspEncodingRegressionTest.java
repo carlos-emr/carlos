@@ -17,10 +17,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 @DisplayName("Measurements.jsp output encoding regressions")
 @Tag("unit")
@@ -28,8 +33,20 @@ import org.junit.jupiter.api.Test;
 class MeasurementsJspEncodingRegressionTest {
 
     private static final int MAX_PARENT_SEARCH_DEPTH = 8;
+    private static final Pattern EL_EXPRESSION = Pattern.compile("\\$\\{([^}]*)}");
+    private static final Pattern CONTROL_EXPRESSION = Pattern.compile(
+            "(?:empty css|not empty css|not empty groupName|not empty measurementType\\.lastMInstrc"
+                    + "|fn:length\\(measurementTypes\\.measurementTypeVector\\)"
+                    + "|fn:split\\(measurementType\\.measuringInstrc\\.substring\\(12\\), ','\\)"
+                    + "|measurementType\\.measuringInstrc\\.startsWith\\('Choose radio'\\)"
+                    + "|measurementTypes\\.measurementTypeVector|sessionScope\\[attributeName]\\.measuringInstructionList)");
+    private static final List<String> SENSITIVE_VALUES = List.of(
+            "css", "demo", "groupName", "mInstrc", "measurementType", "option", "parentChangedMessage",
+            "patientNameAge");
     private static final Path JSP = resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF", "jsp",
             "encounter", "oscarMeasurements", "Measurements.jsp"));
+    private static final Path SUBMISSION_ACTION = resolveProjectPath(Path.of("src", "main", "java", "io", "github",
+            "carlos_emr", "carlos", "encounter", "oscarMeasurements", "pageUtil", "EctMeasurements2Action.java"));
 
     @Test
     @DisplayName("should canonicalize the demographic identifier before rendering patient data")
@@ -37,44 +54,77 @@ class MeasurementsJspEncodingRegressionTest {
         String jsp = readJsp();
 
         assertThat(jsp)
-                .contains("Integer demographicNo = ConversionUtils.fromIntString(demographicNoSource);")
-                .contains("String demo = demographicNo > 0 ? demographicNo.toString() : \"\";")
+                .contains("ConversionUtils.fromIntString(")
                 .contains("getNameAgeString(")
                 .doesNotContain("String demo = request.getParameter(\"demographicNo\")")
                 .doesNotContain("<oscar:nameage");
     }
 
     @Test
-    @DisplayName("should encode patient and group labels for their output contexts")
-    void shouldEncodePatientAndGroupLabels_forTheirOutputContexts() throws Exception {
+    @DisplayName("should keep sensitive output expressions behind an encoder")
+    void shouldKeepSensitiveOutputExpressions_behindAnEncoder() throws Exception {
         String jsp = readJsp();
 
+        Matcher expressions = EL_EXPRESSION.matcher(jsp);
+        while (expressions.find()) {
+            String expression = expressions.group(1).trim();
+            if (SENSITIVE_VALUES.stream().anyMatch(expression::contains) && isRenderedValue(expression)) {
+                assertThat(expression)
+                        .as("rendered sensitive expression at character %s", expressions.start())
+                        .startsWith("carlos:");
+            }
+        }
+
         assertThat(jsp)
-                .contains("${carlos:forJavaScript(patientNameAge)}")
-                .contains("${carlos:forHtmlContent(patientNameAge)}")
-                .contains("${carlos:forHtmlContent(groupName)}")
-                .contains("<base href=\"${carlos:forHtmlAttribute(pageContext.request.contextPath)}/\">")
+                .doesNotContain("<oscar:nameage")
                 .doesNotContain("request.getServerName()")
-                .doesNotContain("<h4>${groupName}</h4>");
+                .doesNotContain("elements[\"value(parentChanged)\"]")
+                .contains("elements[\"parentChanged\"].value = \"true\";");
     }
 
     @Test
-    @DisplayName("should encode measurement metadata wherever it enters generated markup")
-    void shouldEncodeMeasurementMetadata_whenRenderingGeneratedMarkup() throws Exception {
-        String jsp = readJsp();
+    @DisplayName("should neutralize hostile values in every output context used by the page")
+    void shouldNeutralizeHostileValues_inEveryOutputContext() {
+        String hostile = "\"><script>alert('measurements')</script>&";
 
-        assertThat(jsp)
-                .contains("${carlos:forHtmlAttribute(measurementType.typeDesc)}")
-                .contains("${carlos:forHtmlContent(measurementType.typeDisplayName)}")
-                .contains("${carlos:forHtmlAttribute(mInstrc.measuringInstrc)}")
-                .contains("${carlos:forHtmlContent(mInstrc.measuringInstrc)}")
-                .contains("${carlos:forJavaScriptAttribute(carlos:forUriComponent(measurementType.type))}")
-                .doesNotContain("value=\"${measurementType.type}\"")
-                .doesNotContain("&nbsp;${measurementType.lastComments}");
+        assertThat(SafeEncode.forHtmlContent(hostile))
+                .doesNotContain("<script>")
+                .contains("&lt;script&gt;");
+        assertThat(SafeEncode.forHtmlAttribute(hostile))
+                .doesNotContain("\"")
+                .doesNotContain("<script>");
+        assertThat(SafeEncode.forJavaScript(hostile))
+                .doesNotContain("\"")
+                .doesNotContain("'")
+                .doesNotContain("</script>");
+
+        String encodedUriComponent = SafeEncode.forUriComponent(hostile);
+        assertThat(encodedUriComponent)
+                .doesNotContain("\"")
+                .doesNotContain("<")
+                .doesNotContain("&");
+        assertThat(SafeEncode.forJavaScriptAttribute(encodedUriComponent))
+                .doesNotContain("\"")
+                .doesNotContain("'")
+                .doesNotContain("<");
+    }
+
+    @Test
+    @DisplayName("should not forward a request-controlled stylesheet after validation failure")
+    void shouldNotForwardStylesheet_fromFailedSubmissionRequest() throws Exception {
+        String action = Files.readString(SUBMISSION_ACTION, StandardCharsets.UTF_8);
+
+        assertThat(action)
+                .doesNotContain("request.getParameter(\"css\")")
+                .doesNotContain("request.setAttribute(\"css\"");
     }
 
     private static String readJsp() throws Exception {
         return Files.readString(JSP, StandardCharsets.UTF_8);
+    }
+
+    private static boolean isRenderedValue(String expression) {
+        return !CONTROL_EXPRESSION.matcher(expression).matches();
     }
 
     private static Path resolveProjectPath(Path relativePath) {

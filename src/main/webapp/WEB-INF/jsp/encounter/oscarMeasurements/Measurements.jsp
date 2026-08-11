@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+  Purpose: Render the clinical measurement-entry popup for an authorized demographic.
+  Features: Displays measurement groups, prior values, validation feedback, and calculator/history links.
+  Parameters: demographicNo (numeric patient identifier); groupName (configured measurement group).
+  @since 2016-06-28
+--%>
 <!DOCTYPE html>
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -134,7 +140,7 @@
                 var ret = true;
 
                 if (parentChanged) {
-                    document.forms[0].elements["value(parentChanged)"].value = "true";
+                    document.forms[0].elements["parentChanged"].value = "true";
 
                     if (!confirm("${carlos:forJavaScript(parentChangedMessage)} ${carlos:forJavaScript(patientNameAge)}"))
                         ret = false;
@@ -228,8 +234,8 @@
                     <table>
                         <tr>
                             <td><a
-                                    href="#"
-                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/ViewCalculators?demo=${carlos:forJavaScriptAttribute(carlos:forUriComponent(demo))}'); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
+                                    href="<%=request.getContextPath()%>/encounter/ViewCalculators?demo=${carlos:forHtmlAttribute(carlos:forUriComponent(demo))}"
+                                    onClick="popupPage(150,200,this.href); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
                         </tr>
                     </table>
                 </td>
