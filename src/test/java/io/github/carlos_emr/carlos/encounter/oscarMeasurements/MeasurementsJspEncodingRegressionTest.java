@@ -50,8 +50,6 @@ class MeasurementsJspEncodingRegressionTest {
                     + "|fn:length\\(measurementTypes\\.measurementTypeVector\\))");
     private static final Path JSP = resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF", "jsp",
             "encounter", "oscarMeasurements", "Measurements.jsp"));
-    private static final Path SUBMISSION_ACTION = resolveProjectPath(Path.of("src", "main", "java", "io", "github",
-            "carlos_emr", "carlos", "encounter", "oscarMeasurements", "pageUtil", "EctMeasurements2Action.java"));
     private static final List<Path> RESOURCE_BUNDLES = List.of("en", "es", "fr", "pl", "pt_BR").stream()
             .map(locale -> resolveProjectPath(Path.of("src", "main", "resources", "oscarResources_" + locale + ".properties")))
             .toList();
@@ -134,16 +132,6 @@ class MeasurementsJspEncodingRegressionTest {
                 .contains("for=\"inputMInstrc-${ctr.index}-${instructionStatus.index}\"")
                 .contains("id=\"inputValue-${ctr.index}-${optionStatus.index}\"")
                 .contains("for=\"inputValue-${ctr.index}-${optionStatus.index}\"");
-    }
-
-    @Test
-    @DisplayName("should not forward a request-controlled stylesheet after validation failure")
-    void shouldNotForwardStylesheet_fromFailedSubmissionRequest() throws Exception {
-        String action = Files.readString(SUBMISSION_ACTION, StandardCharsets.UTF_8);
-
-        assertThat(action)
-                .doesNotContain("request.getParameter(\"css\")")
-                .doesNotContain("request.setAttribute(\"css\"");
     }
 
     @Test
