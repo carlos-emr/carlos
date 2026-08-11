@@ -14,7 +14,7 @@ import org.xml.sax.helpers.AttributesImpl;
 @DisplayName("Antenatal risk renderer")
 @Tag("unit")
 @Tag("decision")
-class DesAntenatalPlannerRisksHandlerTest {
+class DesAntenatalPlannerRisksHandlerUnitTest {
 
     @Test
     @DisplayName("should contextually encode configuration values in generated HTML")

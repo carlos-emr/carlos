@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 @DisplayName("Save antenatal risk configuration action")
 @Tag("unit")
 @Tag("decision")
-class SaveAntenatalRiskConfig2ActionTest {
+class SaveAntenatalRiskConfig2ActionUnitTest {
 
     private MockedStatic<ServletActionContext> servletContext;
     private MockedStatic<LoggedInInfo> loggedInContext;

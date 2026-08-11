@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.utility.XmlUtils;
 @DisplayName("Antenatal risk configuration service")
 @Tag("unit")
 @Tag("decision")
-class AntenatalRiskConfigServiceTest {
+class AntenatalRiskConfigServiceUnitTest {
 
     private static final String VALID_XML = """
             <?xml version="1.0" encoding="UTF-8"?>
