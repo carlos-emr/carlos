@@ -12,6 +12,7 @@ package io.github.carlos_emr.carlos.decision.gate;
 import java.io.IOException;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
@@ -37,6 +38,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public final class SaveAntenatalRiskConfig2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
+    static final String SAVED_FLASH_ATTRIBUTE = "riskEditorSaved";
 
     private final SecurityInfoManager securityInfoManager;
     private final AntenatalRiskConfigService configService;
@@ -54,16 +56,19 @@ public final class SaveAntenatalRiskConfig2Action extends ActionSupport {
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         requireWritePrivileges(loggedInInfo);
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             return "methodNotAllowed";
         }
 
         String checklist = request.getParameter("checklist");
         try {
             configService.save(checklist);
+            request.getSession().setAttribute(SAVED_FLASH_ATTRIBUTE, Boolean.TRUE);
             return SUCCESS;
         } catch (InvalidConfigurationException e) {
             request.setAttribute("riskEditorError", e.getMessage());

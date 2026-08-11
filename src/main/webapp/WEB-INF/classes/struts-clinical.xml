@@ -80,7 +80,6 @@
         <action name="decision/antenatal/SaveAntenatalRiskConfig" class="io.github.carlos_emr.carlos.decision.gate.SaveAntenatalRiskConfig2Action">
             <result name="success" type="redirectAction">
                 <param name="actionName">decision/antenatal/obarriskedit_99_12</param>
-                <param name="saved">true</param>
             </result>
             <result name="input">/WEB-INF/jsp/decision/antenatal/obarriskedit_99_12.jsp</result>
             <result name="methodNotAllowed" type="httpheader">

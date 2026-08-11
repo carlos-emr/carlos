@@ -57,11 +57,15 @@
 </head>
 <body onLoad="setfocus()" bgcolor="#c4e9f6" bgproperties="fixed"
       topmargin="0" leftmargin="1" rightmargin="1">
-<form name="checklistedit" action="<%= request.getContextPath() %>/decision/antenatal/SaveAntenatalRiskConfig" method="POST">
+<form name="checklistedit" action="<%= SafeEncode.forHtmlAttribute(request.getContextPath()) %>/decision/antenatal/SaveAntenatalRiskConfig" method="POST">
     <%
         char sep = oscarVariables.getProperty("file_separator").toCharArray()[0];
         String submittedChecklist = (String) request.getAttribute("riskEditorChecklist");
         String editorError = (String) request.getAttribute("riskEditorError");
+        boolean editorSaved = Boolean.TRUE.equals(session.getAttribute("riskEditorSaved"));
+        if (editorSaved) {
+            session.removeAttribute("riskEditorSaved");
+        }
     %>
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="#486ebd">
@@ -85,7 +89,7 @@
                 <%= SafeEncode.forHtmlContent(editorError) %>
             </td>
         </tr>
-        <% } else if ("true".equals(request.getParameter("saved"))) { %>
+        <% } else if (editorSaved) { %>
         <tr>
             <td colspan="2" role="status" style="color: #063; font-weight: bold; padding: 0.5em;">
                 The antenatal risk list was saved.

@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 import io.github.carlos_emr.carlos.decision.AntenatalRiskConfigService;
 import io.github.carlos_emr.carlos.decision.AntenatalRiskConfigService.InvalidConfigurationException;
@@ -40,6 +41,7 @@ class SaveAntenatalRiskConfig2ActionTest {
     private MockedStatic<ServletActionContext> servletContext;
     private MockedStatic<LoggedInInfo> loggedInContext;
     private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
     private SecurityInfoManager securityInfoManager;
     private AntenatalRiskConfigService configService;
     private LoggedInInfo loggedInInfo;
@@ -48,6 +50,7 @@ class SaveAntenatalRiskConfig2ActionTest {
     @BeforeEach
     void setUp() {
         request = new MockHttpServletRequest();
+        response = new MockHttpServletResponse();
         request.setMethod("POST");
         request.setParameter("checklist", "<riskFactors/>");
         securityInfoManager = mock(SecurityInfoManager.class);
@@ -56,6 +59,7 @@ class SaveAntenatalRiskConfig2ActionTest {
 
         servletContext = mockStatic(ServletActionContext.class);
         servletContext.when(ServletActionContext::getRequest).thenReturn(request);
+        servletContext.when(ServletActionContext::getResponse).thenReturn(response);
         loggedInContext = mockStatic(LoggedInInfo.class);
         loggedInContext.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
@@ -104,6 +108,8 @@ class SaveAntenatalRiskConfig2ActionTest {
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         verify(configService).save("<riskFactors/>");
+        assertThat(request.getSession().getAttribute(SaveAntenatalRiskConfig2Action.SAVED_FLASH_ATTRIBUTE))
+                .isEqualTo(Boolean.TRUE);
     }
 
     @Test
@@ -112,6 +118,7 @@ class SaveAntenatalRiskConfig2ActionTest {
         request.setMethod("GET");
 
         assertThat(action.execute()).isEqualTo("methodNotAllowed");
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
         verify(configService, never()).save(any());
     }
 
