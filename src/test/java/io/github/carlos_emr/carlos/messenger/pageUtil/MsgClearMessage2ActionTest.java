@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -71,6 +72,9 @@ class MsgClearMessage2ActionTest extends CarlosWebTestBase {
         allowPrivilege("_msg", "w");
         getMockRequest().setContextPath("/carlos");
         getMockRequest().setRequestURI("/carlos/messenger/ClearMessage");
+        doAnswer(invocation -> invocation.<String>getArgument(0) + ";jsessionid=simulated-url-session")
+                .when(getMockResponse())
+                .encodeRedirectURL(anyString());
 
         String result = executeAction(action);
 
