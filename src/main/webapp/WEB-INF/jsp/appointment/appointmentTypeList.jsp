@@ -289,11 +289,11 @@
                         <%= SafeEncode.forHtmlContent(type.getResources()) %>
                     </th>
                     <th nowrap>
-                        <a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/appointmentTypeAction?oper=edit&amp;no=<%= type.getId() %>"><fmt:message key="global.btnEdit"/></a>
+                        <a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/appointmentTypeAction?oper=edit&amp;no=<%= SafeEncode.forUriComponent(String.valueOf(type.getId())) %>"><fmt:message key="global.btnEdit"/></a>
                         &nbsp;&nbsp;
                         <form class="inline-action delete-appointment-type" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/appointmentTypeAction" method="post">
                             <input type="hidden" name="oper" value="del"/>
-                            <input type="hidden" name="no" value="<%= type.getId() %>"/>
+                            <input type="hidden" name="no" value="<%= SafeEncode.forHtmlAttribute(String.valueOf(type.getId())) %>"/>
                             <button class="link-button" type="submit"><fmt:message key="global.btnDelete"/></button>
                         </form>
                     </th>

@@ -346,6 +346,32 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    void shouldHoldDeleteFlash_whenNextRequestIsAnUnrelatedSave() throws Exception {
+        when(appointmentTypeDao.remove(42)).thenReturn(true);
+        mockRequest.setMethod("POST");
+        addRequestParameter("oper", "del");
+        addRequestParameter("no", "42");
+        assertThat(executeAction(action)).isEqualTo("redirect");
+
+        // A stale page posting a save must not absorb the pending "deleted" notice.
+        mockRequest.removeAllParameters();
+        TestAppointmentType2Action saveAction = new TestAppointmentType2Action(appointmentTypeDao);
+        mockRequest.setMethod("POST");
+        addRequestParameter("oper", "save");
+        saveAction.setName("Unrelated Save");
+        saveAction.setDuration("15");
+        assertThat(executeAction(saveAction)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(saveAction.getActionMessages()).containsExactly("appointment.type.saved.message");
+
+        // It is still pending for the next plain render, which is where it belongs.
+        mockRequest.removeAllParameters();
+        mockRequest.setMethod("GET");
+        TestAppointmentType2Action listAction = new TestAppointmentType2Action(appointmentTypeDao);
+        assertThat(executeAction(listAction)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(listAction.getActionMessages()).containsExactly("appointment.type.deleted.message");
+    }
+
+    @Test
     void shouldReportFailure_whenDeleteTargetAlreadyGone() throws Exception {
         when(appointmentTypeDao.remove(42)).thenReturn(false);
         mockRequest.setMethod("POST");

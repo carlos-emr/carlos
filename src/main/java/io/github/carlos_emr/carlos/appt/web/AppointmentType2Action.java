@@ -108,7 +108,13 @@ public class AppointmentType2Action extends ActionSupport {
             return NONE;
         }
 
-        restoreDeleteSuccessMessage();
+        // Only a page render may consume the flash. If an unrelated mutation arrives while one is
+        // pending — a stale page posting a save, or a delete submitted by XHR that never follows
+        // the redirect — the "deleted" notice would otherwise surface on that operation's result
+        // instead of on the list it describes.
+        if (!isMutation(sOper)) {
+            restoreDeleteSuccessMessage();
+        }
 
         int typeNo = -1;
         if (EDIT.equals(sOper) || SAVE.equals(sOper) || DELETE.equals(sOper)) {
