@@ -294,11 +294,16 @@ public class DemographicExportAction42Action extends ActionSupport {
      */
     public static final Set<Integer> SUPPORTED_TEMPLATES = Set.of(CMS4);
 
-    /** Non-PHI message returned to the browser when an unsupported template is submitted. */
-    static final String UNSUPPORTED_TEMPLATE_MESSAGE =
-            "Unsupported export template. Only the EMR DM 5.0 template is available.";
+    /**
+     * Machine-readable reason code returned when an unsupported template is submitted.
+     *
+     * <p>A code rather than a sentence: the export page is localized in six languages, so the
+     * text the administrator reads comes from {@code oscarResources} keyed by this code
+     * ({@code demographic.demographicexport.unsupportedTemplate}), not from the action.</p>
+     */
+    static final String UNSUPPORTED_TEMPLATE_CODE = "unsupportedTemplate";
 
-    /** Response header carrying the validation reason for a rejected export request. */
+    /** Response header carrying the validation reason code for a rejected export request. */
     private static final String EXPORT_ERROR_HEADER = "X-Export-Error";
 
     /** Characters unsafe in filenames across common filesystems; used to sanitize patient name components. */
@@ -2804,12 +2809,11 @@ public class DemographicExportAction42Action extends ActionSupport {
                 // non-integer parameter, or anything a hand-crafted POST supplies that the UI
                 // does not offer.
                 logger.warn("Rejected demographic export request for unsupported template value {}", template);
-                exportError = new ArrayList<String>();
-                exportError.add(UNSUPPORTED_TEMPLATE_MESSAGE);
                 setExportStatusHeader(response, "error");
-                // Header carries a fixed, non-PHI reason so the page can show why the export was
-                // refused instead of the generic "export failed" message.
-                response.setHeader(EXPORT_ERROR_HEADER, UNSUPPORTED_TEMPLATE_MESSAGE);
+                // Header carries a fixed, non-PHI reason code so the page can show why the export
+                // was refused instead of the generic "export failed" message. exportError is NOT
+                // populated here: it is only ever read while assembling a CMS4 export bundle.
+                response.setHeader(EXPORT_ERROR_HEADER, UNSUPPORTED_TEMPLATE_CODE);
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 ffwd = "fail";
                 break;

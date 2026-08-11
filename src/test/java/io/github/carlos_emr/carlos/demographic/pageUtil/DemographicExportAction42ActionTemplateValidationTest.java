@@ -21,36 +21,18 @@
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
-import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
-import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
-import io.github.carlos_emr.carlos.commn.dao.DemographicContactDao;
-import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
-import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
-import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
-import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
-import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentCommentDao;
-import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
-import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.MockedStatic;
-import org.mockito.MockitoAnnotations;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -62,10 +44,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -84,10 +62,17 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("demographic")
 @DisplayName("DemographicExportAction42Action export template validation")
-class DemographicExportAction42ActionTemplateValidationTest extends CarlosUnitTestBase {
+class DemographicExportAction42ActionTemplateValidationTest extends DemographicExportActionUnitTestBase {
 
     private static final Path EXPORT_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/demographic/demographicExport.jsp");
+
+    private static final Path ENGLISH_RESOURCES =
+            Path.of("src/main/resources/oscarResources_en.properties");
+
+    /** Resource key holding the localized text for {@code UNSUPPORTED_TEMPLATE_CODE}. */
+    private static final String UNSUPPORTED_TEMPLATE_KEY =
+            "demographic.demographicexport.unsupportedTemplate";
 
     /** Matches the template picker rendered by the export JSP. */
     private static final Pattern TEMPLATE_PICKER =
@@ -99,89 +84,9 @@ class DemographicExportAction42ActionTemplateValidationTest extends CarlosUnitTe
     private static final Pattern TEMPLATE_CONSTANT =
             Pattern.compile("DemographicExportAction42Action\\.(\\w+)");
 
-    private MockedStatic<ServletActionContext> servletActionContextMock;
-    private MockedStatic<LoggedInInfo> loggedInInfoMock;
-    private AutoCloseable mocks;
-
-    @Mock
-    private SecurityInfoManager securityInfoManager;
-    @Mock
-    private LoggedInInfo loggedInInfo;
-    @Mock
-    private HttpServletRequest request;
-    @Mock
-    private HttpServletResponse response;
-    @Mock
-    private DemographicArchiveDao demographicArchiveDao;
-    @Mock
-    private DemographicContactDao demographicContactDao;
-    @Mock
-    private PartialDateDao partialDateDao;
-    @Mock
-    private HRMDocumentToDemographicDao hrmDocumentToDemographicDao;
-    @Mock
-    private HRMDocumentDao hrmDocumentDao;
-    @Mock
-    private HRMDocumentCommentDao hrmDocumentCommentDao;
-    @Mock
-    private CaseManagementManager caseManagementManager;
-    @Mock
-    private Hl7TextInfoDao hl7TextInfoDao;
-    @Mock
-    private Hl7TextMessageDao hl7TextMessageDao;
-    @Mock
-    private DemographicExtDao demographicExtDao;
-
-    private DemographicExportAction42Action action;
-
-    @BeforeEach
-    void setUp() {
-        mocks = MockitoAnnotations.openMocks(this);
-
-        registerMock(DemographicArchiveDao.class, demographicArchiveDao);
-        registerMock(DemographicContactDao.class, demographicContactDao);
-        registerMock(PartialDateDao.class, partialDateDao);
-        registerMock(HRMDocumentToDemographicDao.class, hrmDocumentToDemographicDao);
-        registerMock(HRMDocumentDao.class, hrmDocumentDao);
-        registerMock(HRMDocumentCommentDao.class, hrmDocumentCommentDao);
-        registerMock(CaseManagementManager.class, caseManagementManager);
-        registerMock(Hl7TextInfoDao.class, hl7TextInfoDao);
-        registerMock(Hl7TextMessageDao.class, hl7TextMessageDao);
-        registerMock(DemographicExtDao.class, demographicExtDao);
-        registerMock(SecurityInfoManager.class, securityInfoManager);
-
-        servletActionContextMock = mockStatic(ServletActionContext.class);
-        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
-
-        loggedInInfoMock = mockStatic(LoggedInInfo.class);
-        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                .thenReturn(loggedInInfo);
-
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
-                .thenReturn(true);
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographicExport"), eq("r"), isNull()))
-                .thenReturn(true);
-
-        action = new DemographicExportAction42Action();
-    }
-
-    @AfterEach
-    void tearDown() throws Exception {
-        if (loggedInInfoMock != null) {
-            loggedInInfoMock.close();
-        }
-        if (servletActionContextMock != null) {
-            servletActionContextMock.close();
-        }
-        if (mocks != null) {
-            mocks.close();
-        }
-    }
-
     /**
      * A POST carrying a template the action does not implement must be refused explicitly:
-     * HTTP 400 plus a reason header, with no export work attempted.
+     * HTTP 400 plus a reason code header, with no export work attempted.
      */
     @Nested
     @DisplayName("Unsupported template rejection")
@@ -200,7 +105,7 @@ class DemographicExportAction42ActionTemplateValidationTest extends CarlosUnitTe
             verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
             verify(response).setHeader("X-Export-Status", "error");
             verify(response).setHeader("X-Export-Error",
-                    DemographicExportAction42Action.UNSUPPORTED_TEMPLATE_MESSAGE);
+                    DemographicExportAction42Action.UNSUPPORTED_TEMPLATE_CODE);
             verify(response, never()).getOutputStream();
             verifyNoInteractions(demographicExtDao);
         }
@@ -216,9 +121,30 @@ class DemographicExportAction42ActionTemplateValidationTest extends CarlosUnitTe
 
             assertThat(result).isNotEqualTo(ActionSupport.SUCCESS);
             verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            verify(response).setHeader("X-Export-Status", "error");
             verify(response).setHeader("X-Export-Error",
-                    DemographicExportAction42Action.UNSUPPORTED_TEMPLATE_MESSAGE);
+                    DemographicExportAction42Action.UNSUPPORTED_TEMPLATE_CODE);
             // An unparseable value must not quietly run the CMS4 export instead.
+            verifyNoInteractions(demographicExtDao);
+        }
+
+        /**
+         * Pins the export switch to {@code SUPPORTED_TEMPLATES}: every value outside that set has
+         * to be refused, so a new {@code case} cannot be added without also declaring it supported.
+         */
+        @ParameterizedTest(name = "template={0}")
+        @ValueSource(ints = {-2, -1, 1, 2, 3, 42})
+        @DisplayName("should reject every template value outside the supported set")
+        void shouldRejectExport_whenTemplateIsNotSupported(int template) throws Exception {
+            assertThat(DemographicExportAction42Action.SUPPORTED_TEMPLATES).doesNotContain(template);
+            when(request.getMethod()).thenReturn("POST");
+            action.setDemographicNo("123");
+            action.setTemplate(String.valueOf(template));
+
+            String result = action.execute();
+
+            assertThat(result).isNotEqualTo(ActionSupport.SUCCESS);
+            verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
             verifyNoInteractions(demographicExtDao);
         }
 
@@ -267,6 +193,32 @@ class DemographicExportAction42ActionTemplateValidationTest extends CarlosUnitTe
             assertThat(DemographicExportAction42Action.SUPPORTED_TEMPLATES)
                     .containsExactly(DemographicExportAction42Action.CMS4);
             assertThat(templatePickerMarkup()).contains("EMR DM 5.0");
+        }
+    }
+
+    /**
+     * The rejection reason travels as a code, so the page must carry localized text for it;
+     * otherwise the administrator sees only the generic "export failed" message again.
+     */
+    @Nested
+    @DisplayName("Rejection reason wiring")
+    class RejectionReasonWiring {
+
+        @Test
+        @DisplayName("should render localized text for the reason code the action returns")
+        void shouldRenderLocalizedReason_forUnsupportedTemplateCode() throws Exception {
+            String jsp = Files.readString(EXPORT_JSP, StandardCharsets.UTF_8);
+
+            assertThat(jsp).contains("data-export-error-code=\""
+                    + DemographicExportAction42Action.UNSUPPORTED_TEMPLATE_CODE + "\"");
+            assertThat(jsp).contains(UNSUPPORTED_TEMPLATE_KEY);
+        }
+
+        @Test
+        @DisplayName("should define the reason message in the resource bundle")
+        void shouldDefineReasonMessage_inResourceBundle() throws Exception {
+            assertThat(Files.readString(ENGLISH_RESOURCES, StandardCharsets.UTF_8))
+                    .contains(UNSUPPORTED_TEMPLATE_KEY + "=");
         }
     }
 

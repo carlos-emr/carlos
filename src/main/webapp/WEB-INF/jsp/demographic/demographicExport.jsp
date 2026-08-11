@@ -274,14 +274,27 @@
             }
 
             /**
-             * Hides the loading overlay and shows the error alert, adding the server-supplied
-             * validation reason when one is present.
+             * Hides the loading overlay and shows the error alert. When the server sent a reason
+             * code, the matching localized sentence is copied into the alert; an unknown or absent
+             * code leaves only the generic message.
              *
-             * @param detail reason text from the X-Export-Error response header, may be null/empty
+             * @param code value of the X-Export-Error response header, may be null/empty
              */
-            function showExportError(detail) {
+            function showExportError(code) {
                 document.getElementById('exportLoadingOverlay').style.display = 'none';
-                document.getElementById('exportErrorDetail').textContent = detail ? detail : '';
+
+                var detail = '';
+                // Reason codes are a fixed server-side vocabulary. Anything else is ignored rather
+                // than fed into a selector, and the text is assigned with textContent so a
+                // localized string can never be interpreted as markup.
+                if (code && /^[A-Za-z]+$/.test(code)) {
+                    var localized = document.querySelector(
+                        '#exportErrorReasons [data-export-error-code="' + code + '"]');
+                    if (localized) {
+                        detail = localized.textContent;
+                    }
+                }
+                document.getElementById('exportErrorDetail').textContent = detail;
                 document.getElementById('exportErrorMessage').style.display = 'block';
             }
 
@@ -402,6 +415,15 @@
                 <fmt:message key="demographic.demographicexport.exportSuccess"/>
                 <br/><br/>
                 <fmt:message key="demographic.demographicexport.downloadNotStarted"/> <a href="javascript:void(0);" onclick="retryExport()"><fmt:message key="demographic.demographicexport.clickToDownload"/></a>
+            </div>
+
+            <!--
+                Localized text for each X-Export-Error reason code the action can return.
+                Kept in the page (not in the action) so the message follows the user's locale;
+                showExportError() copies the matching entry into #exportErrorDetail.
+            -->
+            <div id="exportErrorReasons" style="display: none;">
+                <span data-export-error-code="unsupportedTemplate"><fmt:message key="demographic.demographicexport.unsupportedTemplate"/></span>
             </div>
 
             <!-- Error message shown if export fails -->
