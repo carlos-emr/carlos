@@ -39,6 +39,7 @@ class MeasurementsJspEncodingRegressionTest {
 
     private static final int MAX_PARENT_SEARCH_DEPTH = 8;
     private static final Pattern EL_EXPRESSION = Pattern.compile("\\$\\{([^}]*)}");
+    private static final Pattern SCRIPTLET_OUTPUT = Pattern.compile("<%=\\s*(.*?)\\s*%>", Pattern.DOTALL);
     private static final Pattern ATTRIBUTE_START = Pattern.compile("([\\w:-]+)\\s*=\\s*([\"'])");
     private static final Pattern CONTROL_EXPRESSION = Pattern.compile(
             "(?:empty css|not empty css|not empty groupName|not empty measurementType\\.lastMInstrc"
@@ -85,6 +86,16 @@ class MeasurementsJspEncodingRegressionTest {
                 assertThat(expression)
                         .as("rendered sensitive expression at character %s", expressions.start())
                         .startsWith(expectedEncoderForSink(jsp, expressions.start()));
+            }
+        }
+
+        Matcher scriptletOutputs = SCRIPTLET_OUTPUT.matcher(jsp);
+        while (scriptletOutputs.find()) {
+            String expression = scriptletOutputs.group(1).trim();
+            if (!expression.equals("measurementManager.getDShtml(groupName)")) {
+                assertThat(isInsideEncodingTag(jsp, scriptletOutputs.start(), scriptletOutputs.end()))
+                        .as("scriptlet output without an explicit encoder at character %s", scriptletOutputs.start())
+                        .isTrue();
             }
         }
 
@@ -218,6 +229,13 @@ class MeasurementsJspEncodingRegressionTest {
         int scriptStart = jsp.lastIndexOf("<script", expressionStart);
         int scriptEnd = jsp.lastIndexOf("</script", expressionStart);
         return scriptStart > scriptEnd ? "carlos:forJavaScript(" : "carlos:forHtmlContent(";
+    }
+
+    private static boolean isInsideEncodingTag(String jsp, int expressionStart, int expressionEnd) {
+        int encodeTagStart = jsp.lastIndexOf("<carlos:encode", expressionStart);
+        int encodeTagEnd = encodeTagStart < 0 ? -1 : jsp.indexOf("/>", encodeTagStart);
+        return encodeTagStart >= 0 && encodeTagEnd >= expressionEnd
+                && jsp.substring(encodeTagStart, encodeTagEnd).contains("context=");
     }
 
     private static Path resolveProjectPath(Path relativePath) {

@@ -89,9 +89,10 @@ class EctMeasurements2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should not propagate a request-controlled stylesheet after validation failure")
-    void shouldNotPropagateStylesheet_afterValidationFailure() throws Exception {
+    @DisplayName("should not copy request-controlled view attributes after validation failure")
+    void shouldNotCopyRequestControlledViewAttributes_afterValidationFailure() throws Exception {
         request.setParameter("demographicNo", "123");
+        request.setParameter("groupName", "Vitals");
         request.setParameter("numType", "1");
         request.setParameter("parentChanged", "false");
         request.setParameter("inputValue-0", "1");
@@ -108,6 +109,8 @@ class EctMeasurements2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getRedirectedUrl())
                 .isEqualTo("/encounter/oscarMeasurements/ViewAddMeasurementData");
         assertThat(request.getAttribute("css")).isNull();
+        assertThat(request.getAttribute("groupName")).isNull();
+        assertThat(request.getAttribute("demographicNo")).isNull();
     }
 
     @Test
