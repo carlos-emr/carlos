@@ -161,18 +161,17 @@
                                                          cannot parse, which would discard the rejected entry the server re-renders
                                                          for correction.
 
-                                                         The pattern mirrors AppointmentType2Action.validateSave exactly: the
-                                                         leading \s* and 0* match the action's trim() and Integer.parseInt, so a
-                                                         value the server would accept can never be blocked here on resubmission.
-                                                         The alternation caps it at the same 1-1440 ceiling, and title carries the
-                                                         range into the browser's validation message. --%>
+                                                         Only canonical values need to be admitted here. validateSave re-renders an
+                                                         accepted duration in canonical form, so padding it tolerates never comes
+                                                         back into this field, and pattern, maxlength and the server agree on the
+                                                         same 1-1440 grammar: four digits, no padding. --%>
                                                     <td width="25%"><INPUT TYPE="text" NAME="duration" id="appointmentTypeDuration"
                                                                            VALUE="${carlos:forHtmlAttribute(duration)}"
                                                                            size="5"
                                                                            inputmode="numeric"
-                                                                           pattern="\s*0*([1-9][0-9]{0,2}|1[0-3][0-9]{2}|14[0-3][0-9]|1440)\s*"
+                                                                           pattern="[1-9][0-9]{0,2}|1[0-3][0-9]{2}|14[0-3][0-9]|1440"
                                                                            title="${carlos:forHtmlAttribute(msgDurationRange)}"
-                                                                           maxlength="6" required></td>
+                                                                           maxlength="4" required></td>
                                                 </tr>
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
                                                     <td>

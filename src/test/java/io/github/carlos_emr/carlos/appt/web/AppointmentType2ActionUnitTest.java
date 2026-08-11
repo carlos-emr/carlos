@@ -281,6 +281,18 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    void shouldCanonicaliseDuration_whenAnotherFieldFails() throws Exception {
+        // The re-rendered value must satisfy the input's canonical-only pattern, or the browser
+        // would block resubmission of a duration the server had already accepted.
+        configureSave("  0030  ");
+        action.setName("");
+
+        assertThat(executeAction(action)).isEqualTo("failure");
+        assertThat(action.getActionErrors()).containsExactly("appointment.type.name.error");
+        assertThat(action.getDuration()).isEqualTo("30");
+    }
+
+    @Test
     void shouldPreserveSubmittedValues_whenValidationFails() throws Exception {
         configureSave("30:00");
         action.setName("Preserved Type");

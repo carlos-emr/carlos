@@ -294,6 +294,11 @@ public class AppointmentType2Action extends ActionSupport {
                 addActionError(getText(DURATION_ERROR));
                 return null;
             }
+            // Re-render the canonical form, so padding this accepted ("  0030 ") comes back as
+            // "30". The field shows exactly what would be saved, and the input's pattern needs to
+            // admit only canonical values rather than grow a padding grammar to match this method.
+            // A value that failed to parse is left as typed so the user can see what was wrong.
+            duration = Integer.toString(parsed);
             return parsed;
         } catch (NumberFormatException e) {
             addActionError(getText(DURATION_ERROR));
