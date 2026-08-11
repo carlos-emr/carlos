@@ -13,6 +13,10 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import java.io.StringReader;
 import java.net.URI;
@@ -22,15 +26,11 @@ import java.nio.file.Path;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 
-import jakarta.servlet.http.Cookie;
-
 import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.w3c.dom.Document;
@@ -60,21 +60,17 @@ class MsgClearMessage2ActionTest extends CarlosWebTestBase {
         MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
 
-        mockResponse = new UrlRewritingResponse();
+        mockResponse = spy(new MockHttpServletResponse());
         setUpActionContext();
         action = new MsgClearMessage2Action();
     }
 
-    @ParameterizedTest(name = "existing session cookie: {0}")
-    @ValueSource(booleans = {false, true})
+    @Test
     @DisplayName("should redirect without a session identifier when the message bean is missing")
-    void shouldRedirectWithoutSessionId_whenMessageBeanIsMissing(boolean withSessionCookie) throws Exception {
+    void shouldRedirectWithoutSessionId_whenMessageBeanIsMissing() throws Exception {
         allowPrivilege("_msg", "w");
         getMockRequest().setContextPath("/carlos");
         getMockRequest().setRequestURI("/carlos/messenger/ClearMessage");
-        if (withSessionCookie) {
-            getMockRequest().setCookies(new Cookie("JSESSIONID", "existing-session"));
-        }
 
         String result = executeAction(action);
 
@@ -85,6 +81,7 @@ class MsgClearMessage2ActionTest extends CarlosWebTestBase {
                 .doesNotContainIgnoringCase("jsessionid");
         assertThat(URI.create(getMockRequest().getRequestURL().toString()).resolve(redirect).getPath())
                 .isEqualTo("/carlos/messenger/DisplayMessages");
+        verify(getMockResponse(), never()).encodeRedirectURL(anyString());
     }
 
     @Test
@@ -142,12 +139,5 @@ class MsgClearMessage2ActionTest extends CarlosWebTestBase {
             current = current.getParent();
         }
         throw new IllegalStateException("Unable to locate project file: " + relativePath);
-    }
-
-    private static final class UrlRewritingResponse extends MockHttpServletResponse {
-        @Override
-        public String encodeRedirectURL(String url) {
-            return url + ";jsessionid=simulated-url-session";
-        }
     }
 }
