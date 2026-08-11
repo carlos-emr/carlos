@@ -6,6 +6,9 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.DateUtils;
 
+/**
+ * Data structure encapsulating lab result details when attached as a document.
+ */
 public class AttachmentLabResultData {
     private String segmentID;
     private String labName;

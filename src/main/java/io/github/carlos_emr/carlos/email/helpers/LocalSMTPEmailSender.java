@@ -15,6 +15,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Implementation for sending emails via a locally configured SMTP server instance.
+ */
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 
     public LocalSMTPEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, 
@@ -27,6 +30,7 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
     protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         ObjectMapper objectMapper = new ObjectMapper();
+        // Handles potential exceptions during execution to prevent unexpected failures
         try {
             JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
             String host = jsonNode.get("host").asText();

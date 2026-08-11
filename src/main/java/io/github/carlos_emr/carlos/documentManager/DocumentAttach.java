@@ -13,6 +13,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Manages the linking of uploaded documents to specific patient records or consultations.
+ */
 public class DocumentAttach {
     private final ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
     private final EFormDocsDao eFormDocsDao = SpringUtils.getBean(EFormDocsDao.class);
@@ -41,6 +44,7 @@ public class DocumentAttach {
         List<String> currentList = new ArrayList<>(Arrays.asList(attachments));
         List<ConsultDocs> consultDocsList = consultDocsDao.findByRequestIdDocType(requestId, documentType.getType());
         List<String> oldList = new ArrayList<>();
+        // Processes iteration over elements to perform data extraction and transformation
         for (ConsultDocs consultDoc : consultDocsList) {
             oldList.add(Integer.toString(consultDoc.getDocumentNo()));
         }

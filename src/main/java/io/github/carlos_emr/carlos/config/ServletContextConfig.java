@@ -7,6 +7,9 @@ import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
 
+/**
+ * Configures the Spring ServletContext, setting up web-related beans and resources.
+ */
 @Configuration
 public class ServletContextConfig implements ServletContextAware {
 

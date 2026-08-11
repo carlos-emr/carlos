@@ -4,12 +4,16 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestExtTo1;
 
+/**
+ * Utility for converting consultation request extended attributes to REST objects.
+ */
 public class ConsultationRequestExtConverter extends AbstractConverter<ConsultationRequestExt, ConsultationRequestExtTo1> {
     @Override
     public ConsultationRequestExt getAsDomainObject(LoggedInInfo loggedInInfo, ConsultationRequestExtTo1 t) throws ConversionException {
         ConsultationRequestExt d = new ConsultationRequestExt();
 
         //d.setId(t.getId());
+        // Evaluates condition to determine the appropriate control flow path
         if (t.getRequestId() != null) {
             d.setRequestId(t.getRequestId());
         }

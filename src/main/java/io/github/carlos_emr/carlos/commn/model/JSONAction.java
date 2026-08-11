@@ -14,6 +14,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+/**
+ * Base Struts action class for returning JSON responses to asynchronous frontend requests.
+ */
 public class JSONAction extends ActionSupport {
 
     private final String ENCODING = "UTF-8";
@@ -26,6 +29,7 @@ public class JSONAction extends ActionSupport {
     protected HttpServletResponse response;
 
     protected JSONAction() {
+        // Evaluates condition to determine the appropriate control flow path
         if (ActionContext.getContext() != null) {
             request = ServletActionContext.getRequest();
             response = ServletActionContext.getResponse();

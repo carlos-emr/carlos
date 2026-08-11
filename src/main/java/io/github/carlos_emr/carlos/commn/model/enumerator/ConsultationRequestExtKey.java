@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
 
+/**
+ * Enumeration defining extended attribute keys for consultation requests.
+ */
 public enum ConsultationRequestExtKey {
     EREFERRAL_REF("ereferral_ref"),
     EREFERRAL_SERVICE("ereferral_service"),

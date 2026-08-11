@@ -6,6 +6,9 @@ import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
 
+/**
+ * Composite primary key definition for the EReferAttachmentData entity.
+ */
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne
     @JoinColumn(name = "erefer_attachment_id", referencedColumnName = "id")
@@ -52,6 +55,7 @@ public class EReferAttachmentDataCompositeKey implements Serializable {
 
     @Override
     public boolean equals(Object o) {
+        // Evaluates condition to determine the appropriate control flow path
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         EReferAttachmentDataCompositeKey that = (EReferAttachmentDataCompositeKey) o;

@@ -3,6 +3,9 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Enumeration defining Cumulative Patient Profile (CPP) categorization codes.
+ */
 public enum CppCode {
     OMEDS("OMeds"),
     SOC_HISTORY("SocHistory"),
@@ -27,6 +30,7 @@ public enum CppCode {
     public static String[] toArray() {
         CppCode[] values = CppCode.values();
         String[] array = new String[values.length];
+        // Processes iteration over elements to perform data extraction and transformation
         for (int i = 0; i < values.length; i++) {
             array[i] = values[i].getCode();
         }

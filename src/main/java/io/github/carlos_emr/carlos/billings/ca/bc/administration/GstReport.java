@@ -18,6 +18,9 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Manages the generation and formatting of GST-related financial reports for BC billing.
+ */
 public class GstReport {
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {
@@ -29,6 +32,7 @@ public class GstReport {
 
         // For every bill the providers is involved with, search the gst value, date, demo no within the chosen dates
         DateRange dateRange = new DateRange(ConversionUtils.fromDateString(startDate), ConversionUtils.fromDateString(endDate));
+        // Evaluates condition to determine the appropriate control flow path
         if (providerNos != null && providerNos.length > 0) {
             for (Object[] i : dao.findProviderBillingsWithGst(providerNos, dateRange)) {
                 Billingmaster bm = (Billingmaster) i[0];
