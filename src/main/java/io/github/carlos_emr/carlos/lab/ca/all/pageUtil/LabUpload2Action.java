@@ -238,6 +238,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             byte[] newSecretKey = cipher.doFinal(Base64.decodeBase64(skey));
 
             // Decrypt the message using the secret key
+            // Migration contract and sender coordination gates:
+            // docs/security/lab-upload-authenticated-encryption-migration.md
             SecretKeySpec skeySpec = new SecretKeySpec(newSecretKey, "AES");
             Cipher msgCipher = Cipher.getInstance("AES");
             msgCipher.init(Cipher.DECRYPT_MODE, skeySpec);
