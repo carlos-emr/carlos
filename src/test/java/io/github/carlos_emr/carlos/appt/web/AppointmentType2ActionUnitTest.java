@@ -327,6 +327,39 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    void shouldTrimStoredLocation_whenLoadingForEdit() throws Exception {
+        // The view matches this against the site options with a plain comparison, so legacy
+        // padding must not survive into the form or an active site looks retired.
+        AppointmentType existing = mock(AppointmentType.class);
+        when(existing.getId()).thenReturn(42);
+        when(existing.getDuration()).thenReturn(60);
+        when(existing.getLocation()).thenReturn("  MHI Beaches  ");
+        when(appointmentTypeDao.find(42)).thenReturn(existing);
+        addRequestParameter("oper", "edit");
+        addRequestParameter("no", "42");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.getLocation()).isEqualTo("MHI Beaches");
+    }
+
+    @Test
+    void shouldTrimSiteNames_whenBuildingLocationOptions() throws Exception {
+        SiteDao siteDao = mock(SiteDao.class);
+        Site site = mock(Site.class);
+        when(site.getName()).thenReturn("  MHI Beaches  ");
+        when(siteDao.getAllActiveSites()).thenReturn(List.of(site));
+        action.enableMultisites(siteDao);
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+        @SuppressWarnings("unchecked")
+        List<io.github.carlos_emr.carlos.util.LabelValueBean> options =
+                (List<io.github.carlos_emr.carlos.util.LabelValueBean>) mockRequest.getAttribute("locationsList");
+        assertThat(options).hasSize(1);
+        assertThat(options.get(0).getLabel()).isEqualTo("MHI Beaches");
+    }
+
+    @Test
     void shouldIgnoreInvalidIdentifier_onPlainListView() throws Exception {
         mockRequest.setMethod("GET");
         addRequestParameter("id", "invalid");

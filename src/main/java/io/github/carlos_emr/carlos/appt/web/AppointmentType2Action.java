@@ -146,7 +146,7 @@ public class AppointmentType2Action extends ActionSupport {
                     this.setId(dbBean.getId());
                     this.setName(dbBean.getName());
                     this.setDuration(Integer.toString(dbBean.getDuration()));
-                    this.setLocation(dbBean.getLocation());
+                    this.setLocation(normalize(dbBean.getLocation()));
                     this.setNotes(dbBean.getNotes());
                     this.setReason(dbBean.getReason());
                     this.setResources(dbBean.getResources());
@@ -247,7 +247,11 @@ public class AppointmentType2Action extends ActionSupport {
         if (isMultisitesEnabled()) {
             List<LabelValueBean> locations = new ArrayList<LabelValueBean>();
             for (Site site : getActiveSites()) {
-                locations.add(new LabelValueBean(site.getName(), Integer.toString(site.getSiteId())));
+                // Normalised here and on the record below, so the view can match a stored location
+                // against these options with a plain comparison and validateMultisiteLocation
+                // agrees with what the page showed. Legacy padding on either side would otherwise
+                // make an active site look retired and render a duplicate-looking option.
+                locations.add(new LabelValueBean(normalize(site.getName()), Integer.toString(site.getSiteId())));
             }
             request.setAttribute("locationsList", locations);
         }
