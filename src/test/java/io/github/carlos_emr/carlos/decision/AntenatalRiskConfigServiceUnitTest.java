@@ -34,6 +34,10 @@ import io.github.carlos_emr.carlos.utility.XmlUtils;
 @Tag("decision")
 class AntenatalRiskConfigServiceUnitTest {
 
+    private static final String BASEDIR_PROPERTY = "basedir";
+    private static final int MAX_PARENT_SEARCH_DEPTH = 5;
+    private static final Path DEFAULT_RISK_CONFIG = Path.of(
+            "src/main/webapp/decision/antenatal/desantenatalplannerrisks_99_12.xml");
     private static final String VALID_XML = """
             <?xml version="1.0" encoding="UTF-8"?>
             <riskFactors>
@@ -57,7 +61,7 @@ class AntenatalRiskConfigServiceUnitTest {
     void shouldSave_validExistingContent() throws Exception {
         Path target = temporaryDirectory.resolve(AntenatalRiskConfigService.FILE_NAME);
         String existingContent = Files.readString(
-                Path.of("src/main/webapp/decision/antenatal/desantenatalplannerrisks_99_12.xml"),
+                resolveProjectPath(DEFAULT_RISK_CONFIG),
                 StandardCharsets.UTF_8);
 
         new AntenatalRiskConfigService(target).save(existingContent);
@@ -198,6 +202,20 @@ class AntenatalRiskConfigServiceUnitTest {
         DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
         factory.setNamespaceAware(true);
         return factory;
+    }
+
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of(System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")))
+                .toAbsolutePath()
+                .normalize();
+        for (int depth = 0; depth <= MAX_PARENT_SEARCH_DEPTH && current != null; depth++) {
+            Path candidate = current.resolve(relativePath).normalize();
+            if (Files.isRegularFile(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate project file: " + relativePath);
     }
 
     private static String documentFor(int index) {
