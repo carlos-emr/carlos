@@ -1,4 +1,6 @@
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <!-- 
 /*
 * 
@@ -37,7 +39,7 @@
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Access</th>
+		<th title="Programs"><fmt:message key="pmmodule.admin.access"/></th>
 	</tr>
 </table>
 </div>
@@ -50,7 +52,7 @@
 	<display:column sortable="false" title="">
 		<a href="javascript:void(0);"
 			onclick="deleteAccess('${carlos:forJavaScript(access.id)}');return false;">
-		Delete </a>
+		<fmt:message key="pmmodule.admin.delete"/></a>
 	</display:column>
 	<display:column property="accessType.name" sortable="true" title="Name" />
 	<display:column property="accessType.type" sortable="true" title="Type" />
@@ -67,7 +69,7 @@
 <br />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Name :</td>
+		<td width="20%"><fmt:message key="pmmodule.admin.name.2"/></td>
 		<td><html:select property="access.accessTypeId">
 			<html:options collection="accessTypes" property="id"
 				labelProperty="name" />
@@ -75,11 +77,11 @@
 			property="access.programId" /></td>
 	</tr>
 	<tr class="b">
-		<td width="20%">All Roles:</td>
+		<td width="20%"><fmt:message key="pmmodule.admin.all.roles"/></td>
 		<td><html:checkbox property="access.allRoles" /></td>
 	</tr>
 	<tr class="b">
-		<td width="20%">Roles:</td>
+		<td width="20%"><fmt:message key="pmmodule.admin.roles"/></td>
 		<td><c:forEach var="role" items="${roles}">
 			<input name="checked_role" value="${carlos:forHtmlAttribute(role.id)}"
 				type="checkbox" />&nbsp;${carlos:forHtml(role.name)}
@@ -87,7 +89,7 @@
 		</c:forEach></td>
 	</tr>
 	<tr>
-		<td colspan="2"><input type="button" value="Save"
+		<td colspan="2"><input type="button" value="<fmt:message key='pmmodule.admin.save'/>"
 			onclick="this.form.elements['method'].value='save_access';this.form.submit()" />
 		<html:cancel /></td>
 	</tr>

@@ -1,4 +1,6 @@
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <!-- 
 /*
 * 
@@ -53,7 +55,7 @@ function add_team(form) {
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Team Management</th>
+		<th title="Programs"><fmt:message key="pmmodule.admin.team.management"/></th>
 	</tr>
 </table>
 </div>
@@ -62,7 +64,7 @@ function add_team(form) {
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list" value="No teams are currently defined for this program." />
 	<display:column sortable="false" title="">
-		<a onclick="deleteTeam('${carlos:forJavaScript(team.id)}');return false;" href="javascript:void(0);"> Delete </a>
+		<a onclick="deleteTeam('${carlos:forJavaScript(team.id)}');return false;" href="javascript:void(0);"> <fmt:message key="pmmodule.admin.delete"/></a>
 	</display:column>
 	<display:column property="name" sortable="true" title="Name" />
 	<display:column sortable="true" title="Staff">
@@ -84,10 +86,10 @@ function add_team(form) {
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<html:hidden property="team.id" />
 	<tr class="b">
-		<td width="20%">Name:</td>
+		<td width="20%"><fmt:message key="pmmodule.admin.name"/></td>
 		<td><html:text property="team.name" size="50" maxlength="255"/></td>
 	</tr>
 	<tr>
-		<td colspan="2"><input type="button" value="Save" onclick="add_team(this.form)" /> <html:cancel /></td>
+		<td colspan="2"><input type="button" value="<fmt:message key='pmmodule.admin.save'/>" onclick="add_team(this.form)" /> <html:cancel /></td>
 	</tr>
 </table>

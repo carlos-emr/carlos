@@ -1,4 +1,6 @@
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <!-- 
 /*
 * 
@@ -41,7 +43,7 @@ function removeFromRemoteQueue(remoteReferralId) {
 <div class="tabs" id="tabs">
 	<table cellpadding="3" cellspacing="0" border="0">
 		<tr>
-			<th title="Programs">Local Queue</th>
+			<th title="Programs"><fmt:message key="pmmodule.admin.local.queue"/></th>
 		</tr>
 	</table>
 </div>
@@ -50,7 +52,7 @@ function removeFromRemoteQueue(remoteReferralId) {
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list" value="Queue is empty." />
 	<display:column sortable="false" title="">
-		<a href="javascript:void(0);" onclick="removeFromQueue('${carlos:forJavaScript(queue_entry.id)}');return false;"> Remove </a>
+		<a href="javascript:void(0);" onclick="removeFromQueue('${carlos:forJavaScript(queue_entry.id)}');return false;"> <fmt:message key="pmmodule.admin.remove"/></a>
 	</display:column>
 	<display:column property="clientFormattedName" sortable="true" title="Client Name" />
 	<display:column property="referralDate" sortable="true" title="Referral Date" />
@@ -69,7 +71,7 @@ function removeFromRemoteQueue(remoteReferralId) {
 	<div class="tabs" id="tabs">
 		<table cellpadding="3" cellspacing="0" border="0">
 			<tr>
-				<th title="Programs">Remote Queue</th>
+				<th title="Programs"><fmt:message key="pmmodule.admin.remote.queue"/></th>
 			</tr>
 		</table>
 	</div>
@@ -78,7 +80,7 @@ function removeFromRemoteQueue(remoteReferralId) {
 		<display:setProperty name="paging.banner.placement" value="bottom" />
 		<display:setProperty name="basic.msg.empty_list" value="Queue is empty." />
 		<display:column sortable="false" title="">
-			<a href="javascript:void(0);" onclick="removeFromRemoteQueue('${carlos:forJavaScript(queue_entry.remoteReferral.remoteReferralId)}');return false;"> Remove </a>
+			<a href="javascript:void(0);" onclick="removeFromRemoteQueue('${carlos:forJavaScript(queue_entry.remoteReferral.remoteReferralId)}');return false;"> <fmt:message key="pmmodule.admin.remove"/></a>
 		</display:column>
 		<display:column property="clientName" sortable="true" title="Client Name" />
 		<display:column property="remoteReferral.referralDate" sortable="true" title="Referral Date" />

@@ -30,8 +30,10 @@
 
 
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:url var="programManagerViewClientsUri" value="/PMmodule/ProgramManagerView">
     <c:param name="id" value="${requestScope.id}"/>
     <c:param name="tab" value="Clients"/>
@@ -124,7 +126,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Programs">Clients</th>
+            <th title="Programs"><fmt:message key="pmmodule.admin.clients"/></th>
         </tr>
     </table>
 </div>
@@ -191,11 +193,11 @@
 
 <c:if
         test="${requestScope.allowBatchDischarge == true and program.type eq 'Service'}">
-    <input type="button" value="Batch Discharge"
+    <input type="button" value="<fmt:message key='pmmodule.admin.batch.discharge'/>"
            onclick="do_batch_discharge(false)"/>
 
     <!--
-    <input type="button" value="Batch Discharge To CAISI Service Program" onclick="do_batch_discharge(false,false)" />
+    <input type="button" value="<fmt:message key='pmmodule.admin.batch.discharge.to.caisi'/>" onclick="do_batch_discharge(false,false)" />
     <select name="batch_discharge_program">
     <option value="0"></option>
     <c:forEach var="program" items="${servicePrograms}">
@@ -206,7 +208,7 @@
     </select>
     <br />
 
-    <input type="button" value="Batch Discharge To Community Program" onclick="do_batch_discharge(true,false)" />
+    <input type="button" value="<fmt:message key='pmmodule.admin.batch.discharge.to.community'/>" onclick="do_batch_discharge(true,false)" />
     <select name="batch_discharge_community_program">
     <option value="0"></option>
     <c:forEach var="program" items="${communityPrograms}">

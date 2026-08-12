@@ -1,4 +1,6 @@
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <%--
 
 
@@ -51,7 +53,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Programs">Programs</th>
+            <th title="Programs"><fmt:message key="pmmodule.admin.programs"/></th>
         </tr>
     </table>
 </div>
@@ -61,9 +63,9 @@
     <table class="simple" cellspacing="2" cellpadding="3" width="100%">
         <thead>
             <tr>
-                <th>Status</th>
-                <th>Type</th>
-                <th>Facility</th>
+                <th><fmt:message key="pmmodule.admin.status.1"/></th>
+                <th><fmt:message key="pmmodule.admin.type.1"/></th>
+                <th><fmt:message key="pmmodule.admin.facility.1"/></th>
                 <th>&nbsp;</th>
             </tr>
         </thead>
@@ -97,7 +99,7 @@
                         </c:forEach>
                     </select>
                 </td>
-                <td><input type="submit" value="Search"/></td>
+                <td><input type="submit" value="<fmt:message key='pmmodule.admin.search'/>"/></td>
             </tr>
         </tbody>
     </table>
@@ -113,12 +115,12 @@
 
     <display:column sortable="false" title="">
         <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=delete&amp;id=${carlos:forUriComponent(program.id)}&amp;name=${carlos:forUriComponent(program.name)}"
-           onclick="return confirmDelete('${carlos:forJavaScript(program.name)}');">Delete</a>
+           onclick="return confirmDelete('${carlos:forJavaScript(program.name)}');"><fmt:message key="pmmodule.admin.delete"/></a>
     </display:column>
     <display:column sortable="false" title="">
         <c:choose>
             <c:when test="${program.programStatus == 'active'}">
-                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${carlos:forUriComponent(program.id)}">Edit</a>
+                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${carlos:forUriComponent(program.id)}"><fmt:message key="pmmodule.admin.edit"/></a>
             </c:when>
             <c:otherwise>Edit</c:otherwise>
         </c:choose>
@@ -139,5 +141,5 @@
 </display:table>
 
 <div>
-    <p><a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=add">Add new program</a></p>
+    <p><a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=add"><fmt:message key="pmmodule.admin.add.new.program"/></a></p>
 </div>

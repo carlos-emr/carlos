@@ -1,4 +1,6 @@
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <%--
 
 
@@ -42,7 +44,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Facilities">Facilities management</th>
+            <th title="Facilities"><fmt:message key="pmmodule.admin.facilities.management"/></th>
         </tr>
     </table>
 </div>
@@ -60,17 +62,17 @@
         <display:column sortable="false" title="">
             <a
                     href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=view&id=${carlos:forUriComponent(facility.id)}">
-                Details </a>
+                <fmt:message key="pmmodule.admin.details"/></a>
         </display:column>
         <display:column sortable="false" title="">
             <a
                     href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=edit&id=${carlos:forUriComponent(facility.id)}">
-                Edit </a>
+                <fmt:message key="pmmodule.admin.edit"/></a>
         </display:column>
         <display:column sortable="false" title="">
             <a href="javascript:void(0)"
                     onclick="if(ConfirmDelete('${carlos:forJavaScript(facility.name)}')){document.getElementById('deleteForm_${carlos:forJavaScript(facility.id)}').submit()}">
-                Disable </a>
+                <fmt:message key="pmmodule.admin.disable"/></a>
             <form id="deleteForm_${carlos:forHtmlAttribute(facility.id)}" method="post"
                   action="<%=request.getContextPath() %>/PMmodule/FacilityManager" style="display:none">
                 <input type="hidden" name="method" value="delete"/>
@@ -91,5 +93,5 @@
 <div>
     <p><a
             href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=add">
-        Add new facility </a></p>
+        <fmt:message key="pmmodule.admin.add.new.facility"/></a></p>
 </div>

@@ -1,4 +1,6 @@
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <!-- 
 /*
 * 
@@ -27,7 +29,7 @@
 <div class="tabs" id="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Access</th>
+		<th title="Programs"><fmt:message key="pmmodule.admin.access"/></th>
 	</tr>
 </table>
 </div>

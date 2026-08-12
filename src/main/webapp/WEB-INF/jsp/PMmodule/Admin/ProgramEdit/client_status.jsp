@@ -1,4 +1,6 @@
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <!-- 
 /*
 * 
@@ -54,7 +56,7 @@ function add_status(form) {
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Client Status</th>
+		<th title="Programs"><fmt:message key="pmmodule.admin.client.status"/></th>
 	</tr>
 </table>
 </div>
@@ -63,7 +65,7 @@ function add_status(form) {
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list" value="No statuses are currently defined for this program." />
 	<display:column sortable="false" title="">
-		<a onclick="deleteStatus('${carlos:forJavaScript(status.id)}');return false;" href="javascript:void(0);"> Delete </a>
+		<a onclick="deleteStatus('${carlos:forJavaScript(status.id)}');return false;" href="javascript:void(0);"> <fmt:message key="pmmodule.admin.delete"/></a>
 	</display:column>
 	<display:column property="name" sortable="true" title="Name" />	
 </display:table>
@@ -71,12 +73,12 @@ function add_status(form) {
 <html:hidden property="client_status.id" />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Name:</td>
+		<td width="20%"><fmt:message key="pmmodule.admin.name"/></td>
 		<td><html:text property="client_status.name" size="50" maxlength="255"/></td>
 	</tr>
 	<tr>
 		<td colspan="2">
-			<input type="button" value="Save" onclick="add_status(this.form)" /> <html:cancel />
+			<input type="button" value="<fmt:message key='pmmodule.admin.save'/>" onclick="add_status(this.form)" /> <html:cancel />
 		</td>
 	</tr>
 </table>

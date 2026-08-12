@@ -59,7 +59,9 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 %>
@@ -67,7 +69,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Facility">Edit facility</th>
+            <th title="Facility"><fmt:message key="pmmodule.admin.edit.facility"/></th>
         </tr>
     </table>
 </div>
@@ -77,7 +79,7 @@
     <input type="hidden" name="method" value="save"/>
     <table width="100%" border="1" cellspacing="2" cellpadding="3">
         <tr class="b">
-            <td width="20%">Facility Id:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.facility.id"/></td>
             <td>${carlos:forHtml(requestScope.id)}</td>
 
         </tr>
@@ -92,19 +94,19 @@
                            maxlength="70" id="facilityDesc" value="${carlos:forHtmlAttribute(facility.description)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">HIC:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.hic"/></td>
             <td><input type="checkbox" name="facility.hic" <c:if test="${facility.hic}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Primary Contact Name:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.primary.contact.name"/></td>
             <td><input type="text" name="facility.contactName" id="facility.contactName" value="${carlos:forHtmlAttribute(facility.contactName)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Primary Contact Email:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.primary.contact.email"/></td>
             <td><input type="text" name="facility.contactEmail" id="facility.contactEmail" value="${carlos:forHtmlAttribute(facility.contactEmail)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Primary Contact Phone:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.primary.contact.phone"/></td>
             <td><input type="text" name="facility.contactPhone" id="facility.contactPhone" value="${carlos:forHtmlAttribute(facility.contactPhone)}"/></td>
         </tr>
         <%
@@ -113,7 +115,7 @@
 
         %>
         <tr class="b">
-            <td width="20%">Organization:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.organization"/></td>
             <td><select name="facility.orgId">
                 <option value="0">&nbsp;</option>
                 <c:forEach var="org" items="${orgList}">
@@ -129,7 +131,7 @@
             </select></td>
         </tr>
         <tr class="b">
-            <td width="20%">Sector:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.sector"/></td>
             <td><select name="facility.sectorId">
                 <option value="0">&nbsp;</option>
                 <c:forEach var="sector" items="${sectorList}">
@@ -145,31 +147,31 @@
             </select></td>
         </tr>
         <tr class="b">
-            <td width="20%">Enable Digital Signatures:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.enable.digital.signatures"/></td>
             <td><input type="checkbox" name="facility.enableDigitalSignatures" <c:if test="${facility.enableDigitalSignatures}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Enable Health Number Registry:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.enable.health.number.registry"/></td>
             <td><input type="checkbox" name="facility.enableHealthNumberRegistry" <c:if test="${facility.enableHealthNumberRegistry}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Enable Anonymous Clients:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.enable.anonymous.clients"/></td>
             <td><input type="checkbox" name="facility.enableAnonymous" <c:if test="${facility.enableAnonymous}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Enable Phone Encounter Clients:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.enable.phone.encounter.clients"/></td>
             <td><input type="checkbox" name="facility.enablePhoneEncounter" <c:if test="${facility.enablePhoneEncounter}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Enable Group Notes:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.enable.group.notes"/></td>
             <td><input type="checkbox" name="facility.enableGroupNotes" <c:if test="${facility.enableGroupNotes}">checked</c:if>/></td>
         </tr>
 
         <tr class="b">
-            <td width="20%">Assign vacancy withdrawn tickler notification:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.assign.vacancy.withdrawn.tickler"/></td>
             <td>
                 <select name="facility.vacancyWithdrawnTicklerProvider" id="facility.vacancyWithdrawnTicklerProvider">
-                    <option value="">Select Below</option>
+                    <option value=""><fmt:message key="pmmodule.admin.select.below"/></option>
                     <%for (Provider p : providerDao.getActiveProviders()) { %>
                     <option value="<%=p.getProviderNo() %>" <%= java.util.Objects.equals(p.getProviderNo(), String.valueOf(request.getAttribute("facility") != null ? ((io.github.carlos_emr.carlos.commn.model.Facility) request.getAttribute("facility")).getVacancyWithdrawnTicklerProvider() : null)) ? "selected" : "" %>><%=p.getFormattedName() %>
                     </option>
@@ -181,10 +183,10 @@
         </tr>
 
         <tr class="b">
-            <td width="20%">Assign new vacancy tickler notification to:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.assign.new.vacancy.tickler"/></td>
             <td>
                 <select name="facility.assignNewVacancyTicklerProvider" id="facility.assignNewVacancyTicklerProvider">
-                    <option value="">Select Below</option>
+                    <option value=""><fmt:message key="pmmodule.admin.select.below"/></option>
                     <%for (Provider p : providerDao.getActiveProviders()) { %>
                     <option value="<%=p.getProviderNo() %>" <%= java.util.Objects.equals(p.getProviderNo(), String.valueOf(request.getAttribute("facility") != null ? ((io.github.carlos_emr.carlos.commn.model.Facility) request.getAttribute("facility")).getAssignNewVacancyTicklerProvider() : null)) ? "selected" : "" %>><%=p.getFormattedName() %>
                     </option>
@@ -196,10 +198,10 @@
         </tr>
 
         <tr class="b">
-            <td width="20%">Assign notification of rejected applicant from a vacancy:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.assign.notification.of.rejected"/></td>
             <td>
                 <select name="facility.assignRejectedVacancyApplicant" id="facility.assignRejectedVacancyApplicant">
-                    <option value="">Select Below</option>
+                    <option value=""><fmt:message key="pmmodule.admin.select.below"/></option>
                     <%for (Provider p : providerDao.getActiveProviders()) { %>
                     <option value="<%=p.getProviderNo() %>" <%= java.util.Objects.equals(p.getProviderNo(), String.valueOf(request.getAttribute("facility") != null ? ((io.github.carlos_emr.carlos.commn.model.Facility) request.getAttribute("facility")).getAssignRejectedVacancyApplicant() : null)) ? "selected" : "" %>><%=p.getFormattedName() %>
                     </option>
@@ -210,10 +212,10 @@
         </tr>
 
         <tr class="b">
-            <td width="20%">Registration Intake</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.registration.intake"/></td>
             <td>
                 <select name="facility.registrationIntake" id="facility.registrationIntake">
-                    <option value="-1">Null</option>
+                    <option value="-1"><fmt:message key="pmmodule.admin.null"/></option>
                     <c:forEach var="registrationIntakeForm" items="${registrationIntakeForms}">
                         <option value="${carlos:forHtmlAttribute(registrationIntakeForm.id)}" <c:if test="${facility.registrationIntake == registrationIntakeForm.id}">selected</c:if>>
                             ${carlos:forHtml(registrationIntakeForm.formName)}
@@ -223,7 +225,7 @@
             </td>
         </tr>
         <tr class="b">
-            <td width="20%">Display All vacancies</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.display.all.vacancies"/></td>
             <td>
                 <select name="facility.displayAllVacancies" id="facility.displayAllVacancies">
                     <option value="1" <c:if test="${facility.displayAllVacancies == 1}">selected</c:if>>All vacancies in all facilities</option>
@@ -233,16 +235,16 @@
         </tr>
 
         <tr class="b">
-            <td width="20%">Enable Mandatory Encounter Time in Encounter:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.enable.mandatory.encounter.time"/></td>
             <td><input type="checkbox" name="facility.enableEncounterTime" <c:if test="${facility.enableEncounterTime}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Enable Mandatory Transportation Time in Encounter:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.enable.mandatory.transportation.time"/></td>
             <td><input type="checkbox" name="facility.enableEncounterTransportationTime" <c:if test="${facility.enableEncounterTransportationTime}">checked</c:if>/></td>
         </tr>
 
         <tr class="b">
-            <td width="20%">Rx Interaction Warning Level:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.rx.interaction.warning.level"/></td>
             <td>
                 <select name="facility.rxInteractionWarningLevel" id="facility.rxInteractionWarningLevel">
                     <option value="0" <c:if test="${facility.rxInteractionWarningLevel == 0}">selected</c:if>>Not Specified</option>
@@ -256,8 +258,8 @@
         </tr>
 
         <tr>
-            <td colspan="2"><input type="submit" name="submit" value="Save" onclick="bCancel=false;" />
-                <button type="button" onclick="window.history.back();">Cancel</button></td>
+            <td colspan="2"><input type="submit" name="submit" value="<fmt:message key='pmmodule.admin.save'/>" onclick="bCancel=false;" />
+                <button type="button" onclick="window.history.back();"><fmt:message key="pmmodule.admin.cancel"/></button></td>
         </tr>
     </table>
 </form>

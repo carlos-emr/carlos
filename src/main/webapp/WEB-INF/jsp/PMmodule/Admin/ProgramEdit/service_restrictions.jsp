@@ -1,6 +1,8 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramClientRestriction" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <!--
 /*
  *
@@ -49,23 +51,23 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Service Restrictions">Service Restriction Settings</th>
+            <th title="Service Restrictions"><fmt:message key="pmmodule.admin.service.restriction.settings"/></th>
         </tr>
     </table>
 </div>
 Please define the following parameters control the behaviour of new service restrictions for this program.
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Maximum length of service restriction (in days):</td>
+		<td width="20%"><fmt:message key="pmmodule.admin.maximum.length.of.service"/></td>
 		<td><html:text property="program.maximumServiceRestrictionDays" size="4" maxlength="4"/>&nbsp;(empty or zero means no maximum)</td>
 	</tr>
 	<tr class="b">
-		<td width="20%">Default service restriction length (in days):</td>
+		<td width="20%"><fmt:message key="pmmodule.admin.default.service.restriction.length"/></td>
 		<td><html:text property="program.defaultServiceRestrictionDays" size="4" maxlength="4"/></td>
 	</tr>
 	<tr>
 		<td colspan="2">
-			<input type="button" value="Save" onclick="return save()" />
+			<input type="button" value="<fmt:message key='pmmodule.admin.save'/>" onclick="return save()" />
 		</td>
 	</tr>
 </table>
@@ -73,7 +75,7 @@ Please define the following parameters control the behaviour of new service rest
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Service Restrictions">Current Service Restrictions</th>
+            <th title="Service Restrictions"><fmt:message key="pmmodule.admin.current.service.restrictions"/></th>
         </tr>
     </table>
 </div>
@@ -101,7 +103,7 @@ Please define the following parameters control the behaviour of new service rest
             String demographicNo = "" + ((ProgramClientRestriction)pageContext.getAttribute("restriction")).getDemographicNo();
         %>
         <caisirole:SecurityAccess accessName="Disable service restriction" accessType="access" providerNo='<%=((Provider)request.getSession().getAttribute("provider")).getProviderNo()%>' demoNo="<%=demographicNo%>" programId='<%=request.getParameter("id")%>'>
-            <a onclick="disableRestriction('${carlos:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"> Disable </a>
+            <a onclick="disableRestriction('${carlos:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"> <fmt:message key="pmmodule.admin.disable"/></a>
         </caisirole:SecurityAccess>
     </display:column>
     <display:column property="id" sortable="true" title="Id" />
@@ -116,7 +118,7 @@ Please define the following parameters control the behaviour of new service rest
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Service Restrictions">Disabled Service Restrictions</th>
+            <th title="Service Restrictions"><fmt:message key="pmmodule.admin.disabled.service.restrictions"/></th>
         </tr>
     </table>
 </div>
@@ -130,7 +132,7 @@ Please define the following parameters control the behaviour of new service rest
             String demographicNo = "" + ((ProgramClientRestriction)pageContext.getAttribute("restriction")).getDemographicNo();
         %>
         <caisirole:SecurityAccess accessName="Create service restriction" accessType="access" providerNo='<%=((Provider)request.getSession().getAttribute("provider")).getProviderNo()%>' demoNo="<%=demographicNo%>" programId='<%=request.getParameter("id")%>'>
-            <a onclick="enableRestriction('${carlos:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"> Enable </a>
+            <a onclick="enableRestriction('${carlos:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"> <fmt:message key="pmmodule.admin.enable"/></a>
         </caisirole:SecurityAccess>
     </display:column>
     <display:column property="id" sortable="true" title="Id" />

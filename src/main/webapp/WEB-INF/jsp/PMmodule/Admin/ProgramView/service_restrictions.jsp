@@ -1,3 +1,5 @@
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <!--
 /*
 *
@@ -26,7 +28,7 @@
 <div class="tabs" id="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Service Restrictions">Service Restrictions</th>
+		<th title="Service Restrictions"><fmt:message key="pmmodule.admin.service.restrictions"/></th>
 	</tr>
 </table>
 </div>

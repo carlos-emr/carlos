@@ -1,4 +1,6 @@
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <!-- 
 /*
 * 
@@ -94,7 +96,7 @@
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Staff</th>
+		<th title="Programs"><fmt:message key="pmmodule.admin.staff"/></th>
 	</tr>
 </table>
 </div>
@@ -103,7 +105,7 @@
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list" value="No staff currently assigned to this program." />
 	<display:column sortable="false" title="">
-		<a href="javascript:void(0);" onclick="deleteProvider('${carlos:forJavaScript(provider.id)}');return false;"> Delete </a>
+		<a href="javascript:void(0);" onclick="deleteProvider('${carlos:forJavaScript(provider.id)}');return false;"> <fmt:message key="pmmodule.admin.delete"/></a>
 	</display:column>
 	<display:column property="provider.formattedName" sortable="true" title="Name" />
 	<display:column property="provider.phone" sortable="true" title="Phone" />
@@ -112,7 +114,7 @@
 			<c:forEach var="team" items="${provider.teams}">
 				<tr>
 					<td>${carlos:forHtml(team.name)}</td>
-					<td><a href="javascript:void(0);" onclick="removeTeam('${carlos:forJavaScript(provider.id)}','${carlos:forJavaScript(team.id)}');return false;">Remove</a>
+					<td><a href="javascript:void(0);" onclick="removeTeam('${carlos:forJavaScript(provider.id)}','${carlos:forJavaScript(team.id)}');return false;"><fmt:message key="pmmodule.admin.remove"/></a>
 				</tr>
 			</c:forEach>
 		</table>
@@ -142,7 +144,7 @@
 <br />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Provider:</td>
+		<td width="20%"><fmt:message key="pmmodule.admin.provider"/></td>
 		<td>
 			<html:hidden property="provider.id" />
 			<html:hidden property="provider.providerNo" />
@@ -153,11 +155,11 @@
 			}
 			%>
 			<input type="text" name="providerName" size="30" value="<%=providerName%>" />
-			<input type="button" value="Search" onclick="search_provider(this.form.providerName.value);" />
+			<input type="button" value="<fmt:message key='pmmodule.admin.search'/>" onclick="search_provider(this.form.providerName.value);" />
 		</td>
 	</tr>
 	<tr class="b">
-		<td width="20%">Role:</td>
+		<td width="20%"><fmt:message key="pmmodule.admin.role.1"/></td>
 		<td>
 			<html:select property="provider.roleId">
 				<html:options collection="roles" property="id" labelProperty="name" />
@@ -166,7 +168,7 @@
 	</tr>
 	<tr>
 		<td colspan="2">
-			<input type="button" value="Save" onclick="add_provider(this.form)" />
+			<input type="button" value="<fmt:message key='pmmodule.admin.save'/>" onclick="add_provider(this.form)" />
 			<html:cancel />
 		</td>
 	</tr>

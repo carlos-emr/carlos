@@ -1,4 +1,6 @@
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <%--
 
 
@@ -68,7 +70,7 @@
 <div class="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Programs">Functional Users</th>
+            <th title="Programs"><fmt:message key="pmmodule.admin.functional.users"/></th>
         </tr>
     </table>
 </div>
@@ -80,7 +82,7 @@
     <display:setProperty name="basic.msg.empty_list" value="No functional users defined for this program"/>
     <display:column sortable="false" title="">
         <a onclick="deleteFunctionalUser('${carlos:forJavaScript(functional.id)}');return false;" href="javascript:void(0);">
-            Delete </a>
+            <fmt:message key="pmmodule.admin.delete"/></a>
     </display:column>
     <display:column property="userType.name" sortable="true" title="Functional User Type"/>
     <display:column property="provider.formattedName" sortable="true" title="Provider Name"/>
@@ -89,7 +91,7 @@
 <br/>
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr class="b">
-        <td width="20%">Provider :</td>
+        <td width="20%"><fmt:message key="pmmodule.admin.provider.1"/></td>
         <td>
             <%
                 String providerName = (String) request.getAttribute("providerName");
@@ -98,11 +100,11 @@
                 }
             %>
             <input type="text" name="providerName" size="30" value="<%=providerName%>"/>
-            <input type="button" value="Search" onclick="search_provider(this.form.providerName.value);"/>
+            <input type="button" value="<fmt:message key='pmmodule.admin.search'/>" onclick="search_provider(this.form.providerName.value);"/>
         </td>
     </tr>
     <tr class="b">
-        <td width="20%">Functional User Type:</td>
+        <td width="20%"><fmt:message key="pmmodule.admin.functional.user.type"/></td>
         <td>
             <select name="function.userTypeId" id="function.userTypeId">
                 <c:forEach var="functionalUserType" items="${functionalUserTypes}">
@@ -115,8 +117,8 @@
     </tr>
     <tr>
         <td colspan="2">
-            <input type="button" value="Save" onclick="add_functional_user(this.form)"/>
-            <button type="button" onclick="window.history.back();">Cancel</button>
+            <input type="button" value="<fmt:message key='pmmodule.admin.save'/>" onclick="add_functional_user(this.form)"/>
+            <button type="button" onclick="window.history.back();"><fmt:message key="pmmodule.admin.cancel"/></button>
         </td>
     </tr>
 </table>

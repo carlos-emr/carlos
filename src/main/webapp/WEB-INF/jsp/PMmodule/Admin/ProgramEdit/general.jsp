@@ -1,4 +1,6 @@
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <%--
 
 
@@ -94,17 +96,17 @@
     <div class="tabs">
         <table cellpadding="3" cellspacing="0" border="0">
             <tr>
-                <th title="Programs">General Information</th>
+                <th title="Programs"><fmt:message key="pmmodule.admin.general.information"/></th>
             </tr>
         </table>
     </div>
     <table width="100%" border="1" cellspacing="2" cellpadding="3">
         <tr class="b">
-            <td width="20%">Name:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.name"/></td>
             <td><input type="text" name="program.name" id="program-name" size="30" maxlength="70" value="${carlos:forHtmlAttribute(program.name)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Facility:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.facility"/></td>
             <td>
                 <select name="program.facilityId">
                     <c:forEach var="facility" items="${facilities}">
@@ -116,11 +118,11 @@
             </td>
         </tr>
         <tr class="b">
-            <td width="20%">Description:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.description"/></td>
             <td><input type="text" name="program.description" size="30" maxlength="255" value="${carlos:forHtmlAttribute(program.description)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Functional Centre:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.functional.centre"/></td>
             <td>
                 <select name="program.functionalCentreId">
                     <option value="">&nbsp;</option>
@@ -133,35 +135,35 @@
             </td>
         </tr>
         <tr class="b">
-            <td width="20%">HIC:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.hic"/></td>
             <td><input type="checkbox" name="program.hic" <c:if test="${program.hic}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Address:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.address"/></td>
             <td><input type="text" name="program.address" size="30" maxlength="255" value="${carlos:forHtmlAttribute(program.address)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Phone:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.phone"/></td>
             <td><input type="text" name="program.phone" size="30" maxlength="25" value="${carlos:forHtmlAttribute(program.phone)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Fax:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.fax"/></td>
             <td><input type="text" name="program.fax" size="30" maxlength="25" value="${carlos:forHtmlAttribute(program.fax)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">URL:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.url"/></td>
             <td><input type="text" name="program.url" size="30" maxlength="100" value="${carlos:forHtmlAttribute(program.url)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Email:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.email"/></td>
             <td><input type="text" name="program.email" size="30" maxlength="50" value="${carlos:forHtmlAttribute(program.email)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Emergency Number:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.emergency.number"/></td>
             <td><input type="text" name="program.emergencyNumber" size="30" maxlength="25" value="${carlos:forHtmlAttribute(program.emergencyNumber)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Type:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.type"/></td>
             <td>
                 <select name="program.type">
                     <option value="Bed" <c:if test="${program.type == 'Bed'}">selected</c:if>>Bed</option>
@@ -174,7 +176,7 @@
             </td>
         </tr>
         <tr class="b">
-            <td width="20%">Status:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.status"/></td>
             <td>
                 <select name="program.programStatus">
                     <option value="active" <c:if test="${program.programStatus == 'active'}">selected</c:if>>active</option>
@@ -183,27 +185,27 @@
             </td>
         </tr>
         <tr class="b">
-            <td width="20%">Location:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.location"/></td>
             <td><input type="text" name="program.location" size="30" maxlength="70" value="${carlos:forHtmlAttribute(program.location)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Max Participants:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.max.participants"/></td>
             <td><input type="text" name="program.maxAllowed" id="program-maxAllowed" size="8" maxlength="8" value="${carlos:forHtmlAttribute(program.maxAllowed)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Holding Tank:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.holding.tank"/></td>
             <td><input type="checkbox" name="program.holdingTank" <c:if test="${program.holdingTank}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Allow Batch Admissions:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.allow.batch.admissions"/></td>
             <td><input type="checkbox" name="program.allowBatchAdmission" <c:if test="${program.allowBatchAdmission}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Allow Batch Discharges:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.allow.batch.discharges"/></td>
             <td><input type="checkbox" name="program.allowBatchDischarge" <c:if test="${program.allowBatchDischarge}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Man or Woman:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.man.or.woman"/></td>
             <td>
                 <select name="program.manOrWoman">
                     <option value="" <c:if test="${empty program.manOrWoman}">selected</c:if>>&nbsp;</option>
@@ -213,15 +215,15 @@
             </td>
         </tr>
         <tr class="b">
-            <td width="20%">Transgender:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.transgender"/></td>
             <td><input type="checkbox" name="program.transgender" <c:if test="${program.transgender}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">First Nation:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.first.nation"/></td>
             <td><input type="checkbox" name="program.firstNation" <c:if test="${program.firstNation}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Alcohol:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.alcohol"/></td>
             <td><input type="checkbox" name="program.alcohol" <c:if test="${program.alcohol}">checked</c:if>/></td>
         </tr>
         <tr class="b">
@@ -236,19 +238,19 @@
             </td>
         </tr>
         <tr class="b">
-            <td width="20%">Physical Health:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.physical.health"/></td>
             <td><input type="checkbox" name="program.physicalHealth" <c:if test="${program.physicalHealth}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Mental Health:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.mental.health"/></td>
             <td><input type="checkbox" name="program.mentalHealth" <c:if test="${program.mentalHealth}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Housing:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.housing"/></td>
             <td><input type="checkbox" name="program.housing" <c:if test="${program.housing}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Exclusive View:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.exclusive.view"/></td>
             <td>
                 <select name="program.exclusiveView">
                     <option value="no" <c:if test="${program.exclusiveView == 'no'}">selected</c:if>>No</option>
@@ -259,25 +261,25 @@
             </td>
         </tr>
         <tr class="b">
-            <td width="20%">Minimum Age (inclusive):</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.minimum.age.inclusive"/></td>
             <td><input type="text" name="program.ageMin" size="8" maxlength="8" value="${carlos:forHtmlAttribute(program.ageMin)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Maximum Age (inclusive):</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.maximum.age.inclusive"/></td>
             <td><input type="text" name="program.ageMax" size="8" maxlength="8" value="${carlos:forHtmlAttribute(program.ageMax)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Enable Mandatory Encounter Time in Encounter:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.enable.mandatory.encounter.time"/></td>
             <td><input type="checkbox" name="program.enableEncounterTime" <c:if test="${program.enableEncounterTime}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Enable Mandatory Transportation Time in Encounter:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.enable.mandatory.transportation.time"/></td>
             <td><input type="checkbox" name="program.enableEncounterTransportationTime" <c:if test="${program.enableEncounterTransportationTime}">checked</c:if>/></td>
         </tr>
         <tr>
             <td colspan="2">
-                <input type="submit" value="Save" onclick="return saveProgram();"/>
-                <button type="button" onclick="window.location.href='${pageContext.request.contextPath}/PMmodule/ProgramManager?method=list';">Return to program list</button>
+                <input type="submit" value="<fmt:message key='pmmodule.admin.save'/>" onclick="return saveProgram();"/>
+                <button type="button" onclick="window.location.href='${pageContext.request.contextPath}/PMmodule/ProgramManager?method=list';"><fmt:message key="pmmodule.admin.return.to.program.list"/></button>
             </td>
         </tr>
     </table>
@@ -287,16 +289,16 @@
     <div class="tabs">
         <table cellpadding="3" cellspacing="0" border="0">
             <tr>
-                <th title="signatures">Signature</th>
+                <th title="signatures"><fmt:message key="pmmodule.admin.signature"/></th>
             </tr>
         </table>
     </div>
     <table width="100%" border="1" cellspacing="2" cellpadding="3">
         <tr class="b">
             <td>&nbsp;</td>
-            <td>Provider Name</td>
-            <td>Role</td>
-            <td>Date</td>
+            <td><fmt:message key="pmmodule.admin.provider.name"/></td>
+            <td><fmt:message key="pmmodule.admin.role"/></td>
+            <td><fmt:message key="pmmodule.admin.date"/></td>
         </tr>
         <tr class="b">
             <td>

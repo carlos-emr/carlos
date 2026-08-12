@@ -1,4 +1,6 @@
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <%--
 
 
@@ -38,42 +40,42 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Facility">Facility summary</th>
+            <th title="Facility"><fmt:message key="pmmodule.admin.facility.summary"/></th>
         </tr>
     </table>
 </div>
 
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr class="b">
-        <td width="20%">Facility Id:</td>
+        <td width="20%"><fmt:message key="pmmodule.admin.facility.id"/></td>
         <td>${carlos:forHtml(requestScope.id)}</td>
     </tr>
     <tr class="b">
-        <td width="20%">Name:</td>
+        <td width="20%"><fmt:message key="pmmodule.admin.name"/></td>
         <td>${carlos:forHtml(facility.name)}</td>
     </tr>
     <tr class="b">
-        <td width="20%">Description:</td>
+        <td width="20%"><fmt:message key="pmmodule.admin.description"/></td>
         <td>${carlos:forHtml(facility.description)}</td>
     </tr>
     <tr class="b">
-        <td width="20%">HIC:</td>
+        <td width="20%"><fmt:message key="pmmodule.admin.hic"/></td>
         <td>${carlos:forHtml(facility.hic)}</td>
     </tr>
     <tr class="b">
-        <td width="20%">Primary Contact Name:</td>
+        <td width="20%"><fmt:message key="pmmodule.admin.primary.contact.name"/></td>
         <td>${carlos:forHtml(facility.contactName)}</td>
     </tr>
     <tr class="b">
-        <td width="20%">Primary Contact Email:</td>
+        <td width="20%"><fmt:message key="pmmodule.admin.primary.contact.email"/></td>
         <td>${carlos:forHtml(facility.contactEmail)}</td>
     </tr>
     <tr class="b">
-        <td width="20%">Primary Contact Phone:</td>
+        <td width="20%"><fmt:message key="pmmodule.admin.primary.contact.phone"/></td>
         <td>${carlos:forHtml(facility.contactPhone)}</td>
     </tr>
     <tr class="b">
-        <td width="20%">Digital Signatures Enabled:</td>
+        <td width="20%"><fmt:message key="pmmodule.admin.digital.signatures.enabled"/></td>
         <td>${carlos:forHtml(facility.enableDigitalSignatures)}</td>
     </tr>
 </table>
@@ -81,7 +83,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Associated programs">Associated programs</th>
+            <th title="Associated programs"><fmt:message key="pmmodule.admin.associated.programs"/></th>
         </tr>
     </table>
 </div>
@@ -105,7 +107,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Facility Messages">Messages</th>
+            <th title="Facility Messages"><fmt:message key="pmmodule.admin.messages"/></th>
         </tr>
     </table>
 </div>
@@ -116,10 +118,10 @@ while still admitted in this facility.
 
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr>
-        <th>Name</th>
-        <th>Client DOB</th>
-        <th>Bed Program</th>
-        <th>Discharge Date/Time</th>
+        <th><fmt:message key="pmmodule.admin.name.1"/></th>
+        <th><fmt:message key="pmmodule.admin.client.dob"/></th>
+        <th><fmt:message key="pmmodule.admin.bed.program"/></th>
+        <th><fmt:message key="pmmodule.admin.discharge.datetime"/></th>
     </tr>
     <c:forEach var="client" items="${associatedClients}">
         <tr class="b" <c:if test="${client.inOneDay}">style="color:red;"</c:if>>
@@ -136,8 +138,8 @@ Automatic discharges in the past 24 hours appear red.
 
     <div>
     <p>
-        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=edit&amp;id=${carlos:forUriComponent(requestScope.id)}">Edit facility</a>
+        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=edit&amp;id=${carlos:forUriComponent(requestScope.id)}"><fmt:message key="pmmodule.admin.edit.facility"/></a>
         |
-        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=list">Return to facilities list</a>
+        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=list"><fmt:message key="pmmodule.admin.return.to.facilities.list"/></a>
     </p>
 </div>

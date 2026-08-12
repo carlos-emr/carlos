@@ -29,13 +29,15 @@
 --%>
 <%@ include file="/taglibs.jsp" %>
 <%@ page import="java.util.List" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:url var="programSignaturesUri" value="/PMmodule/ProgramManager">
     <c:param name="method" value="programSignatures"/>
     <c:param name="programId" value="${param.programId}"/>
 </c:url>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html>
+<html lang="${pageContext.request.locale.language}">
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -59,17 +61,17 @@
     </body>
 </html>
 <!--
-<input type="button" value="Back" onClick="history.go(-1)"/>
+<input type="button" value="<fmt:message key='pmmodule.admin.back'/>" onClick="history.go(-1)"/>
 -->
 </br>
-<input type="button" value="Close" onClick="self.close()"/>
+<input type="button" value="<fmt:message key='pmmodule.admin.close'/>" onClick="self.close()"/>
 <!--
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 <tr class="b">
 <td>&nbsp;</td>
-<td>Provider Name</td>
-<td>Role</td>
-<td>Date</td>
+<td><fmt:message key="pmmodule.admin.provider.name"/></td>
+<td><fmt:message key="pmmodule.admin.role"/></td>
+<td><fmt:message key="pmmodule.admin.date"/></td>
 </tr>
 
 

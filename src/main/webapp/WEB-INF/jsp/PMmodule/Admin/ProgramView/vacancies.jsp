@@ -29,8 +29,10 @@
 --%>
 
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <script>
     /**
@@ -69,7 +71,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Vacancies">Vacancies</th>
+            <th title="Vacancies"><fmt:message key="pmmodule.admin.vacancies"/></th>
         </tr>
     </table>
 </div>
@@ -78,11 +80,11 @@
     <table class="simple" cellspacing="2" cellpadding="3" border="0">
         <thead>
             <tr>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Date Created</th>
-                <th>Date Closed</th>
-                <th>Reason Closed</th>
+                <th><fmt:message key="pmmodule.admin.name.1"/></th>
+                <th><fmt:message key="pmmodule.admin.status.1"/></th>
+                <th><fmt:message key="pmmodule.admin.date.created"/></th>
+                <th><fmt:message key="pmmodule.admin.date.closed.1"/></th>
+                <th><fmt:message key="pmmodule.admin.reason.closed.1"/></th>
             </tr>
         </thead>
         <tbody>
@@ -99,7 +101,7 @@
     </table>
 </c:if>
 <c:if test="${empty vacancies}">
-    <p>No vacancies found for this program.</p>
+    <p><fmt:message key="pmmodule.admin.no.vacancies.found.for"/></p>
 </c:if>
 
 <span id="selectedVacancyName"></span>

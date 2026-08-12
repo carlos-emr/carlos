@@ -30,8 +30,10 @@
 
 
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:url var="programManagerClientsUri" value="/PMmodule/ProgramManager">
     <c:param name="method" value="edit"/>
     <c:param name="id" value="${requestScope.id}"/>
@@ -61,7 +63,7 @@
 <div class="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Programs">Clients</th>
+            <th title="Programs"><fmt:message key="pmmodule.admin.clients"/></th>
         </tr>
     </table>
 </div>
@@ -73,7 +75,7 @@
 
     <display:column sortable="false" title="">
         <a href="javascript:void(0);" onclick="alert('Please discharge clients from the client manager');">
-            Discharge </a>
+            <fmt:message key="pmmodule.admin.discharge"/></a>
     </display:column>
     <display:column property="client.formattedName" sortable="true" title="Name"/>
     <display:column property="admissionDate" sortable="true" title="Admission Date"/>
