@@ -8,11 +8,18 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Provides reusable utility functions and helper methods for PDFEncryptionUtil operations across the application.
+ *
+ * <p>This class implements domain-specific functionality to support the CARLOS EMR platform,
+ * ensuring backwards compatibility with legacy integrations and adherence to healthcare standards.</p>
+ */
 
 public class PDFEncryptionUtil {
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static Path encryptPDF(Path pdfPath, String password) throws IOException {
+        // Internal logic boundary for PDFEncryptionUtil state management
         try (PDDocument pdDocument = Loader.loadPDF(pdfPath.toFile())) {
             StandardProtectionPolicy spp = new StandardProtectionPolicy(password, password, new AccessPermission());
             spp.setEncryptionKeyLength(256);

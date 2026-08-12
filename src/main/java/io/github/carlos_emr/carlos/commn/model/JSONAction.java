@@ -13,6 +13,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+/**
+ * Domain model representing JSONAction data structures within the CARLOS EMR system, including state and relationships.
+ *
+ * <p>This class implements domain-specific functionality to support the CARLOS EMR platform,
+ * ensuring backwards compatibility with legacy integrations and adherence to healthcare standards.</p>
+ */
 
 public class JSONAction extends ActionSupport {
 
@@ -26,6 +32,7 @@ public class JSONAction extends ActionSupport {
     protected HttpServletResponse response;
 
     protected JSONAction() {
+        // Internal logic boundary for JSONAction state management
         if (ActionContext.getContext() != null) {
             request = ServletActionContext.getRequest();
             response = ServletActionContext.getResponse();

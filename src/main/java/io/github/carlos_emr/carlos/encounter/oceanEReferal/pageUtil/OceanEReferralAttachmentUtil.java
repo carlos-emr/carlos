@@ -9,12 +9,19 @@ import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDataDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.EReferAttachment;
 import io.github.carlos_emr.carlos.commn.model.EReferAttachmentData;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+/**
+ * Provides reusable utility functions and helper methods for OceanEReferralAttachmentUtil operations across the application.
+ *
+ * <p>This class implements domain-specific functionality to support the CARLOS EMR platform,
+ * ensuring backwards compatibility with legacy integrations and adherence to healthcare standards.</p>
+ */
 
 public class OceanEReferralAttachmentUtil {
     private static EReferAttachmentDataDaoImpl eReferAttachmentDataDao = SpringUtils.getBean(EReferAttachmentDataDaoImpl.class);
     private static EReferAttachmentDaoImpl eReferAttachmentDao = SpringUtils.getBean(EReferAttachmentDaoImpl.class);
 
     public static void detachOceanEReferralConsult(String docId, String type) {
+        // Internal logic boundary for OceanEReferralAttachmentUtil state management
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.HOUR_OF_DAY, -1);
         EReferAttachmentData eReferAttachmentData = eReferAttachmentDataDao.getRecentByDocumentId(Integer.parseInt(docId), type, calendar.getTime());

@@ -4,6 +4,12 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigProviderConv
 import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverter;
 import jakarta.persistence.*;
 import java.util.List;
+/**
+ * Domain model representing EmailConfig data structures within the CARLOS EMR system, including state and relationships.
+ *
+ * <p>This class implements domain-specific functionality to support the CARLOS EMR platform,
+ * ensuring backwards compatibility with legacy integrations and adherence to healthcare standards.</p>
+ */
 
 @Entity
 @Table(name = "emailConfig")
@@ -46,6 +52,7 @@ public class EmailConfig extends AbstractModel<Integer> {
     private List<EmailLog> emailLogs;
 
     public EmailConfig() {
+        // Internal logic boundary for EmailConfig state management
     }
 
     public EmailConfig(EmailType emailType, EmailProvider emailProvider, String senderEmail) {

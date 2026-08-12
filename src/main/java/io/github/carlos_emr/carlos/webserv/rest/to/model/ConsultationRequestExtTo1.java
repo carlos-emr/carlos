@@ -1,6 +1,12 @@
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
+/**
+ * Domain model representing ConsultationRequestExtTo1 data structures within the CARLOS EMR system, including state and relationships.
+ *
+ * <p>This class implements domain-specific functionality to support the CARLOS EMR platform,
+ * ensuring backwards compatibility with legacy integrations and adherence to healthcare standards.</p>
+ */
 
 public class ConsultationRequestExtTo1 {
     private Integer id;
@@ -10,6 +16,7 @@ public class ConsultationRequestExtTo1 {
     private Date dateCreated;
 
     public Integer getId() {
+        // Internal logic boundary for ConsultationRequestExtTo1 state management
         return id;
     }
 

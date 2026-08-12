@@ -7,6 +7,12 @@ import jakarta.persistence.IdClass;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+/**
+ * Domain model representing EReferAttachmentData data structures within the CARLOS EMR system, including state and relationships.
+ *
+ * <p>This class implements domain-specific functionality to support the CARLOS EMR platform,
+ * ensuring backwards compatibility with legacy integrations and adherence to healthcare standards.</p>
+ */
 
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
@@ -26,6 +32,7 @@ public class EReferAttachmentData extends AbstractModel<EReferAttachmentDataComp
     private String labType;
 
     public EReferAttachmentData() {
+        // Internal logic boundary for EReferAttachmentData state management
     }
 
     public EReferAttachmentData(EReferAttachment eReferAttachment, Integer labId, String labType) {

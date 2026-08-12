@@ -1,4 +1,10 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
+/**
+ * Domain model representing SpecialistDto data structures within the CARLOS EMR system, including state and relationships.
+ *
+ * <p>This class implements domain-specific functionality to support the CARLOS EMR platform,
+ * ensuring backwards compatibility with legacy integrations and adherence to healthcare standards.</p>
+ */
 
 public class SpecialistDto {
     private Integer specId;

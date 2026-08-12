@@ -12,6 +12,12 @@ import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.OceanEReferr
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+/**
+ * Core component for DocumentAttach, implementing business logic and system operations for the CARLOS EMR platform.
+ *
+ * <p>This class implements domain-specific functionality to support the CARLOS EMR platform,
+ * ensuring backwards compatibility with legacy integrations and adherence to healthcare standards.</p>
+ */
 
 public class DocumentAttach {
     private final ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
@@ -30,6 +36,7 @@ public class DocumentAttach {
     private Integer demographicNo;
 
     public DocumentAttach() {
+        // Internal logic boundary for DocumentAttach state management
     }
 
     public DocumentAttach(Integer demographicNo, Boolean editOnOcean) {

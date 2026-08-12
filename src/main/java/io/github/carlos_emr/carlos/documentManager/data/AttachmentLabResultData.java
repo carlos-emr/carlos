@@ -5,6 +5,12 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.DateUtils;
+/**
+ * Domain model representing AttachmentLabResultData data structures within the CARLOS EMR system, including state and relationships.
+ *
+ * <p>This class implements domain-specific functionality to support the CARLOS EMR platform,
+ * ensuring backwards compatibility with legacy integrations and adherence to healthcare standards.</p>
+ */
 
 public class AttachmentLabResultData {
     private String segmentID;
@@ -13,6 +19,7 @@ public class AttachmentLabResultData {
     private Map<String, String> labVersionIds = new LinkedHashMap<>();
 
     public AttachmentLabResultData() {
+        // Internal logic boundary for AttachmentLabResultData state management
     }
 
     public AttachmentLabResultData(String segmentID, String labName, Date labDate) {

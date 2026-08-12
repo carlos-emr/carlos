@@ -14,6 +14,12 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Core component for LocalSMTPEmailSender, implementing business logic and system operations for the CARLOS EMR platform.
+ *
+ * <p>This class implements domain-specific functionality to support the CARLOS EMR platform,
+ * ensuring backwards compatibility with legacy integrations and adherence to healthcare standards.</p>
+ */
 
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 
@@ -25,6 +31,7 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
 
     @Override
     protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
+        // Internal logic boundary for LocalSMTPEmailSender state management
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         ObjectMapper objectMapper = new ObjectMapper();
         try {

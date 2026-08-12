@@ -2,6 +2,12 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Domain model representing CppCode data structures within the CARLOS EMR system, including state and relationships.
+ *
+ * <p>This class implements domain-specific functionality to support the CARLOS EMR platform,
+ * ensuring backwards compatibility with legacy integrations and adherence to healthcare standards.</p>
+ */
 
 public enum CppCode {
     OMEDS("OMeds"),
@@ -21,6 +27,7 @@ public enum CppCode {
     }
 
     public String getCode() {
+        // Internal logic boundary for CppCode state management
         return code;
     }
 

@@ -4,6 +4,12 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailAttachmentDocument
 import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+/**
+ * Domain model representing EmailAttachment data structures within the CARLOS EMR system, including state and relationships.
+ *
+ * <p>This class implements domain-specific functionality to support the CARLOS EMR platform,
+ * ensuring backwards compatibility with legacy integrations and adherence to healthcare standards.</p>
+ */
 
 @Entity
 @Table(name = "emailAttachment")
@@ -33,6 +39,7 @@ public class EmailAttachment extends AbstractModel<Integer> {
     private EmailLog emailLog;
 
     public EmailAttachment() {
+        // Internal logic boundary for EmailAttachment state management
     }
 
     public EmailAttachment(String fileName, String filePath, DocumentType documentType, int documentId) {

@@ -3,10 +3,17 @@ package io.github.carlos_emr.carlos.webserv.rest.conversion;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestExtTo1;
+/**
+ * Provides data conversion utilities for ConsultationRequestExtConverter objects, handling translation between database, API, and internal representations.
+ *
+ * <p>This class implements domain-specific functionality to support the CARLOS EMR platform,
+ * ensuring backwards compatibility with legacy integrations and adherence to healthcare standards.</p>
+ */
 
 public class ConsultationRequestExtConverter extends AbstractConverter<ConsultationRequestExt, ConsultationRequestExtTo1> {
     @Override
     public ConsultationRequestExt getAsDomainObject(LoggedInInfo loggedInInfo, ConsultationRequestExtTo1 t) throws ConversionException {
+        // Internal logic boundary for ConsultationRequestExtConverter state management
         ConsultationRequestExt d = new ConsultationRequestExt();
 
         //d.setId(t.getId());

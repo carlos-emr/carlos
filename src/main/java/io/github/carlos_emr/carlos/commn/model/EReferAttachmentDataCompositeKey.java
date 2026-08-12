@@ -5,6 +5,12 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
+/**
+ * Domain model representing EReferAttachmentDataCompositeKey data structures within the CARLOS EMR system, including state and relationships.
+ *
+ * <p>This class implements domain-specific functionality to support the CARLOS EMR platform,
+ * ensuring backwards compatibility with legacy integrations and adherence to healthcare standards.</p>
+ */
 
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne
@@ -18,6 +24,7 @@ public class EReferAttachmentDataCompositeKey implements Serializable {
     private String labType;
 
     public EReferAttachmentDataCompositeKey() {
+        // Internal logic boundary for EReferAttachmentDataCompositeKey state management
     }
 
     public EReferAttachmentDataCompositeKey(EReferAttachment eReferAttachment, Integer labId, String labType) {

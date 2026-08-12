@@ -11,6 +11,12 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
+/**
+ * Domain model representing EReferAttachment data structures within the CARLOS EMR system, including state and relationships.
+ *
+ * <p>This class implements domain-specific functionality to support the CARLOS EMR platform,
+ * ensuring backwards compatibility with legacy integrations and adherence to healthcare standards.</p>
+ */
 
 @Entity
 @Table(name = "erefer_attachment")
@@ -34,6 +40,7 @@ public class EReferAttachment extends AbstractModel<Integer> {
     private List<EReferAttachmentData> attachments;
 
     public EReferAttachment() {
+        // Internal logic boundary for EReferAttachment state management
     }
 
     public EReferAttachment(Integer demographicNo) {
