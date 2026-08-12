@@ -16,6 +16,7 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
+ *   TEST_PROVIDER_LAST_NAME=optional provider last-name prefix; blank lists active providers
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
@@ -26,6 +27,7 @@ const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
+const testProviderLastName = process.env.TEST_PROVIDER_LAST_NAME || '';
 
 const findings = [];
 const visited = [];
@@ -179,7 +181,7 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
     timeout: 30000,
   }).catch(() => null);
   const popupPromise = context.waitForEvent('page', { timeout: 10000 }).catch(() => null);
-  await searchInput.fill('test');
+  await searchInput.fill(testProviderLastName);
   await searchInput.press('Enter');
   const resultPage = await popupPromise;
   if (!resultPage) {

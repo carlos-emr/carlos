@@ -73,6 +73,9 @@ class ScheduleProviderSearchCsrfRegressionTest {
 
         assertThat(requestListener).isLessThan(searchSubmit);
         assertThat(browserCheck)
+                .contains("const testProviderLastName = process.env.TEST_PROVIDER_LAST_NAME || '';")
+                .contains("await searchInput.fill(testProviderLastName);")
+                .doesNotContain("await searchInput.fill('test');")
                 .contains("context.waitForEvent('page', { timeout: 10000 }).catch(() => null)")
                 .contains("if (!resultPage)")
                 .contains("type: 'missing-search-popup'")
