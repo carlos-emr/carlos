@@ -74,8 +74,16 @@
         <action name="form/setupSelect" class="io.github.carlos_emr.carlos.form.pageUtil.FrmSetupSelect2Action">
             <result name="continue">/WEB-INF/jsp/form/formselect.jsp</result>
         </action>
+        <!-- The Select Forms panel is loaded over AJAX into #dynamic-content, so the POST
+             response must carry the re-rendered panel. This must be a Struts chain, not a
+             servlet-dispatch result: forwarding to another action path nests a second FORWARD
+             dispatch inside the first, and CsrfGuardScriptInjectionFilter (FORWARD-mapped) then
+             wraps the response twice. The inner forward closes the outer capture wrapper's
+             writer, so the outer replay is discarded and the client receives HTTP 200 with a
+             zero-byte body. Chaining runs FrmSetupSelect2Action in the same invocation and
+             forwards exactly once — to formselect.jsp — matching the working GET route. -->
         <action name="form/select" class="io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action">
-            <result name="success">/form/setupSelect</result>
+            <result name="success" type="chain">form/setupSelect</result>
         </action>
         <action name="form/xmlUpload" class="io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action">
             <result name="success">/WEB-INF/jsp/form/formXmlUploadSuccess.jsp</result>

@@ -171,6 +171,10 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
                     "_admin.eform", "w"),
+            // Every forward value (add/delete/up/down) reorders encounter forms; the
+            // Select Forms panel itself is rendered by the separate form/setupSelect route.
+            Arguments.of("io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action",
+                    "_form", "w"),
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.AddEForm2Action",
                     "_eform", "w"),
             // --- encounter / consultation ---
@@ -360,6 +364,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
+        "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
