@@ -114,7 +114,20 @@ class HrmDevelopmentFixtureSeedRegressionTest {
 
         assertThat(result.exitCode()).isEqualTo(1);
         assertThat(result.output())
-                .contains("Invalid seeded HRM fixture path outside document directory");
+                .contains("Invalid seeded HRM fixture path outside document directory")
+                .contains("1 seeded HRM report(s) have invalid fixture paths")
+                .doesNotContain("have no document fixture");
+    }
+
+    @Test
+    @DisplayName("should report invalid paths separately from missing fixtures")
+    void shouldReportInvalidPathsSeparately_whenFixtureIsAlsoMissing() throws Exception {
+        ValidationResult result = runValidator("../outside.xml\nmissing.xml\n");
+
+        assertThat(result.exitCode()).isEqualTo(1);
+        assertThat(result.output())
+                .contains("1 seeded HRM report(s) have invalid fixture paths")
+                .contains("1 seeded HRM report(s) have no document fixture");
     }
 
     @Test
