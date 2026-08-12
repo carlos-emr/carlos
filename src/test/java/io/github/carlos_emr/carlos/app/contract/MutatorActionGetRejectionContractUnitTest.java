@@ -195,6 +195,8 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_admin.reporting", "w"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbReportAgeSex2Action",
                     "_report", "r"),
+            Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action",
+                    "_admin", "r"),
             // --- signature ---
             Arguments.of("io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2Action",
                     "_con", "w"),

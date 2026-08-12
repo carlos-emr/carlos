@@ -28,6 +28,14 @@
 <struts>
     <package name="form" namespace="/" extends="struts-default" strict-method-invocation="true">
 
+        <global-results>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+        </global-exception-mappings>
+
         <action name="web/dashboard/display/DashboardDisplay" class="io.github.carlos_emr.carlos.dashboard.display.DisplayDashboard2Action">
             <result name="success">/WEB-INF/jsp/web/dashboard/display/DashboardDisplay.jsp</result>
             <result name="unauthorized">/WEB-INF/jsp/error/securityError.jsp</result>
@@ -78,7 +86,8 @@
             <result name="success" type="chain">form/setupSelect</result>
         </action>
         <action name="form/xmlUpload" class="io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action">
-            <result name="success">/WEB-INF/jsp/form/formXmlUpload.jsp</result>
+            <result name="success">/WEB-INF/jsp/form/formXmlUploadSuccess.jsp</result>
+            <result name="error">/WEB-INF/jsp/form/formXmlUpload.jsp</result>
         </action>
         <action name="form/formname" class="io.github.carlos_emr.carlos.form.Frm2Action">
             <result name="exit">/WEB-INF/jsp/encounter/close.jsp</result>
@@ -109,6 +118,7 @@
             <result name="pg6">/WEB-INF/jsp/form/formBCAR2020Attachments.jsp</result>
             <result name="exit">/WEB-INF/jsp/encounter/close.jsp</result>
         </action>
+        <action name="form/formXmlUpload" class="io.github.carlos_emr.carlos.form.gate.ViewFormXmlUpload2Action"/>
         <action name="form/*" class="io.github.carlos_emr.carlos.form.gate.ViewForm2Action"/>
         <action name="admin/Flowsheet" class="io.github.carlos_emr.carlos.flowsheet.Flowsheet2Action"/>
 
