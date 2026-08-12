@@ -2667,11 +2667,10 @@ function updateCPPNote() {
         $("newIssueId").value = "";
         //notifyIssueUpdate();
 
-        // Refresh the encounter window's "Unresolved Issues" navbar section
-        var demographicNo = $("demographicNo").value;
-
+        // demographicNo is initialized by newEncounterLayout.jsp for the current encounter.
+        // The chart form does not always render an element with that id.
         if (typeof loadDiv === 'function' && demographicNo) {
-            var reloadUrl = ctx + "/encounter/displayIssues?demographicNo=" + demographicNo + "&cmd=unresolvedIssues&reloadURL=" + encodeURIComponent(ctx + "/encounter/displayIssues");
+            var reloadUrl = ctx + "/encounter/displayIssues?demographicNo=" + encodeURIComponent(demographicNo) + "&cmd=unresolvedIssues&reloadURL=" + encodeURIComponent(ctx + "/encounter/displayIssues");
             loadDiv('unresolvedIssueslist', reloadUrl, 0);
         }
     }
