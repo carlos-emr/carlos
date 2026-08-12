@@ -178,10 +178,14 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
       && /\/provider\/providercontrol(?:\?|$)/.test(request.url()),
     timeout: 30000,
   }).catch(() => null);
-  const popupPromise = context.waitForEvent('page', { timeout: 10000 });
+  const popupPromise = context.waitForEvent('page', { timeout: 10000 }).catch(() => null);
   await searchInput.fill('test');
   await searchInput.press('Enter');
   const resultPage = await popupPromise;
+  if (!resultPage) {
+    findings.push({ label: 'schedule-provider-search', type: 'missing-search-popup' });
+    return;
+  }
   wirePage(resultPage, 'schedule-provider-search');
   await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
 

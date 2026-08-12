@@ -73,6 +73,9 @@ class ScheduleProviderSearchCsrfRegressionTest {
 
         assertThat(requestListener).isLessThan(searchSubmit);
         assertThat(browserCheck)
+                .contains("context.waitForEvent('page', { timeout: 10000 }).catch(() => null)")
+                .contains("if (!resultPage)")
+                .contains("type: 'missing-search-popup'")
                 .contains("const providerLinkCount = await resultPage.locator(")
                 .contains("if (providerLinkCount > 1)")
                 .contains("const providerRequest = await requestPromise;");
