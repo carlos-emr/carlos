@@ -46,7 +46,7 @@
     </main>
     <script>
         setTimeout(function () {
-            window.location.href = "${pageContext.request.contextPath}/administration";
+            window.location.href = "${carlos:forJavaScript(pageContext.request.contextPath)}/administration";
         }, 3000);
     </script>
 </body>
