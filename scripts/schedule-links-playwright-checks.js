@@ -166,6 +166,44 @@ async function clickScheduleLink(context, schedulePage, linkSpec) {
   await assertNoErrorPage(targetPage, linkSpec.label);
 }
 
+async function selectProviderFromLastNameSearch(context, schedulePage) {
+  const searchInput = schedulePage.locator('form[name="findprovider"] input[name="providername"]');
+  if (!await searchInput.count()) {
+    findings.push({ label: 'schedule-provider-search', type: 'missing-search-input' });
+    return;
+  }
+
+  const popupPromise = context.waitForEvent('page', { timeout: 10000 });
+  await searchInput.fill('test');
+  await searchInput.press('Enter');
+  const resultPage = await popupPromise;
+  wirePage(resultPage, 'schedule-provider-search');
+  await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
+
+  const providerLink = resultPage.locator('a[onclick*="selectProvider("]').first();
+  if (!await providerLink.count()) {
+    findings.push({ label: 'schedule-provider-search', type: 'missing-provider-result' });
+    await resultPage.close();
+    return;
+  }
+
+  const responsePromise = resultPage.waitForResponse((response) => {
+    return response.request().method() === 'POST'
+      && /\/provider\/providercontrol(?:\?|$)/.test(response.url());
+  }, { timeout: 30000 });
+  await providerLink.click();
+  const response = await responsePromise;
+  const requestBody = response.request().postData() || '';
+
+  visited.push({ label: 'schedule-provider-search', url: response.url(), status: response.status() });
+  if (!new URLSearchParams(requestBody).get('CSRF-TOKEN')) {
+    findings.push({ label: 'schedule-provider-search', type: 'missing-csrf-token' });
+  }
+  await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
+  await assertNoErrorPage(resultPage, 'schedule-provider-search');
+  await resultPage.close();
+}
+
 (async () => {
   const launchOptions = {
     headless: true,
@@ -179,6 +217,8 @@ async function clickScheduleLink(context, schedulePage, linkSpec) {
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
     const schedulePage = await login(context);
+
+    await selectProviderFromLastNameSearch(context, schedulePage);
 
     for (const linkSpec of scheduleLinks) {
       await clickScheduleLink(context, schedulePage, linkSpec);

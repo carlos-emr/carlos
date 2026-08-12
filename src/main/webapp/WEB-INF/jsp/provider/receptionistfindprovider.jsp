@@ -38,6 +38,7 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -48,7 +49,7 @@
     String month = request.getParameter("pmonth") != null ? request.getParameter("pmonth") : "5";
     String day = request.getParameter("pday") != null ? request.getParameter("pday") : "8";
 %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -113,12 +114,29 @@
     <script language="JavaScript">
 
 
-        function selectProvider(p, pn) {
-            newGroupNo = p;
+        function selectProvider(p) {
+            var csrfToken = document.getElementById('providerSelectionCsrfToken');
+            if (!csrfToken || !csrfToken.value) {
+                console.error('Provider selection stopped because the CSRF token is unavailable.');
+                return false;
+            }
+
+            var newGroupNo = p;
             var form = document.createElement('form');
             form.method = 'post';
-            form.action = '<%= request.getContextPath() %>/provider/providercontrol';
-            var fields = {provider_no: '<%=curUser_no%>', start_hour: '<%=startHour%>', end_hour: '<%=endHour%>', every_min: '<%=everyMin%>', color_template: 'deepblue', dboperation: 'updatepreference', displaymode: 'updatepreference', default_servicetype: '<%=defaultServiceType%>', mygroup_no: newGroupNo};
+            form.action = '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>/provider/providercontrol';
+            var fields = {
+                provider_no: '<carlos:encode value='<%= curUser_no %>' context="javaScriptBlock"/>',
+                start_hour: '<%=startHour%>',
+                end_hour: '<%=endHour%>',
+                every_min: '<%=everyMin%>',
+                color_template: 'deepblue',
+                dboperation: 'updatepreference',
+                displaymode: 'updatepreference',
+                default_servicetype: '<carlos:encode value='<%= defaultServiceType %>' context="javaScriptBlock"/>',
+                mygroup_no: newGroupNo
+            };
+            fields[csrfToken.name] = csrfToken.value;
             for (var key in fields) {
                 var input = document.createElement('input');
                 input.type = 'hidden';
@@ -128,6 +146,7 @@
             }
             document.body.appendChild(form);
             form.submit();
+            return false;
         }
 
         function selectProviderCaisi(p, pn) {
@@ -150,6 +169,9 @@
 </head>
 <body bgcolor="ivory" bgproperties="fixed" onLoad="setfocus()"
       topmargin="0" leftmargin="0" rightmargin="0">
+
+<input type="hidden" id="providerSelectionCsrfToken"
+       name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr>
@@ -239,7 +261,7 @@
             </a></td>
             <%} else { %>
             <a href=#
-               onClick="selectProvider('<%=sp%>','<%=URLEncoder.encode(spnl+", "+spnf)%>')"><%=sp%>
+               onClick="return selectProvider('<carlos:encode value='<%= sp %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= sp %>' context="html"/>
             </a>
             </td>
             <%} %>
