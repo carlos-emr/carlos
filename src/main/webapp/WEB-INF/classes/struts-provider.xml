@@ -140,8 +140,14 @@
              Mutation gates (AddStatus, SaveDemographicAccessory, SaveMyGroup,
              ViewProviderUpdatePassword, ViewProviderUpdatePreference,
              ViewPreferenceAction, ViewProviderPreferenceQuickLinks,
-             ViewObarChecklistEdit, ViewObarRiskEdit, ViewStoreApptInSession)
-             enforce POST-only in the Action class. -->
+             ViewStoreApptInSession) enforce POST-only in the Action class.
+
+             ViewObarRiskEdit / ViewObarChecklistEdit were removed: they served
+             unlinked stale copies of the antenatal editors that still carried the
+             pre-hardening scriptlet writer (raw FileWriter, no XML validation,
+             gated only by _appointment w). The maintained equivalents are
+             decision/antenatal/obarriskedit_99_12 and
+             decision/antenatal/obarchecklistedit_99_12 in struts-clinical.xml. -->
         <action name="provider/AddStatus" class="io.github.carlos_emr.carlos.providers.gate.AddStatus2Action">
             <result name="success">/WEB-INF/jsp/provider/provideraddstatus.jsp</result>
         </action>
@@ -171,12 +177,6 @@
         </action>
         <action name="provider/ViewMainMenu" class="io.github.carlos_emr.carlos.providers.gate.ViewMainMenu2Action">
             <result name="success">/WEB-INF/jsp/provider/mainMenu.jsp</result>
-        </action>
-        <action name="provider/ViewObarChecklistEdit" class="io.github.carlos_emr.carlos.providers.gate.ViewObarChecklistEdit2Action">
-            <result name="success">/WEB-INF/jsp/provider/obarchecklistedit_99_12.jsp</result>
-        </action>
-        <action name="provider/ViewObarRiskEdit" class="io.github.carlos_emr.carlos.providers.gate.ViewObarRiskEdit2Action">
-            <result name="success">/WEB-INF/jsp/provider/obarriskedit_99_12.jsp</result>
         </action>
         <action name="provider/ViewPreferenceAction" class="io.github.carlos_emr.carlos.providers.gate.ViewPreferenceAction2Action">
             <result name="success">/WEB-INF/jsp/provider/preference_action.jsp</result>
