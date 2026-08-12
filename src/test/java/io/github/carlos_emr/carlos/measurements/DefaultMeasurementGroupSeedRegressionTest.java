@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DefaultMeasurementGroupSeedRegressionTest {
 
     private static final Path MIGRATION = Path.of("database", "mysql", "migration", "common",
-            "V1.0.7__seed_default_measurement_groups.sql");
+            "V1.0.9__seed_default_measurement_groups.sql");
     private static final Path DEVELOPMENT_SEED =
             Path.of(".devcontainer", "db", "scripts", "development.sql");
 
