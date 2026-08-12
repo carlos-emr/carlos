@@ -151,6 +151,26 @@ class AntenatalRiskConfigServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should refuse to replace a symbolic link at the configured path")
+    void shouldRefuse_whenTargetIsSymbolicLink() throws Exception {
+        Path target = temporaryDirectory.resolve(AntenatalRiskConfigService.FILE_NAME);
+        Path linkTarget = temporaryDirectory.resolve("elsewhere.xml");
+        try {
+            Files.createSymbolicLink(target, linkTarget);
+        } catch (UnsupportedOperationException | IOException e) {
+            return; // filesystem or platform without symlink support
+        }
+
+        // Dangling here, which is the case Files.exists() reports as absent — the
+        // save would otherwise have replaced the link itself with a regular file.
+        assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save(VALID_XML))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("symbolic link");
+        assertThat(Files.isSymbolicLink(target)).isTrue();
+        assertThat(Files.exists(linkTarget)).isFalse();
+    }
+
+    @Test
     @DisplayName("should refuse to replace an unreadable existing configuration")
     void shouldRefuse_whenExistingConfigurationIsUnreadable() throws Exception {
         Path target = originalTarget();

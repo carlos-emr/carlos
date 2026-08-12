@@ -358,6 +358,14 @@ public final class AntenatalRiskConfigService {
         if (parent == null || !Files.isDirectory(parent)) {
             throw new IOException("The configured document directory is unavailable.");
         }
+        // A rename replaces the name, not what a link points at, so promoting the
+        // temporary file over a symlink would silently discard an operator's
+        // indirection and leave the real file stale. Checked first because
+        // Files.exists() follows links and reports false for a dangling one.
+        if (Files.isSymbolicLink(target)) {
+            throw new IOException(
+                    "The configured risk-list path is a symbolic link and was not replaced.");
+        }
         // Refuse to replace something that is not a readable regular file. The mode is
         // carried onto the replacement below, so an unreadable target would produce a
         // save that reports success while every reader silently falls back to the
