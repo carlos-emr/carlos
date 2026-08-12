@@ -49,7 +49,10 @@ class CaseManagementCppSaveRegressionTest {
 
         int callbackStart = js.indexOf("function onIssueUpdate()");
         assertThat(callbackStart).as("CPP issue update callback must exist").isGreaterThan(0);
-        int callbackEnd = js.indexOf("\n    }", callbackStart);
+        // Bound the slice by the next function declaration rather than by a specific
+        // indentation of the closing brace, which a reformat would silently break.
+        int nextFunction = js.indexOf("function ", callbackStart + 1);
+        int callbackEnd = nextFunction < 0 ? js.length() : nextFunction;
         assertThat(callbackEnd).isGreaterThan(callbackStart);
         String callbackBody = js.substring(callbackStart, callbackEnd);
 
@@ -75,6 +78,21 @@ class CaseManagementCppSaveRegressionTest {
                 .doesNotContain("fn:escapeXml(noteTxt)")
                 .contains("${carlos:forJavaScriptBlock(noteTxt)}")
                 .contains("${carlos:forJavaScriptBlock(caseManagementEntryForm.caseNote.encounter_type)}");
+    }
+
+    @Test
+    @DisplayName("Note styling should read the note index from page scope, not the empty scriptlet local (#3422)")
+    void shouldReadNoteIndexFromPageScope_forNoteStyling() throws IOException {
+        String jsp = Files.readString(NOTE_ISSUE_LIST_JSP, StandardCharsets.UTF_8);
+
+        // The scriptlet declares `String noteIndex = ""` and never reassigns it, while
+        // <c:set var="noteIndex"> carries the real index in page scope. Reading the
+        // scriptlet local yielded the element id "bgColour", which never resolves, so
+        // note colour styling silently no-opped.
+        assertThat(jsp)
+                .doesNotContain("<%=noteIndex%>")
+                .contains("\"bgColour\" + \"${carlos:forJavaScriptBlock(noteIndex)}\"")
+                .contains("\"summary\" + \"${carlos:forJavaScriptBlock(noteIndex)}\"");
     }
 
     private static Path resolveProjectPath(Path relativePath) {

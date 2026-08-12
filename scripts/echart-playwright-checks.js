@@ -82,11 +82,8 @@ function isExpectedMissingFixtureImage(status, responseUrl) {
 function isBlockingConsoleMessage(message) {
   const text = message.text();
   const locationUrl = message.location().url || '';
-  if (message.type() === 'error' && /\/imageRenderingServlet\?/.test(locationUrl)) {
-    return false;
-  }
   if (message.type() === 'error') {
-    return true;
+    return !/\/imageRenderingServlet\?/.test(locationUrl);
   }
   return /(ReferenceError|SyntaxError|TypeError|MAXNOTES|notesLoading|encMainDiv|newNoteImg|Cannot read properties)/i.test(text);
 }
@@ -272,6 +269,10 @@ function isExpectedNoteLockDialog(issue) {
       }
     }
 
+    // A failed request is the root cause of most save timeouts, so report it before
+    // the save/cleanup errors, which would otherwise surface only as an opaque wait.
+    assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
+
     if (saveFailure && cleanupFailure) {
       throw new AggregateError([saveFailure, cleanupFailure], 'Social History save and cleanup both failed');
     }
@@ -282,7 +283,6 @@ function isExpectedNoteLockDialog(issue) {
       throw new Error(`saved Social History cleanup failed: ${cleanupFailure.message}`, { cause: cleanupFailure });
     }
 
-    assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
     const fatalConsoleIssues = consoleIssues
       .filter((issue) => !isExpectedNoteLockDialog(issue));
     assert(fatalConsoleIssues.length === 0,
