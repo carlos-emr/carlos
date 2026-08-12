@@ -71,6 +71,20 @@ function safeGoto(page, appPath, options) {
   return page.goto(appUrl(appPath), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
 }
 
+async function responseWithTimeout(request, timeoutMs) {
+  let timeoutId;
+  try {
+    return await Promise.race([
+      request.response(),
+      new Promise((resolve) => {
+        timeoutId = setTimeout(() => resolve(null), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 function isExpectedMissingAsset(status, responseUrl) {
   return status === 404 && (/\/imageRenderingServlet\?/.test(responseUrl) || /\/favicon\.ico$/.test(responseUrl));
 }
@@ -215,7 +229,7 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
     await resultPage.close();
     return;
   }
-  const response = await providerRequest.response();
+  const response = await responseWithTimeout(providerRequest, 30000);
   const requestBody = providerRequest.postData() || '';
 
   visited.push({

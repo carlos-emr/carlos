@@ -85,6 +85,9 @@ class ScheduleProviderSearchCsrfRegressionTest {
                 .contains("let providerRequest = await Promise.race(")
                 .contains("if (!providerRequest && await providerLink.count())")
                 .contains("providerRequest = providerRequest || await requestPromise;")
+                .contains("responseWithTimeout(providerRequest, 30000)")
+                .contains("get('CSRF-TOKEN')")
+                .contains("type: 'missing-csrf-token'")
                 .contains("response.status() >= 400")
                 .contains("finding.type === 'http'");
     }
