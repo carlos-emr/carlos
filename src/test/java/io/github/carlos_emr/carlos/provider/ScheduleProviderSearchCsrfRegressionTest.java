@@ -30,6 +30,8 @@ class ScheduleProviderSearchCsrfRegressionTest {
     private static final Path PROVIDER_SEARCH = projectRoot().resolve(Path.of(
             "src", "main", "webapp", "WEB-INF", "jsp", "provider",
             "receptionistfindprovider.jsp"));
+    private static final Path SCHEDULE_BROWSER_CHECK = projectRoot().resolve(Path.of(
+            "scripts", "schedule-links-playwright-checks.js"));
 
     @Test
     @DisplayName("should include server-rendered CSRF token in provider selection POST")
@@ -59,6 +61,21 @@ class ScheduleProviderSearchCsrfRegressionTest {
         assertThat(missingTokenGuard).isGreaterThan(tokenLookup).isLessThan(formCreation);
         assertThat(jsp.substring(missingTokenGuard, formCreation))
                 .contains("return false;");
+    }
+
+    @Test
+    @DisplayName("should capture provider POST before search can auto-select its only result")
+    void shouldCaptureProviderPost_beforeSearchCanAutoSelectOnlyResult() throws IOException {
+        String browserCheck = Files.readString(SCHEDULE_BROWSER_CHECK, StandardCharsets.UTF_8);
+        int requestListener = requiredIndex(browserCheck,
+                "const requestPromise = context.waitForEvent('request'");
+        int searchSubmit = requiredIndex(browserCheck, "await searchInput.press('Enter');");
+
+        assertThat(requestListener).isLessThan(searchSubmit);
+        assertThat(browserCheck)
+                .contains("const providerLinkCount = await resultPage.locator(")
+                .contains("if (providerLinkCount > 1)")
+                .contains("const providerRequest = await requestPromise;");
     }
 
     private static int requiredIndex(String source, String token) {

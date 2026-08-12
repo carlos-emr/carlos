@@ -173,6 +173,11 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
     return;
   }
 
+  const requestPromise = context.waitForEvent('request', {
+    predicate: (request) => request.method() === 'POST'
+      && /\/provider\/providercontrol(?:\?|$)/.test(request.url()),
+    timeout: 30000,
+  }).catch(() => null);
   const popupPromise = context.waitForEvent('page', { timeout: 10000 });
   await searchInput.fill('test');
   await searchInput.press('Enter');
@@ -181,21 +186,28 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
   await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
 
   const providerLink = resultPage.locator('a[onclick*="selectProvider("]').first();
-  if (!await providerLink.count()) {
+  const providerLinkCount = await resultPage.locator('a[onclick*="selectProvider("]').count();
+  if (providerLinkCount > 1) {
+    await providerLink.click();
+  }
+
+  const providerRequest = await requestPromise;
+  if (!providerRequest) {
     findings.push({ label: 'schedule-provider-search', type: 'missing-provider-result' });
     await resultPage.close();
     return;
   }
+  const response = await providerRequest.response();
+  const requestBody = providerRequest.postData() || '';
 
-  const responsePromise = resultPage.waitForResponse((response) => {
-    return response.request().method() === 'POST'
-      && /\/provider\/providercontrol(?:\?|$)/.test(response.url());
-  }, { timeout: 30000 });
-  await providerLink.click();
-  const response = await responsePromise;
-  const requestBody = response.request().postData() || '';
-
-  visited.push({ label: 'schedule-provider-search', url: response.url(), status: response.status() });
+  visited.push({
+    label: 'schedule-provider-search',
+    url: providerRequest.url(),
+    status: response ? response.status() : null,
+  });
+  if (!response) {
+    findings.push({ label: 'schedule-provider-search', type: 'provider-post-no-response' });
+  }
   if (!new URLSearchParams(requestBody).get('CSRF-TOKEN')) {
     findings.push({ label: 'schedule-provider-search', type: 'missing-csrf-token' });
   }
