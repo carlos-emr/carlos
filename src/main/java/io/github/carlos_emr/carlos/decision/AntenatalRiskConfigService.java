@@ -358,6 +358,15 @@ public final class AntenatalRiskConfigService {
         if (parent == null || !Files.isDirectory(parent)) {
             throw new IOException("The configured document directory is unavailable.");
         }
+        // Refuse to replace something that is not a readable regular file. The mode is
+        // carried onto the replacement below, so an unreadable target would produce a
+        // save that reports success while every reader silently falls back to the
+        // packaged default — the editor and the planner would then disagree with no
+        // signal to either. Surfacing it as a storage error is the honest outcome.
+        if (Files.exists(target) && !(Files.isRegularFile(target) && Files.isReadable(target))) {
+            throw new IOException(
+                    "The existing risk-list configuration is not a readable file and was not replaced.");
+        }
 
         Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
         try {

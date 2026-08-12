@@ -6,6 +6,7 @@ package io.github.carlos_emr.carlos.decision;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -135,6 +136,37 @@ class AntenatalRiskConfigServiceUnitTest {
         // The atomic replacement must not silently tighten a file the operator left
         // readable for a sibling instance or backup tooling.
         assertThat(Files.getPosixFilePermissions(target)).isEqualTo(groupReadable);
+    }
+
+    @Test
+    @DisplayName("should refuse to replace a target that is not a regular file")
+    void shouldRefuse_whenTargetIsNotARegularFile() throws Exception {
+        Path target = temporaryDirectory.resolve(AntenatalRiskConfigService.FILE_NAME);
+        Files.createDirectory(target);
+
+        assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save(VALID_XML))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("not a readable file");
+        assertThat(Files.isDirectory(target)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should refuse to replace an unreadable existing configuration")
+    void shouldRefuse_whenExistingConfigurationIsUnreadable() throws Exception {
+        Path target = originalTarget();
+        try {
+            Files.setPosixFilePermissions(target, PosixFilePermissions.fromString("-w--w--w-"));
+        } catch (UnsupportedOperationException e) {
+            return; // non-POSIX filesystem
+        }
+        // A privileged process ignores the mode bits, so there is nothing to assert.
+        assumeTrue(!Files.isReadable(target), "running as a user that bypasses file permissions");
+
+        // Otherwise the mode would be carried onto the replacement and every reader
+        // would fall back to the packaged default while the save reported success.
+        assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save(VALID_XML))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("not a readable file");
     }
 
     @Test
