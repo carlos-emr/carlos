@@ -7,6 +7,9 @@ package io.github.carlos_emr.carlos.decision.gate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -17,6 +20,7 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -25,12 +29,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import io.github.carlos_emr.carlos.decision.AntenatalRiskConfigService;
 import io.github.carlos_emr.carlos.decision.AntenatalRiskConfigService.InvalidConfigurationException;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -41,6 +48,7 @@ class SaveAntenatalRiskConfig2ActionUnitTest {
 
     private MockedStatic<ServletActionContext> servletContext;
     private MockedStatic<LoggedInInfo> loggedInContext;
+    private MockedStatic<LogAction> auditLog;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private SecurityInfoManager securityInfoManager;
@@ -64,6 +72,8 @@ class SaveAntenatalRiskConfig2ActionUnitTest {
         loggedInContext = mockStatic(LoggedInInfo.class);
         loggedInContext.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
+        // The audit entry writes through a DAO; stub it out so these stay unit tests.
+        auditLog = mockStatic(LogAction.class);
 
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_form", "w", null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
@@ -72,6 +82,7 @@ class SaveAntenatalRiskConfig2ActionUnitTest {
 
     @AfterEach
     void tearDown() {
+        auditLog.close();
         loggedInContext.close();
         servletContext.close();
     }
@@ -113,21 +124,45 @@ class SaveAntenatalRiskConfig2ActionUnitTest {
                 .isEqualTo(Boolean.TRUE);
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
     @DisplayName("should reject non-POST requests without invoking persistence")
-    void shouldReject_nonPostRequest() throws Exception {
-        request.setMethod("GET");
+    void shouldReject_nonPostRequest(String method) throws Exception {
+        request.setMethod(method);
 
-        assertThat(action.execute()).isEqualTo("methodNotAllowed");
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
         verifyNoInteractions(securityInfoManager);
         verify(configService, never()).save(any());
     }
 
     @Test
+    @DisplayName("should audit the configuration replacement only after a successful store")
+    void shouldAudit_onSuccessfulSave() throws Exception {
+        action.execute();
+
+        auditLog.verify(() -> LogAction.addLogSynchronous(
+                eq(loggedInInfo),
+                eq("update.antenatalRiskConfig"),
+                anyString()));
+    }
+
+    @Test
+    @DisplayName("should not audit when the store fails")
+    void shouldNotAudit_whenStoreFails() throws Exception {
+        doThrow(new IOException("disk full"))
+                .when(configService).save("<riskFactors/>");
+
+        action.execute();
+
+        auditLog.verifyNoInteractions();
+    }
+
+    @Test
     @DisplayName("should redisplay submitted XML after a validation failure")
     void shouldRedisplay_validationFailure() throws Exception {
-        org.mockito.Mockito.doThrow(new InvalidConfigurationException("invalid structure"))
+        doThrow(new InvalidConfigurationException("invalid structure"))
                 .when(configService).save("<riskFactors/>");
 
         String result = action.execute();
@@ -140,7 +175,7 @@ class SaveAntenatalRiskConfig2ActionUnitTest {
     @Test
     @DisplayName("should report a generic failure and preserve submitted XML after an I/O error")
     void shouldRedisplay_writeFailure() throws Exception {
-        org.mockito.Mockito.doThrow(new IOException("filesystem details"))
+        doThrow(new IOException("filesystem details"))
                 .when(configService).save("<riskFactors/>");
 
         String result = action.execute();

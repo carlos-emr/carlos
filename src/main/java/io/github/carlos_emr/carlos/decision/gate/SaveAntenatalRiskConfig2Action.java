@@ -20,6 +20,7 @@ import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.decision.AntenatalRiskConfigService;
 import io.github.carlos_emr.carlos.decision.AntenatalRiskConfigService.InvalidConfigurationException;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -32,6 +33,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * a patient form. Callers therefore need both {@code _form w} and either
  * {@code _admin w} or {@code _admin.misc w}. Validation errors return the
  * submitted text to the editor without changing the current configuration.
+ *
+ * <p>A successful replacement is audited. This file drives risk prompts for every
+ * antenatal chart, so "who changed it, and when" has to survive the change; the
+ * document itself is not versioned, and the entry is written only after the
+ * atomic store succeeds.
  *
  * @since 2026-08-11
  */
@@ -57,9 +63,13 @@ public final class SaveAntenatalRiskConfig2Action extends ActionSupport {
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
-        if (!"POST".equals(request.getMethod())) {
+        // Rejected with sendError + NONE rather than a "methodNotAllowed" result so
+        // that MutatorActionGetRejectionContractUnitTest's discovery scan — which
+        // keys on the SC_METHOD_NOT_ALLOWED reference — can see this mutator.
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.setHeader("Allow", "POST");
-            return "methodNotAllowed";
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -68,6 +78,8 @@ public final class SaveAntenatalRiskConfig2Action extends ActionSupport {
         String checklist = request.getParameter("checklist");
         try {
             configService.save(checklist);
+            LogAction.addLogSynchronous(loggedInInfo, "update.antenatalRiskConfig",
+                    "antenatal risk-list configuration replaced");
             request.getSession().setAttribute(SAVED_FLASH_ATTRIBUTE, Boolean.TRUE);
             return SUCCESS;
         } catch (InvalidConfigurationException e) {

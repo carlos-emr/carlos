@@ -211,8 +211,13 @@ public class DesAntenatalPlannerRisksHandler_99_12 extends DefaultHandler {
                     + "'></font></td><td width=" + 100 / numcols + "% >";
             riskNameObj.setProperty(riskName, "checked");
         }
+        // The configuration file is not a trusted artifact: it predates save-side
+        // validation and is writable outside the editor. Escaping alone would not
+        // help here -- popupPage() hands the value to window.open(), where a
+        // javascript: URL runs in this page's origin -- so an unsafe link is
+        // dropped and the label renders as plain text.
         String configuredHref = atts.getValue("href");
-        if (configuredHref != null) {
+        if (AntenatalRiskLink.isSafe(configuredHref)) {
             String popupScript = "popupPage(400,500,'"
                     + SafeEncode.forJavaScript(configuredHref) + "');return false;";
             results += "<a href=\"#\" onclick=\""

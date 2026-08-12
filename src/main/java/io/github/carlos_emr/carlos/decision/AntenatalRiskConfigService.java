@@ -15,8 +15,7 @@ package io.github.carlos_emr.carlos.decision;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -24,8 +23,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Locale;
+import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -74,12 +74,19 @@ public final class AntenatalRiskConfigService {
     private static final Set<String> SUBSECTION_CHILDREN =
             Set.of("subsection_title", "risk", "entry", "heading");
 
-    private final Path target;
+    private final TargetResolver targetResolver;
     private final AtomicMover atomicMover;
 
-    /** Creates a service backed by the configured CARLOS document directory. */
+    /**
+     * Creates a service backed by the configured CARLOS document directory.
+     *
+     * <p>{@code DOCUMENT_DIR} is read lazily, on save. Struts instantiates this
+     * action's collaborators per request, so resolving it here would turn a
+     * missing property into a construction failure — an error page for every
+     * request to the route, including the GET that should simply be a 405.
+     */
     public AntenatalRiskConfigService() {
-        this(configuredTarget(), AntenatalRiskConfigService::moveAtomically);
+        this(AntenatalRiskConfigService::configuredTarget, AntenatalRiskConfigService::moveAtomically);
     }
 
     AntenatalRiskConfigService(Path target) {
@@ -87,7 +94,11 @@ public final class AntenatalRiskConfigService {
     }
 
     AntenatalRiskConfigService(Path target, AtomicMover atomicMover) {
-        this.target = target.toAbsolutePath().normalize();
+        this(() -> target, atomicMover);
+    }
+
+    private AntenatalRiskConfigService(TargetResolver targetResolver, AtomicMover atomicMover) {
+        this.targetResolver = targetResolver;
         this.atomicMover = atomicMover;
     }
 
@@ -100,8 +111,44 @@ public final class AntenatalRiskConfigService {
      */
     public void save(String submittedXml) throws InvalidConfigurationException, IOException {
         Document document = parseAndValidate(submittedXml);
+        dropIgnorableWhitespace(document);
         byte[] serialized = serialize(document);
         writeAtomically(serialized);
+    }
+
+    /**
+     * Removes whitespace-only text nodes from element-content parents, so that
+     * re-saving a stored document reproduces it byte for byte.
+     *
+     * <p>{@code INDENT=yes} only reindents cleanly if the serializer discards the
+     * indentation the previous save already wrote. Saxon — the implementation
+     * {@code TransformerFactory.newInstance()} picks up from the WAR — does that
+     * for us, but the JDK's built-in serializer does not: it layers new
+     * indentation on top of the old, so the stock 51-line document reaches 134
+     * lines after four saves and grows toward {@link #MAX_XML_BYTES}. Pinning
+     * the normalization here keeps the round trip a fixed point without
+     * depending on which serializer wins on the classpath. The grammar has no
+     * mixed content — a container holds elements, a leaf holds text — so
+     * whitespace between elements carries no meaning.
+     */
+    private static void dropIgnorableWhitespace(Node parent) {
+        boolean elementContent = false;
+        for (Node child = parent.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNodeType() == Node.ELEMENT_NODE) {
+                elementContent = true;
+                break;
+            }
+        }
+
+        List<Node> removable = new ArrayList<>();
+        for (Node child = parent.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (elementContent && child.getNodeType() == Node.TEXT_NODE && child.getTextContent().isBlank()) {
+                removable.add(child);
+            } else if (child.getNodeType() == Node.ELEMENT_NODE) {
+                dropIgnorableWhitespace(child);
+            }
+        }
+        removable.forEach(parent::removeChild);
     }
 
     // FindSecBugs XXE_DOCUMENT: the parser comes from XmlUtils, which requires DOCTYPE rejection and disables external entities.
@@ -255,27 +302,10 @@ public final class AntenatalRiskConfigService {
         }
     }
 
-    // FindSecBugs IMPROPER_UNICODE: URI schemes are an ASCII protocol token and are folded with Locale.ROOT before an exact allowlist check.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-folding a parsed ASCII URI scheme with Locale.ROOT before an exact HTTP/HTTPS allowlist check")
     private static void validateHref(Element element) throws InvalidConfigurationException {
-        if (!element.hasAttribute("href")) {
-            return;
-        }
-
-        String href = element.getAttribute("href");
-        if (href.isBlank() || href.length() > 2048 || href.startsWith("//") || href.indexOf('\\') >= 0) {
-            throw new InvalidConfigurationException("Links must be HTTP(S) URLs or same-origin relative paths.");
-        }
-        try {
-            URI uri = new URI(href);
-            if (uri.isAbsolute()) {
-                String scheme = uri.getScheme().toLowerCase(Locale.ROOT);
-                if (!"http".equals(scheme) && !"https".equals(scheme)) {
-                    throw new InvalidConfigurationException("Links must use HTTP or HTTPS.");
-                }
-            }
-        } catch (URISyntaxException e) {
-            throw new InvalidConfigurationException("Links must be valid URIs.", e);
+        if (element.hasAttribute("href") && !AntenatalRiskLink.isSafe(element.getAttribute("href"))) {
+            throw new InvalidConfigurationException(
+                    "Links must be HTTP or HTTPS URLs, or same-origin relative paths.");
         }
     }
 
@@ -308,15 +338,22 @@ public final class AntenatalRiskConfigService {
     // FindSecBugs PATH_TRAVERSAL_IN: the parent path comes from trusted DOCUMENT_DIR configuration and the filename is constant, never request input.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "temporary file parent is derived from trusted DOCUMENT_DIR configuration and a constant filename, not user-controllable input")
     private void writeAtomically(byte[] serialized) throws IOException {
+        Path target = targetResolver.resolve().toAbsolutePath().normalize();
         Path parent = target.getParent();
         if (parent == null || !Files.isDirectory(parent)) {
             throw new IOException("The configured document directory is unavailable.");
         }
 
+        // Created 0600 by createTempFile, and ATOMIC_MOVE carries that through to the
+        // replacement — deliberately tighter than the umask the previous FileWriter
+        // left. Only this process reads the file; loosen it here if external tooling
+        // ever needs to.
         Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
         try {
-            Files.write(temporary, serialized, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
-            try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE)) {
+            try (FileChannel channel = FileChannel.open(
+                    temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                channel.write(ByteBuffer.wrap(serialized));
+                // Durable before the rename, so a crash cannot expose a truncated file.
                 channel.force(true);
             }
             atomicMover.move(temporary, target);
@@ -333,12 +370,19 @@ public final class AntenatalRiskConfigService {
         }
     }
 
-    private static Path configuredTarget() {
+    private static Path configuredTarget() throws IOException {
         String documentDirectory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (documentDirectory == null || documentDirectory.isBlank()) {
-            throw new IllegalStateException("DOCUMENT_DIR is not configured");
+            // Reported as an I/O failure so a misconfigured install shows the
+            // editor's "could not be saved" banner instead of a Struts error page.
+            throw new IOException("DOCUMENT_DIR is not configured.");
         }
         return Path.of(documentDirectory).resolve(FILE_NAME);
+    }
+
+    @FunctionalInterface
+    interface TargetResolver {
+        Path resolve() throws IOException;
     }
 
     @FunctionalInterface
@@ -348,6 +392,8 @@ public final class AntenatalRiskConfigService {
 
     /** A safe, user-displayable validation failure. */
     public static final class InvalidConfigurationException extends Exception {
+        private static final long serialVersionUID = 1L;
+
         public InvalidConfigurationException(String message) {
             super(message);
         }

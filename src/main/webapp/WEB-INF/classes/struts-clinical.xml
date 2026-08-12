@@ -46,7 +46,7 @@
         <!--
             Decision-support JSPs (annual review + antenatal planner/checklist/risk)
             all live under /WEB-INF/jsp/decision/ and route through
-            ViewDecision2Action, which enforces _forms r on GET and _forms w +
+            ViewDecision2Action, which enforces _form r on GET and _form w +
             POST when the request carries a "Save*" submit parameter. Most
             legacy save logic remains embedded in the JSPs. Antenatal risk-list
             mutation is the exception: it uses the dedicated POST-only action
@@ -82,9 +82,6 @@
                 <param name="actionName">decision/antenatal/obarriskedit_99_12</param>
             </result>
             <result name="input">/WEB-INF/jsp/decision/antenatal/obarriskedit_99_12.jsp</result>
-            <result name="methodNotAllowed" type="httpheader">
-                <param name="status">405</param>
-            </result>
         </action>
 
         <action name="encounter/MeasurementData" class="io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action"/>

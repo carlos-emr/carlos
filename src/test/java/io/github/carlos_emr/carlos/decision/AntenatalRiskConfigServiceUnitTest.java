@@ -86,6 +86,24 @@ class AntenatalRiskConfigServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should store byte-identical output when the stored document is saved again")
+    void shouldStoreIdenticalOutput_whenSavedRepeatedly() throws Exception {
+        Path target = temporaryDirectory.resolve(AntenatalRiskConfigService.FILE_NAME);
+        AntenatalRiskConfigService service = new AntenatalRiskConfigService(target);
+        service.save(Files.readString(resolveProjectPath(DEFAULT_RISK_CONFIG), StandardCharsets.UTF_8));
+        String firstSave = Files.readString(target, StandardCharsets.UTF_8);
+
+        // Re-saving what the editor now shows must be a fixed point. A serializer
+        // that layers new indentation over the indentation of the previous save
+        // (the JDK's built-in one does) grows the document on every edit.
+        for (int round = 0; round < 3; round++) {
+            service.save(Files.readString(target, StandardCharsets.UTF_8));
+            assertThat(Files.readString(target, StandardCharsets.UTF_8)).isEqualTo(firstSave);
+        }
+        assertThat(firstSave.lines().filter(String::isBlank)).isEmpty();
+    }
+
+    @Test
     @DisplayName("should reject injected elements without changing the current file")
     void shouldReject_injectedElements() throws Exception {
         Path target = originalTarget();
@@ -126,18 +144,111 @@ class AntenatalRiskConfigServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should reject unknown attributes and unsafe link schemes")
-    void shouldReject_unsupportedMarkup() throws Exception {
+    @DisplayName("should reject an attribute outside the allowlist")
+    void shouldReject_unknownAttribute() throws Exception {
         Path target = originalTarget();
         String unknownAttribute = VALID_XML.replace("name=\"risk101\"", "name=\"risk101\" onclick=\"alert(1)\"");
-        String unsafeLink = VALID_XML.replace("https://example.test/risk", "javascript:alert(1)");
 
         assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save(unknownAttribute))
                 .isInstanceOf(InvalidConfigurationException.class)
                 .hasMessageContaining("onclick");
+        assertThat(Files.readString(target)).isEqualTo("original");
+    }
+
+    @Test
+    @DisplayName("should reject an unsafe link scheme")
+    void shouldReject_unsafeLinkScheme() throws Exception {
+        Path target = originalTarget();
+        String unsafeLink = VALID_XML.replace("https://example.test/risk", "javascript:alert(1)");
+
         assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save(unsafeLink))
                 .isInstanceOf(InvalidConfigurationException.class)
                 .hasMessageContaining("HTTP");
+        assertThat(Files.readString(target)).isEqualTo("original");
+    }
+
+    @Test
+    @DisplayName("should reject a document larger than the accepted maximum")
+    void shouldReject_oversizedDocument() throws Exception {
+        Path target = originalTarget();
+        String padding = "x".repeat(AntenatalRiskConfigService.MAX_XML_BYTES);
+        String oversized = VALID_XML.replace("Stillbirth", "Stillbirth" + padding);
+
+        assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save(oversized))
+                .isInstanceOf(InvalidConfigurationException.class)
+                .hasMessageContaining("1 MiB");
+        assertThat(Files.readString(target)).isEqualTo("original");
+    }
+
+    @Test
+    @DisplayName("should reject a namespaced document")
+    void shouldReject_namespacedRoot() throws Exception {
+        Path target = originalTarget();
+        String namespaced = VALID_XML.replace("<riskFactors>", "<riskFactors xmlns=\"urn:example\">");
+
+        assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save(namespaced))
+                .isInstanceOf(InvalidConfigurationException.class);
+        assertThat(Files.readString(target)).isEqualTo("original");
+    }
+
+    @Test
+    @DisplayName("should reject a document with no section")
+    void shouldReject_documentWithoutSection() throws Exception {
+        Path target = originalTarget();
+
+        assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save("<riskFactors></riskFactors>"))
+                .isInstanceOf(InvalidConfigurationException.class)
+                .hasMessageContaining("at least one");
+        assertThat(Files.readString(target)).isEqualTo("original");
+    }
+
+    @Test
+    @DisplayName("should reject content outside the root element")
+    void shouldReject_contentOutsideRoot() throws Exception {
+        Path target = originalTarget();
+
+        assertThatThrownBy(() -> new AntenatalRiskConfigService(target)
+                .save("<?xml version=\"1.0\"?><?stylesheet href=\"x\"?>" + VALID_XML.replaceAll("<\\?xml[^>]*\\?>", "")))
+                .isInstanceOf(InvalidConfigurationException.class)
+                .hasMessageContaining("Only comments");
+        assertThat(Files.readString(target)).isEqualTo("original");
+    }
+
+    @Test
+    @DisplayName("should reject duplicate risk names")
+    void shouldReject_duplicateFieldNames() throws Exception {
+        Path target = originalTarget();
+        String duplicated = "<riskFactors><section><section_title>S</section_title>"
+                + "<risk name=\"dup\">One</risk><risk name=\"dup\">Two</risk></section></riskFactors>";
+
+        assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save(duplicated))
+                .isInstanceOf(InvalidConfigurationException.class)
+                .hasMessageContaining("unique");
+        assertThat(Files.readString(target)).isEqualTo("original");
+    }
+
+    @Test
+    @DisplayName("should reject a risk name outside the accepted pattern")
+    void shouldReject_invalidFieldName() throws Exception {
+        Path target = originalTarget();
+        String badName = VALID_XML.replace("name=\"risk101\"", "name=\"1 bad name\"");
+
+        assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save(badName))
+                .isInstanceOf(InvalidConfigurationException.class)
+                .hasMessageContaining("names must start with a letter");
+        assertThat(Files.readString(target)).isEqualTo("original");
+    }
+
+    @Test
+    @DisplayName("should reject a risk that is missing its required name")
+    void shouldReject_missingRequiredName() throws Exception {
+        Path target = originalTarget();
+        String missingName = "<riskFactors><section><section_title>S</section_title>"
+                + "<risk>Unnamed</risk></section></riskFactors>";
+
+        assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save(missingName))
+                .isInstanceOf(InvalidConfigurationException.class)
+                .hasMessageContaining("requires attribute name");
         assertThat(Files.readString(target)).isEqualTo("original");
     }
 
