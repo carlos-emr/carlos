@@ -302,6 +302,21 @@ class CarlosdocPrivilegeSeedRegressionTest {
                 .doesNotContainKey(key);
     }
 
+    @Test
+    @DisplayName("should preserve existing privilege when INSERT IGNORE targets the same key")
+    void shouldPreserveExistingPrivilege_whenInsertIgnoreTargetsSameKey() {
+        PrivilegeKey key = new PrivilegeKey("999998", "_admin.schedule.groupCreate");
+        String existingGrant = "INSERT INTO secObjPrivilege VALUES "
+                + "('999998','_admin.schedule.groupCreate','x',0,'999998');";
+        String ignoredDenial = "INSERT IGNORE INTO secObjPrivilege VALUES "
+                + "('999998','_admin.schedule.groupCreate','o',1,'999998');";
+
+        assertThat(effectivePrivileges(existingGrant, ignoredDenial))
+                .containsEntry(key, "x|0|999998");
+        assertThat(effectivePrivileges("", ignoredDenial))
+                .containsEntry(key, "o|1|999998");
+    }
+
     private static Map<PrivilegeKey, String> privileges(String sql) {
         Map<PrivilegeKey, String> privileges = new LinkedHashMap<>();
         Matcher insert = SEC_OBJ_PRIVILEGE_INSERT.matcher(sql);
@@ -350,7 +365,11 @@ class CarlosdocPrivilegeSeedRegressionTest {
             String statement = operation.group();
             Map<PrivilegeKey, String> insertedPrivileges = privileges(statement);
             if (!insertedPrivileges.isEmpty()) {
-                privileges.putAll(insertedPrivileges);
+                if (isInsertIgnore(statement)) {
+                    insertedPrivileges.forEach(privileges::putIfAbsent);
+                } else {
+                    privileges.putAll(insertedPrivileges);
+                }
                 continue;
             }
 
@@ -378,6 +397,12 @@ class CarlosdocPrivilegeSeedRegressionTest {
         }
 
         return privileges;
+    }
+
+    private static boolean isInsertIgnore(String statement) {
+        String normalizedStatement = statement.stripLeading();
+        return normalizedStatement.regionMatches(
+                true, 0, "INSERT IGNORE", 0, "INSERT IGNORE".length());
     }
 
     private static boolean matchesDeleteConditions(String encodedPrivilege, String conditions) {
