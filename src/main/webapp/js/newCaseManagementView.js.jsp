@@ -102,7 +102,8 @@
         openWindows[name] = window.open(page, name, windowprops);
 
         if (page.indexOf("/encounter/oscarMeasurements/SetupMeasurements") !== -1
-                || page.indexOf("/encounter/oscarMeasurements/ViewTemplateFlowSheet") !== -1) {
+                || page.indexOf("/encounter/oscarMeasurements/ViewTemplateFlowSheet") !== -1
+                || page.indexOf("/encounter/oscarMeasurements/ViewAddMeasurementData") !== -1) {
             registerMeasurementWindow(openWindows[name]);
         }
 

@@ -58,6 +58,8 @@ class MeasurementsJspEncodingRegressionTest {
             "newCaseManagementView.js.jsp"));
     private static final Path TEMPLATE_FLOWSHEET = resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF",
             "jsp", "encounter", "oscarMeasurements", "TemplateFlowSheetPage.jspf"));
+    private static final Path TEMPLATE_FLOWSHEET_PRINT = resolveProjectPath(Path.of("src", "main", "webapp",
+            "WEB-INF", "jsp", "encounter", "oscarMeasurements", "TemplateFlowSheetPrint.jsp"));
     private static final List<Path> RESOURCE_BUNDLES = List.of("en", "es", "fr", "pl", "pt_BR").stream()
             .map(locale -> resolveProjectPath(Path.of("src", "main", "resources", "oscarResources_" + locale + ".properties")))
             .toList();
@@ -161,6 +163,7 @@ class MeasurementsJspEncodingRegressionTest {
         String addMeasurementJsp = Files.readString(ADD_MEASUREMENT_JSP, StandardCharsets.UTF_8);
         String receiver = Files.readString(CASE_MANAGEMENT_RECEIVER, StandardCharsets.UTF_8);
         String templateFlowsheet = Files.readString(TEMPLATE_FLOWSHEET, StandardCharsets.UTF_8);
+        String templateFlowsheetPrint = Files.readString(TEMPLATE_FLOWSHEET_PRINT, StandardCharsets.UTF_8);
 
         assertThat(jsp)
                 .contains("if (!response.ok)")
@@ -173,6 +176,7 @@ class MeasurementsJspEncodingRegressionTest {
         assertThat(receiver)
                 .contains("page.indexOf(\"/encounter/oscarMeasurements/SetupMeasurements\")")
                 .contains("page.indexOf(\"/encounter/oscarMeasurements/ViewTemplateFlowSheet\")")
+                .contains("page.indexOf(\"/encounter/oscarMeasurements/ViewAddMeasurementData\")")
                 .contains("if (!isExpectedMeasurementSource(parentWindow))")
                 .contains("if (event.origin !== window.location.origin)")
                 .contains("if (!isExpectedMeasurementSource(event.source))")
@@ -181,6 +185,9 @@ class MeasurementsJspEncodingRegressionTest {
                 .contains("try {")
                 .contains("data = JSON.parse(data);");
         assertThat(templateFlowsheet)
+                .contains("window.opener.registerNestedMeasurementWindow(window, measurementPopup)");
+        assertThat(templateFlowsheetPrint)
+                .contains("openMeasurementPopup(465,635")
                 .contains("window.opener.registerNestedMeasurementWindow(window, measurementPopup)");
     }
 
