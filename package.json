@@ -39,6 +39,7 @@
     "test:consultation-signature-submit-playwright": "node scripts/consultation-signature-submit-playwright-checks.js",
     "test:prescription-signature-playwright": "node scripts/prescription-signature-playwright-checks.js",
     "test:report-demographic-navigation-playwright": "node scripts/report-demographic-navigation-playwright-checks.js",
+    "test:flowsheet-admin-playwright": "node scripts/flowsheet-admin-playwright-checks.js",
     "test:select-forms-panel-playwright": "node scripts/select-forms-panel-playwright-checks.js",
     "test:flu-billing-report-playwright": "node scripts/flu-billing-report-playwright-checks.js"
   },
