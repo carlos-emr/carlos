@@ -117,12 +117,23 @@ public final class AntenatalRiskConfigService {
         Document document = parseAndValidate(submittedXml);
         dropIgnorableWhitespace(document);
         byte[] serialized = serialize(document);
+        // Indentation can push a submission that was under the cap over it. Without
+        // this the editor would accept a document it then refuses to save again,
+        // stranding the administrator on a file they cannot edit.
+        if (serialized.length > MAX_XML_BYTES) {
+            throw new InvalidConfigurationException("The risk-list XML exceeds the 1 MiB limit.");
+        }
         writeAtomically(serialized);
     }
 
     /**
      * Removes whitespace-only text nodes from element-content parents, so that
-     * re-saving a stored document reproduces it byte for byte.
+     * re-saving a document this service produced reproduces it byte for byte.
+     *
+     * <p>The first save of a pre-existing override is a normalization, not a copy:
+     * a document that omits the encoding in its XML declaration, or that carries
+     * CDATA sections (which {@code validateTextOnly} accepts), is rewritten into
+     * this serializer's representation. Every save after that is a fixed point.
      *
      * <p>{@code INDENT=yes} only reindents cleanly if the serializer discards the
      * indentation the previous save already wrote. Saxon — the implementation

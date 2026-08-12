@@ -14,8 +14,10 @@ package io.github.carlos_emr.carlos.decision;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
@@ -41,15 +43,24 @@ public final class AntenatalConfigLocation {
      *
      * @param fileName configuration file name to resolve inside the directory
      * @return the absolute path the override would occupy, whether or not it exists
-     * @throws IOException when {@code DOCUMENT_DIR} is unset or blank; reported as an
-     *         I/O failure so callers surface a storage error rather than an error page
+     * @throws IOException when {@code DOCUMENT_DIR} is unset, blank, or not a usable
+     *         path; reported as an I/O failure so callers surface a storage error and
+     *         keep the submitted document, rather than an error page
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: the directory comes from trusted DOCUMENT_DIR configuration and the filename is a caller constant, never request input.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "directory is trusted DOCUMENT_DIR configuration and the filename is a constant supplied by the caller, not user-controllable input")
     public static Path configuredPath(String fileName) throws IOException {
         String documentDirectory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (documentDirectory == null || documentDirectory.isBlank()) {
             throw new IOException("DOCUMENT_DIR is not configured.");
         }
-        return Path.of(documentDirectory).resolve(fileName);
+        try {
+            return Path.of(documentDirectory).resolve(fileName);
+        } catch (InvalidPathException e) {
+            // Unchecked, so it would otherwise escape the save action's IOException
+            // handler and lose the administrator's submission to an error page.
+            throw new IOException("DOCUMENT_DIR is not a usable path.", e);
+        }
     }
 
     /**
@@ -64,6 +75,8 @@ public final class AntenatalConfigLocation {
      * @param fileName configuration file name to look for
      * @return the override file, or {@code null} to fall back to the packaged default
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: the directory comes from trusted DOCUMENT_DIR configuration and the filename is a caller constant, never request input.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "directory is trusted DOCUMENT_DIR configuration and the filename is a constant supplied by the caller, not user-controllable input")
     public static File readableOverride(String fileName) {
         String documentDirectory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (documentDirectory == null || documentDirectory.isBlank()) {

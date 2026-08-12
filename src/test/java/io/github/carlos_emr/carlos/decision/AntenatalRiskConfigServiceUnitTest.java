@@ -215,6 +215,26 @@ class AntenatalRiskConfigServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should reject a document that only exceeds the maximum once serialized")
+    void shouldReject_whenSerializedOutputExceedsMaximum() throws Exception {
+        Path target = originalTarget();
+        // Under the cap as submitted; indentation added during serialization pushes it
+        // over. Accepting it would store a document the editor then refuses to re-save.
+        StringBuilder risks = new StringBuilder();
+        for (int i = 0; risks.length() < AntenatalRiskConfigService.MAX_XML_BYTES - 20_000; i++) {
+            risks.append("<risk name=\"risk").append(i).append("\">Risk ").append(i).append("</risk>");
+        }
+        String nearLimit = "<riskFactors><section><section_title>S</section_title>"
+                + risks + "</section></riskFactors>";
+        assertThat(nearLimit.length()).isLessThan(AntenatalRiskConfigService.MAX_XML_BYTES);
+
+        assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save(nearLimit))
+                .isInstanceOf(InvalidConfigurationException.class)
+                .hasMessageContaining("1 MiB");
+        assertThat(Files.readString(target)).isEqualTo("original");
+    }
+
+    @Test
     @DisplayName("should reject a namespaced document")
     void shouldReject_namespacedRoot() throws Exception {
         Path target = originalTarget();
