@@ -191,6 +191,8 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_admin.reporting", "w"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbReportAgeSex2Action",
                     "_report", "r"),
+            Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action",
+                    "_admin", "r"),
             // --- signature ---
             Arguments.of("io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2Action",
                     "_con", "w"),
@@ -280,6 +282,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // Security/MFA: execute() renders a view on a bare GET; only the method=resetMfa dispatch
         // (a privileged reset of another account's MFA) is POST-only (see MfaActions2ActionUnitTest).
         "io.github.carlos_emr.carlos.security.MfaActions2Action",
+        // Demographic: AddRelation popup renders on a bare GET; only linkingDemo+relation mutation
+        // intent is POST-only (see AddDemographicRelationship2ActionUnitTest). Issue #3352.
+        "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action",
         // Appointment types: a bare GET (and oper=edit) renders the list/edit form; only
         // oper=save and oper=del are POST-only (see AppointmentType2ActionUnitTest).
         "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action"
@@ -378,7 +383,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action",
         // security slice: MfaActions2Action's resetMfa is a POST-only privileged mutation; the security
         // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
-        "io.github.carlos_emr.carlos.security.MfaActions2Action"
+        "io.github.carlos_emr.carlos.security.MfaActions2Action",
+        // demographic slice: AddDemographicRelationship2Action is the only migrated mutator gated so
+        // far; the demographic package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
+        "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
