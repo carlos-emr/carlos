@@ -58,7 +58,7 @@
     @since 2026-08-11
 --%>
 <%@ page import="java.util.*, java.io.*, java.nio.charset.StandardCharsets, java.nio.file.Files" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.decision.AntenatalConfigLocation" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <html>
@@ -136,15 +136,10 @@
     // site that had never saved an override opened this editor on an empty box
     // with no way back to the packaged default, even though the planner was
     // rendering that default at the same moment.
-    // A null or blank DOCUMENT_DIR would make new File(parent, child) resolve the
-    // bare filename against the JVM's working directory, so an unrelated file there
-    // could be loaded as configuration. Treat it as "no override" instead.
-    String documentDirectory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-    File overrideFile = (documentDirectory == null || documentDirectory.isBlank())
-            ? null
-            : new File(documentDirectory, "desantenatalplannerrisks_99_12.xml");
+    File overrideFile = AntenatalConfigLocation.readableOverride(
+            "desantenatalplannerrisks_99_12.xml");
     Reader source = null;
-    if (overrideFile != null && overrideFile.isFile() && overrideFile.canRead()) {
+    if (overrideFile != null) {
         source = Files.newBufferedReader(overrideFile.toPath(), StandardCharsets.UTF_8);
     } else {
         // getResourceAsStream rather than getRealPath: the latter returns null when

@@ -37,6 +37,8 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import org.apache.logging.log4j.Logger;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
@@ -48,7 +50,7 @@ import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 /**
@@ -64,6 +66,8 @@ import io.github.carlos_emr.carlos.utility.XmlUtils;
  * @since 2026-08-11
  */
 public final class AntenatalRiskConfigService {
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     static final String FILE_NAME = "desantenatalplannerrisks_99_12.xml";
     static final int MAX_XML_BYTES = 1024 * 1024;
@@ -346,7 +350,6 @@ public final class AntenatalRiskConfigService {
 
         Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
         try {
-            carryOverPermissions(target, temporary);
             try (FileChannel channel = FileChannel.open(
                     temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
                 // write() may return a short count, so drain the buffer before the
@@ -358,9 +361,30 @@ public final class AntenatalRiskConfigService {
                 // Durable before the rename, so a crash cannot expose a truncated file.
                 channel.force(true);
             }
+            // After writing, never before: an existing config with no owner-write bit
+            // would otherwise make the temporary file unopenable and fail every save.
+            carryOverPermissions(target, temporary);
             atomicMover.move(temporary, target);
+            forceDirectory(parent);
         } finally {
             Files.deleteIfExists(temporary);
+        }
+    }
+
+    /**
+     * Flushes the rename itself, not just the bytes it points at.
+     *
+     * <p>{@code force(true)} on the temporary file makes its contents durable, but the
+     * directory entry created by the atomic move lives in the parent directory. Without
+     * this, a crash immediately after an acknowledged save can lose the rename and leave
+     * the previous document in place. Best effort: some platforms refuse to open a
+     * directory as a channel, and a save that is already complete must not fail for it.
+     */
+    private static void forceDirectory(Path directory) {
+        try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
+            channel.force(true);
+        } catch (IOException | UnsupportedOperationException e) {
+            logger.debug("Could not flush the document directory after the atomic move", e);
         }
     }
 
@@ -393,13 +417,11 @@ public final class AntenatalRiskConfigService {
     }
 
     private static Path configuredTarget() throws IOException {
-        String documentDirectory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        if (documentDirectory == null || documentDirectory.isBlank()) {
-            // Reported as an I/O failure so a misconfigured install shows the
-            // editor's "could not be saved" banner instead of a Struts error page.
-            throw new IOException("DOCUMENT_DIR is not configured.");
-        }
-        return Path.of(documentDirectory).resolve(FILE_NAME);
+        // Shared with the readers so the writer and the pages that display this file
+        // cannot disagree about where it lives. Reported as an I/O failure so a
+        // misconfigured install shows the editor's "could not be saved" banner
+        // instead of a Struts error page.
+        return AntenatalConfigLocation.configuredPath(FILE_NAME);
     }
 
     @FunctionalInterface

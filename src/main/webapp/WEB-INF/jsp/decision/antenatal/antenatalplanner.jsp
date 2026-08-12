@@ -43,6 +43,7 @@
 <jsp:useBean id="checklist" class="io.github.carlos_emr.carlos.decision.DesAntenatalPlannerChecklist_99_12" scope="page"/>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.decision.AntenatalConfigLocation" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Desaprisk" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DesapriskDao" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
@@ -115,15 +116,11 @@
     <%
             String riskFilePath = application.getRealPath("/decision/antenatal/desantenatalplannerrisks_99_12.xml");
 
-            // Resolved as a directory + filename pair, matching AntenatalRiskConfigService's
-            // Path.resolve: string concatenation missed the administrator's override whenever
-            // DOCUMENT_DIR had no trailing separator. A blank value means "no override" rather
-            // than a bare filename resolved against the working directory.
-            String documentDirectory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-            File file = (documentDirectory == null || documentDirectory.isBlank())
-                    ? null
-                    : new File(documentDirectory, "desantenatalplannerrisks_99_12.xml");
-            if (file != null && (file.isFile() || file.canRead())) {
+            // Override precedence, blank-directory handling and the readable-regular-file
+            // check all live in AntenatalConfigLocation so the readers and the writing
+            // service cannot drift apart again.
+            File file = AntenatalConfigLocation.readableOverride("desantenatalplannerrisks_99_12.xml");
+            if (file != null) {
                 riskFilePath = file.getAbsolutePath();
             }
 
@@ -162,15 +159,11 @@
                 <%
                     String riskFilePath = application.getRealPath("/decision/antenatal/desantenatalplannerrisks_99_12.xml");
 
-                    // Resolved as a directory + filename pair, matching AntenatalRiskConfigService's
-                    // Path.resolve: string concatenation missed the administrator's override whenever
-                    // DOCUMENT_DIR had no trailing separator. A blank value means "no override" rather
-                    // than a bare filename resolved against the working directory.
-                    String documentDirectory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-                    File file = (documentDirectory == null || documentDirectory.isBlank())
-                            ? null
-                            : new File(documentDirectory, "desantenatalplannerrisks_99_12.xml");
-                    if (file != null && (file.isFile() || file.canRead())) {
+                    // Override precedence, blank-directory handling and the readable-regular-file
+                    // check all live in AntenatalConfigLocation so the readers and the writing
+                    // service cannot drift apart again.
+                    File file = AntenatalConfigLocation.readableOverride("desantenatalplannerrisks_99_12.xml");
+                    if (file != null) {
                         riskFilePath = file.getAbsolutePath();
                     }
 
