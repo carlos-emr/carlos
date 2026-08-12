@@ -57,6 +57,20 @@ public class FrmSelect2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Applies the requested Select Forms mutation and returns the setup route so Struts
+     * re-renders the panel markup for the administration AJAX shell.
+     *
+     * <p>This route is POST-only because every supported {@code forward} value mutates
+     * encounter form display order. The separate {@code form/setupSelect} action owns the
+     * read-only GET rendering path, so non-POST requests are rejected with HTTP 405 and
+     * {@code Allow: POST} before the privilege check to prevent CSRF-bypassing mutations.
+     *
+     * @return {@link #SUCCESS} after applying the requested mutation, or {@link #NONE}
+     *         after sending HTTP 405 for a non-POST request
+     * @throws ServletException if the servlet container rejects the error response
+     * @throws IOException if writing the HTTP 405 response fails
+     */
     @Override
     public String execute() throws ServletException, IOException {
         // Every branch below mutates encounter form display order, and CSRFGuard only

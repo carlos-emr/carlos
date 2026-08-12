@@ -29,6 +29,9 @@ const { chromium } = require('playwright');
 // Declared before the validateBaseUrl() call below: `const` bindings are in the
 // temporal dead zone until initialized, so a set declared further down the file
 // would throw when the validator runs at module load.
+// Only these literal loopback/devcontainer hosts count as local. RFC1918/private
+// IPs require ALLOW_NON_LOCAL_BASE_URL=true so the caller opts into a non-local
+// test target explicitly instead of being trusted by address range alone.
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -49,27 +52,11 @@ const MIN_PANEL_CHARS = 500;
 // Playwright resource types whose absence (404 only) is cosmetic for this check.
 const IGNORED_MISSING_RESOURCE_TYPES = new Set(['image', 'font', 'stylesheet', 'media']);
 
-// Matches a full dotted-quad IPv4 address only (anchored start-to-end), so a
-// hostname like "10.attacker.example" cannot be mistaken for the private
-// 10.0.0.0/8 range just because it starts with the same characters as one.
-function isPrivateIpv4(host) {
-  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (!match) {
-    return false;
-  }
-  const octets = match.slice(1).map(Number);
-  if (octets.some((octet) => octet > 255)) {
-    return false;
-  }
-  const [a, b] = octets;
-  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
-}
-
 function isLocalHost(rawHost) {
   // URL.hostname keeps the brackets on IPv6 literals (e.g. "[::1]"); strip
   // them so bracketed loopback addresses match the same as their bare form.
   const host = rawHost.toLowerCase().replace(/^\[|\]$/g, '');
-  return LOCAL_HOSTS.has(host) || isPrivateIpv4(host);
+  return LOCAL_HOSTS.has(host);
 }
 
 function validateBaseUrl(rawBaseUrl) {
@@ -306,7 +293,9 @@ async function restoreSubject(page, subject) {
   }
 
   const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({
+    ignoreHTTPSErrors: baseUrl.protocol === 'https:' && isLocalHost(baseUrl.hostname),
+  });
   let page = null;
   let subject = null;
   let subjectRestored = false;
