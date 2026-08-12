@@ -352,7 +352,12 @@ public final class AntenatalRiskConfigService {
         try {
             try (FileChannel channel = FileChannel.open(
                     temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
-                channel.write(ByteBuffer.wrap(serialized));
+                // write() may return a short count, so drain the buffer before the
+                // force/rename — otherwise a truncated document gets promoted.
+                ByteBuffer pending = ByteBuffer.wrap(serialized);
+                while (pending.hasRemaining()) {
+                    channel.write(pending);
+                }
                 // Durable before the rename, so a crash cannot expose a truncated file.
                 channel.force(true);
             }

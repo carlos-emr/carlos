@@ -67,7 +67,11 @@ public final class SaveAntenatalRiskConfig2Action extends ActionSupport {
         // Rejected with sendError + NONE rather than a "methodNotAllowed" result so
         // that MutatorActionGetRejectionContractUnitTest's discovery scan — which
         // keys on the SC_METHOD_NOT_ALLOWED reference — can see this mutator.
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        //
+        // Compared case-sensitively: RFC 9110 defines the method token as
+        // case-sensitive, and equalsIgnoreCase here raises a SpotBugs
+        // IMPROPER_UNICODE alert that would need a suppression to silence.
+        if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;

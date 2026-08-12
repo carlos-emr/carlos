@@ -51,8 +51,9 @@
       riskEditorSaved     - one-shot success flag consumed after a post/redirect/get
 
     Configuration source:
-      DOCUMENT_DIR override if present, otherwise the default packaged in the webapp
-      (resolved the same way antenatalplanner.jsp and antenatalplannerprint.jsp do).
+      DOCUMENT_DIR override if present, otherwise the default packaged in the webapp.
+      Same precedence as antenatalplanner.jsp and antenatalplannerprint.jsp, but the
+      packaged copy is read as a resource stream so it also works unexploded.
 
     @since 2026-08-11
 --%>
@@ -124,7 +125,7 @@
 <% if (submittedChecklist != null) {
        out.print(SafeEncode.forHtml(submittedChecklist));
    } else {
-    // Resolve exactly the way every reader of this configuration does (see
+    // Same precedence every reader of this configuration uses (see
     // antenatalplanner.jsp and antenatalplannerprint.jsp): an administrator's
     // DOCUMENT_DIR copy wins, otherwise show the default shipped in the webapp.
     //
@@ -135,18 +136,24 @@
     // site that had never saved an override opened this editor on an empty box
     // with no way back to the packaged default, even though the planner was
     // rendering that default at the same moment.
-    File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"),
+    File overrideFile = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"),
             "desantenatalplannerrisks_99_12.xml");
-    if (!file.isFile() || !file.canRead()) {
-        // Null when the application is served from an unexploded WAR; there is
-        // no packaged file to fall back to in that case.
-        String packagedRiskList = application.getRealPath(
+    Reader source = null;
+    if (overrideFile.isFile() && overrideFile.canRead()) {
+        source = Files.newBufferedReader(overrideFile.toPath(), StandardCharsets.UTF_8);
+    } else {
+        // getResourceAsStream rather than getRealPath: the latter returns null when
+        // the application is served from an unexploded WAR, which would leave the
+        // editor blank even though the packaged default is present.
+        InputStream packaged = application.getResourceAsStream(
                 "/decision/antenatal/desantenatalplannerrisks_99_12.xml");
-        file = packagedRiskList == null ? null : new File(packagedRiskList);
+        if (packaged != null) {
+            source = new InputStreamReader(packaged, StandardCharsets.UTF_8);
+        }
     }
 
-    if (file != null && file.isFile() && file.canRead()) {
-        try (BufferedReader reader = Files.newBufferedReader(file.toPath(), StandardCharsets.UTF_8)) {
+    if (source != null) {
+        try (BufferedReader reader = new BufferedReader(source)) {
             String aline;
             while ((aline = reader.readLine()) != null) {
                 out.println(SafeEncode.forHtml(aline));

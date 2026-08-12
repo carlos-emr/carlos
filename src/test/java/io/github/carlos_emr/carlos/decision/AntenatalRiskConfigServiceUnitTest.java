@@ -66,9 +66,22 @@ class AntenatalRiskConfigServiceUnitTest {
 
         new AntenatalRiskConfigService(target).save(existingContent);
 
+        // The point of this test is that the shipped default survives the grammar
+        // and the round trip, so assert the shape rather than a risk count — adding
+        // or removing a risk in that config is a routine edit that must not fail here.
         Document document = secureFactory().newDocumentBuilder().parse(target.toFile());
         assertThat(document.getDocumentElement().getTagName()).isEqualTo("riskFactors");
-        assertThat(document.getElementsByTagName("risk").getLength()).isEqualTo(9);
+        assertThat(document.getElementsByTagName("risk").getLength())
+                .isEqualTo(countElements(existingContent, "risk"));
+        assertThat(document.getElementsByTagName("section").getLength())
+                .isEqualTo(countElements(existingContent, "section"));
+    }
+
+    /** Counts elements in the submitted source so assertions track the fixture, not a literal. */
+    private static int countElements(String xml, String tagName) throws Exception {
+        Document source = secureFactory().newDocumentBuilder()
+                .parse(new org.xml.sax.InputSource(new java.io.StringReader(xml)));
+        return source.getElementsByTagName(tagName).getLength();
     }
 
     @Test
