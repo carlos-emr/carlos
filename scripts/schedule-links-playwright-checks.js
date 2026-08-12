@@ -214,13 +214,22 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
     return;
   }
 
+  // Read the token name off the rendered page rather than assuming the configured
+  // org.owasp.csrfguard.TokenName; the popup navigates away once the POST fires.
+  const tokenName = await resultPage.locator('#providerSelectionCsrfToken')
+    .getAttribute('name')
+    .catch(() => null) || 'CSRF-TOKEN';
+
   let providerRequest = await Promise.race([
     requestPromise,
     resultPage.waitForTimeout(100).then(() => null),
   ]);
-  const providerLink = resultPage.locator('a[onclick*="selectProvider("]').first();
-  if (!providerRequest && await providerLink.count()) {
-    await providerLink.click();
+  if (!providerRequest) {
+    // A single-result search auto-submits, so the click can land on a page that is
+    // already navigating. The awaited POST below is the real signal, not the click.
+    await resultPage.locator('a[onclick*="selectProvider("]').first()
+      .click({ timeout: 5000 })
+      .catch(() => {});
   }
 
   providerRequest = providerRequest || await requestPromise;
@@ -250,8 +259,8 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
       url: response.url(),
     });
   }
-  if (!new URLSearchParams(requestBody).get('CSRF-TOKEN')) {
-    findings.push({ label: 'schedule-provider-search', type: 'missing-csrf-token' });
+  if (!new URLSearchParams(requestBody).get(tokenName)) {
+    findings.push({ label: 'schedule-provider-search', type: 'missing-csrf-token', tokenName });
   }
   await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
   await assertNoErrorPage(resultPage, 'schedule-provider-search');

@@ -114,10 +114,14 @@
     <script language="JavaScript">
 
 
+        <fmt:message key="receptionist.receptionistfindprovider.msgMissingSecurityToken" var="missingSecurityTokenMessage"/>
+
         function selectProvider(p) {
             var csrfToken = document.getElementById('providerSelectionCsrfToken');
             if (!csrfToken || !csrfToken.value) {
+                // Fail closed and tell the user: a silent no-op here looks like a dead link.
                 console.error('Provider selection stopped because the CSRF token is unavailable.');
+                alert("${carlos:forJavaScriptBlock(missingSecurityTokenMessage)}");
                 return false;
             }
 
@@ -233,8 +237,10 @@
                 if (bGrpSearch) {
                     g = (MyGroup) o;
                     sp = String.valueOf(g.getId().getMyGroupNo());
-                    spnl = String.valueOf(p.getLastName());
-                    spnf = String.valueOf(p.getFirstName());
+                    // Group rows carry no provider name; the legacy code dereferenced the
+                    // still-null Provider here and made every "." group search throw.
+                    spnl = "";
+                    spnf = "";
                     if (checkRestriction(restrictions, g.getId().getMyGroupNo())) {
                         continue;
                     }
@@ -254,10 +260,10 @@
         <tr bgcolor="<%=bColor?bgcolordef:"white"%>">
             <td>
                 <%if (caisi) { %> <a href=#
-                                     onClick="selectProviderCaisi('<%=sp%>','<%=spnl+", "+spnf%>')"><%=sp%>
+                                     onClick="selectProviderCaisi('<carlos:encode value='<%= sp %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= spnl + ", " + spnf %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= sp %>' context="html"/>
             </a></td>
             <% } else if (custom != null && custom.equals("true")) { %>
-            <a href="#" onClick="selectProviderCustom('<%=sp%>','<%=spnl+", "+spnf%>')"><%=sp%>
+            <a href="#" onClick="selectProviderCustom('<carlos:encode value='<%= sp %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= spnl + ", " + spnf %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= sp %>' context="html"/>
             </a></td>
             <%} else { %>
             <a href=#
@@ -265,9 +271,9 @@
             </a>
             </td>
             <%} %>
-            <td><%=spnl%>
+            <td><carlos:encode value='<%= spnl %>' context="html"/>
             </td>
-            <td><%=spnf%>
+            <td><carlos:encode value='<%= spnf %>' context="html"/>
             </td>
         </tr>
         <%
@@ -286,10 +292,10 @@
         %>
         <tr bgcolor="#CCCCFF">
             <td colspan='3'>
-                <%if (caisi) { %> <a href=# onClick="selectProviderCaisi('<%=sp%>','')"><%=sp%>
+                <%if (caisi) { %> <a href=# onClick="selectProviderCaisi('<carlos:encode value='<%= sp %>' context="javaScriptAttribute"/>','')"><carlos:encode value='<%= sp %>' context="html"/>
             </a></td>
             <%} else { %>
-            <a href=# onClick="selectProvider('<%=sp%>','')"><%=sp%>
+            <a href=# onClick="return selectProvider('<carlos:encode value='<%= sp %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= sp %>' context="html"/>
             </a>
             </td>
             <%} %>
@@ -303,17 +309,19 @@
         %>
         <script language="JavaScript">
             <!--
+            // Declared outside the branches below so the custom path cannot fall
+            // through to the global window.name when no result name is available.
+            var selectedProviderName = '';
             <%if(caisi) {%>
-            var nodes = document.getElementsByName("<%=sp%>_name");
-            var name = '';
+            var nodes = document.getElementsByName("<carlos:encode value='<%= sp %>' context="javaScriptBlock"/>_name");
             if (nodes.length == 1) {
-                name = nodes[0].value;
+                selectedProviderName = nodes[0].value;
             }
-            selectProviderCaisi('<%=sp%>', name);
+            selectProviderCaisi('<carlos:encode value='<%= sp %>' context="javaScriptBlock"/>', selectedProviderName);
             <%} else if(custom != null && custom.equals("true")){%>
-            selectProviderCustom('<%=sp%>', name);
+            selectProviderCustom('<carlos:encode value='<%= sp %>' context="javaScriptBlock"/>', selectedProviderName);
             <%} else {%>
-            selectProvider('<%=sp%>', '');
+            selectProvider('<carlos:encode value='<%= sp %>' context="javaScriptBlock"/>');
             <%}%>
             //-->
         </SCRIPT>
