@@ -130,7 +130,7 @@ class FormXmlUploadJspMigrationRegressionTest {
                 .contains("href=\"${carlos:forHtmlAttribute(pageContext.request.contextPath)}/administration\"")
                 .doesNotContain("http-equiv=\"refresh\"")
                 .contains("setTimeout(")
-                .contains("window.location.href = \"${pageContext.request.contextPath}/administration\"");
+                .contains("window.location.href = \"${carlos:forJavaScript(pageContext.request.contextPath)}/administration\"");
     }
 
     @Test
