@@ -309,17 +309,17 @@
         %>
         <script language="JavaScript">
             <!--
-            // Declared outside the branches below so the custom path cannot fall
-            // through to the global window.name when no result name is available.
-            var selectedProviderName = '';
             <%if(caisi) {%>
             var nodes = document.getElementsByName("<carlos:encode value='<%= sp %>' context="javaScriptBlock"/>_name");
+            var name = '';
             if (nodes.length == 1) {
-                selectedProviderName = nodes[0].value;
+                name = nodes[0].value;
             }
-            selectProviderCaisi('<carlos:encode value='<%= sp %>' context="javaScriptBlock"/>', selectedProviderName);
+            selectProviderCaisi('<carlos:encode value='<%= sp %>' context="javaScriptBlock"/>', name);
             <%} else if(custom != null && custom.equals("true")){%>
-            selectProviderCustom('<carlos:encode value='<%= sp %>' context="javaScriptBlock"/>', selectedProviderName);
+            // NOTE: `name` is not declared on this branch, so it resolves to the global
+            // window.name. Pre-existing; fixing it needs a decision on what name to send.
+            selectProviderCustom('<carlos:encode value='<%= sp %>' context="javaScriptBlock"/>', name);
             <%} else {%>
             selectProvider('<carlos:encode value='<%= sp %>' context="javaScriptBlock"/>');
             <%}%>
