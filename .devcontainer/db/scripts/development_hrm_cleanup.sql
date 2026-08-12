@@ -1,3 +1,16 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
 -- The development snapshot contains HRM metadata from July-September 2023, but the
 -- corresponding XML reports are intentionally not distributed with the repository.
 -- Remove only those original snapshot rows. The id and import-time bounds ensure this
