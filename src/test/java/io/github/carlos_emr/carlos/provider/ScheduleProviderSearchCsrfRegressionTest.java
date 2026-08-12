@@ -76,6 +76,9 @@ class ScheduleProviderSearchCsrfRegressionTest {
                 .contains("context.waitForEvent('page', { timeout: 10000 }).catch(() => null)")
                 .contains("if (!resultPage)")
                 .contains("type: 'missing-search-popup'")
+                .contains("const resultLoaded = await resultPage.waitForLoadState(")
+                .contains("if (!resultLoaded)")
+                .contains("type: 'search-popup-load-failure'")
                 .contains("let providerRequest = await Promise.race(")
                 .contains("if (!providerRequest && await providerLink.count())")
                 .contains("providerRequest = providerRequest || await requestPromise;");

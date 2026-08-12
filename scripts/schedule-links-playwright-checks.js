@@ -187,7 +187,16 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
     return;
   }
   wirePage(resultPage, 'schedule-provider-search');
-  await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
+  const resultLoaded = await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!resultLoaded) {
+    findings.push({ label: 'schedule-provider-search', type: 'search-popup-load-failure' });
+    if (!resultPage.isClosed()) {
+      await resultPage.close();
+    }
+    return;
+  }
 
   let providerRequest = await Promise.race([
     requestPromise,
