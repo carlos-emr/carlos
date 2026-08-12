@@ -171,6 +171,10 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
                     "_admin.eform", "w"),
+            // Every forward value (add/delete/up/down) reorders encounter forms; the
+            // Select Forms panel itself is rendered by the separate form/setupSelect route.
+            Arguments.of("io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action",
+                    "_form", "w"),
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.AddEForm2Action",
                     "_eform", "w"),
             // --- encounter / consultation ---
@@ -284,7 +288,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.security.MfaActions2Action",
         // Demographic: AddRelation popup renders on a bare GET; only linkingDemo+relation mutation
         // intent is POST-only (see AddDemographicRelationship2ActionUnitTest). Issue #3352.
-        "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action"
+        "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action",
+        // Appointment types: a bare GET (and oper=edit) renders the list/edit form; only
+        // oper=save and oper=del are POST-only (see AppointmentType2ActionUnitTest).
+        "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action"
     );
 
     /**
@@ -345,6 +352,9 @@ class MutatorActionGetRejectionContractUnitTest {
      * manifests above and participates in discovery drift checks.
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        // appt slice: AppointmentType2Action is the only migrated mutator; the appt package is
+        // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
+        "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         "io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",
@@ -360,6 +370,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
+        "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",

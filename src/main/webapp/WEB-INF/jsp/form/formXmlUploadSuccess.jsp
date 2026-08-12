@@ -30,11 +30,11 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <!doctype html>
-<html lang="${pageContext.request.locale.language}">
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <meta charset="UTF-8">
     <title><fmt:message key="form.xmlUploadSuccess.title"/></title>
-    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-body-tertiary">
     <main class="container py-5">
