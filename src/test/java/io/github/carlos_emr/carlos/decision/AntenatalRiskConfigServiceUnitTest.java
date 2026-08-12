@@ -11,8 +11,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -114,6 +117,24 @@ class AntenatalRiskConfigServiceUnitTest {
             assertThat(Files.readString(target, StandardCharsets.UTF_8)).isEqualTo(firstSave);
         }
         assertThat(firstSave.lines().filter(String::isBlank)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should keep the permissions the existing configuration file carries")
+    void shouldPreserve_existingFilePermissions() throws Exception {
+        Path target = originalTarget();
+        Set<PosixFilePermission> groupReadable = PosixFilePermissions.fromString("rw-r--r--");
+        try {
+            Files.setPosixFilePermissions(target, groupReadable);
+        } catch (UnsupportedOperationException e) {
+            return; // non-POSIX filesystem; the platform's own rules apply
+        }
+
+        new AntenatalRiskConfigService(target).save(VALID_XML);
+
+        // The atomic replacement must not silently tighten a file the operator left
+        // readable for a sibling instance or backup tooling.
+        assertThat(Files.getPosixFilePermissions(target)).isEqualTo(groupReadable);
     }
 
     @Test

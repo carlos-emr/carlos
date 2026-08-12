@@ -344,12 +344,9 @@ public final class AntenatalRiskConfigService {
             throw new IOException("The configured document directory is unavailable.");
         }
 
-        // Created 0600 by createTempFile, and ATOMIC_MOVE carries that through to the
-        // replacement — deliberately tighter than the umask the previous FileWriter
-        // left. Only this process reads the file; loosen it here if external tooling
-        // ever needs to.
         Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
         try {
+            carryOverPermissions(target, temporary);
             try (FileChannel channel = FileChannel.open(
                     temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
                 // write() may return a short count, so drain the buffer before the
@@ -364,6 +361,26 @@ public final class AntenatalRiskConfigService {
             atomicMover.move(temporary, target);
         } finally {
             Files.deleteIfExists(temporary);
+        }
+    }
+
+    /**
+     * Gives the replacement the mode the current configuration file already has.
+     *
+     * <p>{@code createTempFile} creates 0600 and {@code ATOMIC_MOVE} carries that
+     * onto the target, so without this the first administrator save would silently
+     * tighten a file the operator may have deliberately left group- or
+     * world-readable — breaking a sibling Tomcat instance or backup tooling that
+     * shares {@code DOCUMENT_DIR}. A brand-new file keeps the restrictive default.
+     */
+    private static void carryOverPermissions(Path target, Path temporary) throws IOException {
+        if (!Files.exists(target)) {
+            return;
+        }
+        try {
+            Files.setPosixFilePermissions(temporary, Files.getPosixFilePermissions(target));
+        } catch (UnsupportedOperationException e) {
+            // Non-POSIX filesystem; the platform's own inheritance rules apply.
         }
     }
 
