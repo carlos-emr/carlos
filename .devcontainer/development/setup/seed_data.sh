@@ -27,5 +27,5 @@ mariadb -h db -u root --batch --skip-column-names oscar \
     -e "SELECT reportFile FROM HRMDocument WHERE reportFile IS NOT NULL AND reportFile <> ''" \
     > "${hrm_fixture_list}"
 sh /workspace/.devcontainer/development/setup/validate_hrm_fixtures.sh \
-    /var/lib/OscarDocument/oscar/document < "${hrm_fixture_list}"
+    /var/lib/OscarDocument/oscar/document "${hrm_fixture_list}"
 echo "[Bootstrap] Finished copying documents."

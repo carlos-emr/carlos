@@ -31,6 +31,12 @@ FROM `HRMDocumentToProvider` hrm_provider
 JOIN `DevelopmentDanglingHrm` fixture
   ON fixture.`id` = CAST(hrm_provider.`hrmDocumentId` AS UNSIGNED);
 
+UPDATE `HRMDocument` hrm_document
+JOIN `DevelopmentDanglingHrm` fixture
+  ON fixture.`id` = hrm_document.`parentReport`
+SET hrm_document.`parentReport` = NULL
+WHERE hrm_document.`id` NOT IN (SELECT `id` FROM `DevelopmentDanglingHrm`);
+
 DELETE hrm_document
 FROM `HRMDocument` hrm_document
 JOIN `DevelopmentDanglingHrm` fixture
