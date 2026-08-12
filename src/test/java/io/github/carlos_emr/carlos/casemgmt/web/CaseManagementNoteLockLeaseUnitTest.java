@@ -155,7 +155,7 @@ class CaseManagementNoteLockLeaseUnitTest {
         when(noteLockDao.find(16L)).thenReturn(databaseLock);
 
         boolean renewed = CaseManagementEntry2Action.renewNoteLock(noteLockDao,
-                sessionLock, "session-a", NOW);
+                sessionLock, "session-a", NOW, FIVE_MINUTES);
 
         assertThat(renewed).isTrue();
         assertThat(databaseLock.getLockAcquired()).isEqualTo(NOW);
@@ -173,7 +173,40 @@ class CaseManagementNoteLockLeaseUnitTest {
         when(noteLockDao.find(17L)).thenReturn(databaseLock);
 
         boolean renewed = CaseManagementEntry2Action.renewNoteLock(noteLockDao,
-                sessionLock, "session-a", NOW);
+                sessionLock, "session-a", NOW, FIVE_MINUTES);
+
+        assertThat(renewed).isFalse();
+        verify(noteLockDao, never()).merge(databaseLock);
+    }
+
+    @Test
+    @DisplayName("should reject renewal after the inactivity timeout")
+    void shouldRejectRenewal_afterInactivityTimeout() {
+        CasemgmtNoteLockDao noteLockDao = mock(CasemgmtNoteLockDao.class);
+        CasemgmtNoteLock sessionLock = noteLock(18L, "provider-a", "session-a",
+                new Date(NOW.getTime() - FIVE_MINUTES));
+        CasemgmtNoteLock databaseLock = noteLock(18L, "provider-a", "session-a",
+                sessionLock.getLockAcquired());
+        when(noteLockDao.find(18L)).thenReturn(databaseLock);
+
+        boolean renewed = CaseManagementEntry2Action.renewNoteLock(noteLockDao,
+                sessionLock, "session-a", NOW, FIVE_MINUTES);
+
+        assertThat(renewed).isFalse();
+        assertThat(databaseLock.getLockAcquired()).isNotEqualTo(NOW);
+        verify(noteLockDao, never()).merge(databaseLock);
+    }
+
+    @Test
+    @DisplayName("should reject renewal of a legacy lock without activity timestamp")
+    void shouldRejectRenewal_whenActivityTimestampIsMissing() {
+        CasemgmtNoteLockDao noteLockDao = mock(CasemgmtNoteLockDao.class);
+        CasemgmtNoteLock sessionLock = noteLock(19L, "provider-a", "session-a", null);
+        CasemgmtNoteLock databaseLock = noteLock(19L, "provider-a", "session-a", null);
+        when(noteLockDao.find(19L)).thenReturn(databaseLock);
+
+        boolean renewed = CaseManagementEntry2Action.renewNoteLock(noteLockDao,
+                sessionLock, "session-a", NOW, FIVE_MINUTES);
 
         assertThat(renewed).isFalse();
         verify(noteLockDao, never()).merge(databaseLock);

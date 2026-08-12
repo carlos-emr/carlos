@@ -686,10 +686,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private static CasemgmtNoteLock isNoteEdited(Long noteId, Integer demographicNo,
             String providerNo, String ipAddress, String sessionId) {
         CasemgmtNoteLockDao noteLockDao = SpringUtils.getBean(CasemgmtNoteLockDao.class);
-        String configuredTimeout = CarlosProperties.getInstance()
-                .getProperty(NOTE_LOCK_TIMEOUT_MINUTES_PROPERTY, "5");
         return acquireNoteLock(noteLockDao, noteId, demographicNo, providerNo, ipAddress,
-                sessionId, new Date(), parseNoteLockTimeoutMillis(configuredTimeout));
+                sessionId, new Date(), getNoteLockTimeoutMillis());
     }
 
     /**
@@ -746,6 +744,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             // Fall through to the safe default.
         }
         return DEFAULT_NOTE_LOCK_TIMEOUT_MILLIS;
+    }
+
+    private static long getNoteLockTimeoutMillis() {
+        String configuredTimeout = CarlosProperties.getInstance()
+                .getProperty(NOTE_LOCK_TIMEOUT_MINUTES_PROPERTY, "5");
+        return parseNoteLockTimeoutMillis(configuredTimeout);
     }
 
     static boolean isNoteLockExpired(CasemgmtNoteLock noteLock, Date now, long timeoutMillis) {
@@ -1991,12 +1995,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     /**
      * Checks whether the current HTTP session holds a valid note lock for the given demographic.
-     * Performs two validations:
+     * Performs three validations:
      * <ol>
      *   <li>The database lock's session ID matches the session-stored lock's session ID
      *       (detects if another window/session has taken over the lock)</li>
      *   <li>The current request's session ID matches the session-stored lock's session ID
      *       (detects session ID staleness after rotation or migration)</li>
+     *   <li>The database lease has not passed its configured inactivity timeout</li>
      * </ol>
      *
      * @param demo String the demographic number to check lock ownership for
@@ -2010,7 +2015,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 return false;
             }
             return renewNoteLock(casemgmtNoteLockDao, casemgmtNoteLockSession,
-                    request.getSession().getId(), new Date());
+                    request.getSession().getId(), new Date(), getNoteLockTimeoutMillis());
         } catch (Exception e) {
             logger.warn("Lock check failed unexpectedly", e);
             return false;
@@ -2023,11 +2028,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      * replacement by another editor.
      */
     static synchronized boolean renewNoteLock(CasemgmtNoteLockDao noteLockDao,
-            CasemgmtNoteLock sessionLock, String currentSessionId, Date now) {
+            CasemgmtNoteLock sessionLock, String currentSessionId, Date now,
+            long timeoutMillis) {
         CasemgmtNoteLock databaseLock = noteLockDao.find(sessionLock.getId());
         if (databaseLock == null
                 || !Objects.equals(databaseLock.getSessionId(), sessionLock.getSessionId())
-                || !Objects.equals(currentSessionId, sessionLock.getSessionId())) {
+                || !Objects.equals(currentSessionId, sessionLock.getSessionId())
+                || isNoteLockExpired(databaseLock, now, timeoutMillis)) {
             return false;
         }
 
