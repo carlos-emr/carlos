@@ -832,20 +832,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logger.warn("updateNoteLock: lock not found - lock may have been released");
             return null;
         }
-        if (!canTransferNoteLock(casemgmtNoteLock, loggedInInfo.getLoggedInProviderNo())) {
-            logger.warn("updateNoteLock: refusing to transfer another provider's active lock");
+        CasemgmtNoteLock transferredLock = transferNoteLock(casemgmtNoteLockDao,
+                casemgmtNoteLock, loggedInInfo.getLoggedInProviderNo(), request.getRemoteAddr(),
+                request.getSession().getId(), new Date(), getNoteLockTimeoutMillis());
+        if (transferredLock == null) {
+            logger.warn("updateNoteLock: refusing to transfer an expired or unowned lock");
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return null;
         }
 
-        casemgmtNoteLock.setIpAddress(request.getRemoteAddr());
-        String currentSessionId = request.getSession().getId();
-        casemgmtNoteLock.setSessionId(currentSessionId);
-        casemgmtNoteLock.setLockAcquired(new Date());
-        logger.debug("UPDATING LOCK DEMO {} LOCK IP {}", LogSafe.sanitize(demoNo), LogSafe.sanitize(casemgmtNoteLock.getIpAddress()));
-        casemgmtNoteLockDao.merge(casemgmtNoteLock);
+        logger.debug("UPDATING LOCK DEMO {} LOCK IP {}", LogSafe.sanitize(demoNo), LogSafe.sanitize(transferredLock.getIpAddress()));
 
-        session.setAttribute("casemgmtNoteLock" + demoNo, casemgmtNoteLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("casemgmtNoteLock" + demoNo, transferredLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         return null;
 
@@ -853,6 +851,25 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     static boolean canTransferNoteLock(CasemgmtNoteLock noteLock, String providerNo) {
         return noteLock != null && Objects.equals(noteLock.getProviderNo(), providerNo);
+    }
+
+    static synchronized CasemgmtNoteLock transferNoteLock(CasemgmtNoteLockDao noteLockDao,
+            CasemgmtNoteLock requestedLock, String providerNo, String ipAddress,
+            String sessionId, Date now, long timeoutMillis) {
+        if (requestedLock == null || requestedLock.getId() == null) {
+            return null;
+        }
+        CasemgmtNoteLock databaseLock = noteLockDao.find(requestedLock.getId());
+        if (!canTransferNoteLock(databaseLock, providerNo)
+                || isNoteLockExpired(databaseLock, now, timeoutMillis)) {
+            return null;
+        }
+
+        databaseLock.setIpAddress(ipAddress);
+        databaseLock.setSessionId(sessionId);
+        databaseLock.setLockAcquired(now);
+        noteLockDao.merge(databaseLock);
+        return databaseLock;
     }
 
     private void setChecked_oldCme(List<CheckBoxBean> checkedList, CaseManagementIssue cmi) {
@@ -2039,8 +2056,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         Date lastActivity = databaseLock.getLockAcquired();
-        if (lastActivity == null
-                || now.getTime() - lastActivity.getTime() >= NOTE_LOCK_RENEW_INTERVAL_MILLIS) {
+        if (now.getTime() - lastActivity.getTime() >= NOTE_LOCK_RENEW_INTERVAL_MILLIS) {
             databaseLock.setLockAcquired(now);
             sessionLock.setLockAcquired(now);
             noteLockDao.merge(databaseLock);

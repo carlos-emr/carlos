@@ -145,6 +145,44 @@ class CaseManagementNoteLockLeaseUnitTest {
     }
 
     @Test
+    @DisplayName("should transfer an active lock owned by the same provider")
+    void shouldTransferActiveLock_whenProviderOwnsLease() {
+        CasemgmtNoteLockDao noteLockDao = mock(CasemgmtNoteLockDao.class);
+        CasemgmtNoteLock requestedLock = noteLock(20L, "provider-a", "session-a",
+                new Date(NOW.getTime() - Duration.ofMinutes(1).toMillis()));
+        CasemgmtNoteLock databaseLock = noteLock(20L, "provider-a", "session-a",
+                requestedLock.getLockAcquired());
+        when(noteLockDao.find(20L)).thenReturn(databaseLock);
+
+        CasemgmtNoteLock transferred = CaseManagementEntry2Action.transferNoteLock(noteLockDao,
+                requestedLock, "provider-a", "127.0.0.2", "session-b", NOW, FIVE_MINUTES);
+
+        assertThat(transferred).isSameAs(databaseLock);
+        assertThat(transferred.getIpAddress()).isEqualTo("127.0.0.2");
+        assertThat(transferred.getSessionId()).isEqualTo("session-b");
+        assertThat(transferred.getLockAcquired()).isEqualTo(NOW);
+        verify(noteLockDao).merge(databaseLock);
+    }
+
+    @Test
+    @DisplayName("should reject takeover after the inactivity timeout")
+    void shouldRejectTakeover_afterInactivityTimeout() {
+        CasemgmtNoteLockDao noteLockDao = mock(CasemgmtNoteLockDao.class);
+        CasemgmtNoteLock requestedLock = noteLock(21L, "provider-a", "session-a",
+                new Date(NOW.getTime() - FIVE_MINUTES));
+        CasemgmtNoteLock databaseLock = noteLock(21L, "provider-a", "session-a",
+                requestedLock.getLockAcquired());
+        when(noteLockDao.find(21L)).thenReturn(databaseLock);
+
+        CasemgmtNoteLock transferred = CaseManagementEntry2Action.transferNoteLock(noteLockDao,
+                requestedLock, "provider-a", "127.0.0.2", "session-b", NOW, FIVE_MINUTES);
+
+        assertThat(transferred).isNull();
+        assertThat(databaseLock.getSessionId()).isEqualTo("session-a");
+        verify(noteLockDao, never()).merge(databaseLock);
+    }
+
+    @Test
     @DisplayName("should renew an owned lock after the heartbeat interval")
     void shouldRenewLock_whenHeartbeatIntervalElapsed() {
         CasemgmtNoteLockDao noteLockDao = mock(CasemgmtNoteLockDao.class);
