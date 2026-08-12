@@ -21,6 +21,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.decision.AntenatalRiskConfigService;
 import io.github.carlos_emr.carlos.decision.AntenatalRiskConfigService.InvalidConfigurationException;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -78,8 +79,11 @@ public final class SaveAntenatalRiskConfig2Action extends ActionSupport {
         String checklist = request.getParameter("checklist");
         try {
             configService.save(checklist);
-            LogAction.addLogSynchronous(loggedInInfo, "update.antenatalRiskConfig",
-                    "antenatal risk-list configuration replaced");
+            // Written synchronously: the audit executor drops queued tasks on
+            // shutdown, and a shared clinical-configuration change is rare enough
+            // that the durability is worth more than the async hand-off.
+            LogAction.addLogSynchronous(loggedInInfo.getLoggedInProviderNo(), LogConst.UPDATE,
+                    LogConst.CON_ANTENATAL_RISK_CONFIG, null, loggedInInfo.getIp());
             request.getSession().setAttribute(SAVED_FLASH_ATTRIBUTE, Boolean.TRUE);
             return SUCCESS;
         } catch (InvalidConfigurationException e) {

@@ -7,8 +7,8 @@ package io.github.carlos_emr.carlos.decision.gate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -38,6 +38,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import io.github.carlos_emr.carlos.decision.AntenatalRiskConfigService;
 import io.github.carlos_emr.carlos.decision.AntenatalRiskConfigService.InvalidConfigurationException;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -75,6 +76,8 @@ class SaveAntenatalRiskConfig2ActionUnitTest {
         // The audit entry writes through a DAO; stub it out so these stay unit tests.
         auditLog = mockStatic(LogAction.class);
 
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(loggedInInfo.getIp()).thenReturn("10.0.0.7");
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_form", "w", null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
         action = new SaveAntenatalRiskConfig2Action(securityInfoManager, configService);
@@ -143,9 +146,11 @@ class SaveAntenatalRiskConfig2ActionUnitTest {
         action.execute();
 
         auditLog.verify(() -> LogAction.addLogSynchronous(
-                eq(loggedInInfo),
-                eq("update.antenatalRiskConfig"),
-                anyString()));
+                eq("999998"),
+                eq(LogConst.UPDATE),
+                eq(LogConst.CON_ANTENATAL_RISK_CONFIG),
+                isNull(),
+                eq("10.0.0.7")));
     }
 
     @Test
