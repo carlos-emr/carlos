@@ -49,21 +49,30 @@ Three legacy receiver behaviors are recorded here because version 2 changes them
 reviewer must not read the change as accidental. Each was reproduced against a running
 receiver; see the verification note below.
 
-- The legacy path decrypts and writes plaintext into `DOCUMENT_DIR` **before** the
-  signature is checked. A message that decrypts but fails signature verification still
-  lands on disk as readable plaintext. Because the receiver public key is public, the
-  sender signature is the only thing standing between an authorized `_lab` caller and an
-  arbitrary file in `DOCUMENT_DIR`, and it is checked too late. Version 2 forbids this
-  ordering.
-- A legacy signature failure leaves that already-written plaintext file on disk. Nothing
-  removes it. Version 2 must not create a stored artifact for a message it rejects.
-- An unrecognized `service` produces an empty client-info list, and the subsequent
-  element access throws out of `execute()`. The `lab` Struts package maps
-  `java.lang.Exception` to `errorpage.jsp` (`struts-lab.xml`), and that result is a JSP
-  forward, so the sender receives **HTTP 200 with an HTML error page**. A sender using
-  `use_http_response_code` reads that as a successful delivery. A misconfigured or
-  retired service therefore fails silently in the direction that loses labs. Version 2
-  requires the generic rejection outcome, with a rejection status, for unknown services.
+- The legacy path decrypted and wrote plaintext into `DOCUMENT_DIR` **before** the
+  signature was checked, and a message that decrypted but failed verification still landed
+  on disk as readable plaintext that nothing removed. The wrapping key is the receiver's
+  public key, which every sender organization holds, so producing a cleanly decrypting
+  message needs no secret — the signature was the only evidence of authenticity, and it was
+  checked too late. (CARLOS does not serve that key from an unauthenticated endpoint;
+  `GetPublicKey2Action` is `_admin`-gated and returns `publicKeys` rows, not the receiver
+  key. The exposure is that the key is distributed to third parties by design.)
+  **Fixed:** the receiver now stages the decrypted message in an owner-only temporary file,
+  verifies the signature, and only then persists it; the staged copy is always deleted.
+  Version 2 keeps this ordering.
+- An unrecognized `service` produced an empty client-info list, and the subsequent element
+  access threw out of `execute()`. The `lab` Struts package maps `java.lang.Exception` to
+  `errorpage.jsp` (`struts-lab.xml`), and that result is a JSP forward, so the sender
+  received **HTTP 200 with an HTML error page** and read a misconfigured or retired service
+  as a successful delivery — failing silently in the direction that loses labs.
+  **Fixed:** unknown services, unusable stored keys, and undecryptable messages now share
+  one non-specific `rejected` outcome with a rejection status, so a caller cannot probe
+  which services are configured. Version 2 keeps this behavior.
+
+These two fixes are receiver-local. They change no wire format, no field, and no algorithm,
+so senders are unaffected and they did not need the coordination gates below. They do not
+close alerts 6904 or 5637, which track the ECB cipher itself and close only on removal of
+the legacy path.
 
 ### Verification note
 
