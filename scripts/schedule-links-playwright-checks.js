@@ -189,13 +189,16 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
   wirePage(resultPage, 'schedule-provider-search');
   await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
 
+  let providerRequest = await Promise.race([
+    requestPromise,
+    resultPage.waitForTimeout(100).then(() => null),
+  ]);
   const providerLink = resultPage.locator('a[onclick*="selectProvider("]').first();
-  const providerLinkCount = await resultPage.locator('a[onclick*="selectProvider("]').count();
-  if (providerLinkCount > 1) {
+  if (!providerRequest && await providerLink.count()) {
     await providerLink.click();
   }
 
-  const providerRequest = await requestPromise;
+  providerRequest = providerRequest || await requestPromise;
   if (!providerRequest) {
     findings.push({ label: 'schedule-provider-search', type: 'missing-provider-result' });
     await resultPage.close();
