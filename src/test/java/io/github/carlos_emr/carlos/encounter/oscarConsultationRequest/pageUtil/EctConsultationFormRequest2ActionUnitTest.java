@@ -535,6 +535,13 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     void shouldPersistConsultation_whenConsultantIsBlankOnCreate() throws Exception {
         ConsultationRequest[] persisted = capturePersistedConsultationRequest();
 
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
         // The NPE lived inside the Health Care Team branch, which is skipped entirely when the
         // property is off. Without forcing it on, this test passes against the unfixed action and
         // proves nothing.
@@ -544,14 +551,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
             carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
 
-        action.setSubmission("Submit");
-        action.setService("1");
-        action.setSpecialist("");
-
-        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
-                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
-
-        action.execute();
+            action.execute();
         }
 
         assertThat(persisted[0]).isNotNull();
