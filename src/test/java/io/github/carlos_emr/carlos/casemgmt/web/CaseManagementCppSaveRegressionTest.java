@@ -38,13 +38,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CaseManagementCppSaveRegressionTest {
 
     private static final Path CASE_MGMT_VIEW_JS_JSP =
-            Path.of("src/main/webapp/js/newCaseManagementView.js.jsp");
+            resolveProjectPath(Path.of("src/main/webapp/js/newCaseManagementView.js.jsp"));
     private static final Path NOTE_ISSUE_LIST_JSP =
-            Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/noteIssueList.jsp");
+            resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/noteIssueList.jsp"));
 
     @Test
     @DisplayName("CPP saves should refresh Unresolved Issues without relying on a missing form element (#3422)")
-    void cppSaveShouldRefreshUnresolvedIssuesUsingEncounterDemographic() throws IOException {
+    void shouldRefreshUnresolvedIssues_afterCppSave() throws IOException {
         String js = Files.readString(CASE_MGMT_VIEW_JS_JSP, StandardCharsets.UTF_8);
 
         int callbackStart = js.indexOf("function onIssueUpdate()");
@@ -64,7 +64,7 @@ class CaseManagementCppSaveRegressionTest {
 
     @Test
     @DisplayName("Repeated issue fragment updates should not redeclare block-scoped variables (#3422)")
-    void repeatedIssueUpdatesShouldScopeFragmentVariables() throws IOException {
+    void shouldScopeFragmentVariables_whenIssueUpdatesRepeat() throws IOException {
         String jsp = Files.readString(NOTE_ISSUE_LIST_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
@@ -75,5 +75,21 @@ class CaseManagementCppSaveRegressionTest {
                 .doesNotContain("fn:escapeXml(noteTxt)")
                 .contains("${carlos:forJavaScriptBlock(noteTxt)}")
                 .contains("${carlos:forJavaScriptBlock(caseManagementEntryForm.caseNote.encounter_type)}");
+    }
+
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of(System.getProperty(
+                "maven.multiModuleProjectDirectory",
+                System.getProperty("user.dir"))).toAbsolutePath().normalize();
+
+        for (int depth = 0; depth < 5 && current != null; depth++) {
+            Path candidate = current.resolve(relativePath).normalize();
+            if (Files.exists(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+
+        throw new IllegalStateException("Unable to resolve project path: " + relativePath);
     }
 }
