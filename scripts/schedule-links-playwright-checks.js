@@ -223,6 +223,16 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
   });
   if (!response) {
     findings.push({ label: 'schedule-provider-search', type: 'provider-post-no-response' });
+  } else if (response.status() >= 400
+      && !isExpectedMissingAsset(response.status(), response.url())
+      && !findings.some((finding) => finding.label === 'schedule-provider-search'
+        && finding.type === 'http' && finding.url === response.url())) {
+    findings.push({
+      label: 'schedule-provider-search',
+      type: 'http',
+      status: response.status(),
+      url: response.url(),
+    });
   }
   if (!new URLSearchParams(requestBody).get('CSRF-TOKEN')) {
     findings.push({ label: 'schedule-provider-search', type: 'missing-csrf-token' });

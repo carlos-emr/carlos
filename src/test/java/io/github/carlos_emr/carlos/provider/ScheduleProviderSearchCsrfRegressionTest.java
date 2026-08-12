@@ -81,7 +81,9 @@ class ScheduleProviderSearchCsrfRegressionTest {
                 .contains("type: 'search-popup-load-failure'")
                 .contains("let providerRequest = await Promise.race(")
                 .contains("if (!providerRequest && await providerLink.count())")
-                .contains("providerRequest = providerRequest || await requestPromise;");
+                .contains("providerRequest = providerRequest || await requestPromise;")
+                .contains("response.status() >= 400")
+                .contains("finding.type === 'http'");
     }
 
     private static int requiredIndex(String source, String token) {
