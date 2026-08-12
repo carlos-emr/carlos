@@ -294,15 +294,24 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
     private void writeToResponse(HttpServletResponse response, String content, String safeRequestUri)
             throws IOException {
         // Clear only the response body buffer, preserving status code, headers, and cookies
-        // set by downstream components. resetBuffer() is safer than reset() which would
-        // wipe Set-Cookie, security headers, CSP, and non-200 status codes.
-        try {
-            response.resetBuffer();
-        } catch (IllegalStateException e) {
-            LOGGER.warn("writeToResponse: response buffer was already committed before "
-                    + "CSRF-adjusted replay; writing captured content without reset: uri={}, "
-                    + "contentType={}, committed={}",
-                    safeRequestUri, response.getContentType(), response.isCommitted(), e);
+        // set by downstream components. A committed response can still accept captured body
+        // content, but resetBuffer() is invalid after commit and would only create a misleading
+        // exception for an otherwise successful request.
+        if (response.isCommitted()) {
+            LOGGER.warn("writeToResponse: response already committed before CSRF-adjusted replay; "
+                    + "writing captured content without buffer reset: uri={}, contentType={}",
+                    safeRequestUri, response.getContentType());
+        } else {
+            try {
+                response.resetBuffer();
+            } catch (IllegalStateException e) {
+                // The response can become committed between the check and reset. Replaying is
+                // still safe because writer output was captured rather than sent downstream.
+                LOGGER.warn("writeToResponse: response became committed before CSRF-adjusted "
+                        + "replay; writing captured content without buffer reset: uri={}, "
+                        + "contentType={}, committed={}",
+                        safeRequestUri, response.getContentType(), response.isCommitted());
+            }
         }
         String encoding = response.getCharacterEncoding();
         if (encoding == null || encoding.isEmpty()) {
