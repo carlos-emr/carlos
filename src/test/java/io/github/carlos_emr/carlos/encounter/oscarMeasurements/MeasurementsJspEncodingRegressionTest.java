@@ -39,7 +39,8 @@ class MeasurementsJspEncodingRegressionTest {
 
     private static final int MAX_PARENT_SEARCH_DEPTH = 8;
     private static final Pattern EL_EXPRESSION = Pattern.compile("\\$\\{([^}]*)}");
-    private static final Pattern SCRIPTLET_OUTPUT = Pattern.compile("<%=\\s*(.*?)\\s*%>", Pattern.DOTALL);
+    private static final Pattern SCRIPTLET_OUTPUT =
+            Pattern.compile("<%=\\s*+((?:[^%]++|%(?!>))*+)%>");
     private static final Pattern ATTRIBUTE_START = Pattern.compile("([\\w:-]+)\\s*=\\s*([\"'])");
     private static final Pattern CONTROL_EXPRESSION = Pattern.compile(
             "(?:empty css|not empty css|not empty groupName|not empty measurementType\\.lastMInstrc"
@@ -55,6 +56,8 @@ class MeasurementsJspEncodingRegressionTest {
             "jsp", "encounter", "oscarMeasurements", "AddMeasurementData.jsp"));
     private static final Path CASE_MANAGEMENT_RECEIVER = resolveProjectPath(Path.of("src", "main", "webapp", "js",
             "newCaseManagementView.js.jsp"));
+    private static final Path TEMPLATE_FLOWSHEET = resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF",
+            "jsp", "encounter", "oscarMeasurements", "TemplateFlowSheetPage.jspf"));
     private static final List<Path> RESOURCE_BUNDLES = List.of("en", "es", "fr", "pl", "pt_BR").stream()
             .map(locale -> resolveProjectPath(Path.of("src", "main", "resources", "oscarResources_" + locale + ".properties")))
             .toList();
@@ -157,6 +160,7 @@ class MeasurementsJspEncodingRegressionTest {
         String jsp = readJsp();
         String addMeasurementJsp = Files.readString(ADD_MEASUREMENT_JSP, StandardCharsets.UTF_8);
         String receiver = Files.readString(CASE_MANAGEMENT_RECEIVER, StandardCharsets.UTF_8);
+        String templateFlowsheet = Files.readString(TEMPLATE_FLOWSHEET, StandardCharsets.UTF_8);
 
         assertThat(jsp)
                 .contains("if (!response.ok)")
@@ -167,10 +171,17 @@ class MeasurementsJspEncodingRegressionTest {
                 .contains("opener.opener.postMessage(data, window.location.origin)")
                 .doesNotContain("postMessage(data, \"*\")");
         assertThat(receiver)
+                .contains("page.indexOf(\"/encounter/oscarMeasurements/SetupMeasurements\")")
+                .contains("page.indexOf(\"/encounter/oscarMeasurements/ViewTemplateFlowSheet\")")
+                .contains("if (!isExpectedMeasurementSource(parentWindow))")
                 .contains("if (event.origin !== window.location.origin)")
+                .contains("if (!isExpectedMeasurementSource(event.source))")
+                .contains("typeof data.encounterText !== 'string'")
                 .contains("String(data.demographicNo) !== String(demographicNo)")
                 .contains("try {")
                 .contains("data = JSON.parse(data);");
+        assertThat(templateFlowsheet)
+                .contains("window.opener.registerNestedMeasurementWindow(window, measurementPopup)");
     }
 
     @Test
