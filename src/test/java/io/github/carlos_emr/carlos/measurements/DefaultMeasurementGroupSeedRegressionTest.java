@@ -23,10 +23,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("measurement")
 class DefaultMeasurementGroupSeedRegressionTest {
 
-    private static final Path MIGRATION = Path.of("database", "mysql", "migration", "common",
-            "V1.0.9__seed_default_measurement_groups.sql");
+    private static final Path PROJECT_BASE = projectBaseDirectory();
+    private static final Path MIGRATION = PROJECT_BASE.resolve(Path.of("database", "mysql", "migration", "common",
+            "V1.0.9__seed_default_measurement_groups.sql"));
     private static final Path DEVELOPMENT_SEED =
-            Path.of(".devcontainer", "db", "scripts", "development.sql");
+            PROJECT_BASE.resolve(Path.of(".devcontainer", "db", "scripts", "development.sql"));
 
     private static final List<String> REQUIRED_MAPPINGS = List.of(
             "('Vitals', 'BP')",
@@ -81,5 +82,19 @@ class DefaultMeasurementGroupSeedRegressionTest {
                 .contains(REQUIRED_MAPPINGS.toArray(String[]::new))
                 .doesNotContain("INSERT INTO `measurementGroupStyle` VALUES (1,'Test',0)")
                 .contains("('Vitals',0)", "('Mental Health Scores',0)");
+    }
+
+    private static Path projectBaseDirectory() {
+        String baseDirectory = System.getProperty(
+                "maven.multiModuleProjectDirectory",
+                System.getProperty("basedir", System.getProperty("user.dir")));
+        Path projectBase = Path.of(baseDirectory).toAbsolutePath().normalize();
+        assertThat(projectBase.resolve("pom.xml"))
+                .as("CARLOS project base directory should contain pom.xml")
+                .exists();
+        assertThat(projectBase.resolve("src"))
+                .as("CARLOS project base directory should contain source files")
+                .isDirectory();
+        return projectBase;
     }
 }

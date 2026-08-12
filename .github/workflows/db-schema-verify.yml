@@ -180,6 +180,50 @@ jobs:
           fi
 
           COMMON_RESTORED=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='carlos_${PROV}' AND table_name IN ('demographicstudy','study','studydata','form_hsfo2_visit','providerstudy')")
+          # Exercise the default-measurement seed against MariaDB, not only as SQL text.
+          DEFAULT_GROUPS=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroup WHERE name IN ('Vitals', 'Anthropometrics', 'Diabetes Review', 'Respiratory Review', 'Mental Health Scores')")
+          if [ "${DEFAULT_GROUPS}" != "27" ]; then
+            echo "::error::expected 27 default measurement-group mappings for ${PROV}, found ${DEFAULT_GROUPS}"
+            exit 1
+          fi
+          DUPLICATE_DEFAULTS=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM (SELECT name, typeDisplayName FROM measurementGroup WHERE name IN ('Vitals', 'Anthropometrics', 'Diabetes Review', 'Respiratory Review', 'Mental Health Scores') GROUP BY name, typeDisplayName HAVING COUNT(*) <> 1) duplicates")
+          if [ "${DUPLICATE_DEFAULTS}" != "0" ]; then
+            echo "::error::default measurement-group mappings contain duplicates for ${PROV}"
+            exit 1
+          fi
+          DEFAULT_STYLES=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName IN ('Vitals', 'Anthropometrics', 'Diabetes Review', 'Respiratory Review', 'Mental Health Scores') AND cssID=0")
+          if [ "${DEFAULT_STYLES}" != "5" ]; then
+            echo "::error::expected five default measurement-group styles for ${PROV}, found ${DEFAULT_STYLES}"
+            exit 1
+          fi
+          ORPHAN_TEST_STYLE=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroupStyle mgs LEFT JOIN measurementGroup mg ON mg.name=mgs.groupName WHERE mgs.groupName='Test' AND mg.id IS NULL")
+          if [ "${ORPHAN_TEST_STYLE}" != "0" ]; then
+            echo "::error::orphan Test measurement-group style survived migration for ${PROV}"
+            exit 1
+          fi
+
+          # Reapplying this data-only seed must be safe for interrupted/manual upgrade recovery.
+          $MYSQL carlos_${PROV} < migration/common/V1.0.9__seed_default_measurement_groups.sql
+          REAPPLIED_GROUPS=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroup WHERE name IN ('Vitals', 'Anthropometrics', 'Diabetes Review', 'Respiratory Review', 'Mental Health Scores')")
+          REAPPLIED_STYLES=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName IN ('Vitals', 'Anthropometrics', 'Diabetes Review', 'Respiratory Review', 'Mental Health Scores')")
+          if [ "${REAPPLIED_GROUPS}" != "${DEFAULT_GROUPS}" ] || [ "${REAPPLIED_STYLES}" != "${DEFAULT_STYLES}" ]; then
+            echo "::error::reapplying the default measurement-group seed created duplicates for ${PROV}"
+            exit 1
+          fi
+
+          # A missing measurement type must be skipped, and a mapped Test style must be preserved.
+          $MYSQL carlos_${PROV} -e "DELETE FROM measurementGroupStyle WHERE groupName='Test'; DELETE FROM measurementGroup WHERE name='Test'; DELETE FROM measurementGroup WHERE name='Mental Health Scores' AND typeDisplayName='GAD7 Anxiety Score'; DELETE FROM measurementType WHERE typeDisplayName='GAD7 Anxiety Score'; INSERT INTO measurementGroup (name,typeDisplayName) VALUES ('Test','BP'); INSERT INTO measurementGroupStyle (groupName,cssID) VALUES ('Test',0);"
+          $MYSQL carlos_${PROV} < migration/common/V1.0.9__seed_default_measurement_groups.sql
+          UNAVAILABLE_MAPPING=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroup WHERE name='Mental Health Scores' AND typeDisplayName='GAD7 Anxiety Score'")
+          PRESERVED_TEST_STYLE=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName='Test'")
+          if [ "${UNAVAILABLE_MAPPING}" != "0" ]; then
+            echo "::error::seed created a mapping for an unavailable measurement type in ${PROV}"
+            exit 1
+          fi
+          if [ "${PRESERVED_TEST_STYLE}" != "1" ]; then
+            echo "::error::seed did not preserve a mapped Test style in ${PROV}"
+            exit 1
+          fi
           if [ "${COMMON_RESTORED}" != "5" ]; then
             echo "::error::restored common legacy tables missing for ${PROV} (found ${COMMON_RESTORED}/5)"
             exit 1
