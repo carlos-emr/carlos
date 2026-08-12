@@ -13,6 +13,7 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
@@ -32,7 +33,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
@@ -58,12 +58,21 @@ class MsgClearMessage2ActionTest extends CarlosWebTestBase {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
 
         mockResponse = spy(new MockHttpServletResponse());
         setUpActionContext();
         action = new MsgClearMessage2Action();
+    }
+
+    @Test
+    @DisplayName("should reject clearing attachments without message write privilege")
+    void shouldRejectClear_whenMessageWritePrivilegeDenied() {
+        denyPrivilege("_msg", "w");
+
+        assertThatThrownBy(() -> executeAction(action))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_msg");
     }
 
     @Test
