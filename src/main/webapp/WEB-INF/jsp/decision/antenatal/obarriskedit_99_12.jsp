@@ -29,14 +29,36 @@
 
 --%>
 
-<%
+<%--
+    Antenatal add-on risk list editor.
 
-    String user_no = (String) session.getAttribute("user");
-%>
+    Purpose:
+      Presents the shared antenatal risk-list XML for editing by a configuration
+      administrator. The rendered document drives the risk checkboxes and popup
+      links on every antenatal planner, so it is shared clinical-decision
+      configuration rather than per-patient data.
+
+    Flow:
+      GET  -> decision/antenatal/obarriskedit_99_12 (ViewDecision2Action, _form r)
+      POST -> decision/antenatal/SaveAntenatalRiskConfig
+              (SaveAntenatalRiskConfig2Action, _form w plus _admin w or _admin.misc w)
+      Persistence lives entirely in that action; this page performs no writes.
+
+    Request attributes (set by the save action on its "input" result):
+      riskEditorChecklist - the rejected submission, redisplayed so the edit is not lost
+      riskEditorError     - a safe, user-displayable validation or storage message
+    Session attribute:
+      riskEditorSaved     - one-shot success flag consumed after a post/redirect/get
+
+    Configuration source:
+      DOCUMENT_DIR override if present, otherwise the default packaged in the webapp
+      (resolved the same way antenatalplanner.jsp and antenatalplannerprint.jsp do).
+
+    @since 2026-08-11
+--%>
 <%@ page import="java.util.*, java.io.*, java.nio.charset.StandardCharsets, java.nio.file.Files" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
 <head>
@@ -59,7 +81,6 @@
       topmargin="0" leftmargin="1" rightmargin="1">
 <form name="checklistedit" action="<%= SafeEncode.forHtmlAttribute(request.getContextPath()) %>/decision/antenatal/SaveAntenatalRiskConfig" method="POST">
     <%
-        char sep = oscarVariables.getProperty("file_separator").toCharArray()[0];
         String submittedChecklist = (String) request.getAttribute("riskEditorChecklist");
         String editorError = (String) request.getAttribute("riskEditorError");
         boolean editorSaved = Boolean.TRUE.equals(session.getAttribute("riskEditorSaved"));
@@ -101,19 +122,30 @@
                     face="Times New Roman, Times, serif"> <textarea
                     name="checklist" cols="100" rows="38" style="width: 100%">
 <% if (submittedChecklist != null) {
-       out.print(SafeEncode.forHtmlContent(submittedChecklist));
+       out.print(SafeEncode.forHtml(submittedChecklist));
    } else {
-    boolean fileFound = true;
+    // Resolve exactly the way every reader of this configuration does (see
+    // antenatalplanner.jsp and antenatalplannerprint.jsp): an administrator's
+    // DOCUMENT_DIR copy wins, otherwise show the default shipped in the webapp.
+    //
+    // The previous fallback built a path relative to the JVM's working directory
+    // out of "file_separator" and "project_home". That could not resolve under a
+    // modern Tomcat layout — the working directory is wherever the server was
+    // launched from, and "project_home" does not name the deployed context — so a
+    // site that had never saved an override opened this editor on an empty box
+    // with no way back to the packaged default, even though the planner was
+    // rendering that default at the same moment.
     File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"),
             "desantenatalplannerrisks_99_12.xml");
     if (!file.isFile() || !file.canRead()) {
-        file = new File(".." + sep + "webapps" + sep + oscarVariables.getProperty("project_home") + sep + "decision" + sep + "antenatal" + sep + "desantenatalplannerrisks_99_12.xml");
-        if (!file.isFile() || !file.canRead()) {
-            fileFound = false; //throw new IOException();
-        }
+        // Null when the application is served from an unexploded WAR; there is
+        // no packaged file to fall back to in that case.
+        String packagedRiskList = application.getRealPath(
+                "/decision/antenatal/desantenatalplannerrisks_99_12.xml");
+        file = packagedRiskList == null ? null : new File(packagedRiskList);
     }
 
-    if (fileFound) {
+    if (file != null && file.isFile() && file.canRead()) {
         try (BufferedReader reader = Files.newBufferedReader(file.toPath(), StandardCharsets.UTF_8)) {
             String aline;
             while ((aline = reader.readLine()) != null) {
