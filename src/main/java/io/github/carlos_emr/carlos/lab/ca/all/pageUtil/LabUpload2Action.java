@@ -237,7 +237,11 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             cipher.init(Cipher.DECRYPT_MODE, key);
             byte[] newSecretKey = cipher.doFinal(Base64.decodeBase64(skey));
 
-            // Decrypt the message using the secret key
+            // Decrypt the message using the secret key.
+            // The bare "AES" transformation resolves to AES/ECB/PKCS5Padding under SunJCE,
+            // so this path has no ciphertext integrity. It is deliberately left unsuppressed:
+            // code scanning alerts 6904 and 5637 must stay open until the legacy format is
+            // removed, because the senders — not this receiver — dictate the wire format.
             // Migration contract and sender coordination gates:
             // docs/security/lab-upload-authenticated-encryption-migration.md
             SecretKeySpec skeySpec = new SecretKeySpec(newSecretKey, "AES");
