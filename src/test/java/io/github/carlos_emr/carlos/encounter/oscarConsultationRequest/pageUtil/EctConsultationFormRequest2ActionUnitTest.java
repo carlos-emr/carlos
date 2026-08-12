@@ -40,6 +40,7 @@ import java.nio.file.Path;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
@@ -494,6 +495,86 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(persisted[0]).isNotNull();
         assertThat(persisted[0].getSignatureImg()).isNull();
         verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+    }
+
+    /**
+     * Regression for #2241. Both {@code serviceId} and {@code specId} are nullable columns, so a
+     * blank field is a legitimate "not chosen" value. Parsing them eagerly threw out of the action
+     * into the Struts global {@code Exception -> error} mapping, which logs nothing, so the
+     * clinician's referral was discarded with only a blank page to show for it.
+     *
+     * <p>Every other create test in this class supplies both fields, which is exactly why the
+     * defect survived: the unfilled form was never exercised.</p>
+     */
+    @Test
+    @DisplayName("persists a null serviceId instead of throwing when the service is blank on create")
+    void shouldPersistNullServiceId_whenServiceIsBlankOnCreate() throws Exception {
+        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
+
+        action.setSubmission("Submit");
+        action.setService("");
+        action.setSpecialist("0");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        action.execute();
+
+        assertThat(persisted[0]).isNotNull();
+        assertThat(persisted[0].getServiceId()).isNull();
+    }
+
+    /**
+     * Regression for #2241. A blank consultant left {@code specId} null, and the Health Care Team
+     * branch then unboxed it via {@code Integer.valueOf(specId)} before reaching the null-tolerant
+     * lookup — a NullPointerException on the create path only; the update path already passed the
+     * Integer through untouched.
+     */
+    @Test
+    @DisplayName("persists the consultation instead of throwing when the consultant is blank on create")
+    void shouldPersistConsultation_whenConsultantIsBlankOnCreate() throws Exception {
+        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
+
+        // The NPE lived inside the Health Care Team branch, which is skipped entirely when the
+        // property is off. Without forcing it on, this test passes against the unfixed action and
+        // proves nothing.
+        CarlosProperties carlosProperties = mock(CarlosProperties.class);
+        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
+                .thenReturn(true);
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        action.execute();
+        }
+
+        assertThat(persisted[0]).isNotNull();
+        assertThat(persisted[0].getServiceId()).isEqualTo(1);
+    }
+
+    /**
+     * Regression for #2241. The blank-service parse existed on the update branch too, so clearing
+     * the service on an existing consultation discarded the edit the same way.
+     */
+    @Test
+    @DisplayName("merges a null serviceId instead of throwing when the service is blank on update")
+    void shouldMergeNullServiceId_whenServiceIsBlankOnUpdate() throws Exception {
+        action.setSubmission("Update");
+        action.setService("");
+        action.setSpecialist("0");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        action.execute();
+
+        verify(consultationRequestDao).merge(any(ConsultationRequest.class));
     }
 
     @Test

@@ -1704,12 +1704,25 @@
             var msg = "<fmt:message key="Errors.service.noServiceSelected"/>";
             msg = msg.replace('<li>', '');
             msg = msg.replace('</li>', '');
-            var serviceOptionsElement = document.EctConsultationFormRequest2Form.service.options;
-            if (serviceOptionsElement && serviceOptionsElement.selectedIndex == 0) {
-                alert(msg);
-                document.EctConsultationFormRequest2Form.service.focus();
-                HideSpin();
-                return false;
+            // `service` is rendered three different ways: a hidden input paired with the
+            // #serviceInput autocomplete (Health Care Team off), a hidden input fixed at "0"
+            // (Health Care Team on), and no field at all on an eReferral, where the service is
+            // read-only text. Reading `.options` only worked for a <select> that this form no
+            // longer renders, so this guard silently passed for every real submission and let a
+            // blank service reach the server. See issue #2241.
+            var serviceElement = document.EctConsultationFormRequest2Form.service;
+            if (serviceElement) {
+                var serviceValue = serviceElement.options
+                        ? (serviceElement.selectedIndex > 0 ? serviceElement.value : '')
+                        : (serviceElement.value || '').trim();
+                if (serviceValue === '') {
+                    alert(msg);
+                    // Focus the visible autocomplete when present; a hidden input cannot take focus.
+                    var serviceInput = document.getElementById('serviceInput');
+                    (serviceInput || serviceElement).focus();
+                    HideSpin();
+                    return false;
+                }
             }
             var faxNumber = document.EctConsultationFormRequest2Form.fax.value;
             faxNumber = faxNumber.trim();
