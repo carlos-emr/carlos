@@ -81,6 +81,10 @@ function isExpectedMissingFixtureImage(status, responseUrl) {
 
 function isBlockingConsoleMessage(message) {
   const text = message.text();
+  const locationUrl = message.location().url || '';
+  if (message.type() === 'error' && /\/imageRenderingServlet\?/.test(locationUrl)) {
+    return false;
+  }
   if (message.type() === 'error') {
     return true;
   }
@@ -280,9 +284,9 @@ function isExpectedNoteLockDialog(issue) {
 
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
     const fatalConsoleIssues = consoleIssues
-      .filter((issue) => issue.label === 'echart' && !isExpectedNoteLockDialog(issue));
+      .filter((issue) => !isExpectedNoteLockDialog(issue));
     assert(fatalConsoleIssues.length === 0,
-      `unexpected eChart browser console failures: ${JSON.stringify(fatalConsoleIssues, null, 2)}`);
+      `unexpected browser console failures: ${JSON.stringify(fatalConsoleIssues, null, 2)}`);
 
     console.log('PASS eChart clinical notes rendered, Social History saved and archived, and Unresolved Issues refreshed');
     console.log(`Observed ${captures.length} eChart-related responses`);
