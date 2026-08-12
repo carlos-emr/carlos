@@ -24,10 +24,15 @@ An external sender posts a multipart request to `/lab/newLabUpload` with these f
 
 Two distinct RSA keypairs are already in play, and version 2 keeps the same roles:
 
-- The **receiver keypair** is the `oscar` row of `oscarKey`. The sender wraps the message
-  key to the receiver public key; the receiver unwraps with its private key.
+- The **receiver keypair** is the row of `oscarKeys` whose `name` is `oscar`, held in
+  columns `pubKey` and `privKey`. The sender wraps the message key to the receiver public
+  key; the receiver unwraps with its private key.
 - The **sender keypair** is per service. The sender signs with its private key; the
-  receiver verifies with `publicKeys.base64EncodedPublicKey` for the requested `service`.
+  receiver verifies with `publicKeys.pubKey` for the requested `service`. Note that the
+  Java field is named `base64EncodedPublicKey`; the column it maps to is `pubKey`.
+
+Both public keys are base64 X.509 `SubjectPublicKeyInfo`; the private keys are base64
+PKCS#8. The table is `oscarKeys`, plural — there is no `oscarKey` table.
 
 There is no protocol-version field, IV, nonce, or authenticated-encryption tag. The
 receiver selects a downstream parser from the `type` column of `publicKeys`. The source
@@ -41,15 +46,40 @@ deployment must inventory its own `publicKeys` rows and resolve the optional
 `matchingProfessionalSpecialistId` contact before a cutoff can be scheduled.
 
 Three legacy receiver behaviors are recorded here because version 2 changes them and a
-reviewer must not read the change as accidental:
+reviewer must not read the change as accidental. Each was reproduced against a running
+receiver; see the verification note below.
 
 - The legacy path decrypts and writes plaintext into `DOCUMENT_DIR` **before** the
-  signature is checked. Version 2 forbids this ordering.
-- A legacy signature failure leaves the already-written plaintext file on disk. Version 2
-  must not create a stored artifact for a message it rejects.
-- An unrecognized `service` yields an empty client-info list and an
-  `IndexOutOfBoundsException` out of `execute()` rather than a controlled rejection.
-  Version 2 requires the generic rejection outcome for unknown services as well.
+  signature is checked. A message that decrypts but fails signature verification still
+  lands on disk as readable plaintext. Because the receiver public key is public, the
+  sender signature is the only thing standing between an authorized `_lab` caller and an
+  arbitrary file in `DOCUMENT_DIR`, and it is checked too late. Version 2 forbids this
+  ordering.
+- A legacy signature failure leaves that already-written plaintext file on disk. Nothing
+  removes it. Version 2 must not create a stored artifact for a message it rejects.
+- An unrecognized `service` produces an empty client-info list, and the subsequent
+  element access throws out of `execute()`. The `lab` Struts package maps
+  `java.lang.Exception` to `errorpage.jsp` (`struts-lab.xml`), and that result is a JSP
+  forward, so the sender receives **HTTP 200 with an HTML error page**. A sender using
+  `use_http_response_code` reads that as a successful delivery. A misconfigured or
+  retired service therefore fails silently in the direction that loses labs. Version 2
+  requires the generic rejection outcome, with a rejection status, for unknown services.
+
+### Verification note
+
+The current-protocol table and the three behaviors above were confirmed against a running
+receiver using an independently written sender built only from this document. Observed
+outcomes, with `use_http_response_code` set: valid signature `200`; invalid signature
+`406` with the decrypted file left in `DOCUMENT_DIR`; unknown service `200` with an error
+page; and re-delivery of identical lab content under a freshly generated message key
+`409`, confirming that `FileUploadCheck` deduplicates decrypted content rather than the
+envelope. Reproduce with synthetic keys and synthetic lab content only.
+
+In the default configuration, `/lab/newLabUpload` is a CSRFGuard-protected route: it is
+absent from the `org.owasp.csrfguard.unprotected.*` list, so a non-browser sender must
+present a valid session and `CSRF-TOKEN` in addition to the cryptographic material above.
+Each deployment must confirm how its senders satisfy this today, because it constrains how
+a version 2 sender is built and is not visible from the cryptographic contract alone.
 
 ## Required owner inventory
 
@@ -60,7 +90,7 @@ following register. Do not copy private keys or patient data into the register.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | _Complete from each deployment_ | | | | | | | | | |
 
-Record the RSA modulus size of each `publicKeys` row and of the deployment's `oscarKey`
+Record the RSA modulus size of each `publicKeys` row and of the deployment's `oscarKeys`
 receiver key. Anything below 2048 bits must be rotated before that service can be marked
 v2 capable.
 
@@ -99,15 +129,15 @@ renamed, and this must be settled while the contract is still a proposal.
 
 #### Key material and minimum strength
 
-The AES key is wrapped to the receiver public key (`oscarKey` row `oscar`) and unwrapped
+The AES key is wrapped to the receiver public key (`oscarKeys` row `oscar`) and unwrapped
 with the receiver private key. The signature is produced with the sender private key and
-verified with `publicKeys.base64EncodedPublicKey` for the requested `service`. Neither
+verified with `publicKeys.pubKey` for the requested `service`. Neither
 key is interchangeable with the other; a message wrapped to the sender's own key is not
 decryptable and must be rejected.
 
 Both keypairs must be RSA with a modulus of at least 2048 bits. A service whose
 `publicKeys` row holds a smaller key is not v2-capable and must rotate before cutover;
-see the rotation step in the rollout. Deployments whose `oscarKey` row predates the
+see the rotation step in the rollout. Deployments whose `oscarKeys` row predates the
 2048-bit generator must rotate the receiver keypair at rollout step 4, before any sender
 is upgraded, and that rotation is itself a coordinated change because every sender wraps
 to that key.
@@ -171,10 +201,12 @@ container upload limit.
   cryptographic failure; it must not surface as an unhandled exception.
 - External responses use one generic rejection outcome and do not disclose whether key
   unwrap, signature verification, GCM authentication, or parsing failed. The existing
-  `use_http_response_code` behavior is narrowed for version 2: every rejection returns a
-  single status, and only the successful outcomes keep their present distinct codes so
-  that duplicate delivery stays observable to senders. Reconcile the exact codes with the
-  sender owners as part of contract approval and record them here.
+  `use_http_response_code` behavior is narrowed for version 2. Measured legacy codes are
+  `200` accepted, `409` already delivered, `406` signature rejected, and `200` for an
+  unknown service via the error-page forward. Version 2 keeps `200` and `409`, because
+  senders need to distinguish delivery from duplicate, and collapses every rejection —
+  including the unknown-service case that currently returns `200` — onto one status.
+  Confirm that status with the sender owners during approval and record it here.
 - Logs and metrics contain the service identifier, protocol version, and a coarse outcome
   only. They must not contain keys, nonces, signatures, ciphertext, plaintext, or
   cryptographic exception details.
