@@ -33,6 +33,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext;
 import io.github.carlos_emr.carlos.email.core.EmailData;
@@ -84,6 +85,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         registerMock(EmailPdfPasswordService.class, mock(EmailPdfPasswordService.class));
         composeSubmissionStateService = new EmailComposeSubmissionStateService();
         registerMock(EmailComposeSubmissionStateService.class, composeSubmissionStateService);
+        registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
         // EmailSend2Action reads request/response from ServletActionContext in field initializers
         // (evaluated at construction), so mock the static to keep `new EmailSend2Action()` from
         // NPEing before each test assigns action.request/response explicitly.

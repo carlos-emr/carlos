@@ -53,6 +53,9 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     void setUpComposeSubmissionStateService() {
         composeSubmissionStateService = new EmailComposeSubmissionStateService();
         registerMock(EmailComposeSubmissionStateService.class, composeSubmissionStateService);
+        // EmailCompose2Action resolves the preview-token service at construction time, so every
+        // test needs it registered even when the test itself never exercises attachment previews.
+        registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
     }
 
     @AfterEach

@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.email.action.EmailCompose2Action;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
@@ -51,6 +52,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(FormsManager.class, mock(FormsManager.class));
         composeSubmissionStateService = new EmailComposeSubmissionStateService();
         registerMock(EmailComposeSubmissionStateService.class, composeSubmissionStateService);
+        registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
         servletActionContext = mockStatic(ServletActionContext.class);
     }
 
