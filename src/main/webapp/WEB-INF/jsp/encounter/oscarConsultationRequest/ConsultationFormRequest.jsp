@@ -981,6 +981,28 @@
             jQuery('#serviceInput').on('click', function() {
                 jQuery(this).autocomplete('search', '');
             });
+            // #service is the field actually posted, and the select handler above is the only
+            // thing that ever wrote it. The id therefore survived the clinician clearing the
+            // visible text, so a service that looked deselected was still submitted and the
+            // submit guard (see issue #2241) approved a value nobody could see. Re-resolve the
+            // hidden id from the visible text on every edit: an exact service name keeps its
+            // id, anything else clears it.
+            //
+            // onServiceSelected() is deliberately NOT called here. It wipes the specialist,
+            // phone, fax, address and annotation fields, which must not happen on a keystroke.
+            // The specialist autocomplete re-reads #service on each search, so clearing the id
+            // is already enough to widen that list again.
+            jQuery('#serviceInput').on('input', function() {
+                var typed = jQuery(this).val().trim().toLowerCase();
+                var matchedId = '';
+                for (var i = 0; i < allServicesData.length; i++) {
+                    if (allServicesData[i].serviceDesc.toLowerCase() === typed) {
+                        matchedId = allServicesData[i].serviceId;
+                        break;
+                    }
+                }
+                jQuery('#service').val(matchedId);
+            });
         }
 
         function initSpecialistAutocomplete() {
