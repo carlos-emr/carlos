@@ -50,7 +50,8 @@ class ConsultationFormServiceSelectionJspRegressionTest {
         assertThat(jsp)
                 .contains("jQuery('#serviceInput').on('input', function() {")
                 .contains("var typed = jQuery(this).val().trim().toLowerCase();")
-                .contains("if (allServicesData[i].serviceDesc.toLowerCase() === typed) {")
+                .contains("var description = (allServicesData[i].serviceDesc || '').trim().toLowerCase();")
+                .contains("if (description === typed) {")
                 .contains("matchedId = allServicesData[i].serviceId;")
                 .contains("jQuery('#service').val(matchedId);");
     }

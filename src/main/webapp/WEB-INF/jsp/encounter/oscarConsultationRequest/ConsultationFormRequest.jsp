@@ -997,7 +997,8 @@
                 var typed = jQuery(this).val().trim().toLowerCase();
                 var matchedId = '';
                 for (var i = 0; i < allServicesData.length; i++) {
-                    if (allServicesData[i].serviceDesc.toLowerCase() === typed) {
+                    var description = (allServicesData[i].serviceDesc || '').trim().toLowerCase();
+                    if (description === typed) {
                         matchedId = allServicesData[i].serviceId;
                         break;
                     }
