@@ -941,6 +941,7 @@
         // All-specialists data for autocomplete (loaded once on page ready)
         var allSpecialistsData = [];
         var allServicesData = [];
+        var lastResolvedServiceId = '';
 
         function loadAllSpecialistsData(callback) {
             jQuery.ajax({
@@ -988,11 +989,11 @@
             // hidden id from the visible text on every edit: an exact service name keeps its
             // id, anything else clears it.
             //
-            // onServiceSelected() is deliberately NOT called here. It wipes the specialist,
-            // phone, fax, address and annotation fields, which must not happen on a keystroke.
-            // The specialist autocomplete re-reads #service on each search, so clearing the id
-            // is already enough to widen that list again.
+            // Keep the last valid id while the text is only a partial/unknown value. That lets us
+            // avoid wiping dependent fields on every keystroke while still detecting when the
+            // clinician has manually entered a different exact service name.
             jQuery('#serviceInput').on('input', function() {
+                var previousServiceId = lastResolvedServiceId;
                 var typed = jQuery(this).val().trim().toLowerCase();
                 var matchedId = '';
                 for (var i = 0; i < allServicesData.length; i++) {
@@ -1002,6 +1003,12 @@
                     }
                 }
                 jQuery('#service').val(matchedId);
+                if (matchedId !== '') {
+                    if (String(matchedId) !== String(previousServiceId || '')) {
+                        onServiceSelected(matchedId);
+                    }
+                    lastResolvedServiceId = String(matchedId);
+                }
             });
         }
 
@@ -1067,6 +1074,7 @@
         }
 
         function onServiceSelected(serviceId) {
+            lastResolvedServiceId = String(serviceId || '');
             // Clear specialist selection when service changes
             jQuery('#specialistInput').val('');
             jQuery('#specialist').val('');
@@ -1093,6 +1101,7 @@
             if ((!currentService || currentService === '' || currentService === '-1') && specData.serviceIds && specData.serviceIds.length > 0) {
                 jQuery('#service').val(specData.serviceIds[0]);
                 jQuery('#serviceInput').val(specData.serviceNames ? specData.serviceNames[0] : '');
+                lastResolvedServiceId = String(specData.serviceIds[0]);
             }
 
             document.getElementById('consult-disclaimer').style.display = 'none';
@@ -1482,6 +1491,7 @@
             if (savedService && savedService !== 'null' && savedService !== '-1') {
                 jQuery('#service').val(savedService);
                 jQuery('#serviceInput').val(savedServiceName || '');
+                lastResolvedServiceId = String(savedService);
                 // Maintain legacy data structure for backward compatibility
                 if (!services[savedService]) {
                     K(savedService, savedServiceName);

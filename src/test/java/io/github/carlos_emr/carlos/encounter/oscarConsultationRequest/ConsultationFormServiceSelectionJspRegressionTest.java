@@ -37,9 +37,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("consultation")
 class ConsultationFormServiceSelectionJspRegressionTest {
 
-    private static final Path CONSULT_JSP = Path.of(
-            "src", "main", "webapp", "WEB-INF", "jsp", "encounter", "oscarConsultationRequest",
-            "ConsultationFormRequest.jsp");
+    private static final Path CONSULT_JSP = projectRoot().resolve(
+            "src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp");
 
     @Test
     @DisplayName("Editing the visible service text should re-resolve the hidden service id")
@@ -66,8 +65,8 @@ class ConsultationFormServiceSelectionJspRegressionTest {
     }
 
     @Test
-    @DisplayName("Re-resolving the hidden id should not trigger the destructive service-change cascade")
-    void shouldNotClearSpecialistFields_whenServiceTextIsEdited() throws Exception {
+    @DisplayName("Typing a different exact service should clear consultant-dependent fields")
+    void shouldClearSpecialistFields_whenTypedServiceResolvesToDifferentId() throws Exception {
         String jsp = Files.readString(CONSULT_JSP, StandardCharsets.UTF_8);
 
         int handlerStart = jsp.indexOf("jQuery('#serviceInput').on('input', function() {");
@@ -75,8 +74,19 @@ class ConsultationFormServiceSelectionJspRegressionTest {
 
         String handlerBody = jsp.substring(handlerStart, jsp.indexOf("});", handlerStart));
 
-        // onServiceSelected() wipes specialist, phone, fax, address and annotation. Calling it
-        // per keystroke would destroy data the clinician already entered.
-        assertThat(handlerBody).doesNotContain("onServiceSelected(");
+        // Partial/unknown text leaves matchedId blank, so dependent fields survive intermediate
+        // keystrokes. A different exact service is a real selection change and must clear them.
+        assertThat(handlerBody)
+                .contains("var previousServiceId = lastResolvedServiceId;")
+                .contains("if (matchedId !== '') {")
+                .contains("if (String(matchedId) !== String(previousServiceId || '')) {")
+                .contains("onServiceSelected(matchedId);")
+                .contains("lastResolvedServiceId = String(matchedId);");
+    }
+
+    private static Path projectRoot() {
+        return Path.of(System.getProperty(
+                "maven.multiModuleProjectDirectory",
+                System.getProperty("user.dir")));
     }
 }
