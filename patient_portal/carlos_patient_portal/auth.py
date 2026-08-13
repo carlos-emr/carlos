@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
 from hashlib import sha256
 from hmac import compare_digest
 from hmac import new as new_hmac
@@ -78,7 +79,6 @@ AUTH_REASON_MFA_FAILURES = "mfa_failures"
 AUTH_TOKEN_BYTES = 32
 MFA_CODE_DIGITS = 6
 MFA_CODE_MODULUS = 10**MFA_CODE_DIGITS
-DUMMY_PASSWORD_HASH = hash_password(token_urlsafe(AUTH_TOKEN_BYTES))
 SESSION_LAST_SEEN_UPDATE_INTERVAL = timedelta(minutes=5)
 SESSION_REVOKED_REASON_IDLE_TIMEOUT = "idle_timeout"
 
@@ -318,11 +318,23 @@ def verify_account_password(
         raise
 
 
+@lru_cache(maxsize=1)
+def dummy_password_hash() -> str:
+    """Argon2 hash of an unguessable value, used only to equalise failed-login timing.
+
+    Derived lazily rather than at import: hashing costs ~64 MiB and a deliberate time cost, and
+    paying that during module import charged every process start, test collection, and CLI
+    invocation for something only the login path uses.
+    """
+    return hash_password(token_urlsafe(AUTH_TOKEN_BYTES))
+
+
 def verify_dummy_password(password: str) -> None:
-    # The dummy hash is a module constant, so it can only fail if the process itself is broken;
-    # equalising login timing must never surface as an error to the caller.
+    # The dummy hash is derived in-process from a fresh random value, so it can only fail if the
+    # process itself is broken; equalising login timing must never surface as an error to the
+    # caller.
     try:
-        password_matches(DUMMY_PASSWORD_HASH, password)
+        password_matches(dummy_password_hash(), password)
     except PasswordHashUnusableError:
         logger.error("Dummy password hash is unusable")
 

@@ -106,6 +106,14 @@ a {
   background: var(--carlos-blue);
 }
 
+/* The active locale tab is disabled so it cannot offer the "not translated yet" notice for the
+   language already on screen. It is a current-state indicator, not an unavailable control, so it
+   keeps full contrast instead of the dimmed default some browsers apply to disabled buttons. */
+.text-tab.selected[disabled] {
+  opacity: 1;
+  cursor: default;
+}
+
 .auth-layout {
   display: grid;
   grid-template-columns: minmax(280px, 420px);

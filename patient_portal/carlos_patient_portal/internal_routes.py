@@ -44,6 +44,7 @@ from carlos_patient_portal.models import (
     UNLOCK_SECRET_STATUS_PENDING,
     UNLOCK_SECRET_STATUS_REVOKED,
     PatientPortalAccount,
+    PatientPortalInvite,
     PatientPortalUnlockSecret,
 )
 from carlos_patient_portal.schemas import InviteCreateRequest
@@ -254,7 +255,11 @@ def require_permission(principal: StaffPrincipal, permission: str) -> None:
         raise HTTPException(status_code=403, detail="permission denied") from exc  # NOSONAR
 
 
-def invite_payload(invite, *, invite_token: str | None = None) -> dict[str, object]:
+def invite_payload(
+    invite: PatientPortalInvite,
+    *,
+    invite_token: str | None = None,
+) -> dict[str, object]:
     payload: dict[str, object] = {
         "id": invite.id,
         "clinic_id": invite.clinic_id,
@@ -399,6 +404,12 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
                 allow_pending=True,
             )
         except UnlockSecretDecryptionError as exc:
+            # read_unlock_secret already wrote the `decryption_failed` audit row into this
+            # request's transaction, and the 503 raised below would otherwise unwind and discard
+            # it — losing the only durable record that a stored secret is unreadable, which is the
+            # exact condition the runbook pages on. Committing here ends the transaction opened by
+            # `get_database_session`; unwinding through that already-committed context manager is
+            # expected and is covered by test_internal_api.py's retry-decryption-failure test.
             session.commit()
             runtime.operational_metrics.record_failure("unlock_secret_decryption")
             raise HTTPException(
@@ -767,6 +778,18 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
         ],
         session: Annotated[Session, session_dependency],
     ) -> dict[str, object]:
+        # Resolved and checked here, matching the publish handler above. Passing a None
+        # demographic through to revoke_unlock_secret would still produce a 404, but only via a
+        # scope-validation ValueError raised three frames down — an implementation detail, not a
+        # decision this route made.
+        demographic_no = session.scalar(
+            select(PatientPortalUnlockSecret.demographic_no).where(
+                PatientPortalUnlockSecret.id == unlock_secret_id,
+                PatientPortalUnlockSecret.clinic_id == principal.clinic_id,
+            )
+        )
+        if demographic_no is None:
+            raise HTTPException(status_code=404, detail="unlock secret not found")
         try:
             unlock_secret = revoke_unlock_secret(
                 session,
@@ -774,12 +797,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
                 clinic_id=principal.clinic_id,
                 revoked_by=principal.display_name,
                 revoked_by_id=principal.provider_id,
-                demographic_no=session.scalar(
-                    select(PatientPortalUnlockSecret.demographic_no).where(
-                        PatientPortalUnlockSecret.id == unlock_secret_id,
-                        PatientPortalUnlockSecret.clinic_id == principal.clinic_id,
-                    )
-                ),
+                demographic_no=demographic_no,
                 reason=payload.reason,
             )
         except (UnlockSecretNotFoundError, ValueError) as exc:

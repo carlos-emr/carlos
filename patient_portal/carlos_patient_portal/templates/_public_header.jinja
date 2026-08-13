@@ -7,13 +7,20 @@
     </div>
   </div>
   <div class="language-switch" aria-label="{{ text.language_aria_label }}">
+    {# The active locale is already in use, so it must not offer the "unavailable" explanation the
+       not-yet-translated locales carry; without this it told the patient English was unavailable
+       while rendering the page in English. #}
     {% for language in supported_locales %}
       <button
-        class="text-tab modal-trigger{% if language.is_selected %} selected{% endif %}"
+        class="text-tab{% if language.is_selected %} selected{% else %} modal-trigger{% endif %}"
         type="button"
         aria-pressed="{{ 'true' if language.is_selected else 'false' }}"
-        data-modal-title="{{ text.language_unavailable_title }}"
-        data-modal-message="{{ text.language_unavailable_message }}"
+        {% if not language.is_selected %}
+          data-modal-title="{{ text.language_unavailable_title }}"
+          data-modal-message="{{ text.language_unavailable_message }}"
+        {% else %}
+          disabled
+        {% endif %}
         data-language-code="{{ language.code }}"
       >{{ language.short_label }}</button>
     {% endfor %}

@@ -100,6 +100,14 @@ def validate_list_pagination(limit: int, offset: int) -> None:
 
 
 def hash_invite_token(token: str) -> str:
+    """Hash an invite token for storage and lookup.
+
+    Deliberately unkeyed, unlike `auth.hash_auth_token` and the identity-proof hashes in this file.
+    The token is 32 random bytes, so an unkeyed digest is not brute-forceable, and keeping the
+    lookup key independent of `PATIENT_PORTAL_IDENTITY_PROOF_SECRET` means rotating that secret
+    invalidates only the proof comparison — an already-delivered invite link keeps resolving to its
+    row and fails with a clean "details could not be verified" rather than "no such invite".
+    """
     return sha256(token.encode("utf-8")).hexdigest()
 
 

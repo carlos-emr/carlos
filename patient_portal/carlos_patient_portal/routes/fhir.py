@@ -94,14 +94,16 @@ def fhir_bundle_links(
     resource_id: str | None = None,
     subject: str | None = None,
 ) -> tuple[str, str | None, str | None]:
-    build_link = lambda page_offset: fhir_search_url(  # noqa: E731
-        base_url=base_url,
-        resource_type=resource_type,
-        count=count,
-        offset=page_offset,
-        resource_id=resource_id,
-        subject=subject,
-    )
+    def build_link(page_offset: int) -> str:
+        return fhir_search_url(
+            base_url=base_url,
+            resource_type=resource_type,
+            count=count,
+            offset=page_offset,
+            resource_id=resource_id,
+            subject=subject,
+        )
+
     self_link = build_link(offset)
     previous_link = build_link(max(0, offset - count)) if offset > 0 else None
     next_link = build_link(offset + count) if offset + count < total else None
@@ -345,6 +347,11 @@ def register_fhir_routes(
                     if offset == 0:
                         records = [record]
             except (FhirApiError, UnlockSecretNotFoundError):
+                # A search for an id that is malformed or out of scope is an empty bundle, not an
+                # error: FHIR search reports "no matches" the same way regardless of why. The read
+                # handlers below deliberately do the opposite and audit the attempt, because a read
+                # names one resource and a failed read is worth an investigator's attention.
+                # The successful-search audit event below still records that the search happened.
                 pass
         elif subject_matches:
             total = count_unlock_secrets(

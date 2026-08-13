@@ -10,27 +10,9 @@
 <body>
   <main class="app-shell">
     <section class="portal-screen" aria-label="{{ text.sign_in_aria_label }}">
-      <header class="patient-topbar">
-        <div class="brand-lockup">
-          <img src="{{ url_for('static', path='/carlos-logo.png') }}" alt="{{ text.logo_alt }}" class="brand-logo">
-          <div>
-            <strong>{{ service_name }}</strong>
-            <span>{{ clinic_name }}</span>
-          </div>
-        </div>
-        <div class="language-switch" aria-label="{{ text.language_aria_label }}">
-          {% for language in supported_locales %}
-            <button
-              class="text-tab modal-trigger{% if language.is_selected %} selected{% endif %}"
-              type="button"
-              aria-pressed="{{ 'true' if language.is_selected else 'false' }}"
-              data-modal-title="{{ text.language_unavailable_title }}"
-              data-modal-message="{{ text.language_unavailable_message }}"
-              data-language-code="{{ language.code }}"
-            >{{ language.short_label }}</button>
-          {% endfor %}
-        </div>
-      </header>
+      {# Was a byte-for-byte copy of the shared partial, which is how the language switch here
+         drifted out of step with every other public page. #}
+      {% include "_public_header.jinja" %}
 
       <div class="auth-layout">
         <section class="auth-panel" aria-labelledby="signin-title">

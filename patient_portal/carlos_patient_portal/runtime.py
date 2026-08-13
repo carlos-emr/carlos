@@ -76,7 +76,13 @@ class InMemoryRateLimiter:
         self.buckets: OrderedDict[str, RateLimitBucket] = OrderedDict()
         self.lock = Lock()
 
-    def retry_after_seconds(self, key: str, *, now: float | None = None) -> int | None:
+    def consume(self, key: str, *, now: float | None = None) -> int | None:
+        """Charge one request to ``key``; return None if allowed, else the retry-after seconds.
+
+        This mutates: it creates buckets, rolls windows, and increments the counter. Call it once
+        per request. Peeking at the current state is deliberately not offered, because a caller
+        that logged the value would silently spend a request from the budget.
+        """
         current_time = now if now is not None else monotonic()
         with self.lock:
             self.prune_expired_buckets(current_time)

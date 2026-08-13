@@ -141,15 +141,22 @@ def cleanup_transient_auth_rows(
             ),
         ),
     )
-    counts: list[int] = []
-    for model, predicate in predicates:
+    # Keyed by field name rather than built positionally: these counts are what the operator reads
+    # to decide whether cleanup did what they expected, and a reordering of `predicates` must not be
+    # able to silently relabel them.
+    counts: dict[str, int] = {}
+    for field_name, (model, predicate) in zip(
+        ("sessions", "mfa_challenges", "reset_records", "invites"),
+        predicates,
+        strict=True,
+    ):
         record_ids = list(
             session.scalars(
                 select(model.id).where(predicate).order_by(model.id).limit(normalized_batch_size)
             )
         )
         if dry_run or not record_ids:
-            counts.append(len(record_ids))
+            counts[field_name] = len(record_ids)
             continue
         # The DELETE re-applies the predicate to close the resend-vs-cleanup race, so the
         # selected count can overstate; report what was actually removed, like prune_audit_events.
@@ -159,8 +166,8 @@ def cleanup_transient_auth_rows(
                 predicate,
             )
         )
-        counts.append(int(result.rowcount or 0))
-    return TransientCleanupResult(*counts)
+        counts[field_name] = int(result.rowcount or 0)
+    return TransientCleanupResult(**counts)
 
 
 def sqlite_database_path(database_url: str) -> Path:

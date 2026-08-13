@@ -101,6 +101,14 @@ class CreatedUnlockSecret:
 
 
 @dataclass(frozen=True)
+class DisclosedUnlockSecret:
+    """One audited disclosure: the record that was read and the passphrase it held."""
+
+    unlock_secret: PatientPortalUnlockSecret
+    secret: str
+
+
+@dataclass(frozen=True)
 class EncryptedUnlockSecretPayload:
     encrypted_secret: bytes
     encryption_nonce: bytes
@@ -379,6 +387,46 @@ def read_unlock_secret(
     secret_type: str | None = None,
     allow_pending: bool = False,
 ) -> str:
+    """Disclose one passphrase, discarding the record. See `read_scoped_unlock_secret`."""
+    return read_scoped_unlock_secret(
+        session,
+        unlock_secret_id,
+        clinic_id=clinic_id,
+        encryption_secret=encryption_secret,
+        encryption_keys=encryption_keys,
+        actor_type=actor_type,
+        actor=actor,
+        actor_id=actor_id,
+        account_id=account_id,
+        audit_account_id=audit_account_id,
+        demographic_no=demographic_no,
+        secret_type=secret_type,
+        allow_pending=allow_pending,
+    ).secret
+
+
+def read_scoped_unlock_secret(
+    session: Session,
+    unlock_secret_id: int,
+    *,
+    clinic_id: str,
+    encryption_secret: str | None = None,
+    encryption_keys: Mapping[str, str] | None = None,
+    actor_type: str,
+    actor: str,
+    actor_id: str | None = None,
+    account_id: int | None = None,
+    audit_account_id: int | None = None,
+    demographic_no: int | None = None,
+    secret_type: str | None = None,
+    allow_pending: bool = False,
+) -> DisclosedUnlockSecret:
+    """Audit and decrypt one scoped unlock secret, returning the record alongside its plaintext.
+
+    Callers that render the record's metadata in the same response take this form; the row is
+    already loaded and scope-checked here, so re-reading it would be a second query and a second
+    chance for the two reads to disagree.
+    """
     normalized_actor_type = normalize_actor_type(actor_type)
     normalized_actor = normalize_required_text(
         actor,
@@ -454,7 +502,7 @@ def read_unlock_secret(
         resource_type="unlock_secret",
         resource_id=str(unlock_secret.id),
     )
-    return plaintext_secret
+    return DisclosedUnlockSecret(unlock_secret=unlock_secret, secret=plaintext_secret)
 
 
 def reencrypt_unlock_secrets(
@@ -970,7 +1018,18 @@ def resolve_account_id(
     return session.scalar(statement)
 
 
+# Bounded by the size of a realistic keyring (active key plus retained keys mid-rotation). The
+# derivation is deterministic by design, so caching only skips repeated work, never changes a
+# result; the secret is already resident in process memory as a Settings field either way.
+@lru_cache(maxsize=8)
 def derive_unlock_secret_key(encryption_secret: str) -> bytes:
+    """Derive the AES-256 key for one configured unlock-secret encryption secret.
+
+    ``salt=None`` is required, not an oversight: every read must reproduce the key from the record's
+    ``encryption_key_id`` alone, so the derivation has to be deterministic. Per-record uniqueness is
+    supplied instead by the random nonce and by the record-bound associated data built in
+    ``build_associated_data`` (clinic, demographic, type, key id, and a per-record context UUID).
+    """
     normalized_secret = encryption_secret.strip()
     if len(normalized_secret) < MIN_PRODUCTION_SECRET_LENGTH:
         raise ValueError(

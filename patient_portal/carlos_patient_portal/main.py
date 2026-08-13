@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from hashlib import sha256
 from hmac import new as new_hmac
-from http.cookies import SimpleCookie
 from ipaddress import ip_address, ip_network
 from pathlib import Path as FilePath
 from secrets import compare_digest, token_urlsafe
@@ -141,6 +140,8 @@ from carlos_patient_portal.presenters import (
 )
 from carlos_patient_portal.routes.fhir import fhir_json_response, register_fhir_routes
 from carlos_patient_portal.runtime import (
+    MAX_DATABASE_ID,
+    MAX_PAGE_OFFSET,
     FhirApiError,
     InMemoryRateLimiter,
     PortalRuntime,
@@ -183,8 +184,9 @@ from carlos_patient_portal.unlock_secrets import (
     UnlockSecretNotFoundError,
     UnlockSecretNotPublishedError,
     UnlockSecretRevokedError,
-    get_scoped_unlock_secret,
     list_unlock_secrets,
+    load_unlock_secret_words,
+    read_scoped_unlock_secret,
     read_unlock_secret,
 )
 from carlos_patient_portal.view_models import EmailPasswordDashboardViewModel
@@ -204,9 +206,6 @@ CONTENT_SECURITY_POLICY = (
 )
 FHIR_PATH_PREFIX = "/fhir/"
 PORTAL_ROOT_PATH = "/portal"
-MAX_PAGE_OFFSET = 100_000
-# Largest value a 64-bit signed integer key can hold; ids beyond this cannot exist in any row.
-MAX_DATABASE_ID = 2**63 - 1
 SERVICE_UNAVAILABLE_DETAIL = "service temporarily unavailable"
 AUTHENTICATION_REQUIRED_DETAIL = "authentication required"
 # Shared by login, resend, and activation so every JSON surface stays equally generic; the browser
@@ -293,9 +292,13 @@ def create_csrf_token(secret: str) -> str:
 
 
 def sign_csrf_token(message: str, secret: str) -> str:
+    # The same session secret also keys session tokens, MFA codes, and reset tokens, so the signed
+    # message carries a purpose prefix exactly like hash_auth_token/hash_mfa_code. Without it, the
+    # domain separation between the secret's four roles would rest on the input formats happening
+    # never to collide rather than on anything structural.
     return new_hmac(
         secret.encode("utf-8"),
-        message.encode("utf-8"),
+        f"csrf_token:{message}".encode(),
         sha256,
     ).hexdigest()
 
@@ -360,17 +363,16 @@ def set_portal_session_cookie(
     *,
     settings: Settings,
 ) -> None:
-    portal_cookie = SimpleCookie()
-    portal_cookie[PORTAL_SESSION_COOKIE_NAME] = session_cookie_value
-    portal_cookie[PORTAL_SESSION_COOKIE_NAME]["httponly"] = True
-    portal_cookie[PORTAL_SESSION_COOKIE_NAME]["max-age"] = str(settings.session_ttl_seconds)
-    portal_cookie[PORTAL_SESSION_COOKIE_NAME]["path"] = PORTAL_SESSION_COOKIE_PATH
-    portal_cookie[PORTAL_SESSION_COOKIE_NAME]["samesite"] = "strict"
-    if not settings.is_development:
-        portal_cookie[PORTAL_SESSION_COOKIE_NAME]["secure"] = True
-    response.headers.append(
-        "set-cookie",
-        portal_cookie[PORTAL_SESSION_COOKIE_NAME].OutputString(),
+    # set_cookie appends rather than replaces, so this composes with the CSRF cookie written on the
+    # same response; there is no need to build the header by hand.
+    response.set_cookie(
+        PORTAL_SESSION_COOKIE_NAME,
+        session_cookie_value,
+        httponly=True,
+        max_age=settings.session_ttl_seconds,
+        path=PORTAL_SESSION_COOKIE_PATH,
+        samesite="strict",
+        secure=not settings.is_development,
     )
 
 
@@ -1375,6 +1377,11 @@ def build_portal_runtime(
         unlock_secret_encryption_keys = {"primary": token_urlsafe(32)}
     unlock_secret_active_key_id = settings.unlock_secret_active_key_id
     unlock_secret_encryption_secret = unlock_secret_encryption_keys[unlock_secret_active_key_id]
+    # Packaged data that a bad build can truncate or corrupt. Loading it here turns that into a
+    # startup failure instead of a 500 the first time CARLOS asks for a passphrase, which could be
+    # long after the deploy and is invisible to the readiness probe. The loader is lru_cached, so
+    # the parse is paid once either way.
+    load_unlock_secret_words()
     database_engine = create_portal_engine(
         settings.database_url,
         pool_size=settings.database_pool_size,
@@ -1563,7 +1570,7 @@ def register_security_middleware(app: FastAPI, runtime: PortalRuntime) -> None:
             is_login = request.url.path == "/auth/login"
             limiter = runtime.auth_rate_limiter if is_login else runtime.rate_limiter
             client_reference = get_request_client_reference(request, settings)
-            retry_after_seconds = limiter.retry_after_seconds(
+            retry_after_seconds = limiter.consume(
                 f"login:{client_reference}" if is_login else client_reference
             )
             if retry_after_seconds is None:
@@ -1930,10 +1937,6 @@ def create_app(
     app.state.operational_metrics = runtime.operational_metrics
     app.state.unlock_secret_encryption_secret = runtime.unlock_secret_encryption_secret
     logging.getLogger("uvicorn.access").disabled = not settings.is_development
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=list(settings.allowed_hosts),
-    )
     app.mount(
         "/static",
         StaticFiles(directory=str(PACKAGE_DIR / "static")),
@@ -1942,6 +1945,13 @@ def create_app(
     register_exception_handlers(app)
     register_security_middleware(app, runtime)
     register_app_routes(app, runtime)
+    # Added last so it ends up outermost: Starlette prepends each middleware, so registering the
+    # host check first would let request logging, metrics, maintenance responses, and rate-limit
+    # bucket consumption all run for a request whose Host header is rejected a layer later.
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=list(settings.allowed_hosts),
+    )
     return app
 
 
@@ -2701,7 +2711,7 @@ def register_patient_email_password_routes(
     ) -> Response | dict[str, object]:
         account = authenticated_session.account
         try:
-            passphrase = read_unlock_secret(
+            disclosure = read_scoped_unlock_secret(
                 session,
                 email_password_id,
                 clinic_id=account.clinic_id,
@@ -2713,13 +2723,6 @@ def register_patient_email_password_routes(
                     runtime.unlock_secret_encryption_keys
                     or {"primary": runtime.unlock_secret_encryption_secret}
                 ),
-                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-            )
-            unlock_secret = get_scoped_unlock_secret(
-                session,
-                email_password_id,
-                clinic_id=account.clinic_id,
-                demographic_no=account.demographic_no,
                 secret_type=UNLOCK_SECRET_TYPE_EMAIL,
             )
         except (
@@ -2749,7 +2752,10 @@ def register_patient_email_password_routes(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={"detail": "email password unavailable"},
             )
-        return email_password_secret_response_payload(unlock_secret, passphrase=passphrase)
+        return email_password_secret_response_payload(
+            disclosure.unlock_secret,
+            passphrase=disclosure.secret,
+        )
 
 
 def register_logout_route(
@@ -2916,6 +2922,10 @@ def register_portal_routes(
                 session,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+        # Bound before the branch: the status selection below reads this whenever a review request
+        # exists, and a conditional binding would turn any future reordering into an
+        # UnboundLocalError on a contact-change path.
+        notices_delivered = True
         if review_request is not None:
             session.commit()
             recipients = dict.fromkeys(
@@ -2924,7 +2934,6 @@ def register_portal_routes(
                     review_request.email_after,
                 )
             )
-            notices_delivered = True
             for recipient in recipients:
                 try:
                     await run_in_threadpool(
@@ -3073,7 +3082,7 @@ def register_portal_routes(
             email_password_search=q,
             email_password_provider=provider,
             email_password_date_from=parsed_date_from,
-            email_password_date_to=parsed_date_to,  # ggignore
+            email_password_date_to=parsed_date_to,
             email_password_page=page,
             email_password_filter_error=filter_error,
         )
@@ -3158,10 +3167,10 @@ def register_portal_routes(
         )
         csrf_token = first_form_value(form_values, CSRF_FORM_FIELD)
         csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
-        response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
         if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
             raise HTTPException(status_code=403, detail="logout could not be completed")
 
+        response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
         logout_browser_session_cookie_token(
             session,
             session_token=request.cookies.get(PORTAL_SESSION_COOKIE_NAME),

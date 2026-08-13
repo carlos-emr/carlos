@@ -687,6 +687,33 @@ def test_index_renders_sign_in_shell() -> None:
     assert "Maple Creek Medical" in response.text
 
 
+def test_language_switch_offers_unavailable_notice_only_for_untranslated_locales() -> None:
+    app = main.create_app(development_settings())
+    response = TestClient(app).get("/")
+    text = portal_text(DEFAULT_LOCALE)
+    language_buttons = {
+        locale.code: button
+        for locale in SUPPORTED_LOCALES
+        for button in response.text.split("<button")
+        if f'data-language-code="{locale.code}"' in button
+    }
+
+    assert response.status_code == 200
+    assert set(language_buttons) == {locale.code for locale in SUPPORTED_LOCALES}
+    # The page is rendered in the active locale, so offering to explain that it is unavailable
+    # contradicts what the patient is looking at.
+    active_button = language_buttons[DEFAULT_LOCALE]
+    assert 'aria-pressed="true"' in active_button
+    assert text["language_unavailable_message"] not in active_button
+    assert "modal-trigger" not in active_button
+    assert "disabled" in active_button
+    for code, button in language_buttons.items():
+        if code == DEFAULT_LOCALE:
+            continue
+        assert text["language_unavailable_message"] in button
+        assert "modal-trigger" in button
+
+
 def test_browser_activation_form_creates_account_without_repopulating_proof_values() -> None:
     app = migrated_development_app()
     client = TestClient(app)
@@ -965,7 +992,7 @@ def test_rate_limiter_evicts_oldest_bucket_at_configured_capacity() -> None:
     )
 
     for index in range(10):
-        assert limiter.retry_after_seconds(f"client-{index}", now=1.0) is None
+        assert limiter.consume(f"client-{index}", now=1.0) is None
 
     assert len(limiter.buckets) == 3
     assert list(limiter.buckets) == ["client-7", "client-8", "client-9"]
