@@ -70,7 +70,10 @@ public final class AntenatalConfigLocation {
      * resolving a bare filename against the JVM working directory, and the result
      * must be a readable regular file — a directory at that path is not a
      * configuration document and previously slipped through a {@code canRead()}
-     * check into the XML parser.
+     * check into the XML parser. This reader deliberately follows a readable
+     * operator-managed symbolic link so upgrading does not silently replace active
+     * clinical rules with the packaged default. The editor detects that case and
+     * becomes read-only; the atomic writer still refuses to replace the link.
      *
      * @param fileName configuration file name to look for
      * @return the override file, or {@code null} to fall back to the packaged default

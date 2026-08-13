@@ -25,6 +25,7 @@ class DesAntenatalPlannerRisksHandlerUnitTest {
         AttributesImpl attributes = new AttributesImpl();
         attributes.addAttribute("", "", "href", "CDATA", "https://example.test/');alert(1);//");
         attributes.addAttribute("", "", "name", "CDATA", "risk1\" autofocus=\"true");
+        attributes.addAttribute("", "", "onmouseover", "CDATA", "alert(3)");
         char[] label = "<script>alert(2)</script>".toCharArray();
 
         handler.startDocument();
@@ -38,6 +39,8 @@ class DesAntenatalPlannerRisksHandlerUnitTest {
                 .contains("&lt;script&gt;alert(2)&lt;/script&gt;")
                 .doesNotContain("<script>")
                 .doesNotContain("name=\"risk_risk1\" autofocus")
+                .doesNotContain("onmouseover")
+                .doesNotContain("alert(3)")
                 .doesNotContain("');alert(1);//");
         assertThat(html.indexOf("<input")).isLessThan(html.indexOf("<a href"));
     }

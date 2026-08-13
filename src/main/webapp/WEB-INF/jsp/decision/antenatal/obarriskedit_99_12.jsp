@@ -53,7 +53,9 @@
     Configuration source:
       DOCUMENT_DIR override if present, otherwise the default packaged in the webapp.
       Same precedence as antenatalplanner.jsp and antenatalplannerprint.jsp, but the
-      packaged copy is read as a resource stream so it also works unexploded.
+      packaged copy is read as a resource stream so it also works unexploded. A
+      readable symbolic-link override remains active but is shown read-only because
+      the atomic writer deliberately refuses to replace links.
 
     @since 2026-08-11
 --%>
@@ -85,6 +87,14 @@
         String submittedChecklist = (String) request.getAttribute("riskEditorChecklist");
         String editorError = (String) request.getAttribute("riskEditorError");
         boolean editorSaved = Boolean.TRUE.equals(session.getAttribute("riskEditorSaved"));
+        File overrideFile = AntenatalConfigLocation.readableOverride(
+                "desantenatalplannerrisks_99_12.xml");
+        // Keep an existing operator-managed symlink live for the planner, but do
+        // not present it as editable: the atomic writer deliberately refuses to
+        // replace links, and silently falling back to the packaged clinical rules
+        // would be a more dangerous compatibility change than a read-only editor.
+        boolean readOnlyOverride = overrideFile != null
+                && Files.isSymbolicLink(overrideFile.toPath());
         if (editorSaved) {
             session.removeAttribute("riskEditorSaved");
         }
@@ -96,8 +106,11 @@
             <th width="25%" nowrap>
                 <div align="right"><a href=#
                                       onClick="popupPage(450,900,'ar1risk_99_12.htm')"><font
-                        color="#FFFF66">View Risk Number</font></a> <input type='submit'
-                                                                           name='submit' value=' Save '> <input
+                        color="#FFFF66">View Risk Number</font></a>
+                    <% if (!readOnlyOverride) { %>
+                    <input type='submit' name='submit' value=' Save '>
+                    <% } %>
+                    <input
                         type="button"
                         name="Button"
                         value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
@@ -111,6 +124,13 @@
                 <%= SafeEncode.forHtmlContent(editorError) %>
             </td>
         </tr>
+        <% } else if (readOnlyOverride) { %>
+        <tr>
+            <td colspan="2" role="alert" style="color: #a00; font-weight: bold; padding: 0.5em;">
+                This risk list is configured through a symbolic link and is read-only here.
+                Update the linked file through the deployment configuration process.
+            </td>
+        </tr>
         <% } else if (editorSaved) { %>
         <tr>
             <td colspan="2" role="status" style="color: #063; font-weight: bold; padding: 0.5em;">
@@ -121,7 +141,7 @@
         <tr>
             <td align=CENTER colspan="2"><font
                     face="Times New Roman, Times, serif"> <textarea
-                    name="checklist" cols="100" rows="38" style="width: 100%">
+                    name="checklist" cols="100" rows="38" style="width: 100%"<%= readOnlyOverride ? " readonly" : "" %>>
 <% if (submittedChecklist != null) {
        out.print(SafeEncode.forHtml(submittedChecklist));
    } else {
@@ -136,8 +156,6 @@
     // site that had never saved an override opened this editor on an empty box
     // with no way back to the packaged default, even though the planner was
     // rendering that default at the same moment.
-    File overrideFile = AntenatalConfigLocation.readableOverride(
-            "desantenatalplannerrisks_99_12.xml");
     Reader source = null;
     if (overrideFile != null) {
         source = Files.newBufferedReader(overrideFile.toPath(), StandardCharsets.UTF_8);
@@ -170,7 +188,10 @@
             </td>
         </tr>
     </table>
-    <input type='submit' name='submit' value=' Save '> <input
+    <% if (!readOnlyOverride) { %>
+    <input type='submit' name='submit' value=' Save '>
+    <% } %>
+    <input
         type="button" name="Button" value=" Exit " onClick="onExit();">
 </form>
 </body>

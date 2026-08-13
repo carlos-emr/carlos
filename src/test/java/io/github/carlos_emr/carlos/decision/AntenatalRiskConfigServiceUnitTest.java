@@ -29,6 +29,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.w3c.dom.Document;
 
 import io.github.carlos_emr.carlos.decision.AntenatalRiskConfigService.InvalidConfigurationException;
@@ -231,6 +234,19 @@ class AntenatalRiskConfigServiceUnitTest {
         assertThat(Files.readString(target)).isEqualTo("original");
     }
 
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    @DisplayName("should reject missing or blank XML without changing the current file")
+    void shouldReject_missingOrBlankXml(String submittedXml) throws Exception {
+        Path target = originalTarget();
+
+        assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save(submittedXml))
+                .isInstanceOf(InvalidConfigurationException.class)
+                .hasMessageContaining("cannot be empty");
+        assertThat(Files.readString(target)).isEqualTo("original");
+    }
+
     @Test
     @DisplayName("should reject an attribute outside the allowlist")
     void shouldReject_unknownAttribute() throws Exception {
@@ -409,6 +425,10 @@ class AntenatalRiskConfigServiceUnitTest {
         assertThat(document.getElementsByTagName("risk").getLength()).isEqualTo(1);
         assertThat(document.getElementsByTagName("risk").item(0).getTextContent())
                 .startsWith("Concurrent risk ");
+        try (var files = Files.list(temporaryDirectory)) {
+            assertThat(files.map(path -> path.getFileName().toString()))
+                    .containsExactly(AntenatalRiskConfigService.FILE_NAME);
+        }
     }
 
     private Path originalTarget() throws IOException {
