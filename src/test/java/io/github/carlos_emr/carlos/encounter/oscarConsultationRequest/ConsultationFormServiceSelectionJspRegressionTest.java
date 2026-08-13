@@ -75,6 +75,7 @@ class ConsultationFormServiceSelectionJspRegressionTest {
 
         assertThat(jsp)
                 .contains("var isEReferral = document.getElementById('isOceanEReferral') !== null;")
+                .contains("if (!isEReferral && typeof checkFormHCT === \"function\") {")
                 .contains("if (serviceElement && !isEReferral) {");
     }
 
@@ -95,7 +96,11 @@ class ConsultationFormServiceSelectionJspRegressionTest {
                 .contains("if (matchedId !== '') {")
                 .contains("if (String(matchedId) !== String(previousServiceId || '')) {")
                 .contains("onServiceSelected(matchedId);")
-                .contains("lastResolvedServiceId = String(matchedId);");
+                .doesNotContain("lastResolvedServiceId = String(matchedId);");
+
+        assertThat(jsp)
+                .contains("function onServiceSelected(serviceId) {")
+                .contains("lastResolvedServiceId = String(serviceId || '');");
     }
 
     /**

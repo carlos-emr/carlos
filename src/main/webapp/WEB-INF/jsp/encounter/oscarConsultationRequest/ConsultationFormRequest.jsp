@@ -1008,7 +1008,6 @@
                     if (String(matchedId) !== String(previousServiceId || '')) {
                         onServiceSelected(matchedId);
                     }
-                    lastResolvedServiceId = String(matchedId);
                 }
             });
         }
@@ -1726,8 +1725,9 @@
         function checkForm(submissionVal, formName) {
             ShowSpin(true);
             var success = true;
+            var isEReferral = document.getElementById('isOceanEReferral') !== null;
 
-            if (typeof checkFormHCT === "function") {
+            if (!isEReferral && typeof checkFormHCT === "function") {
                 if (!checkFormHCT()) {
                     HideSpin();
                     return false;
@@ -1747,7 +1747,6 @@
             // clients, and direct requests so a missing value can never discard the referral.
             // See issue #2241.
             var serviceElement = document.EctConsultationFormRequest2Form.service;
-            var isEReferral = document.getElementById('isOceanEReferral') !== null;
             if (serviceElement && !isEReferral) {
                 var serviceValue = serviceElement.options
                         ? (serviceElement.selectedIndex > 0 ? serviceElement.value : '')
