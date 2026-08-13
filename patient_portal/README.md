@@ -41,6 +41,10 @@ The MVP foundation currently includes:
 | FHIR R4 and HL7 v2.5.1 | Scoped resources and conformance artifacts are validator-tested | This is a narrow portal profile, not a general-purpose exchange server |
 | Pilot hardening | In-process controls and operator commands are present | External monitoring, audit export, managed backups, and restore drills remain required |
 
+Why this is a separate Python service with its own PostgreSQL database, what was traded away, and
+the conditions under which the decision should be revisited are recorded in
+[`docs/architecture/patient-portal-runtime.md`](../docs/architecture/patient-portal-runtime.md).
+
 The current MVP deliberately uses one isolated portal deployment, database, origin, and configured
 clinic identity per clinic. It is not a shared multi-clinic identity service. The portal-side API
 contract is deployable only after the CARLOS Java application is wired to it.
