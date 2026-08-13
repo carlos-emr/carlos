@@ -27,6 +27,7 @@ import java.util.stream.Stream;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -309,8 +310,7 @@ class AntenatalRiskConfigServiceUnitTest {
     @ParameterizedTest(name = "should reject {0}")
     @MethodSource("invalidDocumentStructures")
     @DisplayName("should reject invalid document structure without changing the current file")
-    void shouldReject_invalidDocumentStructure(
-            String scenario, String submittedXml, String expectedMessage) throws Exception {
+    void shouldReject_invalidDocumentStructure(String submittedXml, String expectedMessage) throws Exception {
         Path target = originalTarget();
 
         assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save(submittedXml))
@@ -321,13 +321,19 @@ class AntenatalRiskConfigServiceUnitTest {
 
     private static Stream<Arguments> invalidDocumentStructures() {
         return Stream.of(
-                Arguments.of("malformed XML", "<riskFactors><section></riskFactors>", "well-formed"),
-                Arguments.of("a document with no section", "<riskFactors></riskFactors>", "at least one"),
-                Arguments.of("an empty section",
-                        "<riskFactors><section><!-- no content --></section></riskFactors>",
+                Arguments.of(
+                        Named.of("malformed XML", "<riskFactors><section></riskFactors>"),
+                        "well-formed"),
+                Arguments.of(
+                        Named.of("a document with no section", "<riskFactors></riskFactors>"),
+                        "at least one"),
+                Arguments.of(
+                        Named.of("an empty section",
+                                "<riskFactors><section><!-- no content --></section></riskFactors>"),
                         "<section> must contain at least one supported element"),
-                Arguments.of("an empty subsection",
-                        "<riskFactors><section><subsection/></section></riskFactors>",
+                Arguments.of(
+                        Named.of("an empty subsection",
+                                "<riskFactors><section><subsection/></section></riskFactors>"),
                         "<subsection> must contain at least one supported element"));
     }
 
