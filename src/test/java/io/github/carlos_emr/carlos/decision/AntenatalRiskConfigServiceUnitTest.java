@@ -327,6 +327,30 @@ class AntenatalRiskConfigServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should reject an empty section")
+    void shouldReject_emptySection() throws Exception {
+        Path target = originalTarget();
+
+        assertThatThrownBy(() -> new AntenatalRiskConfigService(target)
+                .save("<riskFactors><section><!-- no content --></section></riskFactors>"))
+                .isInstanceOf(InvalidConfigurationException.class)
+                .hasMessageContaining("<section> must contain at least one supported element");
+        assertThat(Files.readString(target)).isEqualTo("original");
+    }
+
+    @Test
+    @DisplayName("should reject an empty subsection")
+    void shouldReject_emptySubsection() throws Exception {
+        Path target = originalTarget();
+
+        assertThatThrownBy(() -> new AntenatalRiskConfigService(target)
+                .save("<riskFactors><section><subsection/></section></riskFactors>"))
+                .isInstanceOf(InvalidConfigurationException.class)
+                .hasMessageContaining("<subsection> must contain at least one supported element");
+        assertThat(Files.readString(target)).isEqualTo("original");
+    }
+
+    @Test
     @DisplayName("should reject content outside the root element")
     void shouldReject_contentOutsideRoot() throws Exception {
         Path target = originalTarget();

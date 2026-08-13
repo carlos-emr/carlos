@@ -259,11 +259,11 @@ public final class AntenatalRiskConfigService {
         switch (element.getTagName()) {
             case "section" -> {
                 validateAttributes(element, Set.of(), Set.of());
-                validateContainer(element, SECTION_CHILDREN, fieldNames);
+                requireContent(element, SECTION_CHILDREN, fieldNames);
             }
             case "subsection" -> {
                 validateAttributes(element, Set.of(), Set.of());
-                validateContainer(element, SUBSECTION_CHILDREN, fieldNames);
+                requireContent(element, SUBSECTION_CHILDREN, fieldNames);
             }
             case "section_title", "subsection_title" -> {
                 validateAttributes(element, Set.of(), Set.of());
@@ -282,6 +282,14 @@ public final class AntenatalRiskConfigService {
             }
             default -> throw new InvalidConfigurationException(
                     "Element <" + element.getTagName() + "> is not supported.");
+        }
+    }
+
+    private static void requireContent(Element container, Set<String> allowedChildren, Set<String> fieldNames)
+            throws InvalidConfigurationException {
+        if (validateContainer(container, allowedChildren, fieldNames) == 0) {
+            throw new InvalidConfigurationException(
+                    "Element <" + container.getTagName() + "> must contain at least one supported element.");
         }
     }
 
