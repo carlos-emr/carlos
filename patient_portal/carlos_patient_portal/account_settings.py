@@ -78,7 +78,7 @@ def change_account_password(
     new_password: str,
     max_failed_password_attempts: int,
     policy: AuthPolicy,
-    token_secret: str,
+    session_token_secret: str,
 ) -> str:
     validate_password(new_password)
     account = lock_account_for_settings(session, account.id)
@@ -107,7 +107,7 @@ def change_account_password(
         session,
         account,
         policy=policy,
-        token_secret=token_secret,
+        session_token_secret=session_token_secret,
         now=now,
     )
     cancel_pending_mfa_challenges(session, account.id, now=now)

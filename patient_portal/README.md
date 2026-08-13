@@ -384,7 +384,10 @@ encryption context.
 The remaining secrets have deliberately different rotation behavior:
 
 - Rotating `PATIENT_PORTAL_SESSION_SECRET` invalidates all sessions, MFA challenges, reset tokens,
-  and CSRF tokens. Schedule it as a patient sign-out event.
+  and CSRF tokens. Schedule it as a patient sign-out event. The portal does not use this value as a
+  key directly: `token_keys.py` derives four independent HKDF keys from it, one each for CSRF
+  signatures, session tokens, MFA challenge/code hashes, and password-reset tokens, so a value
+  minted for one purpose cannot be valid in another. All four rotate together with the secret.
 - Rotating `PATIENT_PORTAL_IDENTITY_PROOF_SECRET` invalidates pending invitations; reissue them
   after cutover.
 - Rotating `PATIENT_PORTAL_AUDIT_HASH_SECRET` changes pseudonymous client/invite correlations;

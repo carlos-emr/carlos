@@ -21,6 +21,7 @@ from carlos_patient_portal.auth import AuthenticatedPortalSession, AuthPolicy
 from carlos_patient_portal.config import Settings
 from carlos_patient_portal.email_delivery import PortalEmailSender
 from carlos_patient_portal.sms_delivery import PortalSmsSender
+from carlos_patient_portal.token_keys import PortalTokenKeys
 
 MAX_PAGE_OFFSET = 100_000
 # Largest value a 64-bit signed integer key can hold; ids beyond this cannot exist in any row.
@@ -122,7 +123,10 @@ class PortalRuntime:
     settings: Settings
     database_engine: Engine
     session_factory: sessionmaker[Session]
-    csrf_secret: str
+    # One independent key per token purpose, derived from PATIENT_PORTAL_SESSION_SECRET. Replaced
+    # the single `csrf_secret` that was previously handed to CSRF signing, session hashing, MFA
+    # hashing, and reset-token hashing alike.
+    token_keys: PortalTokenKeys
     identity_proof_secret: str
     audit_hash_secret: str
     unlock_secret_encryption_secret: str

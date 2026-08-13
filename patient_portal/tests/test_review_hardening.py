@@ -30,6 +30,7 @@ from carlos_patient_portal.models import (
     PatientPortalAccount,
     PatientPortalInvite,
 )
+from carlos_patient_portal.token_keys import PortalTokenKeys
 from carlos_patient_portal.unlock_secrets import (
     UnlockSecretDecryptionError,
     create_unlock_secret,
@@ -37,6 +38,15 @@ from carlos_patient_portal.unlock_secrets import (
 )
 
 SECRET_LENGTH = MIN_PRODUCTION_SECRET_LENGTH
+
+
+def session_token_secret_for(session_secret: str) -> str:
+    """The derived session-token key for a configured secret.
+
+    Tests that mint a session directly and then read it back over HTTP have to use the key the
+    app derives, not the raw configured secret.
+    """
+    return PortalTokenKeys.derive(session_secret).session
 TEST_PASSWORD = "Stronger1!word"
 
 
@@ -142,7 +152,7 @@ def test_fhir_validation_errors_are_operation_outcomes_and_offsets_are_bounded()
             session,
             account,
             policy=main.auth_policy_from_settings(app.state.settings),
-            token_secret="s" * SECRET_LENGTH,
+            session_token_secret=session_token_secret_for("s" * SECRET_LENGTH),
             now=now,
         )
         session.commit()
@@ -225,14 +235,14 @@ def test_session_enforces_idle_and_absolute_expiry(
             session,
             account,
             policy=policy,
-            token_secret="session-secret",
+            session_token_secret="session-secret",
             now=started_at,
         )
         idle_token = auth.create_patient_session(
             session,
             account,
             policy=policy,
-            token_secret="session-secret",
+            session_token_secret="session-secret",
             now=started_at,
         )
         session.commit()
@@ -242,7 +252,7 @@ def test_session_enforces_idle_and_absolute_expiry(
         auth.authenticate_session_token(
             session,
             session_token=active_token,
-            token_secret="session-secret",
+            session_token_secret="session-secret",
             idle_timeout=policy.session_idle_timeout,
         )
         session.commit()
@@ -253,7 +263,7 @@ def test_session_enforces_idle_and_absolute_expiry(
             auth.authenticate_session_token(
                 session,
                 session_token=idle_token,
-                token_secret="session-secret",
+                session_token_secret="session-secret",
                 idle_timeout=policy.session_idle_timeout,
             )
 
@@ -263,7 +273,7 @@ def test_session_enforces_idle_and_absolute_expiry(
             auth.authenticate_session_token(
                 session,
                 session_token=active_token,
-                token_secret="session-secret",
+                session_token_secret="session-secret",
                 idle_timeout=policy.session_idle_timeout,
             )
 
@@ -304,7 +314,8 @@ def test_successful_login_rehashes_legacy_argon2_parameters() -> None:
             password=TEST_PASSWORD,
             client_reference_hash="c" * 64,
             policy=policy,
-            token_secret="session-secret",
+            session_token_secret="session-secret",
+            mfa_challenge_token_secret="mfa-secret",
             mfa_code_secret="mfa-secret",
             clinic_id="default",
         )

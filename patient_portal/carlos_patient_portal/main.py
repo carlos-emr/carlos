@@ -175,6 +175,7 @@ from carlos_patient_portal.sms_delivery import (
     PortalSmsSender,
     build_portal_sms_sender,
 )
+from carlos_patient_portal.token_keys import PortalTokenKeys
 from carlos_patient_portal.unlock_secrets import (
     DEFAULT_UNLOCK_SECRET_LIST_LIMIT,
     MAX_UNLOCK_SECRET_LIST_LIMIT,
@@ -390,7 +391,7 @@ def logout_browser_session_cookie_token(
     session: Session,
     *,
     session_token: str | None,
-    token_secret: str,
+    session_token_secret: str,
     idle_timeout: timedelta,
 ) -> None:
     if session_token is None:
@@ -399,7 +400,7 @@ def logout_browser_session_cookie_token(
         logout_patient_session(
             session,
             session_token=session_token,
-            token_secret=token_secret,
+            session_token_secret=session_token_secret,
             idle_timeout=idle_timeout,
         )
     except (PortalSessionInvalidError, ValueError):
@@ -1357,7 +1358,9 @@ def build_portal_runtime(
     email_sender: PortalEmailSender | None = None,
     sms_sender: PortalSmsSender | None = None,
 ) -> PortalRuntime:
-    csrf_secret = (
+    # Development without a configured secret gets an ephemeral one, so tokens minted by this
+    # process stay valid for its lifetime and nothing survives a restart.
+    token_keys = PortalTokenKeys.derive(
         settings.session_secret.get_secret_value()
         if settings.session_secret is not None
         else token_urlsafe(32)
@@ -1413,7 +1416,7 @@ def build_portal_runtime(
         settings=settings,
         database_engine=database_engine,
         session_factory=session_factory,
-        csrf_secret=csrf_secret,
+        token_keys=token_keys,
         identity_proof_secret=identity_proof_secret,
         audit_hash_secret=audit_hash_secret,
         unlock_secret_encryption_secret=unlock_secret_encryption_secret,
@@ -1664,7 +1667,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
         status_code: int = status.HTTP_200_OK,
         error_message: str | None = None,
     ) -> Response:
-        csrf_token = create_csrf_token(runtime.csrf_secret)
+        csrf_token = create_csrf_token(runtime.token_keys.csrf)
         response = templates.TemplateResponse(
             request=request,
             name="index.jinja",
@@ -1696,7 +1699,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
             return authenticate_session_token(
                 session,
                 session_token=session_token,
-                token_secret=runtime.csrf_secret,
+                session_token_secret=runtime.token_keys.session,
                 idle_timeout=runtime.auth_policy.session_idle_timeout,
             )
         except (PortalSessionInvalidError, ValueError) as exc:
@@ -1752,7 +1755,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
             return authenticate_session_token(
                 session,
                 session_token=supplied_token.strip(),
-                token_secret=runtime.csrf_secret,
+                session_token_secret=runtime.token_keys.session,
                 idle_timeout=runtime.auth_policy.session_idle_timeout,
             )
         except (PortalSessionInvalidError, ValueError) as exc:
@@ -1786,7 +1789,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
         return authenticate_session_token(
             session,
             session_token=session_token,
-            token_secret=runtime.csrf_secret,
+            session_token_secret=runtime.token_keys.session,
             idle_timeout=runtime.auth_policy.session_idle_timeout,
         )
 
@@ -1827,7 +1830,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 timezone_name=settings.clinic_timezone,
                 filter_error=email_password_filter_error,
             )
-        csrf_token = create_csrf_token(runtime.csrf_secret)
+        csrf_token = create_csrf_token(runtime.token_keys.csrf)
         response = templates.TemplateResponse(
             request=request,
             name="dashboard.jinja",
@@ -1864,7 +1867,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
         )
         csrf_token = first_form_value(form_values, CSRF_FORM_FIELD)
         csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
-        if not is_valid_csrf_submission(csrf_token, csrf_cookie, runtime.csrf_secret):
+        if not is_valid_csrf_submission(csrf_token, csrf_cookie, runtime.token_keys.csrf):
             raise HTTPException(status_code=403, detail=csrf_error_detail)
         return form_values
 
@@ -2067,7 +2070,7 @@ def register_auth_routes(
     get_app_database_session = route_dependencies.get_app_database_session
     get_authenticated_portal_session = route_dependencies.get_authenticated_portal_session
     render_index_response = route_dependencies.render_index_response
-    csrf_secret = runtime.csrf_secret
+    csrf_secret = runtime.token_keys.csrf
     audit_hash_secret = runtime.audit_hash_secret
     auth_policy = runtime.auth_policy
     text = portal_text(DEFAULT_LOCALE)
@@ -2139,7 +2142,7 @@ def register_auth_routes(
         return get_mfa_challenge_delivery_state(
             session,
             payload.mfa_challenge_token,
-            token_secret=csrf_secret,
+            challenge_token_secret=runtime.token_keys.mfa,
             preferred_delivery_method=preferred_delivery_method,
         )
 
@@ -2163,8 +2166,9 @@ def register_auth_routes(
                 password=payload.password,
                 client_reference_hash=client_reference_hash,
                 policy=auth_policy,
-                token_secret=csrf_secret,
-                mfa_code_secret=csrf_secret,
+                session_token_secret=runtime.token_keys.session,
+                mfa_challenge_token_secret=runtime.token_keys.mfa,
+                mfa_code_secret=runtime.token_keys.mfa,
                 clinic_id=settings.clinic_id,
                 delivery_method=payload.mfa_delivery_method,
             )
@@ -2278,8 +2282,8 @@ def register_auth_routes(
                 challenge_token=payload.mfa_challenge_token,
                 delivery_method=payload.mfa_delivery_method,
                 policy=auth_policy,
-                token_secret=csrf_secret,
-                code_secret=csrf_secret,
+                challenge_token_secret=runtime.token_keys.mfa,
+                code_secret=runtime.token_keys.mfa,
             )
         except MfaRateLimitedError as exc:
             if is_browser_form:
@@ -2400,8 +2404,9 @@ def register_auth_routes(
                 challenge_token=payload.mfa_challenge_token,
                 code=payload.code,
                 policy=auth_policy,
-                token_secret=csrf_secret,
-                code_secret=csrf_secret,
+                challenge_token_secret=runtime.token_keys.mfa,
+                session_token_secret=runtime.token_keys.session,
+                code_secret=runtime.token_keys.mfa,
             )
         except InvalidMfaCodeError:
             if is_browser_form:
@@ -2513,7 +2518,7 @@ def register_auth_routes(
             email=payload.email,
             client_reference_hash=client_reference_hash,
             policy=auth_policy,
-            token_secret=csrf_secret,
+            reset_token_secret=runtime.token_keys.password_reset,
             clinic_id=settings.clinic_id,
         )
         response_reset_token = result.reset_token
@@ -2607,7 +2612,7 @@ def register_auth_routes(
                 session,
                 reset_token=payload.reset_token,
                 new_password=payload.new_password,
-                token_secret=csrf_secret,
+                reset_token_secret=runtime.token_keys.password_reset,
                 clinic_id=settings.clinic_id,
             )
         except PasswordResetTokenInvalidError:
@@ -2766,7 +2771,6 @@ def register_logout_route(
     settings = runtime.settings
     get_app_database_session = route_dependencies.get_app_database_session
     get_authorization_bearer_token = route_dependencies.get_authorization_bearer_token
-    csrf_secret = runtime.csrf_secret
 
     @app.post(
         "/auth/logout",
@@ -2782,7 +2786,7 @@ def register_logout_route(
             logout_patient_session(
                 session,
                 session_token=session_token,
-                token_secret=csrf_secret,
+                session_token_secret=runtime.token_keys.session,
                 idle_timeout=runtime.auth_policy.session_idle_timeout,
             )
         except (PortalSessionInvalidError, ValueError) as exc:
@@ -2802,7 +2806,7 @@ def register_portal_routes(
     get_portal_account_form_values = route_dependencies.get_portal_account_form_values
     get_portal_cookie_session_or_redirect = route_dependencies.get_portal_cookie_session_or_redirect
     render_account_change_error = route_dependencies.render_account_change_error
-    csrf_secret = runtime.csrf_secret
+    csrf_secret = runtime.token_keys.csrf
 
     @app.get(PORTAL_ROOT_PATH)
     def portal_dashboard(
@@ -2862,7 +2866,7 @@ def register_portal_routes(
                 new_password=new_password,
                 max_failed_password_attempts=settings.auth_max_failed_password_attempts,
                 policy=runtime.auth_policy,
-                token_secret=csrf_secret,
+                session_token_secret=runtime.token_keys.session,
             )
         except AccountSettingsStepUpError:
             return render_account_change_error(
@@ -3174,7 +3178,7 @@ def register_portal_routes(
         logout_browser_session_cookie_token(
             session,
             session_token=request.cookies.get(PORTAL_SESSION_COOKIE_NAME),
-            token_secret=csrf_secret,
+            session_token_secret=runtime.token_keys.session,
             idle_timeout=runtime.auth_policy.session_idle_timeout,
         )
         clear_portal_session_cookie(response, settings=settings)
@@ -3191,7 +3195,7 @@ def register_activation_routes(
     identity_proof_secret = runtime.identity_proof_secret
     audit_hash_secret = runtime.audit_hash_secret
     activation_rate_limit = runtime.activation_rate_limit
-    csrf_secret = runtime.csrf_secret
+    csrf_secret = runtime.token_keys.csrf
     text = portal_text(DEFAULT_LOCALE)
 
     @app.get("/auth/activate", name="activation_page")

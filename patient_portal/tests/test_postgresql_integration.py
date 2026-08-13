@@ -25,6 +25,7 @@ from carlos_patient_portal.models import (
     PatientPortalSession,
     utc_now,
 )
+from carlos_patient_portal.token_keys import PortalTokenKeys
 
 POSTGRES_URL = os.getenv("PORTAL_TEST_POSTGRES_URL")
 INTERNAL_TOKEN = "i" * 32
@@ -78,6 +79,16 @@ def postgres_settings(**overrides: object) -> Settings:
         **overrides,
     }
     return Settings(**values)
+
+
+def postgres_session_token_secret(settings: Settings) -> str:
+    """The session-token key the app derives, for tests that mint a session out of band.
+
+    Sessions created here are then read back through the running app, so the key has to be the
+    derived one rather than the raw configured secret.
+    """
+    assert settings.session_secret is not None
+    return PortalTokenKeys.derive(settings.session_secret.get_secret_value()).session
 
 
 def insert_postgres_account(*, username: str, demographic_no: int) -> int:
@@ -324,7 +335,7 @@ def test_postgresql_allows_concurrent_reads_for_one_patient_session() -> None:
                 session,
                 account,
                 policy=auth_policy_from_settings(settings),
-                token_secret="s" * 32,
+                session_token_secret=postgres_session_token_secret(settings),
                 now=utc_now(),
             )
             session.commit()
@@ -541,7 +552,7 @@ def test_postgresql_staff_revocation_races_in_flight_patient_requests() -> None:
                         session,
                         account,
                         policy=auth_policy_from_settings(settings),
-                        token_secret=settings.session_secret.get_secret_value(),
+                        session_token_secret=postgres_session_token_secret(settings),
                         now=utc_now(),
                     )
                 )
