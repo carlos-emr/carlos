@@ -1741,7 +1741,10 @@
             // (Health Care Team on), and no field at all on an eReferral, where the service is
             // read-only text. Reading `.options` only worked for a <select> that this form no
             // longer renders, so this guard silently passed for every real submission and let a
-            // blank service reach the server. See issue #2241.
+            // blank service reach the server. The normal interactive form intentionally requires
+            // a service; the action still accepts null defensively for eReferrals, alternate
+            // clients, and direct requests so a missing value can never discard the referral.
+            // See issue #2241.
             var serviceElement = document.EctConsultationFormRequest2Form.service;
             if (serviceElement) {
                 var serviceValue = serviceElement.options

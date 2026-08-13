@@ -37,8 +37,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("consultation")
 class ConsultationFormServiceSelectionJspRegressionTest {
 
-    private static final Path CONSULT_JSP = projectRoot().resolve(
+    private static final int MAX_PARENT_SEARCH_DEPTH = 5;
+    private static final Path CONSULT_JSP_RELATIVE = Path.of(
             "src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp");
+    private static final Path CONSULT_JSP = resolveProjectPath(CONSULT_JSP_RELATIVE);
 
     @Test
     @DisplayName("Editing the visible service text should re-resolve the hidden service id")
@@ -54,7 +56,7 @@ class ConsultationFormServiceSelectionJspRegressionTest {
     }
 
     @Test
-    @DisplayName("The submit guard should read the posted service field and block a blank value")
+    @DisplayName("The normal interactive form should block a blank posted service value")
     void shouldBlockSubmission_whenPostedServiceValueIsBlank() throws Exception {
         String jsp = Files.readString(CONSULT_JSP, StandardCharsets.UTF_8);
 
@@ -84,9 +86,28 @@ class ConsultationFormServiceSelectionJspRegressionTest {
                 .contains("lastResolvedServiceId = String(matchedId);");
     }
 
-    private static Path projectRoot() {
-        return Path.of(System.getProperty(
-                "maven.multiModuleProjectDirectory",
-                System.getProperty("user.dir")));
+    /**
+     * Resolves a project fixture from the compiled test location. This remains stable when an IDE
+     * or a direct Surefire invocation uses a working directory outside the repository.
+     */
+    private static Path resolveProjectPath(Path relativePath) {
+        try {
+            Path location = Path.of(ConsultationFormServiceSelectionJspRegressionTest.class
+                    .getProtectionDomain()
+                    .getCodeSource()
+                    .getLocation()
+                    .toURI());
+            Path current = Files.isRegularFile(location) ? location.getParent() : location;
+            for (int depth = 0; depth <= MAX_PARENT_SEARCH_DEPTH && current != null; depth++) {
+                Path candidate = current.resolve(relativePath);
+                if (Files.isRegularFile(candidate)) {
+                    return candidate;
+                }
+                current = current.getParent();
+            }
+        } catch (java.net.URISyntaxException e) {
+            throw new IllegalStateException("Unable to resolve consultation test class location", e);
+        }
+        throw new IllegalStateException("Unable to locate project file: " + relativePath);
     }
 }
