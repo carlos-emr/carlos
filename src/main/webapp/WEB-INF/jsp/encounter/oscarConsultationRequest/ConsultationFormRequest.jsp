@@ -3346,6 +3346,9 @@ if (userAgent != null) {
                                     loadAllSpecialistsData(function() {
                                         initServiceAutocomplete();
                                         initSpecialistAutocomplete();
+                                        // Resolve text entered while either asynchronous lookup was loading.
+                                        // Existing consultations are restored from their saved IDs immediately below.
+                                        jQuery('#serviceInput').trigger('input');
                                         initializeConsultation(
                                             '<carlos:encode value='<%= String.valueOf(consultUtil.service) %>' context="javaScriptBlock"/>',
                                             '<%=((consultUtil.service==null)?"":SafeEncode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>',

@@ -80,6 +80,24 @@ class ConsultationFormServiceSelectionJspRegressionTest {
     }
 
     @Test
+    @DisplayName("Service text entered while lookups load should be resolved before saved state is restored")
+    void shouldResolveServiceText_whenEnteredBeforeAutocompleteInitialization() throws Exception {
+        String jsp = Files.readString(CONSULT_JSP, StandardCharsets.UTF_8);
+
+        int wiringStart = jsp.indexOf("// Load services and all-specialists data, then wire autocompletes");
+        assertThat(wiringStart).as("the autocomplete wiring block must exist").isGreaterThan(-1);
+
+        String wiring = jsp.substring(wiringStart, jsp.indexOf("//-->", wiringStart));
+        int autocompleteInitialization = wiring.indexOf("initServiceAutocomplete();");
+        int initialResolution = wiring.indexOf("jQuery('#serviceInput').trigger('input');");
+        int savedStateInitialization = wiring.indexOf("initializeConsultation(");
+
+        assertThat(autocompleteInitialization).isGreaterThan(-1);
+        assertThat(initialResolution).isGreaterThan(autocompleteInitialization);
+        assertThat(savedStateInitialization).isGreaterThan(initialResolution);
+    }
+
+    @Test
     @DisplayName("Typing a different exact service should clear consultant-dependent fields")
     void shouldClearSpecialistFields_whenTypedServiceResolvesToDifferentId() throws Exception {
         String jsp = Files.readString(CONSULT_JSP, StandardCharsets.UTF_8);
