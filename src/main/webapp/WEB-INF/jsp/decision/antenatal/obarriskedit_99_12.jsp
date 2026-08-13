@@ -59,7 +59,7 @@
 
     @since 2026-08-11
 --%>
-<%@ page import="java.util.*, java.io.*, java.nio.charset.StandardCharsets, java.nio.file.Files" %>
+<%@ page import="java.util.*, java.io.*, java.nio.charset.StandardCharsets, java.nio.file.Files, java.nio.file.LinkOption, java.nio.file.Path" %>
 <%@ page import="io.github.carlos_emr.carlos.decision.AntenatalConfigLocation" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
@@ -87,14 +87,31 @@
         String submittedChecklist = (String) request.getAttribute("riskEditorChecklist");
         String editorError = (String) request.getAttribute("riskEditorError");
         boolean editorSaved = Boolean.TRUE.equals(session.getAttribute("riskEditorSaved"));
+        String riskFileName = AntenatalConfigLocation.RISK_FILE_NAME;
         File overrideFile = AntenatalConfigLocation.readableOverride(
-                "desantenatalplannerrisks_99_12.xml");
-        // Keep an existing operator-managed symlink live for the planner, but do
-        // not present it as editable: the atomic writer deliberately refuses to
-        // replace links, and silently falling back to the packaged clinical rules
-        // would be a more dangerous compatibility change than a read-only editor.
-        boolean readOnlyOverride = overrideFile != null
-                && Files.isSymbolicLink(overrideFile.toPath());
+                riskFileName);
+        String readOnlyReason = null;
+        try {
+            Path configuredOverride = AntenatalConfigLocation.configuredPath(riskFileName);
+            Path configuredDirectory = configuredOverride.getParent();
+            if (configuredDirectory == null || !Files.isDirectory(configuredDirectory)
+                    || !Files.isWritable(configuredDirectory)) {
+                readOnlyReason = "The configured document directory is unavailable or not writable.";
+            } else if (Files.isSymbolicLink(configuredOverride)) {
+                // Keep an existing operator-managed symlink live for the planner, but
+                // do not present it as editable: the atomic writer refuses links, and
+                // falling back would silently change the active clinical rules.
+                readOnlyReason = "This risk list is configured through a symbolic link and is read-only here. "
+                        + "Update the linked file through the deployment configuration process.";
+            } else if (Files.exists(configuredOverride, LinkOption.NOFOLLOW_LINKS)
+                    && overrideFile == null) {
+                readOnlyReason = "The configured risk-list target is not a readable regular file. "
+                        + "Correct the deployment configuration before editing.";
+            }
+        } catch (IOException e) {
+            readOnlyReason = "Risk-list storage is unavailable: " + e.getMessage();
+        }
+        boolean readOnlyOverride = readOnlyReason != null;
         if (editorSaved) {
             session.removeAttribute("riskEditorSaved");
         }
@@ -120,21 +137,26 @@
         </tr>
         <% if (editorError != null) { %>
         <tr>
-            <td colspan="2" role="alert" style="color: #a00; font-weight: bold; padding: 0.5em;">
-                <%= SafeEncode.forHtmlContent(editorError) %>
+            <td colspan="2" style="padding: 0.5em;">
+                <div role="alert" style="color: #a00; font-weight: bold;">
+                    <%= SafeEncode.forHtmlContent(editorError) %>
+                </div>
             </td>
         </tr>
         <% } else if (readOnlyOverride) { %>
         <tr>
-            <td colspan="2" role="alert" style="color: #a00; font-weight: bold; padding: 0.5em;">
-                This risk list is configured through a symbolic link and is read-only here.
-                Update the linked file through the deployment configuration process.
+            <td colspan="2" style="padding: 0.5em;">
+                <div role="alert" style="color: #a00; font-weight: bold;">
+                    <%= SafeEncode.forHtmlContent(readOnlyReason) %>
+                </div>
             </td>
         </tr>
         <% } else if (editorSaved) { %>
         <tr>
-            <td colspan="2" role="status" style="color: #063; font-weight: bold; padding: 0.5em;">
-                The antenatal risk list was saved.
+            <td colspan="2" style="padding: 0.5em;">
+                <output style="color: #063; font-weight: bold;">
+                    The antenatal risk list was saved.
+                </output>
             </td>
         </tr>
         <% } %>
@@ -164,7 +186,7 @@
         // the application is served from an unexploded WAR, which would leave the
         // editor blank even though the packaged default is present.
         InputStream packaged = application.getResourceAsStream(
-                "/decision/antenatal/desantenatalplannerrisks_99_12.xml");
+                "/decision/antenatal/" + riskFileName);
         if (packaged != null) {
             source = new InputStreamReader(packaged, StandardCharsets.UTF_8);
         }

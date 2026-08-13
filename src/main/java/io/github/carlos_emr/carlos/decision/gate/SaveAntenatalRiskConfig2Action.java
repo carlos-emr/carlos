@@ -47,8 +47,8 @@ public final class SaveAntenatalRiskConfig2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     static final String SAVED_FLASH_ATTRIBUTE = "riskEditorSaved";
 
-    private final SecurityInfoManager securityInfoManager;
-    private final AntenatalRiskConfigService configService;
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient AntenatalRiskConfigService configService;
 
     /**
      * Creates the action as Struts instantiates it, one per request.

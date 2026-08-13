@@ -114,12 +114,13 @@
         xmlText = "<xml><planner><%=risk_content%><%=checklist_content%></planner></xml>";
     </script>
     <%
-            String riskFilePath = application.getRealPath("/decision/antenatal/desantenatalplannerrisks_99_12.xml");
+            String riskFilePath = application.getRealPath(
+                    "/decision/antenatal/" + AntenatalConfigLocation.RISK_FILE_NAME);
 
             // Override precedence, blank-directory handling and the readable-regular-file
             // check all live in AntenatalConfigLocation so the readers and the writing
             // service cannot drift apart again.
-            File file = AntenatalConfigLocation.readableOverride("desantenatalplannerrisks_99_12.xml");
+            File file = AntenatalConfigLocation.readableOverride(AntenatalConfigLocation.RISK_FILE_NAME);
             if (file != null) {
                 riskFilePath = file.getAbsolutePath();
             }
@@ -157,12 +158,13 @@
         <tr>
             <td width="10%" valign='top'>
                 <%
-                    String riskFilePath = application.getRealPath("/decision/antenatal/desantenatalplannerrisks_99_12.xml");
+                    String riskFilePath = application.getRealPath(
+                            "/decision/antenatal/" + AntenatalConfigLocation.RISK_FILE_NAME);
 
                     // Override precedence, blank-directory handling and the readable-regular-file
                     // check all live in AntenatalConfigLocation so the readers and the writing
                     // service cannot drift apart again.
-                    File file = AntenatalConfigLocation.readableOverride("desantenatalplannerrisks_99_12.xml");
+                    File file = AntenatalConfigLocation.readableOverride(AntenatalConfigLocation.RISK_FILE_NAME);
                     if (file != null) {
                         riskFilePath = file.getAbsolutePath();
                     }

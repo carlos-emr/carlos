@@ -69,14 +69,16 @@ public final class AntenatalRiskConfigService {
 
     private static final Logger logger = MiscUtils.getLogger();
 
-    static final String FILE_NAME = "desantenatalplannerrisks_99_12.xml";
+    static final String FILE_NAME = AntenatalConfigLocation.RISK_FILE_NAME;
     static final int MAX_XML_BYTES = 1024 * 1024;
 
+    private static final String ENTRY_ELEMENT = "entry";
+    private static final String HEADING_ELEMENT = "heading";
     private static final Pattern FIELD_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_-]{0,63}");
     private static final Set<String> SECTION_CHILDREN =
-            Set.of("section_title", "subsection", "risk", "entry", "heading");
+            Set.of("section_title", "subsection", "risk", ENTRY_ELEMENT, HEADING_ELEMENT);
     private static final Set<String> SUBSECTION_CHILDREN =
-            Set.of("subsection_title", "risk", "entry", "heading");
+            Set.of("subsection_title", "risk", ENTRY_ELEMENT, HEADING_ELEMENT);
 
     private final TargetResolver targetResolver;
     private final AtomicMover atomicMover;
@@ -216,13 +218,9 @@ public final class AntenatalRiskConfigService {
         NodeList children = document.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
             Node child = children.item(i);
-            if (child == root || child.getNodeType() == Node.COMMENT_NODE) {
-                continue;
+            if (child != root && !isIgnorableNode(child)) {
+                throw new InvalidConfigurationException("Only comments may appear outside <riskFactors>.");
             }
-            if (child.getNodeType() == Node.TEXT_NODE && child.getTextContent().isBlank()) {
-                continue;
-            }
-            throw new InvalidConfigurationException("Only comments may appear outside <riskFactors>.");
         }
     }
 
@@ -232,26 +230,28 @@ public final class AntenatalRiskConfigService {
         NodeList children = container.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
             Node child = children.item(i);
-            if (child.getNodeType() == Node.TEXT_NODE && child.getTextContent().isBlank()) {
-                continue;
-            }
-            if (child.getNodeType() == Node.COMMENT_NODE) {
-                continue;
-            }
-            if (child.getNodeType() != Node.ELEMENT_NODE) {
-                throw new InvalidConfigurationException("Unsupported XML node inside <" + container.getTagName() + ">.");
-            }
+            if (!isIgnorableNode(child)) {
+                if (child.getNodeType() != Node.ELEMENT_NODE) {
+                    throw new InvalidConfigurationException(
+                            "Unsupported XML node inside <" + container.getTagName() + ">.");
+                }
 
-            Element element = (Element) child;
-            String name = element.getTagName();
-            if (element.getNamespaceURI() != null || !allowedChildren.contains(name)) {
-                throw new InvalidConfigurationException(
-                        "Element <" + name + "> is not allowed inside <" + container.getTagName() + ">.");
+                Element element = (Element) child;
+                String name = element.getTagName();
+                if (element.getNamespaceURI() != null || !allowedChildren.contains(name)) {
+                    throw new InvalidConfigurationException(
+                            "Element <" + name + "> is not allowed inside <" + container.getTagName() + ">.");
+                }
+                elementCount++;
+                validateElement(element, fieldNames);
             }
-            elementCount++;
-            validateElement(element, fieldNames);
         }
         return elementCount;
+    }
+
+    private static boolean isIgnorableNode(Node node) {
+        return node.getNodeType() == Node.COMMENT_NODE
+                || (node.getNodeType() == Node.TEXT_NODE && node.getTextContent().isBlank());
     }
 
     private static void validateElement(Element element, Set<String> fieldNames)
@@ -269,12 +269,12 @@ public final class AntenatalRiskConfigService {
                 validateAttributes(element, Set.of(), Set.of());
                 validateTextOnly(element);
             }
-            case "heading" -> {
+            case HEADING_ELEMENT -> {
                 validateAttributes(element, Set.of(), Set.of("href"));
                 validateHref(element);
                 validateTextOnly(element);
             }
-            case "risk", "entry" -> {
+            case "risk", ENTRY_ELEMENT -> {
                 validateAttributes(element, Set.of("name"), Set.of("href"));
                 validateFieldName(element, fieldNames);
                 validateHref(element);

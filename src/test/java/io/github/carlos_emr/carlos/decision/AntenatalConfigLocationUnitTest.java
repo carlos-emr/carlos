@@ -6,6 +6,7 @@ package io.github.carlos_emr.carlos.decision;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
@@ -36,7 +37,7 @@ import io.github.carlos_emr.CarlosProperties;
 @Tag("decision")
 class AntenatalConfigLocationUnitTest {
 
-    private static final String FILE_NAME = "desantenatalplannerrisks_99_12.xml";
+    private static final String FILE_NAME = AntenatalConfigLocation.RISK_FILE_NAME;
 
     @TempDir
     Path documentDirectory;
@@ -46,7 +47,7 @@ class AntenatalConfigLocationUnitTest {
 
     @BeforeEach
     void setUp() {
-        configuration = org.mockito.Mockito.mock(CarlosProperties.class);
+        configuration = mock(CarlosProperties.class);
         properties = mockStatic(CarlosProperties.class);
         properties.when(CarlosProperties::getInstance).thenReturn(configuration);
     }
@@ -84,12 +85,20 @@ class AntenatalConfigLocationUnitTest {
     void shouldFail_forUnusableDocumentDirectory() {
         // Build the NUL at runtime so this Java source remains a normal text file
         // and code-review tools can display its diff.
-        String invalidDocumentDirectory = "/var/lib" + Character.toString(0) + "/documents";
+        String invalidDocumentDirectory = invalidDocumentDirectory();
         when(configuration.getProperty("DOCUMENT_DIR")).thenReturn(invalidDocumentDirectory);
 
         assertThatThrownBy(() -> AntenatalConfigLocation.configuredPath(FILE_NAME))
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("DOCUMENT_DIR");
+    }
+
+    @Test
+    @DisplayName("should report no readable override for an unusable document directory")
+    void shouldReturnNull_forUnusableDocumentDirectory() {
+        when(configuration.getProperty("DOCUMENT_DIR")).thenReturn(invalidDocumentDirectory());
+
+        assertThat(AntenatalConfigLocation.readableOverride(FILE_NAME)).isNull();
     }
 
     @Test
@@ -125,6 +134,22 @@ class AntenatalConfigLocationUnitTest {
     }
 
     @Test
+    @DisplayName("should report no readable override for a dangling symbolic link")
+    void shouldReturnNull_forDanglingSymbolicLink() throws Exception {
+        when(configuration.getProperty("DOCUMENT_DIR")).thenReturn(documentDirectory.toString());
+        Path override = documentDirectory.resolve(FILE_NAME);
+        try {
+            Files.createSymbolicLink(override, Path.of("missing-risks.xml"));
+        } catch (UnsupportedOperationException | IOException e) {
+            org.junit.jupiter.api.Assumptions.abort(
+                    "filesystem or platform does not support symbolic links");
+        }
+
+        assertThat(AntenatalConfigLocation.readableOverride(FILE_NAME)).isNull();
+        assertThat(Files.isSymbolicLink(AntenatalConfigLocation.configuredPath(FILE_NAME))).isTrue();
+    }
+
+    @Test
     @DisplayName("should ignore a directory sitting at the override path")
     void shouldIgnoreOverride_forDirectoryAtPath() throws Exception {
         when(configuration.getProperty("DOCUMENT_DIR")).thenReturn(documentDirectory.toString());
@@ -155,5 +180,9 @@ class AntenatalConfigLocationUnitTest {
         File override = AntenatalConfigLocation.readableOverride(FILE_NAME);
 
         assertThat(override).isNull();
+    }
+
+    private static String invalidDocumentDirectory() {
+        return "/var/lib" + Character.toString(0) + "/documents";
     }
 }

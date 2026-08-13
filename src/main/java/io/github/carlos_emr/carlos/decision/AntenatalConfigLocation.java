@@ -35,6 +35,9 @@ import io.github.carlos_emr.CarlosProperties;
  */
 public final class AntenatalConfigLocation {
 
+    /** Shared filename for the antenatal risk-list override and packaged default. */
+    public static final String RISK_FILE_NAME = "desantenatalplannerrisks_99_12.xml";
+
     private AntenatalConfigLocation() {
     }
 
@@ -81,11 +84,13 @@ public final class AntenatalConfigLocation {
     // FindSecBugs PATH_TRAVERSAL_IN: the directory comes from trusted DOCUMENT_DIR configuration and the filename is a caller constant, never request input.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "directory is trusted DOCUMENT_DIR configuration and the filename is a constant supplied by the caller, not user-controllable input")
     public static File readableOverride(String fileName) {
-        String documentDirectory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        if (documentDirectory == null || documentDirectory.isBlank()) {
+        try {
+            File override = configuredPath(fileName).toFile();
+            return override.isFile() && override.canRead() ? override : null;
+        } catch (IOException e) {
+            // Readers fall back to the packaged default. The editor separately
+            // surfaces the storage problem and becomes read-only.
             return null;
         }
-        File override = new File(documentDirectory, fileName);
-        return override.isFile() && override.canRead() ? override : null;
     }
 }

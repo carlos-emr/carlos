@@ -45,7 +45,7 @@ class AntenatalRiskConfigServiceUnitTest {
     private static final String BASEDIR_PROPERTY = "basedir";
     private static final int MAX_PARENT_SEARCH_DEPTH = 5;
     private static final Path DEFAULT_RISK_CONFIG = Path.of(
-            "src/main/webapp/decision/antenatal/desantenatalplannerrisks_99_12.xml");
+            "src/main/webapp/decision/antenatal", AntenatalConfigLocation.RISK_FILE_NAME);
     private static final String VALID_XML = """
             <?xml version="1.0" encoding="UTF-8"?>
             <riskFactors>

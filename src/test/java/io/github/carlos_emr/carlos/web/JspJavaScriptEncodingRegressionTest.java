@@ -241,10 +241,13 @@ class JspJavaScriptEncodingRegressionTest {
         String jsp = readJsp("decision/antenatal/obarriskedit_99_12.jsp");
 
         assertThat(jsp)
-                .contains("Files.isSymbolicLink(overrideFile.toPath())")
+                .contains("Files.isSymbolicLink(configuredOverride)")
                 .contains("<% if (!readOnlyOverride) { %>")
                 .contains("readOnlyOverride ? \" readonly\" : \"\"")
-                .contains("configured through a symbolic link and is read-only here");
+                .contains("configured through a symbolic link and is read-only here")
+                .contains("Files.exists(configuredOverride, LinkOption.NOFOLLOW_LINKS)")
+                .contains("configured risk-list target is not a readable regular file")
+                .contains("configured document directory is unavailable or not writable");
     }
 
     @Test
