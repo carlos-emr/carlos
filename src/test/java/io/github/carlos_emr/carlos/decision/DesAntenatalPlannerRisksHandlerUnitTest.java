@@ -42,6 +42,28 @@ class DesAntenatalPlannerRisksHandlerUnitTest {
         assertThat(html.indexOf("<input")).isLessThan(html.indexOf("<a href"));
     }
 
+    @Test
+    @DisplayName("should preserve ordinary clinical label text and its spacing")
+    void shouldPreserveLabelText_forBenignContent() throws Exception {
+        DesAntenatalPlannerRisksHandler_99_12 handler = new DesAntenatalPlannerRisksHandler_99_12();
+        AttributesImpl attributes = new AttributesImpl();
+        attributes.addAttribute("", "", "name", "CDATA", "risk103");
+        // Leading/trailing spacing and an ampersand, as the shipped configuration uses.
+        char[] label = "  Preterm labour & PROM  ".toCharArray();
+
+        handler.startDocument();
+        handler.startElement("", "", "risk", attributes);
+        handler.characters(label, 0, label.length);
+        handler.endElement("", "", "risk");
+        handler.endDocument();
+
+        String html = handler.getResults();
+        assertThat(html)
+                .contains("  Preterm labour &amp; PROM  ")
+                // Encoded exactly once: a double pass would render "&amp;" to the clinician.
+                .doesNotContain("&amp;amp;");
+    }
+
     /**
      * A configuration file written before save-side validation existed -- or
      * planted directly on disk -- can still carry a scripting URL. popupPage()

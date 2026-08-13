@@ -68,6 +68,18 @@ class AntenatalRiskLinkUnitTest {
     }
 
     @Test
+    @DisplayName("should accept a link of exactly the maximum length")
+    void shouldAccept_forLinkAtMaximumLength() {
+        String prefix = "https://example.test/";
+        String atLimit = prefix + "a".repeat(AntenatalRiskLink.MAX_LENGTH - prefix.length());
+
+        // The bound is exclusive (length() > MAX_LENGTH); pin it so an off-by-one
+        // does not start rejecting links that were previously stored and valid.
+        assertThat(atLimit).hasSize(AntenatalRiskLink.MAX_LENGTH);
+        assertThat(AntenatalRiskLink.isSafe(atLimit)).isTrue();
+    }
+
+    @Test
     @DisplayName("should reject a link longer than the accepted maximum")
     void shouldReject_forOverlongLink() {
         String tooLong = "https://example.test/" + "a".repeat(AntenatalRiskLink.MAX_LENGTH);

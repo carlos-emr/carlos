@@ -129,7 +129,7 @@ class SaveAntenatalRiskConfig2ActionUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
-    @DisplayName("should reject non-POST requests without invoking persistence")
+    @DisplayName("should reject non-POST requests without any side effect")
     void shouldReject_nonPostRequest(String method) throws Exception {
         request.setMethod(method);
 
@@ -138,6 +138,9 @@ class SaveAntenatalRiskConfig2ActionUnitTest {
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
         verifyNoInteractions(securityInfoManager);
         verify(configService, never()).save(any());
+        // The method check runs before authorization and before the audit write; pin
+        // that ordering so a later refactor cannot start recording rejected requests.
+        auditLog.verifyNoInteractions();
     }
 
     @Test
