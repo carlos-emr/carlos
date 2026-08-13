@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.decision;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 
@@ -92,5 +93,28 @@ public final class AntenatalConfigLocation {
             // surfaces the storage problem and becomes read-only.
             return null;
         }
+    }
+
+    /**
+     * Selects the parser location for an override or its packaged fallback.
+     *
+     * <p>A servlet resource URL works for both exploded deployments and resources
+     * inside a WAR, unlike {@code ServletContext.getRealPath()}, which may return
+     * {@code null}. A readable operator override retains precedence.
+     *
+     * @param fileName override filename inside {@code DOCUMENT_DIR}
+     * @param packagedResource packaged servlet resource, or {@code null} if missing
+     * @return URI string accepted by the SAX parser
+     * @throws IOException when neither source is readable
+     */
+    public static String readableResourceLocation(String fileName, URL packagedResource) throws IOException {
+        File override = readableOverride(fileName);
+        if (override != null) {
+            return override.toPath().toUri().toString();
+        }
+        if (packagedResource == null) {
+            throw new IOException("The packaged antenatal configuration is unavailable: " + fileName);
+        }
+        return packagedResource.toExternalForm();
     }
 }

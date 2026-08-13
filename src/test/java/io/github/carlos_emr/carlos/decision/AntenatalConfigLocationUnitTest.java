@@ -12,6 +12,8 @@ import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -180,6 +182,40 @@ class AntenatalConfigLocationUnitTest {
         File override = AntenatalConfigLocation.readableOverride(FILE_NAME);
 
         assertThat(override).isNull();
+    }
+
+    @Test
+    @DisplayName("should use a packaged resource URL when no override exists")
+    void shouldReturnPackagedResource_whenOverrideIsMissing() throws Exception {
+        when(configuration.getProperty("DOCUMENT_DIR")).thenReturn(documentDirectory.toString());
+        URL packagedResource = URI.create(
+                "jar:file:/opt/carlos/carlos.war!/decision/antenatal/" + FILE_NAME).toURL();
+
+        assertThat(AntenatalConfigLocation.readableResourceLocation(FILE_NAME, packagedResource))
+                .isEqualTo(packagedResource.toExternalForm());
+    }
+
+    @Test
+    @DisplayName("should prefer a readable override to the packaged resource")
+    void shouldReturnOverrideLocation_whenOverrideIsReadable() throws Exception {
+        when(configuration.getProperty("DOCUMENT_DIR")).thenReturn(documentDirectory.toString());
+        Path override = documentDirectory.resolve(FILE_NAME);
+        Files.writeString(override, "<riskFactors/>");
+        URL packagedResource = URI.create(
+                "jar:file:/opt/carlos/carlos.war!/decision/antenatal/" + FILE_NAME).toURL();
+
+        assertThat(AntenatalConfigLocation.readableResourceLocation(FILE_NAME, packagedResource))
+                .isEqualTo(override.toUri().toString());
+    }
+
+    @Test
+    @DisplayName("should report a read failure when neither source is available")
+    void shouldFail_whenOverrideAndPackagedResourceAreMissing() {
+        when(configuration.getProperty("DOCUMENT_DIR")).thenReturn(documentDirectory.toString());
+
+        assertThatThrownBy(() -> AntenatalConfigLocation.readableResourceLocation(FILE_NAME, null))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("packaged antenatal configuration");
     }
 
     private static String invalidDocumentDirectory() {

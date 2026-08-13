@@ -22,6 +22,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.stream.Stream;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -30,6 +31,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.w3c.dom.Document;
@@ -222,18 +225,6 @@ class AntenatalRiskConfigServiceUnitTest {
         assertThat(Files.readString(target)).isEqualTo("original");
     }
 
-    @Test
-    @DisplayName("should reject malformed XML")
-    void shouldReject_malformedXml() throws Exception {
-        Path target = originalTarget();
-
-        assertThatThrownBy(() -> new AntenatalRiskConfigService(target)
-                .save("<riskFactors><section></riskFactors>"))
-                .isInstanceOf(InvalidConfigurationException.class)
-                .hasMessageContaining("well-formed");
-        assertThat(Files.readString(target)).isEqualTo("original");
-    }
-
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"   "})
@@ -315,39 +306,29 @@ class AntenatalRiskConfigServiceUnitTest {
         assertThat(Files.readString(target)).isEqualTo("original");
     }
 
-    @Test
-    @DisplayName("should reject a document with no section")
-    void shouldReject_documentWithoutSection() throws Exception {
+    @ParameterizedTest(name = "should reject {0}")
+    @MethodSource("invalidDocumentStructures")
+    @DisplayName("should reject invalid document structure without changing the current file")
+    void shouldReject_invalidDocumentStructure(
+            String scenario, String submittedXml, String expectedMessage) throws Exception {
         Path target = originalTarget();
 
-        assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save("<riskFactors></riskFactors>"))
+        assertThatThrownBy(() -> new AntenatalRiskConfigService(target).save(submittedXml))
                 .isInstanceOf(InvalidConfigurationException.class)
-                .hasMessageContaining("at least one");
+                .hasMessageContaining(expectedMessage);
         assertThat(Files.readString(target)).isEqualTo("original");
     }
 
-    @Test
-    @DisplayName("should reject an empty section")
-    void shouldReject_emptySection() throws Exception {
-        Path target = originalTarget();
-
-        assertThatThrownBy(() -> new AntenatalRiskConfigService(target)
-                .save("<riskFactors><section><!-- no content --></section></riskFactors>"))
-                .isInstanceOf(InvalidConfigurationException.class)
-                .hasMessageContaining("<section> must contain at least one supported element");
-        assertThat(Files.readString(target)).isEqualTo("original");
-    }
-
-    @Test
-    @DisplayName("should reject an empty subsection")
-    void shouldReject_emptySubsection() throws Exception {
-        Path target = originalTarget();
-
-        assertThatThrownBy(() -> new AntenatalRiskConfigService(target)
-                .save("<riskFactors><section><subsection/></section></riskFactors>"))
-                .isInstanceOf(InvalidConfigurationException.class)
-                .hasMessageContaining("<subsection> must contain at least one supported element");
-        assertThat(Files.readString(target)).isEqualTo("original");
+    private static Stream<Arguments> invalidDocumentStructures() {
+        return Stream.of(
+                Arguments.of("malformed XML", "<riskFactors><section></riskFactors>", "well-formed"),
+                Arguments.of("a document with no section", "<riskFactors></riskFactors>", "at least one"),
+                Arguments.of("an empty section",
+                        "<riskFactors><section><!-- no content --></section></riskFactors>",
+                        "<section> must contain at least one supported element"),
+                Arguments.of("an empty subsection",
+                        "<riskFactors><section><subsection/></section></riskFactors>",
+                        "<subsection> must contain at least one supported element"));
     }
 
     @Test

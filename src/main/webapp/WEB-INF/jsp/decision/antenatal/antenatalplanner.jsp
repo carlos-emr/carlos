@@ -114,19 +114,13 @@
         xmlText = "<xml><planner><%=risk_content%><%=checklist_content%></planner></xml>";
     </script>
     <%
-            String riskFilePath = application.getRealPath(
-                    "/decision/antenatal/" + AntenatalConfigLocation.RISK_FILE_NAME);
-
-            // Override precedence, blank-directory handling and the readable-regular-file
-            // check all live in AntenatalConfigLocation so the readers and the writing
-            // service cannot drift apart again.
-            File file = AntenatalConfigLocation.readableOverride(AntenatalConfigLocation.RISK_FILE_NAME);
-            if (file != null) {
-                riskFilePath = file.getAbsolutePath();
-            }
+            String riskFileLocation = AntenatalConfigLocation.readableResourceLocation(
+                    AntenatalConfigLocation.RISK_FILE_NAME,
+                    application.getResource(
+                            "/decision/antenatal/" + AntenatalConfigLocation.RISK_FILE_NAME));
 
             //set the riskdata bean from xml file
-            Properties savedar1risk1 = risks.getRiskName(riskFilePath); //risk_55
+            Properties savedar1risk1 = risks.getRiskName(riskFileLocation); //risk_55
             StringBuffer tt;
 
             for (Enumeration e = savedar1risk1.propertyNames(); e.hasMoreElements(); ) {
@@ -158,18 +152,12 @@
         <tr>
             <td width="10%" valign='top'>
                 <%
-                    String riskFilePath = application.getRealPath(
-                            "/decision/antenatal/" + AntenatalConfigLocation.RISK_FILE_NAME);
+                    String riskFileLocation = AntenatalConfigLocation.readableResourceLocation(
+                            AntenatalConfigLocation.RISK_FILE_NAME,
+                            application.getResource(
+                                    "/decision/antenatal/" + AntenatalConfigLocation.RISK_FILE_NAME));
 
-                    // Override precedence, blank-directory handling and the readable-regular-file
-                    // check all live in AntenatalConfigLocation so the readers and the writing
-                    // service cannot drift apart again.
-                    File file = AntenatalConfigLocation.readableOverride(AntenatalConfigLocation.RISK_FILE_NAME);
-                    if (file != null) {
-                        riskFilePath = file.getAbsolutePath();
-                    }
-
-                    out.println(risks.doStuff(new String(riskFilePath)));
+                    out.println(risks.doStuff(riskFileLocation));
                 %>
             </td>
             <td>
@@ -205,7 +193,7 @@ else {
 
     String checkListFilePath = application.getRealPath("/decision/antenatal/desantenatalplannerchecklist_99_12.xml");
 
-    file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR")+"/desantenatalplannerchecklist_99_12.xml");
+    File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR")+"/desantenatalplannerchecklist_99_12.xml");
     if(file.isFile() || file.canRead()) {
         checkListFilePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR")+"/desantenatalplannerchecklist_99_12.xml";
     }

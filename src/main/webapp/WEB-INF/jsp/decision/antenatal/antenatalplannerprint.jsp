@@ -110,20 +110,14 @@
 <%
 
 
-        String riskFilePath = application.getRealPath(
-                "/decision/antenatal/" + AntenatalConfigLocation.RISK_FILE_NAME);
-
-        // Override precedence, blank-directory handling and the readable-regular-file
-        // check all live in AntenatalConfigLocation so the readers and the writing
-        // service cannot drift apart again.
-        File file = AntenatalConfigLocation.readableOverride(AntenatalConfigLocation.RISK_FILE_NAME);
-        if (file != null) {
-            riskFilePath = file.getAbsolutePath();
-        }
+        String riskFileLocation = AntenatalConfigLocation.readableResourceLocation(
+                AntenatalConfigLocation.RISK_FILE_NAME,
+                application.getResource(
+                        "/decision/antenatal/" + AntenatalConfigLocation.RISK_FILE_NAME));
 
 
         //set the riskdata bean from xml file
-        Properties savedar1risk1 = risks.getRiskName(riskFilePath); //risk_55
+        Properties savedar1risk1 = risks.getRiskName(riskFileLocation); //risk_55
         StringBuffer tt;
 
         for (Enumeration e = savedar1risk1.propertyNames(); e.hasMoreElements(); ) {
