@@ -37,15 +37,16 @@ import org.junit.jupiter.api.Test;
 @Tag("casemgmt")
 class CaseManagementEmptyStateRegressionTest {
 
+    private static final String BASEDIR_PROPERTY = "basedir";
     private static final Path SHOW_HISTORY_JSP =
-            Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/showHistory.jsp");
+            resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/showHistory.jsp"));
     private static final Path VIEW_NOTES_JSP =
-            Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/viewNotes.jsp");
+            resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/viewNotes.jsp"));
     private static final Path ENCOUNTER_STYLES =
-            Path.of("src/main/webapp/css/encounterStyles.css");
+            resolveProjectPath(Path.of("src/main/webapp/css/encounterStyles.css"));
     private static final Path NEW_ENCOUNTER_LAYOUT =
-            Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterLayout.jsp");
-    private static final Path RESOURCES_DIRECTORY = Path.of("src/main/resources");
+            resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterLayout.jsp"));
+    private static final Path RESOURCES_DIRECTORY = resolveProjectPath(Path.of("src/main/resources"));
     private static final String[] LOCALES = {"en", "es", "fr", "pl", "pt_BR"};
 
     @Test
@@ -83,7 +84,7 @@ class CaseManagementEmptyStateRegressionTest {
 
     @Test
     @DisplayName("empty states should provide messages in every supported locale")
-    void shouldProvideContextSpecificEnglishMessages() throws IOException {
+    void shouldProvideMessages_forAllSupportedLocales() throws IOException {
         for (String locale : LOCALES) {
             String resources = Files.readString(
                     RESOURCES_DIRECTORY.resolve("oscarResources_" + locale + ".properties"),
@@ -114,5 +115,20 @@ class CaseManagementEmptyStateRegressionTest {
         assertThat(messagePosition)
                 .as("%s must render only inside its empty-state condition", messageKey)
                 .isBetween(conditionStart, conditionEnd);
+    }
+
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of(System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")))
+                .toAbsolutePath()
+                .normalize();
+        for (int checkedParents = 0; current != null && checkedParents < 6; checkedParents++) {
+            Path candidate = current.resolve(relativePath).normalize();
+            if (Files.isRegularFile(candidate) || Files.isDirectory(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate " + relativePath + " from "
+                + System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")));
     }
 }
