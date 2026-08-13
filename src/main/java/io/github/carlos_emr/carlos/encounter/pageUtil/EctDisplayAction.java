@@ -103,7 +103,7 @@ public class EctDisplayAction extends ActionSupport {
             Actions.put("consultation", "/encounter/displayConsultation");
             Actions.put("allergies", "/encounter/displayAllergy");
             Actions.put("unresolvedIssues", "/encounter/displayIssues");
-            Actions.put("resolvedIssues", "/encounter/displayIssues");
+            Actions.put("resolvedIssues", "/encounter/displayResolvedIssues");
             Actions.put("Rx", "/encounter/displayRx");
             Actions.put("success", "/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp");
             Actions.put("error", "/WEB-INF/jsp/encounter/LeftNavBarError.jsp");

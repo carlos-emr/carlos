@@ -182,9 +182,11 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
         if (leftCfg != null) { %>
         <h3 onclick="popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<carlos:encode value='<%= leftCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= leftCfg.url() %>' context="javaScriptAttribute"/>'); return false;"><a href="javascript:void(0)"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
-<%      } else { %>
+<%      } else if (!dao.getLeftURL().isBlank()) { %>
         <h3 onclick="<carlos:encode value='<%= dao.getLeftURL() + "; return false;" %>' context="javaScriptAttribute"/>"><a href="javascript:void(0)"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
+<%      } else { %>
+        <h3><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/></h3>
 <%      } %>
     </div>
 </div>
