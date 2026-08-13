@@ -12,7 +12,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.nio.file.Files;
@@ -52,10 +51,10 @@ import static org.mockito.Mockito.when;
 @Tag("encounter")
 class EncounterIssuePanelRegressionUnitTest extends CarlosUnitTestBase {
 
-    private static final Path DISPLAY_ACTION =
-            Path.of("src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayAction.java");
-    private static final String STRUTS_ENCOUNTER =
-            "src/main/webapp/WEB-INF/classes/struts-encounter.xml";
+    private static final Path DISPLAY_ACTION = resolveProjectPath(
+            Path.of("src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayAction.java"));
+    private static final Path STRUTS_ENCOUNTER =
+            resolveProjectPath(Path.of("src/main/webapp/WEB-INF/classes/struts-encounter.xml"));
 
     private CaseManagementManager caseManagementManager;
     private MockedStatic<ServletActionContext> servletActionContextMock;
@@ -162,11 +161,26 @@ class EncounterIssuePanelRegressionUnitTest extends CarlosUnitTestBase {
         assertThat(resolvedResultCount).isGreaterThan(0);
     }
 
-    private Document parseXml(String configPath) throws Exception {
+    private Document parseXml(Path configPath) throws Exception {
         DocumentBuilder db = newHardenedDocumentBuilder();
-        try (InputStream in = new FileInputStream(configPath)) {
+        try (InputStream in = Files.newInputStream(configPath)) {
             return db.parse(in);
         }
+    }
+
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of(System.getProperty("basedir", System.getProperty("user.dir")))
+                .toAbsolutePath()
+                .normalize();
+        for (int checkedParents = 0; current != null && checkedParents < 6; checkedParents++) {
+            Path candidate = current.resolve(relativePath).normalize();
+            if (Files.isRegularFile(candidate) || Files.isDirectory(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate " + relativePath + " from "
+                + System.getProperty("basedir", System.getProperty("user.dir")));
     }
 
     private DocumentBuilder newHardenedDocumentBuilder() throws Exception {

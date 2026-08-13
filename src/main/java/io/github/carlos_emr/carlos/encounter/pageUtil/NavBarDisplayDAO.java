@@ -198,6 +198,7 @@ public class NavBarDisplayDAO {
      * control that has no visible effect (issue #3444).
      *
      * @return true if a popup or non-blank left URL is configured
+     * @since 2026-08-13
      */
     public boolean hasInteractiveLeftHeading() {
         return leftPopup != null || !getLeftURL().isBlank();
