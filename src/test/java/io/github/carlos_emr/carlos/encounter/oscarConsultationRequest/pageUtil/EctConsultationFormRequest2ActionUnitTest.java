@@ -66,6 +66,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -574,7 +575,10 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         action.execute();
 
-        verify(consultationRequestDao).merge(any(ConsultationRequest.class));
+        ArgumentCaptor<ConsultationRequest> mergedConsultation =
+                ArgumentCaptor.forClass(ConsultationRequest.class);
+        verify(consultationRequestDao).merge(mergedConsultation.capture());
+        assertThat(mergedConsultation.getValue().getServiceId()).isNull();
     }
 
     @Test
