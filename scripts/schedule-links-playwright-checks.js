@@ -209,18 +209,20 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
 
   // A single-result search auto-submits while the page is still parsing, so by the time
   // the DOM could be queried the popup may already be navigating. Capture the rendered
-  // token name off the initial document response instead, which cannot be raced. The
-  // listener is registered before the document arrives, so it sees the search results.
-  let renderedTokenName = null;
-  resultPage.on('response', async (response) => {
-    if (renderedTokenName || response.request().resourceType() !== 'document') {
+  // token name from the document bodies instead, which survive that navigation.
+  // Each parse is retained rather than fired and forgotten, so the read below awaits
+  // them instead of racing them; the push is synchronous, so no response is dropped.
+  const tokenNameParses = [];
+  resultPage.on('response', (response) => {
+    if (response.request().resourceType() !== 'document') {
       return;
     }
-    const html = await response.text().catch(() => '');
-    const match = /id="providerSelectionCsrfToken"[^>]*\sname="([^"]+)"/.exec(html);
-    if (match) {
-      renderedTokenName = match[1];
-    }
+    tokenNameParses.push(response.text()
+      .then((html) => {
+        const match = /id="providerSelectionCsrfToken"[^>]*\sname="([^"]+)"/.exec(html);
+        return match ? match[1] : null;
+      })
+      .catch(() => null));
   });
 
   const resultLoaded = await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 })
@@ -258,7 +260,8 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
   // The multi-result path never navigates, so a live DOM read still resolves there.
   // Falling back to the documented default is a last resort and is reported, so the
   // check can never silently re-assume the name it is supposed to be verifying.
-  const observedTokenName = renderedTokenName
+  const capturedTokenName = (await Promise.all(tokenNameParses)).find(Boolean) || null;
+  const observedTokenName = capturedTokenName
     || await resultPage.locator('#providerSelectionCsrfToken')
       .getAttribute('name', { timeout: 2000 })
       .catch(() => null);

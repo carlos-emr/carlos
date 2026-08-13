@@ -175,7 +175,12 @@ class ScheduleProviderSearchCsrfRegressionTest {
                 .contains("resultPage.on('response'")
                 .contains("resourceType() !== 'document'")
                 .contains("id=\"providerSelectionCsrfToken\"[^>]*\\sname=\"([^\"]+)\"")
-                .contains("const observedTokenName = renderedTokenName")
+                .as("the parses must be retained and awaited, not fired and forgotten, or "
+                        + "the provider-control response can outrun them and report a valid "
+                        + "token as missing")
+                .contains("tokenNameParses.push(response.text()")
+                .contains("(await Promise.all(tokenNameParses)).find(Boolean)")
+                .contains("const observedTokenName = capturedTokenName")
                 .contains("type: 'csrf-token-name-unresolved'")
                 .contains("new URLSearchParams(requestBody).get(tokenName)")
                 .contains("type: 'missing-csrf-token'")
