@@ -392,15 +392,34 @@ The remaining secrets have deliberately different rotation behavior:
   after cutover.
 - Rotating `PATIENT_PORTAL_AUDIT_HASH_SECRET` changes pseudonymous client/invite correlations;
   record the cutover time for investigations.
-- Rotating `PATIENT_PORTAL_INTERNAL_API_TOKEN` requires a coordinated CARLOS/portal cutover.
+- Rotating `PATIENT_PORTAL_INTERNAL_API_TOKEN` does not require a synchronised restart. Set
+  `PATIENT_PORTAL_INTERNAL_API_TOKEN` to the new value and
+  `PATIENT_PORTAL_INTERNAL_API_TOKEN_PREVIOUS` to the outgoing one, restart the portal, cut CARLOS
+  over to the new token, then clear `_PREVIOUS` and restart the portal again. Both values are
+  accepted while `_PREVIOUS` is set, so leaving it configured permanently defeats the rotation;
+  treat clearing it as part of the same change.
 
 ## CARLOS Internal API
 
 Set `PATIENT_PORTAL_INTERNAL_API_TOKEN` to enable the production staff/service contract. Requests
 must include its Bearer token and CARLOS-authenticated `X-CARLOS-Provider-ID`,
-`X-CARLOS-Provider-Name`, `X-CARLOS-Clinic-ID`, and `X-CARLOS-Permissions` headers. The reverse
-proxy must strip externally supplied copies of these headers and allow this route family only from
-CARLOS application instances.
+`X-CARLOS-Provider-Name`, `X-CARLOS-Clinic-ID`, and `X-CARLOS-Permissions` headers.
+
+**Pilot blocker — the trust model here is deployment-enforced, not application-enforced.** The
+service token authenticates *CARLOS as a system*; provider identity, clinic, and the entire
+permission set are then read from plaintext request headers the caller chooses. Anything able to
+present the token can therefore assert any provider and any permission, including reading generated
+email passphrases, and the `actor_id` recorded in the audit trail is only as trustworthy as the
+proxy configuration in front of the portal. Two controls are mandatory before pilot traffic:
+
+- the reverse proxy must strip externally supplied copies of the four `X-CARLOS-*` headers, and
+- the `/internal/carlos/` route family must be reachable only from CARLOS application instances.
+
+The intended replacement is a short-lived signed assertion minted by CARLOS from the authenticated
+provider session (carrying provider id, clinic, and permissions) or mutual TLS, so provider identity
+is cryptographically attributable rather than proxy-attributable. That work is not in this
+iteration; until it lands, treat the proxy configuration as a security control with the same review
+weight as application code.
 
 Permissions are deliberately narrow:
 

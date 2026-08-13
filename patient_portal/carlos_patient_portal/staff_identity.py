@@ -39,6 +39,19 @@ def normalize_permissions(value: str) -> frozenset[str]:
     return frozenset(permissions)
 
 
+def matches_any_service_token(supplied_token: str, accepted_tokens: tuple[str, ...]) -> bool:
+    """Compare against every accepted token without short-circuiting.
+
+    `any(...)` would stop at the first match, so response time would reveal whether the active or
+    the retired token was presented. Accumulating instead keeps the work constant for a fixed
+    number of accepted tokens, and each comparison itself stays constant-time.
+    """
+    matched = False
+    for accepted_token in accepted_tokens:
+        matched |= compare_digest(accepted_token, supplied_token)
+    return matched
+
+
 def authenticate_carlos_staff(
     settings: Settings,
     *,
@@ -48,17 +61,13 @@ def authenticate_carlos_staff(
     clinic_id: str | None,
     permissions: str | None,
 ) -> StaffPrincipal:
-    configured_token = (
-        settings.internal_api_token.get_secret_value()
-        if settings.internal_api_token is not None
-        else None
-    )
+    accepted_tokens = settings.accepted_internal_api_tokens
     scheme, _, supplied_token = (authorization or "").partition(" ")
     if (
-        configured_token is None
+        not accepted_tokens
         or scheme.casefold() != "bearer"
         or not supplied_token
-        or not compare_digest(configured_token, supplied_token)
+        or not matches_any_service_token(supplied_token, accepted_tokens)
         or provider_id is None
         or provider_name is None
         or clinic_id is None

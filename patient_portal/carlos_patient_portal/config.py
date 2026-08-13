@@ -115,6 +115,10 @@ class Settings(BaseSettings):
     unlock_secret_active_key_id: str = Field(default="primary", min_length=1, max_length=64)
     internal_health_token: SecretStr | None = None
     internal_api_token: SecretStr | None = None
+    # Accepted alongside the active token so CARLOS and the portal can be cut over one at a time.
+    # Without it, rotating the shared service token means restarting both systems in lockstep,
+    # which in practice means the token never gets rotated.
+    internal_api_token_previous: SecretStr | None = None
     smtp_host: str | None = Field(default=None, max_length=253)
     smtp_port: int = Field(default=25, ge=1, le=65535)
     smtp_from_address: str | None = Field(default=None, max_length=254)
@@ -179,6 +183,22 @@ class Settings(BaseSettings):
     @property
     def is_internal_api_enabled(self) -> bool:
         return self.internal_api_token is not None
+
+    @property
+    def accepted_internal_api_tokens(self) -> tuple[str, ...]:
+        """Service tokens the internal API accepts, active first.
+
+        Holding two lets an operator publish the new token to the portal, cut CARLOS over, and
+        then retire the old one, instead of restarting both systems at the same instant.
+        """
+        return tuple(
+            token
+            for token in (
+                self.secret_value("internal_api_token"),
+                self.secret_value("internal_api_token_previous"),
+            )
+            if token is not None
+        )
 
     @property
     def probe_host_aliases(self) -> tuple[str, ...]:
@@ -351,6 +371,7 @@ class Settings(BaseSettings):
         "unlock_secret_encryption_keyring",
         "internal_health_token",
         "internal_api_token",
+        "internal_api_token_previous",
         "dev_admin_token",
         "smtp_password",
         "sms_webhook_token",
@@ -396,6 +417,7 @@ class Settings(BaseSettings):
             "unlock_secret_encryption_secret": ("PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET"),
             "internal_health_token": "PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN",
             "internal_api_token": "PATIENT_PORTAL_INTERNAL_API_TOKEN",
+            "internal_api_token_previous": "PATIENT_PORTAL_INTERNAL_API_TOKEN_PREVIOUS",
             "dev_admin_token": "PATIENT_PORTAL_DEV_ADMIN_TOKEN",
             "sms_webhook_token": "PATIENT_PORTAL_SMS_WEBHOOK_TOKEN",
         }
@@ -430,6 +452,9 @@ class Settings(BaseSettings):
                 "PATIENT_PORTAL_AUDIT_HASH_SECRET": self.secret_value("audit_hash_secret"),
                 "PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN": self.secret_value("internal_health_token"),
                 "PATIENT_PORTAL_INTERNAL_API_TOKEN": self.secret_value("internal_api_token"),
+                "PATIENT_PORTAL_INTERNAL_API_TOKEN_PREVIOUS": self.secret_value(
+                    "internal_api_token_previous"
+                ),
                 "PATIENT_PORTAL_SMS_WEBHOOK_TOKEN": self.secret_value("sms_webhook_token"),
             }
             configured_secrets.update(
@@ -447,6 +472,22 @@ class Settings(BaseSettings):
                         f"{field_name} must not reuse the value configured for {reused_by}"
                     )
                 secret_domains[secret_value] = field_name
+
+    def validate_internal_api_rotation_policy(self) -> None:
+        if self.internal_api_token_previous is None:
+            return
+        if self.internal_api_token is None:
+            raise ValueError(
+                "PATIENT_PORTAL_INTERNAL_API_TOKEN must be set when "
+                "PATIENT_PORTAL_INTERNAL_API_TOKEN_PREVIOUS is set"
+            )
+        if self.secret_value("internal_api_token_previous") == self.secret_value(
+            "internal_api_token"
+        ):
+            raise ValueError(
+                "PATIENT_PORTAL_INTERNAL_API_TOKEN_PREVIOUS must differ from "
+                "PATIENT_PORTAL_INTERNAL_API_TOKEN"
+            )
 
     def validate_admin_and_mfa_policy(self) -> None:
         if self.is_dev_admin_enabled and self.dev_admin_token is None:
@@ -602,6 +643,7 @@ class Settings(BaseSettings):
     def reject_unsafe_runtime_policy(self) -> "Settings":
         self.validate_secret_policy()
         self.validate_required_production_services()
+        self.validate_internal_api_rotation_policy()
         self.validate_admin_and_mfa_policy()
         self.validate_smtp_policy()
         self.validate_sms_policy()

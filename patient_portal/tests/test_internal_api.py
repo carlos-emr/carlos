@@ -1175,3 +1175,66 @@ def test_internal_api_rejects_in_order_authentication_then_authorization_then_va
     assert authorized_invalid_body.status_code == 422
     # A permitted caller with a valid body reaches the service, which reports no such account.
     assert authorized_valid_body.status_code == 404
+
+
+PREVIOUS_INTERNAL_API_TOKEN = "r" * MIN_PRODUCTION_SECRET_LENGTH
+
+
+def test_previous_internal_api_token_is_accepted_during_rotation() -> None:
+    """Both tokens work while _PREVIOUS is set, so CARLOS can be cut over independently."""
+    client = TestClient(
+        internal_app(internal_api_token_previous=PREVIOUS_INTERNAL_API_TOKEN)
+    )
+
+    with_active = client.post(
+        "/internal/carlos/patients/1234/invites",
+        headers=carlos_headers("portal.invite.manage"),
+        json=invite_request(),
+    )
+    with_previous = client.post(
+        "/internal/carlos/patients/1235/invites",
+        headers=carlos_headers(
+            "portal.invite.manage",
+            token=PREVIOUS_INTERNAL_API_TOKEN,
+        ),
+        json=invite_request(1235),
+    )
+
+    assert with_active.status_code == 201
+    assert with_previous.status_code == 201
+
+
+def test_retired_internal_api_token_stops_working_once_previous_is_cleared() -> None:
+    client = TestClient(internal_app())
+
+    retired = client.post(
+        "/internal/carlos/patients/1234/invites",
+        headers=carlos_headers(
+            "portal.invite.manage",
+            token=PREVIOUS_INTERNAL_API_TOKEN,
+        ),
+        json=invite_request(),
+    )
+
+    # Same generic 404 as any other unauthenticated internal request: the route family must not
+    # confirm its own existence to a caller without a currently valid service token.
+    assert retired.status_code == 404
+
+
+def test_previous_internal_api_token_must_be_configured_alongside_an_active_token() -> None:
+    with pytest.raises(ValueError, match="INTERNAL_API_TOKEN must be set"):
+        Settings(
+            environment="development",
+            database_url="sqlite+pysqlite:///:memory:",
+            internal_api_token_previous=PREVIOUS_INTERNAL_API_TOKEN,
+        )
+
+
+def test_previous_internal_api_token_must_differ_from_the_active_token() -> None:
+    with pytest.raises(ValueError, match="must differ from"):
+        Settings(
+            environment="development",
+            database_url="sqlite+pysqlite:///:memory:",
+            internal_api_token=INTERNAL_API_TOKEN,
+            internal_api_token_previous=INTERNAL_API_TOKEN,
+        )
