@@ -40,16 +40,16 @@ import io.github.carlos_emr.carlos.decision.AntenatalRiskConfigService.InvalidCo
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 @DisplayName("Save antenatal risk configuration action")
 @Tag("unit")
 @Tag("decision")
-class SaveAntenatalRiskConfig2ActionUnitTest {
+class SaveAntenatalRiskConfig2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletContext;
     private MockedStatic<LoggedInInfo> loggedInContext;
-    private MockedStatic<LogAction> auditLog;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private SecurityInfoManager securityInfoManager;
@@ -73,8 +73,6 @@ class SaveAntenatalRiskConfig2ActionUnitTest {
         loggedInContext = mockStatic(LoggedInInfo.class);
         loggedInContext.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
-        // The audit entry writes through a DAO; stub it out so these stay unit tests.
-        auditLog = mockStatic(LogAction.class);
 
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         when(loggedInInfo.getIp()).thenReturn("10.0.0.7");
@@ -85,7 +83,7 @@ class SaveAntenatalRiskConfig2ActionUnitTest {
 
     @AfterEach
     void tearDown() {
-        auditLog.close();
+        // logActionMock and springUtilsMock are closed by CarlosUnitTestBase.
         loggedInContext.close();
         servletContext.close();
     }
@@ -140,7 +138,7 @@ class SaveAntenatalRiskConfig2ActionUnitTest {
         verify(configService, never()).save(any());
         // The method check runs before authorization and before the audit write; pin
         // that ordering so a later refactor cannot start recording rejected requests.
-        auditLog.verifyNoInteractions();
+        logActionMock.verifyNoInteractions();
     }
 
     @Test
@@ -148,7 +146,7 @@ class SaveAntenatalRiskConfig2ActionUnitTest {
     void shouldAudit_onSuccessfulSave() throws Exception {
         action.execute();
 
-        auditLog.verify(() -> LogAction.addLogSynchronous(
+        logActionMock.verify(() -> LogAction.addLogSynchronous(
                 eq("999998"),
                 eq(LogConst.UPDATE),
                 eq(LogConst.CON_ANTENATAL_RISK_CONFIG),
@@ -164,7 +162,7 @@ class SaveAntenatalRiskConfig2ActionUnitTest {
 
         action.execute();
 
-        auditLog.verifyNoInteractions();
+        logActionMock.verifyNoInteractions();
     }
 
     @Test

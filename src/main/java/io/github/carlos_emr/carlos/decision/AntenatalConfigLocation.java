@@ -39,7 +39,7 @@ public final class AntenatalConfigLocation {
     }
 
     /**
-     * Returns the configured document directory.
+     * Resolves a configuration file inside the configured document directory.
      *
      * @param fileName configuration file name to resolve inside the directory
      * @return the absolute path the override would occupy, whether or not it exists

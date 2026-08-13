@@ -50,6 +50,14 @@ public final class SaveAntenatalRiskConfig2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final AntenatalRiskConfigService configService;
 
+    /**
+     * Creates the action as Struts instantiates it, one per request.
+     *
+     * <p>Struts constructs this class by name rather than as a Spring bean, so the
+     * collaborators are resolved here. {@link AntenatalRiskConfigService} reads
+     * {@code DOCUMENT_DIR} lazily, so a misconfigured install fails on save with a
+     * displayable storage error rather than failing construction on every request.
+     */
     public SaveAntenatalRiskConfig2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class), new AntenatalRiskConfigService());
     }
@@ -60,6 +68,20 @@ public final class SaveAntenatalRiskConfig2Action extends ActionSupport {
         this.configService = configService;
     }
 
+    /**
+     * Validates and stores a replacement antenatal risk-list document.
+     *
+     * <p>The HTTP method is checked before authorization and before any side effect,
+     * so a non-POST request never reaches the privilege check or the audit write.
+     *
+     * @return {@link #NONE} after a 405 for any method other than POST;
+     *         {@link #SUCCESS} after the document is stored and audited, which
+     *         redirects back to the editor; {@link #INPUT} when the document is
+     *         rejected or cannot be stored, re-rendering the editor with a
+     *         displayable reason and the submitted text intact
+     * @throws SecurityException when the caller lacks {@code _form w}, or lacks both
+     *         {@code _admin w} and {@code _admin.misc w}
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

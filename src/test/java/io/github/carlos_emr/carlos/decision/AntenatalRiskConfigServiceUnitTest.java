@@ -6,6 +6,7 @@ package io.github.carlos_emr.carlos.decision;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
@@ -128,7 +129,8 @@ class AntenatalRiskConfigServiceUnitTest {
         try {
             Files.setPosixFilePermissions(target, groupReadable);
         } catch (UnsupportedOperationException e) {
-            return; // non-POSIX filesystem; the platform's own rules apply
+            // Reported as skipped, not passed: the assertion below never ran.
+            abort("filesystem does not support POSIX permissions");
         }
 
         new AntenatalRiskConfigService(target).save(VALID_XML);
@@ -158,7 +160,7 @@ class AntenatalRiskConfigServiceUnitTest {
         try {
             Files.createSymbolicLink(target, linkTarget);
         } catch (UnsupportedOperationException | IOException e) {
-            return; // filesystem or platform without symlink support
+            abort("filesystem or platform does not support symbolic links");
         }
 
         // Dangling here, which is the case Files.exists() reports as absent — the
@@ -177,7 +179,7 @@ class AntenatalRiskConfigServiceUnitTest {
         try {
             Files.setPosixFilePermissions(target, PosixFilePermissions.fromString("-w--w--w-"));
         } catch (UnsupportedOperationException e) {
-            return; // non-POSIX filesystem
+            abort("filesystem does not support POSIX permissions");
         }
         // A privileged process ignores the mode bits, so there is nothing to assert.
         assumeTrue(!Files.isReadable(target), "running as a user that bypasses file permissions");
