@@ -810,7 +810,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
     function autoCompleteProvider() {
         jQuery("#autocompleteProvider").autocomplete({
-            source: contextPath + "/provider/SearchProvider?method=labSearch",
+            source: inboxContextPath + "/provider/SearchProvider?method=labSearch",
             minLength: 2,
             focus: function (event, ui) {
                 jQuery("#autocompleteProvider").val(ui.item.label);

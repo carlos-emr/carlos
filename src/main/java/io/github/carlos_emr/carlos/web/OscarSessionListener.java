@@ -31,7 +31,9 @@ package io.github.carlos_emr.carlos.web;
 import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
 import io.github.carlos_emr.carlos.commn.exception.UserSessionNotFoundException;
 import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
+import io.github.carlos_emr.carlos.fax.action.Fax2Action;
 import io.github.carlos_emr.carlos.login.PendingMfaChallenges;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import io.github.carlos_emr.carlos.managers.UserSessionManagerImpl;
@@ -57,6 +59,9 @@ public class OscarSessionListener implements HttpSessionListener {
         MiscUtils.getLogger().info("session is being destroyed - {}", getSessionLogReference(id));
         PendingMfaChallenges.clearFromSession(se.getSession());
         EmailComposeSubmissionStateService.clearDestroyedSessionIfAvailable(id);
+        SpringUtils.getBean(EFormRenderApprovalService.class)
+                .invalidateStagedFaxPreviewsForSession(id);
+        Fax2Action.clearClaimedFaxFilePathsLockForSession(id);
 
         CasemgmtNoteLockDao casemgmtNoteLockDao = SpringUtils.getBean(CasemgmtNoteLockDao.class);
 

@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext;
@@ -86,6 +87,8 @@ public class EmailCompose2Action extends ActionSupport {
     private transient EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
     private transient EmailComposeSubmissionStateService emailComposeSubmissionStateService =
             SpringUtils.getBean(EmailComposeSubmissionStateService.class);
+    private PdfPreviewCapabilityService pdfPreviewCapabilityService =
+            SpringUtils.getBean(PdfPreviewCapabilityService.class);
 
     public static final String EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE =
             "This email compose window has expired or is no longer valid. "
@@ -275,11 +278,15 @@ public class EmailCompose2Action extends ActionSupport {
             emailAttachmentList.addAll(emailComposeManager.prepareLabAttachments(loggedInInfo, attachedLabs));
             emailAttachmentList.addAll(emailComposeManager.prepareHRMAttachments(loggedInInfo, attachedHRMDocuments));
             emailAttachmentList.addAll(emailComposeManager.prepareFormAttachments(request, response, attachedForms, demographicNo));
-        } catch (PDFGenerationException e) {
-            logger.error("Unable to prepare email attachments during email compose");
-            return emailComposeError(request, "This eForm (and attachments, if applicable) could not be emailed.");
+            emailComposeManager.sanitizeAttachments(emailAttachmentList);
+            for (EmailAttachment attachment : emailAttachmentList) {
+                attachment.setPreviewToken(pdfPreviewCapabilityService.issue(
+                        request, loggedInInfo, java.nio.file.Path.of(attachment.getFilePath())));
+            }
+        } catch (PDFGenerationException | RuntimeException e) {
+            logger.error(e.getMessage(), e);
+            return emailComposeError(request, "This eForm (and attachments, if applicable) could not be emailed. \\n\\n" + e.getMessage());
         }
-        emailComposeManager.sanitizeAttachments(emailAttachmentList);
 
         Object isEmailEncrypted = session.getAttribute("isEmailEncrypted");
         Object isEmailAttachmentEncrypted = isTrue(isEmailEncrypted)

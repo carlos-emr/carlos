@@ -6,6 +6,7 @@
 package io.github.carlos_emr.carlos.email.action;
 
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
@@ -68,10 +69,12 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         EmailComposeManager emailComposeManager = mock(EmailComposeManager.class);
         EmailPdfPasswordService emailPdfPasswordService = mock(EmailPdfPasswordService.class);
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        PdfPreviewCapabilityService pdfPreviewCapabilityService = mock(PdfPreviewCapabilityService.class);
         registerMock(DemographicManager.class, demographicManager);
         registerMock(EmailComposeManager.class, emailComposeManager);
         registerMock(EmailPdfPasswordService.class, emailPdfPasswordService);
         registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(PdfPreviewCapabilityService.class, pdfPreviewCapabilityService);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");

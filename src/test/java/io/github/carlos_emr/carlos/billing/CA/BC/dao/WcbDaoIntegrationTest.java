@@ -47,6 +47,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Transactional
 public class WcbDaoIntegrationTest extends CarlosTestBase {
 
+    private static final int UNIQUE_BILLING_NO_MATCH = 105001;
+    private static final int UNIQUE_BILLING_NO_MATCH_TWO = 105002;
+    private static final int UNIQUE_BILLING_NO_NO_MATCH = 105099;
+    private static final int UNIQUE_DEMOGRAPHIC_NO_MATCH = 208888;
+    private static final int UNIQUE_DEMOGRAPHIC_NO_NO_MATCH = 209999;
+
     @Autowired
     private WcbDao dao;
 
@@ -86,23 +92,23 @@ public class WcbDaoIntegrationTest extends CarlosTestBase {
     @Tag("read")
     @DisplayName("should find WCB records by billing number")
     void shouldReturnMatchingRecords_byBillingNo() throws Exception {
-        Wcb match1 = createEntity(5000, 100);
-        Wcb match2 = createEntity(5000, 200);
-        Wcb noMatch = createEntity(9999, 300);
+        Wcb match1 = createEntity(UNIQUE_BILLING_NO_MATCH, 100);
+        Wcb match2 = createEntity(UNIQUE_BILLING_NO_MATCH, 200);
+        Wcb noMatch = createEntity(UNIQUE_BILLING_NO_NO_MATCH, 300);
         dao.persist(match1);
         dao.persist(match2);
         dao.persist(noMatch);
 
-        List<Wcb> results = dao.findByBillingNo(5000);
+        List<Wcb> results = dao.findByBillingNo(UNIQUE_BILLING_NO_MATCH);
         assertThat(results).hasSize(2);
-        assertThat(results).allSatisfy(w -> assertThat(w.getBillingNo()).isEqualTo(5000));
+        assertThat(results).allSatisfy(w -> assertThat(w.getBillingNo()).isEqualTo(UNIQUE_BILLING_NO_MATCH));
     }
 
     @Test
     @Tag("read")
     @DisplayName("should return empty list when billing number not found")
     void shouldReturnEmptyList_whenBillingNoNotFound() throws Exception {
-        Wcb entity = createEntity(5000, 100);
+        Wcb entity = createEntity(UNIQUE_BILLING_NO_MATCH, 100);
         dao.persist(entity);
 
         List<Wcb> results = dao.findByBillingNo(77777);
@@ -113,16 +119,16 @@ public class WcbDaoIntegrationTest extends CarlosTestBase {
     @Tag("read")
     @DisplayName("should find WCB records by demographic number")
     void shouldReturnMatchingRecords_byDemographicNo() throws Exception {
-        Wcb match1 = createEntity(1001, 8888);
-        Wcb match2 = createEntity(1002, 8888);
-        Wcb noMatch = createEntity(1003, 9999);
+        Wcb match1 = createEntity(UNIQUE_BILLING_NO_MATCH, UNIQUE_DEMOGRAPHIC_NO_MATCH);
+        Wcb match2 = createEntity(UNIQUE_BILLING_NO_MATCH_TWO, UNIQUE_DEMOGRAPHIC_NO_MATCH);
+        Wcb noMatch = createEntity(UNIQUE_BILLING_NO_NO_MATCH, UNIQUE_DEMOGRAPHIC_NO_NO_MATCH);
         dao.persist(match1);
         dao.persist(match2);
         dao.persist(noMatch);
 
-        List<Wcb> results = dao.findByDemographic(8888);
+        List<Wcb> results = dao.findByDemographic(UNIQUE_DEMOGRAPHIC_NO_MATCH);
         assertThat(results).hasSize(2);
-        assertThat(results).allSatisfy(w -> assertThat(w.getDemographicNo()).isEqualTo(8888));
+        assertThat(results).allSatisfy(w -> assertThat(w.getDemographicNo()).isEqualTo(UNIQUE_DEMOGRAPHIC_NO_MATCH));
     }
 
     @Test
