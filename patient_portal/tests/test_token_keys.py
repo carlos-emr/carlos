@@ -2,8 +2,9 @@ import pytest
 
 from carlos_patient_portal.auth import hash_auth_token
 from carlos_patient_portal.config import MIN_PRODUCTION_SECRET_LENGTH, Settings
-from carlos_patient_portal.main import build_portal_runtime, sign_csrf_token
+from carlos_patient_portal.main import build_portal_runtime
 from carlos_patient_portal.token_keys import PortalTokenKeys, derive_token_key
+from carlos_patient_portal.web_support import sign_csrf_token
 
 SESSION_SECRET = "s" * MIN_PRODUCTION_SECRET_LENGTH
 

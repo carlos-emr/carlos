@@ -25,7 +25,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from carlos_patient_portal import cli, main, presenters
+from carlos_patient_portal import cli, main, presenters, web_support
 from carlos_patient_portal.account_settings import update_account_mfa_method
 from carlos_patient_portal.audit import hash_sensitive_reference, record_audit_event
 from carlos_patient_portal.auth import MfaChallengeDelivery
@@ -231,7 +231,7 @@ def migrated_development_app(
     )
     Base.metadata.create_all(app.state.database_engine)
     alembic_config = Config()
-    alembic_config.set_main_option("script_location", str(main.PACKAGE_DIR / "migrations"))
+    alembic_config.set_main_option("script_location", str(web_support.PACKAGE_DIR / "migrations"))
     migration_scripts = ScriptDirectory.from_config(alembic_config)
     with app.state.database_engine.begin() as connection:
         MigrationContext.configure(connection).stamp(
@@ -346,7 +346,7 @@ def dev_admin_headers(
 ) -> dict[str, str]:
     return {
         "Authorization": f"Bearer {token}",
-        main.DEV_ADMIN_ACTOR_HEADER: actor,
+        web_support.DEV_ADMIN_ACTOR_HEADER: actor,
     }
 
 
@@ -357,7 +357,7 @@ def get_csrf_token(client: TestClient) -> str:
     assert response.status_code == 200
     assert match is not None
     csrf_token = match.group(1)
-    assert response.cookies.get(main.CSRF_COOKIE_NAME) == csrf_token
+    assert response.cookies.get(web_support.CSRF_COOKIE_NAME) == csrf_token
     return csrf_token
 
 
@@ -479,7 +479,7 @@ def browser_sign_in_seeded_patient(app: main.FastAPI, client: TestClient) -> int
 
     assert login_response.status_code == 200
     assert "Verification code" in login_response.text
-    assert main.PORTAL_SESSION_COOKIE_NAME not in login_response.cookies
+    assert web_support.PORTAL_SESSION_COOKIE_NAME not in login_response.cookies
     mfa_challenge_token_match = MFA_CHALLENGE_TOKEN_PATTERN.search(login_response.text)
     mfa_code_match = DEVELOPMENT_MFA_CODE_PATTERN.search(login_response.text)
     csrf_token_match = CSRF_TOKEN_PATTERN.search(login_response.text)
@@ -500,8 +500,8 @@ def browser_sign_in_seeded_patient(app: main.FastAPI, client: TestClient) -> int
     assert verify_response.status_code == 303
     assert verify_response.headers["location"] == "/portal"
     set_cookie_header = verify_response.headers.get("set-cookie", "")
-    assert main.PORTAL_SESSION_COOKIE_NAME in verify_response.cookies
-    assert f"{main.PORTAL_SESSION_COOKIE_NAME}=" in set_cookie_header
+    assert web_support.PORTAL_SESSION_COOKIE_NAME in verify_response.cookies
+    assert f"{web_support.PORTAL_SESSION_COOKIE_NAME}=" in set_cookie_header
     assert "HttpOnly" in set_cookie_header
     assert "Path=/portal" in set_cookie_header
     assert "SameSite=strict" in set_cookie_header
@@ -833,7 +833,7 @@ def test_sign_in_shell_uses_security_headers() -> None:
 
 
 def test_jinja_templates_always_autoescape_jinja_files() -> None:
-    assert main.templates.env.autoescape is True
+    assert web_support.templates.env.autoescape is True
 
 
 def test_production_responses_include_hsts() -> None:
@@ -859,7 +859,7 @@ def test_non_development_csrf_cookie_is_secure() -> None:
     response = TestClient(app).get("/")
     set_cookie = response.headers["set-cookie"]
 
-    assert f"{main.CSRF_COOKIE_NAME}=" in set_cookie
+    assert f"{web_support.CSRF_COOKIE_NAME}=" in set_cookie
     assert "HttpOnly" in set_cookie
     assert "Path=/auth" in set_cookie
     assert "SameSite=strict" in set_cookie
@@ -1073,7 +1073,7 @@ def test_login_mfa_session_and_logout_happy_path() -> None:
     assert verify_response.status_code == 200
     session_token = verify_response.json()["session_token"]
     assert session_token
-    assert main.PORTAL_SESSION_COOKIE_NAME not in verify_response.cookies
+    assert web_support.PORTAL_SESSION_COOKIE_NAME not in verify_response.cookies
 
     session_response = client.get(
         "/auth/session",
@@ -1649,7 +1649,7 @@ def test_account_password_change_requires_step_up_and_revokes_other_sessions() -
     fresh_account_response = client.get("/portal/account")
     fresh_csrf_token_match = CSRF_TOKEN_PATTERN.search(fresh_account_response.text)
     assert fresh_csrf_token_match is not None
-    previous_cookie = client.cookies.get(main.PORTAL_SESSION_COOKIE_NAME)
+    previous_cookie = client.cookies.get(web_support.PORTAL_SESSION_COOKIE_NAME)
     assert previous_cookie is not None
     changed_response = client.post(
         "/portal/account/password",
@@ -1661,14 +1661,14 @@ def test_account_password_change_requires_step_up_and_revokes_other_sessions() -
         },
         follow_redirects=False,
     )
-    replacement_cookie = client.cookies.get(main.PORTAL_SESSION_COOKIE_NAME)
+    replacement_cookie = client.cookies.get(web_support.PORTAL_SESSION_COOKIE_NAME)
     assert replacement_cookie is not None
     assert replacement_cookie != previous_cookie
     copied_cookie_client = TestClient(app)
     copied_cookie_client.cookies.set(
-        main.PORTAL_SESSION_COOKIE_NAME,
+        web_support.PORTAL_SESSION_COOKIE_NAME,
         previous_cookie,
-        path=main.PORTAL_SESSION_COOKIE_PATH,
+        path=web_support.PORTAL_SESSION_COOKIE_PATH,
     )
     copied_cookie_response = copied_cookie_client.get("/portal", follow_redirects=False)
     notice_response = client.get("/portal/account?status=password-updated")
@@ -2372,7 +2372,7 @@ def test_portal_logout_clears_invalid_session_cookie() -> None:
 
     assert response.status_code == 303
     assert response.headers["location"] == "/"
-    assert f"{main.PORTAL_SESSION_COOKIE_NAME}=" in set_cookie_header
+    assert f"{web_support.PORTAL_SESSION_COOKIE_NAME}=" in set_cookie_header
     assert "Max-Age=0" in set_cookie_header
     with app.state.session_factory() as session:
         logout_event = session.scalar(
@@ -2401,7 +2401,7 @@ def test_dashboard_clears_invalid_session_cookie() -> None:
 
     assert response.status_code == 303
     assert response.headers["location"] == "/"
-    assert f"{main.PORTAL_SESSION_COOKIE_NAME}=" in set_cookie_header
+    assert f"{web_support.PORTAL_SESSION_COOKIE_NAME}=" in set_cookie_header
     assert "Max-Age=0" in set_cookie_header
     assert "Path=/portal" in set_cookie_header
 
@@ -2498,7 +2498,7 @@ def test_login_route_rejects_oversized_form_body() -> None:
         data={
             "csrf_token": csrf_token,
             "username": "patient.username",
-            "password": "x" * main.MAX_FORM_BODY_BYTES,
+            "password": "x" * web_support.MAX_FORM_BODY_BYTES,
         },
     )
 
@@ -2537,7 +2537,7 @@ def test_login_route_rejects_too_many_form_fields() -> None:
     client = TestClient(app)
     get_csrf_token(client)
     form_body = "&".join(
-        f"field{field_number}=x" for field_number in range(main.MAX_FORM_FIELD_COUNT + 1)
+        f"field{field_number}=x" for field_number in range(web_support.MAX_FORM_FIELD_COUNT + 1)
     )
     response = client.post(
         "/auth/login",
@@ -3483,7 +3483,7 @@ def test_patient_activation_rejects_oversized_json_body() -> None:
     app = migrated_development_app()
     oversized_body = (
         b'{"invite_code":"'
-        + b"x" * main.MAX_JSON_BODY_BYTES
+        + b"x" * web_support.MAX_JSON_BODY_BYTES
         + b'","email":"example.patient@example.com"}'
     )
 
@@ -3741,7 +3741,11 @@ def test_dev_admin_invites_require_bearer_token() -> None:
 
 def test_dev_admin_invite_creation_rejects_oversized_json_body_after_auth() -> None:
     app = migrated_development_app()
-    oversized_body = b'{"demographic_no":1234,"email":"' + b"x" * main.MAX_JSON_BODY_BYTES + b'"}'
+    oversized_body = (
+        b'{"demographic_no":1234,"email":"'
+        + b"x" * web_support.MAX_JSON_BODY_BYTES
+        + b'"}'
+    )
 
     missing_token_response = TestClient(app).post(
         "/dev/admin/invites",
@@ -5312,13 +5316,13 @@ def test_trusted_client_ip_header_is_normalized() -> None:
 
 
 def test_trusted_proxy_chain_uses_rightmost_untrusted_client() -> None:
-    client_address = main.parse_trusted_client_ip_header(
+    client_address = web_support.parse_trusted_client_ip_header(
         "x-forwarded-for",
         "198.51.100.200, 203.0.113.7, 10.0.0.10",
         peer_address="10.0.0.20",
         trusted_proxy_cidrs="10.0.0.0/8",
     )
-    spoofed_header = main.parse_trusted_client_ip_header(
+    spoofed_header = web_support.parse_trusted_client_ip_header(
         "x-forwarded-for",
         "203.0.113.99",
         peer_address="192.0.2.10",
@@ -5877,7 +5881,9 @@ def test_dashboard_template_only_reads_fields_the_view_model_declares() -> None:
     a renamed context key produced a silently blank cell. This pins the template's field usage
     against the declared contract instead.
     """
-    template = (main.PACKAGE_DIR / "templates" / "dashboard.jinja").read_text(encoding="utf-8")
+    template = (web_support.PACKAGE_DIR / "templates" / "dashboard.jinja").read_text(
+        encoding="utf-8"
+    )
     dashboard_fields = {field.name for field in fields(EmailPasswordDashboardViewModel)}
     row_fields = {field.name for field in fields(EmailPasswordRowViewModel)}
 
@@ -5912,7 +5918,7 @@ def test_presenters_perform_no_writes() -> None:
     Enforced structurally rather than by convention, because the previous version of the
     dashboard audit event was added inside the render path and looked perfectly reasonable there.
     """
-    presenter_source = (main.PACKAGE_DIR / "presenters.py").read_text(encoding="utf-8")
+    presenter_source = (web_support.PACKAGE_DIR / "presenters.py").read_text(encoding="utf-8")
 
     forbidden = re.findall(
         r"session\.(?:commit|add|flush|delete)\(|record_audit_event\(",
@@ -5936,7 +5942,7 @@ def _sample_mfa_delivery() -> MfaChallengeDelivery:
 
 def _template_variable_names(template_name: str) -> set[str]:
     """Top-level names a template (and its includes) reads, per Jinja's own parser."""
-    environment = main.templates.env
+    environment = web_support.templates.env
     source, _, _ = environment.loader.get_source(environment, template_name)
     names = meta.find_undeclared_variables(environment.parse(source))
     for included in meta.find_referenced_templates(environment.parse(source)):
@@ -5967,7 +5973,7 @@ def test_public_template_reads_only_keys_its_context_builder_supplies(
     browser. This closes that gap for the pages that do not have a dedicated view model.
     """
     settings = Settings(environment="development", database_url="sqlite+pysqlite:///:memory:")
-    builder = getattr(main, context_builder)
+    builder = getattr(web_support, context_builder)
     if context_builder == "mfa_template_context":
         context = builder(
             SimpleNamespace(),
