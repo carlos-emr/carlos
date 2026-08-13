@@ -50,6 +50,7 @@ const { randomInt } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { buildArtifactPath } = require('./eform-local-playwright-utils');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -69,7 +70,6 @@ let mysqlDefaults = null;
 const badResponses = [];
 const consoleIssues = [];
 
-fs.mkdirSync(screenshotDir, { recursive: true });
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -345,8 +345,8 @@ async function run() {
       `Seeded provider ${providerNo} was not offered before account creation: ${JSON.stringify(initialOptions)}`
     );
 
-    result.screenshots.before = path.join(screenshotDir, 'before-create-account.png');
-    await page.screenshot({ path: result.screenshots.before, fullPage: true });
+    result.screenshots.before = buildArtifactPath(screenshotDir, 'before-create-account');
+    await page.screenshot({ path: result.screenshots.before, fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
 
     await page.locator('input[name="user_name"]').fill(username);
     await page.locator('input[name="password"]').fill(fixturePassword);
@@ -382,8 +382,8 @@ async function run() {
 
     const heading = await page.locator('h1').first().textContent().catch(() => '');
     result.submitHeading = heading ? heading.trim() : '';
-    result.screenshots.afterSubmit = path.join(screenshotDir, 'after-submit.png');
-    await page.screenshot({ path: result.screenshots.afterSubmit, fullPage: true });
+    result.screenshots.afterSubmit = buildArtifactPath(screenshotDir, 'after-submit');
+    await page.screenshot({ path: result.screenshots.afterSubmit, fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
 
     const securityRows = rows(
       `SELECT user_name, provider_no, b_ExpireSet, forcePasswordReset, usingMfa`
@@ -401,14 +401,14 @@ async function run() {
       `Provider ${providerNo} was still offered after account creation: ${JSON.stringify(afterOptions)}`
     );
 
-    result.screenshots.afterProviderRemoved = path.join(screenshotDir, 'after-provider-removed.png');
-    await page.screenshot({ path: result.screenshots.afterProviderRemoved, fullPage: true });
+    result.screenshots.afterProviderRemoved = buildArtifactPath(screenshotDir, 'after-provider-removed');
+    await page.screenshot({ path: result.screenshots.afterProviderRemoved, fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
     result.steps.push('created security row and verified provider disappeared from dropdown');
 
     assert(badResponses.length === 0, `Unexpected HTTP error responses: ${JSON.stringify(badResponses)}`);
     assert(consoleIssues.length === 0, `Unexpected browser console/page issues: ${JSON.stringify(consoleIssues)}`);
 
-    fs.writeFileSync(path.join(screenshotDir, 'result.json'), JSON.stringify(result, null, 2));
+    fs.writeFileSync(buildArtifactPath(screenshotDir, 'result', '.json'), JSON.stringify(result, null, 2));
     console.log(JSON.stringify(result, null, 2));
   } finally {
     try {

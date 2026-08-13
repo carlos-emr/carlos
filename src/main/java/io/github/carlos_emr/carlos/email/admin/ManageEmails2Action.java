@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -69,6 +70,8 @@ public class ManageEmails2Action extends ActionSupport {
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final FormsManager formsManager = SpringUtils.getBean(FormsManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final PdfPreviewCapabilityService pdfPreviewCapabilityService =
+            SpringUtils.getBean(PdfPreviewCapabilityService.class);
 
     /**
      * Main entry point for the ManageEmails2Action, routing requests to appropriate handler methods.
@@ -351,6 +354,10 @@ public class ManageEmails2Action extends ActionSupport {
                     break;
                 default:
                     break;
+            }
+            if (emailAttachment.getFilePath() != null && !emailAttachment.getFilePath().isBlank()) {
+                emailAttachment.setPreviewToken(pdfPreviewCapabilityService.issue(
+                        request, loggedInInfo, Path.of(emailAttachment.getFilePath())));
             }
         }
         return emailAttachmentList;

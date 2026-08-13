@@ -1,9 +1,9 @@
 ---
 description: Reset dev database data and reload development.sql with FAKE name patch
 allowed-tools:
-  - Bash(mysql -h db -u root -ppassword oscar < *)
-  - Bash(mysql -h db -uroot -ppassword oscar *)
-  - Bash(mysql -h db -uroot -ppassword oscar -e *)
+  - Bash(mariadb -h db -u root -ppassword oscar < *)
+  - Bash(mariadb -h db -uroot -ppassword oscar *)
+  - Bash(mariadb -h db -uroot -ppassword oscar -e *)
   - Bash(curl * http://localhost:8080/*)
   - Bash(date *)
   - Bash(wc -l *)
@@ -26,7 +26,7 @@ This command resets the developer database data while preserving the schema, the
 Verify database connectivity before proceeding:
 
 ```bash
-mysql -h db -uroot -ppassword oscar -e "SELECT 1 AS connection_test"
+mariadb -h db -uroot -ppassword oscar -e "SELECT 1 AS connection_test"
 ```
 
 If this fails, stop and report the database connection issue.
@@ -36,7 +36,7 @@ If this fails, stop and report the database connection issue.
 Load the development.sql file which truncates all data tables and inserts fresh demo data:
 
 ```bash
-mysql -h db -u root -ppassword oscar < /workspace/.devcontainer/db/scripts/development.sql
+mariadb -h db -u root -ppassword oscar < /workspace/.devcontainer/db/scripts/development.sql
 ```
 
 This file is approximately 56.5 MB and contains TRUNCATE + INSERT statements for all demo data.
@@ -46,7 +46,7 @@ This file is approximately 56.5 MB and contains TRUNCATE + INSERT statements for
 Apply the FAKE name prefix patch to clearly identify test data:
 
 ```bash
-mysql -h db -u root -ppassword oscar < /workspace/database/mysql/updates/update-2025-11-06-demo-name-sanitization.sql
+mariadb -h db -u root -ppassword oscar < /workspace/database/mysql/updates/update-2025-11-06-demo-name-sanitization.sql
 ```
 
 This patch is idempotent - it only updates names that don't already have the "FAKE-" prefix.
@@ -57,13 +57,13 @@ Verify the data was loaded correctly:
 
 ```bash
 # Count patients
-mysql -h db -uroot -ppassword oscar -e "SELECT COUNT(*) as patient_count FROM demographic"
+mariadb -h db -uroot -ppassword oscar -e "SELECT COUNT(*) as patient_count FROM demographic"
 
 # Verify FAKE prefix applied
-mysql -h db -uroot -ppassword oscar -e "SELECT demographic_no, first_name, last_name FROM demographic LIMIT 5"
+mariadb -h db -uroot -ppassword oscar -e "SELECT demographic_no, first_name, last_name FROM demographic LIMIT 5"
 
 # Verify provider exists for login
-mysql -h db -uroot -ppassword oscar -e "SELECT provider_no, first_name, last_name FROM provider WHERE provider_no = '999998'"
+mariadb -h db -uroot -ppassword oscar -e "SELECT provider_no, first_name, last_name FROM provider WHERE provider_no = '999998'"
 ```
 
 ## Expected Results

@@ -164,8 +164,23 @@ public class LoginFilter implements Filter {
             "/images/cloud-bg.svg",
             "/library/bootstrap/",
             "/library/jquery/",
+            // Flatpickr backs the /share/calendar/ shim below; both are static widget assets
+            // (no PHI) the sessionless browser-PDF renderer must fetch without a session.
+            //
+            // These CANNOT be moved to the renderer's per-render grant instead — that was tried and
+            // reverted. The grant is built by statically scanning the composed eForm HTML for
+            // <link>/<script> and CSS references, and calendar.js injects flatpickr at RUNTIME
+            // (createElement("script"); js.src = basePath + "library/flatpickr/flatpickr.min.js",
+            // calendar.js:108-109). A URL that only exists once the page runs is invisible to that
+            // scan, so dropping these entries breaks every date-picker eForm render. Same shape as
+            // the runtime signature stamp, which needed its own explicit allowance for the same
+            // reason. LoginFilterUnitTest pins both.
+            "/library/flatpickr/",
             "/signature_pad/",
             "/share/css/",
+            // Static calendar widget assets (no PHI): legacy eForms reference them relatively, and
+            // the sessionless browser-PDF renderer must fetch them like /share/css/ above.
+            "/share/calendar/",
             "/share/javascript/carlos-ajax.js",
             "/share/javascript/Oscar.js",
             "/lab/CMLlabUpload",
@@ -181,9 +196,17 @@ public class LoginFilter implements Filter {
             "/LabViewForPdfGenerationServlet",
             "/oscarFacesheet/token_error.jsp",
             "/ws/",
+            // Session-less renderer surface (loopback-only). These routes are exempt from the login
+            // redirect because each servlet performs its OWN authorization: the render page accepts a
+            // render-scoped token OR an authenticated _eform session; the signature route requires a
+            // live render grant on the loopback path; the image route accepts a live render grant as a
+            // session alternative for shared template assets; the APCache bridge requires a live
+            // render grant AND a per-key grant, and derives patient/provider identity from the
+            // grant rather than the request. They are NOT uniformly single-use-token gated.
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
+            "/EFormApCacheForPdfGenerationServlet",
             "/js/global.js",
             "/css/fontawesome-all.min.css",
             "/css/Roboto.css",
@@ -207,7 +230,9 @@ public class LoginFilter implements Filter {
             "/images/cloud-bg.svg",
             "/library/bootstrap/",
             "/library/jquery/",
+            "/library/flatpickr/",
             "/share/css/",
+            "/share/calendar/",
             "/share/javascript/carlos-ajax.js",
             "/share/javascript/Oscar.js",
             "/css/fontawesome-all.min.css",
@@ -251,9 +276,18 @@ public class LoginFilter implements Filter {
             "/LabViewForPdfGenerationServlet",
             "/oscarFacesheet/token_error.jsp",
             "/ws/",
+            // Session-less renderer surface (loopback-only). These routes must not refresh the
+            // authenticated session's inactivity timer (this list controls the timer only, not the
+            // login redirect); each servlet performs its OWN authorization: the render page accepts a
+            // render-scoped token OR an authenticated _eform session; the signature route requires a
+            // live render grant on the loopback path; the image route accepts a live render grant as a
+            // session alternative for shared template assets; the APCache bridge requires a live
+            // render grant AND a per-key grant, and derives patient/provider identity from the
+            // grant rather than the request. They are NOT uniformly single-use-token gated.
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
+            "/EFormApCacheForPdfGenerationServlet",
             "/provider/providercontrol",
             "/provider/ViewTabAlertsRefresh",
             "/SystemMessage",
@@ -388,7 +422,20 @@ public class LoginFilter implements Filter {
             // If the requested resource is not exempt, redirect to logout page
             // SECURITY: Root directory auto-exemption was removed to prevent
             // accidental exposure of resources. All exemptions must be explicit.
-            if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS)) {
+            if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS)
+                    && !io.github.carlos_emr.carlos.eform.util.EFormRendererRequestAuthorization
+                            .permitsStaticRequest(httpRequest)) {
+                // The PDF render browser must never be sent to the login page. That rejection is a
+                // 302 to /logoutPage, which answers 200 text/html — and the renderer's network gate
+                // only counts status >= 400, so a denied stylesheet or background image would be
+                // recorded as a successful load and print as a blank region of a clinical PDF. Fail
+                // with a status the gate can actually see.
+                if (io.github.carlos_emr.carlos.eform.util.EFormRendererRequestAuthorization
+                        .isRendererRequest(httpRequest)) {
+                    logger.warn("Renderer requested a resource outside its grant; denying with 403");
+                    httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+                    return;
+                }
                 UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(httpRequest, httpResponse);
                 return;
             }
