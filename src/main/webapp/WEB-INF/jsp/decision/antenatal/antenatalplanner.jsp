@@ -101,6 +101,10 @@
 
         // formONAR table removed (deprecated 2026-03-25); risk data from ONAR form no longer available
         String finalEDB = null, wt = null, ht = null;
+        String riskFileLocation = AntenatalConfigLocation.readableResourceLocation(
+                AntenatalConfigLocation.RISK_FILE_NAME,
+                application.getResource(
+                        "/decision/antenatal/" + AntenatalConfigLocation.RISK_FILE_NAME));
 
         //get the risk data from table desaprisk for other risk factors
         Desaprisk darp = desapriskDao.search(Integer.parseInt(form_no), Integer.parseInt(demographic_no));
@@ -114,11 +118,6 @@
         xmlText = "<xml><planner><%=risk_content%><%=checklist_content%></planner></xml>";
     </script>
     <%
-            String riskFileLocation = AntenatalConfigLocation.readableResourceLocation(
-                    AntenatalConfigLocation.RISK_FILE_NAME,
-                    application.getResource(
-                            "/decision/antenatal/" + AntenatalConfigLocation.RISK_FILE_NAME));
-
             //set the riskdata bean from xml file
             Properties savedar1risk1 = risks.getRiskName(riskFileLocation); //risk_55
             StringBuffer tt;
@@ -152,11 +151,6 @@
         <tr>
             <td width="10%" valign='top'>
                 <%
-                    String riskFileLocation = AntenatalConfigLocation.readableResourceLocation(
-                            AntenatalConfigLocation.RISK_FILE_NAME,
-                            application.getResource(
-                                    "/decision/antenatal/" + AntenatalConfigLocation.RISK_FILE_NAME));
-
                     out.println(risks.doStuff(riskFileLocation));
                 %>
             </td>
