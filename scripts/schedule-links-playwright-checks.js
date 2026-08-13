@@ -29,6 +29,9 @@ const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
 const testProviderLastName = process.env.TEST_PROVIDER_LAST_NAME || '';
 
+// Mirrors org.owasp.csrfguard.TokenName; used only when the rendered name cannot be read.
+const DEFAULT_CSRF_TOKEN_NAME = 'CSRF-TOKEN';
+
 const findings = [];
 const visited = [];
 
@@ -203,6 +206,23 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
     return;
   }
   wirePage(resultPage, 'schedule-provider-search');
+
+  // A single-result search auto-submits while the page is still parsing, so by the time
+  // the DOM could be queried the popup may already be navigating. Capture the rendered
+  // token name off the initial document response instead, which cannot be raced. The
+  // listener is registered before the document arrives, so it sees the search results.
+  let renderedTokenName = null;
+  resultPage.on('response', async (response) => {
+    if (renderedTokenName || response.request().resourceType() !== 'document') {
+      return;
+    }
+    const html = await response.text().catch(() => '');
+    const match = /id="providerSelectionCsrfToken"[^>]*\sname="([^"]+)"/.exec(html);
+    if (match) {
+      renderedTokenName = match[1];
+    }
+  });
+
   const resultLoaded = await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 })
     .then(() => true)
     .catch(() => false);
@@ -213,12 +233,6 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
     }
     return;
   }
-
-  // Read the token name off the rendered page rather than assuming the configured
-  // org.owasp.csrfguard.TokenName; the popup navigates away once the POST fires.
-  const tokenName = await resultPage.locator('#providerSelectionCsrfToken')
-    .getAttribute('name')
-    .catch(() => null) || 'CSRF-TOKEN';
 
   let providerRequest = await Promise.race([
     requestPromise,
@@ -240,6 +254,18 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
   }
   const response = await responseWithTimeout(providerRequest, 30000);
   const requestBody = providerRequest.postData() || '';
+
+  // The multi-result path never navigates, so a live DOM read still resolves there.
+  // Falling back to the documented default is a last resort and is reported, so the
+  // check can never silently re-assume the name it is supposed to be verifying.
+  const observedTokenName = renderedTokenName
+    || await resultPage.locator('#providerSelectionCsrfToken')
+      .getAttribute('name', { timeout: 2000 })
+      .catch(() => null);
+  if (!observedTokenName) {
+    findings.push({ label: 'schedule-provider-search', type: 'csrf-token-name-unresolved' });
+  }
+  const tokenName = observedTokenName || DEFAULT_CSRF_TOKEN_NAME;
 
   visited.push({
     label: 'schedule-provider-search',

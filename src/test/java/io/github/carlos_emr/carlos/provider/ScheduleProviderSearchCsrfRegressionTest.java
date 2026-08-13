@@ -169,8 +169,14 @@ class ScheduleProviderSearchCsrfRegressionTest {
                 .contains("let providerRequest = await Promise.race(")
                 .contains("providerRequest = providerRequest || await requestPromise;")
                 .contains("responseWithTimeout(providerRequest, 30000)")
-                .as("the token name is configurable, so read it from the rendered input")
-                .contains("locator('#providerSelectionCsrfToken')")
+                .as("the token name is configurable, so it must be read from the rendered "
+                        + "page; the auto-select path navigates away, so capture it from "
+                        + "the document response rather than the live DOM")
+                .contains("resultPage.on('response'")
+                .contains("resourceType() !== 'document'")
+                .contains("id=\"providerSelectionCsrfToken\"[^>]*\\sname=\"([^\"]+)\"")
+                .contains("const observedTokenName = renderedTokenName")
+                .contains("type: 'csrf-token-name-unresolved'")
                 .contains("new URLSearchParams(requestBody).get(tokenName)")
                 .contains("type: 'missing-csrf-token'")
                 .contains("response.status() >= 400")
