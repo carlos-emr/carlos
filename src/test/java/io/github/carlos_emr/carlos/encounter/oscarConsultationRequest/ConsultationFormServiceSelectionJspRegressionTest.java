@@ -64,7 +64,7 @@ class ConsultationFormServiceSelectionJspRegressionTest {
                 .contains("var serviceElement = document.EctConsultationFormRequest2Form.service;")
                 .contains("if (serviceElement && !isEReferral) {")
                 .contains("if (serviceValue === '') {")
-                .doesNotContain("if (serviceElement.options.selectedIndex");
+                .doesNotContain("if (serviceOptionsElement && serviceOptionsElement.selectedIndex == 0) {");
     }
 
     @Test
