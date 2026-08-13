@@ -63,6 +63,7 @@
         return;
     }
     boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
+    String scheduleNavQuerySuffix = showScheduleNav ? "?scheduleNav=1" : "";
 %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
@@ -377,7 +378,7 @@
                 </td>
                 <td style="width: 10px;"></td>
                 <td style="width: 300px;"><a
-                        href="<%= request.getContextPath() %>/oscarReport/ViewReportDemographicReport" target="_blank"><fmt:message key="report.reportindex.btnDemographicReportTool"/></a></td>
+                        href="<%= request.getContextPath() %>/oscarReport/ViewReportDemographicReport<%= scheduleNavQuerySuffix %>"><fmt:message key="report.reportindex.btnDemographicReportTool"/></a></td>
                 <td></td>
                 <td></td>
                 <td></td>
