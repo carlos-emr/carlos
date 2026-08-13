@@ -73,13 +73,16 @@
         </div>
 
         <script>
-            window.top.location.href = "<%=request.getContextPath()%>/administration?show=Forms";
+            window.top.location.href = "<%=request.getContextPath()%>/administration?show=Forms${param.scheduleNav eq '1' ? '&scheduleNav=1' : ''}";
         </script>
     </c:if>
 
 
     <form action="${pageContext.request.contextPath}/eform/uploadHtml" method="POST" onsubmit="return checkFormAndDisable()"
                enctype="multipart/form-data">
+        <c:if test="${param.scheduleNav eq '1'}">
+            <input type="hidden" name="scheduleNav" value="1"/>
+        </c:if>
         <div class="alert alert-danger" style="display:none"><% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
@@ -141,9 +144,22 @@
 
     </form>
 
+    <fmt:message key="eform.uploadhtml.msgFileMissing" var="fileMissingMsg"/>
+    <fmt:message key="eform.uploadimages.processing" var="processingMsg"/>
     <div style="font-size:0; line-height:0">&nbsp;</div>
 
     <script>
+        function checkFormAndDisable() {
+            if (document.forms[0].formHtml.value === "") {
+                alert("${carlos:forJavaScript(fileMissingMsg)}");
+                return false;
+            }
+
+            document.forms[0].subm.value = "${carlos:forJavaScript(processingMsg)}";
+            document.forms[0].subm.disabled = true;
+            return true;
+        }
+
         $(document).ready(function () {
             $(".check").on("change", validate).keyup(validate);
         });

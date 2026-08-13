@@ -165,4 +165,21 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
     @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true, beforeInvocation = true)
     @Override
     public void batchRemove(List<MeasurementType> oList, int batchSize) { super.batchRemove(oList, batchSize); }
+
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true)
+    @Override public void batchPersistAtomically(List<MeasurementType> list) { super.batchPersistAtomically(list); }
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true)
+    @Override public void batchPersistAtomically(List<MeasurementType> list, int size) { super.batchPersistAtomically(list, size); }
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true)
+    @Override public void batchRemoveAtomically(List<MeasurementType> list) { super.batchRemoveAtomically(list); }
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true)
+    @Override public void batchRemoveAtomically(List<MeasurementType> list, int size) { super.batchRemoveAtomically(list, size); }
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override public void batchPersistWithIndependentCommits(List<MeasurementType> list) { super.batchPersistWithIndependentCommits(list); }
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override public void batchPersistWithIndependentCommits(List<MeasurementType> list, int size) { super.batchPersistWithIndependentCommits(list, size); }
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override public void batchRemoveWithIndependentCommits(List<MeasurementType> list) { super.batchRemoveWithIndependentCommits(list); }
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override public void batchRemoveWithIndependentCommits(List<MeasurementType> list, int size) { super.batchRemoveWithIndependentCommits(list, size); }
 }

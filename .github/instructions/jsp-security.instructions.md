@@ -5,32 +5,38 @@ applyTo: "**/*.jsp"
 
 # JSP Security Rules
 
-Every JSP file MUST include OWASP Encoder output encoding for ALL user data.
+Every JSP file MUST encode ALL user data with the CARLOS null-safe encoder wrappers.
+CI (`scripts/lint/check-encoder-null-safety.sh`) rejects the raw OWASP `e:` forms in new
+code because `Encode.forXxx(null)` renders the literal string `null` for nullable fields.
 
-## Required Taglib (add to every new JSP)
+## Required Taglib (add to every new JSP that encodes output)
 
 ```jsp
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 ```
 
-**IMPORTANT**: Use URI `owasp.encoder.jakarta` (Jakarta EE), NOT the legacy URI. Wrong URI causes JSPC CI failures.
+## Encoding Rules (CARLOS null-safe wrappers)
 
-## Encoding Rules
+- **HTML body**: `<carlos:encode value="${v}"/>` or `${carlos:forHtmlContent(v)}` (NOT `<c:out>` or `fn:escapeXml()`)
+- **HTML attribute**: `${carlos:forHtmlAttribute(v)}` or `<carlos:encode value="${v}" context="htmlAttribute"/>`
+- **JavaScript string**: `${carlos:forJavaScript(v)}`
+- **JS in HTML attr**: `${carlos:forJavaScriptAttribute(v)}`
+- **CSS string**: `${carlos:forCssString(v)}`
+- **URL path**: `${carlos:forUri(v)}`
+- **URL parameter**: `${carlos:forUriComponent(v)}`
+- **Java scriptlets**: `SafeEncode.forHtmlContent(v)` (drop-in null-safe replacement for `Encode.forHtmlContent(v)`)
 
-- **HTML body**: `${e:forHtml(value)}` (NOT `<c:out>` or `fn:escapeXml()`)
-- **HTML attribute**: `${e:forHtmlAttribute(value)}`
-- **JavaScript string**: `${e:forJavaScript(value)}`
-- **JS in HTML attr**: `${e:forJavaScriptAttribute(value)}`
-- **CSS string**: `${e:forCssString(value)}`
-- **URL path**: `${e:forUri(value)}`
-- **URL parameter**: `${e:forUriComponent(value)}`
+Prefer the `<carlos:encode>` tag for standalone output; use the `${carlos:forXxx(...)}` EL
+functions inline inside attribute strings, URLs, or JSON.
 
 ## CSRF Protection
 
 CSRF tokens are auto-injected by CSRFGuard 4.5. Do NOT add manual CSRF hidden inputs.
 
-## Legacy Patterns to Avoid in New Code
+## Legacy Patterns to Avoid in New Code (CI-enforced)
 
-- `<c:out value="${...}" />` -- use `${e:forHtml(...)}` instead
-- `fn:escapeXml()` -- use `${e:forHtml(...)}` instead
+- `<e:forXxx>` tags and `${e:forXxx(...)}` EL functions -- render null as literal `"null"`; rejected by the encoder null-safety lint
+- `<%= Encode.forXxx(...) %>` scriptlets -- use `SafeEncode.forXxx(...)` instead
+- `<c:out value="${...}" />` -- use `${carlos:forHtmlContent(...)}` instead
+- `fn:escapeXml()` -- use `${carlos:forHtmlContent(...)}` instead
 - Raw `${variable}` without encoding -- NEVER output user data unencoded
