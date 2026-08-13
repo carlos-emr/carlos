@@ -73,13 +73,24 @@ class CaseManagementCppSaveRegressionTest {
     void shouldScopeFragmentVariables_whenIssueUpdatesRepeat() throws IOException {
         String jsp = Files.readString(NOTE_ISSUE_LIST_JSP, StandardCharsets.UTF_8);
 
-        assertThat(jsp)
-                .as("the AJAX-inserted script may run repeatedly and must isolate all of its declarations")
+        String noteTextAssignment = "var noteTxt = \"${carlos:forJavaScriptBlock(noteTxt)}\";";
+        int noteTextStart = jsp.indexOf(noteTextAssignment);
+        assertThat(noteTextStart).as("the AJAX note-text assignment must exist").isGreaterThanOrEqualTo(0);
+        int fragmentScriptStart = jsp.lastIndexOf("<script type=\"text/javascript\">", noteTextStart);
+        assertThat(fragmentScriptStart).as("the AJAX note text must be inside a script block").isGreaterThanOrEqualTo(0);
+        int fragmentScriptEnd = jsp.indexOf("</script>", fragmentScriptStart);
+        assertThat(fragmentScriptEnd)
+                .as("the AJAX note text must be inside the same script block being tested")
+                .isGreaterThan(noteTextStart);
+        String fragmentScript = jsp.substring(fragmentScriptStart, fragmentScriptEnd + "</script>".length());
+
+        assertThat(fragmentScript)
+                .as("the script containing the AJAX note text may run repeatedly and must isolate all declarations")
                 .containsPattern("<script type=\"text/javascript\">\\s*\\(function \\(\\) \\{")
                 .containsPattern("\\}\\(\\)\\);\\s*</script>")
                 .as("stored clinical text in the fragment must use JavaScript-block encoding")
                 .doesNotContain("fn:escapeXml(noteTxt)")
-                .contains("${carlos:forJavaScriptBlock(noteTxt)}")
+                .contains(noteTextAssignment)
                 .contains("${carlos:forJavaScriptBlock(caseManagementEntryForm.caseNote.encounter_type)}");
     }
 
