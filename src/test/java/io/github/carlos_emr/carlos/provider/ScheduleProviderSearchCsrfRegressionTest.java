@@ -153,33 +153,36 @@ class ScheduleProviderSearchCsrfRegressionTest {
         String browserCheck = Files.readString(SCHEDULE_BROWSER_CHECK, StandardCharsets.UTF_8);
         int requestListener = requiredIndex(browserCheck,
                 "const requestPromise = context.waitForEvent('request'");
+        int tokenNameResponseListener = requiredIndex(browserCheck,
+                "const tokenNamePromise = context.waitForEvent('response'");
         int searchSubmit = requiredIndex(browserCheck, "await searchInput.press('Enter');");
 
         assertThat(requestListener).isLessThan(searchSubmit);
+        assertThat(tokenNameResponseListener).isLessThan(searchSubmit);
         assertThat(browserCheck)
                 .contains("const testProviderLastName = process.env.TEST_PROVIDER_LAST_NAME || '';")
+                .contains("const testProviderSearchOnly = process.env.TEST_PROVIDER_SEARCH_ONLY "
+                        + "=== 'true';")
                 .contains("await searchInput.fill(testProviderLastName);")
                 .doesNotContain("await searchInput.fill('test');")
                 .contains("context.waitForEvent('page', { timeout: 10000 }).catch(() => null)")
                 .contains("if (!resultPage)")
                 .contains("type: 'missing-search-popup'")
-                .contains("const resultLoaded = await resultPage.waitForLoadState(")
-                .contains("if (!resultLoaded)")
+                .contains("const resultLoadedPromise = resultPage.waitForLoadState(")
                 .contains("type: 'search-popup-load-failure'")
                 .contains("let providerRequest = await Promise.race(")
-                .contains("providerRequest = providerRequest || await requestPromise;")
+                .contains("resultLoadedPromise.then(() => null)")
+                .contains("providerRequest = await requestPromise;")
                 .contains("responseWithTimeout(providerRequest, 30000)")
                 .as("the token name is configurable, so it must be read from the rendered "
                         + "page; the auto-select path navigates away, so capture it from "
                         + "the document response rather than the live DOM")
-                .contains("resultPage.on('response'")
-                .contains("resourceType() !== 'document'")
+                .contains("context.waitForEvent('response'")
+                .contains("resourceType() === 'document'")
+                .contains("new URL(response.url()).pathname === providerSearchPath")
                 .contains("id=\"providerSelectionCsrfToken\"[^>]*\\sname=\"([^\"]+)\"")
-                .as("the parses must be retained and awaited, not fired and forgotten, or "
-                        + "the provider-control response can outrun them and report a valid "
-                        + "token as missing")
-                .contains("tokenNameParses.push(response.text()")
-                .contains("(await Promise.all(tokenNameParses)).find(Boolean)")
+                .contains(".then((response) => response.text())")
+                .contains("const capturedTokenName = await tokenNamePromise")
                 .contains("const observedTokenName = capturedTokenName")
                 .contains("type: 'csrf-token-name-unresolved'")
                 .contains("new URLSearchParams(requestBody).get(tokenName)")

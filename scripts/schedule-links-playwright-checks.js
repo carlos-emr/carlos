@@ -17,6 +17,7 @@
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
  *   TEST_PROVIDER_LAST_NAME=optional provider last-name prefix; blank lists active providers
+ *   TEST_PROVIDER_SEARCH_ONLY=true to skip the pre-existing schedule-link checks
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
@@ -28,6 +29,7 @@ const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
 const testProviderLastName = process.env.TEST_PROVIDER_LAST_NAME || '';
+const testProviderSearchOnly = process.env.TEST_PROVIDER_SEARCH_ONLY === 'true';
 
 // Mirrors org.owasp.csrfguard.TokenName; used only when the rendered name cannot be read.
 const DEFAULT_CSRF_TOKEN_NAME = 'CSRF-TOKEN';
@@ -197,6 +199,18 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
       && /\/provider\/providercontrol(?:\?|$)/.test(request.url()),
     timeout: 30000,
   }).catch(() => null);
+  const providerSearchPath = new URL(appUrl('/provider/ViewReceptionistFindProvider')).pathname;
+  const tokenNamePromise = context.waitForEvent('response', {
+    predicate: (response) => response.request().resourceType() === 'document'
+      && response.status() === 200
+      && new URL(response.url()).pathname === providerSearchPath,
+    timeout: 30000,
+  }).then((response) => response.text())
+    .then((html) => {
+      const match = /id="providerSelectionCsrfToken"[^>]*\sname="([^"]+)"/.exec(html);
+      return match ? match[1] : null;
+    })
+    .catch(() => null);
   const popupPromise = context.waitForEvent('page', { timeout: 10000 }).catch(() => null);
   await searchInput.fill(testProviderLastName);
   await searchInput.press('Enter');
@@ -207,60 +221,41 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
   }
   wirePage(resultPage, 'schedule-provider-search');
 
-  // A single-result search auto-submits while the page is still parsing, so by the time
-  // the DOM could be queried the popup may already be navigating. Capture the rendered
-  // token name from the document bodies instead, which survive that navigation.
-  // Each parse is retained rather than fired and forgotten, so the read below awaits
-  // them instead of racing them; the push is synchronous, so no response is dropped.
-  const tokenNameParses = [];
-  resultPage.on('response', (response) => {
-    if (response.request().resourceType() !== 'document') {
-      return;
-    }
-    tokenNameParses.push(response.text()
-      .then((html) => {
-        const match = /id="providerSelectionCsrfToken"[^>]*\sname="([^"]+)"/.exec(html);
-        return match ? match[1] : null;
-      })
-      .catch(() => null));
-  });
-
-  const resultLoaded = await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 })
+  const resultLoadedPromise = resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 })
     .then(() => true)
     .catch(() => false);
-  if (!resultLoaded) {
-    findings.push({ label: 'schedule-provider-search', type: 'search-popup-load-failure' });
-    if (!resultPage.isClosed()) {
-      await resultPage.close();
-    }
-    return;
-  }
-
   let providerRequest = await Promise.race([
     requestPromise,
-    resultPage.waitForTimeout(100).then(() => null),
+    resultLoadedPromise.then(() => null),
   ]);
   if (!providerRequest) {
-    // A single-result search auto-submits, so the click can land on a page that is
-    // already navigating. The awaited POST below is the real signal, not the click.
-    await resultPage.locator('a[onclick*="selectProvider("]').first()
-      .click({ timeout: 5000 })
-      .catch(() => {});
+    const resultLoaded = await resultLoadedPromise;
+    if (resultLoaded) {
+      await resultPage.locator('a[onclick*="selectProvider("]').first()
+        .click({ timeout: 5000 })
+        .catch(() => {});
+    }
+    providerRequest = await requestPromise;
+    if (!providerRequest && !resultLoaded) {
+      findings.push({ label: 'schedule-provider-search', type: 'search-popup-load-failure' });
+    }
   }
 
-  providerRequest = providerRequest || await requestPromise;
   if (!providerRequest) {
-    findings.push({ label: 'schedule-provider-search', type: 'missing-provider-result' });
+    if (!findings.some((finding) => finding.label === 'schedule-provider-search'
+        && finding.type === 'search-popup-load-failure')) {
+      findings.push({ label: 'schedule-provider-search', type: 'missing-provider-result' });
+    }
     await resultPage.close();
     return;
   }
   const response = await responseWithTimeout(providerRequest, 30000);
   const requestBody = providerRequest.postData() || '';
 
-  // The multi-result path never navigates, so a live DOM read still resolves there.
-  // Falling back to the documented default is a last resort and is reported, so the
-  // check can never silently re-assume the name it is supposed to be verifying.
-  const capturedTokenName = (await Promise.all(tokenNameParses)).find(Boolean) || null;
+  // The page event is emitted only after the initial response starts loading, and every
+  // selection navigates the popup by submitting the generated form. The context response
+  // wait above is therefore registered before the search and preserves the result HTML.
+  const capturedTokenName = await tokenNamePromise;
   const observedTokenName = capturedTokenName
     || await resultPage.locator('#providerSelectionCsrfToken')
       .getAttribute('name', { timeout: 2000 })
@@ -312,8 +307,10 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
 
     await selectProviderFromLastNameSearch(context, schedulePage);
 
-    for (const linkSpec of scheduleLinks) {
-      await clickScheduleLink(context, schedulePage, linkSpec);
+    if (!testProviderSearchOnly) {
+      for (const linkSpec of scheduleLinks) {
+        await clickScheduleLink(context, schedulePage, linkSpec);
+      }
     }
 
     console.log(JSON.stringify({ visited, findings }, null, 2));
@@ -323,7 +320,9 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
       throw new Error(`schedule link browser check found ${blockingFindings.length} issue(s)`);
     }
 
-    console.log('PASS schedule links rendered without HTTP or browser console failures');
+    console.log(testProviderSearchOnly
+      ? 'PASS schedule provider search submitted a CSRF-protected selection'
+      : 'PASS schedule links rendered without HTTP or browser console failures');
   } finally {
     await browser.close();
   }
