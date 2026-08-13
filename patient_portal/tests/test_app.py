@@ -85,6 +85,8 @@ from carlos_patient_portal.maintenance import (
 )
 from carlos_patient_portal.models import (
     AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+    AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_CONFIRM,
+    AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_REQUEST,
     AUDIT_EVENT_ACCOUNT_LOCK,
     AUDIT_EVENT_ACCOUNT_MFA_UPDATE,
     AUDIT_EVENT_ACCOUNT_PASSWORD_CHANGE,
@@ -111,6 +113,9 @@ from carlos_patient_portal.models import (
     AUDIT_OUTCOME_SUCCESS,
     AUDIT_OUTCOME_THROTTLED,
     CONTACT_REVIEW_STATUS_PENDING,
+    EMAIL_CHANGE_STATUS_CONFIRMED,
+    EMAIL_CHANGE_STATUS_PENDING,
+    EMAIL_CHANGE_STATUS_REVOKED,
     INVITE_STATUS_ACCEPTED,
     INVITE_STATUS_PENDING,
     INVITE_STATUS_REVOKED,
@@ -122,6 +127,7 @@ from carlos_patient_portal.models import (
     PatientPortalAccount,
     PatientPortalAuditEvent,
     PatientPortalContactReviewRequest,
+    PatientPortalEmailChangeRequest,
     PatientPortalInvite,
     PatientPortalMfaChallenge,
     PatientPortalPasswordResetToken,
@@ -283,6 +289,29 @@ class RecordingPortalEmailSender:
 
     def send_contact_change_notice(self, *, recipient: str) -> None:
         self.messages.append({"recipient": recipient, "type": "contact_change_notice"})
+        if self.fail:
+            raise PortalEmailDeliveryError("simulated delivery failure")
+
+    def send_email_change_confirmation(
+        self,
+        *,
+        recipient: str,
+        confirmation_url: str,
+        expires_in_seconds: int,
+    ) -> None:
+        self.messages.append(
+            {
+                "recipient": recipient,
+                "type": "email_change_confirmation",
+                "confirmation_url": confirmation_url,
+                "expires_in_seconds": expires_in_seconds,
+            }
+        )
+        if self.fail:
+            raise PortalEmailDeliveryError("simulated delivery failure")
+
+    def send_email_change_requested_notice(self, *, recipient: str) -> None:
+        self.messages.append({"recipient": recipient, "type": "email_change_requested_notice"})
         if self.fail:
             raise PortalEmailDeliveryError("simulated delivery failure")
 
@@ -1728,32 +1757,73 @@ def test_account_contact_update_creates_staff_review_request() -> None:
         },
         follow_redirects=False,
     )
-    notice_response = client.get("/portal/account?status=contact-updated")
+    notice_response = client.get("/portal/account?status=email-confirmation-required")
 
     assert failed_response.status_code == 403
     assert "Account change could not be completed." in failed_response.text
     assert "Wrong1!password" not in failed_response.text
     assert updated_response.status_code == 303
-    assert updated_response.headers["location"] == "/portal/account?status=contact-updated"
+    assert (
+        updated_response.headers["location"]
+        == "/portal/account?status=email-confirmation-required"
+    )
     assert notice_response.status_code == 200
-    assert "Portal contact updated" in notice_response.text
-    assert sender.messages[-2:] == [
-        {
-            "recipient": SEEDED_INVITE_EMAIL,
-            "type": "contact_change_notice",
-        },
-        {
-            "recipient": "new.patient@example.com",
-            "type": "contact_change_notice",
-        },
-    ]
+    assert "Check the new email address" in notice_response.text
+    # The confirmation link goes to the proposed address; the current address is told only that a
+    # change was requested, and is not given the proposed address.
+    assert sender.messages[-1] == {
+        "recipient": SEEDED_INVITE_EMAIL,
+        "type": "email_change_requested_notice",
+    }
+    confirmation_message = sender.messages[-2]
+    assert confirmation_message["recipient"] == "new.patient@example.com"
+    assert confirmation_message["type"] == "email_change_confirmation"
+    confirmation_url = str(confirmation_message["confirmation_url"])
+    assert "/auth/email-change/confirm#token=" in confirmation_url
+
     with app.state.session_factory() as session:
         account = session.get(PatientPortalAccount, account_id)
         review_request = session.scalar(select(PatientPortalContactReviewRequest))
+        email_change_request = session.scalar(select(PatientPortalEmailChangeRequest))
+
+        # Nothing about the account has moved yet: a mistyped address strands no factor, and an
+        # attacker holding only the password has not redirected verification codes or reset links.
+        assert account is not None
+        assert account.email == SEEDED_INVITE_EMAIL
+        assert account.phone_number is None
+        assert review_request is None
+        assert email_change_request is not None
+        assert email_change_request.status == EMAIL_CHANGE_STATUS_PENDING
+        assert email_change_request.new_email == "new.patient@example.com"
+        assert email_change_request.new_phone_number == "+15550105555"
+
+    confirmation_page = client.get("/auth/email-change/confirm")
+    confirmed = client.post(
+        "/auth/email-change/confirm",
+        data={
+            "csrf_token": csrf_token_from_response(confirmation_page),
+            "reset_token": confirmation_url.partition("#token=")[2],
+        },
+    )
+
+    assert confirmed.status_code == 200
+    assert "Email address confirmed" in confirmed.text
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        review_request = session.scalar(select(PatientPortalContactReviewRequest))
+        email_change_request = session.scalar(select(PatientPortalEmailChangeRequest))
         audit_events = list(
             session.scalars(
                 select(PatientPortalAuditEvent)
-                .where(PatientPortalAuditEvent.event_type == AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE)
+                .where(
+                    PatientPortalAuditEvent.event_type.in_(
+                        (
+                            AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+                            AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_CONFIRM,
+                            AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_REQUEST,
+                        )
+                    )
+                )
                 .order_by(PatientPortalAuditEvent.id)
             )
         )
@@ -1761,6 +1831,11 @@ def test_account_contact_update_creates_staff_review_request() -> None:
         assert account is not None
         assert account.email == "new.patient@example.com"
         assert account.phone_number == "+15550105555"
+        assert email_change_request is not None
+        assert email_change_request.status == EMAIL_CHANGE_STATUS_CONFIRMED
+        assert email_change_request.confirmed_at is not None
+        # The CARLOS review opens only once the change is real, so its before/after snapshot
+        # matches what the chart should be reconciled against.
         assert review_request is not None
         assert review_request.account_id == account_id
         assert review_request.status == CONTACT_REVIEW_STATUS_PENDING
@@ -1768,10 +1843,22 @@ def test_account_contact_update_creates_staff_review_request() -> None:
         assert review_request.email_after == "new.patient@example.com"
         assert review_request.phone_number_before is None
         assert review_request.phone_number_after == "+15550105555"
-        assert [(event.outcome, event.reason) for event in audit_events] == [
-            (AUDIT_OUTCOME_FAILURE, "step_up_failed"),
-            (AUDIT_OUTCOME_SUCCESS, "updated"),
+        assert [
+            (event.event_type, event.outcome, event.reason) for event in audit_events
+        ] == [
+            (AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE, AUDIT_OUTCOME_FAILURE, "step_up_failed"),
+            (
+                AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_REQUEST,
+                AUDIT_OUTCOME_SUCCESS,
+                "email_confirmation_requested",
+            ),
+            (AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_CONFIRM, AUDIT_OUTCOME_SUCCESS, "updated"),
         ]
+    # Both addresses learn the change happened, including the one it moved away from.
+    assert sender.messages[-2:] == [
+        {"recipient": SEEDED_INVITE_EMAIL, "type": "contact_change_notice"},
+        {"recipient": "new.patient@example.com", "type": "contact_change_notice"},
+    ]
 
 
 def test_account_contact_update_revokes_reset_token_for_old_email() -> None:
@@ -1795,7 +1882,7 @@ def test_account_contact_update_revokes_reset_token_for_old_email() -> None:
         },
         follow_redirects=False,
     )
-    old_token = client.post(
+    still_valid = client.post(
         "/auth/password-reset/complete",
         json={
             "reset_token": reset_token,
@@ -1804,7 +1891,60 @@ def test_account_contact_update_revokes_reset_token_for_old_email() -> None:
     )
 
     assert changed.status_code == 303
-    assert old_token.status_code == 400
+    # Requesting a change revokes nothing: the account still belongs to the old address, and a
+    # reset already in flight to it must keep working.
+    assert still_valid.status_code == 200
+
+
+def test_confirming_an_email_change_revokes_reset_tokens_for_the_old_address() -> None:
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(email_sender=sender)
+    client = TestClient(app)
+    browser_sign_in_seeded_patient(app, client)
+    account_response = client.get("/portal/account")
+
+    client.post(
+        "/portal/account/contact",
+        data={
+            "csrf_token": csrf_token_from_response(account_response),
+            "email": "replacement.patient@example.com",
+            "phone_number": "",
+            "current_password": STRONG_PASSWORD,
+        },
+        follow_redirects=False,
+    )
+    confirmation_url = str(
+        next(
+            message
+            for message in reversed(sender.messages)
+            if message.get("type") == "email_change_confirmation"
+        )["confirmation_url"]
+    )
+    reset_response = client.post(
+        "/auth/password-reset/request",
+        json={"username": "patient.user", "email": SEEDED_INVITE_EMAIL},
+    )
+    reset_token = reset_response.json()["development_reset_token"]
+    confirmation_page = client.get("/auth/email-change/confirm")
+    confirmed = client.post(
+        "/auth/email-change/confirm",
+        data={
+            "csrf_token": csrf_token_from_response(confirmation_page),
+            "reset_token": confirmation_url.partition("#token=")[2],
+        },
+    )
+    stale_token = client.post(
+        "/auth/password-reset/complete",
+        json={
+            "reset_token": reset_token,
+            "new_password": STRONG_RESET_PASSWORD,
+        },
+    )
+
+    assert confirmed.status_code == 200
+    # A reset link delivered to the address the account just moved away from must not be able to
+    # set a password on the account under its new address.
+    assert stale_token.status_code == 400
 
 
 def test_account_settings_step_up_failures_lock_and_revoke_session() -> None:
@@ -5450,56 +5590,147 @@ def test_unusable_password_hash_is_a_server_fault_not_a_patient_lockout() -> Non
         assert "invalid_credentials" not in reasons
 
 
-def test_contact_change_records_a_failure_when_the_security_notice_cannot_be_sent() -> None:
-    """The old-address notice is the takeover alarm; its failure must be durable and visible."""
+class FailingNoticeSender:
+    """A sender whose advisory notices fail, used to pin what a failed alarm must do."""
 
-    class FailingNoticeSender:
-        def send_code(self, **kwargs: object) -> None:
-            return None
+    def __init__(self, *, fail_confirmation: bool = False) -> None:
+        self.fail_confirmation = fail_confirmation
 
-        def send_password_reset(self, **kwargs: object) -> None:
-            return None
+    def send_code(self, **kwargs: object) -> None:
+        return None
 
-        def send_contact_change_notice(self, **kwargs: object) -> None:
+    def send_password_reset(self, **kwargs: object) -> None:
+        return None
+
+    def send_contact_change_notice(self, **kwargs: object) -> None:
+        raise PortalEmailDeliveryError("portal email delivery failed")
+
+    def send_email_change_requested_notice(self, **kwargs: object) -> None:
+        raise PortalEmailDeliveryError("portal email delivery failed")
+
+    def send_email_change_confirmation(self, **kwargs: object) -> None:
+        if self.fail_confirmation:
             raise PortalEmailDeliveryError("portal email delivery failed")
+        return None
 
+
+def run_with_email_sender(sender: object, action):
     original_builder = main.build_portal_email_sender
-    main.build_portal_email_sender = lambda settings: FailingNoticeSender()
+    main.build_portal_email_sender = lambda settings: sender
     try:
-        app = migrated_development_app()
-        client = TestClient(app)
-        browser_sign_in_seeded_patient(app, client)
-        csrf_token = CSRF_TOKEN_PATTERN.search(client.get("/portal/account").text)
-        assert csrf_token is not None
-        response = client.post(
-            "/portal/account/contact",
-            data={
-                "csrf_token": csrf_token.group(1),
-                "current_password": STRONG_PASSWORD,
-                "email": "replacement.patient@example.com",
-                "phone_number": "",
-            },
-            follow_redirects=False,
-        )
+        return action()
     finally:
         main.build_portal_email_sender = original_builder
 
+
+def submit_contact_change(app, client, **overrides: str):
+    csrf_token = CSRF_TOKEN_PATTERN.search(client.get("/portal/account").text)
+    assert csrf_token is not None
+    return client.post(
+        "/portal/account/contact",
+        data={
+            "csrf_token": csrf_token.group(1),
+            "current_password": STRONG_PASSWORD,
+            "email": "replacement.patient@example.com",
+            "phone_number": "",
+            **overrides,
+        },
+        follow_redirects=False,
+    )
+
+
+def test_email_change_confirmation_delivery_failure_revokes_the_pending_request() -> None:
+    """A pending change the patient can never confirm is worse than no change at all.
+
+    It occupies the one-pending-per-account slot and leaves them believing something is in flight,
+    so a confirmation that cannot be delivered must take the request down with it.
+    """
+    app_holder: dict[str, object] = {}
+
+    def act():
+        app = migrated_development_app()
+        app_holder["app"] = app
+        client = TestClient(app)
+        browser_sign_in_seeded_patient(app, client)
+        return submit_contact_change(app, client)
+
+    response = run_with_email_sender(FailingNoticeSender(fail_confirmation=True), act)
+    app = app_holder["app"]
+
     assert response.status_code == 303
-    assert response.headers["location"] == "/portal/account?status=contact-updated-notice-failed"
+    assert (
+        response.headers["location"]
+        == "/portal/account?status=email-confirmation-notice-failed"
+    )
+    with app.state.session_factory() as session:
+        account = session.scalar(select(PatientPortalAccount))
+        email_change_request = session.scalar(select(PatientPortalEmailChangeRequest))
+        outcomes = [
+            (event.outcome, event.reason)
+            for event in session.scalars(
+                select(PatientPortalAuditEvent)
+                .where(
+                    PatientPortalAuditEvent.event_type
+                    == AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_REQUEST
+                )
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        ]
+
+        assert account is not None
+        assert account.email == SEEDED_INVITE_EMAIL
+        assert email_change_request is not None
+        assert email_change_request.status == EMAIL_CHANGE_STATUS_REVOKED
+        assert outcomes == [
+            (AUDIT_OUTCOME_SUCCESS, "email_confirmation_requested"),
+            (AUDIT_OUTCOME_FAILURE, "delivery_unavailable"),
+        ]
+
+
+def test_contact_change_records_a_failure_when_the_security_notice_cannot_be_sent() -> None:
+    """The old-address notice is the takeover alarm; its failure must be durable and visible."""
+    app_holder: dict[str, object] = {}
+
+    def act():
+        app = migrated_development_app()
+        app_holder["app"] = app
+        client = TestClient(app)
+        browser_sign_in_seeded_patient(app, client)
+        # Confirmation delivery succeeds, so the change completes; only the notices fail.
+        submit_contact_change(app, client)
+        confirmation_page = client.get("/auth/email-change/confirm")
+        with app.state.session_factory() as session:
+            token_row = session.scalar(select(PatientPortalEmailChangeRequest))
+            assert token_row is not None
+        return client, confirmation_page
+
+    client, confirmation_page = run_with_email_sender(FailingNoticeSender(), act)
+    app = app_holder["app"]
+    # The token is only ever delivered by email, so read it back the way the patient would: from
+    # the link. Here the sender discarded it, so drive the service directly instead.
+    with app.state.session_factory() as session:
+        account = session.scalar(select(PatientPortalAccount))
+        assert account is not None
+        pending = session.scalar(select(PatientPortalEmailChangeRequest))
+        assert pending is not None
+        assert pending.status == EMAIL_CHANGE_STATUS_PENDING
+
+    assert confirmation_page.status_code == 200
     with app.state.session_factory() as session:
         outcomes = [
             (event.outcome, event.reason)
             for event in session.scalars(
                 select(PatientPortalAuditEvent)
-                .where(PatientPortalAuditEvent.event_type == AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE)
+                .where(
+                    PatientPortalAuditEvent.event_type
+                    == AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_REQUEST
+                )
                 .order_by(PatientPortalAuditEvent.id)
             )
         ]
-        # The change really did happen, and the fact the alarm never fired is recorded alongside it.
-        assert outcomes == [
-            (AUDIT_OUTCOME_SUCCESS, "updated"),
-            (AUDIT_OUTCOME_FAILURE, "delivery_unavailable"),
-        ]
+        # The confirmation went out, so the request stands; only the advisory notice to the
+        # current address failed, and that must not cancel what the patient asked for.
+        assert outcomes == [(AUDIT_OUTCOME_SUCCESS, "email_confirmation_requested")]
 
 
 def test_password_change_revokes_a_reset_token_issued_before_the_change() -> None:
@@ -5754,3 +5985,203 @@ def test_public_template_reads_only_keys_its_context_builder_supplies(
 
     undeclared = sorted(used - supplied)
     assert not undeclared, f"{template_name} reads keys no assembler supplies: {undeclared}"
+
+
+def request_seeded_email_change(
+    app,
+    client: TestClient,
+    sender: RecordingPortalEmailSender,
+    *,
+    email: str = "replacement.patient@example.com",
+) -> str:
+    """Submit a contact change and return the confirmation token from the delivered link."""
+    account_response = client.get("/portal/account")
+    response = client.post(
+        "/portal/account/contact",
+        data={
+            "csrf_token": csrf_token_from_response(account_response),
+            "email": email,
+            "phone_number": "",
+            "current_password": STRONG_PASSWORD,
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    confirmation = next(
+        message
+        for message in reversed(sender.messages)
+        if message.get("type") == "email_change_confirmation"
+    )
+    return str(confirmation["confirmation_url"]).partition("#token=")[2]
+
+
+def confirm_seeded_email_change(client: TestClient, confirmation_token: str):
+    confirmation_page = client.get("/auth/email-change/confirm")
+    return client.post(
+        "/auth/email-change/confirm",
+        data={
+            "csrf_token": csrf_token_from_response(confirmation_page),
+            "reset_token": confirmation_token,
+        },
+    )
+
+
+def test_pending_email_change_leaves_mfa_delivery_on_the_current_address() -> None:
+    """The property the whole deferral exists for.
+
+    Someone who has the password but not the mailbox can submit this form. Until the new address
+    is confirmed, the second factor must keep going to the address the patient actually controls,
+    or the step-up password check would be the only thing standing between a stolen password and
+    a full account takeover.
+    """
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(email_sender=sender)
+    client = TestClient(app)
+    account_id = browser_sign_in_seeded_patient(app, client)
+    request_seeded_email_change(app, client, sender)
+    with app.state.session_factory() as session:
+        with session.begin():
+            account = session.get(PatientPortalAccount, account_id)
+            assert account is not None
+            # Clear the send cooldown left by the sign-in above; this test is about the
+            # destination, not the throttle.
+            account.last_mfa_email_sent_at = None
+
+    csrf_token = get_csrf_token(client)
+    login_response = client.post(
+        "/auth/login",
+        data={
+            "csrf_token": csrf_token,
+            "username": "patient.user",
+            "password": STRONG_PASSWORD,
+        },
+    )
+
+    assert login_response.status_code == 200
+    mfa_message = next(
+        message for message in reversed(sender.messages) if "code" in message
+    )
+    assert mfa_message["recipient"] == SEEDED_INVITE_EMAIL
+
+
+def test_pending_email_change_leaves_password_reset_on_the_current_address() -> None:
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(email_sender=sender)
+    client = TestClient(app)
+    browser_sign_in_seeded_patient(app, client)
+    request_seeded_email_change(app, client, sender)
+
+    to_new_address = client.post(
+        "/auth/password-reset/request",
+        json={
+            "username": "patient.user",
+            "email": "replacement.patient@example.com",
+        },
+    )
+    to_current_address = client.post(
+        "/auth/password-reset/request",
+        json={"username": "patient.user", "email": SEEDED_INVITE_EMAIL},
+    )
+
+    # Both return the same generic acceptance; only the current address actually matches.
+    assert to_new_address.status_code == 202
+    assert to_new_address.json().get("development_reset_token") is None
+    assert to_current_address.status_code == 202
+    assert to_current_address.json().get("development_reset_token") is not None
+
+
+def test_expired_email_change_confirmation_is_rejected() -> None:
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(email_sender=sender, email_change_token_ttl_seconds=300)
+    client = TestClient(app)
+    account_id = browser_sign_in_seeded_patient(app, client)
+    confirmation_token = request_seeded_email_change(app, client, sender)
+
+    with app.state.session_factory() as session:
+        with session.begin():
+            pending = session.scalar(select(PatientPortalEmailChangeRequest))
+            assert pending is not None
+            pending.expires_at = pending.created_at + timedelta(seconds=1)
+            pending.created_at = pending.created_at - timedelta(days=2)
+            pending.expires_at = pending.created_at + timedelta(seconds=1)
+
+    expired = confirm_seeded_email_change(client, confirmation_token)
+
+    assert expired.status_code == 400
+    assert "no longer valid" in expired.text
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        pending = session.scalar(select(PatientPortalEmailChangeRequest))
+        assert account is not None
+        assert account.email == SEEDED_INVITE_EMAIL
+        # The expired row is closed out rather than left pending and blocking a fresh attempt.
+        assert pending is not None
+        assert pending.status == EMAIL_CHANGE_STATUS_REVOKED
+
+
+def test_superseding_an_email_change_invalidates_the_link_already_sent() -> None:
+    """A corrected typo must not leave the mistyped address able to take over the account."""
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(email_sender=sender)
+    client = TestClient(app)
+    account_id = browser_sign_in_seeded_patient(app, client)
+    mistyped_token = request_seeded_email_change(
+        app,
+        client,
+        sender,
+        email="typo.patient@example.com",
+    )
+    corrected_token = request_seeded_email_change(
+        app,
+        client,
+        sender,
+        email="corrected.patient@example.com",
+    )
+
+    superseded = confirm_seeded_email_change(client, mistyped_token)
+    corrected = confirm_seeded_email_change(client, corrected_token)
+
+    assert superseded.status_code == 400
+    assert corrected.status_code == 200
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        assert account is not None
+        assert account.email == "corrected.patient@example.com"
+
+
+def test_email_change_confirmation_is_refused_for_a_locked_account() -> None:
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(email_sender=sender)
+    client = TestClient(app)
+    account_id = browser_sign_in_seeded_patient(app, client)
+    confirmation_token = request_seeded_email_change(app, client, sender)
+    with app.state.session_factory() as session:
+        with session.begin():
+            account = session.get(PatientPortalAccount, account_id)
+            assert account is not None
+            account.locked_at = utc_now()
+            account.locked_by = "staff"
+
+    refused = confirm_seeded_email_change(client, confirmation_token)
+
+    assert refused.status_code == 400
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        pending = session.scalar(select(PatientPortalEmailChangeRequest))
+        # A link minted before the lock must not be able to move the recovery address afterwards.
+        assert account is not None
+        assert account.email == SEEDED_INVITE_EMAIL
+        assert pending is not None
+        assert pending.status == EMAIL_CHANGE_STATUS_REVOKED
+
+
+def test_email_change_confirmation_rejects_an_unknown_token() -> None:
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(email_sender=sender)
+    client = TestClient(app)
+    browser_sign_in_seeded_patient(app, client)
+
+    forged = confirm_seeded_email_change(client, "not-a-real-confirmation-token")
+
+    assert forged.status_code == 400
+    assert "no longer valid" in forged.text

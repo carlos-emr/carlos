@@ -34,6 +34,14 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "account_status_contact_updated": (
             "Portal contact updated. Staff will review the matching CARLOS demographics."
         ),
+        "account_status_email_confirmation_required": (
+            "Check the new email address for a confirmation link. Your current address keeps "
+            "receiving verification codes and password reset links until you use it."
+        ),
+        "account_status_email_confirmation_notice_failed": (
+            "Confirmation could not be emailed to the new address. Your contact details were not "
+            "changed. Try again, or contact the clinic."
+        ),
         "account_status_mfa_updated": "MFA settings updated.",
         "account_status_no_change": "No account changes.",
         "account_status_password_updated": "Password updated.",
@@ -50,6 +58,21 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "activation_success": "Your portal account is ready.",
         "activation_success_heading": "Account activated",
         "back_to_sign_in": "Back to sign in",
+        "email_change_confirm": "Confirm email address",
+        "email_change_complete_error": (
+            "This confirmation link is no longer valid. Request the change again from your "
+            "account page."
+        ),
+        "email_change_complete_heading": "Confirm your new email address",
+        "email_change_complete_intro": (
+            "Confirming updates the email address used for sign-in verification codes and "
+            "password reset links."
+        ),
+        "email_change_success": (
+            "Your email address is updated. Clinic staff will review the matching CARLOS chart "
+            "details."
+        ),
+        "email_change_success_heading": "Email address confirmed",
         "change_password": "Change password",
         "clinic": "Clinic",
         "clinic_help": "Clinic help",

@@ -29,9 +29,14 @@ from starlette.responses import Response
 
 from carlos_patient_portal.account_settings import (
     ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE,
+    CONTACT_UPDATE_OUTCOME_EMAIL_CONFIRMATION_REQUIRED,
+    CONTACT_UPDATE_OUTCOME_NO_CHANGE,
     AccountSettingsStepUpError,
     AccountSettingsValidationError,
+    ContactUpdateResult,
+    EmailChangeTokenInvalidError,
     change_account_password,
+    confirm_email_change,
     record_account_settings_audit_event,
     update_account_contact,
     update_account_mfa_method,
@@ -119,6 +124,7 @@ from carlos_patient_portal.models import (
     AUDIT_ACTOR_TYPE_PATIENT,
     AUDIT_ACTOR_TYPE_STAFF,
     AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+    AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_REQUEST,
     AUDIT_EVENT_FHIR_SEARCH,
     AUDIT_EVENT_INVITE_LIST,
     AUDIT_EVENT_LOGIN,
@@ -126,6 +132,7 @@ from carlos_patient_portal.models import (
     AUDIT_EVENT_UNLOCK_SECRET_READ,
     AUDIT_OUTCOME_FAILURE,
     AUDIT_OUTCOME_SUCCESS,
+    EMAIL_CHANGE_STATUS_REVOKED,
     MFA_DELIVERY_METHOD_EMAIL,
     MFA_DELIVERY_METHOD_SMS,
     UNLOCK_SECRET_TYPE_EMAIL,
@@ -217,6 +224,7 @@ INVALID_CSRF_DETAIL = "invalid CSRF token"
 ACCOUNT_LOCKED_DETAIL = "account access is locked; contact the clinic for help"
 MFA_VERIFICATION_FAILED_DETAIL = "MFA could not be verified"
 PASSWORD_RESET_COMPLETE_TEMPLATE = "password_reset_complete.jinja"
+EMAIL_CHANGE_TEMPLATE = "email_change_complete.jinja"
 ACTIVATION_TEMPLATE = "activate.jinja"
 AUTH_LOGOUT_RESPONSES = {
     status.HTTP_401_UNAUTHORIZED: {"description": "Authentication is required."},
@@ -264,6 +272,8 @@ PORTAL_MODULES = (
 ACCOUNT_NOTICE_MESSAGE_KEYS = {
     "contact-updated": "account_status_contact_updated",
     "contact-updated-notice-failed": "account_status_contact_notice_failed",
+    "email-confirmation-required": "account_status_email_confirmation_required",
+    "email-confirmation-notice-failed": "account_status_email_confirmation_notice_failed",
     "mfa-updated": "account_status_mfa_updated",
     "no-change": "account_status_no_change",
     "password-updated": "account_status_password_updated",
@@ -648,6 +658,65 @@ def deliver_password_reset(
             "Password reset delivery outcome persistence failed: %s",
             type(exc).__name__,
         )
+
+
+def build_email_change_confirmation_url(
+    request: Request,
+    *,
+    settings: Settings,
+    confirmation_token: str,
+) -> str:
+    """Build the confirmation link, carrying the token in the fragment like a reset link.
+
+    A fragment is not sent in the HTTP request, so the token cannot land in an access log or a
+    proxy trace on its way to the portal.
+    """
+    if settings.public_base_url is not None:
+        base_url = settings.public_base_url.rstrip("/")
+    elif settings.is_development:
+        base_url = str(request.base_url).rstrip("/")
+    else:
+        raise PortalEmailDeliveryError("email-change confirmation delivery is not configured")
+    return base_url + "/auth/email-change/confirm#token=" + quote(confirmation_token, safe="")
+
+
+def send_email_change_confirmation(
+    runtime: PortalRuntime,
+    *,
+    recipient: str,
+    confirmation_url: str,
+) -> None:
+    if runtime.email_sender is None:
+        if runtime.settings.is_development:
+            return
+        raise PortalEmailDeliveryError("email-change confirmation delivery is not configured")
+    # PortalEmailSender is a structural protocol, so a configured sender can be missing this
+    # method. Unlike the advisory notices, this one is load-bearing — without it the patient can
+    # never confirm — so a missing method fails the request in every environment rather than
+    # leaving a pending change nothing can complete.
+    sender = getattr(runtime.email_sender, "send_email_change_confirmation", None)
+    if sender is None:
+        raise PortalEmailDeliveryError("email-change confirmation delivery is not configured")
+    sender(
+        recipient=recipient,
+        confirmation_url=confirmation_url,
+        expires_in_seconds=runtime.settings.email_change_token_ttl_seconds,
+    )
+
+
+def send_email_change_requested_notice(runtime: PortalRuntime, *, recipient: str) -> None:
+    if runtime.email_sender is None:
+        if runtime.settings.is_development:
+            return
+        raise PortalEmailDeliveryError("email-change notice delivery is not configured")
+    # Injected test doubles and older senders may predate this method; a missing notice must not
+    # take down the change itself, and the confirmation link is the load-bearing message.
+    sender = getattr(runtime.email_sender, "send_email_change_requested_notice", None)
+    if sender is None:
+        if runtime.settings.is_development:
+            return
+        raise PortalEmailDeliveryError("email-change notice delivery is not configured")
+    sender(recipient=recipient)
 
 
 def send_contact_change_notice(runtime: PortalRuntime, *, recipient: str) -> None:
@@ -2640,6 +2709,75 @@ def register_auth_routes(
             )
         return {"status": "password_reset", "username": account.username}
 
+    @app.get("/auth/email-change/confirm", name="email_change_confirm_page")
+    def email_change_confirm_page(request: Request) -> Response:
+        return render_public_auth_template(
+            request,
+            settings=settings,
+            csrf_secret=csrf_secret,
+            template_name=EMAIL_CHANGE_TEMPLATE,
+        )
+
+    @app.post("/auth/email-change/confirm", name="confirm_email_change_submission")
+    async def confirm_email_change_submission(
+        request: Request,
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
+    ) -> Response:
+        """Apply a confirmed contact change.
+
+        Public and unauthenticated by design: the patient may open this link in the mail client on
+        another device, where the portal session cookie does not exist. Possession of the one-time
+        token, which only the proposed mailbox received, is the proof being checked.
+        """
+        form_values = await get_csrf_urlencoded_form_values(
+            request,
+            csrf_secret,
+            unsupported_media_type_detail=(
+                "email change confirmation requires a form request body"
+            ),
+        )
+        confirmation_token = first_form_value_or_empty(form_values, "reset_token")
+        try:
+            confirmation = await run_in_threadpool(
+                confirm_email_change,
+                session,
+                confirmation_token=confirmation_token,
+                token_secret=runtime.token_keys.email_change,
+                clinic_id=settings.clinic_id,
+            )
+        except (EmailChangeTokenInvalidError, ValueError):
+            # Deliberately one generic outcome: an expired link, a superseded link, a link for a
+            # locked account, and a forged token must not be distinguishable from each other.
+            return render_public_auth_template(
+                request,
+                settings=settings,
+                csrf_secret=csrf_secret,
+                template_name=EMAIL_CHANGE_TEMPLATE,
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_message=text["email_change_complete_error"],
+            )
+        session.commit()
+        for recipient in confirmation.notice_recipients:
+            try:
+                await run_in_threadpool(
+                    send_contact_change_notice,
+                    runtime,
+                    recipient=recipient,
+                )
+            except PortalEmailDeliveryError:
+                # The change is already committed and the patient is looking at the result page,
+                # so a failed notice is recorded and surfaced in metrics rather than rolled back.
+                runtime.operational_metrics.record_failure("contact_change_delivery")
+                logger.error("Contact-change notice delivery failed")
+        return render_public_auth_template(
+            request,
+            settings=settings,
+            csrf_secret=csrf_secret,
+            template_name="auth_result.jinja",
+            result_heading=text["email_change_success_heading"],
+            result_message=text["email_change_success"],
+        )
+
     @app.get("/auth/session", response_model=SessionResponse)
     def read_session(
         authenticated_session: Annotated[
@@ -2905,7 +3043,7 @@ def register_portal_routes(
             return authenticated_session
 
         try:
-            review_request = await run_in_threadpool(
+            contact_update = await run_in_threadpool(
                 update_account_contact,
                 session,
                 authenticated_session.account,
@@ -2913,6 +3051,10 @@ def register_portal_routes(
                 email=first_form_value_or_empty(form_values, "email"),
                 phone_number=first_form_value(form_values, "phone_number"),
                 max_failed_password_attempts=settings.auth_max_failed_password_attempts,
+                email_change_token_secret=runtime.token_keys.email_change,
+                email_change_token_ttl=timedelta(
+                    seconds=settings.email_change_token_ttl_seconds
+                ),
             )
         except AccountSettingsStepUpError:
             return render_account_change_error(
@@ -2926,51 +3068,119 @@ def register_portal_routes(
                 session,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-        # Bound before the branch: the status selection below reads this whenever a review request
-        # exists, and a conditional binding would turn any future reordering into an
-        # UnboundLocalError on a contact-change path.
-        notices_delivered = True
-        if review_request is not None:
-            session.commit()
-            recipients = dict.fromkeys(
-                (
-                    review_request.email_before,
-                    review_request.email_after,
-                )
+        if contact_update.outcome == CONTACT_UPDATE_OUTCOME_NO_CHANGE:
+            return redirect_to_account_status("no-change")
+        session.commit()
+        if contact_update.outcome == CONTACT_UPDATE_OUTCOME_EMAIL_CONFIRMATION_REQUIRED:
+            return await deliver_email_change_request(
+                request,
+                session,
+                authenticated_session.account,
+                contact_update=contact_update,
             )
-            for recipient in recipients:
-                try:
-                    await run_in_threadpool(
-                        send_contact_change_notice,
-                        runtime,
-                        recipient=recipient,
-                    )
-                except PortalEmailDeliveryError:
-                    notices_delivered = False
-                    runtime.operational_metrics.record_failure("contact_change_delivery")
-                    logger.error("Contact-change notice delivery failed")
-            if not notices_delivered:
-                # The notice to the old address is the only out-of-band takeover alarm, so its
-                # failure must be durable in the audit trail and visible to the patient, rather
-                # than leaving an unqualified success row behind.
-                record_account_settings_audit_event(
-                    session,
-                    authenticated_session.account,
-                    event_type=AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
-                    outcome=AUDIT_OUTCOME_FAILURE,
-                    reason=ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE,
-                )
-                session.commit()
-        if review_request is None:
-            status_key = "no-change"
-        elif notices_delivered:
-            status_key = "contact-updated"
-        else:
-            status_key = "contact-updated-notice-failed"
+        return await deliver_contact_change_notices(
+            session,
+            authenticated_session.account,
+            recipients=contact_update.notice_recipients,
+            success_status_key="contact-updated",
+            failure_status_key="contact-updated-notice-failed",
+        )
+
+    def redirect_to_account_status(status_key: str) -> RedirectResponse:
         return RedirectResponse(
             f"/portal/account?status={status_key}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
+
+    async def deliver_contact_change_notices(
+        session: Session,
+        account: PatientPortalAccount,
+        *,
+        recipients: tuple[str, ...],
+        success_status_key: str,
+        failure_status_key: str,
+    ) -> Response:
+        """Notify every affected address, and make a failed notice durable rather than silent.
+
+        The notice to the address a change moved away from is the only out-of-band alarm a patient
+        gets, so a delivery failure has to be visible to them and recorded, not swallowed into an
+        unqualified success row.
+        """
+        notices_delivered = True
+        for recipient in recipients:
+            try:
+                await run_in_threadpool(
+                    send_contact_change_notice,
+                    runtime,
+                    recipient=recipient,
+                )
+            except PortalEmailDeliveryError:
+                notices_delivered = False
+                runtime.operational_metrics.record_failure("contact_change_delivery")
+                logger.error("Contact-change notice delivery failed")
+        if notices_delivered:
+            return redirect_to_account_status(success_status_key)
+        record_account_settings_audit_event(
+            session,
+            account,
+            event_type=AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+            outcome=AUDIT_OUTCOME_FAILURE,
+            reason=ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE,
+        )
+        session.commit()
+        return redirect_to_account_status(failure_status_key)
+
+    async def deliver_email_change_request(
+        request: Request,
+        session: Session,
+        account: PatientPortalAccount,
+        *,
+        contact_update: ContactUpdateResult,
+    ) -> Response:
+        """Send the confirmation link, and revoke the request if it cannot be delivered.
+
+        A pending request the patient can never confirm is worse than no request: it occupies the
+        one-pending-per-account slot and leaves them believing a change is in flight. If the
+        confirmation cannot be sent, the request is revoked and the patient is told plainly.
+        """
+        confirmation_url = build_email_change_confirmation_url(
+            request,
+            settings=settings,
+            confirmation_token=contact_update.confirmation_token or "",
+        )
+        try:
+            await run_in_threadpool(
+                send_email_change_confirmation,
+                runtime,
+                recipient=contact_update.confirmation_recipient or "",
+                confirmation_url=confirmation_url,
+            )
+        except PortalEmailDeliveryError:
+            runtime.operational_metrics.record_failure("email_change_delivery")
+            logger.error("Email-change confirmation delivery failed")
+            if contact_update.email_change_request is not None:
+                contact_update.email_change_request.status = EMAIL_CHANGE_STATUS_REVOKED
+            record_account_settings_audit_event(
+                session,
+                account,
+                event_type=AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_REQUEST,
+                outcome=AUDIT_OUTCOME_FAILURE,
+                reason=ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE,
+            )
+            session.commit()
+            return redirect_to_account_status("email-confirmation-notice-failed")
+        # Best-effort: the current address is told a change was requested. Unlike the confirmation
+        # itself, failing to send this must not cancel the request the patient just made.
+        try:
+            await run_in_threadpool(
+                send_email_change_requested_notice,
+                runtime,
+                recipient=account.email,
+            )
+        except PortalEmailDeliveryError:
+            runtime.operational_metrics.record_failure("contact_change_delivery")
+            logger.error("Email-change requested notice delivery failed")
+        return redirect_to_account_status("email-confirmation-required")
 
     @app.post("/portal/account/mfa")
     async def portal_account_mfa(

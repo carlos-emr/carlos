@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from carlos_patient_portal import internal_routes
-from carlos_patient_portal.account_settings import update_account_contact
+from carlos_patient_portal.account_settings import confirm_email_change, update_account_contact
 from carlos_patient_portal.config import MIN_PRODUCTION_SECRET_LENGTH, Settings
 from carlos_patient_portal.credentials import hash_password
 from carlos_patient_portal.database import Base
@@ -36,6 +36,40 @@ IDENTITY_PROOF_SECRET = "i" * MIN_PRODUCTION_SECRET_LENGTH
 AUDIT_HASH_SECRET = "a" * MIN_PRODUCTION_SECRET_LENGTH
 UNLOCK_SECRET = "u" * MIN_PRODUCTION_SECRET_LENGTH
 PASSWORD = "Stronger1!word"
+EMAIL_CHANGE_TOKEN_SECRET = "e" * MIN_PRODUCTION_SECRET_LENGTH
+
+
+def apply_contact_change(
+    session,
+    account: PatientPortalAccount,
+    *,
+    email: str,
+    phone_number: str | None = None,
+    clinic_id: str = "clinic-a",
+) -> PatientPortalContactReviewRequest:
+    """Run a contact change end to end, the way a patient does.
+
+    An email change is a two-step flow — request, then confirm from the new mailbox — and the
+    CARLOS review these tests operate on is only created by the second step.
+    """
+    contact_update = update_account_contact(
+        session,
+        account,
+        current_password=PASSWORD,
+        email=email,
+        phone_number=phone_number,
+        max_failed_password_attempts=10,
+        email_change_token_secret=EMAIL_CHANGE_TOKEN_SECRET,
+        email_change_token_ttl=timedelta(days=1),
+    )
+    assert contact_update.confirmation_token is not None
+    confirmation = confirm_email_change(
+        session,
+        confirmation_token=contact_update.confirmation_token,
+        token_secret=EMAIL_CHANGE_TOKEN_SECRET,
+        clinic_id=clinic_id,
+    )
+    return confirmation.review_request
 
 
 def internal_app(**overrides: object):
@@ -737,15 +771,12 @@ def test_internal_contact_review_is_clinic_scoped_and_applies_staff_decision() -
         with session.begin():
             account = session.scalar(select(PatientPortalAccount))
             assert account is not None
-            review = update_account_contact(
+            review = apply_contact_change(
                 session,
                 account,
-                current_password=PASSWORD,
                 email="updated.patient@example.com",
                 phone_number="+16135550199",
-                max_failed_password_attempts=10,
             )
-            assert review is not None
             review_id = review.id
             review_revision = review.revision
 
@@ -804,15 +835,11 @@ def test_internal_contact_review_rejection_retains_current_contact() -> None:
         with session.begin():
             account = session.scalar(select(PatientPortalAccount))
             assert account is not None
-            review = update_account_contact(
+            review = apply_contact_change(
                 session,
                 account,
-                current_password=PASSWORD,
                 email="rejected.patient@example.com",
-                phone_number=None,
-                max_failed_password_attempts=10,
             )
-            assert review is not None
             review_id = review.id
             review_revision = review.revision
 
@@ -853,23 +880,16 @@ def test_internal_contact_review_rejects_superseded_revision() -> None:
         with session.begin():
             account = session.scalar(select(PatientPortalAccount))
             assert account is not None
-            first = update_account_contact(
+            first = apply_contact_change(
                 session,
                 account,
-                current_password=PASSWORD,
                 email="first.patient@example.com",
-                phone_number=None,
-                max_failed_password_attempts=10,
             )
-            second = update_account_contact(
+            apply_contact_change(
                 session,
                 account,
-                current_password=PASSWORD,
                 email="second.patient@example.com",
-                phone_number=None,
-                max_failed_password_attempts=10,
             )
-            assert first is not None and second is not None
             first_id = first.id
             first_revision = first.revision
 

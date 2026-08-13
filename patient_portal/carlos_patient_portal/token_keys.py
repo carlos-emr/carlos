@@ -1,16 +1,17 @@
 """Per-purpose key derivation for the portal's authentication tokens.
 
-`PATIENT_PORTAL_SESSION_SECRET` is a single configured value that four unrelated constructions
-depend on: CSRF signatures, session-token hashes, MFA challenge-token and code hashes, and
-password-reset token hashes. Handing the same key to all four made their separation depend on
-every call site remembering to pass a distinct purpose string to `hash_auth_token` — a convention,
-enforced by nothing. Deriving an independent key per purpose here makes it structural instead: a
-signature produced for one role cannot verify in another even if a purpose string is omitted.
+`PATIENT_PORTAL_SESSION_SECRET` is a single configured value that several unrelated constructions
+depend on: CSRF signatures, session-token hashes, MFA challenge-token and code hashes,
+password-reset token hashes, and email-change confirmation tokens. Handing the same key to all of
+them made their separation depend on every call site remembering to pass a distinct purpose string
+to `hash_auth_token` — a convention, enforced by nothing. Deriving an independent key per purpose
+here makes it structural instead: a signature produced for one role cannot verify in another even
+if a purpose string is omitted.
 
 The purpose strings inside `hash_auth_token` are deliberately kept as well. They now separate the
 sub-purposes that share one derived key (session tokens and their lookups), and they cost nothing.
 
-Rotating the configured secret rotates all four derived keys together, which signs every patient
+Rotating the configured secret rotates every derived key together, which signs every patient
 out and invalidates pending MFA challenges and reset tokens. That is already the documented
 behaviour of rotating `PATIENT_PORTAL_SESSION_SECRET`; deriving keys does not change it.
 """
@@ -29,6 +30,7 @@ CSRF_KEY_PURPOSE = "csrf"
 SESSION_KEY_PURPOSE = "session"
 MFA_KEY_PURPOSE = "mfa"
 PASSWORD_RESET_KEY_PURPOSE = "password-reset"  # noqa: S105 - a derivation label, not a credential
+EMAIL_CHANGE_KEY_PURPOSE = "email-change"
 
 
 def derive_token_key(session_secret: str, purpose: str) -> str:
@@ -66,6 +68,7 @@ class PortalTokenKeys:
     session: str
     mfa: str
     password_reset: str
+    email_change: str
 
     @classmethod
     def derive(cls, session_secret: str) -> "PortalTokenKeys":
@@ -74,4 +77,5 @@ class PortalTokenKeys:
             session=derive_token_key(session_secret, SESSION_KEY_PURPOSE),
             mfa=derive_token_key(session_secret, MFA_KEY_PURPOSE),
             password_reset=derive_token_key(session_secret, PASSWORD_RESET_KEY_PURPOSE),
+            email_change=derive_token_key(session_secret, EMAIL_CHANGE_KEY_PURPOSE),
         )

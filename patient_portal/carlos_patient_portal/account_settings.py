@@ -1,4 +1,6 @@
 import logging
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from secrets import token_urlsafe
 
 from sqlalchemy import func, select
@@ -13,6 +15,8 @@ from carlos_patient_portal.auth import (
     cancel_pending_mfa_challenges,
     create_patient_session,
     ensure_mfa_delivery_available,
+    hash_auth_token,
+    is_past,
     lock_account,
     normalize_mfa_delivery_method,
     normalize_phone_number,
@@ -27,6 +31,8 @@ from carlos_patient_portal.models import (
     AUDIT_ACTOR_TYPE_PATIENT,
     AUDIT_ACTOR_TYPE_STAFF,
     AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+    AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_CONFIRM,
+    AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_REQUEST,
     AUDIT_EVENT_ACCOUNT_MFA_UPDATE,
     AUDIT_EVENT_ACCOUNT_PASSWORD_CHANGE,
     AUDIT_OUTCOME_FAILURE,
@@ -36,10 +42,14 @@ from carlos_patient_portal.models import (
     CONTACT_REVIEW_DECISION_SUPERSEDED,
     CONTACT_REVIEW_STATUS_PENDING,
     CONTACT_REVIEW_STATUS_REVIEWED,
+    EMAIL_CHANGE_STATUS_CONFIRMED,
+    EMAIL_CHANGE_STATUS_PENDING,
+    EMAIL_CHANGE_STATUS_REVOKED,
     MFA_DELIVERY_METHOD_SMS,
     SESSION_REVOKED_REASON_PASSWORD_CHANGE,
     PatientPortalAccount,
     PatientPortalContactReviewRequest,
+    PatientPortalEmailChangeRequest,
     PatientPortalSession,
     utc_now,
 )
@@ -51,6 +61,42 @@ ACCOUNT_SETTINGS_REASON_NO_CHANGE = "no_change"
 ACCOUNT_SETTINGS_REASON_PASSWORD_HASH_UNUSABLE = "password_hash_unusable"
 ACCOUNT_SETTINGS_REASON_STEP_UP_FAILED = "step_up_failed"
 ACCOUNT_SETTINGS_REASON_UPDATED = "updated"
+
+
+CONTACT_UPDATE_OUTCOME_NO_CHANGE = "no_change"
+CONTACT_UPDATE_OUTCOME_APPLIED = "applied"
+CONTACT_UPDATE_OUTCOME_EMAIL_CONFIRMATION_REQUIRED = "email_confirmation_required"
+ACCOUNT_SETTINGS_REASON_EMAIL_CONFIRMATION_REQUESTED = "email_confirmation_requested"
+
+
+@dataclass(frozen=True)
+class ContactUpdateResult:
+    """What a contact-change submission did, and who now has to be told.
+
+    A change that only touches the phone number applies immediately and produces a CARLOS review.
+    A change that touches the email address produces nothing but a pending request: the account
+    keeps its current address — and therefore its current MFA and password-reset destination —
+    until the new mailbox proves it can receive mail.
+    """
+
+    outcome: str
+    review_request: PatientPortalContactReviewRequest | None = None
+    email_change_request: PatientPortalEmailChangeRequest | None = None
+    confirmation_token: str | None = None
+    confirmation_recipient: str | None = None
+    notice_recipients: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class EmailChangeConfirmation:
+    """A confirmed email change, with the addresses that must be notified."""
+
+    review_request: PatientPortalContactReviewRequest
+    notice_recipients: tuple[str, ...]
+
+
+class EmailChangeTokenInvalidError(Exception):
+    """Raised when a confirmation token is unknown, expired, superseded, or already used."""
 
 
 class AccountSettingsStepUpError(Exception):
@@ -132,7 +178,9 @@ def update_account_contact(
     email: str,
     phone_number: str | None,
     max_failed_password_attempts: int,
-) -> PatientPortalContactReviewRequest | None:
+    email_change_token_secret: str,
+    email_change_token_ttl: timedelta,
+) -> ContactUpdateResult:
     normalized_email = normalize_email(email)
     normalized_phone_number = normalize_phone_number(phone_number)
     account = lock_account_for_settings(session, account.id)
@@ -161,9 +209,23 @@ def update_account_contact(
             outcome=AUDIT_OUTCOME_SUCCESS,
             reason=ACCOUNT_SETTINGS_REASON_NO_CHANGE,
         )
-        return None
+        return ContactUpdateResult(outcome=CONTACT_UPDATE_OUTCOME_NO_CHANGE)
 
     now = utc_now()
+    if account.email != normalized_email:
+        # The address the patient is asking for is unproven, so nothing about the account moves
+        # yet. Everything below this branch — the immediate write, the factor revocation, the
+        # CARLOS review — happens on confirmation instead.
+        return request_email_change(
+            session,
+            account,
+            new_email=normalized_email,
+            new_phone_number=normalized_phone_number,
+            token_secret=email_change_token_secret,
+            token_ttl=email_change_token_ttl,
+            now=now,
+        )
+
     previous_review_request = session.scalar(
         select(PatientPortalContactReviewRequest)
         .where(
@@ -207,7 +269,207 @@ def update_account_contact(
         outcome=AUDIT_OUTCOME_SUCCESS,
         reason=ACCOUNT_SETTINGS_REASON_UPDATED,
     )
-    return review_request
+    return ContactUpdateResult(
+        outcome=CONTACT_UPDATE_OUTCOME_APPLIED,
+        review_request=review_request,
+        notice_recipients=tuple(
+            dict.fromkeys((review_request.email_before, review_request.email_after))
+        ),
+    )
+
+
+def request_email_change(
+    session: Session,
+    account: PatientPortalAccount,
+    *,
+    new_email: str,
+    new_phone_number: str | None,
+    token_secret: str,
+    token_ttl: timedelta,
+    now: datetime,
+) -> ContactUpdateResult:
+    """Record a proposed contact change and mint a one-time confirmation token.
+
+    The account is not modified. Its email, phone, MFA destination, and reset destination all stay
+    exactly as they were, so a mistyped address strands nothing and an attacker who has the
+    password but not the mailbox gains nothing from submitting this form.
+    """
+    superseded_request = session.scalar(
+        select(PatientPortalEmailChangeRequest)
+        .where(
+            PatientPortalEmailChangeRequest.account_id == account.id,
+            PatientPortalEmailChangeRequest.status == EMAIL_CHANGE_STATUS_PENDING,
+        )
+        .with_for_update()
+    )
+    if superseded_request is not None:
+        # One pending request per account, enforced by a partial unique index. Revoking rather
+        # than reusing means a link already sent for the old proposal stops working.
+        superseded_request.status = EMAIL_CHANGE_STATUS_REVOKED
+
+    confirmation_token = token_urlsafe(32)
+    email_change_request = PatientPortalEmailChangeRequest(
+        account_id=account.id,
+        token_hash=hash_auth_token(token_secret, "email_change", confirmation_token),
+        status=EMAIL_CHANGE_STATUS_PENDING,
+        new_email=new_email,
+        new_phone_number=new_phone_number,
+        created_at=now,
+        expires_at=now + token_ttl,
+    )
+    session.add(email_change_request)
+    session.flush()
+    record_account_settings_audit_event(
+        session,
+        account,
+        event_type=AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_REQUEST,
+        outcome=AUDIT_OUTCOME_SUCCESS,
+        reason=ACCOUNT_SETTINGS_REASON_EMAIL_CONFIRMATION_REQUESTED,
+    )
+    return ContactUpdateResult(
+        outcome=CONTACT_UPDATE_OUTCOME_EMAIL_CONFIRMATION_REQUIRED,
+        email_change_request=email_change_request,
+        confirmation_token=confirmation_token,
+        confirmation_recipient=new_email,
+        # Only the current address is notified. The proposed address gets the confirmation link
+        # instead, and telling it "your contact details changed" would be untrue until it is used.
+        notice_recipients=(account.email,),
+    )
+
+
+def confirm_email_change(
+    session: Session,
+    *,
+    confirmation_token: str,
+    token_secret: str,
+    clinic_id: str,
+) -> EmailChangeConfirmation:
+    """Apply a confirmed contact change and open the CARLOS demographic-sync review.
+
+    This is where every effect that `update_account_contact` used to have immediately happens:
+    the new address becomes the account's MFA and reset destination, factors tied to the old
+    destination are revoked, and staff get a review carrying a coherent before/after snapshot.
+    """
+    now = utc_now()
+    token_hash = hash_auth_token(token_secret, "email_change", confirmation_token)
+    # Scoped by the owning account's clinic, like complete_password_reset: a token belonging to
+    # another clinic's runtime must simply not be found here.
+    request_locator = session.execute(
+        select(
+            PatientPortalEmailChangeRequest.id,
+            PatientPortalEmailChangeRequest.account_id,
+        )
+        .join(
+            PatientPortalAccount,
+            PatientPortalAccount.id == PatientPortalEmailChangeRequest.account_id,
+        )
+        .where(
+            PatientPortalEmailChangeRequest.token_hash == token_hash,
+            PatientPortalAccount.clinic_id == clinic_id,
+        )
+    ).one_or_none()
+    if request_locator is None:
+        raise EmailChangeTokenInvalidError()
+
+    account = session.scalar(
+        select(PatientPortalAccount)
+        .where(PatientPortalAccount.id == request_locator.account_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    email_change_request = session.scalar(
+        select(PatientPortalEmailChangeRequest)
+        .where(
+            PatientPortalEmailChangeRequest.id == request_locator.id,
+            PatientPortalEmailChangeRequest.token_hash == token_hash,
+        )
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if (
+        email_change_request is None
+        or email_change_request.status != EMAIL_CHANGE_STATUS_PENDING
+        or is_past(email_change_request.expires_at, now)
+    ):
+        if (
+            email_change_request is not None
+            and email_change_request.status == EMAIL_CHANGE_STATUS_PENDING
+        ):
+            email_change_request.status = EMAIL_CHANGE_STATUS_REVOKED
+        raise EmailChangeTokenInvalidError()
+    if (
+        account is None
+        or account.status != ACCOUNT_STATUS_ACTIVE
+        or account.locked_at is not None
+        or account.force_password_reset
+    ):
+        # A locked or disabled account must not be able to have its recovery address moved by a
+        # link minted before the lock.
+        email_change_request.status = EMAIL_CHANGE_STATUS_REVOKED
+        raise EmailChangeTokenInvalidError()
+    if (
+        account.preferred_mfa_method == MFA_DELIVERY_METHOD_SMS
+        and email_change_request.new_phone_number is None
+    ):
+        email_change_request.status = EMAIL_CHANGE_STATUS_REVOKED
+        record_account_settings_audit_event(
+            session,
+            account,
+            event_type=AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_CONFIRM,
+            outcome=AUDIT_OUTCOME_FAILURE,
+            reason=ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE,
+        )
+        raise EmailChangeTokenInvalidError()
+
+    email_before = account.email
+    phone_number_before = account.phone_number
+    previous_review_request = session.scalar(
+        select(PatientPortalContactReviewRequest)
+        .where(
+            PatientPortalContactReviewRequest.account_id == account.id,
+            PatientPortalContactReviewRequest.status == CONTACT_REVIEW_STATUS_PENDING,
+        )
+        .with_for_update()
+    )
+    if previous_review_request is not None:
+        previous_review_request.status = CONTACT_REVIEW_STATUS_REVIEWED
+        previous_review_request.review_decision = CONTACT_REVIEW_DECISION_SUPERSEDED
+        previous_review_request.reviewed_at = now
+        previous_review_request.reviewed_by = account.username
+        previous_review_request.reviewed_by_id = str(account.id)
+
+    account.email = email_change_request.new_email
+    account.phone_number = email_change_request.new_phone_number
+    account.updated_at = now
+    email_change_request.status = EMAIL_CHANGE_STATUS_CONFIRMED
+    email_change_request.confirmed_at = now
+    cancel_pending_mfa_challenges(session, account.id, now=now)
+    revoke_pending_password_reset_tokens(session, account.id)
+    review_request = PatientPortalContactReviewRequest(
+        account_id=account.id,
+        clinic_id=account.clinic_id,
+        demographic_no=account.demographic_no,
+        status=CONTACT_REVIEW_STATUS_PENDING,
+        revision=token_urlsafe(24),
+        email_before=email_before,
+        email_after=account.email,
+        phone_number_before=phone_number_before,
+        phone_number_after=account.phone_number,
+        requested_at=now,
+    )
+    session.add(review_request)
+    session.flush()
+    record_account_settings_audit_event(
+        session,
+        account,
+        event_type=AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_CONFIRM,
+        outcome=AUDIT_OUTCOME_SUCCESS,
+        reason=ACCOUNT_SETTINGS_REASON_UPDATED,
+    )
+    return EmailChangeConfirmation(
+        review_request=review_request,
+        notice_recipients=tuple(dict.fromkeys((email_before, account.email))),
+    )
 
 
 def update_account_mfa_method(

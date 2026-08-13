@@ -37,7 +37,7 @@ The MVP foundation currently includes:
 | Foundation and activation | Portal implementation and tests present | CARLOS invite delivery and activation-link UI are not wired |
 | Authentication and MFA | Portal implementation and account-scoped controls present | Durable reset delivery and shared edge throttling are pilot blockers |
 | Dashboard and email passwords | Portal implementation and responsive tests present | CARLOS must confirm successful message delivery before publishing each password |
-| Account settings | Portal contact changes are immediate; immutable sync reviews are queued | CARLOS must update eChart then idempotently confirm the reviewed revision |
+| Account settings | Email changes require confirmation from the new address; immutable sync reviews are queued | CARLOS must update eChart then idempotently confirm the reviewed revision; phone numbers are still unverified |
 | FHIR R4 and HL7 v2.5.1 | Scoped resources and conformance artifacts are validator-tested | This is a narrow portal profile, not a general-purpose exchange server |
 | Pilot hardening | In-process controls and operator commands are present | External monitoring, audit export, managed backups, and restore drills remain required |
 
@@ -261,14 +261,16 @@ Authentication defaults:
   configured; delivery failures are audited and do not silently invalidate another method.
 - Patient sessions have a one-hour absolute lifetime and expire after 10 minutes of inactivity.
 - Password reset tokens expire after one hour and are one-time use.
+- Email-change confirmation links expire after 24 hours and are one-time use.
 
 The deployment can tune these with `PATIENT_PORTAL_REQUIRE_MFA`,
 `PATIENT_PORTAL_AUTH_MAX_FAILED_PASSWORD_ATTEMPTS`, `PATIENT_PORTAL_MFA_MAX_FAILED_ATTEMPTS`,
 `PATIENT_PORTAL_SESSION_TTL_SECONDS`, `PATIENT_PORTAL_SESSION_IDLE_TIMEOUT_SECONDS`,
 `PATIENT_PORTAL_MFA_CODE_TTL_SECONDS`,
 `PATIENT_PORTAL_MFA_EMAIL_RESEND_COOLDOWN_SECONDS`,
-`PATIENT_PORTAL_MFA_SMS_RESEND_COOLDOWN_SECONDS`, and
-`PATIENT_PORTAL_PASSWORD_RESET_TOKEN_TTL_SECONDS`.
+`PATIENT_PORTAL_MFA_SMS_RESEND_COOLDOWN_SECONDS`,
+`PATIENT_PORTAL_PASSWORD_RESET_TOKEN_TTL_SECONDS`, and
+`PATIENT_PORTAL_EMAIL_CHANGE_TOKEN_TTL_SECONDS`.
 
 By default, client throttling uses the direct peer address reported by the ASGI server. If the portal
 runs behind a trusted proxy, set `PATIENT_PORTAL_TRUSTED_CLIENT_IP_HEADER` to `x-forwarded-for` or
@@ -330,6 +332,9 @@ This PR adds the portal foundation, initial staff invite table, initial patient 
 initial audit event table. It also adds portal-owned session, MFA challenge, password reset token,
 and encrypted unlock-secret tables.
 
+Migration `0005_pending_email_confirmation` refuses to downgrade while pending email-change
+requests or email-change audit events exist, so a rollback cannot silently discard evidence that a
+patient asked to move the address their verification codes are delivered to.
 Migration `0003_portal_lifecycle_hardening` refuses to downgrade while v3-only encrypted records,
 pending secrets, disabled accounts, superseded reviews, or v3 audit events exist. This prevents a
 rollback from dropping encryption context or lifecycle evidence. Preserve or transform those rows
@@ -605,9 +610,23 @@ Dashboard routes:
 
 The dashboard is server-rendered and responsive. Desktop uses a left module rail; mobile uses a
 horizontal module bar with logout kept in the top-right header area.
-Contact edits immediately update the portal account, revoke outstanding reset/MFA factors tied to
-the old destination, notify both addresses, and create a new immutable CARLOS demographic-sync
-review. CARLOS must update eChart first and then confirm the exact review `revision`; repeat
+Changing the email address is a two-step flow. Submitting the contact form changes nothing on the
+account: it records a pending request, emails a one-time confirmation link to the proposed address,
+and notifies the current address that a change was asked for. Verification codes and password-reset
+links keep going to the current address until the link is used, so a mistyped address strands
+nothing and a stolen password alone cannot move the recovery channel. Opening the link applies the
+new email and phone together, revokes reset/MFA factors tied to the old destination, notifies both
+addresses, and creates the immutable CARLOS demographic-sync review.
+
+The confirmation link expires after `PATIENT_PORTAL_EMAIL_CHANGE_TOKEN_TTL_SECONDS` (24 hours by
+default) and is one-time. Requesting another change revokes the previous link, so a corrected typo
+cannot leave the mistyped address able to take the account. A request whose confirmation email
+cannot be delivered is revoked rather than left pending. A change that only touches the phone
+number still applies immediately and opens its review straight away; **phone numbers are not
+separately proven, so an SMS MFA destination can still be moved by a patient holding the password
+alone** — closing that gap needs an SMS confirmation step and is outstanding work.
+
+CARLOS must update eChart first and then confirm the exact review `revision`; repeat
 confirmations are idempotent and stale revisions return a conflict. Contact-change notices are sent
 only after the database commit, but their delivery is not yet backed by a durable outbox; clinics
 must treat the notice delivery metric as a pilot blocker until retryable delivery is wired.

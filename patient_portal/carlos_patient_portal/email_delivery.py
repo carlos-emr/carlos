@@ -7,6 +7,8 @@ from carlos_patient_portal.config import Settings
 from carlos_patient_portal.outbound_messages import (
     OutboundMessage,
     contact_change_email_message,
+    email_change_confirmation_email_message,
+    email_change_requested_email_message,
     mfa_email_message,
     password_reset_email_message,
 )
@@ -40,6 +42,18 @@ class PortalEmailSender(Protocol):
         raise NotImplementedError
 
     def send_contact_change_notice(self, *, recipient: str) -> None:
+        raise NotImplementedError
+
+    def send_email_change_confirmation(
+        self,
+        *,
+        recipient: str,
+        confirmation_url: str,
+        expires_in_seconds: int,
+    ) -> None:
+        raise NotImplementedError
+
+    def send_email_change_requested_notice(self, *, recipient: str) -> None:
         raise NotImplementedError
 
 
@@ -104,6 +118,36 @@ class SmtpPortalEmailSender:
             self._build_message(
                 recipient,
                 contact_change_email_message(
+                    service_name=self.service_name,
+                    clinic_name=self.clinic_name,
+                ),
+            )
+        )
+
+    def send_email_change_confirmation(
+        self,
+        *,
+        recipient: str,
+        confirmation_url: str,
+        expires_in_seconds: int,
+    ) -> None:
+        self._send_message(
+            self._build_message(
+                recipient,
+                email_change_confirmation_email_message(
+                    service_name=self.service_name,
+                    clinic_name=self.clinic_name,
+                    confirmation_url=confirmation_url,
+                    expires_in_seconds=expires_in_seconds,
+                ),
+            )
+        )
+
+    def send_email_change_requested_notice(self, *, recipient: str) -> None:
+        self._send_message(
+            self._build_message(
+                recipient,
+                email_change_requested_email_message(
                     service_name=self.service_name,
                     clinic_name=self.clinic_name,
                 ),

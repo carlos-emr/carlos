@@ -27,6 +27,8 @@ AUDIT_ACTOR_TYPE_STAFF = "staff"
 AUDIT_EVENT_ACTIVATION = "activation"
 AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE = "account.contact_update"
 AUDIT_EVENT_ACCOUNT_DISABLE = "account.disable"
+AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_CONFIRM = "account.email_change_confirm"
+AUDIT_EVENT_ACCOUNT_EMAIL_CHANGE_REQUEST = "account.email_change_request"
 AUDIT_EVENT_ACCOUNT_ENABLE = "account.enable"
 AUDIT_EVENT_ACCOUNT_LOCK = "account.lock"
 AUDIT_EVENT_ACCOUNT_MFA_UPDATE = "account.mfa_update"
@@ -68,6 +70,9 @@ SESSION_REVOKED_REASON_LOGOUT = "logout"
 SESSION_REVOKED_REASON_PASSWORD_CHANGE = "password_change"
 SESSION_REVOKED_REASON_PASSWORD_RESET = "password_reset"
 SESSION_REVOKED_REASON_ACCOUNT_DISABLED = "account_disabled"
+EMAIL_CHANGE_STATUS_PENDING = "pending"
+EMAIL_CHANGE_STATUS_CONFIRMED = "confirmed"
+EMAIL_CHANGE_STATUS_REVOKED = "revoked"
 CONTACT_REVIEW_STATUS_PENDING = "pending"
 CONTACT_REVIEW_STATUS_REVIEWED = "reviewed"
 CONTACT_REVIEW_DECISION_APPROVED = "approved"
@@ -520,6 +525,79 @@ class PatientPortalPasswordResetToken(Base):
     client_reference_hash: Mapped[str | None] = mapped_column(String(HASH_LENGTH), nullable=True)
 
 
+class PatientPortalEmailChangeRequest(Base):
+    """A requested portal email address, held until the new mailbox proves it can receive mail.
+
+    Mirrors `PatientPortalPasswordResetToken`: an opaque one-time token, stored only as a keyed
+    hash, with a short expiry and a partial unique index allowing one pending request per account.
+
+    The pending row carries the phone number too. A contact change is reviewed by staff against
+    the CARLOS chart as a single before/after snapshot, so applying the phone immediately while the
+    email waited would split one change into two reviews with an incoherent "before".
+    """
+
+    __tablename__ = "patient_portal_email_change_requests"
+    __table_args__ = (
+        CheckConstraint(
+            f"length(token_hash) = {HASH_LENGTH}",
+            name="ck_pp_email_change_token_hash_length",
+        ),
+        CheckConstraint(
+            "status in ('pending', 'confirmed', 'revoked')",
+            name="ck_pp_email_change_status",
+        ),
+        CheckConstraint(
+            EXPIRY_AFTER_CREATION_SQL,
+            name="ck_pp_email_change_expires_after_created",
+        ),
+        CheckConstraint(
+            f"length(new_email) between 1 and {MAX_EMAIL_LENGTH}",
+            name="ck_pp_email_change_new_email_length",
+        ),
+        CheckConstraint(
+            "new_phone_number is null or length(new_phone_number) between 1 and 32",
+            name="ck_pp_email_change_new_phone_length",
+        ),
+        CheckConstraint(
+            "status = 'confirmed' or confirmed_at is null",
+            name="ck_pp_email_change_unconfirmed_confirmed_at_null",
+        ),
+        CheckConstraint(
+            "status != 'confirmed' or confirmed_at is not null",
+            name="ck_pp_email_change_confirmed_at_present",
+        ),
+        Index("ux_pp_email_change_token_hash", "token_hash", unique=True),
+        Index("ix_pp_email_change_account_status", "account_id", "status"),
+        Index(
+            "ux_pp_email_change_pending_account",
+            "account_id",
+            unique=True,
+            sqlite_where=text(PENDING_STATUS_SQL),
+            postgresql_where=text(PENDING_STATUS_SQL),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey(ACCOUNT_FOREIGN_KEY_TARGET),
+        nullable=False,
+    )
+    token_hash: Mapped[str] = mapped_column(String(HASH_LENGTH), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    new_email: Mapped[str] = mapped_column(String(MAX_EMAIL_LENGTH), nullable=False)
+    new_phone_number: Mapped[str | None] = mapped_column(
+        String(MAX_PHONE_NUMBER_LENGTH),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class PatientPortalInvite(Base):
     """Staff-created invite for a patient portal account."""
 
@@ -853,6 +931,7 @@ class PatientPortalAuditEvent(Base):
             (
                 "event_type in "
                 "('activation', 'account.contact_update', 'account.disable', "
+                "'account.email_change_confirm', 'account.email_change_request', "
                 "'account.enable', 'account.lock', "
                 "'account.mfa_update', 'account.password_change', 'account.unlock', "
                 "'invite.create', 'invite.list', 'invite.resend', 'invite.revoke', "

@@ -144,6 +144,13 @@ class Settings(BaseSettings):
     mfa_email_resend_cooldown_seconds: int = Field(default=60, ge=30, le=60 * 60)
     mfa_sms_resend_cooldown_seconds: int = Field(default=5 * 60, ge=60, le=60 * 60)
     password_reset_token_ttl_seconds: int = Field(default=60 * 60, ge=300, le=24 * 60 * 60)
+    # Longer than a reset link: the patient has to reach a mailbox they may only check daily, and
+    # nothing is granted by the link beyond confirming the address can receive mail.
+    email_change_token_ttl_seconds: int = Field(
+        default=24 * 60 * 60,
+        ge=300,
+        le=7 * 24 * 60 * 60,
+    )
     password_reset_request_cooldown_seconds: int = Field(
         default=60,
         ge=30,
