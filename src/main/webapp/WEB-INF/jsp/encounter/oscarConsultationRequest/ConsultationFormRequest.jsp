@@ -1746,7 +1746,8 @@
             // clients, and direct requests so a missing value can never discard the referral.
             // See issue #2241.
             var serviceElement = document.EctConsultationFormRequest2Form.service;
-            if (serviceElement) {
+            var isEReferral = document.getElementById('isOceanEReferral') !== null;
+            if (serviceElement && !isEReferral) {
                 var serviceValue = serviceElement.options
                         ? (serviceElement.selectedIndex > 0 ? serviceElement.value : '')
                         : (serviceElement.value || '').trim();

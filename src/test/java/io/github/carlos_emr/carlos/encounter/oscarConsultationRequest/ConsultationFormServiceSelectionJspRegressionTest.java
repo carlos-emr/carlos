@@ -62,8 +62,19 @@ class ConsultationFormServiceSelectionJspRegressionTest {
 
         assertThat(jsp)
                 .contains("var serviceElement = document.EctConsultationFormRequest2Form.service;")
+                .contains("if (serviceElement && !isEReferral) {")
                 .contains("if (serviceValue === '') {")
                 .doesNotContain("if (serviceElement.options.selectedIndex");
+    }
+
+    @Test
+    @DisplayName("An eReferral should allow its service metadata to be blank")
+    void shouldAllowBlankService_whenConsultationIsEReferral() throws Exception {
+        String jsp = Files.readString(CONSULT_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("var isEReferral = document.getElementById('isOceanEReferral') !== null;")
+                .contains("if (serviceElement && !isEReferral) {");
     }
 
     @Test
