@@ -61,6 +61,9 @@ class CaseManagementCppSaveRegressionTest {
                 .doesNotContain("$(\"demographicNo\")")
                 .contains("&& demographicNo")
                 .contains("encodeURIComponent(demographicNo)")
+                .as("both query parameters carry encoded values; reloadURL was already "
+                        + "encoded before #3422 and must stay that way")
+                .contains("encodeURIComponent(ctx + \"/encounter/displayIssues\")")
                 .contains("cmd=unresolvedIssues")
                 .contains("loadDiv('unresolvedIssueslist', reloadUrl, 0)");
     }
@@ -100,7 +103,10 @@ class CaseManagementCppSaveRegressionTest {
                 "maven.multiModuleProjectDirectory",
                 System.getProperty("user.dir"))).toAbsolutePath().normalize();
 
-        for (int depth = 0; depth < 5 && current != null; depth++) {
+        // Walk to the filesystem root. A launcher that starts inside the package
+        // directory sits well below the repository root, so any fixed depth limit
+        // turns a resolvable path into a class-initialization failure.
+        while (current != null) {
             Path candidate = current.resolve(relativePath).normalize();
             if (Files.exists(candidate)) {
                 return candidate;
