@@ -171,13 +171,13 @@ class CombinePDF2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should allow public provider documents")
-    void shouldAllowPublicProviderDocuments() {
+    @DisplayName("should allow public provider documents with mixed-case legacy links")
+    void shouldAllowPublicProviderDocumentsWithMixedCaseLegacyLinks() {
         Document document = new Document();
         document.setPublic1(1);
 
         boolean authorized = action.isAuthorizedDocumentScope(
-                loggedInInfo, document, List.of(providerLink(321, 123456)));
+                loggedInInfo, document, List.of(providerLink("PrOvIdErS", 321, 123456)));
 
         assertThat(authorized).isTrue();
     }
@@ -201,8 +201,12 @@ class CombinePDF2ActionTest extends CarlosUnitTestBase {
     }
 
     private CtlDocument providerLink(Integer documentNo, Integer providerNo) {
+        return providerLink("provider", documentNo, providerNo);
+    }
+
+    private CtlDocument providerLink(String module, Integer documentNo, Integer providerNo) {
         CtlDocument ctlDocument = new CtlDocument();
-        ctlDocument.setId(new CtlDocumentPK("provider", providerNo, documentNo));
+        ctlDocument.setId(new CtlDocumentPK(module, providerNo, documentNo));
         return ctlDocument;
     }
 }

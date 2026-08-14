@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -216,7 +217,7 @@ public class CombinePDF2Action extends ActionSupport {
         }
 
         boolean hasProviderLink = documentLinks.stream()
-                .anyMatch(documentLink -> isProviderModule(documentLink.getId().getModule()));
+                .anyMatch(documentLink -> EDocUtil.isProviderModule(documentLink.getId().getModule()));
         if (!hasProviderLink) {
             return false;
         }
@@ -225,12 +226,8 @@ public class CombinePDF2Action extends ActionSupport {
         }
         Integer providerNo = parseProviderNo(loggedInInfo.getLoggedInProviderNo());
         return providerNo != null && documentLinks.stream()
-                .anyMatch(documentLink -> isProviderModule(documentLink.getId().getModule())
+                .anyMatch(documentLink -> EDocUtil.isProviderModule(documentLink.getId().getModule())
                         && providerNo.equals(documentLink.getId().getModuleId()));
-    }
-
-    private boolean isProviderModule(String module) {
-        return "provider".equals(module) || "providers".equals(module);
     }
 
     private Integer parseProviderNo(String providerNo) {
