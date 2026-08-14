@@ -273,6 +273,68 @@ def test_trusted_proxy_header_and_cidrs_must_be_configured_together() -> None:
         development_settings(trusted_proxy_cidrs="10.0.0.0/8")
 
 
+def test_short_audit_retention_requires_an_explicit_opt_in() -> None:
+    """Retention below the regulatory default must be deliberate, not a typo."""
+    with pytest.raises(ValidationError, match="ALLOW_SHORT_AUDIT_RETENTION"):
+        development_settings(audit_retention_days=365)
+
+    settings = development_settings(
+        audit_retention_days=365,
+        allow_short_audit_retention=True,
+    )
+
+    assert settings.audit_retention_days == 365
+    assert settings.audit_retention_is_shortened is True
+    # The opt-out does not remove the floor entirely: a trail too short to investigate a live
+    # incident is not a supported configuration either.
+    with pytest.raises(ValidationError):
+        development_settings(audit_retention_days=1, allow_short_audit_retention=True)
+
+
+def test_short_audit_retention_is_recorded_in_the_audit_trail() -> None:
+    """Narrowing the security trail must itself be visible in the trail.
+
+    Asserted through a started app, not Settings, because the point is that the row exists by the
+    time the portal serves traffic — an operator asking later why an event is missing needs to find
+    this without access to the deployment's environment.
+    """
+    app = migrated_development_app(
+        audit_retention_days=365,
+        allow_short_audit_retention=True,
+    )
+    # Queried inside the client context: leaving it runs the lifespan teardown, which disposes
+    # the engine and takes the in-memory database with it.
+    with TestClient(app):
+        with app.state.session_factory() as session:
+            events = list(
+                session.scalars(
+                    select(PatientPortalAuditEvent).where(
+                        PatientPortalAuditEvent.event_type == "retention.policy_override"
+                    )
+                )
+            )
+
+    assert len(events) == 1
+    assert events[0].actor_type == "system"
+    assert events[0].outcome == AUDIT_OUTCOME_SUCCESS
+    assert events[0].reason == "retention_days=365"
+
+
+def test_default_audit_retention_records_no_override_event() -> None:
+    app = migrated_development_app()
+    with TestClient(app):
+        with app.state.session_factory() as session:
+            events = list(
+                session.scalars(
+                    select(PatientPortalAuditEvent).where(
+                        PatientPortalAuditEvent.event_type == "retention.policy_override"
+                    )
+                )
+            )
+
+    assert events == []
+
+
 def test_password_hash_cost_is_configurable_and_reaches_the_hasher() -> None:
     """Peak hashing memory is max_concurrency * memory_kib, so a deployment must be able to size it.
 
@@ -520,7 +582,9 @@ def test_hardening_settings_are_bounded() -> None:
         development_settings(global_rate_limit_window_seconds=0)
     with pytest.raises(ValidationError, match="global_rate_limit_max_requests"):
         development_settings(global_rate_limit_max_requests=0)
-    with pytest.raises(ValidationError, match="audit_retention_days"):
+    # 25 * 365 under-retains by the six leap days in a 25-year span, so it is still refused —
+    # now by the opt-in check rather than a bare field bound. See the retention tests above.
+    with pytest.raises(ValidationError, match="ALLOW_SHORT_AUDIT_RETENTION"):
         development_settings(audit_retention_days=25 * 365)
     with pytest.raises(ValidationError, match="maintenance_retry_after_seconds"):
         development_settings(maintenance_retry_after_seconds=59)

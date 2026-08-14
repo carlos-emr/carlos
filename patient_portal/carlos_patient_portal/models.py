@@ -24,6 +24,8 @@ ACCOUNT_STATUS_ACTIVE = "active"
 ACCOUNT_STATUS_DISABLED = "disabled"
 AUDIT_ACTOR_TYPE_PATIENT = "patient"
 AUDIT_ACTOR_TYPE_STAFF = "staff"
+# The portal itself, for events no human initiated — a configuration policy recorded at startup.
+AUDIT_ACTOR_TYPE_SYSTEM = "system"
 AUDIT_EVENT_ACTIVATION = "activation"
 AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE = "account.contact_update"
 AUDIT_EVENT_ACCOUNT_DISABLE = "account.disable"
@@ -46,6 +48,7 @@ AUDIT_EVENT_MFA_VERIFY = "mfa.verify"
 AUDIT_EVENT_PASSWORD_RESET_COMPLETE = "password_reset.complete"
 AUDIT_EVENT_PASSWORD_RESET_DELIVERY = "password_reset.delivery"
 AUDIT_EVENT_PASSWORD_RESET_REQUEST = "password_reset.request"
+AUDIT_EVENT_RETENTION_POLICY_OVERRIDE = "retention.policy_override"
 AUDIT_EVENT_SESSION_LOGOUT = "session.logout"
 AUDIT_EVENT_STAFF_ACTION = "staff.action"
 AUDIT_EVENT_FHIR_READ = "fhir.read"
@@ -174,7 +177,11 @@ class PatientPortalAccount(Base):
             "demographic_no",
             name="ux_patient_portal_accounts_clinic_demographic",
         ),
-        UniqueConstraint("username", name="ux_patient_portal_accounts_username"),
+        # Scoped by clinic like every other uniqueness rule in this file. The deployment model is
+        # one database per clinic, under which a global index would also work — but leaving this
+        # one rule single-tenant made the schema disagree with itself, and it is the constraint a
+        # future shared-database mode would silently collide on.
+        UniqueConstraint("clinic_id", "username", name="ux_patient_portal_accounts_username"),
         Index("ix_patient_portal_accounts_status", "status"),
     )
 
@@ -937,7 +944,7 @@ class PatientPortalAuditEvent(Base):
                 "'invite.create', 'invite.list', 'invite.resend', 'invite.revoke', "
                 "'login', 'mfa.challenge', 'mfa.delivery', 'mfa.resend', 'mfa.verify', "
                 "'password_reset.complete', 'password_reset.delivery', "
-                "'password_reset.request', 'session.logout', "
+                "'password_reset.request', 'retention.policy_override', 'session.logout', "
                 "'staff.action', "
                 "'fhir.read', 'fhir.search', "
                 "'unlock_secret.create', 'unlock_secret.list', 'unlock_secret.read', "
@@ -950,7 +957,7 @@ class PatientPortalAuditEvent(Base):
             name="ck_patient_portal_audit_events_outcome",
         ),
         CheckConstraint(
-            "actor_type in ('patient', 'staff')",
+            "actor_type in ('patient', 'staff', 'system')",
             name="ck_patient_portal_audit_events_actor_type",
         ),
         CheckConstraint(

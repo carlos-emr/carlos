@@ -305,9 +305,14 @@ Pilot hardening defaults:
 - `PATIENT_PORTAL_MAINTENANCE_MODE=true` returns `503` and `Retry-After` on patient-facing routes
   while keeping `/health`, `/internal/health/db`, and `/internal/readiness` available. Tune the
   retry hint with `PATIENT_PORTAL_MAINTENANCE_RETRY_AFTER_SECONDS`.
-- `PATIENT_PORTAL_AUDIT_RETENTION_DAYS` defaults to a conservative 9,150 days and cannot be
-  configured lower. This guarantees at least 25 complete calendar years, including leap years.
-  Audit pruning is explicit so clinics can align the job with legal-retention processes.
+- `PATIENT_PORTAL_AUDIT_RETENTION_DAYS` defaults to a conservative 9,150 days, which guarantees at
+  least 25 complete calendar years including leap years. Retention obligations run both ways —
+  PHIPA/PIPEDA set a minimum, while privacy law and clinic policy can require deletion — so a
+  shorter value is configurable, but only with `PATIENT_PORTAL_ALLOW_SHORT_AUDIT_RETENTION=true`
+  and never below 30 days. A shortened retention is logged at startup as a warning and written to
+  the audit trail as a `retention.policy_override` event, so narrowing the security log is itself
+  visible in the security log. Audit pruning stays explicit so clinics can align the job with
+  legal-retention processes.
 - Requests emit PHI-safe structured log records containing a generated/canonical request ID,
   route template, method, status, and duration. `/internal/metrics` exposes aggregate status-class
   and delivery-failure counters without patient identifiers.

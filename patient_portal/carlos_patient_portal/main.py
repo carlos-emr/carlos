@@ -20,7 +20,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import Engine
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response
@@ -34,7 +34,11 @@ from carlos_patient_portal.auth import (
     PortalSessionInvalidError,
     authenticate_session_token,
 )
-from carlos_patient_portal.config import Settings, get_settings
+from carlos_patient_portal.config import (
+    DEFAULT_AUDIT_RETENTION_DAYS,
+    Settings,
+    get_settings,
+)
 from carlos_patient_portal.credentials import configure_password_hashing
 from carlos_patient_portal.database import (
     create_portal_engine,
@@ -46,9 +50,12 @@ from carlos_patient_portal.internal_routes import register_carlos_internal_route
 from carlos_patient_portal.invites import normalize_staff_actor
 from carlos_patient_portal.models import (
     AUDIT_ACTOR_TYPE_PATIENT,
+    AUDIT_ACTOR_TYPE_SYSTEM,
     AUDIT_EVENT_FHIR_SEARCH,
     AUDIT_EVENT_LOGIN,
+    AUDIT_EVENT_RETENTION_POLICY_OVERRIDE,
     AUDIT_OUTCOME_FAILURE,
+    AUDIT_OUTCOME_SUCCESS,
 )
 from carlos_patient_portal.presenters import assemble_email_password_dashboard
 from carlos_patient_portal.routes.activation import register_activation_routes
@@ -206,9 +213,53 @@ def build_portal_runtime(
     )
 
 
-def build_lifespan(database_engine: Engine) -> Callable[[FastAPI], AsyncGenerator[None, None]]:
+def record_audit_retention_override(runtime: PortalRuntime) -> None:
+    """Log and audit a deployment running below the regulatory-default audit retention.
+
+    Shortening retention is a legitimate response to a deletion obligation, but it narrows the
+    security trail, so it must not be a silent property of an environment variable. Written into
+    the trail itself so the shortening is visible to whoever later asks why an event is missing.
+
+    Best-effort: a portal that cannot write this row must still start, because refusing to boot
+    would turn a database hiccup into an outage. The log line survives either way.
+    """
+    settings = runtime.settings
+    if not settings.audit_retention_is_shortened:
+        return
+    logger.warning(
+        "Audit retention is configured below the regulatory default: %s days (default %s)",
+        settings.audit_retention_days,
+        DEFAULT_AUDIT_RETENTION_DAYS,
+    )
+    try:
+        with runtime.session_factory() as session:
+            with session.begin():
+                record_audit_event(
+                    session,
+                    event_type=AUDIT_EVENT_RETENTION_POLICY_OVERRIDE,
+                    outcome=AUDIT_OUTCOME_SUCCESS,
+                    actor_type=AUDIT_ACTOR_TYPE_SYSTEM,
+                    actor="configuration",
+                    clinic_id=settings.clinic_id,
+                    resource_type="audit_retention",
+                    reason=f"retention_days={settings.audit_retention_days}",
+                )
+    except SQLAlchemyError as exc:
+        runtime.operational_metrics.record_failure("retention_policy_audit")
+        logger.error(
+            "Audit-retention override could not be recorded: %s",
+            type(exc).__name__,
+        )
+
+
+def build_lifespan(
+    database_engine: Engine,
+    runtime: PortalRuntime | None = None,
+) -> Callable[[FastAPI], AsyncGenerator[None, None]]:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
+        if runtime is not None:
+            record_audit_retention_override(runtime)
         try:
             yield
         finally:
@@ -711,7 +762,7 @@ def create_app(
         docs_url="/api/docs" if settings.is_development else None,
         redoc_url="/api/redoc" if settings.is_development else None,
         openapi_url="/api/openapi.json" if settings.is_development else None,
-        lifespan=build_lifespan(runtime.database_engine),
+        lifespan=build_lifespan(runtime.database_engine, runtime),
     )
     app.state.settings = settings
     app.state.database_engine = runtime.database_engine

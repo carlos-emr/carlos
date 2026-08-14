@@ -81,6 +81,21 @@ def validate_username(username: str) -> str:
 
 
 def validate_password(password: str) -> str:
+    """Enforce the portal's password policy.
+
+    The composition rules below (upper, lower, digit, symbol) are kept deliberately, and are worth
+    a note because they run against current guidance: NIST SP 800-63B section 5.1.1.2 recommends
+    *against* composition rules and *for* a length minimum plus a breached-password check, on the
+    evidence that composition rules push users toward `Password1!` shapes.
+
+    They are retained for the pilot because the better replacement is a breached-password check,
+    which the portal does not have yet and which needs a wordlist, a refresh story, and an offline
+    lookup path before it can be relied on. Removing the rules before that lands would weaken the
+    policy rather than modernise it. The stronger half of the guidance is already in place: a
+    12-character minimum, Argon2id, mandatory MFA, and account lockout.
+
+    Do not "fix" this by deleting the class checks on their own — replace them with the blocklist.
+    """
     if len(password) < MIN_PASSWORD_LENGTH:
         raise ValueError(f"password must be at least {MIN_PASSWORD_LENGTH} characters")
     if len(password) > MAX_PASSWORD_LENGTH:

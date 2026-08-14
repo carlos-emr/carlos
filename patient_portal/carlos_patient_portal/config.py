@@ -34,6 +34,10 @@ MAX_CLINIC_ID_LENGTH = 64
 # A conservative day count guarantees at least 25 complete calendar years,
 # including every leap-day distribution, before an event becomes eligible.
 DEFAULT_AUDIT_RETENTION_DAYS = 25 * 366
+# The floor a deployment may reach only by setting PATIENT_PORTAL_ALLOW_SHORT_AUDIT_RETENTION.
+# Not zero: a clinic acting on a deletion obligation still needs enough trail to investigate a
+# live incident, and a value under a month makes the security log useless for that.
+MIN_AUDIT_RETENTION_DAYS = 30
 # Loopback only: a Host header an attacker could poison into a patient-visible link is useless if
 # it points back at the patient's own machine. Real deployments add pod IPs/service names here.
 DEFAULT_PROBE_ALLOWED_HOSTS = ("127.0.0.1", "localhost", "[::1]")
@@ -188,11 +192,15 @@ class Settings(BaseSettings):
     auth_rate_limit_window_seconds: int = Field(default=60, ge=1, le=60 * 60)
     auth_rate_limit_max_requests: int = Field(default=10, ge=1, le=100)
     rate_limit_max_buckets: int = Field(default=10_000, ge=100, le=1_000_000)
+    # Retention law cuts both ways: PHIPA/PIPEDA set a *minimum*, but privacy law and clinic policy
+    # can create deletion obligations the portal must not make unimplementable. The default is the
+    # safe one and shortening it requires an explicit, audited opt-in rather than direct SQL.
     audit_retention_days: int = Field(
         default=DEFAULT_AUDIT_RETENTION_DAYS,
-        ge=DEFAULT_AUDIT_RETENTION_DAYS,
+        ge=MIN_AUDIT_RETENTION_DAYS,
         le=100 * 366,
     )
+    allow_short_audit_retention: bool = False
     maintenance_mode: bool = False
     maintenance_retry_after_seconds: int = Field(default=5 * 60, ge=60, le=24 * 60 * 60)
 
@@ -705,8 +713,33 @@ class Settings(BaseSettings):
         if self.is_production and self.internal_api_token is None:
             raise ValueError("PATIENT_PORTAL_INTERNAL_API_TOKEN must be set in production")
 
+    def validate_audit_retention_policy(self) -> None:
+        """Require an explicit opt-in before retention drops below the regulatory default.
+
+        A clinic acting on a deletion obligation has a legitimate reason to shorten this, so it
+        must be reachable through configuration rather than direct SQL. It must not be reachable
+        by accident, which is what a bare `ge=` bound could not express: with only a floor, a typo
+        was rejected and a deliberate policy change was impossible. With the opt-in, both are
+        distinguishable and the deliberate case is recorded (see `audit_retention_is_shortened`).
+        """
+        if (
+            self.audit_retention_days < DEFAULT_AUDIT_RETENTION_DAYS
+            and not self.allow_short_audit_retention
+        ):
+            raise ValueError(
+                "PATIENT_PORTAL_AUDIT_RETENTION_DAYS below "
+                f"{DEFAULT_AUDIT_RETENTION_DAYS} requires "
+                "PATIENT_PORTAL_ALLOW_SHORT_AUDIT_RETENTION=true"
+            )
+
+    @property
+    def audit_retention_is_shortened(self) -> bool:
+        """Whether this deployment runs below the regulatory-default retention."""
+        return self.audit_retention_days < DEFAULT_AUDIT_RETENTION_DAYS
+
     @model_validator(mode="after")
     def reject_unsafe_runtime_policy(self) -> "Settings":
+        self.validate_audit_retention_policy()
         self.validate_secret_policy()
         self.validate_required_production_services()
         self.validate_internal_api_rotation_policy()
