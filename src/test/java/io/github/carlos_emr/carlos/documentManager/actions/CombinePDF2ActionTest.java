@@ -101,4 +101,28 @@ class CombinePDF2ActionTest extends CarlosUnitTestBase {
         verify(outboundEmailArchiveDao).findExistingDocumentNos(List.of(321));
         verifyNoInteractions(documentDao);
     }
+
+    @Test
+    @DisplayName("should reject invalid document numbers before querying archives")
+    void shouldRejectInvalidDocumentNumbersBeforeQueryingArchives() {
+        request.setParameter("docNo", "not-a-number");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(outboundEmailArchiveDao, documentDao);
+    }
+
+    @Test
+    @DisplayName("should reject missing documents before resolving their paths")
+    void shouldRejectMissingDocumentsBeforeResolvingPaths() {
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321))).thenReturn(Set.of());
+        when(documentDao.find(321)).thenReturn(null);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+    }
 }

@@ -81,6 +81,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     private static final String AUDIT_ARCHIVE_ID_PREFIX = "archiveId=";
     private static final String AUDIT_ARCHIVE_LABEL = "Outbound email archive";
     private static final String AUDIT_DOCUMENT_NO_PREFIX = " documentNo=";
+    private static final String AUDIT_INTEGRITY_FAILURE_REASON = " reason=integrity-check-failed";
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
     private static final int MAX_CONTENT_TYPE_LENGTH = 100;
     private static final String DOCUMENT_DIR_PROPERTY = "DOCUMENT_DIR";
@@ -846,7 +847,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
                 AUDIT_ARCHIVE_LABEL,
                 AUDIT_ARCHIVE_ID_PREFIX + archive.getId()
                         + AUDIT_DOCUMENT_NO_PREFIX + (document != null ? document.getId() : "")
-                        + " reason=" + failure.getMessage(),
+                        + AUDIT_INTEGRITY_FAILURE_REASON,
                 demographicNo(archive),
                 "");
     }

@@ -623,7 +623,8 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         try {
             Files.createSymbolicLink(archivePath, target.getFileName());
         } catch (UnsupportedOperationException | IOException e) {
-            return;
+            org.junit.jupiter.api.Assumptions.assumeTrue(
+                    false, "Symbolic links unavailable: " + e.getClass().getSimpleName());
         }
         when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(activeArchive());
 
@@ -674,8 +675,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
                 "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
                 "Outbound email archive",
-                "archiveId=888 documentNo=321 reason=Archived artifact exceeds maximum read size of "
-                        + TEST_MAX_ARCHIVED_ARTIFACT_BYTES + " bytes",
+                "archiveId=888 documentNo=321 reason=integrity-check-failed",
                 "123",
                 ""));
     }
@@ -695,7 +695,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
                 "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
                 "Outbound email archive",
-                "archiveId=888 documentNo=321 reason=Archived artifact size does not match archive metadata",
+                "archiveId=888 documentNo=321 reason=integrity-check-failed",
                 "123",
                 ""));
     }
@@ -717,7 +717,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
                 "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
                 "Outbound email archive",
-                "archiveId=888 documentNo=321 reason=Archived artifact hash does not match archive metadata",
+                "archiveId=888 documentNo=321 reason=integrity-check-failed",
                 "123",
                 ""));
     }
@@ -736,7 +736,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
                 "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
                 "Outbound email archive",
-                "archiveId=888 documentNo=321 reason=Archived artifact byte size is missing",
+                "archiveId=888 documentNo=321 reason=integrity-check-failed",
                 "123",
                 ""));
     }
@@ -755,7 +755,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
                 "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
                 "Outbound email archive",
-                "archiveId=888 documentNo=321 reason=Archived artifact SHA-256 hash is invalid",
+                "archiveId=888 documentNo=321 reason=integrity-check-failed",
                 "123",
                 ""));
     }

@@ -53,7 +53,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
-import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
@@ -90,7 +89,8 @@ public class CombinePDF2Action extends ActionSupport {
                 try {
                     documentNos.add(Integer.valueOf(file));
                 } catch (NumberFormatException e) {
-                    // Invalid IDs are omitted from the archive query and normalize to document 0 below.
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
                 }
             }
             Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(documentNos);
@@ -98,12 +98,20 @@ public class CombinePDF2Action extends ActionSupport {
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 return NONE;
             }
+            List<Document> documents = new ArrayList<>();
+            for (Integer documentNo : documentNos) {
+                Document document = documentDao.find(documentNo);
+                if (document == null || document.getDocfilename() == null || document.getDocfilename().isBlank()) {
+                    response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                    return NONE;
+                }
+                documents.add(document);
+            }
             File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
             Path filePath;
-            for (int i = 0; i < files.length; i++) {
-                Document document = documentDao.find(ConversionUtils.fromIntString(files[i]));
-                String filename = document != null ? document.getDocfilename() : null;
-                filePath = PathValidationUtils.validateExistingPath(new File(documentDir, filename), documentDir).toPath();
+            for (Document document : documents) {
+                filePath = PathValidationUtils.validateExistingPath(
+                        new File(documentDir, document.getDocfilename()), documentDir).toPath();
                 alist.add(filePath.toAbsolutePath().toString());
             }
             if (alist.size() > 0) {
