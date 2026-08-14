@@ -26,6 +26,7 @@
     {"path": "PID-13.3", "value": "Internet", "description": "Email equipment type"},
     {"path": "PV1-2", "value": "O", "description": "Outpatient patient class"}
   ],
+  "single_valued_fields": ["PID-5", "PID-13", "PID-7"],
   "required_fields": [
     {"path": "MSH-4", "description": "Sending facility/clinic id"},
     {"path": "MSH-6", "description": "Receiving facility/clinic id"},

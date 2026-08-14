@@ -1,5 +1,6 @@
 """Patient-scoped FHIR R4 routes and the HL7 v2.5.1 conformance artifact."""
 
+import json
 from datetime import UTC, datetime
 
 import pytest
@@ -27,6 +28,7 @@ from carlos_patient_portal.interop import (
     build_fhir_r4_practitioner,
     build_hl7_v251_patient_registration,
     load_hl7_v251_patient_registration_profile,
+    normalize_patient_name_part,
     validate_hl7_v251_message,
     validate_hl7_v251_patient_registration_profile,
 )
@@ -577,6 +579,113 @@ def test_hl7_patient_identity_rejects_unsafe_hl7_values() -> None:
             message_time=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
             message_control_id="MSG0001",
         )
+
+
+def test_hl7_patient_identity_rejects_control_characters_in_names() -> None:
+    """NUL is not an HL7 separator, so the separator check alone let it into PID-5.
+
+    A C-based HL7 receiver treats NUL as string termination and silently truncates PID-5 and
+    everything after it in that field — a wrong patient name on an identity-registration message.
+    The same value serialises into FHIR ``Patient.name.family`` as ``\\u0000``, which PostgreSQL
+    ``text`` columns reject outright. Neither is a separator, so the whole C0/C1 range has to go.
+    """
+    def build_identity(family_name: str) -> PortalPatientInteroperabilityIdentity:
+        return PortalPatientInteroperabilityIdentity(
+            clinic_id="default",
+            demographic_no=1234,
+            email=SEEDED_INVITE_EMAIL,
+            date_of_birth=datetime.fromisoformat(SEEDED_INVITE_DOB).date(),
+            health_card_number=SEEDED_INVITE_HCN,
+            family_name=family_name,
+            given_name="Example",
+        )
+
+    # \r is the HL7 segment separator, so it is present in every message by construction. Count
+    # only characters this name *added* to the encoding.
+    baseline_message = build_hl7_v251_patient_registration(
+        build_identity("Patient"),
+        message_time=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
+        message_control_id="MSG0001",
+    )
+    control_characters = [chr(code) for code in [*range(0x00, 0x20), *range(0x7F, 0xA0)]]
+    survivors: list[str] = []
+    for control_character in control_characters:
+        identity = PortalPatientInteroperabilityIdentity(
+            clinic_id="default",
+            demographic_no=1234,
+            email=SEEDED_INVITE_EMAIL,
+            date_of_birth=datetime.fromisoformat(SEEDED_INVITE_DOB).date(),
+            health_card_number=SEEDED_INVITE_HCN,
+            family_name=f"Pat{control_character}ient",
+            given_name="Example",
+        )
+        # Either outcome is safe: the ones Python treats as whitespace are collapsed to a space
+        # before they can reach a field, and the rest — NUL among them — must be refused. What
+        # must never happen is one reaching PID-5 or Patient.name.family verbatim.
+        try:
+            hl7_message = build_hl7_v251_patient_registration(
+                identity,
+                message_time=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
+                message_control_id="MSG0001",
+            )
+            fhir_patient = build_fhir_r4_patient(identity)
+        except ValueError:
+            continue
+        added_to_hl7 = hl7_message.count(control_character) > baseline_message.count(
+            control_character
+        )
+        if added_to_hl7 or control_character in json.dumps(fhir_patient):
+            survivors.append(control_character)
+
+    assert survivors == []
+    # NUL specifically: not whitespace, so nothing collapses it, and it terminates a string in a
+    # C-based receiver. It has to be an outright refusal.
+    with pytest.raises(ValueError, match="family_name"):
+        normalize_patient_name_part("Pat\x00ient", "family_name")
+
+
+def test_hl7_profile_rejects_conflicting_field_repetitions() -> None:
+    """A second repetition must not ride along unchecked on a message we certify as conformant.
+
+    ``fixed_fields`` compared only the first repetition, so appending a conflicting one passed.
+    A consumer that takes the last PID-3 MR repetition would bind the record to the wrong
+    demographic — a cross-patient merge on a message the portal declared conformant.
+    """
+    identity = PortalPatientInteroperabilityIdentity(
+        clinic_id="default",
+        demographic_no=1234,
+        email=SEEDED_INVITE_EMAIL,
+        date_of_birth=datetime.fromisoformat(SEEDED_INVITE_DOB).date(),
+        health_card_number=SEEDED_INVITE_HCN,
+        family_name="Patient",
+        given_name="Example",
+    )
+    hl7_message = build_hl7_v251_patient_registration(
+        identity,
+        message_time=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
+        message_control_id="MSG0001",
+    )
+
+    # A second, conflicting MR identifier for a different demographic.
+    conflicting_identifier = hl7_message.replace(
+        "1234^^^default^MR",
+        "1234^^^default^MR~9999^^^default^MR",
+        1,
+    )
+    # A second, unvalidated contact address alongside the patient's own. Every component the
+    # profile pins (NET, Internet) is identical, so only a cardinality check catches this.
+    conflicting_contact = hl7_message.replace(
+        f"^NET^Internet^{SEEDED_INVITE_EMAIL}",
+        f"^NET^Internet^{SEEDED_INVITE_EMAIL}~^NET^Internet^attacker@evil.example",
+        1,
+    )
+
+    assert conflicting_identifier != hl7_message
+    assert conflicting_contact != hl7_message
+    with pytest.raises(Hl7ConformanceProfileError, match="PID-3"):
+        validate_hl7_v251_patient_registration_profile(conflicting_identifier)
+    with pytest.raises(Hl7ConformanceProfileError, match="PID-13"):
+        validate_hl7_v251_patient_registration_profile(conflicting_contact)
 
 
 def test_oversized_and_malformed_resource_ids_are_audited_not_five_hundreds() -> None:

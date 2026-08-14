@@ -54,6 +54,11 @@ MAX_PATIENT_NAME_LENGTH = 128
 MAX_HL7_NAMESPACE_ID_LENGTH = 20
 HL7_SEPARATOR_PATTERN = re.compile(r"[|^~\\&\r\n]")
 HL7_NAMESPACE_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
+# C0 and C1 control characters. None of these are HL7 separators, so the separator check above does
+# not see them, but NUL terminates a string in a C-based HL7 receiver — silently truncating PID-5
+# and everything after it in that field — and the same value is rejected outright by PostgreSQL
+# `text` columns on the FHIR side. Whitespace controls are already collapsed before this runs.
+HL7_CONTROL_CHARACTER_PATTERN = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 
 @dataclass(frozen=True)
@@ -71,6 +76,11 @@ class Hl7ConformanceProfileError(ValueError):
     """Raised when an HL7 message fails the CARLOS-owned conformance profile."""
 
 
+def reject_control_characters(value: str, field_name: str) -> None:
+    if HL7_CONTROL_CHARACTER_PATTERN.search(value) is not None:
+        raise ValueError(f"{field_name} must not contain control characters")
+
+
 def normalize_patient_name_part(value: str, field_name: str) -> str:
     normalized_value = " ".join(value.strip().split())
     if not normalized_value:
@@ -79,6 +89,7 @@ def normalize_patient_name_part(value: str, field_name: str) -> str:
         raise ValueError(f"{field_name} must be {MAX_PATIENT_NAME_LENGTH} characters or fewer")
     if HL7_SEPARATOR_PATTERN.search(normalized_value) is not None:
         raise ValueError(f"{field_name} must not contain HL7 separator characters")
+    reject_control_characters(normalized_value, field_name)
     return normalized_value
 
 
@@ -88,6 +99,7 @@ def normalize_fhir_display_text(value: str, field_name: str) -> str:
         raise ValueError(f"{field_name} must not be blank")
     if len(normalized_value) > MAX_PATIENT_NAME_LENGTH:
         raise ValueError(f"{field_name} must be {MAX_PATIENT_NAME_LENGTH} characters or fewer")
+    reject_control_characters(normalized_value, field_name)
     return normalized_value
 
 
@@ -467,14 +479,23 @@ def get_hl7_component_value(field: Field, component_number: str) -> str:
     return ""
 
 
-def get_hl7_profile_path_value(message: Message, path: str) -> str:
+def get_hl7_profile_path_values(message: Message, path: str) -> list[str]:
+    """Every repetition's value at `path`, not just the first.
+
+    A profile check that reads only `repetitions[0]` certifies a message whose second repetition
+    says something else entirely, which is how a conflicting identifier or an extra contact address
+    rides along on a message the portal declared conformant.
+    """
     field_path, _, component_number = path.partition(".")
     repetitions = get_hl7_field_repetitions(message, field_path)
-    if not repetitions:
-        return ""
     if not component_number:
-        return repetitions[0].to_er7()
-    return get_hl7_component_value(repetitions[0], component_number)
+        return [repetition.to_er7() for repetition in repetitions]
+    return [get_hl7_component_value(repetition, component_number) for repetition in repetitions]
+
+
+def get_hl7_profile_path_value(message: Message, path: str) -> str:
+    values = get_hl7_profile_path_values(message, path)
+    return values[0] if values else ""
 
 
 def resolve_hl7_profile_expected_value(message: Message, value: object) -> str:
@@ -531,9 +552,21 @@ def validate_hl7_v251_patient_registration_profile(
             continue
         path = str(fixed_field.get("path", ""))
         expected_value = resolve_hl7_profile_expected_value(message, fixed_field.get("value", ""))
-        actual_value = get_hl7_profile_path_value(message, path)
-        if actual_value != expected_value:
-            errors.append(f"{path} expected {expected_value!r}, got {actual_value!r}")
+        actual_values = get_hl7_profile_path_values(message, path) or [""]
+        # Every repetition has to match, not just the first: a conforming first repetition must not
+        # vouch for whatever follows it.
+        for actual_value in actual_values:
+            if actual_value != expected_value:
+                errors.append(f"{path} expected {expected_value!r}, got {actual_value!r}")
+
+    for single_valued_field in get_hl7_profile_entries(profile_payload, "single_valued_fields"):
+        path = str(single_valued_field)
+        repetition_count = len(get_hl7_field_repetitions(message, path))
+        if repetition_count > 1:
+            # The extra repetition may be identical in every component the profile pins and still
+            # carry a different address or identifier in one it does not, so cardinality has to be
+            # checked directly rather than inferred from the fixed-field comparisons.
+            errors.append(f"{path} must not repeat, got {repetition_count} repetitions")
 
     for required_field in get_hl7_profile_entries(profile_payload, "required_fields"):
         if not isinstance(required_field, dict):
@@ -553,15 +586,24 @@ def validate_hl7_v251_patient_registration_profile(
             message,
             required_identifier.get("assigning_authority", ""),
         )
-        matching_identifier = any(
+        matching_identifiers = [
             get_hl7_component_value(identifier, "1")
+            for identifier in get_hl7_field_repetitions(message, field_path)
+            if get_hl7_component_value(identifier, "1")
             and get_hl7_component_value(identifier, "4") == expected_assigning_authority
             and get_hl7_component_value(identifier, "5") == expected_identifier_type
-            for identifier in get_hl7_field_repetitions(message, field_path)
-        )
-        if not matching_identifier:
+        ]
+        if not matching_identifiers:
             errors.append(
                 f"{field_path} requires {expected_identifier_type!r} identifier "
+                f"from {expected_assigning_authority!r}"
+            )
+        elif len(set(matching_identifiers)) > 1:
+            # Two different identifiers of the same type from the same authority. A consumer that
+            # takes the last repetition binds the record to a different patient than one taking
+            # the first, so this cannot be certified as conformant either way.
+            errors.append(
+                f"{field_path} has conflicting {expected_identifier_type!r} identifiers "
                 f"from {expected_assigning_authority!r}"
             )
 
