@@ -17,6 +17,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Locale;
@@ -98,12 +99,18 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
         try {
             applyPermissionsIfSupported(workingDirectory, OWNER_DIRECTORY_PERMISSIONS);
             createActiveLease(workingDirectory);
+            Path realWorkingDirectory = workingDirectory.toRealPath(LinkOption.NOFOLLOW_LINKS);
+            if (Files.isSymbolicLink(realWorkingDirectory)
+                    || !Files.isDirectory(realWorkingDirectory, LinkOption.NOFOLLOW_LINKS)
+                    || !realWorkingDirectory.getParent().equals(root)) {
+                throw new IOException("Email compose working directory is not secure");
+            }
+            return new EmailComposeWorkingDirectory(root, realWorkingDirectory);
         } catch (IOException | RuntimeException e) {
             deleteAfterFailedCreation(workingDirectory.resolve(ACTIVE_LEASE_FILE_NAME), e);
             deleteAfterFailedCreation(workingDirectory, e);
             throw e;
         }
-        return new EmailComposeWorkingDirectory(root.toRealPath(), workingDirectory.toRealPath());
     }
 
     /**
@@ -315,15 +322,21 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
             // Existing roots are allowed only after the same no-follow validation as new roots.
         }
         Path secureRoot = validateSecureDirectory(candidate, realParent);
-        java.nio.file.attribute.UserPrincipal owner = null;
-        try {
-            owner = Files.getOwner(secureRoot, LinkOption.NOFOLLOW_LINKS);
-        } catch (UnsupportedOperationException e) {
-            // The platform does not expose file ownership; unique creation and permissions still apply.
-        }
-        String jvmUser = System.getProperty("user.name");
-        if (jvmUser != null && owner != null && !jvmUser.equals(owner.getName())) {
-            throw new IOException("CARLOS application temp root is owned by another user");
+        PosixFileAttributeView posixView = Files.getFileAttributeView(
+                secureRoot,
+                PosixFileAttributeView.class,
+                LinkOption.NOFOLLOW_LINKS);
+        if (posixView != null) {
+            java.nio.file.attribute.UserPrincipal owner = null;
+            try {
+                owner = Files.getOwner(secureRoot, LinkOption.NOFOLLOW_LINKS);
+            } catch (UnsupportedOperationException e) {
+                // The platform does not expose file ownership; unique creation and permissions still apply.
+            }
+            String jvmUser = System.getProperty("user.name");
+            if (jvmUser != null && owner != null && !jvmUser.equals(owner.getName())) {
+                throw new IOException("CARLOS application temp root is owned by another user");
+            }
         }
         applyPermissionsIfSupported(secureRoot, OWNER_DIRECTORY_PERMISSIONS);
         return validateSecureDirectory(secureRoot, realParent);
