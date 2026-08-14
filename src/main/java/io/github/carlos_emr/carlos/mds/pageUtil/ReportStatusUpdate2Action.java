@@ -99,6 +99,9 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         }
 
         try {
+            // A real acknowledgement failure throws (handled below); updateReportStatus otherwise
+            // persists the status. Its boolean is not an ack-success signal — do not gate the
+            // response on it.
             CommonLabResultData.updateReportStatus(labNo, providerNo, status, comment, lab_type);
             if (multiID != null) {
                 String[] id = multiID.split(",");

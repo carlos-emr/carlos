@@ -111,7 +111,10 @@ class UploadActionBindingSecurityUnitTest {
                 "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/Upload2Action.java",
                 // View gates that render upload forms but do not receive multipart files.
                 "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/ViewBenefitScheduleUpload2Action.java",
-                "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/BillingOnUpload2Action.java"
+                "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/BillingOnUpload2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/lab/gate/ViewInsideLabUpload2Action.java",
+                // Form XML import page gate; the sibling FrmXmlUpload2Action receives multipart data.
+                "src/main/java/io/github/carlos_emr/carlos/form/gate/ViewFormXmlUpload2Action.java"
         );
     }
 
