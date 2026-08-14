@@ -47,6 +47,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -114,6 +115,18 @@ public class EctDisplayAction extends ActionSupport {
             }
         }
 
+    }
+
+    /**
+     * Package-private accessor for the chained-command-to-endpoint map, used by
+     * routing regression tests instead of reflecting into the private static field.
+     *
+     * @return unmodifiable view of the action-name-to-endpoint map, or null if no
+     *         EctDisplayAction subclass has been constructed yet
+     * @since 2026-08-14
+     */
+    static Map<String, String> getActions() {
+        return Actions == null ? null : Collections.unmodifiableMap(Actions);
     }
 
     

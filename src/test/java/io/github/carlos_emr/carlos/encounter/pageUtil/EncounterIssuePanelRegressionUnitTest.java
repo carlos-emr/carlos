@@ -14,7 +14,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import java.io.InputStream;
 import java.io.StringReader;
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -146,7 +145,7 @@ class EncounterIssuePanelRegressionUnitTest extends CarlosUnitTestBase {
     void shouldRouteResolvedIssueCommands_toResolvedEndpoint() throws Exception {
         // Trigger EctDisplayAction's static Actions map initialization.
         new EctDisplayIssues2Action();
-        Map<String, String> actions = readActionsMap();
+        Map<String, String> actions = EctDisplayAction.getActions();
         assertThat(actions)
                 .containsEntry("unresolvedIssues", "/encounter/displayIssues")
                 .containsEntry("resolvedIssues", "/encounter/displayResolvedIssues");
@@ -190,14 +189,6 @@ class EncounterIssuePanelRegressionUnitTest extends CarlosUnitTestBase {
             }
         }
         return null;
-    }
-
-    private Map<String, String> readActionsMap() throws Exception {
-        Field field = EctDisplayAction.class.getDeclaredField("Actions");
-        field.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        Map<String, String> actions = (Map<String, String>) field.get(null);
-        return actions;
     }
 
     private Document parseXml(Path configPath) throws Exception {
