@@ -238,11 +238,15 @@ public class EmailSender {
      * @since 2026-07-20
      */
     public void sendPrepared() throws EmailSendingException {
-        assertEmailWritePrivilege();
-        if (preparedSmtpSendHelper == null) {
-            throw new EmailSendingException("SMTP message must be prepared before sending");
+        try {
+            assertEmailWritePrivilege();
+            if (preparedSmtpSendHelper == null) {
+                throw new EmailSendingException("SMTP message must be prepared before sending");
+            }
+            preparedSmtpSendHelper.sendPreparedMessage();
+        } finally {
+            discardPrepared();
         }
-        preparedSmtpSendHelper.sendPreparedMessage();
     }
 
     /**

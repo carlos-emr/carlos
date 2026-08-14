@@ -83,6 +83,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         javaMailSender = mock(JavaMailSender.class);
         loggedInInfo = mock(LoggedInInfo.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(NioFileManager.class, mock(NioFileManager.class));
         registerMock(JavaMailSender.class, javaMailSender);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);

@@ -144,11 +144,12 @@ public class EmailManager {
 
         sanitizeEmailFields(emailData);
         EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData);
+        EmailSender emailSender = null;
         try {
             if (emailData.getIsEncrypted()) {
                 encryptEmail(emailData);
             }
-            EmailSender emailSender = new EmailSender(loggedInInfo, emailLog.getEmailConfig(), emailData);
+            emailSender = new EmailSender(loggedInInfo, emailLog.getEmailConfig(), emailData);
             if (emailSender.supportsOutboundArchive()) {
                 archiveOutboundEmail(loggedInInfo, emailSender, emailLog);
                 emailSender.sendPrepared();
@@ -162,6 +163,10 @@ public class EmailManager {
         } catch (EmailSendingException e) {
             updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, safePersistedFailureMessage(e));
             logger.error(SEND_FAILURE_MESSAGE, sanitizedDiagnostic(e, 0));
+        } finally {
+            if (emailSender != null) {
+                emailSender.discardPrepared();
+            }
         }
         return emailLog;
     }
@@ -173,7 +178,8 @@ public class EmailManager {
     }
 
     private Throwable sanitizedDiagnostic(Throwable failure, int depth) {
-        RuntimeException diagnostic = new RuntimeException(failure.getClass().getName());
+        RuntimeException diagnostic = new RuntimeException(
+                failure.getClass().getName() + " [" + safeDiagnosticCategory(failure) + "]");
         diagnostic.setStackTrace(failure.getStackTrace());
         Throwable cause = failure.getCause();
         if (cause != null && cause != failure && depth < 8) {
@@ -182,9 +188,34 @@ public class EmailManager {
         return diagnostic;
     }
 
+    private String safeDiagnosticCategory(Throwable failure) {
+        if (failure instanceof SecurityException) {
+            return "authorization failure";
+        }
+        if (failure instanceof java.net.SocketTimeoutException) {
+            return "network timeout";
+        }
+        if (failure instanceof java.net.ConnectException) {
+            return "connection failure";
+        }
+        if (failure instanceof jakarta.mail.AuthenticationFailedException) {
+            return "SMTP authentication failure";
+        }
+        if (failure instanceof jakarta.mail.MessagingException) {
+            return "SMTP messaging failure";
+        }
+        if (failure instanceof IOException) {
+            return "I/O failure";
+        }
+        return "email delivery failure";
+    }
+
     private void archiveOutboundEmail(LoggedInInfo loggedInInfo, EmailSender emailSender, EmailLog emailLog) throws EmailSendingException {
         try {
             OutboundEmailArchiveDto archiveRequest = emailSender.prepareOutboundArchive(emailLog);
+            // Preserve the exact attempted message before transport. ARCHIVED describes successful
+            // capture of that immutable artifact; EmailLog remains the source of truth for whether
+            // delivery subsequently succeeded or failed, so failed attempts retain their audit record.
             outboundEmailArchiveService.archive(loggedInInfo, archiveRequest);
         } catch (EmailSendingException | IOException | RuntimeException e) {
             emailSender.discardPrepared();

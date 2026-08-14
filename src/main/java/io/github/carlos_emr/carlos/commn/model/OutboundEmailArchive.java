@@ -105,6 +105,10 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
     @Column(nullable = false)
     private boolean deleted;
 
+    /**
+     * Archive-capture state, not SMTP delivery outcome. Delivery success or failure is retained on
+     * the owning {@link EmailLog}, while this immutable artifact records the exact attempted message.
+     */
     @Column(nullable = false, length = 25)
     private String sendStatus = SEND_STATUS_ARCHIVED;
 

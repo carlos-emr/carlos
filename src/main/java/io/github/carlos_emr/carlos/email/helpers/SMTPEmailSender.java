@@ -21,6 +21,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -71,6 +72,7 @@ public class SMTPEmailSender {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private JavaMailSender javaMailSender = SpringUtils.getBean(JavaMailSender.class);
+    private NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
 
     private EmailConfig emailConfig;
     private String[] recipients = new String[0];
@@ -389,7 +391,8 @@ public class SMTPEmailSender {
 
             Path attachmentPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
             String contentType = resolveAttachmentContentType(helper, attachment, attachmentPath);
-            Path attachmentSnapshot = Files.createTempFile("carlos-smtp-attachment-", ".snapshot");
+            Path attachmentSnapshot = nioFileManager.createManagedTempFile(
+                    "carlos-smtp-attachment-", ".snapshot");
             try {
                 Files.copy(attachmentPath, attachmentSnapshot, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                 long byteSize = Files.size(attachmentSnapshot);

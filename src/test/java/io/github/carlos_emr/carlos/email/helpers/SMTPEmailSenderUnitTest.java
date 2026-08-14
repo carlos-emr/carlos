@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -45,6 +46,7 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -56,6 +58,7 @@ import java.util.Properties;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @DisplayName("SMTPEmailSender")
@@ -66,14 +69,20 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
     private Path tempDir;
 
     private SecurityInfoManager securityInfoManager;
+    private NioFileManager nioFileManager;
     private LoggedInInfo loggedInInfo;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws IOException {
         securityInfoManager = mock(SecurityInfoManager.class);
+        nioFileManager = mock(NioFileManager.class);
         loggedInInfo = mock(LoggedInInfo.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(NioFileManager.class, nioFileManager);
         registerMock(JavaMailSender.class, mock(JavaMailSender.class));
+        when(nioFileManager.createManagedTempFile(anyString(), anyString()))
+                .thenAnswer(invocation -> Files.createTempFile(
+                        tempDir, invocation.getArgument(0), invocation.getArgument(1)));
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
     }
 
@@ -111,6 +120,10 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should reject prepared send when email privilege is missing")
     void shouldRejectPreparedSend_whenEmailPrivilegeMissing() throws Exception {
+        Path attachmentPath = tempDir.resolve("privilege-check.txt");
+        Files.writeString(attachmentPath, "attachment content");
+        EmailAttachment attachment = new EmailAttachment(
+                "privilege-check.txt", attachmentPath.toString(), DocumentType.DOC, 102);
         CapturingJavaMailSender mailSender = new CapturingJavaMailSender();
         SMTPEmailSender sender = new TestSMTPEmailSender(
                 loggedInInfo,
@@ -118,9 +131,10 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
                 new String[]{"patient@example.test"},
                 "Snapshot test",
                 "Body text",
-                List.of(),
+                List.of(attachment),
                 mailSender);
         sender.prepareMessageBytes();
+        assertThat(sender.getPreparedAttachments()).hasSize(1);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(false);
 
         assertThatThrownBy(sender::sendPreparedMessage)

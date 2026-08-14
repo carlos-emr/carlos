@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -40,6 +41,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -49,6 +51,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -61,14 +64,20 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
     private Path tempDir;
 
     private SecurityInfoManager securityInfoManager;
+    private NioFileManager nioFileManager;
     private LoggedInInfo loggedInInfo;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws IOException {
         securityInfoManager = mock(SecurityInfoManager.class);
+        nioFileManager = mock(NioFileManager.class);
         loggedInInfo = mock(LoggedInInfo.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(NioFileManager.class, nioFileManager);
         registerMock(JavaMailSender.class, mock(JavaMailSender.class));
+        when(nioFileManager.createManagedTempFile(anyString(), anyString()))
+                .thenAnswer(invocation -> Files.createTempFile(
+                        tempDir, invocation.getArgument(0), invocation.getArgument(1)));
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
     }
 
@@ -90,33 +99,37 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
 
         EmailSender emailSender = new EmailSender(loggedInInfo, emailConfig, emailData);
 
-        OutboundEmailArchiveDto archiveRequest = emailSender.prepareOutboundArchive(emailLog);
+        try {
+            OutboundEmailArchiveDto archiveRequest = emailSender.prepareOutboundArchive(emailLog);
 
-        String eml = new String(archiveRequest.getArtifactBytes(), StandardCharsets.UTF_8);
-        assertThat(archiveRequest.getEmailLog()).isSameAs(emailLog);
-        assertThat(archiveRequest.getFileName()).isEqualTo("outbound-email-44.eml");
-        assertThat(archiveRequest.getContentType()).isEqualTo("message/rfc822");
-        assertThat(archiveRequest.getArtifactType()).isEqualTo(OutboundEmailArchive.ARTIFACT_TYPE_SMTP_RFC822);
-        assertThat(archiveRequest.getTransportType()).isEqualTo("SMTP");
-        assertThat(archiveRequest.getProviderName()).isEqualTo("GMAIL");
-        assertThat(eml).contains("Subject: Test subject").contains("patient@example.test");
-        assertThat(archiveRequest.getAttachments()).hasSize(2);
-        assertThat(archiveRequest.getAttachments().get(0)).satisfies(attachmentDto -> {
-            assertThat(attachmentDto.getFileName()).isEqualTo("attachment_001.pdf");
-            assertThat(attachmentDto.getContentType()).isEqualTo("application/pdf");
-            assertThat(attachmentDto.getSourceDocumentType()).isEqualTo("DOC");
-            assertThat(attachmentDto.getSourceDocumentId()).isEqualTo(77);
-            assertThat(attachmentDto.getByteSize()).isEqualTo((long) attachmentBytes.length);
-            assertThat(attachmentDto.getSha256Hash()).isEqualTo(sha256Hex(attachmentBytes));
-        });
-        assertThat(archiveRequest.getAttachments().get(1)).satisfies(attachmentDto -> {
-            assertThat(attachmentDto.getFileName()).isEqualTo("notes.txt");
-            assertThat(attachmentDto.getContentType()).isEqualTo("text/plain");
-            assertThat(attachmentDto.getSourceDocumentType()).isEqualTo("DOC");
-            assertThat(attachmentDto.getSourceDocumentId()).isEqualTo(78);
-            assertThat(attachmentDto.getByteSize()).isEqualTo((long) textAttachmentBytes.length);
-            assertThat(attachmentDto.getSha256Hash()).isEqualTo(sha256Hex(textAttachmentBytes));
-        });
+            String eml = new String(archiveRequest.getArtifactBytes(), StandardCharsets.UTF_8);
+            assertThat(archiveRequest.getEmailLog()).isSameAs(emailLog);
+            assertThat(archiveRequest.getFileName()).isEqualTo("outbound-email-44.eml");
+            assertThat(archiveRequest.getContentType()).isEqualTo("message/rfc822");
+            assertThat(archiveRequest.getArtifactType()).isEqualTo(OutboundEmailArchive.ARTIFACT_TYPE_SMTP_RFC822);
+            assertThat(archiveRequest.getTransportType()).isEqualTo("SMTP");
+            assertThat(archiveRequest.getProviderName()).isEqualTo("GMAIL");
+            assertThat(eml).contains("Subject: Test subject").contains("patient@example.test");
+            assertThat(archiveRequest.getAttachments()).hasSize(2);
+            assertThat(archiveRequest.getAttachments().get(0)).satisfies(attachmentDto -> {
+                assertThat(attachmentDto.getFileName()).isEqualTo("attachment_001.pdf");
+                assertThat(attachmentDto.getContentType()).isEqualTo("application/pdf");
+                assertThat(attachmentDto.getSourceDocumentType()).isEqualTo("DOC");
+                assertThat(attachmentDto.getSourceDocumentId()).isEqualTo(77);
+                assertThat(attachmentDto.getByteSize()).isEqualTo((long) attachmentBytes.length);
+                assertThat(attachmentDto.getSha256Hash()).isEqualTo(sha256Hex(attachmentBytes));
+            });
+            assertThat(archiveRequest.getAttachments().get(1)).satisfies(attachmentDto -> {
+                assertThat(attachmentDto.getFileName()).isEqualTo("notes.txt");
+                assertThat(attachmentDto.getContentType()).isEqualTo("text/plain");
+                assertThat(attachmentDto.getSourceDocumentType()).isEqualTo("DOC");
+                assertThat(attachmentDto.getSourceDocumentId()).isEqualTo(78);
+                assertThat(attachmentDto.getByteSize()).isEqualTo((long) textAttachmentBytes.length);
+                assertThat(attachmentDto.getSha256Hash()).isEqualTo(sha256Hex(textAttachmentBytes));
+            });
+        } finally {
+            emailSender.discardPrepared();
+        }
     }
 
     @Test
@@ -129,9 +142,12 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
         injectDependency(emailLog, "id", 45);
         EmailSender emailSender = new EmailSender(loggedInInfo, emailConfig, emailData);
 
-        OutboundEmailArchiveDto archiveRequest = emailSender.prepareOutboundArchive(emailLog);
-
-        assertThat(archiveRequest.getProviderName()).isNull();
+        try {
+            OutboundEmailArchiveDto archiveRequest = emailSender.prepareOutboundArchive(emailLog);
+            assertThat(archiveRequest.getProviderName()).isNull();
+        } finally {
+            emailSender.discardPrepared();
+        }
     }
 
     @Test
@@ -178,6 +194,7 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("missing required sec object (_email)");
         verify(smtpSendHelper, never()).sendPreparedMessage();
+        verify(smtpSendHelper).discardPreparedMessage();
     }
 
     @Test
