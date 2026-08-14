@@ -89,6 +89,10 @@ public class OutboundEmailArchiveAttachment extends OutboundEmailArchiveArtifact
         this.createdAt = createdAt;
     }
 
+    /**
+     * Initializes the creation timestamp before insertion when the caller has
+     * not supplied one.
+     */
     @PrePersist
     protected void prePersist() {
         if (createdAt == null) {

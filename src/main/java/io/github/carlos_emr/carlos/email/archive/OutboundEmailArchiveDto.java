@@ -128,6 +128,12 @@ public class OutboundEmailArchiveDto {
                 : new ArrayList<OutboundEmailArchiveAttachmentDto>();
     }
 
+    /**
+     * Adds a non-null attachment to this archive request. Null attachments are
+     * ignored.
+     *
+     * @param attachment attachment metadata to add
+     */
     public void addAttachment(OutboundEmailArchiveAttachmentDto attachment) {
         if (attachment != null) {
             attachments.add(attachment);

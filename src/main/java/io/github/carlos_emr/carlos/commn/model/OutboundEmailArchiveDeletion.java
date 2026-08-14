@@ -143,6 +143,10 @@ public class OutboundEmailArchiveDeletion extends OutboundEmailArchiveArtifact {
         this.deleteReason = deleteReason;
     }
 
+    /**
+     * Initializes the deletion timestamp before insertion when the caller has
+     * not supplied one.
+     */
     @PrePersist
     protected void prePersist() {
         if (deletedAt == null) {

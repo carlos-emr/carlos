@@ -298,6 +298,12 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
         return attachments;
     }
 
+    /**
+     * Adds a non-null attachment and assigns this archive as its owner.
+     * Null attachments are ignored.
+     *
+     * @param attachment attachment to associate with this archive
+     */
     public void addAttachment(OutboundEmailArchiveAttachment attachment) {
         if (attachment == null) {
             return;

@@ -138,6 +138,10 @@ public abstract class OutboundEmailArchiveArtifact extends AbstractModel<Integer
         this.lastUpdateDate = lastUpdateDate;
     }
 
+    /**
+     * Refreshes the audit timestamp immediately before JPA inserts or updates
+     * this artifact.
+     */
     @PrePersist
     @PreUpdate
     protected void updateLastUpdateDate() {
