@@ -161,7 +161,26 @@ function screenshotPath(name) {
       (image) => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0
     );
     assert(logoLoaded, 'CARLOS logo did not load');
-    assert(await page.locator('.language-switch button').count() === 5, 'expected five languages');
+    // Four links plus a span for the active locale — the switcher navigates now rather than
+    // opening a "language unavailable" modal, so these are no longer buttons.
+    assert(await page.locator('.language-switch .text-tab').count() === 5, 'expected five languages');
+    assert(
+      await page.locator('.language-switch a[href^="/locale/"]').count() === 4,
+      'expected four selectable languages'
+    );
+    await page.locator('.language-switch a[href^="/locale/fr"]').click();
+    await page.getByRole('heading', { name: 'Sign in' }).waitFor();
+    assert(
+      await page.locator('.language-switch .text-tab.selected[lang="fr"]').count() === 1,
+      'selecting a language did not persist'
+    );
+    // Back to English so the rest of the run reads the locale it asserts against.
+    await page.locator('.language-switch a[href^="/locale/en"]').click();
+    await page.getByRole('heading', { name: 'Sign in' }).waitFor();
+    assert(
+      await page.locator('.language-switch .text-tab.selected[lang="en"]').count() === 1,
+      'could not switch back to English'
+    );
 
     const signInPassword = page.locator('input[name="password"]');
     assert(await signInPassword.getAttribute('type') === 'password', 'password starts visible');
@@ -170,11 +189,14 @@ function screenshotPath(name) {
     await page.getByRole('button', { name: 'Hide password' }).click();
     assert(await signInPassword.getAttribute('type') === 'password', 'hide-password control failed');
 
-    const languageTrigger = page.locator('[data-language-code="fr"]');
-    await languageTrigger.click();
+    // The language tabs used to be this page's modal trigger. They navigate now, so the modal's
+    // focus trap and focus restoration are exercised through Clinic help instead -- the assertions
+    // are about the modal, not about which control opened it.
+    const modalTrigger = page.getByRole('button', { name: 'Clinic help' });
     const modal = page.locator('#portal-message-modal');
+    await modalTrigger.click();
     await modal.waitFor({ state: 'visible' });
-    await modal.getByRole('heading', { name: 'Language not implemented' }).waitFor();
+    await modal.getByRole('heading', { name: 'Clinic help' }).waitFor();
     await page.keyboard.press('Tab');
     assert(
       await page.evaluate(() => Boolean(document.activeElement?.closest('#portal-message-modal'))),
@@ -182,10 +204,10 @@ function screenshotPath(name) {
     );
     await page.keyboard.press('Escape');
     await modal.waitFor({ state: 'hidden' });
-    assert(await languageTrigger.evaluate((element) => element === document.activeElement),
+    assert(await modalTrigger.evaluate((element) => element === document.activeElement),
       'closing the modal did not restore focus to its trigger');
-    await page.getByRole('button', { name: 'Clinic help' }).click();
-    await modal.getByRole('heading', { name: 'Clinic help' }).waitFor();
+    await modalTrigger.click();
+    await modal.waitFor({ state: 'visible' });
     await modal.locator('[data-modal-close]').click();
     await modal.waitFor({ state: 'hidden' });
 
