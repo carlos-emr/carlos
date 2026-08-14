@@ -37,7 +37,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.EnumSet;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -195,7 +194,7 @@ class ApplicationTempPurgeJobUnitTest {
         Files.createFile(active.resolve("artifact.pdf"));
         Files.writeString(
                 active.resolve(EmailComposeWorkingDirectory.ACTIVE_LEASE_FILE_NAME),
-                Long.toString(now.plus(1, ChronoUnit.HOURS).toEpochMilli()));
+                Long.toString(now.plus(30, ChronoUnit.MINUTES).toEpochMilli()));
         setLastModified(active, now.minus(48, ChronoUnit.HOURS));
 
         PurgeOutcome outcome = ApplicationTempPurgeJob.purgeExpiredEntries(tempRoot, cutoff);
@@ -208,35 +207,40 @@ class ApplicationTempPurgeJobUnitTest {
 
     @Test
     @DisplayName("Retains an actively owned compose directory after its on-disk lease expires")
-    void shouldRetainActivelyOwnedEmailComposeWorkingDirectory() throws Exception {
-        java.lang.reflect.Method createForTest = EmailComposeWorkingDirectory.class
-                .getDeclaredMethod("create", Path.class);
-        createForTest.setAccessible(true);
-        EmailComposeWorkingDirectory workingDirectory =
-                (EmailComposeWorkingDirectory) createForTest.invoke(null, tempRoot);
-        Path activeDirectory;
-        try (Stream<Path> entries = Files.list(tempRoot)) {
-            activeDirectory = entries
-                    .filter(path -> path.getFileName().toString()
-                            .startsWith(EmailComposeWorkingDirectory.DIRECTORY_PREFIX))
-                    .findFirst()
-                    .orElseThrow();
-        }
+    void shouldRetainActivelyOwnedEmailComposeWorkingDirectory() throws IOException {
+        Path activeDirectory = Files.createDirectory(tempRoot.resolve("email-compose-active-owner"));
+        Files.createFile(activeDirectory.resolve("artifact.pdf"));
         Files.writeString(
                 activeDirectory.resolve(EmailComposeWorkingDirectory.ACTIVE_LEASE_FILE_NAME),
                 Long.toString(Instant.now().minus(1, ChronoUnit.HOURS).toEpochMilli()));
         setLastModified(activeDirectory, Instant.now().minus(48, ChronoUnit.HOURS));
 
-        try {
-            PurgeOutcome outcome = ApplicationTempPurgeJob.purgeExpiredEntries(
-                    tempRoot, Instant.now().minus(24, ChronoUnit.HOURS));
+        PurgeOutcome outcome = ApplicationTempPurgeJob.purgeExpiredEntries(
+                tempRoot,
+                Instant.now().minus(24, ChronoUnit.HOURS),
+                activeDirectory::equals);
 
-            assertThat(Files.isDirectory(activeDirectory)).isTrue();
-            assertThat(outcome.removed()).isZero();
-            assertThat(outcome.failed()).isZero();
-        } finally {
-            workingDirectory.close();
-        }
+        assertThat(Files.isDirectory(activeDirectory)).isTrue();
+        assertThat(outcome.removed()).isZero();
+        assertThat(outcome.failed()).isZero();
+    }
+
+    @Test
+    @DisplayName("Rejects a far-future email compose lease so orphan cleanup remains bounded")
+    void shouldRejectUnboundedEmailComposeLease() throws IOException {
+        Path orphan = Files.createDirectory(tempRoot.resolve("email-compose-unbounded-lease"));
+        Files.createFile(orphan.resolve("artifact.pdf"));
+        Files.writeString(
+                orphan.resolve(EmailComposeWorkingDirectory.ACTIVE_LEASE_FILE_NAME),
+                Long.toString(Long.MAX_VALUE));
+        setLastModified(orphan, Instant.now().minus(48, ChronoUnit.HOURS));
+
+        PurgeOutcome outcome = ApplicationTempPurgeJob.purgeExpiredEntries(
+                tempRoot, Instant.now().minus(24, ChronoUnit.HOURS));
+
+        assertThat(Files.exists(orphan)).isFalse();
+        assertThat(outcome.removed()).isEqualTo(1);
+        assertThat(outcome.failed()).isZero();
     }
 
     @Test

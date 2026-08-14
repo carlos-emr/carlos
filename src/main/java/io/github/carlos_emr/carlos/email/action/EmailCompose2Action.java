@@ -319,7 +319,7 @@ public class EmailCompose2Action extends ActionSupport {
                             isTrue(session.getAttribute("openEFormAfterEmail")),
                             isTrue(session.getAttribute("deleteEFormAfterEmail"))),
                     workingDirectory);
-        } catch (IllegalStateException e) {
+        } catch (RuntimeException e) {
             workingDirectory.close();
             logger.warn("Unable to prepare email compose submission state", e);
             return emailComposeError(request, EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);

@@ -44,7 +44,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public final class EmailComposeWorkingDirectory implements AutoCloseable {
     public static final String DIRECTORY_PREFIX = "email-compose-";
     public static final String ACTIVE_LEASE_FILE_NAME = ".active-lease";
-    private static final long ACTIVE_LEASE_MILLIS =
+    /** Maximum lifetime accepted for an on-disk lease when no live JVM owner remains. */
+    public static final long ACTIVE_LEASE_MILLIS =
             EmailComposeSubmissionStateService.PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS
                     + 5L * 60 * 1000;
 
@@ -96,7 +97,8 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
             applyPermissionsIfSupported(workingDirectory, OWNER_DIRECTORY_PERMISSIONS);
             createActiveLease(workingDirectory);
         } catch (IOException | RuntimeException e) {
-            Files.deleteIfExists(workingDirectory);
+            deleteAfterFailedCreation(workingDirectory.resolve(ACTIVE_LEASE_FILE_NAME), e);
+            deleteAfterFailedCreation(workingDirectory, e);
             throw e;
         }
         return new EmailComposeWorkingDirectory(root.toRealPath(), workingDirectory.toRealPath());
@@ -187,10 +189,6 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
             deleteOwnedDirectory();
             CLEANUP_SUCCESSES.add(1);
         } catch (IOException | SecurityException e) {
-            closed.set(false);
-            if (Files.exists(directory, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
-                ACTIVE_DIRECTORIES.add(directory);
-            }
             CLEANUP_FAILURES.add(1);
             logger.warn("Unable to remove an email compose working directory");
         }
@@ -205,8 +203,21 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
         } catch (UnsupportedOperationException e) {
             target = Files.createTempFile(directory, "artifact-", ".pdf");
         }
-        applyPermissionsIfSupported(target, OWNER_FILE_PERMISSIONS);
+        try {
+            applyPermissionsIfSupported(target, OWNER_FILE_PERMISSIONS);
+        } catch (IOException | RuntimeException e) {
+            deleteAfterFailedCreation(target, e);
+            throw e;
+        }
         return target;
+    }
+
+    private static void deleteAfterFailedCreation(Path path, Throwable originalFailure) {
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException | SecurityException cleanupFailure) {
+            originalFailure.addSuppressed(cleanupFailure);
+        }
     }
 
     private void deleteOwnedDirectory() throws IOException {

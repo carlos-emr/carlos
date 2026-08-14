@@ -303,7 +303,16 @@ public class ApplicationTempPurgeJob {
      * @return counts of entries removed, skipped (symlinks), and failed (validation/deletion errors)
      */
     static PurgeOutcome purgeExpiredEntries(Path root, Instant cutoff) {
-        return sweep(root, cutoff, ApplicationTempPurgeJob::isTempRootCandidate);
+        return purgeExpiredEntries(root, cutoff, EmailComposeWorkingDirectory::isActivelyOwned);
+    }
+
+    /** Package-private seam for verifying active-owner behavior without widening temp-root creation. */
+    static PurgeOutcome purgeExpiredEntries(
+            Path root,
+            Instant cutoff,
+            Predicate<Path> activeEmailComposeDirectory
+    ) {
+        return sweep(root, cutoff, entry -> isTempRootCandidate(entry, activeEmailComposeDirectory));
     }
 
     /**
@@ -319,7 +328,10 @@ public class ApplicationTempPurgeJob {
         return sweep(cacheDir, cutoff, ApplicationTempPurgeJob::isCacheImageCandidate);
     }
 
-    private static boolean isTempRootCandidate(Path entry) {
+    private static boolean isTempRootCandidate(
+            Path entry,
+            Predicate<Path> activeEmailComposeDirectory
+    ) {
         // carlos-temp is exclusively application-owned (see PathValidationUtils.APPLICATION_TEMP_ROOT_NAME):
         // NioFileManagerImpl.saveTempFile writes tempPDF* subdirectories and createTempFile writes
         // tempDirectory* subdirectories, both directly under this root, with no other legitimate writer.
@@ -327,7 +339,7 @@ public class ApplicationTempPurgeJob {
         // CARLOS-owned output shapes; every direct child (file or directory) older than the cutoff is a
         // purgeable orphan regardless of name.
         return (Files.isRegularFile(entry) || Files.isDirectory(entry))
-                && !EmailComposeWorkingDirectory.isActivelyOwned(entry)
+                && !activeEmailComposeDirectory.test(entry)
                 && !hasUnexpiredEmailComposeLease(entry);
     }
 
@@ -346,7 +358,9 @@ public class ApplicationTempPurgeJob {
                 return false;
             }
             long expiresAtMillis = Long.parseLong(Files.readString(lease).trim());
-            return System.currentTimeMillis() < expiresAtMillis;
+            long now = System.currentTimeMillis();
+            long maximumValidExpiry = now + EmailComposeWorkingDirectory.ACTIVE_LEASE_MILLIS;
+            return now < expiresAtMillis && expiresAtMillis <= maximumValidExpiry;
         } catch (IOException | NumberFormatException e) {
             return false;
         }

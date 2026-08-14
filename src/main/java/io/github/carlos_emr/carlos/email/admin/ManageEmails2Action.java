@@ -299,7 +299,7 @@ public class ManageEmails2Action extends ActionSupport {
                     emailAttachmentList,
                     EmailComposeSubmissionContext.direct(String.valueOf(demographicNo)),
                     workingDirectory);
-        } catch (IllegalStateException e) {
+        } catch (RuntimeException e) {
             workingDirectory.close();
             logger.warn("Unable to prepare resend email compose submission state", e);
             EmailCompose2Action.cleanupEmailSessionAttributes(request);

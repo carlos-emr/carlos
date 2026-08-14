@@ -93,12 +93,14 @@ class EmailComposeWorkingDirectoryUnitTest {
         Path externalFile = Files.writeString(tempDirectory.resolve("external.pdf"), "must remain");
         EmailComposeWorkingDirectory workingDirectory = EmailComposeWorkingDirectory.create(applicationRoot);
         try {
-            Files.createSymbolicLink(workingDirectory.path().resolve("link.pdf"), externalFile);
-        } catch (IOException | UnsupportedOperationException e) {
-            assumeTrue(false, "filesystem does not support symbolic links");
+            try {
+                Files.createSymbolicLink(workingDirectory.path().resolve("link.pdf"), externalFile);
+            } catch (IOException | UnsupportedOperationException e) {
+                assumeTrue(false, "filesystem does not support symbolic links");
+            }
+        } finally {
+            workingDirectory.close();
         }
-
-        workingDirectory.close();
 
         assertThat(Files.readString(externalFile)).isEqualTo("must remain");
     }
@@ -144,6 +146,7 @@ class EmailComposeWorkingDirectoryUnitTest {
         try {
             workingDirectory.close();
             assertThat(Files.readString(externalPdf)).isEqualTo("must remain");
+            assertThat(EmailComposeWorkingDirectory.isActivelyOwned(ownedDirectory)).isFalse();
         } finally {
             Files.deleteIfExists(ownedDirectory);
         }

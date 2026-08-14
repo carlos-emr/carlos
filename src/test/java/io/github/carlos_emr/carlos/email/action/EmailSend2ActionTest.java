@@ -448,6 +448,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo("success");
         assertThat(request.getAttribute("isEmailComposeStateError")).isEqualTo(true);
+        assertThat(request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM))
+                .isEqualTo(request.getParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM));
         assertThat(composeSubmissionStateService.consume(request)).isNotNull();
         verify(emailManager, never()).sendEmail(any(), any());
     }
@@ -480,6 +482,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo("success");
         assertThat(request.getAttribute("isEmailComposeStateError")).isEqualTo(true);
+        assertThat(request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM))
+                .isEqualTo(request.getParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM));
         assertThat(composeSubmissionStateService.consume(request)).isNotNull();
         verify(emailManager, never()).hasActiveEmailConfig(anyInt());
         verify(emailManager, never()).sendEmail(any(), any());

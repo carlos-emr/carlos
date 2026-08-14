@@ -201,6 +201,11 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("deleteEFormAfterEmail", isTrueParameter(request, "deleteEFormAfterEmail"));
         request.setAttribute("isEmailEncrypted", isTrueParameter(request, "isEmailEncrypted"));
         request.setAttribute("isEmailAttachmentEncrypted", isTrueParameter(request, "isEmailAttachmentEncrypted"));
+        // The error view remains disabled/fail-closed. Preserve only the opaque token so Cancel can
+        // consume the pending server-side state and remove its generated files.
+        request.setAttribute(
+                EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM,
+                request.getParameter(EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM));
         request.setAttribute("emailPDFPassword", "");
         request.setAttribute("emailPDFPasswordClue", "");
         request.setAttribute("emailAttachmentList", List.of());

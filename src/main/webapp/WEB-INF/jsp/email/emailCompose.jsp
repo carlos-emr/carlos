@@ -256,7 +256,7 @@
                    value="${fn:length(invalidReceiverEmailList)}"/>
             <c:if test="${isEmailComposeStateError}">
                 <div class="alert alert-danger mt-3" role="alert">
-                    ${carlos:forHtml(emailErrorMessage)}
+                    ${carlos:forHtmlContent(emailErrorMessage)}
                 </div>
             </c:if>
 
@@ -893,8 +893,10 @@
 
     function disableForm() {
         const emailComposeFormFields = document.getElementById("emailComposeForm").getElementsByTagName('*');
+        // Disabled controls are omitted from submission; Cancel still needs routing and cleanup state.
+        const cancelFieldNames = new Set(["close", "transactionType", "fdid", "emailPDFPasswordToken"]);
         for (let i = 0; i < emailComposeFormFields.length; i++) {
-            if (emailComposeFormFields[i].name === "close") {
+            if (cancelFieldNames.has(emailComposeFormFields[i].name)) {
                 continue;
             }
             emailComposeFormFields[i].disabled = true;

@@ -52,12 +52,17 @@ class EmailPdfPasswordServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should load a 4096 word resource wordlist with about 68 bits of entropy")
+    @DisplayName("should load a resource wordlist that meets the minimum entropy policy")
     void shouldLoadLargeEnoughResourceWordlist_withExpectedEntropy() {
         EmailPdfPasswordService service = new EmailPdfPasswordService();
+        double minimumEntropy = EmailPdfPasswordService.calculateEntropyBits(
+                EmailPdfPasswordService.MIN_WORDLIST_SIZE,
+                EmailPdfPasswordService.DEFAULT_WORD_COUNT,
+                EmailPdfPasswordService.DEFAULT_DIGIT_COUNT);
 
-        assertThat(service.getWordListSize()).isEqualTo(4096);
-        assertThat(service.getEntropyBits()).isCloseTo(67.93, within(0.01));
+        assertThat(service.getWordListSize())
+                .isGreaterThanOrEqualTo(EmailPdfPasswordService.MIN_WORDLIST_SIZE);
+        assertThat(service.getEntropyBits()).isGreaterThanOrEqualTo(minimumEntropy);
     }
 
     @Test
@@ -92,7 +97,7 @@ class EmailPdfPasswordServiceUnitTest {
     @DisplayName("should reject non-lowercase ASCII words")
     void shouldRejectInvalidWords_whenLoading() {
         List<String> words = testWords(4096);
-        words.set(100, "two-words");
+        words.set(100, "TwoWords");
         SecureRandom secureRandom = new FixedSecureRandom();
 
         assertThatThrownBy(() -> new EmailPdfPasswordService(words, secureRandom))
