@@ -1,5 +1,6 @@
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from hashlib import sha256
@@ -516,28 +517,19 @@ def has_hl7_segment(message: Message, segment_id: str) -> bool:
     return any(child.name == segment_id for child in message.children)
 
 
-def validate_hl7_v251_patient_registration_profile(
-    encoded_message: str,
-    *,
-    profile: dict[str, object] | None = None,
-) -> str:
-    try:
-        normalized_message = validate_hl7_v251_message(encoded_message)
-        message = parse_message(
-            normalized_message,
-            validation_level=VALIDATION_LEVEL.STRICT,
-            find_groups=True,
-        )
-    except HL7apyException as exc:
-        raise Hl7ConformanceProfileError(f"HL7 v2.5.1 validation failed: {exc}") from exc
-    profile_payload = load_hl7_v251_patient_registration_profile() if profile is None else profile
+def check_hl7_profile_metadata(profile_payload: dict[str, object]) -> list[str]:
+    """The profile document itself is the right one and targets the supported HL7 version."""
     errors: list[str] = []
-
     if profile_payload.get("id") != HL7_PATIENT_REGISTRATION_PROFILE_ID:
         errors.append("profile id does not match CARLOS patient registration profile")
     if profile_payload.get("hl7_version") != HL7_V2_VERSION:
         errors.append("profile HL7 version does not match supported version")
+    return errors
 
+
+def check_hl7_required_segments(message: Message, profile_payload: dict[str, object]) -> list[str]:
+    """Every segment the profile marks usage "R" is present."""
+    errors: list[str] = []
     for segment in get_hl7_profile_entries(profile_payload, "segments"):
         if not isinstance(segment, dict):
             errors.append("segment entry must be an object")
@@ -545,29 +537,45 @@ def validate_hl7_v251_patient_registration_profile(
         segment_id = str(segment.get("id", ""))
         if segment.get("usage") == "R" and not has_hl7_segment(message, segment_id):
             errors.append(f"{segment_id} segment is required")
+    return errors
 
+
+def check_hl7_fixed_fields(message: Message, profile_payload: dict[str, object]) -> list[str]:
+    """Every repetition of each pinned path carries the value the profile fixes it to."""
+    errors: list[str] = []
     for fixed_field in get_hl7_profile_entries(profile_payload, "fixed_fields"):
         if not isinstance(fixed_field, dict):
             errors.append("fixed field entry must be an object")
             continue
         path = str(fixed_field.get("path", ""))
         expected_value = resolve_hl7_profile_expected_value(message, fixed_field.get("value", ""))
-        actual_values = get_hl7_profile_path_values(message, path) or [""]
         # Every repetition has to match, not just the first: a conforming first repetition must not
         # vouch for whatever follows it.
-        for actual_value in actual_values:
+        for actual_value in get_hl7_profile_path_values(message, path) or [""]:
             if actual_value != expected_value:
                 errors.append(f"{path} expected {expected_value!r}, got {actual_value!r}")
+    return errors
 
+
+def check_hl7_field_cardinality(message: Message, profile_payload: dict[str, object]) -> list[str]:
+    """Fields the profile declares single-valued do not repeat.
+
+    Checked directly rather than inferred from the fixed-field comparisons: an extra repetition can
+    match every component the profile pins and still carry a different address or identifier in one
+    it does not.
+    """
+    errors: list[str] = []
     for single_valued_field in get_hl7_profile_entries(profile_payload, "single_valued_fields"):
         path = str(single_valued_field)
         repetition_count = len(get_hl7_field_repetitions(message, path))
         if repetition_count > 1:
-            # The extra repetition may be identical in every component the profile pins and still
-            # carry a different address or identifier in one it does not, so cardinality has to be
-            # checked directly rather than inferred from the fixed-field comparisons.
             errors.append(f"{path} must not repeat, got {repetition_count} repetitions")
+    return errors
 
+
+def check_hl7_required_fields(message: Message, profile_payload: dict[str, object]) -> list[str]:
+    """Every path the profile requires carries a non-empty value."""
+    errors: list[str] = []
     for required_field in get_hl7_profile_entries(profile_payload, "required_fields"):
         if not isinstance(required_field, dict):
             errors.append("required field entry must be an object")
@@ -575,7 +583,15 @@ def validate_hl7_v251_patient_registration_profile(
         path = str(required_field.get("path", ""))
         if not get_hl7_profile_path_value(message, path):
             errors.append(f"{path} is required")
+    return errors
 
+
+def check_hl7_required_identifiers(
+    message: Message,
+    profile_payload: dict[str, object],
+) -> list[str]:
+    """Each required identifier type is present exactly once per assigning authority."""
+    errors: list[str] = []
     for required_identifier in get_hl7_profile_entries(profile_payload, "required_identifiers"):
         if not isinstance(required_identifier, dict):
             errors.append("required identifier entry must be an object")
@@ -606,6 +622,43 @@ def validate_hl7_v251_patient_registration_profile(
                 f"{field_path} has conflicting {expected_identifier_type!r} identifiers "
                 f"from {expected_assigning_authority!r}"
             )
+    return errors
+
+
+# Each rule group returns its own errors, so every rule the profile declares runs on every message
+# and the caller reports all of them at once rather than only the first to fail.
+HL7_PROFILE_RULES: tuple[Callable[[Message, dict[str, object]], list[str]], ...] = (
+    check_hl7_required_segments,
+    check_hl7_fixed_fields,
+    check_hl7_field_cardinality,
+    check_hl7_required_fields,
+    check_hl7_required_identifiers,
+)
+
+
+def validate_hl7_v251_patient_registration_profile(
+    encoded_message: str,
+    *,
+    profile: dict[str, object] | None = None,
+) -> str:
+    """Validate an encoded message against the CARLOS patient-registration profile.
+
+    Raises `Hl7ConformanceProfileError` listing every rule that failed, not just the first.
+    """
+    try:
+        normalized_message = validate_hl7_v251_message(encoded_message)
+        message = parse_message(
+            normalized_message,
+            validation_level=VALIDATION_LEVEL.STRICT,
+            find_groups=True,
+        )
+    except HL7apyException as exc:
+        raise Hl7ConformanceProfileError(f"HL7 v2.5.1 validation failed: {exc}") from exc
+
+    profile_payload = load_hl7_v251_patient_registration_profile() if profile is None else profile
+    errors = check_hl7_profile_metadata(profile_payload)
+    for rule in HL7_PROFILE_RULES:
+        errors.extend(rule(message, profile_payload))
 
     if errors:
         raise Hl7ConformanceProfileError("; ".join(errors))

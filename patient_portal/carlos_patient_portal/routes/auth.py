@@ -6,6 +6,7 @@ Error responses are deliberately uniform across both so a failure reason is not 
 """
 
 import logging
+from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, status
@@ -105,11 +106,34 @@ from carlos_patient_portal.web_support import (
 logger = logging.getLogger(__name__)
 
 
-def register_auth_routes(
-    app: FastAPI,
+@dataclass(frozen=True)
+class AuthRouteDependencies:
+    """Shared state and shared renderers for the public authentication routes.
+
+    `register_auth_routes` owned login, MFA, reset, email-change confirmation, and session
+    reading in one closure. Splitting it per flow keeps each group reviewable on its own; the
+    state they genuinely share travels here rather than as implicit closure variables.
+    """
+
+    settings: object
+    get_app_database_session: object
+    get_authenticated_portal_session: object
+    render_index_response: object
+    csrf_secret: object
+    audit_hash_secret: object
+    auth_policy: object
+    text: object
+    render_locked_page: object
+    render_password_reset_request: object
+    render_mfa_page: object
+    get_browser_mfa_delivery_state: object
+
+
+def build_auth_dependencies(
     runtime: PortalRuntime,
     route_dependencies: RouteDependencies,
-) -> None:
+) -> AuthRouteDependencies:
+    """Bind the state and page renderers every authentication flow shares."""
     settings = runtime.settings
     get_app_database_session = route_dependencies.get_app_database_session
     get_authenticated_portal_session = route_dependencies.get_authenticated_portal_session
@@ -190,17 +214,43 @@ def register_auth_routes(
             preferred_delivery_method=preferred_delivery_method,
         )
 
+
+    return AuthRouteDependencies(
+        settings=settings,
+        get_app_database_session=get_app_database_session,
+        get_authenticated_portal_session=get_authenticated_portal_session,
+        render_index_response=render_index_response,
+        csrf_secret=csrf_secret,
+        audit_hash_secret=audit_hash_secret,
+        auth_policy=auth_policy,
+        text=text,
+        render_locked_page=render_locked_page,
+        render_password_reset_request=render_password_reset_request,
+        render_mfa_page=render_mfa_page,
+        get_browser_mfa_delivery_state=get_browser_mfa_delivery_state,
+    )
+
+
+def register_login_routes(
+    app: FastAPI,
+    runtime: PortalRuntime,
+    deps: AuthRouteDependencies,
+) -> None:
+    """Password sign-in, browser and JSON."""
     @app.post("/auth/login", response_model=LoginResponse)
     async def login(
         request: Request,
-        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
+        session: Annotated[
+            Session,
+            function_scoped_database_dependency(deps.get_app_database_session),
+        ],
     ) -> dict[str, object] | Response:
         is_browser_form = is_urlencoded_form_request(request)
-        payload = await get_login_request_from_request(request, csrf_secret)
+        payload = await get_login_request_from_request(request, deps.csrf_secret)
         client_reference_hash = hash_sensitive_reference(
-            audit_hash_secret,
+            deps.audit_hash_secret,
             "login_client",
-            get_request_client_reference(request, settings),
+            get_request_client_reference(request, deps.settings),
         )
         try:
             result = await run_in_threadpool(
@@ -209,65 +259,65 @@ def register_auth_routes(
                 username=payload.username,
                 password=payload.password,
                 client_reference_hash=client_reference_hash,
-                policy=auth_policy,
+                policy=deps.auth_policy,
                 session_token_secret=runtime.token_keys.session,
                 mfa_challenge_token_secret=runtime.token_keys.mfa,
                 mfa_code_secret=runtime.token_keys.mfa,
-                clinic_id=settings.clinic_id,
+                clinic_id=deps.settings.clinic_id,
                 delivery_method=payload.mfa_delivery_method,
             )
         except InvalidCredentialsError:
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,
-                render_index_response=render_index_response,
+                render_index_response=deps.render_index_response,
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 browser_message=portal_text()["incorrect_username_or_password"],
                 json_content={"detail": "sign-in could not be completed"},
             )
         except AccountLockedError:
             if is_browser_form:
-                return render_locked_page(request)
+                return deps.render_locked_page(request)
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,
-                render_index_response=render_index_response,
+                render_index_response=deps.render_index_response,
                 status_code=status.HTTP_423_LOCKED,
-                browser_message=text["session_locked_details"],
+                browser_message=deps.text["session_locked_details"],
                 json_content={"detail": ACCOUNT_LOCKED_DETAIL},
             )
         except PasswordResetRequiredError:
             if is_browser_form:
-                return render_password_reset_request(
+                return deps.render_password_reset_request(
                     request,
                     status_code=status.HTTP_403_FORBIDDEN,
-                    notice_message=text["password_reset_forced"],
+                    notice_message=deps.text["password_reset_forced"],
                     form_values={"username": payload.username},
                 )
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,
-                render_index_response=render_index_response,
+                render_index_response=deps.render_index_response,
                 status_code=status.HTTP_403_FORBIDDEN,
-                browser_message=text["password_reset_forced"],
+                browser_message=deps.text["password_reset_forced"],
                 json_content={"status": "password_reset_required"},
             )
         except MfaDeliveryUnavailableError:
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,
-                render_index_response=render_index_response,
+                render_index_response=deps.render_index_response,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                browser_message=text["mfa_delivery_unavailable"],
+                browser_message=deps.text["mfa_delivery_unavailable"],
                 json_content={"detail": MFA_DELIVERY_UNAVAILABLE_DETAIL},
             )
         except MfaRateLimitedError as exc:
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,
-                render_index_response=render_index_response,
+                render_index_response=deps.render_index_response,
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                browser_message=text["mfa_rate_limited"].format(
+                browser_message=deps.text["mfa_rate_limited"].format(
                     seconds=exc.retry_after_seconds,
                 ),
                 json_content={"detail": "MFA code was sent recently; try again later"},
@@ -287,9 +337,9 @@ def register_auth_routes(
                 return auth_error_response(
                     is_browser_form=is_browser_form,
                     request=request,
-                    render_index_response=render_index_response,
+                    render_index_response=deps.render_index_response,
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    browser_message=text["verification_delivery_failed"],
+                    browser_message=deps.text["verification_delivery_failed"],
                     json_content={"detail": "verification code could not be sent"},
                 )
             record_mfa_delivery_and_commit(
@@ -298,7 +348,7 @@ def register_auth_routes(
                 outcome=AUDIT_OUTCOME_SUCCESS,
             )
         if is_browser_form and result.mfa_challenge is not None:
-            return render_mfa_page(request, result.mfa_challenge)
+            return deps.render_mfa_page(request, result.mfa_challenge)
         if is_browser_form and result.session_token is not None:
             redirect_response = RedirectResponse(
                 PORTAL_ROOT_PATH,
@@ -307,42 +357,53 @@ def register_auth_routes(
             set_portal_session_cookie(
                 redirect_response,
                 result.session_token,
-                settings=settings,
+                settings=deps.settings,
             )
             return redirect_response
-        return login_response_payload(result, settings=settings)
+        return login_response_payload(result, settings=deps.settings)
 
+
+
+def register_mfa_routes(
+    app: FastAPI,
+    runtime: PortalRuntime,
+    deps: AuthRouteDependencies,
+) -> None:
+    """MFA challenge resend and verification."""
     @app.post("/auth/mfa/resend", response_model=MfaChallengeResponse)
     async def resend_mfa(
         request: Request,
-        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
+        session: Annotated[
+            Session,
+            function_scoped_database_dependency(deps.get_app_database_session),
+        ],
     ) -> dict[str, object] | Response:
         is_browser_form = is_urlencoded_form_request(request)
-        payload = await get_mfa_resend_request_from_request(request, csrf_secret)
+        payload = await get_mfa_resend_request_from_request(request, deps.csrf_secret)
         try:
             delivery = await run_in_threadpool(
                 resend_mfa_challenge,
                 session,
                 challenge_token=payload.mfa_challenge_token,
                 delivery_method=payload.mfa_delivery_method,
-                policy=auth_policy,
+                policy=deps.auth_policy,
                 challenge_token_secret=runtime.token_keys.mfa,
                 code_secret=runtime.token_keys.mfa,
             )
         except MfaRateLimitedError as exc:
             if is_browser_form:
-                delivery_state = get_browser_mfa_delivery_state(
+                delivery_state = deps.get_browser_mfa_delivery_state(
                     session,
                     payload,
                     preferred_delivery_method=payload.mfa_delivery_method,
                 )
                 if delivery_state is not None:
-                    return render_mfa_page(
+                    return deps.render_mfa_page(
                         request,
                         delivery_state,
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         error_message=(
-                            text["mfa_rate_limited"].format(
+                            deps.text["mfa_rate_limited"].format(
                                 seconds=exc.retry_after_seconds,
                             )
                         ),
@@ -355,10 +416,10 @@ def register_auth_routes(
             )
         except (MfaChallengeNotFoundError, ValueError):
             if is_browser_form:
-                return render_index_response(
+                return deps.render_index_response(
                     request,
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    error_message=text["mfa_sign_in_again"],
+                    error_message=deps.text["mfa_sign_in_again"],
                 )
             return JSONResponse(
                 status_code=400,
@@ -366,17 +427,17 @@ def register_auth_routes(
             )
         except AccountLockedError:
             if is_browser_form:
-                return render_locked_page(request)
+                return deps.render_locked_page(request)
             return JSONResponse(
                 status_code=status.HTTP_423_LOCKED,
                 content={"detail": ACCOUNT_LOCKED_DETAIL},
             )
         except PasswordResetRequiredError:
             if is_browser_form:
-                return render_password_reset_request(
+                return deps.render_password_reset_request(
                     request,
                     status_code=status.HTTP_403_FORBIDDEN,
-                    notice_message=text["password_reset_forced"],
+                    notice_message=deps.text["password_reset_forced"],
                 )
             return JSONResponse(
                 status_code=403,
@@ -384,13 +445,13 @@ def register_auth_routes(
             )
         except MfaDeliveryUnavailableError:
             if is_browser_form:
-                delivery_state = get_browser_mfa_delivery_state(session, payload)
+                delivery_state = deps.get_browser_mfa_delivery_state(session, payload)
                 if delivery_state is not None:
-                    return render_mfa_page(
+                    return deps.render_mfa_page(
                         request,
                         delivery_state,
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        error_message=text["mfa_delivery_unavailable"],
+                        error_message=deps.text["mfa_delivery_unavailable"],
                     )
             return JSONResponse(
                 status_code=400,
@@ -407,13 +468,13 @@ def register_auth_routes(
                 outcome=AUDIT_OUTCOME_FAILURE,
             )
             if is_browser_form:
-                delivery_state = get_browser_mfa_delivery_state(session, payload)
+                delivery_state = deps.get_browser_mfa_delivery_state(session, payload)
                 if delivery_state is not None:
-                    return render_mfa_page(
+                    return deps.render_mfa_page(
                         request,
                         delivery_state,
                         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                        error_message=text["verification_delivery_failed"],
+                        error_message=deps.text["verification_delivery_failed"],
                     )
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -425,84 +486,87 @@ def register_auth_routes(
             outcome=AUDIT_OUTCOME_SUCCESS,
         )
         if is_browser_form:
-            return render_mfa_page(
+            return deps.render_mfa_page(
                 request,
                 delivery,
-                notice_message=text["mfa_new_code_sent"].format(
+                notice_message=deps.text["mfa_new_code_sent"].format(
                     method=delivery.delivery_method.upper(),
                 ),
             )
-        return mfa_challenge_response_payload(delivery, settings=settings)
+        return mfa_challenge_response_payload(delivery, settings=deps.settings)
 
     @app.post("/auth/mfa/verify", response_model=MfaVerifyResponse)
     async def verify_mfa(
         request: Request,
-        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
+        session: Annotated[
+            Session,
+            function_scoped_database_dependency(deps.get_app_database_session),
+        ],
     ) -> dict[str, str] | Response:
         is_browser_form = is_urlencoded_form_request(request)
-        payload = await get_mfa_verify_request_from_request(request, csrf_secret)
+        payload = await get_mfa_verify_request_from_request(request, deps.csrf_secret)
         try:
             session_token = await run_in_threadpool(
                 verify_mfa_challenge,
                 session,
                 challenge_token=payload.mfa_challenge_token,
                 code=payload.code,
-                policy=auth_policy,
+                policy=deps.auth_policy,
                 challenge_token_secret=runtime.token_keys.mfa,
                 session_token_secret=runtime.token_keys.session,
                 code_secret=runtime.token_keys.mfa,
             )
         except InvalidMfaCodeError:
             if is_browser_form:
-                delivery_state = get_browser_mfa_delivery_state(session, payload)
+                delivery_state = deps.get_browser_mfa_delivery_state(session, payload)
                 if delivery_state is not None:
-                    return render_mfa_page(
+                    return deps.render_mfa_page(
                         request,
                         delivery_state,
                         status_code=status.HTTP_401_UNAUTHORIZED,
-                        error_message=text["incorrect_mfa_code"],
+                        error_message=deps.text["incorrect_mfa_code"],
                     )
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,
-                render_index_response=render_index_response,
+                render_index_response=deps.render_index_response,
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                browser_message=text["mfa_verification_failed"],
+                browser_message=deps.text["mfa_verification_failed"],
                 json_content={"detail": MFA_VERIFICATION_FAILED_DETAIL},
             )
         except (MfaChallengeNotFoundError, ValueError):
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,
-                render_index_response=render_index_response,
+                render_index_response=deps.render_index_response,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                browser_message=text["mfa_verification_failed"],
+                browser_message=deps.text["mfa_verification_failed"],
                 json_content={"detail": MFA_VERIFICATION_FAILED_DETAIL},
             )
         except AccountLockedError:
             if is_browser_form:
-                return render_locked_page(request)
+                return deps.render_locked_page(request)
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,
-                render_index_response=render_index_response,
+                render_index_response=deps.render_index_response,
                 status_code=status.HTTP_423_LOCKED,
-                browser_message=text["session_locked_details"],
+                browser_message=deps.text["session_locked_details"],
                 json_content={"detail": ACCOUNT_LOCKED_DETAIL},
             )
         except PasswordResetRequiredError:
             if is_browser_form:
-                return render_password_reset_request(
+                return deps.render_password_reset_request(
                     request,
                     status_code=status.HTTP_403_FORBIDDEN,
-                    notice_message=text["password_reset_forced"],
+                    notice_message=deps.text["password_reset_forced"],
                 )
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,
-                render_index_response=render_index_response,
+                render_index_response=deps.render_index_response,
                 status_code=status.HTTP_403_FORBIDDEN,
-                browser_message=text["password_reset_forced"],
+                browser_message=deps.text["password_reset_forced"],
                 json_content={"status": "password_reset_required"},
             )
         if is_browser_form:
@@ -510,13 +574,21 @@ def register_auth_routes(
                 PORTAL_ROOT_PATH,
                 status_code=status.HTTP_303_SEE_OTHER,
             )
-            set_portal_session_cookie(redirect_response, session_token, settings=settings)
+            set_portal_session_cookie(redirect_response, session_token, settings=deps.settings)
             return redirect_response
         return {"status": "signed_in", "session_token": session_token}
 
+
+
+def register_password_reset_routes(
+    app: FastAPI,
+    runtime: PortalRuntime,
+    deps: AuthRouteDependencies,
+) -> None:
+    """Password reset: request, page, and completion."""
     @app.get("/auth/password-reset", name="password_reset_request_page")
     def password_reset_request_page(request: Request) -> Response:
-        return render_password_reset_request(request)
+        return deps.render_password_reset_request(request)
 
     @app.get(
         "/auth/password-reset/complete",
@@ -525,8 +597,8 @@ def register_auth_routes(
     def password_reset_complete_page(request: Request) -> Response:
         return render_public_auth_template(
             request,
-            settings=settings,
-            csrf_secret=csrf_secret,
+            settings=deps.settings,
+            csrf_secret=deps.csrf_secret,
             template_name=PASSWORD_RESET_COMPLETE_TEMPLATE,
         )
 
@@ -538,32 +610,35 @@ def register_auth_routes(
     async def request_reset(
         request: Request,
         background_tasks: BackgroundTasks,
-        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
+        session: Annotated[
+            Session,
+            function_scoped_database_dependency(deps.get_app_database_session),
+        ],
     ) -> dict[str, object] | Response:
         is_browser_form = is_urlencoded_form_request(request)
         try:
-            payload = await get_password_reset_request_from_request(request, csrf_secret)
+            payload = await get_password_reset_request_from_request(request, deps.csrf_secret)
         except (BrowserFormValidationError, RequestValidationError):
             if not is_browser_form:
                 raise
-            return render_password_reset_request(
+            return deps.render_password_reset_request(
                 request,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                error_message=text["password_reset_request_details"],
+                error_message=deps.text["password_reset_request_details"],
             )
         client_reference_hash = hash_sensitive_reference(
-            audit_hash_secret,
+            deps.audit_hash_secret,
             "password_reset_client",
-            get_request_client_reference(request, settings),
+            get_request_client_reference(request, deps.settings),
         )
         result = request_password_reset(
             session,
             username=payload.username,
             email=payload.email,
             client_reference_hash=client_reference_hash,
-            policy=auth_policy,
+            policy=deps.auth_policy,
             reset_token_secret=runtime.token_keys.password_reset,
-            clinic_id=settings.clinic_id,
+            clinic_id=deps.settings.clinic_id,
         )
         response_reset_token = result.reset_token
         development_reset_url = None
@@ -571,10 +646,10 @@ def register_auth_routes(
             session.commit()
             reset_url = build_password_reset_url(
                 request,
-                settings=settings,
+                settings=deps.settings,
                 reset_token=result.reset_token,
             )
-            if settings.is_development:
+            if deps.settings.is_development:
                 try:
                     await run_in_threadpool(
                         send_password_reset_email,
@@ -614,28 +689,31 @@ def register_auth_routes(
                     reset_url=reset_url,
                 )
         if is_browser_form:
-            return render_password_reset_request(
+            return deps.render_password_reset_request(
                 request,
                 status_code=status.HTTP_202_ACCEPTED,
-                notice_message=text["password_reset_link_sent"],
+                notice_message=deps.text["password_reset_link_sent"],
                 form_values={
                     "username": payload.username,
                     "email": payload.email,
                 },
                 development_reset_url=development_reset_url,
             )
-        return password_reset_request_response_payload(response_reset_token, settings=settings)
+        return password_reset_request_response_payload(response_reset_token, settings=deps.settings)
 
     @app.post("/auth/password-reset/complete", response_model=PasswordResetCompleteResponse)
     async def complete_reset(
         request: Request,
-        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
+        session: Annotated[
+            Session,
+            function_scoped_database_dependency(deps.get_app_database_session),
+        ],
     ) -> dict[str, str] | Response:
         is_browser_form = is_urlencoded_form_request(request)
         try:
             payload = await get_password_reset_complete_request_from_request(
                 request,
-                csrf_secret,
+                deps.csrf_secret,
             )
         except BrowserFormValidationError as exc:
             if not is_browser_form:
@@ -646,11 +724,11 @@ def register_auth_routes(
             }.get(str(exc), "password_reset_complete_error")
             return render_public_auth_template(
                 request,
-                settings=settings,
-                csrf_secret=csrf_secret,
+                settings=deps.settings,
+                csrf_secret=deps.csrf_secret,
                 template_name=PASSWORD_RESET_COMPLETE_TEMPLATE,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                error_message=text[error_key],
+                error_message=deps.text[error_key],
                 reset_token=exc.safe_form_values.get("reset_token"),
             )
         try:
@@ -660,17 +738,17 @@ def register_auth_routes(
                 reset_token=payload.reset_token,
                 new_password=payload.new_password,
                 reset_token_secret=runtime.token_keys.password_reset,
-                clinic_id=settings.clinic_id,
+                clinic_id=deps.settings.clinic_id,
             )
         except PasswordResetTokenInvalidError:
             if is_browser_form:
                 return render_public_auth_template(
                     request,
-                    settings=settings,
-                    csrf_secret=csrf_secret,
+                    settings=deps.settings,
+                    csrf_secret=deps.csrf_secret,
                     template_name=PASSWORD_RESET_COMPLETE_TEMPLATE,
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    error_message=text["password_reset_complete_error"],
+                    error_message=deps.text["password_reset_complete_error"],
                 )
             return JSONResponse(
                 status_code=400,
@@ -679,27 +757,38 @@ def register_auth_routes(
         if is_browser_form:
             return render_public_auth_template(
                 request,
-                settings=settings,
-                csrf_secret=csrf_secret,
+                settings=deps.settings,
+                csrf_secret=deps.csrf_secret,
                 template_name="auth_result.jinja",
-                result_heading=text["password_reset_success_heading"],
-                result_message=text["password_reset_success"],
+                result_heading=deps.text["password_reset_success_heading"],
+                result_message=deps.text["password_reset_success"],
             )
         return {"status": "password_reset", "username": account.username}
 
+
+
+def register_email_change_routes(
+    app: FastAPI,
+    runtime: PortalRuntime,
+    deps: AuthRouteDependencies,
+) -> None:
+    """Confirming a portal email change from the new mailbox."""
     @app.get("/auth/email-change/confirm", name="email_change_confirm_page")
     def email_change_confirm_page(request: Request) -> Response:
         return render_public_auth_template(
             request,
-            settings=settings,
-            csrf_secret=csrf_secret,
+            settings=deps.settings,
+            csrf_secret=deps.csrf_secret,
             template_name=EMAIL_CHANGE_TEMPLATE,
         )
 
     @app.post("/auth/email-change/confirm", name="confirm_email_change_submission")
     async def confirm_email_change_submission(
         request: Request,
-        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
+        session: Annotated[
+            Session,
+            function_scoped_database_dependency(deps.get_app_database_session),
+        ],
     ) -> Response:
         """Apply a confirmed contact change.
 
@@ -709,7 +798,7 @@ def register_auth_routes(
         """
         form_values = await get_csrf_urlencoded_form_values(
             request,
-            csrf_secret,
+            deps.csrf_secret,
             unsupported_media_type_detail=(
                 "email change confirmation requires a form request body"
             ),
@@ -721,18 +810,18 @@ def register_auth_routes(
                 session,
                 confirmation_token=confirmation_token,
                 token_secret=runtime.token_keys.email_change,
-                clinic_id=settings.clinic_id,
+                clinic_id=deps.settings.clinic_id,
             )
         except (EmailChangeTokenInvalidError, ValueError):
             # Deliberately one generic outcome: an expired link, a superseded link, a link for a
             # locked account, and a forged token must not be distinguishable from each other.
             return render_public_auth_template(
                 request,
-                settings=settings,
-                csrf_secret=csrf_secret,
+                settings=deps.settings,
+                csrf_secret=deps.csrf_secret,
                 template_name=EMAIL_CHANGE_TEMPLATE,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                error_message=text["email_change_complete_error"],
+                error_message=deps.text["email_change_complete_error"],
             )
         session.commit()
         for recipient in confirmation.notice_recipients:
@@ -749,18 +838,26 @@ def register_auth_routes(
                 logger.error("Contact-change notice delivery failed")
         return render_public_auth_template(
             request,
-            settings=settings,
-            csrf_secret=csrf_secret,
+            settings=deps.settings,
+            csrf_secret=deps.csrf_secret,
             template_name="auth_result.jinja",
-            result_heading=text["email_change_success_heading"],
-            result_message=text["email_change_success"],
+            result_heading=deps.text["email_change_success_heading"],
+            result_message=deps.text["email_change_success"],
         )
 
+
+
+def register_session_routes(
+    app: FastAPI,
+    runtime: PortalRuntime,
+    deps: AuthRouteDependencies,
+) -> None:
+    """Reading the current authenticated session."""
     @app.get("/auth/session", response_model=SessionResponse)
     def read_session(
         authenticated_session: Annotated[
             AuthenticatedPortalSession,
-            Depends(get_authenticated_portal_session),
+            Depends(deps.get_authenticated_portal_session),
         ],
     ) -> dict[str, object]:
         account = authenticated_session.account
@@ -770,6 +867,22 @@ def register_auth_routes(
             "clinic_id": account.clinic_id,
             "demographic_no": account.demographic_no,
         }
+
+
+
+
+def register_auth_routes(
+    app: FastAPI,
+    runtime: PortalRuntime,
+    route_dependencies: RouteDependencies,
+) -> None:
+    """Register the public authentication routes, one registrar per flow."""
+    deps = build_auth_dependencies(runtime, route_dependencies)
+    register_login_routes(app, runtime, deps)
+    register_mfa_routes(app, runtime, deps)
+    register_password_reset_routes(app, runtime, deps)
+    register_email_change_routes(app, runtime, deps)
+    register_session_routes(app, runtime, deps)
 
 
 def register_logout_route(
