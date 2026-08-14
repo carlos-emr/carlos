@@ -9,6 +9,12 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from carlos_patient_portal.credentials import (
+    DEFAULT_PASSWORD_HASH_MAX_CONCURRENCY,
+    DEFAULT_PASSWORD_HASH_MEMORY_KIB,
+    DEFAULT_PASSWORD_HASH_PARALLELISM,
+    DEFAULT_PASSWORD_HASH_TIME_COST,
+)
 from carlos_patient_portal.database import (
     DEFAULT_DATABASE_CONNECT_TIMEOUT_SECONDS,
     DEFAULT_DATABASE_LOCK_TIMEOUT_MS,
@@ -140,6 +146,23 @@ class Settings(BaseSettings):
     activation_max_failures_per_invite: int = Field(default=10, ge=1, le=100)
     activation_max_failures_per_client: int = Field(default=50, ge=1, le=1000)
     require_mfa: bool = True
+    # Argon2id cost and how many hashes may run at once. Peak hashing memory is roughly
+    # max_concurrency * memory_kib (4 * 64 MiB = 256 MiB by default), which a small clinic VM and a
+    # larger deployment should not both be stuck with. Raising concurrency also raises how many
+    # Starlette threadpool workers can be parked on the semaphore holding a database session, so
+    # keep it well under database_pool_size + database_max_overflow.
+    password_hash_max_concurrency: int = Field(
+        default=DEFAULT_PASSWORD_HASH_MAX_CONCURRENCY,
+        ge=1,
+        le=64,
+    )
+    password_hash_time_cost: int = Field(default=DEFAULT_PASSWORD_HASH_TIME_COST, ge=2, le=16)
+    password_hash_memory_kib: int = Field(
+        default=DEFAULT_PASSWORD_HASH_MEMORY_KIB,
+        ge=16384,
+        le=1024 * 1024,
+    )
+    password_hash_parallelism: int = Field(default=DEFAULT_PASSWORD_HASH_PARALLELISM, ge=1, le=16)
     auth_max_failed_password_attempts: int = Field(default=10, ge=1, le=1000)
     mfa_max_failed_attempts: int = Field(default=10, ge=1, le=100)
     session_ttl_seconds: int = Field(default=60 * 60, ge=300, le=30 * 24 * 60 * 60)

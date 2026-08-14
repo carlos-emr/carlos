@@ -35,6 +35,7 @@ from carlos_patient_portal.auth import (
     authenticate_session_token,
 )
 from carlos_patient_portal.config import Settings, get_settings
+from carlos_patient_portal.credentials import configure_password_hashing
 from carlos_patient_portal.database import (
     create_portal_engine,
     create_session_factory,
@@ -690,6 +691,14 @@ def create_app(
     sms_sender: PortalSmsSender | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
+    # Before anything can serve a request, so no hash is ever produced with the module defaults
+    # when the deployment configured something else.
+    configure_password_hashing(
+        max_concurrency=settings.password_hash_max_concurrency,
+        time_cost=settings.password_hash_time_cost,
+        memory_kib=settings.password_hash_memory_kib,
+        parallelism=settings.password_hash_parallelism,
+    )
     runtime = build_portal_runtime(
         settings,
         email_sender=email_sender,

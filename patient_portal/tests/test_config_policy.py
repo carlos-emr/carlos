@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.engine import make_url
 
-from carlos_patient_portal import main, web_support
+from carlos_patient_portal import credentials, main, web_support
 from carlos_patient_portal.config import (
     DEFAULT_AUDIT_RETENTION_DAYS,
     DEFAULT_DATABASE_URL,
@@ -271,6 +271,39 @@ def test_trusted_proxy_header_and_cidrs_must_be_configured_together() -> None:
         development_settings(trusted_client_ip_header="x-forwarded-for")
     with pytest.raises(ValidationError, match="TRUSTED_CLIENT_IP_HEADER"):
         development_settings(trusted_proxy_cidrs="10.0.0.0/8")
+
+
+def test_password_hash_cost_is_configurable_and_reaches_the_hasher() -> None:
+    """Peak hashing memory is max_concurrency * memory_kib, so a deployment must be able to size it.
+
+    Asserted through create_app rather than on Settings alone, because the value only matters if it
+    actually reaches the process-wide hasher before any request is served.
+    """
+    original_concurrency = credentials.PASSWORD_HASH_MAX_CONCURRENCY
+    original_hasher = credentials.password_hasher
+    try:
+        migrated_development_app(
+            password_hash_max_concurrency=2,
+            password_hash_memory_kib=16384,
+            password_hash_parallelism=1,
+            password_hash_time_cost=2,
+        )
+
+        assert credentials.PASSWORD_HASH_MAX_CONCURRENCY == 2
+        assert credentials.password_hasher.memory_cost == 16384
+        assert credentials.password_hasher.parallelism == 1
+        assert credentials.password_hasher.time_cost == 2
+        # Argon2 encodes its parameters in the hash, so a hash made under the old cost still
+        # verifies after a reconfiguration.
+        legacy_hash = original_hasher.hash("Stronger1!word")
+        assert credentials.verify_password(legacy_hash, "Stronger1!word")
+    finally:
+        credentials.configure_password_hashing(
+            max_concurrency=original_concurrency,
+            time_cost=original_hasher.time_cost,
+            memory_kib=original_hasher.memory_cost,
+            parallelism=original_hasher.parallelism,
+        )
 
 
 def test_probe_allowed_hosts_rejects_wildcards() -> None:

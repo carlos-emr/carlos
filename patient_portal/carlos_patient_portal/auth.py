@@ -618,6 +618,19 @@ def start_login(
         )
         raise InvalidCredentialsError() from None
 
+    # The row lock is taken before the Argon2 verification, not after, and is therefore held for
+    # the full hash cost plus the MFA write path. That is deliberate: the failure counter and the
+    # lockout transition it feeds have to be serialized, and a snapshot read followed by a lock
+    # would let two concurrent wrong-password attempts each read the same count and write the same
+    # increment — the lockout budget is the control, so it cannot be racy.
+    #
+    # The cost is that concurrent attempts against one username queue behind the hash. With
+    # lock_timeout at 5s (database.py) roughly 40-50 simultaneous attempts on the same account
+    # start timing out that account's legitimate logins into a 503. That is bounded per-account
+    # rather than service-wide, and the per-client login limiter plus the Argon2 concurrency
+    # semaphore in credentials.py cap how fast a single source can drive it — but a distributed
+    # source aimed at one known username can still cause it. Revisit alongside the shared edge
+    # limit the README requires before pilot traffic.
     account = session.scalar(
         select(PatientPortalAccount)
         .where(

@@ -9,15 +9,52 @@ MIN_PASSWORD_LENGTH = 12
 MAX_PASSWORD_LENGTH = 256
 USERNAME_PATTERN = re.compile(r"^[a-z0-9._-]+$")
 PASSWORD_SYMBOL_PATTERN = re.compile(r"[^A-Za-z0-9]")
-PASSWORD_HASH_MAX_CONCURRENCY = 4
+
+# Defaults sized for a small clinic VM. Peak hashing memory is roughly
+# max_concurrency * memory_cost — 4 * 64 MiB = 256 MiB here — so a deployment with a different
+# container limit needs to be able to move them; see configure_password_hashing().
+DEFAULT_PASSWORD_HASH_MAX_CONCURRENCY = 4
+DEFAULT_PASSWORD_HASH_TIME_COST = 3
+DEFAULT_PASSWORD_HASH_MEMORY_KIB = 65536
+DEFAULT_PASSWORD_HASH_PARALLELISM = 4
+
+PASSWORD_HASH_MAX_CONCURRENCY = DEFAULT_PASSWORD_HASH_MAX_CONCURRENCY
 password_hasher = PasswordHasher(
-    time_cost=3,
-    memory_cost=65536,
-    parallelism=4,
+    time_cost=DEFAULT_PASSWORD_HASH_TIME_COST,
+    memory_cost=DEFAULT_PASSWORD_HASH_MEMORY_KIB,
+    parallelism=DEFAULT_PASSWORD_HASH_PARALLELISM,
     hash_len=32,
     salt_len=16,
 )
 password_hash_semaphore = BoundedSemaphore(PASSWORD_HASH_MAX_CONCURRENCY)
+
+
+def configure_password_hashing(
+    *,
+    max_concurrency: int,
+    time_cost: int,
+    memory_kib: int,
+    parallelism: int,
+) -> None:
+    """Rebind the process-wide hasher and its concurrency budget from settings.
+
+    Module-level rather than injected because hash_password/verify_password are called from
+    services that have no access to Settings, and a portal process serves exactly one
+    configuration. Called once during app construction, before any request is served.
+
+    Changing these does not invalidate existing hashes: Argon2 encodes its own parameters in the
+    hash string, so verification uses the parameters the hash was created with.
+    """
+    global PASSWORD_HASH_MAX_CONCURRENCY, password_hasher, password_hash_semaphore
+    PASSWORD_HASH_MAX_CONCURRENCY = max_concurrency
+    password_hasher = PasswordHasher(
+        time_cost=time_cost,
+        memory_cost=memory_kib,
+        parallelism=parallelism,
+        hash_len=32,
+        salt_len=16,
+    )
+    password_hash_semaphore = BoundedSemaphore(max_concurrency)
 
 
 def hash_password(password: str) -> str:

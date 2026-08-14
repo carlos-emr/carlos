@@ -641,6 +641,10 @@ def verify_current_password(
             outcome=AUDIT_OUTCOME_FAILURE,
             reason=ACCOUNT_SETTINGS_REASON_PASSWORD_HASH_UNUSABLE,
         )
+        # Same reasoning as auth.verify_account_password: the 503 this raises would roll the audit
+        # row back with it. Deliberately the caller's session rather than a fresh one — nothing
+        # else is pending on this branch, and taking a second connection to write one row would
+        # add a pool acquisition to a path that only runs when the database is already suspect.
         session.commit()
         raise
     if step_up_succeeded:
