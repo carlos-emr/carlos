@@ -65,8 +65,13 @@ PACKAGE_DIR = FilePath(__file__).resolve().parent
 RequestModel = TypeVar("RequestModel", bound=BaseModel)
 
 
-templates = Jinja2Templates(
-    env=Environment(
+# Semgrep's direct-use-of-jinja2 rule targets Flask, where it advises render_template() over a
+# hand-built Environment because Flask's own default is autoescape=False. This is Starlette's
+# Jinja2Templates — the framework-supplied renderer — and autoescape is set explicitly, so the
+# escaping the rule protects is on. Marked inline on both lines because the rule is Semgrep PRO
+# and cannot be run locally to confirm which line the match anchors to.
+templates = Jinja2Templates(  # nosemgrep: direct-use-of-jinja2 -- see comment above
+    env=Environment(  # nosemgrep: direct-use-of-jinja2 -- see comment above
         loader=FileSystemLoader(str(PACKAGE_DIR / "templates")),
         autoescape=True,
     )

@@ -589,7 +589,10 @@ def register_auth_routes(
                         outcome=AUDIT_OUTCOME_FAILURE,
                     )
                     session.commit()
-                    # SMTP exceptions may contain recipient data; keep this log PHI-safe.
+                    # SMTP exceptions may contain recipient data; keep this log PHI-safe. The
+                    # message is a fixed literal and the sole interpolation is the exception
+                    # class name, so the credential-disclosure rule below has nothing to disclose.
+                    # nosemgrep: python-logger-credential-disclosure -- logs only type(exc).__name__
                     logger.error(  # NOSONAR
                         "Password reset email delivery failed: %s",
                         type(exc).__name__,

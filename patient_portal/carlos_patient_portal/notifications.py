@@ -107,7 +107,10 @@ def deliver_password_reset(
     except PortalEmailDeliveryError as exc:
         outcome = AUDIT_OUTCOME_FAILURE
         runtime.operational_metrics.record_failure("password_reset_delivery")
-        # Exception details can contain SMTP recipient data; log only the sanitized type.
+        # Exception details can contain SMTP recipient data; log only the sanitized type. The
+        # message is a fixed literal and the sole interpolation is the exception class name, so
+        # the credential-disclosure rule below has nothing to disclose.
+        # nosemgrep: python-logger-credential-disclosure -- logs only type(exc).__name__
         logger.error("Password reset email delivery failed: %s", type(exc).__name__)  # NOSONAR
     try:
         with runtime.session_factory() as session:
@@ -118,7 +121,10 @@ def deliver_password_reset(
                     outcome=outcome,
                 )
     except (PasswordResetTokenInvalidError, SQLAlchemyError) as exc:
-        # Exception details can contain database values; log only the sanitized type.
+        # Exception details can contain database values; log only the sanitized type. The message
+        # is a fixed literal and the sole interpolation is the exception class name, so the
+        # credential-disclosure rule below has nothing to disclose.
+        # nosemgrep: python-logger-credential-disclosure -- logs only type(exc).__name__
         logger.error(  # NOSONAR
             "Password reset delivery outcome persistence failed: %s",
             type(exc).__name__,
