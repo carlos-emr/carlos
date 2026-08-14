@@ -445,6 +445,7 @@ public final class EDocUtil {
 
         Integer parsedDocumentNo = ConversionUtils.fromIntString(newDocument.getDocId());
         assertNotOutboundEmailArchiveDocument(parsedDocumentNo);
+        assertNotOutboundEmailArchiveFileName(newDocument.getFileName());
         Document doc = getDocumentDao().find(parsedDocumentNo);
         if (doc != null) {
             doc.setDoctype(newDocument.getType());
@@ -1001,7 +1002,7 @@ public final class EDocUtil {
         Integer parsedDocumentNo = ConversionUtils.fromIntString(documentNo);
         Document d = getDocumentDao().find(parsedDocumentNo);
         if (d != null) {
-            assertNotActiveOutboundEmailArchiveDocument(parsedDocumentNo);
+            assertNotOutboundEmailArchiveDocument(parsedDocumentNo);
             d.setStatus('D');
             d.setUpdatedatetime(MyDateFormat.getSysDate(getDmsDateTime()));
             getDocumentDao().merge(d);
@@ -1089,22 +1090,23 @@ public final class EDocUtil {
 
     private static void assertNotOutboundEmailArchiveDocument(Integer documentNo) {
         if (isOutboundEmailArchiveDocumentNo(documentNo)) {
-            throw new IllegalStateException(
+            throw new OutboundEmailArchiveSecurityException(
                     "Outbound email archive eDocs must be managed through the controlled archive workflow");
         }
     }
 
     private static void assertNotOutboundEmailArchiveFileName(String fileName) {
         if (isOutboundEmailArchiveFileName(fileName)) {
-            throw new IllegalStateException(
+            throw new OutboundEmailArchiveSecurityException(
                     "Outbound email archive eDocs must be managed through the controlled archive workflow");
         }
     }
 
-    private static void assertNotActiveOutboundEmailArchiveDocument(Integer documentNo) {
-        if (outboundEmailArchiveDao().existsActiveByDocumentNo(documentNo)) {
-            throw new IllegalStateException(
-                    "Outbound email archive eDocs must be deleted through the controlled archive deletion workflow");
+    private static final class OutboundEmailArchiveSecurityException extends SecurityException {
+        private static final long serialVersionUID = 1L;
+
+        private OutboundEmailArchiveSecurityException(String message) {
+            super(message);
         }
     }
 
@@ -1453,10 +1455,11 @@ public final class EDocUtil {
         try {
             is = new BufferedInputStream(new FileInputStream(validateResolvedDocumentOrTempFile(fileName)));
             return IOUtils.toByteArray(is);
+        } catch (OutboundEmailArchiveSecurityException e) {
+            throw e;
         } catch (SecurityException e) {
-            // Honour the declared throws IOException: a rejected document path surfaces as a checked
-            // IOException rather than an unchecked SecurityException callers are not expecting. Throwing
-            // here also leaves is null, so the finally below must null-guard before closing.
+            // Preserve the historical checked failure for rejected filesystem paths while archive
+            // access denials retain their consistent SecurityException contract.
             throw new IOException("Unable to resolve document file", e);
         } finally {
             try {
@@ -1473,16 +1476,18 @@ public final class EDocUtil {
         File resolvedFile = new File(resolvePath(fileName));
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(
                 CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        File trustedFile;
         try {
-            File documentFile = PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
-            assertNotOutboundEmailArchiveFileName(documentFile.getName());
-            return documentFile;
+            trustedFile = PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
         } catch (SecurityException e) {
             if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
-                return PathValidationUtils.resolveTrustedPath(resolvedFile);
+                trustedFile = PathValidationUtils.resolveTrustedPath(resolvedFile);
+            } else {
+                throw e;
             }
-            throw e;
         }
+        assertNotOutboundEmailArchiveFileName(trustedFile.getName());
+        return trustedFile;
     }
 
     /**

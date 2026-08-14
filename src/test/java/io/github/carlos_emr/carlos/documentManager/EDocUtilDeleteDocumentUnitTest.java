@@ -118,30 +118,30 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should soft-delete document when it is not an active outbound email archive eDoc")
-    void shouldSoftDeleteDocument_whenNotActiveOutboundEmailArchiveEdoc() {
+    @DisplayName("should soft-delete document when it is not an outbound email archive eDoc")
+    void shouldSoftDeleteDocument_whenNotOutboundEmailArchiveEdoc() {
         Document document = activeDocument();
         when(documentDao.find((Object) Integer.valueOf(321))).thenReturn(document);
-        when(outboundEmailArchiveDao.existsActiveByDocumentNo(321)).thenReturn(false);
+        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(false);
 
         EDocUtil.deleteDocument("321");
 
         assertThat(document.getStatus()).isEqualTo(Document.STATUS_DELETED);
         assertThat(document.getUpdatedatetime()).isNotNull();
-        verify(outboundEmailArchiveDao).existsActiveByDocumentNo(321);
+        verify(outboundEmailArchiveDao).existsByDocumentNo(321);
         verify(documentDao).merge(document);
     }
 
     @Test
-    @DisplayName("should reject normal delete when document backs an active outbound email archive")
-    void shouldRejectDelete_whenDocumentBacksActiveOutboundEmailArchive() {
+    @DisplayName("should reject normal delete when document backs any outbound email archive")
+    void shouldRejectDelete_whenDocumentBacksOutboundEmailArchive() {
         Document document = activeDocument();
         when(documentDao.find((Object) Integer.valueOf(321))).thenReturn(document);
-        when(outboundEmailArchiveDao.existsActiveByDocumentNo(321)).thenReturn(true);
+        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
 
         assertThatThrownBy(() -> EDocUtil.deleteDocument("321"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("controlled archive deletion workflow");
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("controlled archive workflow");
 
         assertThat(document.getStatus()).isEqualTo(Document.STATUS_ACTIVE);
         verify(documentDao, never()).merge(any(Document.class));
@@ -153,7 +153,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
 
         assertThatThrownBy(() -> EDocUtil.undeleteDocument("321"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
 
         verifyNoInteractions(ctlDocumentDao);
@@ -166,7 +166,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
 
         assertThatThrownBy(() -> EDocUtil.refileDocument("321", "1"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
 
         verify(documentDao, never()).find(any());
@@ -180,7 +180,23 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
 
         assertThatThrownBy(() -> EDocUtil.editDocumentSQL(editedDocument, false))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("controlled archive workflow");
+
+        verify(documentDao, never()).find(any());
+        verify(documentDao, never()).merge(any(Document.class));
+    }
+
+    @Test
+    @DisplayName("should reject edit when an ordinary document is assigned an outbound archive filename")
+    void shouldRejectEdit_whenFileNameBelongsToOutboundEmailArchive() {
+        EDoc editedDocument = new EDoc();
+        editedDocument.setDocId("321");
+        editedDocument.setFileName("archive.pdf");
+        when(outboundEmailArchiveDao.existsByFileName("archive.pdf")).thenReturn(true);
+
+        assertThatThrownBy(() -> EDocUtil.editDocumentSQL(editedDocument, false))
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
 
         verify(documentDao, never()).find(any());
@@ -195,7 +211,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.existsByFileName("archive.pdf")).thenReturn(true);
 
         assertThatThrownBy(() -> EDocUtil.addDocumentSQL(newDocument))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
 
         verify(documentDao, never()).persist(any(Document.class));
@@ -219,7 +235,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
                 null,
                 "999998",
                 "999998"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
 
         verify(documentDao, never()).persist(any(Document.class));
@@ -231,7 +247,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.existsByFileName("archive.pdf")).thenReturn(true);
 
         assertThatThrownBy(() -> EDocUtil.writeDocContent("archive.pdf", new byte[] {1}))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
     }
 
@@ -241,7 +257,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
 
         assertThatThrownBy(() -> EDocUtil.attachDocConsult("999998", "321", "456"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
 
         verify(consultDocsDao, never()).persist(any(ConsultDocs.class));
@@ -253,7 +269,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
 
         assertThatThrownBy(() -> EDocUtil.attachDocEForm("999998", "321", "456"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
 
         verify(eFormDocsDao, never()).persist(any(EFormDocs.class));
@@ -265,7 +281,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
 
         assertThatThrownBy(() -> EDocUtil.detachDocConsult("321", "456"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
 
         verifyNoInteractions(consultDocsDao);
@@ -277,7 +293,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
 
         assertThatThrownBy(() -> EDocUtil.detachDocEForm("321", "456"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
 
         verifyNoInteractions(eFormDocsDao);
@@ -289,7 +305,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
 
         assertThatThrownBy(() -> EDocUtil.subtractOnePage("321"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
 
         verify(documentDao, never()).find(any());
@@ -302,7 +318,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
 
         assertThatThrownBy(() -> EDocUtil.getHtmlTicklers(loggedInInfo, "321"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
     }
 
@@ -312,7 +328,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
 
         assertThatThrownBy(() -> EDocUtil.getHtmlAcknowledgement(Locale.CANADA, "321"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
     }
 
@@ -322,7 +338,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
 
         assertThatThrownBy(() -> EDocUtil.getHtmlAnnotation("321"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
     }
 
@@ -346,7 +362,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.existsByFileName("archive.pdf")).thenReturn(true);
 
         assertThatThrownBy(() -> EDocUtil.readContent("archive.pdf"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
     }
 

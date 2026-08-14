@@ -287,7 +287,7 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
-        List<Document> results = findUpdatedDocumentsExcludingArchives(
+        List<Document> results = documentDao.findByUpdateDateExcludingOutboundEmailArchives(
                 updatedAfterThisDateExclusive, itemsToReturn);
 
         LogAction.addLog(loggedInInfo, "DocumentManager.getUpdateAfterDate", "updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive, "", "", "Number items " + itemsToReturn);
@@ -690,30 +690,6 @@ public class DocumentManagerImpl implements DocumentManager {
             }
         }
         return filteredDocuments;
-    }
-
-    private List<Document> findUpdatedDocumentsExcludingArchives(Date updatedAfter, int itemsToReturn) {
-        if (itemsToReturn <= 0) {
-            return withoutOutboundEmailArchiveDocuments(
-                    documentDao.findByUpdateDate(updatedAfter, itemsToReturn));
-        }
-
-        int fetchLimit = itemsToReturn;
-        while (true) {
-            List<Document> candidates = documentDao.findByUpdateDate(updatedAfter, fetchLimit);
-            List<Document> visibleDocuments = withoutOutboundEmailArchiveDocuments(candidates);
-            if (visibleDocuments.size() >= itemsToReturn) {
-                return new ArrayList<>(visibleDocuments.subList(0, itemsToReturn));
-            }
-            if (candidates.size() < fetchLimit || fetchLimit >= AbstractDao.MAX_LIST_RETURN_SIZE) {
-                return visibleDocuments;
-            }
-            int nextFetchLimit = Math.min(AbstractDao.MAX_LIST_RETURN_SIZE, fetchLimit * 2);
-            if (nextFetchLimit == fetchLimit) {
-                return visibleDocuments;
-            }
-            fetchLimit = nextFetchLimit;
-        }
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use

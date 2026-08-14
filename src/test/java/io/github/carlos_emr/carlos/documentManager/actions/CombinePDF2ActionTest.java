@@ -38,10 +38,13 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -89,12 +92,13 @@ class CombinePDF2ActionTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should reject archive-backed documents before combining PDFs")
     void shouldRejectOutboundArchiveDocumentsBeforeCombiningPdfs() {
-        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321))).thenReturn(Set.of(321));
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        verify(outboundEmailArchiveDao).findExistingDocumentNos(List.of(321));
         verifyNoInteractions(documentDao);
     }
 }

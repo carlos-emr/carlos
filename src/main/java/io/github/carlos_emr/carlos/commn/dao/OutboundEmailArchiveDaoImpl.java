@@ -46,41 +46,81 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
         super(OutboundEmailArchive.class);
     }
 
+    /**
+     * Physical deletion is always disabled; use the controlled tombstone workflow.
+     *
+     * @throws UnsupportedOperationException always
+     */
     @Override
     public void remove(AbstractModel<?> o) {
         throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
     }
 
+    /**
+     * Physical deletion is always disabled; use the controlled tombstone workflow.
+     *
+     * @throws UnsupportedOperationException always
+     */
     @Override
     public boolean remove(Object id) {
         throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
     }
 
+    /**
+     * Physical deletion is always disabled; use the controlled tombstone workflow.
+     *
+     * @throws UnsupportedOperationException always
+     */
     @Override
     public void batchRemove(List<OutboundEmailArchive> oList) {
         throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
     }
 
+    /**
+     * Physical deletion is always disabled; use the controlled tombstone workflow.
+     *
+     * @throws UnsupportedOperationException always
+     */
     @Override
     public void batchRemove(List<OutboundEmailArchive> oList, int batchSize) {
         throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
     }
 
+    /**
+     * Physical deletion is always disabled; use the controlled tombstone workflow.
+     *
+     * @throws UnsupportedOperationException always
+     */
     @Override
     public void batchRemoveAtomically(List<OutboundEmailArchive> oList) {
         throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
     }
 
+    /**
+     * Physical deletion is always disabled; use the controlled tombstone workflow.
+     *
+     * @throws UnsupportedOperationException always
+     */
     @Override
     public void batchRemoveAtomically(List<OutboundEmailArchive> oList, int batchSize) {
         throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
     }
 
+    /**
+     * Physical deletion is always disabled; use the controlled tombstone workflow.
+     *
+     * @throws UnsupportedOperationException always
+     */
     @Override
     public void batchRemoveWithIndependentCommits(List<OutboundEmailArchive> oList) {
         throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
     }
 
+    /**
+     * Physical deletion is always disabled; use the controlled tombstone workflow.
+     *
+     * @throws UnsupportedOperationException always
+     */
     @Override
     public void batchRemoveWithIndependentCommits(List<OutboundEmailArchive> oList, int batchSize) {
         throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);

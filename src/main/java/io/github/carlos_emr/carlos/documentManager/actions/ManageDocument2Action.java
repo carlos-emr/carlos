@@ -2010,7 +2010,7 @@ public class ManageDocument2Action extends ActionSupport {
             keyword = "%" + keyword.trim() + "%";
         }
 
-        List<String> descriptions = documentDao.findDocumentDescriptions(keyword);
+        List<String> descriptions = documentDao.findDocumentDescriptionsExcludingOutboundEmailArchives(keyword);
 
         LogAction.addLogSynchronous(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DOCUMENT, "document_description_lookup", request.getRemoteAddr());
 

@@ -36,12 +36,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
-import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -81,14 +82,23 @@ public class CombinePDF2Action extends ActionSupport {
         ArrayList<Object> alist = new ArrayList<Object>();
         if (files != null) {
             MiscUtils.getLogger().debug("size = " + files.length);
+            List<Integer> documentNos = new ArrayList<>();
+            for (String file : files) {
+                try {
+                    documentNos.add(Integer.valueOf(file));
+                } catch (NumberFormatException e) {
+                    // Preserve the existing invalid-id handling in EDocUtil below.
+                }
+            }
+            Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(documentNos);
+            if (archiveDocumentNos != null && !archiveDocumentNos.isEmpty()) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
             EDocUtil docData = new EDocUtil();
             File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
             Path filePath;
             for (int i = 0; i < files.length; i++) {
-                if (isOutboundEmailArchiveDocument(files[i])) {
-                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                    return NONE;
-                }
                 String filename = docData.getDocumentName(files[i]);
                 filePath = PathValidationUtils.validateExistingPath(new File(documentDir, filename), documentDir).toPath();
                 alist.add(filePath.toAbsolutePath().toString());
@@ -149,10 +159,6 @@ public class CombinePDF2Action extends ActionSupport {
             }
         }
         return SUCCESS;
-    }
-
-    private boolean isOutboundEmailArchiveDocument(String documentNo) {
-        return OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao, documentNo);
     }
 
     /**

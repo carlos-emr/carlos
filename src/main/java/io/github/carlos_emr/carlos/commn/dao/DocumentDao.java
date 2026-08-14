@@ -145,6 +145,13 @@ public interface DocumentDao extends AbstractDao<Document> {
      */
     public List<Document> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn);
 
+    /**
+     * Finds ordinary documents updated after a specified date, excluding every eDoc used by an
+     * outbound email archive before applying the result limit.
+     */
+    List<Document> findByUpdateDateExcludingOutboundEmailArchives(
+            Date updatedAfterThisDateExclusive, int itemsToReturn);
+
     public List<Document> findByDemographicUpdateDate(Integer demographicId, Date updatedAfterThisDateInclusive);
 
     /**
@@ -185,6 +192,11 @@ public interface DocumentDao extends AbstractDao<Document> {
      * @return List&lt;String&gt; list of distinct matching document descriptions
      */
     public List<String> findDocumentDescriptions(String keyword);
+
+    /**
+     * Retrieves distinct descriptions belonging to ordinary, active documents only.
+     */
+    List<String> findDocumentDescriptionsExcludingOutboundEmailArchives(String keyword);
 
     /**
      * Returns lightweight document DTOs for a demographic, bypassing the EAGER

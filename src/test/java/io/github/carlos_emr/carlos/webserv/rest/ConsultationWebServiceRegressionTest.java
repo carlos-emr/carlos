@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -123,14 +124,15 @@ class ConsultationWebServiceRegressionTest {
         ConsultationRequestTo1 request = new ConsultationRequestTo1();
         request.setId(456);
         request.setDemographicId(DEMOGRAPHIC_NO);
-        request.setAttachments(List.of(existingDocumentAttachment(321)));
-        when(consultationManager.getConsultRequestDocs(loggedInInfo, request.getId())).thenReturn(new ArrayList<>());
-        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+        request.setAttachments(List.of(existingDocumentAttachment(321), existingDocumentAttachment(654)));
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321, 654))).thenReturn(Set.of(321));
 
-        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request))
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(
+                service, "assertNoOutboundEmailArchiveAttachments", request.getAttachments()))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
 
+        verify(outboundEmailArchiveDao).findExistingDocumentNos(List.of(321, 654));
         verify(consultationManager, never()).saveConsultRequestDoc(eq(loggedInInfo), any(ConsultDocs.class));
     }
 
@@ -140,10 +142,10 @@ class ConsultationWebServiceRegressionTest {
         ConsultationResponseTo1 response = new ConsultationResponseTo1();
         response.setId(789);
         response.setAttachments(List.of(existingDocumentAttachment(321)));
-        when(consultationManager.getConsultResponseDocs(loggedInInfo, response.getId())).thenReturn(new ArrayList<>());
-        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321))).thenReturn(Set.of(321));
 
-        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(service, "saveResponseAttachments", response))
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(
+                service, "assertNoOutboundEmailArchiveAttachments", response.getAttachments()))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
 
@@ -158,10 +160,10 @@ class ConsultationWebServiceRegressionTest {
         ConsultationResponseTo1 response = new ConsultationResponseTo1();
         response.setId(789);
         response.setAttachments(List.of(attachment));
-        when(consultationManager.getConsultResponseDocs(loggedInInfo, response.getId())).thenReturn(new ArrayList<>());
-        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321))).thenReturn(Set.of(321));
 
-        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(service, "saveResponseAttachments", response))
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(
+                service, "assertNoOutboundEmailArchiveAttachments", response.getAttachments()))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
 
@@ -180,7 +182,7 @@ class ConsultationWebServiceRegressionTest {
         List<ConsultDocs> currentDocs = new ArrayList<>(List.of(archiveAttachment));
         when(consultationManager.getConsultRequestDocs(loggedInInfo, request.getId()))
                 .thenReturn(currentDocs);
-        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321))).thenReturn(Set.of(321));
 
         ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
 

@@ -206,39 +206,36 @@ class DocumentManagerImplFilenameValidationTest extends CarlosUnitTestBase {
     @DisplayName("should filter outbound archive eDocs from generic document sync lists")
     void shouldFilterOutboundArchiveDocuments_whenListingUpdatedDocuments() {
         DocumentManagerImpl manager = newDocumentManager();
-        Document archiveDocument = document(321);
         Document ordinaryDocument = document(654);
         Date since = new Date(0L);
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_edoc"), eq("r"), eq("")))
                 .thenReturn(true);
-        when(documentDao.findByUpdateDate(since, 10)).thenReturn(List.of(archiveDocument, ordinaryDocument));
-        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321, 654))).thenReturn(Set.of(321));
+        when(documentDao.findByUpdateDateExcludingOutboundEmailArchives(since, 10))
+                .thenReturn(List.of(ordinaryDocument));
 
         List<Document> documents = manager.getDocumentsUpdateAfterDate(loggedInInfo, since, 10);
 
         assertThat(documents).containsExactly(ordinaryDocument);
+        verify(documentDao).findByUpdateDateExcludingOutboundEmailArchives(since, 10);
     }
 
     @Test
-    @DisplayName("should continue fetching updated documents when archive rows consume the requested window")
-    void shouldContinueFetchingUpdatedDocuments_whenArchiveRowsConsumeRequestedWindow() {
+    @DisplayName("should apply the sync limit after excluding archive rows in the database")
+    void shouldApplySyncLimitAfterExcludingArchiveRows() {
         DocumentManagerImpl manager = newDocumentManager();
-        Document firstArchive = document(321);
-        Document secondArchive = document(322);
         Document firstOrdinary = document(654);
         Document secondOrdinary = document(655);
         Date since = new Date(0L);
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_edoc"), eq("r"), eq("")))
                 .thenReturn(true);
-        when(documentDao.findByUpdateDate(since, 2)).thenReturn(List.of(firstArchive, secondArchive));
-        when(documentDao.findByUpdateDate(since, 4))
-                .thenReturn(List.of(firstArchive, secondArchive, firstOrdinary, secondOrdinary));
-        when(outboundEmailArchiveDao.findExistingDocumentNos(any())).thenReturn(Set.of(321, 322));
+        when(documentDao.findByUpdateDateExcludingOutboundEmailArchives(since, 2))
+                .thenReturn(List.of(firstOrdinary, secondOrdinary));
 
         List<Document> documents = manager.getDocumentsUpdateAfterDate(loggedInInfo, since, 2);
 
         assertThat(documents).containsExactly(firstOrdinary, secondOrdinary);
-        verify(documentDao).findByUpdateDate(since, 4);
+        verify(documentDao).findByUpdateDateExcludingOutboundEmailArchives(since, 2);
+        verify(documentDao, never()).findByUpdateDate(since, 2);
     }
 
     @Test

@@ -225,6 +225,23 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should use the archive-filtered description lookup for autocomplete")
+    void shouldExcludeOutboundArchiveDescriptions_whenSearchingDocumentDescriptions() throws Exception {
+        LoggedInInfo loggedInInfo = Mockito.mock(LoggedInInfo.class);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        request.setParameter("term", "archive");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)).thenReturn(true);
+        when(documentDao.findDocumentDescriptionsExcludingOutboundEmailArchives("%archive%"))
+                .thenReturn(List.of("Ordinary report"));
+
+        action.searchDocumentDescriptions();
+
+        assertThat(response.getContentAsString()).contains("Ordinary report");
+        verify(documentDao).findDocumentDescriptionsExcludingOutboundEmailArchives("%archive%");
+        verify(documentDao, never()).findDocumentDescriptions(anyString());
+    }
+
+    @Test
     void shouldSendServerErrorAndKeepAjaxFailed_whenRefileCopyFails() throws Exception {
         authorizeEdocWrite();
         request.setMethod("POST");

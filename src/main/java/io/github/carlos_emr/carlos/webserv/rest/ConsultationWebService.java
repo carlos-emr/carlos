@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -772,11 +773,15 @@ public class ConsultationWebService extends AbstractServiceImpl {
         List<ConsultationAttachmentTo1> newAttachments = request.getAttachments();
         List<ConsultDocs> currentDocs = consultationManager.getConsultRequestDocs(getLoggedInInfo(), request.getId());
         if (newAttachments == null || currentDocs == null) return;
-        assertNoOutboundEmailArchiveAttachments(newAttachments);
+        Set<Integer> archiveDocumentNos = findOutboundEmailArchiveDocumentNos(
+                currentDocs.stream()
+                        .filter(doc -> ConsultationAttachmentTo1.TYPE_DOC.equals(doc.getDocType()))
+                        .map(ConsultDocs::getDocumentNo)
+                        .toList());
 
         //first assume all current docs detached (set delete)
         for (ConsultDocs doc : currentDocs) {
-            if (!isOutboundEmailArchiveAttachment(doc.getDocType(), doc.getDocumentNo())) {
+            if (!archiveDocumentNos.contains(doc.getDocumentNo())) {
                 doc.setDeleted(ConsultDocs.DELETED);
             }
         }
@@ -815,11 +820,15 @@ public class ConsultationWebService extends AbstractServiceImpl {
         List<ConsultationAttachmentTo1> newAttachments = response.getAttachments();
         List<ConsultResponseDoc> currentDocs = consultationManager.getConsultResponseDocs(getLoggedInInfo(), response.getId());
         if (newAttachments == null || currentDocs == null) return;
-        assertNoOutboundEmailArchiveAttachments(newAttachments);
+        Set<Integer> archiveDocumentNos = findOutboundEmailArchiveDocumentNos(
+                currentDocs.stream()
+                        .filter(doc -> ConsultationAttachmentTo1.TYPE_DOC.equals(doc.getDocType()))
+                        .map(ConsultResponseDoc::getDocumentNo)
+                        .toList());
 
         //first assume all current docs detached (set delete)
         for (ConsultResponseDoc doc : currentDocs) {
-            if (!isOutboundEmailArchiveAttachment(doc.getDocType(), doc.getDocumentNo())) {
+            if (!archiveDocumentNos.contains(doc.getDocumentNo())) {
                 doc.setDeleted(ConsultResponseDoc.DELETED);
             }
         }
@@ -846,28 +855,24 @@ public class ConsultationWebService extends AbstractServiceImpl {
     }
 
     private void assertNoOutboundEmailArchiveAttachments(List<ConsultationAttachmentTo1> attachments) {
-        if (attachments == null) {
-            return;
-        }
-        for (ConsultationAttachmentTo1 attachment : attachments) {
-            if (attachment != null) {
-                assertNotOutboundEmailArchiveAttachment(attachment);
-            }
-        }
-    }
-
-    private void assertNotOutboundEmailArchiveAttachment(ConsultationAttachmentTo1 attachment) {
-        if (attachment != null && isOutboundEmailArchiveAttachment(
-                attachment.getDocumentType(), attachment.getDocumentNo())) {
+        List<Integer> documentNos = attachments == null ? List.of() : attachments.stream()
+                .filter(java.util.Objects::nonNull)
+                .filter(attachment -> ConsultationAttachmentTo1.TYPE_DOC.equals(attachment.getDocumentType()))
+                .map(ConsultationAttachmentTo1::getDocumentNo)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (!findOutboundEmailArchiveDocumentNos(documentNos).isEmpty()) {
             throw new SecurityException(
                     "Outbound email archive eDocs must be managed through the controlled archive workflow");
         }
     }
 
-    private boolean isOutboundEmailArchiveAttachment(String documentType, Integer documentNo) {
-        return ConsultationAttachmentTo1.TYPE_DOC.equals(documentType)
-                && documentNo != null
-                && outboundEmailArchiveDao.existsByDocumentNo(documentNo);
+    private Set<Integer> findOutboundEmailArchiveDocumentNos(List<Integer> documentNos) {
+        if (documentNos == null || documentNos.isEmpty()) {
+            return Set.of();
+        }
+        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(documentNos);
+        return archiveDocumentNos != null ? archiveDocumentNos : Set.of();
     }
 
     private void markAttachmentSaveFailure(List<ConsultationAttachmentTo1> attachments,

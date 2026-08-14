@@ -349,6 +349,23 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         return documents;
     }
 
+    @Override
+    public List<Document> findByUpdateDateExcludingOutboundEmailArchives(
+            Date updatedAfterThisDateExclusive, int itemsToReturn) {
+        String jpql = "SELECT d FROM Document d "
+                + "WHERE d.updatedatetime > :updatedAfter "
+                + "AND NOT EXISTS (SELECT archive.id FROM OutboundEmailArchive archive "
+                + "WHERE archive.document.documentNo = d.documentNo) "
+                + "ORDER BY d.updatedatetime";
+        Query query = entityManager.createQuery(jpql);
+        query.setParameter("updatedAfter", updatedAfterThisDateExclusive);
+        setLimit(query, itemsToReturn);
+
+        @SuppressWarnings("unchecked")
+        List<Document> documents = query.getResultList();
+        return documents;
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public List<Document> findByDemographicUpdateDate(Integer demographicId, Date updatedAfterThisDateInclusive) {
@@ -474,8 +491,6 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     }
 
     /**
-     * Returns distinct document descriptions matching the keyword, in descending document number order.
-    /**
      * Retrieves distinct document descriptions matching the keyword.
      */
     public List<String> findDocumentDescriptions(String keyword) {
@@ -487,6 +502,24 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         query.setParameter(1, keyword);
         query.setMaxResults(20);
         return query.getResultList();
+    }
+
+    @Override
+    public List<String> findDocumentDescriptionsExcludingOutboundEmailArchives(String keyword) {
+        String effectiveKeyword = keyword != null ? keyword : "%";
+        String jpql = "SELECT d.docdesc FROM Document d "
+                + "WHERE d.status != 'D' "
+                + "AND d.docdesc LIKE :keyword "
+                + "AND d.docdesc IS NOT NULL AND d.docdesc <> '' "
+                + "AND NOT EXISTS (SELECT archive.id FROM OutboundEmailArchive archive "
+                + "WHERE archive.document.documentNo = d.documentNo) "
+                + "GROUP BY d.docdesc ORDER BY MAX(d.documentNo) DESC";
+        Query query = entityManager.createQuery(jpql);
+        query.setParameter("keyword", effectiveKeyword);
+        query.setMaxResults(20);
+        @SuppressWarnings("unchecked")
+        List<String> descriptions = query.getResultList();
+        return descriptions;
     }
 
     @Override
