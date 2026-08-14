@@ -29,17 +29,23 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletContext;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
+import io.github.carlos_emr.carlos.utility.XmlUtils;
+import net.bull.javamelody.internal.common.Parameters;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -57,6 +63,7 @@ class JavaMelodyMonitoringConfigurationRegressionTest {
     private static final Path DEVCONTAINER_DOCKERFILE = Path.of(".devcontainer/development/Dockerfile");
     private static final String ENABLED_SYSTEM_ACTIONS_OPTION =
             "-Djavamelody.system-actions-enabled=true";
+    private static final String SYSTEM_ACTIONS_PROPERTY = "javamelody.system-actions-enabled";
     private static final Pattern SYSTEM_ACTIONS_JVM_OPTION = Pattern.compile(
             "(?:^|[\\s\"'=])(-Djavamelody\\.system-actions-enabled=[^\\s\"'\\\\]++)");
     private static final String MONITORING_FILTER =
@@ -112,6 +119,30 @@ class JavaMelodyMonitoringConfigurationRegressionTest {
                 });
     }
 
+    @Test
+    @DisplayName("devcontainer JVM property should override the production filter default")
+    void shouldOverrideProductionDefault_withDevcontainerJvmProperty() {
+        String previousValue = System.getProperty(SYSTEM_ACTIONS_PROPERTY);
+        FilterConfig productionFilterConfig = productionFilterConfig();
+
+        try {
+            System.clearProperty(SYSTEM_ACTIONS_PROPERTY);
+            Parameters.initialize(productionFilterConfig);
+            assertThat(Parameters.isSystemActionsEnabled())
+                    .as("the production filter default must disable JavaMelody system actions")
+                    .isFalse();
+
+            System.setProperty(SYSTEM_ACTIONS_PROPERTY, "true");
+            assertThat(Parameters.isSystemActionsEnabled())
+                    .as("JavaMelody must give the devcontainer JVM property precedence over web.xml")
+                    .isTrue();
+        } finally {
+            restoreSystemProperty(previousValue);
+            Parameters.initialize((FilterConfig) null);
+            Parameters.initialize((ServletContext) null);
+        }
+    }
+
     private static List<JvmOptionDeclaration> findDevcontainerSystemActionsJvmOptions() throws IOException {
         List<JvmOptionDeclaration> declarations = new ArrayList<>();
 
@@ -150,15 +181,41 @@ class JavaMelodyMonitoringConfigurationRegressionTest {
 
     private static Document parseWebXml()
             throws ParserConfigurationException, IOException, SAXException {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
         factory.setNamespaceAware(true);
-        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        factory.setXIncludeAware(false);
-        factory.setExpandEntityReferences(false);
         return factory.newDocumentBuilder().parse(WEB_XML.toFile());
+    }
+
+    private static FilterConfig productionFilterConfig() {
+        return new FilterConfig() {
+            @Override
+            public String getFilterName() {
+                return "monitoring";
+            }
+
+            @Override
+            public ServletContext getServletContext() {
+                return null;
+            }
+
+            @Override
+            public String getInitParameter(String name) {
+                return "system-actions-enabled".equals(name) ? "false" : null;
+            }
+
+            @Override
+            public Enumeration<String> getInitParameterNames() {
+                return Collections.enumeration(List.of("system-actions-enabled"));
+            }
+        };
+    }
+
+    private static void restoreSystemProperty(String previousValue) {
+        if (previousValue == null) {
+            System.clearProperty(SYSTEM_ACTIONS_PROPERTY);
+        } else {
+            System.setProperty(SYSTEM_ACTIONS_PROPERTY, previousValue);
+        }
     }
 
     private record JvmOptionDeclaration(Path source, String option) {}
