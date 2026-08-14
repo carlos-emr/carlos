@@ -162,8 +162,14 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
      * exempt abandoned directories from the on-disk orphan sweep.</p>
      */
     public static boolean isActivelyOwned(Path candidate) {
-        return candidate != null
-                && ACTIVE_DIRECTORIES.contains(candidate.toAbsolutePath().normalize());
+        if (candidate == null) {
+            return false;
+        }
+        try {
+            return ACTIVE_DIRECTORIES.contains(candidate.toRealPath());
+        } catch (IOException | SecurityException e) {
+            return false;
+        }
     }
 
     /** Test/support hook that does not expose the directory to browser state. */

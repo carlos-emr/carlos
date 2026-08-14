@@ -42,6 +42,26 @@ class EmailComposeWorkingDirectoryUnitTest {
     }
 
     @Test
+    @DisplayName("recognizes an active owner when the application temp root is symlinked")
+    void shouldRecognizeActiveOwnerThroughSymlinkedRoot() throws IOException {
+        Path applicationRoot = tempDirectory.resolve("carlos-temp");
+        EmailComposeWorkingDirectory workingDirectory = EmailComposeWorkingDirectory.create(applicationRoot);
+        Path rootAlias = tempDirectory.resolve("carlos-temp-alias");
+        try {
+            try {
+                Files.createSymbolicLink(rootAlias, applicationRoot);
+            } catch (IOException | UnsupportedOperationException e) {
+                assumeTrue(false, "filesystem does not support symbolic links");
+            }
+            Path aliasedWorkingDirectory = rootAlias.resolve(workingDirectory.path().getFileName());
+
+            assertThat(EmailComposeWorkingDirectory.isActivelyOwned(aliasedWorkingDirectory)).isTrue();
+        } finally {
+            workingDirectory.close();
+        }
+    }
+
+    @Test
     @DisplayName("copies a durable source document without deleting it")
     void shouldNotDeleteDurableSourceDocument() throws IOException {
         Path applicationRoot = tempDirectory.resolve("carlos-temp");
