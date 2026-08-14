@@ -1015,6 +1015,35 @@ INTERNAL_ROUTE_PERMISSIONS = (
 UNRELATED_PERMISSION = "portal.something.else"
 
 
+def test_internal_openapi_contract_is_stable() -> None:
+    """Pin the CARLOS-facing contract so a registrar refactor cannot move it silently.
+
+    The routes are registered by four per-domain registrars now. That split was intended to be
+    behaviour-free, and this is what makes "behaviour-free" checkable: paths, methods, status
+    codes, and response model names are the contract CARLOS integrates against.
+    """
+    app = internal_app()
+    paths = {
+        path: sorted(operations)
+        for path, operations in app.openapi()["paths"].items()
+        if path.startswith("/internal/carlos/")
+    }
+
+    assert paths == {
+        "/internal/carlos/contact-reviews": ["get"],
+        "/internal/carlos/contact-reviews/{review_request_id}/decision": ["post"],
+        "/internal/carlos/invites/{invite_id}/resend": ["post"],
+        "/internal/carlos/invites/{invite_id}/revoke": ["post"],
+        "/internal/carlos/patients/{demographic_no}/invites": ["get", "post"],
+        "/internal/carlos/patients/{demographic_no}/portal-account": ["get"],
+        "/internal/carlos/patients/{demographic_no}/portal-account/access": ["post"],
+        "/internal/carlos/patients/{demographic_no}/unlock": ["post"],
+        "/internal/carlos/patients/{demographic_no}/unlock-secrets": ["post"],
+        "/internal/carlos/unlock-secrets/{unlock_secret_id}/publish": ["post"],
+        "/internal/carlos/unlock-secrets/{unlock_secret_id}/revoke": ["post"],
+    }
+
+
 def test_internal_route_permission_manifest_covers_every_route() -> None:
     """A newly added internal route must declare its authorization expectation."""
     app = internal_app()
