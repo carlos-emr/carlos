@@ -614,6 +614,25 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject archive artifact symlinks without following their targets")
+    void shouldRejectArchivedArtifactRead_whenArtifactPathIsSymlink(@TempDir Path documentDir) throws Exception {
+        testProperties.setProperty("DOCUMENT_DIR", documentDir.toString());
+        Path target = documentDir.resolve("real-message.eml");
+        Files.write(target, RFC822_BYTES);
+        Path archivePath = documentDir.resolve("20260707120000_outbound-email-44.eml");
+        try {
+            Files.createSymbolicLink(archivePath, target.getFileName());
+        } catch (UnsupportedOperationException e) {
+            return;
+        }
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(activeArchive());
+
+        assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("not a regular file");
+    }
+
+    @Test
     @DisplayName("should defer archived artifact read audit until transaction commit")
     void shouldDeferArchivedArtifactReadAudit_untilTransactionCommit(@TempDir Path documentDir) throws Exception {
         TransactionSynchronizationManager.initSynchronization();

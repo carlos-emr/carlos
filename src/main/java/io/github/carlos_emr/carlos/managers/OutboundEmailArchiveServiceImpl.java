@@ -51,10 +51,13 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -778,24 +781,29 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     private byte[] readArchivedArtifactBytes(Path archivePath, long expectedByteSize) throws IOException {
         validateArchivedArtifactSize(expectedByteSize);
 
-        long fileSize = Files.size(archivePath);
-        validateArchivedArtifactSize(fileSize);
-        if (fileSize != expectedByteSize) {
-            throw new IOException("Archived artifact size does not match archive metadata");
+        if (!Files.isRegularFile(archivePath, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Archived artifact is not a regular file");
         }
+        try (FileChannel channel = FileChannel.open(
+                    archivePath, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+            long fileSize = channel.size();
+            validateArchivedArtifactSize(fileSize);
+            if (fileSize != expectedByteSize) {
+                throw new IOException("Archived artifact size does not match archive metadata");
+            }
 
-        try (InputStream inputStream = Files.newInputStream(archivePath);
-                ByteArrayOutputStream outputStream = new ByteArrayOutputStream((int) fileSize)) {
-            byte[] buffer = new byte[8192];
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream((int) fileSize);
+            ByteBuffer buffer = ByteBuffer.allocate(8192);
             long totalBytes = 0L;
             int bytesRead;
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
+            while ((bytesRead = channel.read(buffer)) != -1) {
                 totalBytes += bytesRead;
                 if (totalBytes > maxArchivedArtifactBytes) {
                     throw new IOException(
                             "Archived artifact exceeds maximum read size of " + maxArchivedArtifactBytes + " bytes");
                 }
-                outputStream.write(buffer, 0, bytesRead);
+                outputStream.write(buffer.array(), 0, bytesRead);
+                buffer.clear();
             }
             if (totalBytes != expectedByteSize) {
                 throw new IOException("Archived artifact size does not match archive metadata");

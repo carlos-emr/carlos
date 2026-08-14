@@ -427,7 +427,7 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
-        assertNotOutboundEmailArchiveRoutingDocument(docType, docId);
+        assertNotOutboundEmailArchiveDocument(docId);
         providerInboxRoutingDAO.removeLinkFromDocument(docType, Integer.parseInt(docId), providerNo);
         HashMap hm = new HashMap();
         hm.put("linkedProviders", providerInboxRoutingDAO.getProvidersWithRoutingForDocument(docType, Integer.parseInt(docId)));
@@ -1089,31 +1089,6 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException(
                     "Outbound email archive eDocs must be read through the outbound email archive workflow");
         }
-    }
-
-    private void assertNotOutboundEmailArchiveRoutingDocument(String docType, String documentNo) {
-        if (docType == null || asciiEqualsIgnoreCase(LabResultData.DOCUMENT, docType)) {
-            assertNotOutboundEmailArchiveDocument(documentNo);
-        }
-    }
-
-    private boolean asciiEqualsIgnoreCase(String expected, String actual) {
-        if (expected == null || actual == null || expected.length() != actual.length()) {
-            return false;
-        }
-        for (int i = 0; i < expected.length(); i++) {
-            if (toLowerAscii(expected.charAt(i)) != toLowerAscii(actual.charAt(i))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private char toLowerAscii(char value) {
-        if (value >= 'A' && value <= 'Z') {
-            return (char) (value + ('a' - 'A'));
-        }
-        return value;
     }
 
     /**

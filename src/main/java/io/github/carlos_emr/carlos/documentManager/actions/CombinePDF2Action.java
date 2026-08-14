@@ -42,8 +42,9 @@ import java.util.Set;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
-import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -52,6 +53,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
@@ -67,6 +69,7 @@ public class CombinePDF2Action extends ActionSupport {
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
     private transient OutboundEmailArchiveDao outboundEmailArchiveDao = SpringUtils.getBean(OutboundEmailArchiveDao.class);
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
@@ -95,11 +98,11 @@ public class CombinePDF2Action extends ActionSupport {
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 return NONE;
             }
-            EDocUtil docData = new EDocUtil();
             File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
             Path filePath;
             for (int i = 0; i < files.length; i++) {
-                String filename = docData.getDocumentName(files[i]);
+                Document document = documentDao.find(ConversionUtils.fromIntString(files[i]));
+                String filename = document != null ? document.getDocfilename() : null;
                 filePath = PathValidationUtils.validateExistingPath(new File(documentDir, filename), documentDir).toPath();
                 alist.add(filePath.toAbsolutePath().toString());
             }

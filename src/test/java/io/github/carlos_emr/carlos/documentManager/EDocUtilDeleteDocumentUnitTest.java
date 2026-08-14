@@ -76,6 +76,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
     private OutboundEmailArchiveDao outboundEmailArchiveDao;
     private ProgramManager2 programManager2;
     private ProviderDao providerDao;
+    private String previousDocumentDir;
     private String previousFilterOnFacility;
 
     @TempDir
@@ -84,6 +85,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() throws Exception {
         clearCachedDocumentDao();
+        previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         previousFilterOnFacility = CarlosProperties.getInstance().getProperty("FILTER_ON_FACILITY");
         CarlosProperties.getInstance().setProperty("FILTER_ON_FACILITY", "false");
         ctlDocumentDao = mock(CtlDocumentDao.class);
@@ -109,6 +111,11 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() throws Exception {
+        if (previousDocumentDir == null) {
+            CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+        } else {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDir);
+        }
         if (previousFilterOnFacility == null) {
             CarlosProperties.getInstance().remove("FILTER_ON_FACILITY");
         } else {

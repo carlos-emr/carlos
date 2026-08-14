@@ -430,6 +430,22 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldReturnForbidden_whenArchiveRoutingRequestUsesUnexpectedDocumentType() {
+        request.setParameter("method", "removeLinkFromDocument");
+        request.setParameter("docType", "LAB");
+        request.setParameter("docId", "321");
+        request.setParameter("providerNo", "999998");
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("w"), isNull())).thenReturn(true);
+        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        verify(providerInboxRoutingDao, never()).removeLinkFromDocument(anyString(), anyInt(), anyString());
+    }
+
+    @Test
     void shouldReturnNoneAndSendForbidden_whenRefilingOutboundArchiveDocument() {
         request.setMethod("POST");
         request.setParameter("method", "refileDocumentAjax");
