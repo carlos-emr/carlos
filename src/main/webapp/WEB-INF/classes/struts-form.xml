@@ -28,6 +28,14 @@
 <struts>
     <package name="form" namespace="/" extends="struts-default" strict-method-invocation="true">
 
+        <global-results>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+        </global-exception-mappings>
+
         <action name="web/dashboard/display/DashboardDisplay" class="io.github.carlos_emr.carlos.dashboard.display.DisplayDashboard2Action">
             <result name="success">/WEB-INF/jsp/web/dashboard/display/DashboardDisplay.jsp</result>
             <result name="unauthorized">/WEB-INF/jsp/error/securityError.jsp</result>
@@ -66,11 +74,20 @@
         <action name="form/setupSelect" class="io.github.carlos_emr.carlos.form.pageUtil.FrmSetupSelect2Action">
             <result name="continue">/WEB-INF/jsp/form/formselect.jsp</result>
         </action>
+        <!-- The Select Forms panel is loaded over AJAX into #dynamic-content, so the POST
+             response must carry the re-rendered panel. This must be a Struts chain, not a
+             servlet-dispatch result: forwarding to another action path nests a second FORWARD
+             dispatch inside the first, and CsrfGuardScriptInjectionFilter (FORWARD-mapped) then
+             wraps the response twice. The inner forward closes the outer capture wrapper's
+             writer, so the outer replay is discarded and the client receives HTTP 200 with a
+             zero-byte body. Chaining runs FrmSetupSelect2Action in the same invocation and
+             forwards exactly once — to formselect.jsp — matching the working GET route. -->
         <action name="form/select" class="io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action">
-            <result name="success">/form/setupSelect</result>
+            <result name="success" type="chain">form/setupSelect</result>
         </action>
         <action name="form/xmlUpload" class="io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action">
-            <result name="success">/WEB-INF/jsp/form/formXmlUpload.jsp</result>
+            <result name="success">/WEB-INF/jsp/form/formXmlUploadSuccess.jsp</result>
+            <result name="error">/WEB-INF/jsp/form/formXmlUpload.jsp</result>
         </action>
         <action name="form/formname" class="io.github.carlos_emr.carlos.form.Frm2Action">
             <result name="exit">/WEB-INF/jsp/encounter/close.jsp</result>
@@ -101,6 +118,7 @@
             <result name="pg6">/WEB-INF/jsp/form/formBCAR2020Attachments.jsp</result>
             <result name="exit">/WEB-INF/jsp/encounter/close.jsp</result>
         </action>
+        <action name="form/formXmlUpload" class="io.github.carlos_emr.carlos.form.gate.ViewFormXmlUpload2Action"/>
         <action name="form/*" class="io.github.carlos_emr.carlos.form.gate.ViewForm2Action"/>
         <action name="admin/Flowsheet" class="io.github.carlos_emr.carlos.flowsheet.Flowsheet2Action"/>
 

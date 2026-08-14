@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.managers;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -56,6 +57,7 @@ import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.form.gate.FormShortcutRouteResolver;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -269,11 +271,11 @@ public class FormsManagerImpl implements FormsManager {
     }
 
     /**
-     * This method processes a PatientForm, which can be null, and retrieves data using the 'formId', 'formName',
-     * and 'demographicNo' parameters from the HttpServletRequest request.
+     * Renders the supplied patient form. When no patient form is supplied, the form metadata is read from the
+     * request for the standalone preview flow.
      *
-     * @param form    The PatientForm to process (can be null).
-     * @param request The HttpServletRequest containing the parameters.
+     * @param form    trusted patient form metadata, or null for a standalone preview
+     * @param request the current request
      */
     @Override
     public Path renderForm(HttpServletRequest request, HttpServletResponse response, EctFormData.PatientForm form) throws PDFGenerationException {
@@ -290,19 +292,30 @@ public class FormsManagerImpl implements FormsManager {
         } catch (Exception e) {
             throw new PDFGenerationException("Error Details: Form [" + formTransportContainer.getFormName() + "] could not be converted into a PDF", e);
         }
+        if (path == null) {
+            // ConvertToEdoc.saveAsTempPDF returns null (it does NOT throw) when the internal HTML->PDF
+            // conversion fails (iText DocumentException / IO error is swallowed there). Without this
+            // guard the null escapes to callers such as DocumentAttachmentManagerImpl.attachFormPDFs,
+            // which dereferences it as path.toString() -> a context-free NPE / unmapped 500 on the
+            // eForm-with-attachments fax/print path. Fail with a named exception instead, mirroring
+            // FaxDocumentManagerImpl.getFormFaxDocument.
+            throw new PDFGenerationException("Error Details: Form [" + formTransportContainer.getFormName() + "] could not be converted into a PDF");
+        }
         return path;
     }
 
     private FormTransportContainer getFormTransportContainer(HttpServletRequest request, HttpServletResponse response,
                                                              EctFormData.PatientForm form) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String formId = request.getParameter("formId") != null ? request.getParameter("formId") : form.getFormId();
-        String formName = request.getParameter("formName") != null ? request.getParameter("formName")
-                : form.getFormName();
-        String demographicNo = request.getParameter("demographicNo") != null ? request.getParameter("demographicNo")
-                : form.getDemoNo();
-        String formPath = "/form/forwardshortcutname?method=fetch&formname=" + formName + "&demographic_no="
-                + demographicNo + "&formId=" + formId;
+        String formId = form == null ? request.getParameter("formId") : form.getFormId();
+        String formName = form == null ? request.getParameter("formName") : form.getFormName();
+        String demographicNo = form == null ? request.getParameter("demographicNo") : form.getDemoNo();
+        String formPath;
+        try {
+            formPath = FormShortcutRouteResolver.resolve(demographicNo, formName, formId, null, null);
+        } catch (SQLException | IllegalArgumentException e) {
+            throw new PDFGenerationException("An error occurred while resolving the form render path.", e);
+        }
         FormTransportContainer formTransportContainer = null;
         try {
             formTransportContainer = new FormTransportContainer(response, request, formPath);
@@ -364,11 +377,10 @@ public class FormsManagerImpl implements FormsManager {
     }
 
     private String securityTarget(EctFormData.PatientForm form, HttpServletRequest request) {
-        String requestedDemographicNo = request == null ? null : securityTarget(request.getParameter("demographicNo"));
-        if (requestedDemographicNo != null) {
-            return requestedDemographicNo;
+        if (form != null) {
+            return securityTarget(form.demographicId);
         }
-        return form == null ? null : securityTarget(form.demographicId);
+        return request == null ? null : securityTarget(request.getParameter("demographicNo"));
     }
 
 }

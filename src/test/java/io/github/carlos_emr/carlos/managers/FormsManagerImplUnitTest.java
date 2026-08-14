@@ -1,17 +1,20 @@
 package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
+import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -24,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -45,6 +49,13 @@ class FormsManagerImplUnitTest extends CarlosUnitTestBase {
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         registerMock(NioFileManager.class, org.mockito.Mockito.mock(NioFileManager.class));
+        EncounterForm encounterForm = new EncounterForm();
+        encounterForm.setFormName("Annual");
+        encounterForm.setFormTable("");
+        encounterForm.setFormValue("../form/formannual.jsp?demographic_no=");
+        org.mockito.Mockito.lenient().when(encounterFormDao.findByFormName(any()))
+                .thenReturn(Collections.singletonList(encounterForm));
+        registerMock(EncounterFormDao.class, encounterFormDao);
         manager = new FormsManagerImpl();
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "encounterFormDao", encounterFormDao);
@@ -100,8 +111,8 @@ class FormsManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should use request demographic before patient form demographic when rendering patient form")
-    void shouldUseRequestDemographic_beforePatientFormDemographic() {
+    @DisplayName("should use patient form demographic before request demographic when rendering patient form")
+    void shouldUsePatientFormDemographic_beforeRequestDemographic() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
@@ -113,9 +124,44 @@ class FormsManagerImplUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("missing required sec object (_form)");
 
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "456");
-        verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "123");
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "123");
+        verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "456");
         verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null);
+    }
+
+    @Test
+    @DisplayName("should ignore request form metadata when rendering an attached patient form")
+    void shouldIgnoreRequestFormMetadata_whenRenderingPatientForm() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        LoggedInInfo.setLoggedInInfoIntoRequest(request, loggedInInfo);
+        request.setParameter("formId", "999");
+        request.setParameter("formName", "Other");
+        request.setParameter("demographicNo", "456");
+        EctFormData.PatientForm form = new EctFormData.PatientForm("formAnnual", "Annual", 45, 123);
+        Path renderedPath = Path.of("target/form-preview.pdf");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "123")).thenReturn(true);
+
+        try (MockedConstruction<FormTransportContainer> transportConstruction =
+                     mockConstruction(FormTransportContainer.class);
+             MockedStatic<ConvertToEdoc> convertToEdocMock = mockStatic(ConvertToEdoc.class)) {
+            convertToEdocMock.when(() -> ConvertToEdoc.saveAsTempPDF(any(FormTransportContainer.class)))
+                    .thenReturn(renderedPath);
+
+            assertThat(manager.renderForm(request, response, form)).isEqualTo(renderedPath);
+
+            assertThat(transportConstruction.constructed()).hasSize(1);
+            FormTransportContainer transport = transportConstruction.constructed().get(0);
+            verify(transport).setDemographicNo("123");
+            verify(transport).setFormName("Annual");
+            verify(transport).setSubject("Annual Form ID 45");
+        }
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "123");
+        verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "456");
+        verify(encounterFormDao).findByFormName("Annual");
+        verify(encounterFormDao, never()).findByFormName("Other");
     }
 
     @Test
@@ -138,6 +184,28 @@ class FormsManagerImplUnitTest extends CarlosUnitTestBase {
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "123");
         verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null);
+    }
+
+    @Test
+    @DisplayName("should throw PDFGenerationException when conversion silently returns null")
+    void shouldThrowPdfGenerationException_whenConversionReturnsNull() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        LoggedInInfo.setLoggedInInfoIntoRequest(request, loggedInInfo);
+        EctFormData.PatientForm form = new EctFormData.PatientForm("formAnnual", "Annual", 45, 123);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "123")).thenReturn(true);
+
+        try (MockedStatic<ConvertToEdoc> convertToEdocMock = mockStatic(ConvertToEdoc.class)) {
+            // ConvertToEdoc swallows an internal conversion failure and returns null (does not throw).
+            convertToEdocMock.when(() -> ConvertToEdoc.saveAsTempPDF(any(FormTransportContainer.class)))
+                    .thenReturn(null);
+
+            // Must fail with a named exception, not return null (which callers NPE on via path.toString()).
+            assertThatThrownBy(() -> manager.renderForm(request, response, form))
+                    .isInstanceOf(PDFGenerationException.class)
+                    .hasMessageContaining("could not be converted into a PDF");
+        }
     }
 
     @Test

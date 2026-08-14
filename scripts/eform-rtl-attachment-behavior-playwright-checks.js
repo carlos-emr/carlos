@@ -16,13 +16,16 @@
  * Local-only browser regression check for Rich Text Letter attachment behavior.
  */
 
+const fs = require('fs');
 const { chromium } = require('playwright');
 const {
   assert,
+  buildArtifactPath,
   buildFailureDetails,
   createRecorder,
   findLibraryEform,
   getLaunchOptions,
+  gotoApp,
   invokeFetchAttached,
   login,
   openAddEform,
@@ -32,6 +35,7 @@ const {
   screenshot,
   validateBaseUrl,
   waitForPopupReady,
+  wirePage,
 } = require('./eform-local-playwright-utils');
 
 const config = {
@@ -49,7 +53,7 @@ const config = {
   const recorder = createRecorder();
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
     const landingPage = await login(context, config, recorder);
     await landingPage.close();
 
@@ -99,10 +103,47 @@ const config = {
     assert(!fetchResult.error, `fetchAttached() threw after popup submit: ${fetchResult.error}`);
     assert(!/Error loading attachments|HTTP Status 500/i.test(fetchResult.text), `Attachment sidebar rendered an error after empty submit: ${fetchResult.text}`);
     await screenshot(addPage, config.screenshotDir, 'rtl-attachment-behavior-main');
+
+    // Merged eForm+attachment PDF download: the letter with its attached document must come back
+    // as a well-formed PDF that still carries embedded font programs. This is the flow that
+    // regressed twice (previews CSP-blocked; the post-merge flatten pass corrupting the eForm
+    // page's embedded font by saving onto its own backing file). Downloads go through the SAVED
+    // view: its form embeds the attachment hidden inputs, so the toolbar's save-and-download
+    // re-save keeps the attachment bound (the add page's form does not refresh attachments after
+    // a popup submit, so a download from there produces an attachment-less new instance).
+    const viewPage = await context.newPage();
+    wirePage(viewPage, 'rtl-behavior-saved-view', recorder);
+    await gotoApp(viewPage, config.baseUrl, `/eform/efmshowform_data?fdid=${encodeURIComponent(fdid)}`);
+    await viewPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    // Let the Rich Text Letter editor finish initializing (the toolbar guard refuses to save while
+    // the legacy " loading... " template placeholder is still present).
+    await viewPage.waitForFunction(
+      () => !Array.from(document.querySelectorAll('select option')).some((o) => o.textContent.trim() === 'loading...'),
+      { timeout: 20000 },
+    ).catch(() => {});
+    const mergedPdfPath = buildArtifactPath(config.screenshotDir, `rtl-attachment-merged-${Date.now()}`, '.pdf');
+    const downloadPromise = viewPage.waitForEvent('download', { timeout: 90000 });
+    await viewPage.locator('#remoteDownloadButton').click();
+    const download = await downloadPromise;
+    await download.saveAs(mergedPdfPath);
+    const mergedBytes = fs.readFileSync(mergedPdfPath);
+    assert(mergedBytes.subarray(0, 5).toString('utf8') === '%PDF-', 'Merged eForm+attachment payload was not a PDF');
+    const mergedRaw = mergedBytes.toString('latin1');
+    assert(mergedRaw.includes('%%EOF'), 'Merged PDF is truncated (missing %%EOF trailer)');
+    // The attached dev document (LifeLabs report) is large; a merged output far above the
+    // letter-alone size (~10KB) proves the attachment pages are actually in the packet. Page and
+    // font dictionaries live inside compressed object streams after the PDFBox merge, so raw
+    // byte-level page counts or FontFile tokens are not reliable — size and structure are. The
+    // deep regression pin for the flatten font-corruption lives in
+    // DocumentAttachmentManagerImplUnitTest (no-AcroForm flatten must leave the file byte-identical).
+    assert(mergedBytes.length > 50000, `Merged eForm+attachment PDF looks attachment-less (${mergedBytes.length} bytes)`);
+    fs.rmSync(mergedPdfPath, { force: true });
+    await viewPage.close();
+
     await addPage.close();
     await context.close();
 
-    console.log(`PASS rtl attachment submit stays stable and reopens with selected documents pre-checked (fdid ${fdid}, doc ${selectedDocValue})`);
+    console.log(`PASS rtl attachment submit stays stable and reopens with selected documents pre-checked (fdid ${fdid}, doc ${selectedDocValue}); merged PDF download verified (${mergedBytes.length} bytes)`);
   } catch (error) {
     console.error('FAIL rtl attachment behavior Playwright check');
     console.error(error.stack || error.message);

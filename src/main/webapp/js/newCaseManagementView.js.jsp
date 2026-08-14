@@ -101,6 +101,12 @@
         //var popup =window.open(page, "<fmt:message key="encounter.Index.popupPageWindow"/>", windowprops);
         openWindows[name] = window.open(page, name, windowprops);
 
+        if (page.indexOf("/encounter/oscarMeasurements/SetupMeasurements") !== -1
+                || page.indexOf("/encounter/oscarMeasurements/ViewTemplateFlowSheet") !== -1
+                || page.indexOf("/encounter/oscarMeasurements/ViewAddMeasurementData") !== -1) {
+            registerMeasurementWindow(openWindows[name]);
+        }
+
         if (openWindows[name] != null) {
             if (openWindows[name].opener == null) {
                 openWindows[name].opener = self;
@@ -142,8 +148,27 @@
         return encodeURIComponent(str);
     }
 
+    function registerMeasurementWindow(measurementWindow) {
+        if (measurementWindow == null) {
+            return;
+        }
+        for (var idx = 0; idx < measurementWindows.length; ++idx) {
+            if (measurementWindows[idx] === measurementWindow) {
+                return;
+            }
+        }
+        measurementWindows.push(measurementWindow);
+    }
+
+    function registerNestedMeasurementWindow(parentWindow, measurementWindow) {
+        if (!isExpectedMeasurementSource(parentWindow)) {
+            return;
+        }
+        registerMeasurementWindow(measurementWindow);
+    }
+
     function measurementLoaded(name) {
-        measurementWindows.push(openWindows[name]);
+        registerMeasurementWindow(openWindows[name]);
     }
 
     var okToClose = false;
@@ -3676,12 +3701,36 @@ function autoSave() {
 
     window.addEventListener("message", receiveMessage, false);
 
-    function receiveMessage(event) {
-        var data = event.data;
-        if (!(typeof data === 'object')) {
-            data = JSON.parse(event.data);
+    function isExpectedMeasurementSource(source) {
+        for (var idx = 0; idx < measurementWindows.length; ++idx) {
+            if (measurementWindows[idx] === source) {
+                return true;
+            }
         }
-        if (data != null && data.encounterText != null && data.encounterText.length > 0) {
+        return false;
+    }
+
+    function receiveMessage(event) {
+        if (event.origin !== window.location.origin) {
+            return;
+        }
+        if (!isExpectedMeasurementSource(event.source)) {
+            return;
+        }
+        var data = event.data;
+        if (typeof data === 'string') {
+            try {
+                data = JSON.parse(data);
+            } catch (error) {
+                return;
+            }
+        }
+        if (data == null || typeof data !== 'object'
+                || typeof data.encounterText !== 'string'
+                || String(data.demographicNo) !== String(demographicNo)) {
+            return;
+        }
+        if (data.encounterText.length > 0) {
             var x = {};
             x.responseText = data.encounterText;
             writeToEncounterNote(x);
