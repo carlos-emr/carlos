@@ -1,5 +1,6 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from threading import Barrier, Event
 
 import pytest
@@ -8,11 +9,14 @@ from sqlalchemy import func, inspect, select, text
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal.account_settings import (
+    CONTACT_UPDATE_OUTCOME_EMAIL_CONFIRMATION_REQUIRED,
     AccountSettingsStepUpError,
+    EmailChangeTokenInvalidError,
+    confirm_email_change,
     update_account_contact,
     update_account_mfa_method,
 )
-from carlos_patient_portal.auth import create_patient_session
+from carlos_patient_portal.auth import create_patient_session, hash_auth_token
 from carlos_patient_portal.config import Settings
 from carlos_patient_portal.credentials import hash_password
 from carlos_patient_portal.database import create_portal_engine
@@ -20,8 +24,10 @@ from carlos_patient_portal.main import auth_policy_from_settings, create_app
 from carlos_patient_portal.models import (
     ACCOUNT_STATUS_ACTIVE,
     CONTACT_REVIEW_STATUS_PENDING,
+    EMAIL_CHANGE_STATUS_PENDING,
     PatientPortalAccount,
     PatientPortalContactReviewRequest,
+    PatientPortalEmailChangeRequest,
     PatientPortalSession,
     utc_now,
 )
@@ -91,6 +97,16 @@ def postgres_session_token_secret(settings: Settings) -> str:
     return PortalTokenKeys.derive(settings.session_secret.get_secret_value()).session
 
 
+def postgres_email_change_token_secret(settings: Settings) -> str:
+    """The email-change key the app derives, for tests calling the service directly.
+
+    These tests drive `update_account_contact`/`confirm_email_change` on their own sessions rather
+    than through a route, so they have to derive the same key the route would pass.
+    """
+    assert settings.session_secret is not None
+    return PortalTokenKeys.derive(settings.session_secret.get_secret_value()).email_change
+
+
 def insert_postgres_account(*, username: str, demographic_no: int) -> int:
     assert POSTGRES_URL is not None
     engine = create_portal_engine(POSTGRES_URL)
@@ -117,13 +133,21 @@ def insert_postgres_account(*, username: str, demographic_no: int) -> int:
 
 
 def test_postgresql_password_reset_and_contact_update_serialize_without_deadlock() -> None:
+    """Two writers contending for one account row must serialize, not deadlock.
+
+    The contact change here is phone-only on purpose. That is the branch that still applies
+    immediately and still revokes pending reset tokens, so exactly one of the two operations can
+    win — which is the mutual exclusion this test exists to pin. An email change now defers all of
+    that to confirmation and would let both succeed; that path is covered separately below.
+    """
     assert POSTGRES_URL is not None
     clean_postgresql_database()
     account_id = insert_postgres_account(
         username="reset.patient",
         demographic_no=5234,
     )
-    app = create_app(postgres_settings())
+    settings = postgres_settings()
+    app = create_app(settings)
     client = TestClient(app)
     reset_request = client.post(
         "/auth/password-reset/request",
@@ -149,9 +173,11 @@ def test_postgresql_password_reset_and_contact_update_serialize_without_deadlock
                     session,
                     account,
                     current_password=POSTGRES_PATIENT_PASSWORD,
-                    email="reset.patient.updated@example.com",
-                    phone_number=None,
+                    email="reset.patient@example.com",
+                    phone_number="+15550001234",
                     max_failed_password_attempts=10,
+                    email_change_token_secret=postgres_email_change_token_secret(settings),
+                    email_change_token_ttl=timedelta(days=1),
                 )
             except AccountSettingsStepUpError:
                 session.rollback()
@@ -469,7 +495,8 @@ def test_postgresql_unlock_idempotency_and_contact_review_replacement() -> None:
         username="contact.patient",
         demographic_no=4234,
     )
-    app = create_app(postgres_settings())
+    settings = postgres_settings()
+    app = create_app(settings)
     client = TestClient(app)
     secret_headers = {
         **staff_headers(),
@@ -502,13 +529,18 @@ def test_postgresql_unlock_idempotency_and_contact_review_replacement() -> None:
             account = session.get(PatientPortalAccount, account_id)
             assert account is not None
             barrier.wait(timeout=10)
+            # Phone-only, so both writers reach the immediate-apply branch that supersedes the
+            # previous pending review. An email change would defer the review to confirmation and
+            # this race would not exist here at all.
             update_account_contact(
                 session,
                 account,
                 current_password=POSTGRES_PATIENT_PASSWORD,
-                email=f"contact.patient.{index}@example.com",
-                phone_number=None,
+                email="contact.patient@example.com",
+                phone_number=f"+1555000{index:04d}",
                 max_failed_password_attempts=10,
+                email_change_token_secret=postgres_email_change_token_secret(settings),
+                email_change_token_ttl=timedelta(days=1),
             )
             session.commit()
 
@@ -523,6 +555,114 @@ def test_postgresql_unlock_idempotency_and_contact_review_replacement() -> None:
                 )
             )
             assert pending_count == 1
+    finally:
+        engine.dispose()
+
+
+def test_postgresql_concurrent_email_changes_leave_one_pending_confirmation() -> None:
+    """Racing email-change requests must collapse to exactly one live confirmation link.
+
+    `test_superseding_an_email_change_invalidates_the_link_already_sent` already pins the
+    sequential case. What only PostgreSQL can pin is that it still holds when two writers arrive
+    together: `request_email_change` serializes on `SELECT ... FOR UPDATE` over the pending row,
+    and SQLite has no row locks to serialize with. Without it the two inserts race the
+    `ux_pp_email_change_pending_account` partial unique index, and a patient who submitted twice
+    ends up either holding two working links to two different addresses or seeing a 500.
+    """
+    assert POSTGRES_URL is not None
+    clean_postgresql_database()
+    account_id = insert_postgres_account(
+        username="confirm.patient",
+        demographic_no=4235,
+    )
+    settings = postgres_settings()
+    token_secret = postgres_email_change_token_secret(settings)
+    engine = create_portal_engine(POSTGRES_URL)
+    barrier = Barrier(2)
+
+    def request_change(index: int) -> str | None:
+        with Session(engine) as session:
+            account = session.get(PatientPortalAccount, account_id)
+            assert account is not None
+            barrier.wait(timeout=10)
+            result = update_account_contact(
+                session,
+                account,
+                current_password=POSTGRES_PATIENT_PASSWORD,
+                email=f"confirm.patient.{index}@example.com",
+                phone_number=None,
+                max_failed_password_attempts=10,
+                email_change_token_secret=token_secret,
+                email_change_token_ttl=timedelta(days=1),
+            )
+            assert result.outcome == CONTACT_UPDATE_OUTCOME_EMAIL_CONFIRMATION_REQUIRED
+            session.commit()
+            return result.confirmation_token
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            tokens = list(executor.map(request_change, range(2)))
+
+        with Session(engine) as session:
+            pending_requests = list(
+                session.scalars(
+                    select(PatientPortalEmailChangeRequest).where(
+                        PatientPortalEmailChangeRequest.account_id == account_id,
+                        PatientPortalEmailChangeRequest.status == EMAIL_CHANGE_STATUS_PENDING,
+                    )
+                )
+            )
+            assert len(pending_requests) == 1
+            # Neither address has touched the account: both MFA and password reset still deliver
+            # to the address the patient proved at activation.
+            account = session.get(PatientPortalAccount, account_id)
+            assert account is not None
+            assert account.email == "confirm.patient@example.com"
+
+        live_email = pending_requests[0].new_email
+        # Which thread committed last is not deterministic, so identify the surviving link by its
+        # stored hash rather than by thread index.
+        live_token = next(
+            token
+            for token in tokens
+            if token is not None
+            and hash_auth_token(token_secret, "email_change", token)
+            == pending_requests[0].token_hash
+        )
+        superseded_token = next(token for token in tokens if token != live_token)
+
+        # The loser's link is dead even though the patient legitimately requested it.
+        with Session(engine) as session:
+            with pytest.raises(EmailChangeTokenInvalidError):
+                confirm_email_change(
+                    session,
+                    confirmation_token=superseded_token,
+                    token_secret=token_secret,
+                    clinic_id="postgres-clinic",
+                )
+            session.rollback()
+
+        with Session(engine) as session:
+            confirmation = confirm_email_change(
+                session,
+                confirmation_token=live_token,
+                token_secret=token_secret,
+                clinic_id="postgres-clinic",
+            )
+            assert confirmation.review_request is not None
+            session.commit()
+
+        with Session(engine) as session:
+            account = session.get(PatientPortalAccount, account_id)
+            assert account is not None
+            assert account.email == live_email
+            review_count = session.scalar(
+                select(func.count(PatientPortalContactReviewRequest.id)).where(
+                    PatientPortalContactReviewRequest.account_id == account_id,
+                    PatientPortalContactReviewRequest.status == CONTACT_REVIEW_STATUS_PENDING,
+                )
+            )
+            assert review_count == 1
     finally:
         engine.dispose()
 
