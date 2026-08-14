@@ -263,6 +263,12 @@ Authentication defaults:
 - Password login and account-setting step-up lock the account after 10 failed password attempts.
 - MFA verification locks the account after 10 failed code attempts.
 - MFA failures and delivery cooldowns are account-scoped across replacement challenges.
+- A delivery the provider reports as failed shortens that account cooldown to a five-second retry
+  grace rather than clearing it. A reported failure is not proof nothing was sent — greylisting, an
+  SMTP timeout after `DATA`, and a gateway that returns 5xx after queueing all report failure having
+  delivered — so clearing it would let a degraded provider flood a patient's mailbox or SMS number
+  at the cost of one request each. The grace keeps the patient's retry to seconds instead of a full
+  window while keeping the per-account send rate bounded.
 - MFA codes expire after 10 minutes.
 - Email MFA resend is limited to once per minute.
 - SMS MFA is available when the account has a valid phone number and the webhook sender is

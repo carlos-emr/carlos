@@ -12,6 +12,10 @@ from sqlalchemy.exc import IntegrityError
 
 from carlos_patient_portal import main, web_support
 from carlos_patient_portal.account_settings import update_account_mfa_method
+from carlos_patient_portal.auth import (
+    MFA_DELIVERY_FAILURE_RETRY_GRACE,
+    seconds_until_allowed,
+)
 from carlos_patient_portal.database import (
     Base,
     create_portal_engine,
@@ -1716,8 +1720,14 @@ def test_password_change_revokes_a_reset_token_issued_before_the_change() -> Non
         assert statuses == ["revoked"]
 
 
-def test_failed_mfa_delivery_does_not_reserve_the_resend_cooldown() -> None:
-    """A provider outage must not throttle a patient who never received a code."""
+def test_failed_mfa_delivery_does_not_reserve_the_full_resend_cooldown() -> None:
+    """A provider outage must not strand a patient behind a full window for a code they never got.
+
+    The reservation is shortened to a retry grace rather than released outright — see
+    ``test_reporting_delivery_failure_still_bounds_the_per_account_send_rate`` for why releasing it
+    is unsafe. What this pins is the patient-facing half: the wait after a failure is seconds, not
+    the 60-second cooldown a successful send would have earned.
+    """
 
     class FailingSender:
         def send_code(self, **kwargs: object) -> None:
@@ -1745,8 +1755,103 @@ def test_failed_mfa_delivery_does_not_reserve_the_resend_cooldown() -> None:
         main.build_portal_email_sender = original_builder
 
     assert first.status_code == 503
-    # Previously 429 "sent recently": the cooldown was reserved before the send that never landed.
-    assert immediate_retry.status_code == 503
+    # The retry grace is still running, so this is throttled — but for seconds, not the full
+    # 60-second window a delivered code would have reserved.
+    assert immediate_retry.status_code == 429
+    assert 0 < int(immediate_retry.headers["retry-after"]) <= (
+        MFA_DELIVERY_FAILURE_RETRY_GRACE.total_seconds()
+    )
+
+
+def test_reporting_delivery_failure_still_bounds_the_per_account_send_rate() -> None:
+    """A provider that delivers and then reports failure must not become a message amplifier.
+
+    ``last_mfa_*_sent_at`` is the only account-scoped limit on outbound codes, and
+    ``resend_mfa_challenge`` consults nothing else. Releasing it on every reported failure treats
+    "the adapter
+    raised" as "nothing was delivered", which is false for greylisting, an SMTP timeout after DATA
+    is accepted, or a gateway that 5xx's after queueing. The reservation is therefore shortened to
+    a retry grace rather than cleared: the patient can retry in seconds instead of a full minute,
+    but a degraded provider cannot flood their mailbox.
+
+    Driven through /auth/mfa/resend deliberately. The login path cancels its challenge and the
+    global auth limiter masks most of the effect, which is why this survived the login-only test
+    directly above.
+    """
+
+    class DeliveringThenFailingSender:
+        """Delivers the message, then reports failure — the degraded-provider shape.
+
+        Healthy until ``degraded`` is set, so a challenge can be established the normal way before
+        the provider starts misbehaving. A login whose delivery fails cancels its challenge, which
+        is precisely why the flood is only reachable through the resend route.
+        """
+
+        def __init__(self) -> None:
+            self.messages: list[object] = []
+            self.degraded = False
+
+        def send_code(self, **kwargs: object) -> None:
+            self.messages.append(kwargs.get("code"))
+            if self.degraded:
+                raise PortalEmailDeliveryError("portal email delivery failed after handoff")
+
+        def send_password_reset(self, **kwargs: object) -> None:
+            return None
+
+        def send_contact_change_notice(self, **kwargs: object) -> None:
+            return None
+
+    sender = DeliveringThenFailingSender()
+    original_builder = main.build_portal_email_sender
+    main.build_portal_email_sender = lambda settings: sender
+    try:
+        app = migrated_development_app()
+        client = TestClient(app)
+        activate_seeded_patient_account(app, client)
+        login_response = client.post(
+            "/auth/login",
+            json={
+                "username": "patient.user",
+                "password": STRONG_PASSWORD,
+                "mfa_delivery_method": "email",
+            },
+        )
+        assert login_response.status_code == 200
+        challenge_token = login_response.json()["mfa_challenge_token"]
+        sender.degraded = True
+        expire_email_mfa_cooldown(app)
+        resend_statuses = [
+            client.post(
+                "/auth/mfa/resend",
+                json={
+                    "mfa_challenge_token": challenge_token,
+                    "mfa_delivery_method": "email",
+                },
+            ).status_code
+            for _ in range(6)
+        ]
+    finally:
+        main.build_portal_email_sender = original_builder
+
+    # The first resend is attempted and reports failure; the rest are refused by the account
+    # cooldown before any message is handed to the provider. Before the fix every one of these
+    # was attempted, and the patient's mailbox received all six.
+    assert resend_statuses == [503, 429, 429, 429, 429, 429]
+    assert len(sender.messages) == 2  # the login code, plus the one failed resend
+
+    with app.state.session_factory() as session:
+        account = session.scalar(select(PatientPortalAccount))
+        assert account is not None
+        # The reservation was shortened, not released: still set, but expiring within the grace
+        # rather than a full cooldown, so the patient is not stranded by an outage either.
+        assert account.last_mfa_email_sent_at is not None
+        seconds_remaining = seconds_until_allowed(
+            account.last_mfa_email_sent_at,
+            utc_now(),
+            timedelta(seconds=60),
+        )
+        assert 0 < seconds_remaining <= MFA_DELIVERY_FAILURE_RETRY_GRACE.total_seconds()
 
 
 def test_password_reset_redemption_revokes_every_preexisting_session() -> None:

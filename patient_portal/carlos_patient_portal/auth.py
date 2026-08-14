@@ -155,10 +155,12 @@ class MfaChallengeDelivery:
     previous_code_hash: str | None = None
     previous_delivery_method: str | None = None
     previous_expires_at: datetime | None = None
-    # The account-level send cooldown is reserved before delivery is attempted; these carry the
-    # prior values so a failed send can release the reservation it never earned.
+    # The account-level send cooldown is reserved before delivery is attempted. A failed send
+    # shortens that reservation to a retry grace rather than releasing it, so the cooldown that
+    # was reserved has to travel with the delivery to be shortened correctly.
     previous_account_email_sent_at: datetime | None = None
     previous_account_sms_sent_at: datetime | None = None
+    reserved_cooldown: timedelta | None = None
 
 
 @dataclass(frozen=True)
@@ -254,6 +256,33 @@ def is_past(value: datetime, now: datetime) -> bool:
     if comparable_now.tzinfo is None:
         comparable_now = comparable_now.replace(tzinfo=UTC)
     return comparable_value <= comparable_now
+
+
+# How soon a patient may retry after a delivery the provider reported as failed. Short enough that
+# a real outage does not strand them behind a full cooldown, long enough that a provider which
+# delivers and *then* reports failure cannot be driven into flooding a mailbox or an SMS number.
+MFA_DELIVERY_FAILURE_RETRY_GRACE = timedelta(seconds=5)
+
+
+def shorten_delivery_reservation(
+    *,
+    previous_sent_at: datetime | None,
+    now: datetime,
+    cooldown: timedelta,
+) -> datetime:
+    """Move a failed send's cooldown reservation forward to expire after the retry grace.
+
+    Never returns a value earlier than the reservation already in place. Reaching a send at all
+    requires the previous reservation to have aged past the cooldown, so this only ever shortens
+    the *new* reservation — it cannot be used to unblock an account sooner than it already was.
+    """
+    shortened = now - cooldown + MFA_DELIVERY_FAILURE_RETRY_GRACE
+    if previous_sent_at is None:
+        return shortened
+    comparable_previous = previous_sent_at
+    if comparable_previous.tzinfo is None:
+        comparable_previous = comparable_previous.replace(tzinfo=UTC)
+    return max(shortened, comparable_previous)
 
 
 def seconds_until_allowed(last_sent_at: datetime, now: datetime, cooldown: timedelta) -> int:
@@ -557,6 +586,7 @@ def create_mfa_challenge(
         expires_at=challenge.expires_at,
         previous_account_email_sent_at=previous_account_email_sent_at,
         previous_account_sms_sent_at=previous_account_sms_sent_at,
+        reserved_cooldown=cooldown,
     )
 
 
@@ -975,6 +1005,7 @@ def resend_mfa_challenge(
         previous_expires_at=previous_expires_at,
         previous_account_email_sent_at=previous_account_email_sent_at,
         previous_account_sms_sent_at=previous_account_sms_sent_at,
+        reserved_cooldown=cooldown,
     )
 
 
@@ -1015,11 +1046,34 @@ def record_mfa_delivery_outcome(
             challenge.last_sms_sent_at = delivered_at
             account.last_mfa_sms_sent_at = delivered_at
     else:
-        # No code reached the patient, so the cooldown reserved before the attempt must be
-        # released; otherwise a provider outage throttles every patient to one login per window
-        # despite never having delivered anything.
-        account.last_mfa_email_sent_at = delivery.previous_account_email_sent_at
-        account.last_mfa_sms_sent_at = delivery.previous_account_sms_sent_at
+        # A reported failure is not proof that nothing was delivered — greylisting, an SMTP
+        # timeout after DATA is accepted, and a gateway that 5xx's after queueing all report
+        # failure having sent. Releasing the reservation outright would therefore hand a degraded
+        # provider an unbounded per-account send rate, because these timestamps are the only
+        # account-scoped limit resend_mfa_challenge consults. Shorten the reservation instead: the
+        # patient retries within seconds rather than a full window, and the rate stays bounded.
+        failed_at = utc_now()
+        cooldown = delivery.reserved_cooldown
+        if delivery.delivery_method == MFA_DELIVERY_METHOD_EMAIL:
+            account.last_mfa_email_sent_at = (
+                shorten_delivery_reservation(
+                    previous_sent_at=delivery.previous_account_email_sent_at,
+                    now=failed_at,
+                    cooldown=cooldown,
+                )
+                if cooldown is not None
+                else delivery.previous_account_email_sent_at
+            )
+        else:
+            account.last_mfa_sms_sent_at = (
+                shorten_delivery_reservation(
+                    previous_sent_at=delivery.previous_account_sms_sent_at,
+                    now=failed_at,
+                    cooldown=cooldown,
+                )
+                if cooldown is not None
+                else delivery.previous_account_sms_sent_at
+            )
         if (
             delivery.previous_code_hash is not None
             and delivery.previous_delivery_method is not None
