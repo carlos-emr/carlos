@@ -504,6 +504,10 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     }
 
     private void authorizeArchiveAccess(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(
+                loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_edoc w)");
+        }
         if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
             throw new SecurityException("not authorized for outbound email archive demographic");
         }
