@@ -61,11 +61,14 @@ def register_public_routes(
         # or a backslash variant would turn a language link into an open redirect.
         destination = next if is_safe_local_redirect(next) else "/"
         response = RedirectResponse(url=destination, status_code=status.HTTP_303_SEE_OTHER)
+        # HttpOnly even though this is only a display preference: nothing on the page reads it
+        # from script, so withholding it from JavaScript costs nothing and keeps every cookie the
+        # portal sets consistent.
         response.set_cookie(
             LOCALE_COOKIE_NAME,
             resolved_locale,
             max_age=LOCALE_COOKIE_MAX_AGE_SECONDS,
-            httponly=False,
+            httponly=True,
             samesite="lax",
             secure=not settings.is_development,
             path="/",

@@ -361,10 +361,36 @@ function screenshotPath(name) {
     ]);
     await page.getByRole('status').filter({ hasText: 'MFA settings updated.' }).waitFor();
 
+    // A contact change now has two branches, and the browser check covers both.
+    //
+    // An email change is held until the new mailbox confirms it, so the account keeps its current
+    // address -- and therefore its MFA and password-reset destination -- until then. Confirming is
+    // not driven here: this run has no SMTP host, so there is no confirmation link to follow.
+    // test_portal_pages.py covers redemption; what matters in a browser is that submitting the
+    // form does not move the address.
     const contactForm = page.locator('form', {
       has: page.locator('input[name="email"]'),
     });
+    const originalEmail = await contactForm.locator('input[name="email"]').inputValue();
     await contactForm.locator('input[name="email"]').fill('playwright.patient@example.com');
+    await contactForm.locator('input[name="current_password"]').fill(testPassword);
+    await Promise.all([
+      page.waitForURL((url) => (
+        url.pathname === '/portal/account'
+        && url.searchParams.get('status') === 'email-confirmation-required'
+      )),
+      contactForm.getByRole('button', { name: 'Update contact' }).click(),
+    ]);
+    await page.getByRole('status').filter({
+      hasText: 'Check the new email address for a confirmation link.',
+    }).waitFor();
+    assert(
+      await contactForm.locator('input[name="email"]').inputValue() === originalEmail,
+      'an unconfirmed email change must not move the account address'
+    );
+
+    // A change that leaves the email alone still applies immediately and opens the CARLOS review.
+    await contactForm.locator('input[name="phone_number"]').fill('+1 555 010 9090');
     await contactForm.locator('input[name="current_password"]').fill(testPassword);
     await Promise.all([
       page.waitForURL((url) => (
