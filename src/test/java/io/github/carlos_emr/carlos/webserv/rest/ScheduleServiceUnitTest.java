@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+import jakarta.ws.rs.Path;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 
@@ -377,10 +378,23 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         verify(billingONCHeader1Dao, never()).findByDemoNoWithItems(anyInt(), anyInt(), anyInt());
     }
 
+    @Test
+    @DisplayName("should require demographicNo when appointment history route is resolved")
+    void shouldRequireDemographicNo_whenAppointmentHistoryRouteResolved() throws NoSuchMethodException {
+        Path path = ScheduleService.class
+                .getMethod("findExistAppointments", Integer.class)
+                .getAnnotation(Path.class);
+
+        // An omitted path segment cannot match this template, so JAX-RS returns 404 without
+        // dispatching to the handler's defensive null validation.
+        assertThat(path).isNotNull();
+        assertThat(path.value()).isEqualTo("/{demographicNo}/appointmentHistory");
+    }
+
     @ParameterizedTest
     @NullSource
     @ValueSource(ints = {0, -1})
-    @DisplayName("should reject appointment history when demographicNo is invalid")
+    @DisplayName("should reject direct appointment history calls when demographicNo is invalid")
     void shouldReturnBadRequest_whenAppointmentHistoryDemographicInvalid(Integer demographicNo) {
         assertThatThrownBy(() -> service.findExistAppointments(demographicNo))
                 .isInstanceOf(WebApplicationException.class)

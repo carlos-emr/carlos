@@ -193,8 +193,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         void shouldThrowException_whenGetHistoryWithoutDeletedWithoutReadPrivilege() {
             assertThatThrownBy(() ->
                 appointmentManager.getAppointmentHistoryWithoutDeleted(mockLoggedInInfo, TEST_DEMO_NO, 0, 10))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Access Denied");
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_appointment)");
         }
 
         @Test

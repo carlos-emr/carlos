@@ -293,10 +293,14 @@ public class ScheduleService extends AbstractServiceImpl {
     /**
      * Retrieves a patient's non-deleted appointment history with available billing details.
      *
+     * <p>Because {@code demographicNo} is a required path segment, omitting it does not
+     * dispatch to this method and the JAX-RS router returns HTTP 404. The handler retains
+     * defensive validation for direct calls and rejects non-positive identifiers with HTTP 400.
+     *
      * @param demographicNo demographic whose appointment history is requested
      * @return scheduling response containing appointments, enriched with billing details when present
-     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing or
-     * non-positive, or HTTP 403 when appointment read access is denied
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} reaches the handler
+     * as null or non-positive, or HTTP 403 when appointment read access is denied
      * @since 2026-01-24
      */
     @POST
