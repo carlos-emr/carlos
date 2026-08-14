@@ -1,9 +1,31 @@
+"""Locale resolution and the portal's user-facing text.
+
+Translations are not written yet. Rather than advertise four languages that do nothing, the
+machinery is real and every locale resolves through `TEXT_CATALOG` with a per-key fallback to
+English: selecting French switches the locale, persists it, and renders the English string for any
+key French has not defined. Adding a translation is then only a matter of adding keys to
+`TEXT_CATALOG["fr"]` — no route, template, or context change is needed, and a partial translation
+renders rather than raising KeyError.
+"""
+
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 DEFAULT_LOCALE = "en"
-DATETIME_FORMATS = {DEFAULT_LOCALE: "%Y-%m-%d %H:%M %Z"}
+# Display preference only — it selects strings and a date format, and carries no authorization or
+# identity meaning, which is why the switch route can accept a GET without a CSRF token.
+LOCALE_COOKIE_NAME = "portal_locale"
+LOCALE_COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60
+DATETIME_FORMATS = {
+    DEFAULT_LOCALE: "%Y-%m-%d %H:%M %Z",
+    # Placeholders alongside the English catalog: ISO-style ordering is unambiguous in every one of
+    # these locales, so it is a safe default until a translator sets the real convention.
+    "fr": "%Y-%m-%d %H:%M %Z",
+    "es": "%Y-%m-%d %H:%M %Z",
+    "pl": "%Y-%m-%d %H:%M %Z",
+    "pt-BR": "%Y-%m-%d %H:%M %Z",
+}
 SIGN_IN_LABEL = "Sign in"
 
 
@@ -124,8 +146,6 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "incorrect_username_or_password": "Incorrect Username or Password",
         "invite_code": "Invitation code",
         "language_aria_label": "Language",
-        "language_unavailable_message": "Language switching has not been implemented yet.",
-        "language_unavailable_title": "Language not implemented",
         "logo_alt": "CARLOS",
         "logout": "Logout",
         "messages": "Messages",
@@ -223,9 +243,91 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
     }
 }
 
+# Every supported locale gets an entry so `portal_text` never falls back wholesale to English and
+# a translator can start filling one in without touching anything else. Empty today: the per-key
+# merge in `portal_text` supplies the English string for anything a locale has not defined, which
+# is what makes a half-finished translation render instead of raising KeyError.
+for _locale in SUPPORTED_LOCALES:
+    TEXT_CATALOG.setdefault(_locale.code, {})
+
+SUPPORTED_LOCALE_CODES = frozenset(locale.code for locale in SUPPORTED_LOCALES)
+
+
+def normalize_locale(value: str | None) -> str | None:
+    """Match a requested locale to a supported one, case- and separator-insensitively.
+
+    Accepts the shapes a browser actually sends: `PT-br`, `pt_BR`, and a bare `pt` all resolve to
+    `pt-BR`. Returns None when nothing matches, so callers can distinguish "not supported" from
+    "supported and happens to be the default".
+    """
+    if not value:
+        return None
+    candidate = value.strip().replace("_", "-").casefold()
+    if not candidate:
+        return None
+    for locale in SUPPORTED_LOCALES:
+        if locale.code.casefold() == candidate:
+            return locale.code
+    # A bare language subtag matches the first supported locale in that language, so `pt` finds
+    # `pt-BR` without the caller having to know the region.
+    language = candidate.split("-", 1)[0]
+    for locale in SUPPORTED_LOCALES:
+        if locale.code.casefold().split("-", 1)[0] == language:
+            return locale.code
+    return None
+
+
+def parse_accept_language(header_value: str | None) -> str | None:
+    """Pick the highest-weighted supported locale from an Accept-Language header.
+
+    Deliberately tolerant: a malformed q-value sorts as 0 rather than raising, because a bad header
+    from one browser must not turn a page render into a 500.
+    """
+    if not header_value:
+        return None
+    candidates: list[tuple[float, int, str]] = []
+    for position, part in enumerate(header_value.split(",")):
+        tag, _, parameters = part.strip().partition(";")
+        if not tag.strip() or tag.strip() == "*":
+            continue
+        weight = 1.0
+        for parameter in parameters.split(";"):
+            name, _, raw_value = parameter.partition("=")
+            if name.strip().casefold() == "q":
+                try:
+                    weight = float(raw_value)
+                except ValueError:
+                    weight = 0.0
+        if weight <= 0:
+            continue
+        # Position breaks ties in header order, which is the order the browser expressed.
+        candidates.append((-weight, position, tag.strip()))
+    for _, _, tag in sorted(candidates):
+        matched = normalize_locale(tag)
+        if matched is not None:
+            return matched
+    return None
+
+
+def resolve_locale(
+    *,
+    cookie_value: str | None = None,
+    accept_language: str | None = None,
+) -> str:
+    """Resolve the locale to render in: explicit choice first, then the browser's, then English."""
+    return (
+        normalize_locale(cookie_value)
+        or parse_accept_language(accept_language)
+        or DEFAULT_LOCALE
+    )
+
 
 def portal_text(locale: str = DEFAULT_LOCALE) -> dict[str, str]:
-    return TEXT_CATALOG.get(locale, TEXT_CATALOG[DEFAULT_LOCALE]).copy()
+    """The text catalog for `locale`, with English filling any key it has not translated."""
+    text = TEXT_CATALOG[DEFAULT_LOCALE].copy()
+    if locale != DEFAULT_LOCALE:
+        text.update(TEXT_CATALOG.get(locale, {}))
+    return text
 
 
 def supported_locale_options(current_locale: str = DEFAULT_LOCALE) -> tuple[dict[str, object], ...]:

@@ -6,23 +6,23 @@
       <span>{{ clinic_name }}</span>
     </div>
   </div>
-  <div class="language-switch" aria-label="{{ text.language_aria_label }}">
-    {# The active locale is already in use, so it must not offer the "unavailable" explanation the
-       not-yet-translated locales carry; without this it told the patient English was unavailable
-       while rendering the page in English. #}
+  <nav class="language-switch" aria-label="{{ text.language_aria_label }}">
+    {# Real links, not modal triggers. Translations are not written yet, so a non-English locale
+       renders English strings via the per-key fallback in i18n.portal_text — but the choice is
+       genuinely applied and persisted, so adding a catalog is the only work left. #}
     {% for language in supported_locales %}
-      <button
-        class="text-tab{% if language.is_selected %} selected{% else %} modal-trigger{% endif %}"
-        type="button"
-        aria-pressed="{{ 'true' if language.is_selected else 'false' }}"
-        {% if not language.is_selected %}
-          data-modal-title="{{ text.language_unavailable_title }}"
-          data-modal-message="{{ text.language_unavailable_message }}"
-        {% else %}
-          disabled
-        {% endif %}
-        data-language-code="{{ language.code }}"
-      >{{ language.short_label }}</button>
+      {% if language.is_selected %}
+        <span class="text-tab selected" aria-current="true" lang="{{ language.code }}"
+        >{{ language.short_label }}</span>
+      {% else %}
+        <a
+          class="text-tab"
+          href="/locale/{{ language.code }}?next={{ locale_switch_target | urlencode }}"
+          rel="nofollow"
+          lang="{{ language.code }}"
+          title="{{ language.label }}"
+        >{{ language.short_label }}</a>
+      {% endif %}
     {% endfor %}
-  </div>
+  </nav>
 </header>

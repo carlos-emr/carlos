@@ -16,6 +16,7 @@ from carlos_patient_portal.config import (
 )
 from carlos_patient_portal.i18n import (
     DEFAULT_LOCALE,
+    LOCALE_COOKIE_NAME,
     SUPPORTED_LOCALES,
     format_portal_datetime,
     portal_text,
@@ -99,43 +100,77 @@ def test_index_renders_sign_in_shell() -> None:
     assert f'placeholder="{text["password_placeholder"]}"' in response.text
     assert f">{text['forgot_username_password']}</a>" in response.text
     assert f">{text['activate_account']}</a>" in response.text
-    assert text["language_unavailable_message"] in response.text
-    assert 'data-modal-title="' in response.text
     assert 'id="portal-message-modal"' in response.text
     assert 'src="http://testserver/static/portal.js"' in response.text
     for locale in SUPPORTED_LOCALES:
-        assert f'data-language-code="{locale.code}"' in response.text
+        assert f'lang="{locale.code}"' in response.text
     assert f'value="{text["username_placeholder"]}"' not in response.text
     assert 'name="csrf_token"' in response.text
     assert "nosemgrep" not in response.text
     assert "Maple Creek Medical" in response.text
 
 
-def test_language_switch_offers_unavailable_notice_only_for_untranslated_locales() -> None:
+def test_language_switch_links_to_every_supported_locale() -> None:
+    """Each inactive locale is a working link; the active one indicates state, not a control."""
     app = main.create_app(development_settings())
     response = TestClient(app).get("/")
-    text = portal_text(DEFAULT_LOCALE)
-    language_buttons = {
-        locale.code: button
-        for locale in SUPPORTED_LOCALES
-        for button in response.text.split("<button")
-        if f'data-language-code="{locale.code}"' in button
-    }
 
     assert response.status_code == 200
-    assert set(language_buttons) == {locale.code for locale in SUPPORTED_LOCALES}
-    # The page is rendered in the active locale, so offering to explain that it is unavailable
-    # contradicts what the patient is looking at.
-    active_button = language_buttons[DEFAULT_LOCALE]
-    assert 'aria-pressed="true"' in active_button
-    assert text["language_unavailable_message"] not in active_button
-    assert "modal-trigger" not in active_button
-    assert "disabled" in active_button
-    for code, button in language_buttons.items():
-        if code == DEFAULT_LOCALE:
-            continue
-        assert text["language_unavailable_message"] in button
-        assert "modal-trigger" in button
+    for locale in SUPPORTED_LOCALES:
+        if locale.code == DEFAULT_LOCALE:
+            assert f'<span class="text-tab selected" aria-current="true" lang="{locale.code}"' in (
+                response.text
+            )
+        else:
+            assert f'href="/locale/{locale.code}?next=' in response.text
+    # The modal explained that a language was unavailable. Selecting one now works, so nothing
+    # should still be advertising otherwise.
+    assert "language_unavailable" not in response.text
+    assert "data-language-code" not in response.text
+
+
+def test_selecting_a_locale_persists_it_and_returns_to_the_same_page() -> None:
+    app = main.create_app(development_settings())
+    client = TestClient(app)
+
+    switched = client.get("/locale/fr?next=/", follow_redirects=False)
+    rendered = client.get("/")
+
+    assert switched.status_code == 303
+    assert switched.headers["location"] == "/"
+    assert client.cookies[LOCALE_COOKIE_NAME] == "fr"
+    # French has no catalog yet, so the page renders English strings through the per-key fallback —
+    # but the selection is real: French is now the active tab.
+    assert '<span class="text-tab selected" aria-current="true" lang="fr"' in rendered.text
+    assert portal_text(DEFAULT_LOCALE)["username_placeholder"] in rendered.text
+
+
+def test_locale_switch_refuses_an_unknown_locale_and_an_offsite_redirect() -> None:
+    """The `next` parameter is attacker-controllable, so it must never leave this origin."""
+    app = main.create_app(development_settings())
+    client = TestClient(app)
+
+    unknown = client.get("/locale/zz", follow_redirects=False)
+    absolute = client.get("/locale/fr?next=https://evil.example/", follow_redirects=False)
+    scheme_relative = client.get("/locale/fr?next=//evil.example/", follow_redirects=False)
+    backslash = client.get("/locale/fr?next=/\\evil.example/", follow_redirects=False)
+
+    assert unknown.status_code == 404
+    for response in (absolute, scheme_relative, backslash):
+        assert response.status_code == 303
+        assert response.headers["location"] == "/"
+
+
+def test_accept_language_selects_a_locale_when_none_was_chosen() -> None:
+    app = main.create_app(development_settings())
+    client = TestClient(app)
+
+    response = client.get("/", headers={"Accept-Language": "pt-BR,pt;q=0.9,en;q=0.5"})
+    unsupported = client.get("/", headers={"Accept-Language": "de-DE,de;q=0.9"})
+
+    assert '<span class="text-tab selected" aria-current="true" lang="pt-BR"' in response.text
+    # Nothing supported in the header falls back to English rather than picking arbitrarily.
+    assert f'lang="{DEFAULT_LOCALE}"' in unsupported.text
 
 
 def test_static_logo_asset_is_served() -> None:
@@ -984,15 +1019,22 @@ def test_public_template_reads_only_keys_its_context_builder_supplies(
     """
     settings = Settings(environment="development", database_url="sqlite+pysqlite:///:memory:")
     builder = getattr(web_support, context_builder)
+    # Minimal stand-in for a Request: only the attributes the assemblers actually read, so this
+    # keeps failing loudly if one starts reaching for something else.
+    request_stub = SimpleNamespace(
+        cookies={},
+        headers={},
+        url=SimpleNamespace(path="/", query=""),
+    )
     if context_builder == "mfa_template_context":
         context = builder(
-            SimpleNamespace(),
+            request_stub,
             settings=settings,
             delivery=_sample_mfa_delivery(),
             csrf_token="token",
         )
     else:
-        context = builder(SimpleNamespace(), settings=settings, csrf_token="token")
+        context = builder(request_stub, settings=settings, csrf_token="token")
     # Derived from the assembler itself rather than a hand-maintained list, so the assertion
     # cannot drift away from what the code actually supplies.
     supplied = set(context) | {"url_for", "request"}

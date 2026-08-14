@@ -165,6 +165,20 @@ include patient names or clinical information.
 Outbound email and SMS wording is isolated in `outbound_messages.py`; English is the only enabled
 outbound locale until account locale persistence and reviewed translations are added.
 
+### Browser locales
+
+The browser UI resolves a locale per request: an explicit choice in the `portal_locale` cookie
+first, then the best supported match from `Accept-Language`, then English. `GET /locale/{code}`
+records the choice and redirects back to a validated local path; it takes no CSRF token because the
+cookie selects strings and a date format only, and carries no identity or authorization.
+
+`SUPPORTED_LOCALES` advertises EN, FR, ES, PL, and PT-BR, and every one of them is selectable and
+persists. **No translations are written yet**: `TEXT_CATALOG` holds an entry per locale, and
+`portal_text()` merges the selected locale over English key by key, so an untranslated locale
+renders English rather than failing. Adding a language therefore means adding keys to
+`TEXT_CATALOG["<code>"]` and a date format to `DATETIME_FORMATS` — no route, template, or context
+change — and a partially translated catalog renders correctly for the keys it does define.
+
 `PATIENT_PORTAL_PUBLIC_BASE_URL` is used to build password-reset email links and is required when
 SMTP is configured outside development. It must use HTTPS outside development.
 

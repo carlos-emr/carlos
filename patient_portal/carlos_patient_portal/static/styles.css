@@ -106,12 +106,15 @@ a {
   background: var(--carlos-blue);
 }
 
-/* The active locale tab is disabled so it cannot offer the "not translated yet" notice for the
-   language already on screen. It is a current-state indicator, not an unavailable control, so it
-   keeps full contrast instead of the dimmed default some browsers apply to disabled buttons. */
-.text-tab.selected[disabled] {
-  opacity: 1;
-  cursor: default;
+/* The switcher renders the inactive locales as links and the active one as a span, so the shared
+   sizing above has to hold for both element types. */
+a.text-tab {
+  text-decoration: none;
+}
+
+a.text-tab:hover,
+a.text-tab:focus-visible {
+  border-color: var(--carlos-blue);
 }
 
 .auth-layout {

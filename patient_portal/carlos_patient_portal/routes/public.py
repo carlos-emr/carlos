@@ -7,7 +7,7 @@ the OpenAPI schema and gated on the health token; expose them only to trusted in
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette.responses import Response
@@ -17,11 +17,17 @@ from carlos_patient_portal.database import (
     check_database,
     check_database_schema_current,
 )
+from carlos_patient_portal.i18n import (
+    LOCALE_COOKIE_MAX_AGE_SECONDS,
+    LOCALE_COOKIE_NAME,
+    normalize_locale,
+)
 from carlos_patient_portal.runtime import (
     PortalRuntime,
     RouteDependencies,
     function_scoped_database_dependency,
 )
+from carlos_patient_portal.web_support import NOT_FOUND_DETAIL, is_safe_local_redirect
 
 
 def register_public_routes(
@@ -37,6 +43,34 @@ def register_public_routes(
     @app.get("/")
     def index(request: Request) -> Response:
         return render_index_response(request)
+
+    @app.get("/locale/{locale_code}")
+    def select_locale(request: Request, locale_code: str, next: str = "/") -> Response:
+        """Persist a display-language choice and return the patient to where they were.
+
+        A GET without a CSRF token is deliberate. The cookie this writes selects strings and a date
+        format and nothing else: it carries no identity, grants no access, and changes no stored
+        state, so the worst a forged request achieves is showing a patient the wrong language,
+        which they can undo with one click. Requiring a token would mean putting a POST form behind
+        every header button on pages that are served before any session exists.
+        """
+        resolved_locale = normalize_locale(locale_code)
+        if resolved_locale is None:
+            raise HTTPException(status_code=404, detail=NOT_FOUND_DETAIL)
+        # Only a local path is ever followed. An absolute URL, a scheme-relative "//evil.example",
+        # or a backslash variant would turn a language link into an open redirect.
+        destination = next if is_safe_local_redirect(next) else "/"
+        response = RedirectResponse(url=destination, status_code=status.HTTP_303_SEE_OTHER)
+        response.set_cookie(
+            LOCALE_COOKIE_NAME,
+            resolved_locale,
+            max_age=LOCALE_COOKIE_MAX_AGE_SECONDS,
+            httponly=False,
+            samesite="lax",
+            secure=not settings.is_development,
+            path="/",
+        )
+        return response
 
     @app.get("/health")
     def health() -> dict[str, str]:

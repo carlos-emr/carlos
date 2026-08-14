@@ -38,7 +38,12 @@ from carlos_patient_portal.auth import (
     logout_patient_session,
 )
 from carlos_patient_portal.config import Settings
-from carlos_patient_portal.i18n import DEFAULT_LOCALE, portal_text, supported_locale_options
+from carlos_patient_portal.i18n import (
+    LOCALE_COOKIE_NAME,
+    portal_text,
+    resolve_locale,
+    supported_locale_options,
+)
 from carlos_patient_portal.interop import build_fhir_r4_operation_outcome
 from carlos_patient_portal.models import (
     MFA_DELIVERY_METHOD_EMAIL,
@@ -226,6 +231,39 @@ class BrowserFormValidationError(Exception):
     ) -> None:
         super().__init__(message)
         self.safe_form_values = safe_form_values or {}
+
+
+def is_safe_local_redirect(destination: str) -> bool:
+    """Whether `destination` is a same-origin path this app may redirect a patient to.
+
+    Rejects anything a browser would resolve off-origin: an absolute URL, a scheme-relative
+    `//evil.example`, and the backslash variants some browsers normalise to forward slashes. Only a
+    single-slash-prefixed path survives, which is all the language switcher ever needs.
+    """
+    if not destination.startswith("/"):
+        return False
+    normalized = destination.replace("\\", "/")
+    return not normalized.startswith("//")
+
+
+def request_locale(request: Request) -> str:
+    """The locale to render this request in."""
+    return resolve_locale(
+        cookie_value=request.cookies.get(LOCALE_COOKIE_NAME),
+        accept_language=request.headers.get("Accept-Language"),
+    )
+
+
+def locale_switch_targets(request: Request) -> str:
+    """The path a language button should return the patient to.
+
+    Query string included so a filtered dashboard survives a language change, but never the
+    fragment — reset tokens live there and must not travel in a redirect target.
+    """
+    destination = request.url.path
+    if request.url.query:
+        destination = f"{destination}?{request.url.query}"
+    return destination if is_safe_local_redirect(destination) else "/"
 
 
 def create_csrf_token(secret: str) -> str:
@@ -554,14 +592,17 @@ def index_template_context(
     csrf_token: str,
     error_message: str | None = None,
 ) -> dict[str, object]:
+    locale = request_locale(request)
     return {
         "request": request,
         "clinic_name": settings.clinic_name,
         "csrf_token": csrf_token,
         "error_message": error_message,
         "service_name": settings.service_name,
-        "supported_locales": supported_locale_options(DEFAULT_LOCALE),
-        "text": portal_text(DEFAULT_LOCALE),
+        "supported_locales": supported_locale_options(locale),
+        "locale": locale,
+        "locale_switch_target": locale_switch_targets(request),
+        "text": portal_text(locale),
     }
 
 
@@ -581,6 +622,7 @@ def public_auth_template_context(
 ) -> dict[str, object]:
     # Declared explicitly rather than as **extra_context: these five keys are read by individual
     # public templates, and a kwargs bag let a caller typo one into silence.
+    locale = request_locale(request)
     return {
         "request": request,
         "clinic_name": settings.clinic_name,
@@ -589,8 +631,10 @@ def public_auth_template_context(
         "form_values": form_values or {},
         "notice_message": notice_message,
         "service_name": settings.service_name,
-        "supported_locales": supported_locale_options(DEFAULT_LOCALE),
-        "text": portal_text(DEFAULT_LOCALE),
+        "supported_locales": supported_locale_options(locale),
+        "locale": locale,
+        "locale_switch_target": locale_switch_targets(request),
+        "text": portal_text(locale),
         "sms_mfa_available": sms_mfa_available,
         "reset_token": reset_token,
         "development_reset_url": development_reset_url,
@@ -648,7 +692,8 @@ def mfa_template_context(
     notice_message: str | None = None,
 ) -> dict[str, object]:
     is_email = delivery.delivery_method == MFA_DELIVERY_METHOD_EMAIL
-    text = portal_text(DEFAULT_LOCALE)
+    locale = request_locale(request)
+    text = portal_text(locale)
     return {
         "request": request,
         "clinic_name": settings.clinic_name,
@@ -712,7 +757,8 @@ def portal_template_context(
     email_passwords: EmailPasswordDashboardViewModel | None = None,
 ) -> dict[str, object]:
     account = authenticated_session.account
-    text = portal_text(DEFAULT_LOCALE)
+    locale = request_locale(request)
+    text = portal_text(locale)
     context: dict[str, object] = {
         "request": request,
         "service_name": settings.service_name,
