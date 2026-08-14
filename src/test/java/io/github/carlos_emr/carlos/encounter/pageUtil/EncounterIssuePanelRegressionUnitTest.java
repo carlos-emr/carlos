@@ -14,9 +14,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import java.io.InputStream;
 import java.io.StringReader;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
@@ -51,10 +53,10 @@ import static org.mockito.Mockito.when;
 @Tag("encounter")
 class EncounterIssuePanelRegressionUnitTest extends CarlosUnitTestBase {
 
-    private static final Path DISPLAY_ACTION = resolveProjectPath(
-            Path.of("src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayAction.java"));
     private static final Path STRUTS_ENCOUNTER =
             resolveProjectPath(Path.of("src/main/webapp/WEB-INF/classes/struts-encounter.xml"));
+    private static final Path LEFT_NAVBAR_JSP = resolveProjectPath(
+            Path.of("src/main/webapp/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp"));
 
     private CaseManagementManager caseManagementManager;
     private MockedStatic<ServletActionContext> servletActionContextMock;
@@ -142,23 +144,60 @@ class EncounterIssuePanelRegressionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("resolved issue commands should route only to the resolved endpoint")
     void shouldRouteResolvedIssueCommands_toResolvedEndpoint() throws Exception {
-        String action = Files.readString(DISPLAY_ACTION);
-        assertThat(action)
-                .contains("Actions.put(\"unresolvedIssues\", \"/encounter/displayIssues\")")
-                .contains("Actions.put(\"resolvedIssues\", \"/encounter/displayResolvedIssues\")");
+        // Trigger EctDisplayAction's static Actions map initialization.
+        new EctDisplayIssues2Action();
+        Map<String, String> actions = readActionsMap();
+        assertThat(actions)
+                .containsEntry("unresolvedIssues", "/encounter/displayIssues")
+                .containsEntry("resolvedIssues", "/encounter/displayResolvedIssues");
 
         Document config = parseXml(STRUTS_ENCOUNTER);
-        NodeList results = config.getElementsByTagName("result");
+        NodeList actionElements = config.getElementsByTagName("action");
         int resolvedResultCount = 0;
+        for (int i = 0; i < actionElements.getLength(); i++) {
+            Element actionElement = (Element) actionElements.item(i);
+            String resolvedResult = resultPath(actionElement, "resolvedIssues");
+            if (resolvedResult == null) {
+                continue;
+            }
+            resolvedResultCount++;
+            assertThat(resolvedResult).isEqualTo("/encounter/displayResolvedIssues");
+            assertThat(resultPath(actionElement, "unresolvedIssues"))
+                    .isEqualTo("/encounter/displayIssues");
+        }
+        assertThat(resolvedResultCount).isEqualTo(20);
+    }
+
+    @Test
+    @DisplayName("navbar JSP should render a static heading only when the DAO reports no interactive action")
+    void shouldRenderHeadingBasedOnInteractivity_inLeftNavBarJsp() throws Exception {
+        String jsp = Files.readString(LEFT_NAVBAR_JSP);
+
+        assertThat(jsp)
+                .contains("if (dao.hasInteractiveLeftHeading()) {")
+                .contains("<h3><carlos:encode value='<%= dao.getLeftHeading() %>' context=\"html\"/></h3>")
+                .contains("popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,")
+                .contains("<h3 onclick=\"<carlos:encode value='<%= dao.getLeftURL() + \"; return false;\" %>' "
+                        + "context=\"javaScriptAttribute\"/>\">");
+    }
+
+    private String resultPath(Element action, String resultName) {
+        NodeList results = action.getElementsByTagName("result");
         for (int i = 0; i < results.getLength(); i++) {
             Element result = (Element) results.item(i);
-            if ("resolvedIssues".equals(result.getAttribute("name"))) {
-                resolvedResultCount++;
-                assertThat(result.getTextContent().trim())
-                        .isEqualTo("/encounter/displayResolvedIssues");
+            if (resultName.equals(result.getAttribute("name"))) {
+                return result.getTextContent().trim();
             }
         }
-        assertThat(resolvedResultCount).isGreaterThan(0);
+        return null;
+    }
+
+    private Map<String, String> readActionsMap() throws Exception {
+        Field field = EctDisplayAction.class.getDeclaredField("Actions");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<String, String> actions = (Map<String, String>) field.get(null);
+        return actions;
     }
 
     private Document parseXml(Path configPath) throws Exception {
