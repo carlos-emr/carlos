@@ -139,6 +139,18 @@ def find_fhir_practitioner(
     account: PatientPortalAccount,
     practitioner_id: str,
 ) -> tuple[str | None, str] | None:
+    """Resolve one of this patient's providers by its FHIR logical id.
+
+    Scans the patient's provider identities in pages, hashing each candidate, because the FHIR id
+    is `sha256`-derived and cannot be reversed into a WHERE clause. That id scheme is deliberate --
+    it keeps provider names out of URLs and out of any log that records a path -- and the scan is
+    the price of it.
+
+    Bounded by how many distinct providers have sent one patient an encrypted message, which is a
+    handful, so the cost is small in practice rather than merely small in theory. If that stops
+    holding, the fix is a lookup table keyed by the derived hash, not a change to the id scheme;
+    changing the scheme would expose provider identifiers and invalidate every id already issued.
+    """
     total = count_unlock_secret_providers(
         session,
         clinic_id=account.clinic_id,

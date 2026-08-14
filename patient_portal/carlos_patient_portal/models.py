@@ -934,6 +934,12 @@ class PatientPortalAuditEvent(Base):
             "demographic_no is null or demographic_no > 0",
             name="ck_patient_portal_audit_events_demographic_no_positive",
         ),
+        # Enumerated rather than free text, deliberately. It makes a typo'd event type impossible
+        # to store, so a query filtering on a type can never silently miss rows -- which is the
+        # whole value of an audit trail you reason about by event type. The cost is real and
+        # accepted: adding a type needs an Alembic migration (and, per 0002, a preflight over
+        # existing rows). A lookup table or a module constant plus a "constant is used" test were
+        # both considered and rejected: each moves the guarantee from write time to review time.
         CheckConstraint(
             (
                 "event_type in "
