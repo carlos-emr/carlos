@@ -272,8 +272,7 @@ public class ManageEmails2Action extends ActionSupport {
             request.setAttribute("isEmailError", true);
             return "compose";
         } catch (RuntimeException e) {
-            workingDirectory.close();
-            throw e;
+            return resendComposeUnavailable(workingDirectory);
         }
 
         int demographicNo;
@@ -288,8 +287,7 @@ public class ManageEmails2Action extends ActionSupport {
             receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
             senderAccounts = emailComposeManager.getAllSenderAccounts();
         } catch (RuntimeException e) {
-            workingDirectory.close();
-            throw e;
+            return resendComposeUnavailable(workingDirectory);
         }
         EmailComposeSubmissionStateService.EmailPdfPasswordSubmissionState emailPdfPasswordSubmissionState;
         try {
@@ -300,12 +298,7 @@ public class ManageEmails2Action extends ActionSupport {
                     EmailComposeSubmissionContext.direct(String.valueOf(demographicNo)),
                     workingDirectory);
         } catch (RuntimeException e) {
-            workingDirectory.close();
-            logger.warn("Unable to prepare resend email compose submission state", e);
-            EmailCompose2Action.cleanupEmailSessionAttributes(request);
-            request.setAttribute("emailErrorMessage", EmailCompose2Action.EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
-            request.setAttribute("isEmailError", true);
-            return "compose";
+            return resendComposeUnavailable(workingDirectory);
         }
 
         request.setAttribute("demographicId", demographicNo);
@@ -333,6 +326,15 @@ public class ManageEmails2Action extends ActionSupport {
                 EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM,
                 emailPdfPasswordSubmissionState.emailPDFPasswordToken());
 
+        return "compose";
+    }
+
+    private String resendComposeUnavailable(EmailComposeWorkingDirectory workingDirectory) {
+        workingDirectory.close();
+        logger.warn("Unable to prepare resend email compose state");
+        EmailCompose2Action.cleanupEmailSessionAttributes(request);
+        request.setAttribute("emailErrorMessage", EmailCompose2Action.EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
+        request.setAttribute("isEmailError", true);
         return "compose";
     }
 

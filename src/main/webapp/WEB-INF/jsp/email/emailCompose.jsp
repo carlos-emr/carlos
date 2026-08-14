@@ -489,7 +489,7 @@
                                 </div>
                                 <div class="col-sm-9">
                                     <textarea class="form-control" id="emailPDFPasswordClue"
-                                              rows="2" placeholder="${emailComposeCluePlaceholder}" readonly>${carlos:forHtml(emailPDFPasswordClue)}</textarea>
+                                              rows="2" placeholder="${emailComposeCluePlaceholder}" readonly>${carlos:forHtmlContent(emailPDFPasswordClue)}</textarea>
                                     <div class="error-message" id="emailPDFPasswordClueError"></div>
                                 </div>
                             </div>

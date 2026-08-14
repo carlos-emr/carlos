@@ -128,25 +128,46 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
 
         Path target = createSecurePdf();
         boolean disposableSource = PathValidationUtils.isInAllowedTempDirectory(realSource.toFile());
+        if (disposableSource) {
+            return moveDisposablePdf(realSource, target);
+        }
         try {
-            if (disposableSource) {
-                try {
-                    Path ownedPdf = Files.move(realSource, target, StandardCopyOption.REPLACE_EXISTING);
-                    applyPermissionsIfSupported(ownedPdf, OWNER_FILE_PERMISSIONS);
-                    return ownedPdf;
-                } catch (IOException moveFailure) {
-                    Files.copy(realSource, target, StandardCopyOption.REPLACE_EXISTING);
-                    Files.delete(realSource);
-                    applyPermissionsIfSupported(target, OWNER_FILE_PERMISSIONS);
-                    return target;
-                }
-            }
             Files.copy(realSource, target, StandardCopyOption.REPLACE_EXISTING);
             applyPermissionsIfSupported(target, OWNER_FILE_PERMISSIONS);
             return target;
-        } catch (IOException e) {
-            Files.deleteIfExists(target);
+        } catch (IOException | RuntimeException e) {
+            deleteAfterFailedCreation(target, e);
             throw new IOException("Unable to take ownership of generated email attachment", e);
+        }
+    }
+
+    private static Path moveDisposablePdf(Path source, Path target) throws IOException {
+        Path ownedPdf;
+        try {
+            ownedPdf = Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException moveFailure) {
+            try {
+                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                applyPermissionsIfSupported(target, OWNER_FILE_PERMISSIONS);
+                Files.delete(source);
+                return target;
+            } catch (IOException | RuntimeException copyFailure) {
+                copyFailure.addSuppressed(moveFailure);
+                deleteAfterFailedCreation(target, copyFailure);
+                throw new IOException("Unable to move generated email attachment", copyFailure);
+            }
+        }
+
+        try {
+            applyPermissionsIfSupported(ownedPdf, OWNER_FILE_PERMISSIONS);
+            return ownedPdf;
+        } catch (IOException | RuntimeException permissionFailure) {
+            try {
+                Files.move(ownedPdf, source, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException | SecurityException restoreFailure) {
+                permissionFailure.addSuppressed(restoreFailure);
+            }
+            throw new IOException("Unable to secure generated email attachment", permissionFailure);
         }
     }
 

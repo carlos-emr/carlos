@@ -73,10 +73,11 @@ class EmailComposeWorkingDirectoryUnitTest {
                     !PathValidationUtils.isInAllowedTempDirectory(durableRoot.toFile()),
                     "project working directory is configured as disposable temp storage");
             Path durablePdf = Files.writeString(durableRoot.resolve("source.pdf"), "source patient data");
-            EmailComposeWorkingDirectory workingDirectory = EmailComposeWorkingDirectory.create(applicationRoot);
-
-            Path ownedPdf = workingDirectory.adoptGeneratedPdf(durablePdf);
-            workingDirectory.close();
+            Path ownedPdf;
+            try (EmailComposeWorkingDirectory workingDirectory =
+                         EmailComposeWorkingDirectory.create(applicationRoot)) {
+                ownedPdf = workingDirectory.adoptGeneratedPdf(durablePdf);
+            }
 
             assertThat(Files.readString(durablePdf)).isEqualTo("source patient data");
             assertThat(Files.exists(ownedPdf)).isFalse();

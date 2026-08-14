@@ -490,6 +490,39 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should preserve token-bound eForm routing when transaction type is mismatched")
+    void shouldPreserveBoundEFormContext_whenTransactionTypeMismatched() {
+        EmailManager emailManager = mock(EmailManager.class);
+        registerMock(EmailManager.class, emailManager);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "999");
+        request.setParameter("fdid", "888");
+        setComposeToken(
+                request,
+                EXAMPLE_GENERATED_VALUE,
+                List.of(),
+                EmailComposeSubmissionContext.eform("123", "456", true, true));
+        when(emailManager.hasActiveEmailConfig(1)).thenReturn(true);
+
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        String result = action.sendDirectEmail();
+
+        assertThat(result).isEqualTo("success");
+        assertThat(request.getAttribute("isEmailComposeStateError")).isEqualTo(true);
+        assertThat(request.getAttribute("transactionType")).isEqualTo(EmailLog.TransactionType.EFORM);
+        assertThat(request.getAttribute("demographicId")).isEqualTo("123");
+        assertThat(request.getAttribute("fdid")).isEqualTo("456");
+        assertThat(request.getAttribute("openEFormAfterEmail")).isEqualTo(true);
+        assertThat(request.getAttribute("deleteEFormAfterEmail")).isEqualTo(true);
+        verify(emailManager, never()).sendEmail(any(), any());
+    }
+
+    @Test
     @DisplayName("should fail when encrypted email is missing generated compose-state password")
     void shouldFail_whenEncryptedPdfPasswordMissingFromComposeState() {
         MockHttpServletRequest request = new MockHttpServletRequest();

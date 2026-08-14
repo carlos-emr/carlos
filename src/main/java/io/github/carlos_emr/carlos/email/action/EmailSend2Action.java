@@ -117,18 +117,18 @@ public class EmailSend2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String sendEFormEmail() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        EmailComposeSubmissionContext context;
+        EmailComposeSubmissionContext context = null;
         EmailLog emailLog;
         try {
             int senderConfigId = validateSubmittedEmailFields(request);
             validateActiveSenderConfig(senderConfigId);
             try (EmailComposeSubmissionState composeState = resolveEmailComposeSubmissionState(request)) {
-                ensureTransactionType(composeState, EmailLog.TransactionType.EFORM);
                 context = composeState.context();
+                ensureTransactionType(composeState, EmailLog.TransactionType.EFORM);
                 emailLog = sendEmail(request, composeState);
             }
         } catch (EmailComposeStateException e) {
-            return handleEmailComposeStateError(e);
+            return handleEmailComposeStateError(e, context);
         }
 
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
@@ -158,16 +158,18 @@ public class EmailSend2Action extends ActionSupport {
      * @return String Struts2 SUCCESS result for rendering the email result page
      */
     public String sendDirectEmail() {
+        EmailComposeSubmissionContext context = null;
         EmailLog emailLog;
         try {
             int senderConfigId = validateSubmittedEmailFields(request);
             validateActiveSenderConfig(senderConfigId);
             try (EmailComposeSubmissionState composeState = resolveEmailComposeSubmissionState(request)) {
+                context = composeState.context();
                 ensureTransactionType(composeState, EmailLog.TransactionType.DIRECT);
                 emailLog = sendEmail(request, composeState);
             }
         } catch (EmailComposeStateException e) {
-            return handleEmailComposeStateError(e);
+            return handleEmailComposeStateError(e, context);
         }
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
@@ -175,18 +177,28 @@ public class EmailSend2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    private String handleEmailComposeStateError(EmailComposeStateException e) {
+    private String handleEmailComposeStateError(
+            EmailComposeStateException e,
+            EmailComposeSubmissionContext trustedContext
+    ) {
         logger.warn(e.getMessage());
         request.setAttribute("isEmailError", true);
         request.setAttribute("isEmailComposeStateError", true);
         request.setAttribute("emailErrorMessage", e.getMessage());
-        preserveSubmittedComposeFields(request);
+        preserveSubmittedComposeFields(request, trustedContext);
         return SUCCESS;
     }
 
-    private void preserveSubmittedComposeFields(HttpServletRequest request) {
+    private void preserveSubmittedComposeFields(
+            HttpServletRequest request,
+            EmailComposeSubmissionContext trustedContext
+    ) {
         String[] receiverEmails = request.getParameterValues("receiverEmailAddress");
-        request.setAttribute("transactionType", EmailData.parseTransactionType(request.getParameter("transactionType")));
+        request.setAttribute(
+                "transactionType",
+                trustedContext == null
+                        ? EmailData.parseTransactionType(request.getParameter("transactionType"))
+                        : trustedContext.transactionType());
         request.setAttribute("receiverEmailList", receiverEmails == null ? List.of() : Arrays.asList(receiverEmails));
         request.setAttribute("invalidReceiverEmailList", List.of());
         request.setAttribute("senderAccounts", List.of());
@@ -195,10 +207,24 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("bodyEmail", request.getParameter("bodyEmail"));
         request.setAttribute("encryptedMessageEmail", request.getParameter("encryptedMessage"));
         request.setAttribute("emailPatientChartOption", request.getParameter("patientChartOption"));
-        request.setAttribute("demographicId", integerParameterOrEmpty(request, "demographicId"));
-        request.setAttribute("fdid", integerParameterOrEmpty(request, "fdid"));
-        request.setAttribute("openEFormAfterEmail", isTrueParameter(request, "openEFormAfterEmail"));
-        request.setAttribute("deleteEFormAfterEmail", isTrueParameter(request, "deleteEFormAfterEmail"));
+        request.setAttribute(
+                "demographicId",
+                trustedContext == null
+                        ? integerParameterOrEmpty(request, "demographicId")
+                        : trustedContext.demographicId());
+        request.setAttribute(
+                "fdid",
+                trustedContext == null ? integerParameterOrEmpty(request, "fdid") : trustedContext.fdid());
+        request.setAttribute(
+                "openEFormAfterEmail",
+                trustedContext == null
+                        ? isTrueParameter(request, "openEFormAfterEmail")
+                        : trustedContext.openEFormAfterEmail());
+        request.setAttribute(
+                "deleteEFormAfterEmail",
+                trustedContext == null
+                        ? isTrueParameter(request, "deleteEFormAfterEmail")
+                        : trustedContext.deleteEFormAfterEmail());
         request.setAttribute("isEmailEncrypted", isTrueParameter(request, "isEmailEncrypted"));
         request.setAttribute("isEmailAttachmentEncrypted", isTrueParameter(request, "isEmailAttachmentEncrypted"));
         // The error view remains disabled/fail-closed. Preserve only the opaque token so Cancel can

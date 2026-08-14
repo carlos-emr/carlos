@@ -106,4 +106,41 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute(EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM)).isNull();
         verify(emailPdfPasswordService, never()).generatePassphrase();
     }
+
+    @Test
+    @DisplayName("should show fail-safe compose response when resend metadata lookup fails")
+    void shouldShowFailSafeComposeResponse_whenResendMetadataLookupFails() {
+        EmailComposeManager emailComposeManager = mock(EmailComposeManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        EmailPdfPasswordService emailPdfPasswordService = mock(EmailPdfPasswordService.class);
+        registerMock(EmailComposeManager.class, emailComposeManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(EmailPdfPasswordService.class, emailPdfPasswordService);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/manage");
+        request.setParameter("logId", "42");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        EmailLog emailLog = new EmailLog();
+        emailLog.setEmailAttachments(List.of());
+        when(emailComposeManager.prepareEmailForResend(any(), anyInt())).thenReturn(emailLog);
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+        servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContext.when(ServletActionContext::getResponse)
+                .thenReturn(new MockHttpServletResponse());
+
+        ManageEmails2Action action = new ManageEmails2Action();
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        String result = action.resendEmail();
+
+        assertThat(result).isEqualTo("compose");
+        assertThat(request.getAttribute("isEmailError")).isEqualTo(true);
+        assertThat(request.getAttribute("emailErrorMessage"))
+                .isEqualTo(EmailCompose2Action.EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
+        assertThat(request.getAttribute(EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM))
+                .isNull();
+        verify(emailPdfPasswordService, never()).generatePassphrase();
+    }
 }
