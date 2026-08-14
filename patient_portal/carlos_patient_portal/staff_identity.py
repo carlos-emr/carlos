@@ -46,9 +46,14 @@ def matches_any_service_token(supplied_token: str, accepted_tokens: tuple[str, .
     the retired token was presented. Accumulating instead keeps the work constant for a fixed
     number of accepted tokens, and each comparison itself stays constant-time.
     """
+    # Compared as bytes, not str. `compare_digest` refuses str operands containing anything
+    # outside ASCII, and Starlette latin-1 decodes header bytes, so any byte >= 0x80 in the
+    # Authorization header would raise TypeError here and turn a fail-closed 404 into a 500 —
+    # telling an unauthenticated caller that its token reached the comparison at all.
+    supplied_bytes = supplied_token.encode("utf-8", "surrogateescape")
     matched = False
     for accepted_token in accepted_tokens:
-        matched |= compare_digest(accepted_token, supplied_token)
+        matched |= compare_digest(accepted_token.encode("utf-8", "surrogateescape"), supplied_bytes)
     return matched
 
 

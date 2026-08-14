@@ -113,6 +113,31 @@ def invite_request(demographic_no: int = 1234) -> dict[str, object]:
     }
 
 
+def test_internal_api_rejects_a_non_ascii_bearer_token_without_a_server_error() -> None:
+    """A byte >= 0x80 in the Authorization header must fail closed, not 500.
+
+    Starlette latin-1 decodes header bytes, and `compare_digest` raises TypeError on str operands
+    outside ASCII. Comparing str therefore turned an unauthenticated request into a 500, which
+    tells the caller its token reached the comparison at all. Sent as raw bytes because that is
+    what a real client puts on the wire.
+    """
+    app = internal_app()
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.get(
+        "/internal/carlos/contact-reviews",
+        headers={
+            b"Authorization": b"Bearer tok\xe9n",
+            b"X-CARLOS-Provider-ID": b"p1",
+            b"X-CARLOS-Provider-Name": b"P",
+            b"X-CARLOS-Clinic-ID": b"clinic-a",
+            b"X-CARLOS-Permissions": b"portal.contact.review",
+        },
+    )
+
+    assert response.status_code == 404
+
+
 def test_internal_api_requires_service_authentication_and_permission() -> None:
     client = TestClient(internal_app())
 
