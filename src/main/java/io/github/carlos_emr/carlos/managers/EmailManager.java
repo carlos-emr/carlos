@@ -162,7 +162,7 @@ public class EmailManager {
             }
         } catch (EmailSendingException e) {
             updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, safePersistedFailureMessage(e));
-            logger.error(SEND_FAILURE_MESSAGE, sanitizedDiagnostic(e, 0));
+            logger.error(safeFailureOperationMessage(e), sanitizedDiagnostic(e, 0));
         } finally {
             if (emailSender != null) {
                 emailSender.discardPrepared();
@@ -172,10 +172,13 @@ public class EmailManager {
     }
 
     private String safePersistedFailureMessage(EmailSendingException failure) {
-        String failureMessage = ARCHIVE_FAILURE_MESSAGE.equals(failure.getMessage())
+        return safeFailureOperationMessage(failure) + " (" + safeDiagnosticCategory(failure) + ")";
+    }
+
+    private String safeFailureOperationMessage(EmailSendingException failure) {
+        return ARCHIVE_FAILURE_MESSAGE.equals(failure.getMessage())
                 ? ARCHIVE_FAILURE_MESSAGE
                 : SEND_FAILURE_MESSAGE;
-        return failureMessage + " (" + safeDiagnosticCategory(failure) + ")";
     }
 
     private Throwable sanitizedDiagnostic(Throwable failure, int depth) {
