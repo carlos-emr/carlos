@@ -170,6 +170,27 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should bound content type before creating the eDoc and reuse it in archive metadata")
+    void shouldReuseBoundedContentType_whenMimeMetadataExceedsArchiveLimit() throws Exception {
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        String longContentType = "message/rfc822; name=\"" + "x".repeat(200) + "\"";
+        String expectedContentType = longContentType.substring(0, 100);
+        request.setContentType(longContentType);
+        when(documentManager.createDocument(
+                eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                .thenReturn(savedDocument());
+
+        OutboundEmailArchive archive = service.archive(loggedInInfo, request);
+
+        ArgumentCaptor<Document> documentCaptor = ArgumentCaptor.forClass(Document.class);
+        verify(documentManager).createDocument(
+                eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
+        assertThat(documentCaptor.getValue().getContenttype()).isEqualTo(expectedContentType);
+        assertThat(archive.getContentType()).isEqualTo(expectedContentType);
+    }
+
+    @Test
     @DisplayName("should use generated eDoc filename and retain caller filename as metadata")
     void shouldUseGeneratedEdocFilename_whenCallerFilenameProvided() throws Exception {
         EmailLog emailLog = emailLog();

@@ -70,6 +70,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
     private static final HexFormat HEX_FORMAT = HexFormat.of();
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
+    private static final int MAX_CONTENT_TYPE_LENGTH = 100;
     private static final String DOCUMENT_DOCTYPE = "email";
     private static final String DOCUMENT_SOURCE = "Outbound Email Archive";
     private static final String CTL_DOCUMENT_MODULE_DEMOGRAPHIC = "demographic";
@@ -159,7 +160,9 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
         EmailLog requestedEmailLog = request.getEmailLog();
         byte[] artifactBytes = request.getArtifactBytes();
-        String contentType = defaultIfBlank(request.getContentType(), DEFAULT_CONTENT_TYPE);
+        String contentType = truncate(
+                defaultIfBlank(request.getContentType(), DEFAULT_CONTENT_TYPE),
+                MAX_CONTENT_TYPE_LENGTH);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         if (providerNo == null || providerNo.isBlank()) {
             throw new IllegalArgumentException("Provider number is required for outbound email archive");
