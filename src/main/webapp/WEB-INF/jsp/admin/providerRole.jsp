@@ -151,8 +151,7 @@
          * "Primary EMR Role" column and would grant note access for a role they do not hold.
          */
         boolean providerHoldsRole = false;
-        // The selector hides the multioffice role, but a POST can still name it.
-        if (provider != null && StringUtils.hasText(roleName) && !roleName.equals(omit)) {
+        if (provider != null && StringUtils.hasText(roleName)) {
             // Active assignments only — an inactive or legacy-NULL row grants no authority, so it
             // must not become the primary role that drives note access.
             List assignedRoles = secUserRoleDao.findActiveByProviderNo(providerNo);
@@ -385,18 +384,13 @@
      * (SecurityInfoManagerImpl reads findActiveByProviderNo), but program_provider.role_id
      * still feeds CaseManagementManagerImpl#getAccessType, so making a disabled role primary
      * would grant note access that the security layer does not recognise.
-     *
-     * The multioffice role withheld from vecRoleName is excluded for the same reason: making it
-     * primary activates its note access, so an administrator who may not assign that role must
-     * not be able to promote it either.
      */
     Map<String, List<String>> heldRolesByProvider = new LinkedHashMap<String, List<String>>();
     for (Properties prop : vec) {
         String heldProviderNo = prop.getProperty("provider_no", "");
         String heldRoleName = prop.getProperty("role_name", "");
         if (heldProviderNo.isEmpty() || heldRoleName.isEmpty()
-                || !"1".equals(prop.getProperty("activeyn", ""))
-                || heldRoleName.equals(omit)) {
+                || !"1".equals(prop.getProperty("activeyn", ""))) {
             continue;
         }
         List<String> held = heldRolesByProvider.get(heldProviderNo);
@@ -444,7 +438,7 @@
             String providerNo = prop.getProperty("provider_no");
             String secUserRoleId = prop.getProperty("role_id");
             String roleName = prop.getProperty("role_name");
-            if (!roleName.equals("")) {
+            if (!roleName.equals("") && "1".equals(prop.getProperty("activeyn", ""))) {
                 SecRole secRole = secRoleDao.findByName(roleName);
                 if (secRole != null) {
                     ProgramProvider pp = programProviderDao.getProgramProvider(providerNo, Long.valueOf(caisiProgram), secRole.getId().longValue());

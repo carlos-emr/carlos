@@ -101,16 +101,23 @@ class ProviderRoleJspRegressionTest {
                 .contains("secUserRoleDao.findActiveByProviderNo(providerNo)")
                 .doesNotContain("secUserRoleDao.findByProviderNo(providerNo)")
                 .containsPattern("!\"1\"\\.equals\\(prop\\.getProperty\\(\"activeyn\"")
-                /* The multioffice role is withheld from the selector and refused server-side:
-                 * promoting it activates its note access, so an administrator who may not
-                 * assign that role must not be able to make it primary either.
+                /* The multioffice guard controls which roles can be assigned in the table; it
+                 * must not hide an active role the provider already holds from this selector.
                  */
-                .containsPattern("heldRoleName\\.equals\\(omit\\)")
-                .containsPattern("!roleName\\.equals\\(omit\\)")
+                .doesNotContain("heldRoleName.equals(omit)", "!roleName.equals(omit)")
 
         // The old array interpolated provider_no and role_id into a script block unencoded.
                 .doesNotContain("items.push(item)")
                 .doesNotContain("role_id: \"<%=prop.get(\"role_id\")%>\"");
+    }
+
+    @Test
+    @DisplayName("primary role marker should ignore inactive role assignments")
+    void shouldIgnoreInactiveAssignments_whenMarkingPrimaryRole() throws IOException {
+        String jsp = Files.readString(resolveProjectPath(PROVIDER_ROLE_JSP), StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .containsPattern("!roleName\\.equals\\(\"\"\\)\\s*&&\\s*\"1\"\\.equals\\(prop\\.getProperty\\(\"activeyn\"");
     }
 
     @Test
