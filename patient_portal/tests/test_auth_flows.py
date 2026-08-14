@@ -1708,7 +1708,10 @@ def test_password_change_revokes_a_reset_token_issued_before_the_change() -> Non
     )
     replay = client.post(
         "/auth/password-reset/complete",
-        json={"reset_token": stale_token, "new_password": "Att4ckerChosen!x"},
+        json={
+            "reset_token": stale_token,
+            "new_password": "Att4ckerChosen!x",  # ggignore - test fixture, never a real credential
+        },
     )
 
     assert change.status_code == 303
