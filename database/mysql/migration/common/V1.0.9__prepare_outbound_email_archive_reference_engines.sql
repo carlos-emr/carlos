@@ -65,7 +65,7 @@ SELECT `ENGINE`
  LIMIT 1;
 
 SET @outbound_archive_reference_engine_sql = IF(
-  UPPER(@document_engine) <> 'INNODB',
+  @document_engine IS NULL OR UPPER(@document_engine) <> 'INNODB',
   @document_innodb_sql,
   'SELECT ''document already InnoDB'' AS message'
 );
@@ -83,7 +83,7 @@ SELECT `ENGINE`
  LIMIT 1;
 
 SET @outbound_archive_reference_engine_sql = IF(
-  UPPER(@email_config_engine) <> 'INNODB',
+  @email_config_engine IS NULL OR UPPER(@email_config_engine) <> 'INNODB',
   @email_config_innodb_sql,
   'SELECT ''emailConfig already InnoDB'' AS message'
 );
@@ -101,7 +101,7 @@ SELECT `ENGINE`
  LIMIT 1;
 
 SET @outbound_archive_reference_engine_sql = IF(
-  UPPER(@email_log_engine) <> 'INNODB',
+  @email_log_engine IS NULL OR UPPER(@email_log_engine) <> 'INNODB',
   @email_log_innodb_sql,
   'SELECT ''emailLog already InnoDB'' AS message'
 );
