@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -1084,17 +1085,9 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     private void assertNotOutboundEmailArchiveDocument(String documentNo) {
-        if (documentNo == null || documentNo.isBlank()) {
-            return;
-        }
-        try {
-            Integer parsedDocumentNo = Integer.valueOf(documentNo);
-            if (outboundEmailArchiveDao.existsByDocumentNo(parsedDocumentNo)) {
-                throw new SecurityException(
-                        "Outbound email archive eDocs must be read through the outbound email archive workflow");
-            }
-        } catch (NumberFormatException e) {
-            // Preserve existing invalid-id behavior in the caller.
+        if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao, documentNo)) {
+            throw new SecurityException(
+                    "Outbound email archive eDocs must be read through the outbound email archive workflow");
         }
     }
 

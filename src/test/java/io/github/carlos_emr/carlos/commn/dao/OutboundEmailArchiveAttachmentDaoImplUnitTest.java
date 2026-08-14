@@ -67,6 +67,18 @@ class OutboundEmailArchiveAttachmentDaoImplUnitTest {
         assertThatThrownBy(() -> dao.batchRemove(attachments, 25))
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessageContaining("retained with their parent archive");
+        assertThatThrownBy(() -> dao.batchRemoveAtomically(attachments))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("retained with their parent archive");
+        assertThatThrownBy(() -> dao.batchRemoveAtomically(attachments, 25))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("retained with their parent archive");
+        assertThatThrownBy(() -> dao.batchRemoveWithIndependentCommits(attachments))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("retained with their parent archive");
+        assertThatThrownBy(() -> dao.batchRemoveWithIndependentCommits(attachments, 25))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("retained with their parent archive");
         verifyNoInteractions(entityManager);
     }
 }

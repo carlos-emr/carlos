@@ -257,6 +257,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (data.getReferralDate() == null || data.getServiceId() == null || data.getUrgency() == null || data.getStatus() == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("required fields: \"referralDate\", \"serviceId\", \"urgency\", \"status\"").build();
         }
+        assertNoOutboundEmailArchiveAttachments(data.getAttachments());
 
         ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data);
 
@@ -289,6 +290,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (data.getReferralDate() == null || data.getServiceId() == null || data.getUrgency() == null || data.getStatus() == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("required fields: \"referralDate\" \"serviceId\" \"urgency\" \"status\"").build();
         }
+        assertNoOutboundEmailArchiveAttachments(data.getAttachments());
 
         ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data, consultationManager.getRequest(loggedInInfo, data.getId()));
 
@@ -407,6 +409,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Produces(MediaType.APPLICATION_JSON)
     public ConsultationResponseTo1 saveResponse(ConsultationResponseTo1 data) {
         ConsultationResponse response = null;
+        assertNoOutboundEmailArchiveAttachments(data.getAttachments());
 
         if (data.getId() == null) { //new consultation response
             response = responseConverter.getAsDomainObject(getLoggedInInfo(), data);
@@ -773,7 +776,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         //first assume all current docs detached (set delete)
         for (ConsultDocs doc : currentDocs) {
-            doc.setDeleted(ConsultDocs.DELETED);
+            if (!isOutboundEmailArchiveAttachment(doc.getDocType(), doc.getDocumentNo())) {
+                doc.setDeleted(ConsultDocs.DELETED);
+            }
         }
 
         List<String> uniqueAttachments = new ArrayList<>();
@@ -814,7 +819,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         //first assume all current docs detached (set delete)
         for (ConsultResponseDoc doc : currentDocs) {
-            doc.setDeleted(ConsultResponseDoc.DELETED);
+            if (!isOutboundEmailArchiveAttachment(doc.getDocType(), doc.getDocumentNo())) {
+                doc.setDeleted(ConsultResponseDoc.DELETED);
+            }
         }
 
         //compare current & new, remove from current list the unchanged ones - no need to update them
@@ -839,6 +846,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
     }
 
     private void assertNoOutboundEmailArchiveAttachments(List<ConsultationAttachmentTo1> attachments) {
+        if (attachments == null) {
+            return;
+        }
         for (ConsultationAttachmentTo1 attachment : attachments) {
             if (attachment != null) {
                 assertNotOutboundEmailArchiveAttachment(attachment);
@@ -847,12 +857,17 @@ public class ConsultationWebService extends AbstractServiceImpl {
     }
 
     private void assertNotOutboundEmailArchiveAttachment(ConsultationAttachmentTo1 attachment) {
-        if (attachment != null
-                && ConsultationAttachmentTo1.TYPE_DOC.equals(attachment.getDocumentType())
-                && outboundEmailArchiveDao.existsByDocumentNo(attachment.getDocumentNo())) {
+        if (attachment != null && isOutboundEmailArchiveAttachment(
+                attachment.getDocumentType(), attachment.getDocumentNo())) {
             throw new SecurityException(
                     "Outbound email archive eDocs must be managed through the controlled archive workflow");
         }
+    }
+
+    private boolean isOutboundEmailArchiveAttachment(String documentType, Integer documentNo) {
+        return ConsultationAttachmentTo1.TYPE_DOC.equals(documentType)
+                && documentNo != null
+                && outboundEmailArchiveDao.existsByDocumentNo(documentNo);
     }
 
     private void markAttachmentSaveFailure(List<ConsultationAttachmentTo1> attachments,

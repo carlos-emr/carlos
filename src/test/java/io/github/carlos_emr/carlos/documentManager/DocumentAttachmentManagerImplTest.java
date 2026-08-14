@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -42,6 +43,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -117,7 +120,7 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
 
         ArgumentCaptor<ConsultDocs> consultDocCaptor = ArgumentCaptor.forClass(ConsultDocs.class);
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo);
-        verify(consultDocsDao).findByRequestIdDocType(requestId, DocumentType.DOC.getType());
+        verify(consultDocsDao, times(2)).findByRequestIdDocType(requestId, DocumentType.DOC.getType());
         verify(consultDocsDao).persist(consultDocCaptor.capture());
         ConsultDocs persisted = consultDocCaptor.getValue();
         assertThat(persisted.getRequestId()).isEqualTo(requestId);
@@ -170,7 +173,7 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
     @DisplayName("should reject archive-backed documents before consult attachment persistence")
     void shouldRejectArchiveDocsBeforeConsultAttach() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 456)).thenReturn(true);
-        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321))).thenReturn(Set.of(321));
 
         assertThatThrownBy(() -> manager.attachToConsult(loggedInInfo, DocumentType.DOC,
                 new String[] {"321"}, "999998", 123, 456))
@@ -184,7 +187,7 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
     @DisplayName("should reject archive-backed documents before Ocean consult attachment staging")
     void shouldRejectArchiveDocsBeforeOceanConsultAttach() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 456)).thenReturn(true);
-        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321))).thenReturn(Set.of(321));
 
         assertThatThrownBy(() -> manager.attachToConsult(loggedInInfo, DocumentType.DOC,
                 new String[] {"321"}, "999998", 123, 456, true))
@@ -198,7 +201,7 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
     @DisplayName("should reject archive-backed documents before eForm attachment persistence")
     void shouldRejectArchiveDocsBeforeEFormAttach() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.WRITE, 456)).thenReturn(true);
-        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321))).thenReturn(Set.of(321));
 
         assertThatThrownBy(() -> manager.attachToEForm(loggedInInfo, DocumentType.DOC,
                 new String[] {"321"}, "999998", 123, 456))
@@ -215,7 +218,7 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
         when(consultDocsDao.findByRequestIdDocType(123, DocumentType.DOC.getType())).thenReturn(List.of(
                 consultDoc(321),
                 consultDoc(654)));
-        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321, 654))).thenReturn(Set.of(321));
 
         assertThat(manager.getConsultAttachments(loggedInInfo, 123, DocumentType.DOC, 456))
                 .containsExactly("654");
@@ -228,10 +231,27 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
         when(eFormDocsDao.findByFdidIdDocType(123, DocumentType.DOC.getType())).thenReturn(List.of(
                 eFormDoc(321),
                 eFormDoc(654)));
-        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321, 654))).thenReturn(Set.of(321));
 
         assertThat(manager.getEFormAttachments(loggedInInfo, 123, DocumentType.DOC, 456))
                 .containsExactly("654");
+    }
+
+    @Test
+    @DisplayName("should preserve hidden archive-backed consult attachments during generic saves")
+    void shouldPreserveHiddenArchiveDocs_whenSavingConsultAttachments() {
+        ConsultDocs archiveAttachment = consultDoc(321);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 456))
+                .thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocType(123, DocumentType.DOC.getType()))
+                .thenReturn(List.of(archiveAttachment));
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321))).thenReturn(Set.of(321));
+
+        manager.attachToConsult(
+                loggedInInfo, DocumentType.DOC, new String[0], "999998", 123, 456);
+
+        assertThat(archiveAttachment.getDeleted()).isNull();
+        verify(consultDocsDao, never()).merge(archiveAttachment);
     }
 
     private ConsultDocs consultDoc(int documentNo) {

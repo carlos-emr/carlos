@@ -56,6 +56,7 @@ public interface OutboundEmailArchiveService {
      * @return active archive metadata
      * @throws IllegalArgumentException when the archive identifier is missing or not found
      * @throws IllegalStateException when the archive has been controlled-deleted
+     * @throws SecurityException when the caller lacks eDoc or patient-record read access
      */
     OutboundEmailArchive getActiveArchive(LoggedInInfo loggedInInfo, Integer archiveId);
 
@@ -65,8 +66,10 @@ public interface OutboundEmailArchiveService {
      * @param loggedInInfo current user context for permissions and audit logging
      * @param archiveId archive metadata identifier
      * @return archived artifact bytes
-     * @throws IOException when the archived eDoc file cannot be read or does not match archive metadata
-     * @throws IllegalStateException when required archive metadata is missing
+     * @throws IOException when the archived eDoc file cannot be read, required integrity metadata
+     *         is missing or invalid, or the stored bytes do not match that metadata
+     * @throws IllegalStateException when the archive or its backing eDoc has been controlled-deleted
+     * @throws SecurityException when the caller lacks eDoc or patient-record read access
      */
     byte[] readArchivedArtifact(LoggedInInfo loggedInInfo, Integer archiveId) throws IOException;
 
@@ -79,6 +82,7 @@ public interface OutboundEmailArchiveService {
      * @return immutable deletion tombstone
      * @throws IllegalArgumentException when the archive identifier or deletion reason is missing
      * @throws IllegalStateException when deletion is blocked by legal hold or the archive is already deleted
+     * @throws SecurityException when the caller lacks deletion authority or patient-record access
      */
     OutboundEmailArchiveDeletion recordControlledDeletion(LoggedInInfo loggedInInfo, Integer archiveId, String deleteReason);
 }

@@ -24,7 +24,9 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Data access contract for durable outbound email archive records.
@@ -70,6 +72,14 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
      * @return {@code true} when the document is linked to any archive row
      */
     boolean existsByDocumentNo(Integer documentNo);
+
+    /**
+     * Finds all archive-backed eDoc identifiers in the supplied candidates using one query.
+     *
+     * @param documentNos candidate persisted eDoc identifiers
+     * @return archive-backed identifiers, or an empty set for no candidates
+     */
+    Set<Integer> findExistingDocumentNos(Collection<Integer> documentNos);
 
     /**
      * Checks whether a stored eDoc filename is linked to an outbound email archive.

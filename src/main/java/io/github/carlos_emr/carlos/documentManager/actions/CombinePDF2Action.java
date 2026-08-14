@@ -41,6 +41,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -151,14 +152,7 @@ public class CombinePDF2Action extends ActionSupport {
     }
 
     private boolean isOutboundEmailArchiveDocument(String documentNo) {
-        if (documentNo == null || documentNo.isBlank()) {
-            return false;
-        }
-        try {
-            return outboundEmailArchiveDao.existsByDocumentNo(Integer.valueOf(documentNo));
-        } catch (NumberFormatException e) {
-            return false;
-        }
+        return OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao, documentNo);
     }
 
     /**

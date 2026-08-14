@@ -133,8 +133,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
 
         List<String> consultAttachments = new ArrayList<>();
         List<ConsultDocs> consultDocs = consultDocsDao.findByRequestIdDocType(requestId, documentType.getType());
+        Set<Integer> archiveDocumentNos = findArchiveDocumentNos(documentType,
+                consultDocs.stream().map(ConsultDocs::getDocumentNo).toList());
         for (ConsultDocs consultDocs1 : consultDocs) {
-            if (isOutboundEmailArchiveDocument(documentType, consultDocs1.getDocumentNo())) {
+            if (archiveDocumentNos.contains(consultDocs1.getDocumentNo())) {
                 continue;
             }
             consultAttachments.add(String.valueOf(consultDocs1.getDocumentNo()));
@@ -163,8 +165,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
 
         List<String> eFormAttachments = new ArrayList<>();
         List<EFormDocs> eFormDocs = eFormDocsDao.findByFdidIdDocType(fdid, documentType.getType());
+        Set<Integer> archiveDocumentNos = findArchiveDocumentNos(documentType,
+                eFormDocs.stream().map(EFormDocs::getDocumentNo).toList());
         for (EFormDocs eFormDocs1 : eFormDocs) {
-            if (isOutboundEmailArchiveDocument(documentType, eFormDocs1.getDocumentNo())) {
+            if (archiveDocumentNos.contains(eFormDocs1.getDocumentNo())) {
                 continue;
             }
             eFormAttachments.add(String.valueOf(eFormDocs1.getDocumentNo()));
@@ -338,6 +342,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         }
 
         assertNoOutboundEmailArchiveAttachments(documentType, attachments);
+        attachments = preserveCurrentArchiveAttachments(documentType, attachments,
+                consultDocsDao.findByRequestIdDocType(requestId, documentType.getType()).stream()
+                        .map(ConsultDocs::getDocumentNo)
+                        .toList());
         DocumentAttach documentAttach = new DocumentAttach();
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
@@ -367,6 +375,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         }
 
         assertNoOutboundEmailArchiveAttachments(documentType, attachments);
+        attachments = preserveCurrentArchiveAttachments(documentType, attachments,
+                consultDocsDao.findByRequestIdDocType(requestId, documentType.getType()).stream()
+                        .map(ConsultDocs::getDocumentNo)
+                        .toList());
         DocumentAttach documentAttach = new DocumentAttach(demographicNo, editOnOcean);
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
@@ -392,6 +404,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         }
 
         assertNoOutboundEmailArchiveAttachments(documentType, attachments);
+        attachments = preserveCurrentArchiveAttachments(documentType, attachments,
+                eFormDocsDao.findByFdidIdDocType(fdid, documentType.getType()).stream()
+                        .map(EFormDocs::getDocumentNo)
+                        .toList());
         DocumentAttach documentAttach = new DocumentAttach();
         documentAttach.attachToEForm(attachments, documentType, providerNo, fdid);
     }
@@ -400,25 +416,43 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         if (documentType != DocumentType.DOC || attachments == null) {
             return;
         }
+        List<Integer> documentNos = new ArrayList<>();
         for (String attachment : attachments) {
             if (StringUtils.isNullOrEmpty(attachment)) {
                 continue;
             }
             try {
-                if (outboundEmailArchiveDao.existsByDocumentNo(Integer.valueOf(attachment))) {
-                    throw new SecurityException(
-                            "Outbound email archive eDocs must be managed through the controlled archive workflow");
-                }
+                documentNos.add(Integer.valueOf(attachment));
             } catch (NumberFormatException e) {
                 // Preserve existing invalid-id behavior in DocumentAttach.
             }
         }
+        if (!findArchiveDocumentNos(documentType, documentNos).isEmpty()) {
+            throw new SecurityException(
+                    "Outbound email archive eDocs must be managed through the controlled archive workflow");
+        }
     }
 
-    private boolean isOutboundEmailArchiveDocument(DocumentType documentType, Integer documentNo) {
-        return documentType == DocumentType.DOC
-                && documentNo != null
-                && outboundEmailArchiveDao.existsByDocumentNo(documentNo);
+    private String[] preserveCurrentArchiveAttachments(
+            DocumentType documentType, String[] submittedAttachments, Collection<Integer> currentDocumentNos) {
+        Set<Integer> archiveDocumentNos = findArchiveDocumentNos(documentType, currentDocumentNos);
+        if (archiveDocumentNos.isEmpty()) {
+            return submittedAttachments;
+        }
+        LinkedHashSet<String> preservedAttachments = new LinkedHashSet<>();
+        if (submittedAttachments != null) {
+            Collections.addAll(preservedAttachments, submittedAttachments);
+        }
+        archiveDocumentNos.stream().map(String::valueOf).forEach(preservedAttachments::add);
+        return preservedAttachments.toArray(new String[0]);
+    }
+
+    private Set<Integer> findArchiveDocumentNos(DocumentType documentType, Collection<Integer> documentNos) {
+        if (documentType != DocumentType.DOC || documentNos == null || documentNos.isEmpty()) {
+            return Set.of();
+        }
+        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(documentNos);
+        return archiveDocumentNos != null ? archiveDocumentNos : Set.of();
     }
 
     /**

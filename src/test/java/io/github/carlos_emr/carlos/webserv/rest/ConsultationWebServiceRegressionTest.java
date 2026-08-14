@@ -168,6 +168,25 @@ class ConsultationWebServiceRegressionTest {
         verify(consultationManager, never()).saveConsultResponseDoc(eq(loggedInInfo), any(ConsultResponseDoc.class));
     }
 
+    @Test
+    @DisplayName("should preserve hidden outbound archive attachments during request saves")
+    void shouldPreserveHiddenOutboundArchiveAttachmentsDuringRequestSave() {
+        ConsultationRequestTo1 request = new ConsultationRequestTo1();
+        request.setId(456);
+        request.setDemographicId(DEMOGRAPHIC_NO);
+        request.setAttachments(new ArrayList<>());
+        ConsultDocs archiveAttachment = new ConsultDocs(
+                request.getId(), 321, ConsultationAttachmentTo1.TYPE_DOC, PROVIDER_NO);
+        List<ConsultDocs> currentDocs = new ArrayList<>(List.of(archiveAttachment));
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, request.getId()))
+                .thenReturn(currentDocs);
+        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+
+        ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
+
+        assertThat(archiveAttachment.getDeleted()).isNull();
+    }
+
     private static ConsultationAttachmentTo1 newDocumentAttachment() {
         ConsultationAttachmentTo1 attachment = new ConsultationAttachmentTo1();
         attachment.setDocumentType(ConsultationAttachmentTo1.TYPE_DOC);

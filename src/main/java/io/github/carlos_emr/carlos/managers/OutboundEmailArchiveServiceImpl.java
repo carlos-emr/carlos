@@ -283,26 +283,36 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     public byte[] readArchivedArtifact(LoggedInInfo loggedInInfo, Integer archiveId) throws IOException {
         OutboundEmailArchive archive = loadActiveArchiveForArtifactRead(loggedInInfo, archiveId);
         Document document = archive.getDocument();
-        if (document == null || document.getDocfilename() == null || document.getDocfilename().isBlank()) {
-            throw new IllegalStateException("Outbound email archive document is required");
-        }
-        Long expectedByteSize = archive.getByteSize();
-        if (expectedByteSize == null) {
-            throw new IllegalStateException("Outbound email archive byte size is required");
-        }
-        String expectedSha256Hash = normalizeSha256Hex(archive.getSha256Hash(), AUDIT_ARCHIVE_LABEL + " SHA-256 hash");
-        String auditDetails = AUDIT_ARCHIVE_ID_PREFIX + archive.getId() + AUDIT_DOCUMENT_NO_PREFIX + document.getId();
-        String auditDemographicNo = demographicNo(archive);
-
-        Path archivePath = resolveArchivedArtifactPath(document.getDocfilename());
         byte[] artifactBytes;
         try {
+            if (document == null || document.getDocfilename() == null || document.getDocfilename().isBlank()) {
+                throw new IOException("Archived artifact document metadata is missing");
+            }
+            Long expectedByteSize = archive.getByteSize();
+            if (expectedByteSize == null) {
+                throw new IOException("Archived artifact byte size is missing");
+            }
+            String expectedSha256Hash;
+            try {
+                expectedSha256Hash = normalizeSha256Hex(
+                        archive.getSha256Hash(), AUDIT_ARCHIVE_LABEL + " SHA-256 hash");
+            } catch (IllegalArgumentException e) {
+                throw new IOException("Archived artifact SHA-256 hash is invalid", e);
+            }
+            Path archivePath;
+            try {
+                archivePath = resolveArchivedArtifactPath(document.getDocfilename());
+            } catch (RuntimeException e) {
+                throw new IOException("Archived artifact path is invalid", e);
+            }
             artifactBytes = readArchivedArtifactBytes(archivePath, expectedByteSize);
             validateArchiveHash(expectedSha256Hash, artifactBytes);
         } catch (IOException e) {
             auditArtifactReadIntegrityFailure(loggedInInfo, archive, document, e);
             throw e;
         }
+        String auditDetails = AUDIT_ARCHIVE_ID_PREFIX + archive.getId() + AUDIT_DOCUMENT_NO_PREFIX + document.getId();
+        String auditDemographicNo = demographicNo(archive);
         registerAfterCommitLog(() -> LogAction.addLog(loggedInInfo,
                 "OutboundEmailArchiveService.readArchivedArtifact",
                 AUDIT_ARCHIVE_LABEL,

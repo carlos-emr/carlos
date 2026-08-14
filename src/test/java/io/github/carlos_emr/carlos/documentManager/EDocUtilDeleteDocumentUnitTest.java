@@ -51,6 +51,7 @@ import java.nio.file.Path;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -356,7 +357,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         Document ordinaryDocument = activeDocument(654);
         when(documentDao.findConstultDocsDocsAndProvidersByModule(DocumentDao.Module.DEMOGRAPHIC, 123))
                 .thenReturn(List.of(new Object[] {archiveDocument}, new Object[] {ordinaryDocument}));
-        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321, 654))).thenReturn(Set.of(321));
 
         List<EDoc> documents = EDocUtil.listDemoDocs(loggedInInfo, "123");
 
@@ -372,7 +373,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         Document ordinaryDocument = activeDocument(654);
         when(documentDao.findDocuments("demographic", "123", null, false, false, true, EDocUtil.EDocSort.OBSERVATIONDATE, null))
                 .thenReturn(List.of(new Object[] {new CtlDocument(), archiveDocument}, new Object[] {new CtlDocument(), ordinaryDocument}));
-        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321, 654))).thenReturn(Set.of(321));
 
         List<EDoc> documents = EDocUtil.listDocs(
                 loggedInInfo,
@@ -395,7 +396,7 @@ class EDocUtilDeleteDocumentUnitTest extends CarlosUnitTestBase {
         Document ordinaryDocument = activeDocument(654);
         when(documentDao.findByDemographicUpdateDate(123, since))
                 .thenReturn(List.of(archiveDocument, ordinaryDocument));
-        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321, 654))).thenReturn(Set.of(321));
 
         List<EDoc> documents = EDocUtil.listAllDemographicDocsSince(loggedInInfo, 123, since);
 

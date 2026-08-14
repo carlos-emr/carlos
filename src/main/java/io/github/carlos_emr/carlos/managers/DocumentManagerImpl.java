@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
@@ -286,8 +287,8 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
-        List<Document> results = documentDao.findByUpdateDate(updatedAfterThisDateExclusive, itemsToReturn);
-        results = withoutOutboundEmailArchiveDocuments(results);
+        List<Document> results = findUpdatedDocumentsExcludingArchives(
+                updatedAfterThisDateExclusive, itemsToReturn);
 
         LogAction.addLog(loggedInInfo, "DocumentManager.getUpdateAfterDate", "updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive, "", "", "Number items " + itemsToReturn);
 
@@ -672,14 +673,47 @@ public class DocumentManagerImpl implements DocumentManager {
         if (documents == null || documents.isEmpty()) {
             return documents;
         }
+        List<Integer> documentNos = documents.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(Document::getDocumentNo)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(documentNos);
+        if (archiveDocumentNos == null) {
+            archiveDocumentNos = Set.of();
+        }
         List<Document> filteredDocuments = new ArrayList<Document>();
         for (Document document : documents) {
             if (document == null || document.getDocumentNo() == null
-                    || !outboundEmailArchiveDao.existsByDocumentNo(document.getDocumentNo())) {
+                    || !archiveDocumentNos.contains(document.getDocumentNo())) {
                 filteredDocuments.add(document);
             }
         }
         return filteredDocuments;
+    }
+
+    private List<Document> findUpdatedDocumentsExcludingArchives(Date updatedAfter, int itemsToReturn) {
+        if (itemsToReturn <= 0) {
+            return withoutOutboundEmailArchiveDocuments(
+                    documentDao.findByUpdateDate(updatedAfter, itemsToReturn));
+        }
+
+        int fetchLimit = itemsToReturn;
+        while (true) {
+            List<Document> candidates = documentDao.findByUpdateDate(updatedAfter, fetchLimit);
+            List<Document> visibleDocuments = withoutOutboundEmailArchiveDocuments(candidates);
+            if (visibleDocuments.size() >= itemsToReturn) {
+                return new ArrayList<>(visibleDocuments.subList(0, itemsToReturn));
+            }
+            if (candidates.size() < fetchLimit || fetchLimit >= AbstractDao.MAX_LIST_RETURN_SIZE) {
+                return visibleDocuments;
+            }
+            int nextFetchLimit = Math.min(AbstractDao.MAX_LIST_RETURN_SIZE, fetchLimit * 2);
+            if (nextFetchLimit == fetchLimit) {
+                return visibleDocuments;
+            }
+            fetchLimit = nextFetchLimit;
+        }
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
@@ -739,11 +773,20 @@ public class DocumentManagerImpl implements DocumentManager {
         if (documents == null || documents.isEmpty()) {
             return documents;
         }
+        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(
+                documents.stream()
+                        .filter(java.util.Objects::nonNull)
+                        .map(DocumentListItemDTO::getDocumentNo)
+                        .filter(java.util.Objects::nonNull)
+                        .toList());
+        if (archiveDocumentNos == null) {
+            archiveDocumentNos = Set.of();
+        }
         List<DocumentListItemDTO> filteredDocuments = new ArrayList<DocumentListItemDTO>();
         boolean removedDocument = false;
         for (DocumentListItemDTO document : documents) {
             if (document == null || document.getDocumentNo() == null
-                    || !outboundEmailArchiveDao.existsByDocumentNo(document.getDocumentNo())) {
+                    || !archiveDocumentNos.contains(document.getDocumentNo())) {
                 filteredDocuments.add(document);
             } else {
                 removedDocument = true;

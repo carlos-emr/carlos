@@ -84,7 +84,7 @@
         <sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>**/documentManager/**/DocumentUpload2Action.java</sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>
         <!-- Outbound archive JPA mappings follow CARLOS Hibernate DATETIME conventions. -->
         <sonar.issue.ignore.multicriteria.outboundArchiveDate.ruleKey>java:S2143</sonar.issue.ignore.multicriteria.outboundArchiveDate.ruleKey>
-        <sonar.issue.ignore.multicriteria.outboundArchiveDate.resourceKey>**/OutboundEmailArchive*.java</sonar.issue.ignore.multicriteria.outboundArchiveDate.resourceKey>
+        <sonar.issue.ignore.multicriteria.outboundArchiveDate.resourceKey>**/commn/model/OutboundEmailArchive*.java</sonar.issue.ignore.multicriteria.outboundArchiveDate.resourceKey>
         <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
         <argLine/>
         <!-- Log4j Version -->

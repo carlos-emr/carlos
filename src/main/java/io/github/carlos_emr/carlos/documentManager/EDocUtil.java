@@ -45,10 +45,12 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.Set;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import org.owasp.encoder.Encode;
@@ -517,10 +519,14 @@ public final class EDocUtil {
     private static ArrayList<EDoc> listDocs(LoggedInInfo loggedInInfo, boolean attached, List<Object[]> docs, List<Object[]> ctlDocs) {
         ArrayList<EDoc> resultDocs = new ArrayList<EDoc>();
         ArrayList<EDoc> attachedDocs = new ArrayList<EDoc>();
+        List<Integer> candidateDocumentNos = new ArrayList<>();
+        addDocumentNos(candidateDocumentNos, docs, 0);
+        addDocumentNos(candidateDocumentNos, ctlDocs, 1);
+        Set<Integer> archiveDocumentNos = findOutboundEmailArchiveDocumentNos(candidateDocumentNos);
 
         for (Object[] o : docs) {
             Document d = (Document) o[0];
-            if (isOutboundEmailArchiveDocument(d)) {
+            if (d != null && archiveDocumentNos.contains(d.getDocumentNo())) {
                 continue;
             }
 
@@ -559,7 +565,7 @@ public final class EDocUtil {
         } else { //remove attached documents from full document list
             for (Object[] o : ctlDocs) {
                 Document d = (Document) o[1];
-                if (isOutboundEmailArchiveDocument(d)) {
+                if (d != null && archiveDocumentNos.contains(d.getDocumentNo())) {
                     continue;
                 }
 
@@ -654,8 +660,13 @@ public final class EDocUtil {
     public static ArrayList<EDoc> listDocsPreviewInbox(List<String> docIds) {
 
         ArrayList<EDoc> resultDocs = new ArrayList<EDoc>();
+        List<Integer> candidateDocumentNos = docIds.stream()
+                .map(EDocUtil::parseDocumentNo)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        Set<Integer> archiveDocumentNos = findOutboundEmailArchiveDocumentNos(candidateDocumentNos);
         for (String docId : docIds) {
-            if (!isOutboundEmailArchiveDocumentId(docId)) {
+            if (!archiveDocumentNos.contains(parseDocumentNo(docId))) {
                 resultDocs.add(getEDocFromDocId(docId));
             }
         }
@@ -668,11 +679,12 @@ public final class EDocUtil {
         boolean includeDeleted = viewstatus.equals("deleted");
         boolean includeActive = viewstatus.equals("active");
         List<Object[]> documents = getDocumentDao().findDocuments(module, moduleid, docType, includePublic, includeDeleted, includeActive, sort, null);
+        Set<Integer> archiveDocumentNos = findOutboundEmailArchiveDocumentNos(documentNos(documents, 1));
 
         ArrayList<EDoc> resultDocs = new ArrayList<EDoc>();
         for (Object[] o : documents) {
             Document d = (Document) o[1];
-            if (isOutboundEmailArchiveDocument(d)) {
+            if (d != null && archiveDocumentNos.contains(d.getDocumentNo())) {
                 continue;
             }
             EDoc currentdoc = toEDoc(d);
@@ -692,10 +704,12 @@ public final class EDocUtil {
     public static List<EDoc> listAllDemographicDocsSince(LoggedInInfo loggedInInfo, int demographicNo, Date since) {
 
         List<Document> documents = getDocumentDao().findByDemographicUpdateDate(demographicNo, since);
+        Set<Integer> archiveDocumentNos = findOutboundEmailArchiveDocumentNos(
+                documents.stream().filter(java.util.Objects::nonNull).map(Document::getDocumentNo).toList());
 
         List<EDoc> edocList = new ArrayList<EDoc>();
         for (Document document : documents) {
-            if (!isOutboundEmailArchiveDocument(document)) {
+            if (document == null || !archiveDocumentNos.contains(document.getDocumentNo())) {
                 edocList.add(toEDoc(document));
             }
         }
@@ -715,11 +729,12 @@ public final class EDocUtil {
 
 
         List<Object[]> documents = getDocumentDao().findDocuments(module, moduleid, docType, includePublic, includeDeleted, includeActive, sort, since);
+        Set<Integer> archiveDocumentNos = findOutboundEmailArchiveDocumentNos(documentNos(documents, 1));
 
         ArrayList<EDoc> resultDocs = new ArrayList<EDoc>();
         for (Object[] o : documents) {
             Document d = (Document) o[1];
-            if (isOutboundEmailArchiveDocument(d)) {
+            if (d != null && archiveDocumentNos.contains(d.getDocumentNo())) {
                 continue;
             }
             EDoc currentdoc = toEDoc(d);
@@ -773,9 +788,12 @@ public final class EDocUtil {
 
         DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
 
-        for (Object[] o : dao.findCtlDocsAndDocsByModuleCreatorResponsibleAndDates(Module.DEMOGRAPHIC, creator, responsible, startDate, endDate, unmatchedDemographics)) {
+        List<Object[]> unmatchedDocuments = dao.findCtlDocsAndDocsByModuleCreatorResponsibleAndDates(
+                Module.DEMOGRAPHIC, creator, responsible, startDate, endDate, unmatchedDemographics);
+        Set<Integer> archiveDocumentNos = findOutboundEmailArchiveDocumentNos(documentNos(unmatchedDocuments, 0));
+        for (Object[] o : unmatchedDocuments) {
             Document d = (Document) o[0];
-            if (isOutboundEmailArchiveDocument(d)) {
+            if (d != null && archiveDocumentNos.contains(d.getDocumentNo())) {
                 continue;
             }
             CtlDocument c = (CtlDocument) o[1];
@@ -849,9 +867,12 @@ public final class EDocUtil {
     public static ArrayList<EDoc> listDemoDocs(LoggedInInfo loggedInInfo, String moduleid) {
         DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
         ArrayList<EDoc> resultDocs = new ArrayList<EDoc>();
-        for (Object[] o : dao.findConstultDocsDocsAndProvidersByModule(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(moduleid))) {
+        List<Object[]> documents = dao.findConstultDocsDocsAndProvidersByModule(
+                Module.DEMOGRAPHIC, ConversionUtils.fromIntString(moduleid));
+        Set<Integer> archiveDocumentNos = findOutboundEmailArchiveDocumentNos(documentNos(documents, 0));
+        for (Object[] o : documents) {
             Document d = (Document) o[0];
-            if (outboundEmailArchiveDao().existsByDocumentNo(d.getDocumentNo())) {
+            if (d != null && archiveDocumentNos.contains(d.getDocumentNo())) {
                 continue;
             }
 
@@ -1015,15 +1036,47 @@ public final class EDocUtil {
         return document != null && isOutboundEmailArchiveDocumentNo(document.getDocumentNo());
     }
 
-    private static boolean isOutboundEmailArchiveDocumentId(String documentId) {
+    private static void addDocumentNos(List<Integer> target, List<Object[]> rows, int documentIndex) {
+        if (rows != null) {
+            target.addAll(documentNos(rows, documentIndex));
+        }
+    }
+
+    private static List<Integer> documentNos(List<Object[]> rows, int documentIndex) {
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        List<Integer> documentNos = new ArrayList<>();
+        for (Object[] row : rows) {
+            if (row != null && row.length > documentIndex && row[documentIndex] instanceof Document document
+                    && document.getDocumentNo() != null) {
+                documentNos.add(document.getDocumentNo());
+            }
+        }
+        return documentNos;
+    }
+
+    private static Set<Integer> findOutboundEmailArchiveDocumentNos(Collection<Integer> documentNos) {
+        if (documentNos == null || documentNos.isEmpty()) {
+            return Set.of();
+        }
+        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao().findExistingDocumentNos(documentNos);
+        return archiveDocumentNos != null ? archiveDocumentNos : Set.of();
+    }
+
+    private static Integer parseDocumentNo(String documentId) {
         if (documentId == null || documentId.isBlank()) {
-            return false;
+            return null;
         }
         try {
-            return isOutboundEmailArchiveDocumentNo(Integer.valueOf(documentId));
+            return Integer.valueOf(documentId);
         } catch (NumberFormatException e) {
-            return false;
+            return null;
         }
+    }
+
+    private static boolean isOutboundEmailArchiveDocumentId(String documentId) {
+        return isOutboundEmailArchiveDocumentNo(parseDocumentNo(documentId));
     }
 
     private static boolean isOutboundEmailArchiveDocumentNo(Integer documentNo) {

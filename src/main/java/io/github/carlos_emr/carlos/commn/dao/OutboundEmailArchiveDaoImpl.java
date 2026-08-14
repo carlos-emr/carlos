@@ -28,7 +28,10 @@ import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * JPA DAO implementation for durable outbound email archive records.
@@ -60,6 +63,26 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
 
     @Override
     public void batchRemove(List<OutboundEmailArchive> oList, int batchSize) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
+    }
+
+    @Override
+    public void batchRemoveAtomically(List<OutboundEmailArchive> oList) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
+    }
+
+    @Override
+    public void batchRemoveAtomically(List<OutboundEmailArchive> oList, int batchSize) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
+    }
+
+    @Override
+    public void batchRemoveWithIndependentCommits(List<OutboundEmailArchive> oList) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
+    }
+
+    @Override
+    public void batchRemoveWithIndependentCommits(List<OutboundEmailArchive> oList, int batchSize) {
         throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
     }
 
@@ -126,6 +149,26 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
                 Long.class);
         query.setParameter("documentNo", documentNo);
         return query.getSingleResult() > 0L;
+    }
+
+    @Override
+    public Set<Integer> findExistingDocumentNos(Collection<Integer> documentNos) {
+        if (documentNos == null || documentNos.isEmpty()) {
+            return Set.of();
+        }
+        List<Integer> candidates = documentNos.stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        if (candidates.isEmpty()) {
+            return Set.of();
+        }
+        TypedQuery<Integer> query = entityManager.createQuery(
+                "SELECT DISTINCT archive.document.documentNo FROM OutboundEmailArchive archive "
+                        + "WHERE archive.document.documentNo IN :documentNos",
+                Integer.class);
+        query.setParameter("documentNos", candidates);
+        return new HashSet<>(query.getResultList());
     }
 
     @Override

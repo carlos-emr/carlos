@@ -414,9 +414,15 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
 
     @Test
     void shouldReturnNoneAndSendForbidden_whenRefilingOutboundArchiveDocument() {
+        request.setMethod("POST");
         request.setParameter("method", "refileDocumentAjax");
         request.setParameter("documentId", "321");
         request.setParameter("queueId", "1");
+        Document document = new Document();
+        document.setDocumentNo(321);
+        document.setDocfilename("document.pdf");
+        when(documentDao.find(321)).thenReturn(document);
+        when(queueDao.find(1)).thenReturn(new Queue());
         when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("w"), isNull())).thenReturn(true);
         when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
 

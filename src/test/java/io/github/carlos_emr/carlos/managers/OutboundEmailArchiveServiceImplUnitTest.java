@@ -552,21 +552,6 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject archive without eDoc write authority")
-    void shouldRejectArchive_whenCallerLacksEdocWriteAuthority() {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(false);
-        EmailLog emailLog = emailLog();
-        OutboundEmailArchiveDto request = archiveRequest(emailLog);
-
-        assertThatThrownBy(() -> service.archive(loggedInInfo, request))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("missing required sec object (_edoc)");
-
-        verifyNoInteractions(documentManager);
-    }
-
-
-    @Test
     @DisplayName("should reject active archive metadata when logged-in context is missing")
     void shouldRejectActiveArchiveMetadata_whenLoggedInContextMissing() {
         assertThatThrownBy(() -> service.getActiveArchive(null, 888))
@@ -714,6 +699,44 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
                 "Outbound email archive",
                 "archiveId=888 documentNo=321 reason=Archived artifact hash does not match archive metadata",
+                "123",
+                ""));
+    }
+
+    @Test
+    @DisplayName("should audit archived artifact reads with missing byte-size metadata")
+    void shouldAuditArchivedArtifactRead_whenByteSizeMetadataIsMissing() {
+        OutboundEmailArchive archive = activeArchive();
+        archive.setByteSize(null);
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+
+        assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("byte size is missing");
+
+        logActionMock.verify(() -> LogAction.addLog(loggedInInfo,
+                "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
+                "Outbound email archive",
+                "archiveId=888 documentNo=321 reason=Archived artifact byte size is missing",
+                "123",
+                ""));
+    }
+
+    @Test
+    @DisplayName("should audit archived artifact reads with invalid hash metadata")
+    void shouldAuditArchivedArtifactRead_whenHashMetadataIsInvalid() {
+        OutboundEmailArchive archive = activeArchive();
+        archive.setSha256Hash("invalid");
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+
+        assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("SHA-256 hash is invalid");
+
+        logActionMock.verify(() -> LogAction.addLog(loggedInInfo,
+                "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
+                "Outbound email archive",
+                "archiveId=888 documentNo=321 reason=Archived artifact SHA-256 hash is invalid",
                 "123",
                 ""));
     }

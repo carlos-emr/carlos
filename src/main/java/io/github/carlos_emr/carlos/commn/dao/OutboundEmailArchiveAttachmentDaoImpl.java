@@ -60,4 +60,24 @@ public class OutboundEmailArchiveAttachmentDaoImpl extends AbstractDaoImpl<Outbo
     public void batchRemove(List<OutboundEmailArchiveAttachment> oList, int batchSize) {
         throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
     }
+
+    @Override
+    public void batchRemoveAtomically(List<OutboundEmailArchiveAttachment> oList) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
+    }
+
+    @Override
+    public void batchRemoveAtomically(List<OutboundEmailArchiveAttachment> oList, int batchSize) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
+    }
+
+    @Override
+    public void batchRemoveWithIndependentCommits(List<OutboundEmailArchiveAttachment> oList) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
+    }
+
+    @Override
+    public void batchRemoveWithIndependentCommits(List<OutboundEmailArchiveAttachment> oList, int batchSize) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
+    }
 }

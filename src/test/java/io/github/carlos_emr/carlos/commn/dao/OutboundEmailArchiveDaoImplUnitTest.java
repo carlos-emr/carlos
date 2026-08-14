@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -60,6 +61,9 @@ class OutboundEmailArchiveDaoImplUnitTest {
     private static final String EXISTS_BY_DOCUMENT_NO_JPQL =
             "SELECT COUNT(archive) FROM OutboundEmailArchive archive "
                     + "WHERE archive.document.documentNo = :documentNo";
+    private static final String FIND_EXISTING_DOCUMENT_NOS_JPQL =
+            "SELECT DISTINCT archive.document.documentNo FROM OutboundEmailArchive archive "
+                    + "WHERE archive.document.documentNo IN :documentNos";
     private static final String EXISTS_BY_FILE_NAME_JPQL =
             "SELECT COUNT(archive) FROM OutboundEmailArchive archive "
                     + "WHERE archive.fileName = :fileName";
@@ -69,6 +73,7 @@ class OutboundEmailArchiveDaoImplUnitTest {
     private Query query;
     private TypedQuery<OutboundEmailArchive> typedQuery;
     private TypedQuery<Long> countQuery;
+    private TypedQuery<Integer> documentNoQuery;
 
     @BeforeEach
     void setUp() {
@@ -77,6 +82,7 @@ class OutboundEmailArchiveDaoImplUnitTest {
         query = mock(Query.class);
         typedQuery = mock(TypedQuery.class);
         countQuery = mock(TypedQuery.class);
+        documentNoQuery = mock(TypedQuery.class);
 
         dao.entityManager = entityManager;
     }
@@ -198,6 +204,19 @@ class OutboundEmailArchiveDaoImplUnitTest {
     }
 
     @Test
+    void shouldFindArchiveDocumentNumbersInOneQuery() {
+        when(entityManager.createQuery(FIND_EXISTING_DOCUMENT_NOS_JPQL, Integer.class))
+                .thenReturn(documentNoQuery);
+        when(documentNoQuery.setParameter("documentNos", List.of(321, 654)))
+                .thenReturn(documentNoQuery);
+        when(documentNoQuery.getResultList()).thenReturn(List.of(321));
+
+        assertThat(dao.findExistingDocumentNos(List.of(321, 654, 321))).isEqualTo(Set.of(321));
+
+        verify(documentNoQuery).setParameter("documentNos", List.of(321, 654));
+    }
+
+    @Test
     void shouldReturnTrue_whenArchiveExistsForFileName() {
         when(entityManager.createQuery(EXISTS_BY_FILE_NAME_JPQL, Long.class)).thenReturn(countQuery);
         when(countQuery.setParameter("fileName", "archive.eml")).thenReturn(countQuery);
@@ -240,6 +259,18 @@ class OutboundEmailArchiveDaoImplUnitTest {
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessageContaining("controlled tombstone workflow");
         assertThatThrownBy(() -> dao.batchRemove(archives, 25))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("controlled tombstone workflow");
+        assertThatThrownBy(() -> dao.batchRemoveAtomically(archives))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("controlled tombstone workflow");
+        assertThatThrownBy(() -> dao.batchRemoveAtomically(archives, 25))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("controlled tombstone workflow");
+        assertThatThrownBy(() -> dao.batchRemoveWithIndependentCommits(archives))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("controlled tombstone workflow");
+        assertThatThrownBy(() -> dao.batchRemoveWithIndependentCommits(archives, 25))
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessageContaining("controlled tombstone workflow");
         verifyNoInteractions(entityManager);

@@ -24,8 +24,26 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveAttachment;
 
+import java.util.List;
+
 /**
  * Data access contract for outbound email archive attachment metadata.
  */
 public interface OutboundEmailArchiveAttachmentDao extends AbstractDao<OutboundEmailArchiveAttachment> {
+
+    /** @throws UnsupportedOperationException always; archive attachment rows are immutable retention records */
+    @Override
+    void batchRemoveAtomically(List<OutboundEmailArchiveAttachment> attachments);
+
+    /** @throws UnsupportedOperationException always; archive attachment rows are immutable retention records */
+    @Override
+    void batchRemoveAtomically(List<OutboundEmailArchiveAttachment> attachments, int batchSize);
+
+    /** @throws UnsupportedOperationException always; archive attachment rows are immutable retention records */
+    @Override
+    void batchRemoveWithIndependentCommits(List<OutboundEmailArchiveAttachment> attachments);
+
+    /** @throws UnsupportedOperationException always; archive attachment rows are immutable retention records */
+    @Override
+    void batchRemoveWithIndependentCommits(List<OutboundEmailArchiveAttachment> attachments, int batchSize);
 }

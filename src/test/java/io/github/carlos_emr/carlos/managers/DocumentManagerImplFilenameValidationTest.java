@@ -27,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -211,11 +212,33 @@ class DocumentManagerImplFilenameValidationTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_edoc"), eq("r"), eq("")))
                 .thenReturn(true);
         when(documentDao.findByUpdateDate(since, 10)).thenReturn(List.of(archiveDocument, ordinaryDocument));
-        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321, 654))).thenReturn(Set.of(321));
 
         List<Document> documents = manager.getDocumentsUpdateAfterDate(loggedInInfo, since, 10);
 
         assertThat(documents).containsExactly(ordinaryDocument);
+    }
+
+    @Test
+    @DisplayName("should continue fetching updated documents when archive rows consume the requested window")
+    void shouldContinueFetchingUpdatedDocuments_whenArchiveRowsConsumeRequestedWindow() {
+        DocumentManagerImpl manager = newDocumentManager();
+        Document firstArchive = document(321);
+        Document secondArchive = document(322);
+        Document firstOrdinary = document(654);
+        Document secondOrdinary = document(655);
+        Date since = new Date(0L);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_edoc"), eq("r"), eq("")))
+                .thenReturn(true);
+        when(documentDao.findByUpdateDate(since, 2)).thenReturn(List.of(firstArchive, secondArchive));
+        when(documentDao.findByUpdateDate(since, 4))
+                .thenReturn(List.of(firstArchive, secondArchive, firstOrdinary, secondOrdinary));
+        when(outboundEmailArchiveDao.findExistingDocumentNos(any())).thenReturn(Set.of(321, 322));
+
+        List<Document> documents = manager.getDocumentsUpdateAfterDate(loggedInInfo, since, 2);
+
+        assertThat(documents).containsExactly(firstOrdinary, secondOrdinary);
+        verify(documentDao).findByUpdateDate(since, 4);
     }
 
     @Test
@@ -227,7 +250,7 @@ class DocumentManagerImplFilenameValidationTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_edoc"), eq("r"), isNull()))
                 .thenReturn(true);
         when(documentDao.findDocumentDTOsByDemographicNo(123)).thenReturn(List.of(archiveDocument, ordinaryDocument));
-        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321, 654))).thenReturn(Set.of(321));
 
         List<DocumentListItemDTO> documents = manager.getDocumentDTOs(loggedInInfo, 123);
 

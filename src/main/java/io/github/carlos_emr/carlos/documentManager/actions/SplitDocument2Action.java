@@ -40,6 +40,7 @@ import org.apache.pdfbox.pdmodel.PDPageTree;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
@@ -377,16 +378,9 @@ public class SplitDocument2Action extends ActionSupport {
     }
 
     private void assertNotOutboundEmailArchiveDocument(String documentNo) {
-        if (documentNo == null || documentNo.isBlank()) {
-            return;
-        }
-        try {
-            if (outboundEmailArchiveDao.existsByDocumentNo(Integer.valueOf(documentNo))) {
-                throw new SecurityException(
-                        "Outbound email archive eDocs must be managed through the controlled archive workflow");
-            }
-        } catch (NumberFormatException e) {
-            // Preserve existing invalid-id behavior in the caller.
+        if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao, documentNo)) {
+            throw new SecurityException(
+                    "Outbound email archive eDocs must be managed through the controlled archive workflow");
         }
     }
 
