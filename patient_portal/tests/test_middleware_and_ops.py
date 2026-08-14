@@ -433,8 +433,35 @@ def test_probe_allowed_hosts_can_be_configured_for_orchestrated_deployments() ->
 
     assert client.get("/health", headers={"Host": "portal.internal"}).status_code == 200
     assert client.get("/health", headers={"Host": "10.0.0.7"}).status_code == 200
-    # An explicit allowlist replaces the loopback defaults rather than adding to them.
+    # Configured aliases extend the loopback defaults, so adding a pod IP does not cost the
+    # operator the local probe that was already working.
+    assert client.get("/health", headers={"Host": "127.0.0.1"}).status_code == 200
+    assert client.get("/", headers={"Host": "attacker.example"}).status_code == 400
+
+
+def test_probe_allowed_hosts_exclusive_drops_the_loopback_defaults() -> None:
+    app = migrated_development_app(
+        public_base_url="https://portal.example.test",
+        probe_allowed_hosts="portal.internal",
+        probe_allowed_hosts_exclusive=True,
+    )
+    client = TestClient(app, base_url="https://portal.example.test")
+
+    assert client.get("/health", headers={"Host": "portal.internal"}).status_code == 200
     assert client.get("/health", headers={"Host": "127.0.0.1"}).status_code == 400
+
+
+def test_probe_allowed_hosts_wildcard_does_not_reach_trusted_host_middleware() -> None:
+    """The wildcard is refused at startup, not quietly turned into allow_any.
+
+    Asserted at the app boundary as well as in Settings, because the failure this guards against
+    is specifically that TrustedHostMiddleware would have accepted every Host header.
+    """
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_PROBE_ALLOWED_HOSTS"):
+        migrated_development_app(
+            public_base_url="https://portal.example.test",
+            probe_allowed_hosts="*",
+        )
 
 
 def test_route_transaction_commit_failure_prevents_success_response(

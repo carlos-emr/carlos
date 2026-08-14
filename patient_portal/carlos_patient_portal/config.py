@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     # the canonical public host. Without these aliases a correctly configured instance answers
     # 400 "Invalid host header" to its own liveness/readiness probes and is marked dead.
     probe_allowed_hosts: str | None = Field(default=None, max_length=1024)
+    # Setting the aliases above adds to the loopback defaults rather than replacing them, so an
+    # operator adding a pod IP does not silently lose 127.0.0.1. This is the opt-out for a
+    # deployment that must not answer to loopback at all.
+    probe_allowed_hosts_exclusive: bool = False
     database_url: str = DEFAULT_DATABASE_URL
     database_pool_size: int = Field(default=DEFAULT_DATABASE_POOL_SIZE, ge=1, le=100)
     database_max_overflow: int = Field(default=DEFAULT_DATABASE_MAX_OVERFLOW, ge=0, le=100)
@@ -209,13 +213,24 @@ class Settings(BaseSettings):
 
     @property
     def probe_host_aliases(self) -> tuple[str, ...]:
-        """Explicitly configured hostnames that health/readiness probes may use."""
+        """Hostnames that health/readiness probes may use, beyond the canonical public host.
+
+        Configured aliases extend the loopback defaults unless the deployment opts out. Adding a
+        pod IP is the common case and should not cost the operator the local probe they already
+        had working.
+        """
         if self.probe_allowed_hosts is None:
             return DEFAULT_PROBE_ALLOWED_HOSTS
         aliases = tuple(
             alias.strip() for alias in self.probe_allowed_hosts.split(",") if alias.strip()
         )
-        return aliases or DEFAULT_PROBE_ALLOWED_HOSTS
+        if not aliases:
+            return DEFAULT_PROBE_ALLOWED_HOSTS
+        if self.probe_allowed_hosts_exclusive:
+            return aliases
+        return aliases + tuple(
+            default for default in DEFAULT_PROBE_ALLOWED_HOSTS if default not in aliases
+        )
 
     @property
     def allowed_hosts(self) -> tuple[str, ...]:
@@ -302,6 +317,27 @@ class Settings(BaseSettings):
         ):
             raise ValueError("PATIENT_PORTAL_SMTP_FROM_ADDRESS must be a valid mailbox address")
         return parsed_address
+
+    @field_validator("probe_allowed_hosts")
+    @classmethod
+    def validate_probe_allowed_hosts(cls, value: str | None) -> str | None:
+        """Refuse any wildcard entry.
+
+        Starlette's TrustedHostMiddleware treats a `*` entry as allow_any, so accepting one here
+        would disable canonical-Host enforcement for the whole service — in production, silently,
+        from one environment variable. Probes address the service by a name or IP that is always
+        writable literally, so there is no legitimate use for a pattern in this list.
+        """
+        if value is None:
+            return None
+        for alias in value.split(","):
+            normalized_alias = alias.strip()
+            if "*" in normalized_alias:
+                raise ValueError(
+                    "PATIENT_PORTAL_PROBE_ALLOWED_HOSTS must list literal hostnames; "
+                    "a wildcard entry disables Host validation entirely"
+                )
+        return value
 
     @field_validator("public_base_url")
     @classmethod

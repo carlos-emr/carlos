@@ -273,6 +273,46 @@ def test_trusted_proxy_header_and_cidrs_must_be_configured_together() -> None:
         development_settings(trusted_proxy_cidrs="10.0.0.0/8")
 
 
+def test_probe_allowed_hosts_rejects_wildcards() -> None:
+    """A wildcard here silently disables canonical-Host enforcement in production.
+
+    Starlette's TrustedHostMiddleware treats any `*` entry as allow_any, so a single environment
+    variable would turn off the Host check entirely with no startup error — and an operator
+    debugging a failing probe is exactly the person likely to try it.
+    """
+    for value in ("*", "portal.internal,*", "*.example.test", " * "):
+        with pytest.raises(ValidationError, match="PATIENT_PORTAL_PROBE_ALLOWED_HOSTS"):
+            development_settings(probe_allowed_hosts=value)
+
+
+def test_probe_allowed_hosts_extends_the_loopback_defaults() -> None:
+    """Adding a pod IP must not silently drop 127.0.0.1 and break the local probe."""
+    settings = development_settings(
+        public_base_url="https://portal.example.test",
+        probe_allowed_hosts="portal.internal, 10.0.0.7",
+    )
+
+    assert settings.allowed_hosts == (
+        "portal.example.test",
+        "portal.internal",
+        "10.0.0.7",
+        "127.0.0.1",
+        "localhost",
+        "[::1]",
+    )
+
+
+def test_probe_allowed_hosts_can_exclude_the_loopback_defaults() -> None:
+    """The opt-out stays available for deployments that must not answer to loopback."""
+    settings = development_settings(
+        public_base_url="https://portal.example.test",
+        probe_allowed_hosts="portal.internal",
+        probe_allowed_hosts_exclusive=True,
+    )
+
+    assert settings.allowed_hosts == ("portal.example.test", "portal.internal")
+
+
 def test_default_settings_reject_missing_production_secrets() -> None:
     with pytest.raises(ValidationError, match="PATIENT_PORTAL_SESSION_SECRET"):
         Settings()

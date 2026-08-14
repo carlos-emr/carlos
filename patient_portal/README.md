@@ -171,10 +171,14 @@ SMTP is configured outside development. It must use HTTPS outside development.
 Setting it also makes that hostname the only `Host` header accepted for patient and FHIR traffic.
 Health and readiness probes normally arrive under a different name (loopback, a pod IP, or a
 Kubernetes service name), so `127.0.0.1`, `localhost`, and `[::1]` are accepted as probe aliases by
-default. Override that list with `PATIENT_PORTAL_PROBE_ALLOWED_HOSTS` (comma-separated) when probes
+default. Add to that list with `PATIENT_PORTAL_PROBE_ALLOWED_HOSTS` (comma-separated) when probes
 reach the service under another name — for example
-`PATIENT_PORTAL_PROBE_ALLOWED_HOSTS="portal.svc.cluster.local,10.0.0.7"`. Setting the variable
-replaces the loopback defaults, so include them explicitly if you still need them. These aliases
+`PATIENT_PORTAL_PROBE_ALLOWED_HOSTS="portal.svc.cluster.local,10.0.0.7"`. Configured aliases extend
+the loopback defaults rather than replacing them; set
+`PATIENT_PORTAL_PROBE_ALLOWED_HOSTS_EXCLUSIVE=true` if the deployment must not answer to loopback at
+all. Entries must be literal hostnames — a wildcard is refused at startup, because Starlette's
+`TrustedHostMiddleware` treats any `*` entry as "accept every host" and would disable canonical-Host
+enforcement for the whole service. These aliases
 only widen which `Host` headers are accepted; every generated patient-visible link continues to use
 the canonical `PATIENT_PORTAL_PUBLIC_BASE_URL` origin. Reset tokens are put
 in the link fragment so they are not sent in the initial HTTP request or written to access logs.
