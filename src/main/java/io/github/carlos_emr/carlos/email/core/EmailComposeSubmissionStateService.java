@@ -146,6 +146,30 @@ public class EmailComposeSubmissionStateService {
             EmailComposeSubmissionContext context,
             EmailComposeWorkingDirectory workingDirectory
     ) {
+        return store(
+                session,
+                emailPDFPassword,
+                emailPDFPasswordClue,
+                emailAttachmentList,
+                context,
+                workingDirectory,
+                false);
+    }
+
+    /** Stores a context-only token that is accepted by Cancel but cannot be used to send. */
+    public String storeCancelContext(HttpServletRequest request, EmailComposeSubmissionContext context) {
+        return store(request.getSession(), "", "", List.of(), context, null, true);
+    }
+
+    private String store(
+            HttpSession session,
+            String emailPDFPassword,
+            String emailPDFPasswordClue,
+            List<EmailAttachment> emailAttachmentList,
+            EmailComposeSubmissionContext context,
+            EmailComposeWorkingDirectory workingDirectory,
+            boolean cancelOnly
+    ) {
         String sessionId = session.getId();
         String token = UUID.randomUUID().toString();
         long createdAtMillis = clock.millis();
@@ -155,7 +179,8 @@ public class EmailComposeSubmissionStateService {
                 copyAttachments(emailAttachmentList),
                 createdAtMillis,
                 context == null ? EmailComposeSubmissionContext.direct("") : context,
-                workingDirectory);
+                workingDirectory,
+                cancelOnly);
 
         synchronized (lock) {
             ensureOpen();
@@ -487,8 +512,28 @@ public class EmailComposeSubmissionStateService {
             List<EmailAttachment> emailAttachmentList,
             long createdAtMillis,
             EmailComposeSubmissionContext context,
-            EmailComposeWorkingDirectory workingDirectory
+            EmailComposeWorkingDirectory workingDirectory,
+            boolean cancelOnly
     ) implements AutoCloseable {
+        /** Backward-compatible constructor for send-capable state with generated-file ownership. */
+        public EmailComposeSubmissionState(
+                String emailPDFPassword,
+                String emailPDFPasswordClue,
+                List<EmailAttachment> emailAttachmentList,
+                long createdAtMillis,
+                EmailComposeSubmissionContext context,
+                EmailComposeWorkingDirectory workingDirectory
+        ) {
+            this(
+                    emailPDFPassword,
+                    emailPDFPasswordClue,
+                    emailAttachmentList,
+                    createdAtMillis,
+                    context,
+                    workingDirectory,
+                    false);
+        }
+
         /** Backward-compatible constructor for state that has no generated-file ownership. */
         public EmailComposeSubmissionState(
                 String emailPDFPassword,
@@ -497,7 +542,7 @@ public class EmailComposeSubmissionStateService {
                 long createdAtMillis,
                 EmailComposeSubmissionContext context
         ) {
-            this(emailPDFPassword, emailPDFPasswordClue, emailAttachmentList, createdAtMillis, context, null);
+            this(emailPDFPassword, emailPDFPasswordClue, emailAttachmentList, createdAtMillis, context, null, false);
         }
 
         @Override

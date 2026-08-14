@@ -186,6 +186,19 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("isEmailComposeStateError", true);
         request.setAttribute("emailErrorMessage", e.getMessage());
         preserveSubmittedComposeFields(request, trustedContext);
+        String cancelToken = request.getParameter(
+                EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM);
+        if (trustedContext != null) {
+            try {
+                cancelToken = emailComposeSubmissionStateService.storeCancelContext(request, trustedContext);
+            } catch (RuntimeException tokenFailure) {
+                logger.warn("Unable to preserve trusted email cancel context");
+                cancelToken = "";
+            }
+        }
+        request.setAttribute(
+                EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM,
+                cancelToken);
         return SUCCESS;
     }
 
@@ -227,11 +240,6 @@ public class EmailSend2Action extends ActionSupport {
                         : trustedContext.deleteEFormAfterEmail());
         request.setAttribute("isEmailEncrypted", isTrueParameter(request, "isEmailEncrypted"));
         request.setAttribute("isEmailAttachmentEncrypted", isTrueParameter(request, "isEmailAttachmentEncrypted"));
-        // The error view remains disabled/fail-closed. Preserve only the opaque token so Cancel can
-        // consume the pending server-side state and remove its generated files.
-        request.setAttribute(
-                EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM,
-                request.getParameter(EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM));
         request.setAttribute("emailPDFPassword", "");
         request.setAttribute("emailPDFPasswordClue", "");
         request.setAttribute("emailAttachmentList", List.of());
@@ -251,15 +259,14 @@ public class EmailSend2Action extends ActionSupport {
      *
      * <p>This method handles the cancel workflow by:</p>
      * <ul>
-     *   <li>Reading the submitted transaction type to determine the return destination</li>
+     *   <li>Reading the token-bound transaction context to determine the return destination</li>
      *   <li>Consuming any submitted compose token so prepared state is not left pending</li>
      *   <li>Performing context-specific redirects based on the transaction type</li>
      *   <li>For EFORM transactions: redirects to the EForm display page with original form data</li>
      * </ul>
      *
-     * <p>The method uses the submitted transaction type to determine the appropriate
-     * return destination, ensuring users are returned to their original workflow context
-     * when canceling an email operation.</p>
+     * <p>The method prefers token-bound context and falls back to submitted routing fields
+     * only when no compose token state remains.</p>
      *
      * @return String Struts2 result identifier matching the transaction type name
      * @throws RuntimeException if IOException occurs during redirect for EFORM transactions
@@ -267,8 +274,12 @@ public class EmailSend2Action extends ActionSupport {
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String cancel() {
-        EmailLog.TransactionType transactionType = EmailData.parseTransactionType(request.getParameter("transactionType"));
         EmailComposeSubmissionState composeState = emailComposeSubmissionStateService.consume(request);
+        EmailComposeSubmissionContext trustedContext = composeState == null ? null : composeState.context();
+        EmailLog.TransactionType transactionType = trustedContext == null
+                ? EmailData.parseTransactionType(request.getParameter("transactionType"))
+                : trustedContext.transactionType();
+        String fdid = trustedContext == null ? request.getParameter("fdid") : trustedContext.fdid();
         if (composeState != null) {
             composeState.close();
         }
@@ -276,7 +287,7 @@ public class EmailSend2Action extends ActionSupport {
         if (transactionType.equals(EmailLog.TransactionType.EFORM)) {
             try {
                 response.sendRedirect(request.getContextPath() + "/eform/efmshowform_data?fdid="
-                        + SafeEncode.forUriComponent(request.getParameter("fdid")) + "&parentAjaxId=eforms");
+                        + SafeEncode.forUriComponent(fdid) + "&parentAjaxId=eforms");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -403,6 +414,10 @@ public class EmailSend2Action extends ActionSupport {
     private EmailComposeSubmissionState resolveEmailComposeSubmissionState(HttpServletRequest request) {
         EmailComposeSubmissionState composeState = emailComposeSubmissionStateService.consume(request);
         if (composeState == null) {
+            throw new EmailComposeStateException(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+        }
+        if (composeState.cancelOnly()) {
+            composeState.close();
             throw new EmailComposeStateException(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
         }
         return composeState;

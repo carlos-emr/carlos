@@ -143,4 +143,35 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
                 .isNull();
         verify(emailPdfPasswordService, never()).generatePassphrase();
     }
+
+    @Test
+    @DisplayName("should clear stale compose session state when resend working-directory creation fails")
+    void shouldClearStaleComposeState_whenWorkingDirectoryCreationFails() {
+        EmailComposeManager emailComposeManager = mock(EmailComposeManager.class);
+        EmailComposeSubmissionStateService unavailableStateService = mock(EmailComposeSubmissionStateService.class);
+        registerMock(EmailComposeManager.class, emailComposeManager);
+        registerMock(EmailComposeSubmissionStateService.class, unavailableStateService);
+        registerMock(DocumentAttachmentManager.class, mock(DocumentAttachmentManager.class));
+        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+        registerMock(EmailPdfPasswordService.class, mock(EmailPdfPasswordService.class));
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/manage");
+        request.setParameter("logId", "42");
+        request.getSession().setAttribute("emailPDFPassword", "stale-secret");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        when(emailComposeManager.prepareEmailForResend(any(), anyInt())).thenReturn(new EmailLog());
+        when(unavailableStateService.createWorkingDirectory()).thenThrow(new IllegalStateException("unavailable"));
+        servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContext.when(ServletActionContext::getResponse)
+                .thenReturn(new MockHttpServletResponse());
+
+        ManageEmails2Action action = new ManageEmails2Action();
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        assertThat(action.resendEmail()).isEqualTo("compose");
+        assertThat(request.getSession().getAttribute("emailPDFPassword")).isNull();
+        assertThat(request.getAttribute("emailErrorMessage"))
+                .isEqualTo(EmailCompose2Action.EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
+        assertThat(request.getAttribute("isEmailError")).isEqualTo(true);
+    }
 }

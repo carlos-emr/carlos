@@ -8,6 +8,7 @@ package io.github.carlos_emr.carlos.email.core;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
@@ -113,15 +114,15 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
      */
     public synchronized Path adoptGeneratedPdf(Path source) throws IOException {
         ensureOpen();
-        if (source == null || Files.isSymbolicLink(source)
-                || !Files.isRegularFile(source, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+        if (source == null) {
             throw new IOException("Generated email attachment is not a regular file");
         }
         if (!source.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".pdf")) {
             throw new IOException("Generated email attachment is not a PDF");
         }
 
-        Path realSource = source.toRealPath();
+        Path realSource = source.toRealPath(LinkOption.NOFOLLOW_LINKS);
+        validateRegularFile(realSource);
         if (realSource.startsWith(directory)) {
             return realSource;
         }
@@ -132,7 +133,8 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
             return moveDisposablePdf(realSource, target);
         }
         try {
-            Files.copy(realSource, target, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(realSource, target, StandardCopyOption.REPLACE_EXISTING, LinkOption.NOFOLLOW_LINKS);
+            validateRegularFile(target);
             applyPermissionsIfSupported(target, OWNER_FILE_PERMISSIONS);
             return target;
         } catch (IOException | RuntimeException e) {
@@ -146,8 +148,22 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
         try {
             ownedPdf = Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException moveFailure) {
+            boolean sourceCanBeCopied;
             try {
-                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                sourceCanBeCopied = !Files.isSymbolicLink(source)
+                        && Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS);
+            } catch (SecurityException sourceCheckFailure) {
+                sourceCheckFailure.addSuppressed(moveFailure);
+                deleteAfterFailedCreation(target, sourceCheckFailure);
+                throw new IOException("Unable to verify generated email attachment", sourceCheckFailure);
+            }
+            if (!sourceCanBeCopied) {
+                deleteAfterFailedCreation(target, moveFailure);
+                throw moveFailure;
+            }
+            try {
+                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING, LinkOption.NOFOLLOW_LINKS);
+                validateRegularFile(target);
                 applyPermissionsIfSupported(target, OWNER_FILE_PERMISSIONS);
                 Files.delete(source);
                 return target;
@@ -159,6 +175,7 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
         }
 
         try {
+            validateRegularFile(ownedPdf);
             applyPermissionsIfSupported(ownedPdf, OWNER_FILE_PERMISSIONS);
             return ownedPdf;
         } catch (IOException | RuntimeException permissionFailure) {
@@ -168,6 +185,12 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
                 permissionFailure.addSuppressed(restoreFailure);
             }
             throw new IOException("Unable to secure generated email attachment", permissionFailure);
+        }
+    }
+
+    private static void validateRegularFile(Path path) throws IOException {
+        if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Generated email attachment is not a regular file");
         }
     }
 
@@ -293,8 +316,12 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
                 Files.createDirectories(normalized);
             }
         }
-        java.nio.file.attribute.UserPrincipal owner =
-                Files.getOwner(normalized, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+        java.nio.file.attribute.UserPrincipal owner = null;
+        try {
+            owner = Files.getOwner(normalized, LinkOption.NOFOLLOW_LINKS);
+        } catch (UnsupportedOperationException e) {
+            // The platform does not expose file ownership; unique creation and permissions still apply.
+        }
         String jvmUser = System.getProperty("user.name");
         if (jvmUser != null && owner != null && !jvmUser.equals(owner.getName())) {
             throw new IOException("CARLOS application temp root is owned by another user");

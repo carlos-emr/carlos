@@ -340,9 +340,12 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         EmailData emailData = ReflectionTestUtils.invokeMethod(sendAction, "prepareEmailFields", request);
 
-        assertThat(emailData.getPassword()).isEqualTo(EXAMPLE_GENERATED_VALUE);
-        assertThat(emailData.getIsEncrypted()).isTrue();
-        emailData.getWorkingDirectory().close();
+        try {
+            assertThat(emailData.getPassword()).isEqualTo(EXAMPLE_GENERATED_VALUE);
+            assertThat(emailData.getIsEncrypted()).isTrue();
+        } finally {
+            emailData.getWorkingDirectory().close();
+        }
     }
 
     @Test
@@ -506,9 +509,10 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
                 EmailComposeSubmissionContext.eform("123", "456", true, true));
         when(emailManager.hasActiveEmailConfig(1)).thenReturn(true);
 
+        MockHttpServletResponse response = new MockHttpServletResponse();
         EmailSend2Action action = new EmailSend2Action();
         action.request = request;
-        action.response = new MockHttpServletResponse();
+        action.response = response;
 
         String result = action.sendDirectEmail();
 
@@ -520,6 +524,16 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("openEFormAfterEmail")).isEqualTo(true);
         assertThat(request.getAttribute("deleteEFormAfterEmail")).isEqualTo(true);
         verify(emailManager, never()).sendEmail(any(), any());
+
+        request.setParameter(
+                EMAIL_PDF_PASSWORD_TOKEN_PARAM,
+                (String) request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM));
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("fdid", "888");
+
+        assertThat(action.cancel()).isEqualTo("EFORM");
+        assertThat(response.getRedirectedUrl())
+                .isEqualTo("/eform/efmshowform_data?fdid=456&parentAjaxId=eforms");
     }
 
     @Test

@@ -253,7 +253,8 @@ public class ManageEmails2Action extends ActionSupport {
         try {
             workingDirectory = emailComposeSubmissionStateService.createWorkingDirectory();
         } catch (IllegalStateException e) {
-            logger.warn("Unable to create resend email compose working directory", e);
+            logger.warn("Unable to create resend email compose working directory");
+            EmailCompose2Action.cleanupEmailSessionAttributes(request);
             request.setAttribute("emailErrorMessage", EmailCompose2Action.EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
             request.setAttribute("isEmailError", true);
             return "compose";
