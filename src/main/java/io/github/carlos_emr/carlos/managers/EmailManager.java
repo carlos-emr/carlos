@@ -198,6 +198,7 @@ public class EmailManager {
             OutboundEmailArchiveDto archiveRequest = emailSender.prepareOutboundArchive(emailLog);
             outboundEmailArchiveService.archive(loggedInInfo, archiveRequest);
         } catch (EmailSendingException | IOException | RuntimeException e) {
+            emailSender.discardPrepared();
             logger.warn("Outbound email archive failed: {}", e.getClass().getSimpleName());
             throw new EmailSendingException("Failed to archive outbound email", e);
         }

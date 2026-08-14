@@ -150,8 +150,8 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should bound persisted error message when archive failure message exceeds the column width")
-    void shouldBoundPersistedErrorMessage_whenArchiveFailureMessageExceedsColumnWidth() throws Exception {
+    @DisplayName("should bound persisted error message when SMTP transport failure exceeds the column width")
+    void shouldBoundPersistedErrorMessage_whenSmtpTransportFailureExceedsColumnWidth() throws Exception {
         EmailConfig emailConfig = smtpEmailConfig();
         when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
         doAnswer(invocation -> {
@@ -159,14 +159,21 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             injectDependency(emailLog, "id", 46);
             return null;
         }).when(emailLogDao).persist(any(EmailLog.class));
-        // A provider response body can be arbitrarily long; emailLog.errorMessage is VARCHAR(1000).
-        doThrow(new IllegalStateException("x".repeat(5000)))
-                .when(outboundEmailArchiveService).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
+        String transportFailure = "x".repeat(5000);
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareMessageBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new io.github.carlos_emr.carlos.utility.EmailSendingException(transportFailure))
+                            .when(smtpSender).sendPreparedMessage();
+                })) {
 
-        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
 
-        assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
-        assertThat(emailLog.getErrorMessage()).hasSizeLessThanOrEqualTo(1000);
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+            assertThat(emailLog.getErrorMessage()).isEqualTo("x".repeat(1000));
+            verify(outboundEmailArchiveService).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
+        }
     }
 
     @Test

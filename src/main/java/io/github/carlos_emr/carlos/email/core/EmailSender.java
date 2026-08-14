@@ -237,6 +237,16 @@ public class EmailSender {
     }
 
     /**
+     * Releases a prepared SMTP message when archiving or another pre-send step fails.
+     */
+    public void discardPrepared() {
+        if (preparedSmtpSendHelper != null) {
+            preparedSmtpSendHelper.discardPreparedMessage();
+            preparedSmtpSendHelper = null;
+        }
+    }
+
+    /**
      * Sends email using API-based providers.
      *
      * <p>This private helper method handles email delivery through API-based email services

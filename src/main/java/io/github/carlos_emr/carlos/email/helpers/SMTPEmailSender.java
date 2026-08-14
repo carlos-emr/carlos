@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.email.helpers;
 import java.io.File;
 import java.io.IOException;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,7 +27,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -78,6 +79,7 @@ public class SMTPEmailSender {
     private List<EmailAttachment> attachments;
     private MimeMessage preparedMessage;
     private List<PreparedAttachment> preparedAttachments = List.of();
+    private List<Path> preparedAttachmentSnapshots = List.of();
 
     /**
      * Metadata captured for an attachment that has been embedded in a prepared SMTP message.
@@ -86,14 +88,12 @@ public class SMTPEmailSender {
      */
     public static final class PreparedAttachment {
         private final EmailAttachment attachment;
-        private final Path path;
         private final String contentType;
         private final String sha256Hash;
         private final long byteSize;
 
-        private PreparedAttachment(EmailAttachment attachment, Path path, String contentType, String sha256Hash, long byteSize) {
+        private PreparedAttachment(EmailAttachment attachment, String contentType, String sha256Hash, long byteSize) {
             this.attachment = attachment;
-            this.path = path;
             this.contentType = contentType;
             this.sha256Hash = sha256Hash;
             this.byteSize = byteSize;
@@ -101,10 +101,6 @@ public class SMTPEmailSender {
 
         public EmailAttachment getAttachment() {
             return attachment;
-        }
-
-        public Path getPath() {
-            return path;
         }
 
         public String getContentType() {
@@ -183,24 +179,26 @@ public class SMTPEmailSender {
     public byte[] prepareMessageBytes() throws EmailSendingException {
         assertEmailWritePrivilege();
 
+        discardPreparedMessage();
         javaMailSender = createTLSMailSender(emailConfig);
-        preparedMessage = null;
-        preparedAttachments = List.of();
         MimeMessage message = javaMailSender.createMimeMessage();
+        List<Path> attachmentSnapshotPaths = new ArrayList<>();
         try {
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
             helper.setFrom(emailConfig.getSenderEmail(), emailConfig.getSenderFullName());
             helper.setTo(recipients);
             helper.setSubject(subject);
             helper.setText(body, false);
-            List<PreparedAttachment> attachmentSnapshots = addAttachments(helper, attachments);
+            List<PreparedAttachment> attachmentSnapshots = addAttachments(helper, attachments, attachmentSnapshotPaths);
             message.saveChanges();
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             message.writeTo(outputStream);
             preparedAttachments = attachmentSnapshots;
+            preparedAttachmentSnapshots = List.copyOf(attachmentSnapshotPaths);
             preparedMessage = message;
             return outputStream.toByteArray();
         } catch (Exception e) {
+            deleteAttachmentSnapshots(attachmentSnapshotPaths);
             throw new EmailSendingException(e.getMessage(), e);
         }
     }
@@ -221,7 +219,19 @@ public class SMTPEmailSender {
             javaMailSender.send(preparedMessage);
         } catch (Exception e) {
             throw new EmailSendingException(e.getMessage(), e);
+        } finally {
+            discardPreparedMessage();
         }
+    }
+
+    /**
+     * Releases any attachment snapshots held by a prepared message that will not be sent.
+     */
+    public void discardPreparedMessage() {
+        deleteAttachmentSnapshots(preparedAttachmentSnapshots);
+        preparedAttachmentSnapshots = List.of();
+        preparedAttachments = List.of();
+        preparedMessage = null;
     }
 
     /**
@@ -314,7 +324,7 @@ public class SMTPEmailSender {
      * @param configNode parsed SMTP configuration document
      * @param fieldName required field to read
      * @param invalidCredentialsMessage PHI-free failure message reused across all validation paths
-     * @return the trimmed, non-blank configured value
+     * @return the non-blank configured value; surrounding whitespace is preserved for passwords
      * @throws EmailSendingException if the field is absent, null, or blank
      */
     private String requiredConfigValue(JsonNode configNode, String fieldName, String invalidCredentialsMessage) throws EmailSendingException {
@@ -322,7 +332,7 @@ public class SMTPEmailSender {
         if (fieldNode == null || fieldNode.isNull() || fieldNode.asText().isBlank()) {
             throw new EmailSendingException(invalidCredentialsMessage);
         }
-        return fieldNode.asText().trim();
+        return "password".equals(fieldName) ? fieldNode.asText() : fieldNode.asText().trim();
     }
 
     /**
@@ -359,7 +369,9 @@ public class SMTPEmailSender {
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    private List<PreparedAttachment> addAttachments(MimeMessageHelper helper, List<EmailAttachment> attachments) throws MessagingException, IOException {
+    private List<PreparedAttachment> addAttachments(MimeMessageHelper helper,
+                                                     List<EmailAttachment> attachments,
+                                                     List<Path> attachmentSnapshotPaths) throws MessagingException, IOException {
         if (attachments == null || attachments.isEmpty()) {
             return List.of();
         }
@@ -374,12 +386,35 @@ public class SMTPEmailSender {
             }
 
             Path attachmentPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
-            byte[] attachmentBytes = Files.readAllBytes(attachmentPath);
             String contentType = resolveAttachmentContentType(helper, attachment, attachmentPath);
-            helper.addAttachment(attachment.getFileName(), new ByteArrayResource(attachmentBytes, attachment.getFileName()), contentType);
-            attachmentSnapshots.add(new PreparedAttachment(attachment, attachmentPath, contentType, sha256Hex(attachmentBytes), attachmentBytes.length));
+            Path attachmentSnapshot = Files.createTempFile("carlos-smtp-attachment-", ".snapshot");
+            try {
+                Files.copy(attachmentPath, attachmentSnapshot, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                long byteSize = Files.size(attachmentSnapshot);
+                String sha256Hash = sha256Hex(attachmentSnapshot);
+                helper.addAttachment(attachment.getFileName(), new FileSystemResource(attachmentSnapshot), contentType);
+                attachmentSnapshotPaths.add(attachmentSnapshot);
+                attachmentSnapshots.add(new PreparedAttachment(attachment, contentType, sha256Hash, byteSize));
+            } catch (IOException | MessagingException e) {
+                try {
+                    Files.deleteIfExists(attachmentSnapshot);
+                } catch (IOException cleanupFailure) {
+                    e.addSuppressed(cleanupFailure);
+                }
+                throw e;
+            }
         }
         return List.copyOf(attachmentSnapshots);
+    }
+
+    private void deleteAttachmentSnapshots(List<Path> snapshotPaths) {
+        for (Path snapshotPath : snapshotPaths) {
+            try {
+                Files.deleteIfExists(snapshotPath);
+            } catch (IOException e) {
+                logger.warn("Unable to delete prepared SMTP attachment snapshot");
+            }
+        }
     }
 
     private String resolveAttachmentContentType(MimeMessageHelper helper, EmailAttachment attachment, Path attachmentPath) {
@@ -407,12 +442,19 @@ public class SMTPEmailSender {
         return contentType == null || contentType.isBlank() || DEFAULT_ATTACHMENT_CONTENT_TYPE.equals(contentType);
     }
 
-    private String sha256Hex(byte[] bytes) {
+    private String sha256Hex(Path path) throws IOException {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HEX_FORMAT.formatHex(digest.digest(bytes));
+            try (InputStream inputStream = Files.newInputStream(path)) {
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    digest.update(buffer, 0, bytesRead);
+                }
+            }
+            return HEX_FORMAT.formatHex(digest.digest());
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 not available", e);
+            throw new IllegalStateException("SHA-256 digest is unavailable", e);
         }
     }
 

@@ -96,12 +96,14 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
                 mailSender);
 
         byte[] archivedMessageBytes = sender.prepareMessageBytes();
+        assertThat(sender.getPreparedAttachments()).hasSize(1);
+        long preparedByteSize = sender.getPreparedAttachments().get(0).getByteSize();
+        String preparedSha256Hash = sender.getPreparedAttachments().get(0).getSha256Hash();
         Files.write(attachmentPath, changedAttachmentBytes);
         sender.sendPreparedMessage();
 
-        assertThat(sender.getPreparedAttachments()).hasSize(1);
-        assertThat(sender.getPreparedAttachments().get(0).getByteSize()).isEqualTo((long) originalAttachmentBytes.length);
-        assertThat(sender.getPreparedAttachments().get(0).getSha256Hash()).isEqualTo(sha256Hex(originalAttachmentBytes));
+        assertThat(preparedByteSize).isEqualTo((long) originalAttachmentBytes.length);
+        assertThat(preparedSha256Hash).isEqualTo(sha256Hex(originalAttachmentBytes));
         assertThat(firstAttachmentBytes(archivedMessageBytes)).isEqualTo(originalAttachmentBytes);
         assertThat(firstAttachmentBytes(mailSender.getSentMessageBytes())).isEqualTo(originalAttachmentBytes);
     }
@@ -211,6 +213,24 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(sender::prepareMessageBytes)
                 .isInstanceOf(EmailSendingException.class)
                 .hasMessageContaining("Invalid credentials configured for");
+    }
+
+    @Test
+    @DisplayName("should preserve surrounding whitespace in SMTP passwords")
+    void shouldPreserveSurroundingWhitespace_inSmtpPassword() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        emailConfig.setConfigDetailsJson("""
+                {"host":" smtp.example.test ","port":" 587 ","username":" user ","password":" secret "}
+                """);
+        SMTPEmailSender sender = new SMTPEmailSender(
+                loggedInInfo, emailConfig, new String[]{"patient@example.test"}, "Subject", "Body", List.of());
+
+        JavaMailSenderImpl mailSender = (JavaMailSenderImpl) sender.createTLSMailSender(emailConfig);
+
+        assertThat(mailSender.getHost()).isEqualTo("smtp.example.test");
+        assertThat(mailSender.getPort()).isEqualTo(587);
+        assertThat(mailSender.getUsername()).isEqualTo("user");
+        assertThat(mailSender.getPassword()).isEqualTo(" secret ");
     }
 
     private SMTPEmailSender senderWithConfigJson(String configDetailsJson) {
