@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -58,11 +59,12 @@ class CombinePDF2ActionTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private DocumentDao documentDao;
     private OutboundEmailArchiveDao outboundEmailArchiveDao;
+    private SecurityInfoManager securityInfoManager;
     private CombinePDF2Action action;
 
     @BeforeEach
     void setUp() {
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        securityInfoManager = mock(SecurityInfoManager.class);
         documentDao = mock(DocumentDao.class);
         outboundEmailArchiveDao = mock(OutboundEmailArchiveDao.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
@@ -124,5 +126,18 @@ class CombinePDF2ActionTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("should reject callers without eDoc write access before querying documents")
+    void shouldRejectCallerWithoutEdocWriteAccessBeforeQueryingDocuments() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)).thenReturn(false);
+
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_edoc");
+
+        verifyNoInteractions(outboundEmailArchiveDao, documentDao);
     }
 }

@@ -76,7 +76,7 @@ public class CombinePDF2Action extends ActionSupport {
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_doc)");
+            throw new SecurityException("missing required sec object (_edoc)");
         }
 
         String[] files = request.getParameterValues("docNo");
