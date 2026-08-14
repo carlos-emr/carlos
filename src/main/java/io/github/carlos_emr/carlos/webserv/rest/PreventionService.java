@@ -67,9 +67,11 @@ public class PreventionService extends AbstractServiceImpl {
      * Returns the active prevention records for a patient.
      *
      * @param demographicNo the patient demographic identifier from the request
-     * @return a JSON response containing the patient's active prevention records
+     * @return a {@link PreventionResponse} JSON payload containing the patient's active
+     * prevention records
      * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing
      * @throws AccessDeniedException if the current user lacks {@code _prevention} read access
+     * @since 2026-06-24
      */
     @GET
     @Path("/active")
@@ -89,10 +91,14 @@ public class PreventionService extends AbstractServiceImpl {
     /**
      * Returns the immunization records for a patient.
      *
+     * <p>A request that omits the required {@code demographicNo} path segment does not match
+     * this route and receives HTTP 404 before this method is invoked.</p>
+     *
      * @param demographicNo the patient demographic identifier from the request path
-     * @return a JSON response containing the patient's immunization records
-     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing
+     * @return a {@link PreventionResponse} JSON payload containing the patient's immunization
+     * records
      * @throws AccessDeniedException if the current user lacks {@code _prevention} read access
+     * @since 2026-06-24
      */
     @GET
     @Path("/immunizations/{demographicNo}")
