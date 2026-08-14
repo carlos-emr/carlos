@@ -182,6 +182,13 @@ change — and a partially translated catalog renders correctly for the keys it 
 `PATIENT_PORTAL_PUBLIC_BASE_URL` is used to build password-reset email links and is required when
 SMTP is configured outside development. It must use HTTPS outside development.
 
+**Subpath hosting.** The value may carry a path — `https://portal.example.test/patient` — and the
+prefix is applied consistently: emailed reset and email-change links, FHIR canonical and pagination
+URLs, static assets, and form actions all include it, because the path is passed to FastAPI as
+`root_path`. The proxy contract is the standard ASGI one: **strip the prefix before forwarding**.
+The portal routes on `/auth/login` and generates `/patient/auth/login` back out. A proxy that
+forwards the prefix unstripped will 404, because the app is not mounted under it.
+
 Setting it also makes that hostname the only `Host` header accepted for patient and FHIR traffic.
 Health and readiness probes normally arrive under a different name (loopback, a pod IP, or a
 Kubernetes service name), so `127.0.0.1`, `localhost`, and `[::1]` are accepted as probe aliases by

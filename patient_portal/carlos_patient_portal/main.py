@@ -784,6 +784,8 @@ def create_app(
         redoc_url="/api/redoc" if settings.is_development else None,
         openapi_url="/api/openapi.json" if settings.is_development else None,
         lifespan=build_lifespan(runtime.database_engine, runtime),
+        # Empty unless PATIENT_PORTAL_PUBLIC_BASE_URL carries a path; see Settings.root_path.
+        root_path=settings.root_path,
     )
     app.state.settings = settings
     app.state.database_engine = runtime.database_engine

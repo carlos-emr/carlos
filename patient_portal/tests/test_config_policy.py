@@ -368,6 +368,40 @@ def test_password_hash_cost_is_configurable_and_reaches_the_hasher() -> None:
         )
 
 
+def test_subpath_hosting_is_wired_through_to_url_generation() -> None:
+    """A base URL with a path must reach FastAPI, not just the link builders.
+
+    The link builders already prepend `public_base_url`, so emailed reset links were correct even
+    before this. What was missing is that the app itself did not know it was mounted under a
+    prefix, so `url_for` produced root-relative asset and route URLs that a subpath deployment
+    would 404 on. Contract: the proxy strips the prefix, so the app routes on `/auth/login` and
+    generates `/patient/auth/login` back out.
+    """
+    settings = development_settings(public_base_url="https://portal.example.test/patient")
+    app = main.create_app(settings)
+
+    assert settings.root_path == "/patient"
+    assert app.root_path == "/patient"
+
+    response = TestClient(app, base_url="https://portal.example.test").get("/")
+
+    assert response.status_code == 200
+    # Static assets and form actions carry the prefix, which is what a subpath deployment needs.
+    assert "/patient/static/styles.css" in response.text
+
+
+def test_root_mounted_deployment_keeps_unprefixed_urls() -> None:
+    settings = development_settings(public_base_url="https://portal.example.test")
+    app = main.create_app(settings)
+
+    response = TestClient(app, base_url="https://portal.example.test").get("/")
+
+    assert settings.root_path == ""
+    assert app.root_path == ""
+    assert "/static/styles.css" in response.text
+    assert "/patient/static" not in response.text
+
+
 def test_probe_allowed_hosts_rejects_wildcards() -> None:
     """A wildcard here silently disables canonical-Host enforcement in production.
 

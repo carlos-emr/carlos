@@ -277,6 +277,24 @@ class Settings(BaseSettings):
         return tuple(allowed)
 
     @property
+    def root_path(self) -> str:
+        """The path prefix this deployment is served under, or "" when mounted at the root.
+
+        `PATIENT_PORTAL_PUBLIC_BASE_URL` may carry a path (`https://portal.example/patient`), and
+        the link builders already prepend it, so emailed reset links and FHIR canonical URLs come
+        out right. What that alone does not do is tell the ASGI app it is mounted under a prefix,
+        which is what `url_for` needs to generate correct asset and route URLs. Handing this to
+        FastAPI as `root_path` closes that gap.
+
+        Contract for the proxy: strip the prefix before forwarding, the standard ASGI arrangement.
+        The app routes on `/auth/login`, not `/patient/auth/login`, and generates
+        `/patient/auth/login` back out.
+        """
+        if self.public_base_url is None:
+            return ""
+        return urlsplit(self.public_base_url).path.rstrip("/")
+
+    @property
     def resolved_smtp_from_address(self) -> str | None:
         if self.smtp_from_address is not None:
             return self.smtp_from_address
