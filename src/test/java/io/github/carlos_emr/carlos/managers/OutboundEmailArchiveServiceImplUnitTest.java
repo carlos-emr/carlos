@@ -187,6 +187,22 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should truncate archive metadata without splitting Unicode surrogate pairs")
+    void shouldTruncateArchiveMetadata_withoutSplittingUnicodeSurrogatePairs() throws Exception {
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        request.setProviderResponse("a".repeat(999) + "\uD83D\uDE00" + "trailing");
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                .thenReturn(savedDocument());
+
+        OutboundEmailArchive archive = service.archive(loggedInInfo, request);
+
+        assertThat(archive.getProviderResponse()).isEqualTo("a".repeat(999) + "\uD83D\uDE00");
+        assertThat(archive.getProviderResponse().codePointCount(0, archive.getProviderResponse().length()))
+                .isEqualTo(1000);
+    }
+
+    @Test
     @DisplayName("should delete final eDoc file when createDocument fails after filename normalization")
     void shouldDeleteFinalEdocFile_whenCreateDocumentFailsAfterFilenameNormalization(@TempDir Path documentDir) throws Exception {
         CarlosProperties props = CarlosProperties.getInstance();

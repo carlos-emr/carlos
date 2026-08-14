@@ -5,6 +5,8 @@
 CREATE TABLE IF NOT EXISTS `outboundEmailArchive` (
     `id` INT PRIMARY KEY AUTO_INCREMENT,
     `emailLogId` BIGINT NOT NULL,
+    -- Retained as snapshot identifiers rather than foreign keys: an archive
+    -- must remain readable after source demographic/provider lifecycle changes.
     `demographicNo` INT NOT NULL,
     `providerNo` VARCHAR(6),
     `configId` BIGINT,
@@ -42,7 +44,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchive` (
         FOREIGN KEY (`configId`) REFERENCES `emailConfig` (`id`),
     CONSTRAINT `fk_outboundEmailArchive_document`
         FOREIGN KEY (`documentNo`) REFERENCES `document` (`document_no`)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS `outboundEmailArchiveAttachment` (
     `id` INT PRIMARY KEY AUTO_INCREMENT,
@@ -63,7 +65,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveAttachment` (
         FOREIGN KEY (`archiveId`) REFERENCES `outboundEmailArchive` (`id`),
     CONSTRAINT `fk_outboundEmailArchiveAttachment_document`
         FOREIGN KEY (`documentNo`) REFERENCES `document` (`document_no`)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS `outboundEmailArchiveDeletion` (
     `id` INT PRIMARY KEY AUTO_INCREMENT,
@@ -87,4 +89,4 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveDeletion` (
         FOREIGN KEY (`archiveId`) REFERENCES `outboundEmailArchive` (`id`),
     CONSTRAINT `fk_outboundEmailArchiveDeletion_emailLog`
         FOREIGN KEY (`emailLogId`) REFERENCES `emailLog` (`id`)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

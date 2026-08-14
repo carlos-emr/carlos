@@ -454,11 +454,11 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         return value == null || value.isBlank() ? defaultValue : value;
     }
 
-    private String truncate(String value, int maxLength) {
-        if (value == null || value.length() <= maxLength) {
+    private String truncate(String value, int maxCodePoints) {
+        if (value == null || value.codePointCount(0, value.length()) <= maxCodePoints) {
             return value;
         }
-        return value.substring(0, maxLength);
+        return value.substring(0, value.offsetByCodePoints(0, maxCodePoints));
     }
 
     private String normalizeSha256Hex(String sha256Hash) {
