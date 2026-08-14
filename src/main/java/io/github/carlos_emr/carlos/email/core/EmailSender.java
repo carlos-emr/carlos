@@ -205,20 +205,29 @@ public class EmailSender {
         if (!supportsOutboundArchive()) {
             throw new EmailSendingException("Outbound email archive is not supported for this email configuration");
         }
+        if (preparedSmtpSendHelper != null) {
+            throw new EmailSendingException("SMTP message has already been prepared");
+        }
 
         preparedSmtpSendHelper = createSmtpSender();
-        byte[] artifactBytes = preparedSmtpSendHelper.prepareMessageBytes();
+        try {
+            byte[] artifactBytes = preparedSmtpSendHelper.prepareMessageBytes();
 
-        OutboundEmailArchiveDto archiveRequest = new OutboundEmailArchiveDto();
-        archiveRequest.setEmailLog(emailLog);
-        archiveRequest.setArtifactBytes(artifactBytes);
-        archiveRequest.setFileName("outbound-email-" + emailLog.getId() + ".eml");
-        archiveRequest.setContentType(RFC822_CONTENT_TYPE);
-        archiveRequest.setArtifactType(OutboundEmailArchive.ARTIFACT_TYPE_SMTP_RFC822);
-        archiveRequest.setTransportType(emailConfig.getEmailType().name());
-        archiveRequest.setProviderName(emailConfig.getEmailProvider() != null ? emailConfig.getEmailProvider().name() : null);
-        archiveRequest.setAttachments(buildAttachmentArchiveMetadata(preparedSmtpSendHelper.getPreparedAttachments()));
-        return archiveRequest;
+            OutboundEmailArchiveDto archiveRequest = new OutboundEmailArchiveDto();
+            archiveRequest.setEmailLog(emailLog);
+            archiveRequest.setArtifactBytes(artifactBytes);
+            archiveRequest.setFileName("outbound-email-" + emailLog.getId() + ".eml");
+            archiveRequest.setContentType(RFC822_CONTENT_TYPE);
+            archiveRequest.setArtifactType(OutboundEmailArchive.ARTIFACT_TYPE_SMTP_RFC822);
+            archiveRequest.setTransportType(emailConfig.getEmailType().name());
+            archiveRequest.setProviderName(emailConfig.getEmailProvider() != null ? emailConfig.getEmailProvider().name() : null);
+            archiveRequest.setAttachments(buildAttachmentArchiveMetadata(preparedSmtpSendHelper.getPreparedAttachments()));
+            return archiveRequest;
+        } catch (EmailSendingException | RuntimeException e) {
+            preparedSmtpSendHelper.discardPreparedMessage();
+            preparedSmtpSendHelper = null;
+            throw e;
+        }
     }
 
     /**

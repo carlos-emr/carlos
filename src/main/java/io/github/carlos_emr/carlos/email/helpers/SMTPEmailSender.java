@@ -211,12 +211,14 @@ public class SMTPEmailSender {
      * @since 2026-07-20
      */
     public void sendPreparedMessage() throws EmailSendingException {
-        assertEmailWritePrivilege();
-        if (preparedMessage == null) {
-            throw new EmailSendingException("SMTP message must be prepared before sending");
-        }
         try {
+            assertEmailWritePrivilege();
+            if (preparedMessage == null) {
+                throw new EmailSendingException("SMTP message must be prepared before sending");
+            }
             javaMailSender.send(preparedMessage);
+        } catch (SecurityException | EmailSendingException e) {
+            throw e;
         } catch (Exception e) {
             throw new EmailSendingException(e.getMessage(), e);
         } finally {

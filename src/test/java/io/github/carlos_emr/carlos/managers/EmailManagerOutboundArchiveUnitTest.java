@@ -53,6 +53,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.verify;
@@ -143,15 +144,17 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             assertThat(smtpSenders.constructed()).hasSize(1);
             SMTPEmailSender smtpSender = smtpSenders.constructed().get(0);
             verify(smtpSender).prepareMessageBytes();
-            verify(outboundEmailArchiveService).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
-            verify(smtpSender).sendPreparedMessage();
+            org.mockito.InOrder archiveBeforeSend = inOrder(outboundEmailArchiveService, smtpSender);
+            archiveBeforeSend.verify(outboundEmailArchiveService)
+                    .archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
+            archiveBeforeSend.verify(smtpSender).sendPreparedMessage();
             verify(emailLogDao).updateEmailStatus(45, EmailLog.EmailStatus.SUCCESS, "", emailLog.getTimestamp());
         }
     }
 
     @Test
-    @DisplayName("should bound persisted error message when SMTP transport failure exceeds the column width")
-    void shouldBoundPersistedErrorMessage_whenSmtpTransportFailureExceedsColumnWidth() throws Exception {
+    @DisplayName("should persist a fixed safe error when SMTP transport returns untrusted text")
+    void shouldPersistFixedSafeError_whenSmtpTransportReturnsUntrustedText() throws Exception {
         EmailConfig emailConfig = smtpEmailConfig();
         when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
         doAnswer(invocation -> {
@@ -171,7 +174,9 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
 
             assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
-            assertThat(emailLog.getErrorMessage()).isEqualTo("x".repeat(1000));
+            assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to send email");
+            verify(emailLogDao).updateEmailStatus(
+                    eq(46), eq(EmailLog.EmailStatus.FAILED), eq("Failed to send email"), any());
             verify(outboundEmailArchiveService).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
         }
     }

@@ -135,6 +135,24 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject repeated SMTP archive preparation")
+    void shouldRejectRepeatedSmtpArchivePreparation() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        EmailData emailData = emailData(List.of());
+        EmailLog emailLog = new EmailLog(emailConfig, "provider@example.test", emailData.getRecipients(),
+                emailData.getSubject(), emailData.getBody(), EmailLog.EmailStatus.FAILED);
+        injectDependency(emailLog, "id", 46);
+        EmailSender emailSender = new EmailSender(loggedInInfo, emailConfig, emailData);
+        emailSender.prepareOutboundArchive(emailLog);
+
+        assertThatThrownBy(() -> emailSender.prepareOutboundArchive(emailLog))
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessageContaining("already been prepared");
+
+        emailSender.discardPrepared();
+    }
+
+    @Test
     @DisplayName("should reject SMTP archive preparation when email privilege is missing")
     void shouldRejectSmtpArchivePreparation_whenEmailPrivilegeMissing() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(false);

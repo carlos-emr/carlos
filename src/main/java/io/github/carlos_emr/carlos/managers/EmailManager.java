@@ -82,7 +82,8 @@ import io.github.carlos_emr.carlos.util.StringUtils;
  */
 @Service
 public class EmailManager {
-    private static final int MAX_ERROR_MESSAGE_LENGTH = 1000;
+    private static final String ARCHIVE_FAILURE_MESSAGE = "Failed to archive outbound email";
+    private static final String SEND_FAILURE_MESSAGE = "Failed to send email";
 
     private final Logger logger = MiscUtils.getLogger();
 
@@ -159,38 +160,26 @@ public class EmailManager {
                 addEmailNote(loggedInInfo, emailLog);
             }
         } catch (EmailSendingException e) {
-            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, boundedErrorMessage(e.getMessage()));
-            // Log only the exception type: the throwable's cause chain can carry PHI (e.g. attachment
-            // filenames, raw provider responses), which must never reach the logs.
-            logger.error("Failed to send email: {}", e.getClass().getSimpleName());
+            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, safePersistedFailureMessage(e));
+            logger.error(SEND_FAILURE_MESSAGE, sanitizedDiagnostic(e, 0));
         }
         return emailLog;
     }
 
-    /**
-     * Bounds a failure message to the width of the {@code emailLog.errorMessage} column.
-     *
-     * <p>Transport failures can carry an arbitrarily long provider response body; storing it
-     * unbounded risks a truncation or insert error on the fixed-width column. The message is
-     * capped defensively before persistence.</p>
-     *
-     * @param message raw failure message, may be null
-     * @return a non-null message no longer than {@link #MAX_ERROR_MESSAGE_LENGTH} characters
-     */
-    private String boundedErrorMessage(String message) {
-        if (message == null) {
-            return "";
+    private String safePersistedFailureMessage(EmailSendingException failure) {
+        return ARCHIVE_FAILURE_MESSAGE.equals(failure.getMessage())
+                ? ARCHIVE_FAILURE_MESSAGE
+                : SEND_FAILURE_MESSAGE;
+    }
+
+    private Throwable sanitizedDiagnostic(Throwable failure, int depth) {
+        RuntimeException diagnostic = new RuntimeException(failure.getClass().getName());
+        diagnostic.setStackTrace(failure.getStackTrace());
+        Throwable cause = failure.getCause();
+        if (cause != null && cause != failure && depth < 8) {
+            diagnostic.initCause(sanitizedDiagnostic(cause, depth + 1));
         }
-        if (message.length() <= MAX_ERROR_MESSAGE_LENGTH) {
-            return message;
-        }
-        int end = MAX_ERROR_MESSAGE_LENGTH;
-        // Do not cut through a surrogate pair: if the last retained char is a high surrogate its
-        // low-surrogate partner is dropped, so drop the high surrogate too to avoid a lone unit.
-        if (Character.isHighSurrogate(message.charAt(end - 1))) {
-            end--;
-        }
-        return message.substring(0, end);
+        return diagnostic;
     }
 
     private void archiveOutboundEmail(LoggedInInfo loggedInInfo, EmailSender emailSender, EmailLog emailLog) throws EmailSendingException {
@@ -200,7 +189,7 @@ public class EmailManager {
         } catch (EmailSendingException | IOException | RuntimeException e) {
             emailSender.discardPrepared();
             logger.warn("Outbound email archive failed: {}", e.getClass().getSimpleName());
-            throw new EmailSendingException("Failed to archive outbound email", e);
+            throw new EmailSendingException(ARCHIVE_FAILURE_MESSAGE, e);
         }
     }
 

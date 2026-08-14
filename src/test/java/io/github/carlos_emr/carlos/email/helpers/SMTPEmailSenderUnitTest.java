@@ -127,6 +127,7 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("missing required sec object (_email)");
         assertThat(mailSender.getSentMessageBytes()).isNull();
+        assertThat(sender.getPreparedAttachments()).isEmpty();
     }
 
     @Test
