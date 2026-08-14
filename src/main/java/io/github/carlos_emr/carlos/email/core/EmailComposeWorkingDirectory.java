@@ -19,6 +19,7 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.logging.log4j.Logger;
@@ -52,6 +53,7 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
             PosixFilePermissions.fromString("rwx------");
     private static final Set<PosixFilePermission> OWNER_FILE_PERMISSIONS =
             PosixFilePermissions.fromString("rw-------");
+    private static final Set<Path> ACTIVE_DIRECTORIES = ConcurrentHashMap.newKeySet();
     private static final LongCounter CLEANUP_SUCCESSES = GlobalOpenTelemetry.getMeter(
                     EmailComposeWorkingDirectory.class.getName())
             .counterBuilder("carlos.email.compose_temp.cleanup.success")
@@ -70,6 +72,7 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
     private EmailComposeWorkingDirectory(Path applicationTempRoot, Path directory) {
         this.applicationTempRoot = applicationTempRoot;
         this.directory = directory;
+        ACTIVE_DIRECTORIES.add(directory);
     }
 
     /** Creates a private working directory below the CARLOS application temp root. */
@@ -150,6 +153,19 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
         return path != null && path.toAbsolutePath().normalize().startsWith(directory);
     }
 
+    /**
+     * Returns whether this JVM still has a live owner for an email compose directory.
+     *
+     * <p>The orphan sweep uses this process-local ownership check in addition to the on-disk lease.
+     * Unlike the bounded lease, ownership remains active for the complete render/send operation and
+     * is released by {@link #close()}. A process crash clears the registry, so it cannot permanently
+     * exempt abandoned directories from the on-disk orphan sweep.</p>
+     */
+    public static boolean isActivelyOwned(Path candidate) {
+        return candidate != null
+                && ACTIVE_DIRECTORIES.contains(candidate.toAbsolutePath().normalize());
+    }
+
     /** Test/support hook that does not expose the directory to browser state. */
     Path path() {
         return directory;
@@ -160,11 +176,15 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
         if (!closed.compareAndSet(false, true)) {
             return;
         }
+        ACTIVE_DIRECTORIES.remove(directory);
         try {
             deleteOwnedDirectory();
             CLEANUP_SUCCESSES.add(1);
         } catch (IOException | SecurityException e) {
             closed.set(false);
+            if (Files.exists(directory, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                ACTIVE_DIRECTORIES.add(directory);
+            }
             CLEANUP_FAILURES.add(1);
             logger.warn("Unable to remove an email compose working directory");
         }

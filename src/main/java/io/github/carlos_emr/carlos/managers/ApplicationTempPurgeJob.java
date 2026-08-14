@@ -283,9 +283,10 @@ public class ApplicationTempPurgeJob {
      * {@code tempPDF*} output and {@code createTempFile}'s {@code tempDirectory*} output, plus any
      * stray file, without gating on a name prefix: since the root is exclusively application-owned,
      * any direct child old enough to be expired is a purgeable orphan. Email-compose directories
-     * are the exception while their short-lived active lease is valid; this prevents an unusually
-     * aggressive configured cutoff from deleting files still owned by a live compose state. A
-     * crashed process cannot leave a permanent exemption because the lease expires independently.
+     * are the exception while they have a live in-process owner or their short-lived on-disk lease
+     * is valid; this prevents an unusually aggressive configured cutoff from deleting files still
+     * owned by a live compose or send operation. A crashed process cannot leave a permanent
+     * exemption because the process-local registry disappears and the on-disk lease expires.
      *
      * <p>Symlinked children are never followed or deleted &mdash; they are counted as
      * {@link PurgeOutcome#skipped()} and logged at WARN, regardless of age, since a symlink under an
@@ -326,6 +327,7 @@ public class ApplicationTempPurgeJob {
         // CARLOS-owned output shapes; every direct child (file or directory) older than the cutoff is a
         // purgeable orphan regardless of name.
         return (Files.isRegularFile(entry) || Files.isDirectory(entry))
+                && !EmailComposeWorkingDirectory.isActivelyOwned(entry)
                 && !hasUnexpiredEmailComposeLease(entry);
     }
 

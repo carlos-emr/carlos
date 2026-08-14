@@ -37,6 +37,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -203,6 +204,39 @@ class ApplicationTempPurgeJobUnitTest {
         assertThat(Files.isDirectory(active)).isTrue();
         assertThat(outcome.removed()).isEqualTo(1);
         assertThat(outcome.failed()).isZero();
+    }
+
+    @Test
+    @DisplayName("Retains an actively owned compose directory after its on-disk lease expires")
+    void shouldRetainActivelyOwnedEmailComposeWorkingDirectory() throws Exception {
+        java.lang.reflect.Method createForTest = EmailComposeWorkingDirectory.class
+                .getDeclaredMethod("create", Path.class);
+        createForTest.setAccessible(true);
+        EmailComposeWorkingDirectory workingDirectory =
+                (EmailComposeWorkingDirectory) createForTest.invoke(null, tempRoot);
+        Path activeDirectory;
+        try (Stream<Path> entries = Files.list(tempRoot)) {
+            activeDirectory = entries
+                    .filter(path -> path.getFileName().toString()
+                            .startsWith(EmailComposeWorkingDirectory.DIRECTORY_PREFIX))
+                    .findFirst()
+                    .orElseThrow();
+        }
+        Files.writeString(
+                activeDirectory.resolve(EmailComposeWorkingDirectory.ACTIVE_LEASE_FILE_NAME),
+                Long.toString(Instant.now().minus(1, ChronoUnit.HOURS).toEpochMilli()));
+        setLastModified(activeDirectory, Instant.now().minus(48, ChronoUnit.HOURS));
+
+        try {
+            PurgeOutcome outcome = ApplicationTempPurgeJob.purgeExpiredEntries(
+                    tempRoot, Instant.now().minus(24, ChronoUnit.HOURS));
+
+            assertThat(Files.isDirectory(activeDirectory)).isTrue();
+            assertThat(outcome.removed()).isZero();
+            assertThat(outcome.failed()).isZero();
+        } finally {
+            workingDirectory.close();
+        }
     }
 
     @Test

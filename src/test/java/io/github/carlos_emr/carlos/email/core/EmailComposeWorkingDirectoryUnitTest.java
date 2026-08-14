@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -30,20 +31,27 @@ class EmailComposeWorkingDirectoryUnitTest {
         Path ownedPdf = workingDirectory.adoptGeneratedPdf(generatedPdf);
         Path ownedDirectory = workingDirectory.path();
 
+        assertThat(EmailComposeWorkingDirectory.isActivelyOwned(ownedDirectory)).isTrue();
         assertThat(workingDirectory.owns(ownedPdf)).isTrue();
         assertThat(Files.readString(ownedPdf)).isEqualTo("patient data");
         workingDirectory.close();
         workingDirectory.close();
 
         assertThat(Files.exists(ownedDirectory)).isFalse();
+        assertThat(EmailComposeWorkingDirectory.isActivelyOwned(ownedDirectory)).isFalse();
     }
 
     @Test
     @DisplayName("copies a durable source document without deleting it")
     void shouldNotDeleteDurableSourceDocument() throws IOException {
         Path applicationRoot = tempDirectory.resolve("carlos-temp");
-        Path durableRoot = Files.createTempDirectory(Path.of("target"), "durable-email-source-");
+        Path durableRoot = Files.createTempDirectory(
+                Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize(),
+                "durable-email-source-");
         try {
+            assumeTrue(
+                    !PathValidationUtils.isInAllowedTempDirectory(durableRoot.toFile()),
+                    "project working directory is configured as disposable temp storage");
             Path durablePdf = Files.writeString(durableRoot.resolve("source.pdf"), "source patient data");
             EmailComposeWorkingDirectory workingDirectory = EmailComposeWorkingDirectory.create(applicationRoot);
 
