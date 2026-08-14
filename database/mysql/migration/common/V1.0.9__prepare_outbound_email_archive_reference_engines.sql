@@ -48,6 +48,9 @@ PREPARE outbound_archive_reference_engine_stmt FROM @outbound_archive_reference_
 EXECUTE outbound_archive_reference_engine_stmt;
 DEALLOCATE PREPARE outbound_archive_reference_engine_stmt;
 
+-- Keep the three conversions explicit: MariaDB prepared statements execute one
+-- statement at a time, and introducing a stored routine solely to loop over
+-- three tables would make this migration depend on client delimiter handling.
 SET @document_engine = NULL;
 SELECT `ENGINE`
   INTO @document_engine
@@ -58,7 +61,7 @@ SELECT `ENGINE`
  LIMIT 1;
 
 SET @outbound_archive_reference_engine_sql = IF(
-  @document_engine IS NULL OR UPPER(@document_engine) <> 'INNODB',
+  UPPER(@document_engine) <> 'INNODB',
   'ALTER TABLE `document` ENGINE=InnoDB',
   'SELECT ''document already InnoDB'' AS message'
 );
@@ -76,7 +79,7 @@ SELECT `ENGINE`
  LIMIT 1;
 
 SET @outbound_archive_reference_engine_sql = IF(
-  @email_config_engine IS NULL OR UPPER(@email_config_engine) <> 'INNODB',
+  UPPER(@email_config_engine) <> 'INNODB',
   'ALTER TABLE `emailConfig` ENGINE=InnoDB',
   'SELECT ''emailConfig already InnoDB'' AS message'
 );
@@ -94,7 +97,7 @@ SELECT `ENGINE`
  LIMIT 1;
 
 SET @outbound_archive_reference_engine_sql = IF(
-  @email_log_engine IS NULL OR UPPER(@email_log_engine) <> 'INNODB',
+  UPPER(@email_log_engine) <> 'INNODB',
   'ALTER TABLE `emailLog` ENGINE=InnoDB',
   'SELECT ''emailLog already InnoDB'' AS message'
 );
