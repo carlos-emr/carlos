@@ -22,8 +22,11 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveAttachment;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
 
 /**
  * JPA DAO implementation for outbound email archive attachment metadata.
@@ -31,7 +34,30 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class OutboundEmailArchiveAttachmentDaoImpl extends AbstractDaoImpl<OutboundEmailArchiveAttachment> implements OutboundEmailArchiveAttachmentDao {
 
+    private static final String PHYSICAL_DELETE_DISABLED_MESSAGE =
+            "Outbound email archive attachments must be retained with their parent archive";
+
     public OutboundEmailArchiveAttachmentDaoImpl() {
         super(OutboundEmailArchiveAttachment.class);
+    }
+
+    @Override
+    public void remove(AbstractModel<?> o) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
+    }
+
+    @Override
+    public boolean remove(Object id) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
+    }
+
+    @Override
+    public void batchRemove(List<OutboundEmailArchiveAttachment> oList) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
+    }
+
+    @Override
+    public void batchRemove(List<OutboundEmailArchiveAttachment> oList, int batchSize) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
     }
 }

@@ -39,6 +39,7 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageTree;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
@@ -73,6 +74,7 @@ public class SplitDocument2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
+    private transient OutboundEmailArchiveDao outboundEmailArchiveDao = SpringUtils.getBean(OutboundEmailArchiveDao.class);
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final Set<PosixFilePermission> OWNER_RW_ONLY = PosixFilePermissions.fromString("rw-------");
@@ -101,6 +103,7 @@ public class SplitDocument2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"XSS_SERVLET", "PATH_TRAVERSAL_IN"}, justification = "XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink. path validated for directory containment via PathValidationUtils before use")
     public String split() {
         String docNum = request.getParameter("document");
+        assertNotOutboundEmailArchiveDocument(docNum);
         String[] commands = request.getParameterValues("page");
         String queueId = request.getParameter("queueID");
 
@@ -258,7 +261,9 @@ public class SplitDocument2Action extends ActionSupport {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String rotate180() throws Exception {
-        Document doc = documentDao.getDocument(request.getParameter("document"));
+        String documentNo = request.getParameter("document");
+        assertNotOutboundEmailArchiveDocument(documentNo);
+        Document doc = documentDao.getDocument(documentNo);
 
         String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDir = new File(docdownload);
@@ -283,7 +288,9 @@ public class SplitDocument2Action extends ActionSupport {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String rotate90() throws Exception {
-        Document doc = documentDao.getDocument(request.getParameter("document"));
+        String documentNo = request.getParameter("document");
+        assertNotOutboundEmailArchiveDocument(documentNo);
+        Document doc = documentDao.getDocument(documentNo);
 
         String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDir = new File(docdownload);
@@ -308,7 +315,9 @@ public class SplitDocument2Action extends ActionSupport {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String removeFirstPage() throws Exception {
-        Document doc = documentDao.getDocument(request.getParameter("document"));
+        String documentNo = request.getParameter("document");
+        assertNotOutboundEmailArchiveDocument(documentNo);
+        Document doc = documentDao.getDocument(documentNo);
 
         String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDir = new File(docdownload);
@@ -364,6 +373,20 @@ public class SplitDocument2Action extends ActionSupport {
             } else {
                 return true;
             }
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveDocument(String documentNo) {
+        if (documentNo == null || documentNo.isBlank()) {
+            return;
+        }
+        try {
+            if (outboundEmailArchiveDao.existsByDocumentNo(Integer.valueOf(documentNo))) {
+                throw new SecurityException(
+                        "Outbound email archive eDocs must be managed through the controlled archive workflow");
+            }
+        } catch (NumberFormatException e) {
+            // Preserve existing invalid-id behavior in the caller.
         }
     }
 

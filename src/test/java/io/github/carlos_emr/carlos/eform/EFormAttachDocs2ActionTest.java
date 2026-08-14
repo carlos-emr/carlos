@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,6 +72,7 @@ class EFormAttachDocs2ActionTest extends CarlosWebTestBase {
                 .thenReturn(true);
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
+        mockRequest.setMethod("POST");
         action = new EFormAttachDocs2Action();
         action.setRequestId("123");
         action.setDemoNo("456");
@@ -81,6 +83,17 @@ class EFormAttachDocs2ActionTest extends CarlosWebTestBase {
         if (loggedInInfoMock != null) {
             loggedInInfoMock.close();
         }
+    }
+
+    @Test
+    void shouldRejectGetBeforeWritingAttachments() throws Exception {
+        mockRequest.setMethod("GET");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        verify(mockDocumentAttachmentManager, never()).attachToEForm(any(), any(), any(), any(), any(), any());
     }
 
     @Test

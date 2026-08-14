@@ -71,6 +71,11 @@ public class EFormAttachDocs2Action extends ActionSupport {
      */
     @Override
     public String execute() throws ServletException, IOException {
+        if (!"POST".equals(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "u", null)) {
             throw new SecurityException("missing required sec object (_eform)");

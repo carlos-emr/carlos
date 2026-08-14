@@ -22,6 +22,7 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
@@ -35,8 +36,31 @@ import java.util.List;
 @Repository
 public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailArchive> implements OutboundEmailArchiveDao {
 
+    private static final String PHYSICAL_DELETE_DISABLED_MESSAGE =
+            "Outbound email archives must be deleted through the controlled tombstone workflow";
+
     public OutboundEmailArchiveDaoImpl() {
         super(OutboundEmailArchive.class);
+    }
+
+    @Override
+    public void remove(AbstractModel<?> o) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
+    }
+
+    @Override
+    public boolean remove(Object id) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
+    }
+
+    @Override
+    public void batchRemove(List<OutboundEmailArchive> oList) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
+    }
+
+    @Override
+    public void batchRemove(List<OutboundEmailArchive> oList, int batchSize) {
+        throw new UnsupportedOperationException(PHYSICAL_DELETE_DISABLED_MESSAGE);
     }
 
     @Override
@@ -46,6 +70,22 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
                 OutboundEmailArchive.class);
         query.setParameter("emailLogId", emailLogId);
         return query.getResultList();
+    }
+
+    @Override
+    public OutboundEmailArchive findForRead(Integer archiveId) {
+        if (archiveId == null) {
+            return null;
+        }
+        TypedQuery<OutboundEmailArchive> query = entityManager.createQuery(
+                "SELECT archive FROM OutboundEmailArchive archive "
+                        + "LEFT JOIN FETCH archive.demographic "
+                        + "LEFT JOIN FETCH archive.document "
+                        + "WHERE archive.id = :archiveId",
+                OutboundEmailArchive.class);
+        query.setParameter("archiveId", archiveId);
+        List<OutboundEmailArchive> rows = query.getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     @Override
@@ -59,6 +99,46 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
         query.setParameter(1, archiveId);
         List<OutboundEmailArchive> rows = query.getResultList();
         return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Override
+    public boolean existsActiveByDocumentNo(Integer documentNo) {
+        if (documentNo == null) {
+            return false;
+        }
+        TypedQuery<Long> query = entityManager.createQuery(
+                "SELECT COUNT(archive) FROM OutboundEmailArchive archive "
+                        + "WHERE archive.document.documentNo = :documentNo "
+                        + "AND archive.deleted = false",
+                Long.class);
+        query.setParameter("documentNo", documentNo);
+        return query.getSingleResult() > 0L;
+    }
+
+    @Override
+    public boolean existsByDocumentNo(Integer documentNo) {
+        if (documentNo == null) {
+            return false;
+        }
+        TypedQuery<Long> query = entityManager.createQuery(
+                "SELECT COUNT(archive) FROM OutboundEmailArchive archive "
+                        + "WHERE archive.document.documentNo = :documentNo",
+                Long.class);
+        query.setParameter("documentNo", documentNo);
+        return query.getSingleResult() > 0L;
+    }
+
+    @Override
+    public boolean existsByFileName(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            return false;
+        }
+        TypedQuery<Long> query = entityManager.createQuery(
+                "SELECT COUNT(archive) FROM OutboundEmailArchive archive "
+                        + "WHERE archive.fileName = :fileName",
+                Long.class);
+        query.setParameter("fileName", fileName);
+        return query.getSingleResult() > 0L;
     }
 
     @Override

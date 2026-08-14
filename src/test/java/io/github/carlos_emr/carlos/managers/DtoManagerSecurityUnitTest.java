@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
@@ -324,10 +325,15 @@ public class DtoManagerSecurityUnitTest extends CarlosUnitTestBase {
     @DisplayName("DocumentManagerImpl.getDocumentDTOs should call DAO and log when _edoc granted")
     void documentManager_shouldCallDaoAndLog_whenEdocReadGranted() {
         DocumentDao dao = Mockito.mock(DocumentDao.class);
-        List<DocumentListItemDTO> expected = Collections.singletonList(new DocumentListItemDTO());
+        OutboundEmailArchiveDao outboundEmailArchiveDao = Mockito.mock(OutboundEmailArchiveDao.class);
+        DocumentListItemDTO document = new DocumentListItemDTO();
+        document.setDocumentNo(321);
+        List<DocumentListItemDTO> expected = Collections.singletonList(document);
         when(dao.findDocumentDTOsByDemographicNo(DEMO_NO)).thenReturn(expected);
+        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(false);
         DocumentManagerImpl manager = new DocumentManagerImpl();
         injectDependency(manager, "documentDao", dao);
+        injectDependency(manager, "outboundEmailArchiveDao", outboundEmailArchiveDao);
         injectDependency(manager, "securityInfoManager", mockSecurityInfoManager);
         grantPrivilege("_edoc");
 

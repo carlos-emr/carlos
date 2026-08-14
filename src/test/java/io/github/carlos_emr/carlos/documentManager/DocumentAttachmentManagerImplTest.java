@@ -19,7 +19,9 @@ package io.github.carlos_emr.carlos.documentManager;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -58,6 +60,9 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
     private EFormDocsDao eFormDocsDao;
 
     @Mock
+    private OutboundEmailArchiveDao outboundEmailArchiveDao;
+
+    @Mock
     private LoggedInInfo loggedInInfo;
 
     private DocumentAttachmentManagerImpl manager;
@@ -67,6 +72,8 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
         manager = new DocumentAttachmentManagerImpl();
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "consultDocsDao", consultDocsDao);
+        injectDependency(manager, "eFormDocsDao", eFormDocsDao);
+        injectDependency(manager, "outboundEmailArchiveDao", outboundEmailArchiveDao);
         registerMock(ConsultDocsDao.class, consultDocsDao);
         registerMock(EFormDocsDao.class, eFormDocsDao);
     }
@@ -157,5 +164,87 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo);
         verifyNoInteractions(consultDocsDao);
+    }
+
+    @Test
+    @DisplayName("should reject archive-backed documents before consult attachment persistence")
+    void shouldRejectArchiveDocsBeforeConsultAttach() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 456)).thenReturn(true);
+        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+
+        assertThatThrownBy(() -> manager.attachToConsult(loggedInInfo, DocumentType.DOC,
+                new String[] {"321"}, "999998", 123, 456))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("controlled archive workflow");
+
+        verifyNoInteractions(consultDocsDao);
+    }
+
+    @Test
+    @DisplayName("should reject archive-backed documents before Ocean consult attachment staging")
+    void shouldRejectArchiveDocsBeforeOceanConsultAttach() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 456)).thenReturn(true);
+        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+
+        assertThatThrownBy(() -> manager.attachToConsult(loggedInInfo, DocumentType.DOC,
+                new String[] {"321"}, "999998", 123, 456, true))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("controlled archive workflow");
+
+        verifyNoInteractions(consultDocsDao);
+    }
+
+    @Test
+    @DisplayName("should reject archive-backed documents before eForm attachment persistence")
+    void shouldRejectArchiveDocsBeforeEFormAttach() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.WRITE, 456)).thenReturn(true);
+        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+
+        assertThatThrownBy(() -> manager.attachToEForm(loggedInInfo, DocumentType.DOC,
+                new String[] {"321"}, "999998", 123, 456))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("controlled archive workflow");
+
+        verifyNoInteractions(eFormDocsDao);
+    }
+
+    @Test
+    @DisplayName("should filter archive-backed documents from consult attachment reads")
+    void shouldFilterArchiveDocsFromConsultAttachmentReads() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, 456)).thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocType(123, DocumentType.DOC.getType())).thenReturn(List.of(
+                consultDoc(321),
+                consultDoc(654)));
+        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+
+        assertThat(manager.getConsultAttachments(loggedInInfo, 123, DocumentType.DOC, 456))
+                .containsExactly("654");
+    }
+
+    @Test
+    @DisplayName("should filter archive-backed documents from eForm attachment reads")
+    void shouldFilterArchiveDocsFromEFormAttachmentReads() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, 456)).thenReturn(true);
+        when(eFormDocsDao.findByFdidIdDocType(123, DocumentType.DOC.getType())).thenReturn(List.of(
+                eFormDoc(321),
+                eFormDoc(654)));
+        when(outboundEmailArchiveDao.existsByDocumentNo(321)).thenReturn(true);
+
+        assertThat(manager.getEFormAttachments(loggedInInfo, 123, DocumentType.DOC, 456))
+                .containsExactly("654");
+    }
+
+    private ConsultDocs consultDoc(int documentNo) {
+        ConsultDocs consultDoc = new ConsultDocs();
+        consultDoc.setDocumentNo(documentNo);
+        consultDoc.setDocType(DocumentType.DOC.getType());
+        return consultDoc;
+    }
+
+    private EFormDocs eFormDoc(int documentNo) {
+        EFormDocs eFormDoc = new EFormDocs();
+        eFormDoc.setDocumentNo(documentNo);
+        eFormDoc.setDocType(DocumentType.DOC.getType());
+        return eFormDoc;
     }
 }

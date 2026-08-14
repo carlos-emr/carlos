@@ -1,5 +1,7 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.CarlosProperties;
+
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -11,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
@@ -29,6 +32,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
@@ -38,6 +42,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -70,6 +75,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @see DocumentType
  */
 public class DocumentPreview2Action extends ActionSupport {
+    private static final String DOCUMENT_DIR_PROPERTY = "DOCUMENT_DIR";
+
     private static final String FETCH_CONSULT_DOCUMENTS = "fetchConsultDocuments";
     private static final String DEMOGRAPHIC_NO_PARAMETER = "demographicNo";
     private static final String EFORM_SECURITY_OBJECT = "_eform";
@@ -110,6 +117,7 @@ public class DocumentPreview2Action extends ActionSupport {
     private final transient EFormDataDao eFormDataDao = SpringUtils.getBean(EFormDataDao.class);
     private final transient PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
     private final transient HRMDocumentToDemographicDao hrmDocumentToDemographicDao = SpringUtils.getBean(HRMDocumentToDemographicDao.class);
+    private final transient OutboundEmailArchiveDao outboundEmailArchiveDao = SpringUtils.getBean(OutboundEmailArchiveDao.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -388,6 +396,12 @@ public class DocumentPreview2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
+        if (isOutboundEmailArchiveDocumentPath(pdfPath)) {
+            logger.warn("Blocked direct preview of outbound email archive eDoc: {}",
+                    LogSafe.sanitizeObject(pdfPath.getFileName()));
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
 
         try {
             response.setContentType("application/pdf");
@@ -406,6 +420,32 @@ public class DocumentPreview2Action extends ActionSupport {
             logger.error("Error processing authorized PDF preview", e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private boolean isOutboundEmailArchiveDocumentPath(Path canonicalPdfPath) {
+        Path fileName = canonicalPdfPath.getFileName();
+        if (fileName == null) {
+            return false;
+        }
+        String documentDirectoryPath = CarlosProperties.getInstance().getProperty(DOCUMENT_DIR_PROPERTY, "/var/lib/OscarDocument/");
+        if (documentDirectoryPath == null || documentDirectoryPath.isBlank()) {
+            return false;
+        }
+        File documentDirectory;
+        try {
+            documentDirectory = PathValidationUtils.resolveConfiguredDirectory(documentDirectoryPath, DOCUMENT_DIR_PROPERTY);
+        } catch (SecurityException e) {
+            return false;
+        }
+        if (!documentDirectory.exists()) {
+            return false;
+        }
+        try {
+            PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), documentDirectory);
+        } catch (SecurityException e) {
+            return false;
+        }
+        return outboundEmailArchiveDao.existsByFileName(fileName.toString());
     }
 
     /**

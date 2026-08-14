@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
@@ -128,6 +129,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     @Autowired
     private DocumentManager documentManager;
+
+    @Autowired
+    private OutboundEmailArchiveDao outboundEmailArchiveDao;
 
     @Autowired
     ProviderDao providerDao;
@@ -765,6 +769,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         List<ConsultationAttachmentTo1> newAttachments = request.getAttachments();
         List<ConsultDocs> currentDocs = consultationManager.getConsultRequestDocs(getLoggedInInfo(), request.getId());
         if (newAttachments == null || currentDocs == null) return;
+        assertNoOutboundEmailArchiveAttachments(newAttachments);
 
         //first assume all current docs detached (set delete)
         for (ConsultDocs doc : currentDocs) {
@@ -805,6 +810,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         List<ConsultationAttachmentTo1> newAttachments = response.getAttachments();
         List<ConsultResponseDoc> currentDocs = consultationManager.getConsultResponseDocs(getLoggedInInfo(), response.getId());
         if (newAttachments == null || currentDocs == null) return;
+        assertNoOutboundEmailArchiveAttachments(newAttachments);
 
         //first assume all current docs detached (set delete)
         for (ConsultResponseDoc doc : currentDocs) {
@@ -829,6 +835,23 @@ public class ConsultationWebService extends AbstractServiceImpl {
         //update what remains in current docs, they are detached (set delete)
         for (ConsultResponseDoc doc : currentDocs) {
             consultationManager.saveConsultResponseDoc(getLoggedInInfo(), doc);
+        }
+    }
+
+    private void assertNoOutboundEmailArchiveAttachments(List<ConsultationAttachmentTo1> attachments) {
+        for (ConsultationAttachmentTo1 attachment : attachments) {
+            if (attachment != null) {
+                assertNotOutboundEmailArchiveAttachment(attachment);
+            }
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveAttachment(ConsultationAttachmentTo1 attachment) {
+        if (attachment != null
+                && ConsultationAttachmentTo1.TYPE_DOC.equals(attachment.getDocumentType())
+                && outboundEmailArchiveDao.existsByDocumentNo(attachment.getDocumentNo())) {
+            throw new SecurityException(
+                    "Outbound email archive eDocs must be managed through the controlled archive workflow");
         }
     }
 

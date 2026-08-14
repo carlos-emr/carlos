@@ -21,7 +21,9 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
@@ -112,6 +114,9 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
     private PdfPreviewCapabilityService mockPdfPreviewCapabilityService;
 
     @Mock
+    private OutboundEmailArchiveDao mockOutboundEmailArchiveDao;
+
+    @Mock
     private FormsManager mockFormsManager;
 
     @Mock
@@ -150,6 +155,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         registerMock(EFormRenderApprovalService.class, mockEFormRenderApprovalService);
         registerMock(PdfPreviewCapabilityService.class, mockPdfPreviewCapabilityService);
+        registerMock(OutboundEmailArchiveDao.class, mockOutboundEmailArchiveDao);
         registerMock(FormsManager.class, mockFormsManager);
         registerMock(EFormDataDao.class, mockEFormDataDao);
         registerMock(PatientLabRoutingDao.class, mockPatientLabRoutingDao);
@@ -906,6 +912,34 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
                     .startsWith("%PDF".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
         } finally {
             java.nio.file.Files.deleteIfExists(pdf);
+        }
+    }
+
+    @Test
+    @DisplayName("should forbid a preview capability that resolves to an outbound archive eDoc")
+    void shouldForbidRenderPdf_whenCapabilityResolvesToOutboundArchiveDocument() throws Exception {
+        java.nio.file.Path documentDir = java.nio.file.Files.createTempDirectory("archive-preview-");
+        java.nio.file.Path archiveFile = java.nio.file.Files.writeString(
+                documentDir.resolve("archive.pdf"), "%PDF-1.4");
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+            CarlosProperties properties = org.mockito.Mockito.mock(CarlosProperties.class);
+            propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"))
+                    .thenReturn(documentDir.toString());
+            request.setParameter("method", "renderPDF");
+            request.setParameter("previewToken", "archive-token");
+            when(mockPdfPreviewCapabilityService.resolve(request, mockLoggedInInfo, "archive-token"))
+                    .thenReturn(archiveFile.toRealPath());
+            when(mockOutboundEmailArchiveDao.existsByFileName("archive.pdf")).thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        } finally {
+            java.nio.file.Files.deleteIfExists(archiveFile);
+            java.nio.file.Files.deleteIfExists(documentDir);
         }
     }
 

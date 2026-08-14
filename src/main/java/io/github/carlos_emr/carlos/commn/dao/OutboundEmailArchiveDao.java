@@ -40,12 +40,44 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
     List<OutboundEmailArchive> findByEmailLogId(Integer emailLogId);
 
     /**
+     * Finds an archive row with the associations required for read authorization and file access initialized.
+     *
+     * @param archiveId persisted archive identifier
+     * @return archive row with demographic and document loaded, or {@code null} when no row exists
+     */
+    OutboundEmailArchive findForRead(Integer archiveId);
+
+    /**
      * Finds an archive row with a write lock for short controlled-deletion critical sections.
      *
      * @param archiveId persisted archive identifier
      * @return locked archive row, or {@code null} when no row exists
      */
     OutboundEmailArchive findForUpdate(Integer archiveId);
+
+    /**
+     * Checks whether a document is the backing eDoc for an active outbound email archive.
+     *
+     * @param documentNo persisted eDoc identifier
+     * @return {@code true} when the document is linked to a non-deleted archive row
+     */
+    boolean existsActiveByDocumentNo(Integer documentNo);
+
+    /**
+     * Checks whether a document is or was the backing eDoc for an outbound email archive.
+     *
+     * @param documentNo persisted eDoc identifier
+     * @return {@code true} when the document is linked to any archive row
+     */
+    boolean existsByDocumentNo(Integer documentNo);
+
+    /**
+     * Checks whether a stored eDoc filename is linked to an outbound email archive.
+     *
+     * @param fileName stored eDoc basename
+     * @return {@code true} when the filename is linked to any archive row
+     */
+    boolean existsByFileName(String fileName);
 
     /**
      * Finds archive rows for a patient demographic, newest archive first.

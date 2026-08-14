@@ -8,6 +8,7 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
@@ -89,6 +90,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     private EFormDocsDao eFormDocsDao;
 
     @Autowired
+    private OutboundEmailArchiveDao outboundEmailArchiveDao;
+
+    @Autowired
     private ConsultationManager consultationManager;
     @Autowired
     private DocumentManager documentManager;
@@ -130,6 +134,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         List<String> consultAttachments = new ArrayList<>();
         List<ConsultDocs> consultDocs = consultDocsDao.findByRequestIdDocType(requestId, documentType.getType());
         for (ConsultDocs consultDocs1 : consultDocs) {
+            if (isOutboundEmailArchiveDocument(documentType, consultDocs1.getDocumentNo())) {
+                continue;
+            }
             consultAttachments.add(String.valueOf(consultDocs1.getDocumentNo()));
         }
         return consultAttachments;
@@ -157,6 +164,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         List<String> eFormAttachments = new ArrayList<>();
         List<EFormDocs> eFormDocs = eFormDocsDao.findByFdidIdDocType(fdid, documentType.getType());
         for (EFormDocs eFormDocs1 : eFormDocs) {
+            if (isOutboundEmailArchiveDocument(documentType, eFormDocs1.getDocumentNo())) {
+                continue;
+            }
             eFormAttachments.add(String.valueOf(eFormDocs1.getDocumentNo()));
         }
         return eFormAttachments;
@@ -327,6 +337,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
+        assertNoOutboundEmailArchiveAttachments(documentType, attachments);
         DocumentAttach documentAttach = new DocumentAttach();
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
@@ -355,6 +366,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
+        assertNoOutboundEmailArchiveAttachments(documentType, attachments);
         DocumentAttach documentAttach = new DocumentAttach(demographicNo, editOnOcean);
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
@@ -379,8 +391,34 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new RuntimeException("missing required sec object (_eform)");
         }
 
+        assertNoOutboundEmailArchiveAttachments(documentType, attachments);
         DocumentAttach documentAttach = new DocumentAttach();
         documentAttach.attachToEForm(attachments, documentType, providerNo, fdid);
+    }
+
+    private void assertNoOutboundEmailArchiveAttachments(DocumentType documentType, String[] attachments) {
+        if (documentType != DocumentType.DOC || attachments == null) {
+            return;
+        }
+        for (String attachment : attachments) {
+            if (StringUtils.isNullOrEmpty(attachment)) {
+                continue;
+            }
+            try {
+                if (outboundEmailArchiveDao.existsByDocumentNo(Integer.valueOf(attachment))) {
+                    throw new SecurityException(
+                            "Outbound email archive eDocs must be managed through the controlled archive workflow");
+                }
+            } catch (NumberFormatException e) {
+                // Preserve existing invalid-id behavior in DocumentAttach.
+            }
+        }
+    }
+
+    private boolean isOutboundEmailArchiveDocument(DocumentType documentType, Integer documentNo) {
+        return documentType == DocumentType.DOC
+                && documentNo != null
+                && outboundEmailArchiveDao.existsByDocumentNo(documentNo);
     }
 
     /**

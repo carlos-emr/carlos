@@ -127,6 +127,7 @@ public class ManageDocument2Action extends ActionSupport {
     private final DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
     private final QueueDao queueDao = SpringUtils.getBean(QueueDao.class);
     private final CtlDocumentDao ctlDocumentDao = SpringUtils.getBean(CtlDocumentDao.class);
+    private final transient OutboundEmailArchiveDao outboundEmailArchiveDao = SpringUtils.getBean(OutboundEmailArchiveDao.class);
     private final ProviderInboxRoutingDao providerInboxRoutingDAO = SpringUtils.getBean(ProviderInboxRoutingDao.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -275,6 +276,7 @@ public class ManageDocument2Action extends ActionSupport {
             log.warn("documentUpdateAjax: invalid or missing demog");
             return;
         }
+        assertNotOutboundEmailArchiveDocument(documentId);
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr(), demog);
 
@@ -424,6 +426,7 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        assertNotOutboundEmailArchiveRoutingDocument(docType, docId);
         providerInboxRoutingDAO.removeLinkFromDocument(docType, Integer.parseInt(docId), providerNo);
         HashMap hm = new HashMap();
         hm.put("linkedProviders", providerInboxRoutingDAO.getProvidersWithRoutingForDocument(docType, Integer.parseInt(docId)));
@@ -489,6 +492,7 @@ public class ManageDocument2Action extends ActionSupport {
             return NONE;
         }
 
+        assertNotOutboundEmailArchiveDocument(documentId);
         try {
             EDocUtil.refileDocument(documentId, queueId);
         } catch (SecurityException e) {
@@ -548,6 +552,7 @@ public class ManageDocument2Action extends ActionSupport {
             addActionError("Document ID is missing. Cannot process document update.");
             return "error";
         }
+        assertNotOutboundEmailArchiveDocument(documentId);
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr());
 
@@ -862,6 +867,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String doc_no = request.getParameter("doc_no");
+        assertNotOutboundEmailArchiveDocument(doc_no);
         log.debug("Document No :{}", LogSafe.sanitize(doc_no));
         LoggedInInfo liPage = LoggedInInfo.getLoggedInInfoFromSession(request);
         LogAction.addLog(liPage != null ? liPage.getLoggedInProviderNo() : null, LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
@@ -896,6 +902,7 @@ public class ManageDocument2Action extends ActionSupport {
         log.debug("in viewDocPage");
 
         String doc_no = request.getParameter("doc_no");
+        assertNotOutboundEmailArchiveDocument(doc_no);
         String pageNum = request.getParameter("curPage");
         if (pageNum == null) {
             pageNum = "1";
@@ -955,6 +962,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String doc_no = request.getParameter("doc_no");
+        assertNotOutboundEmailArchiveDocument(doc_no);
         String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         // File documentDir = new File(docdownload);
         Document d = documentDao.getDocument(doc_no);
@@ -995,6 +1003,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String doc_no = request.getParameter("doc_no");
+        assertNotOutboundEmailArchiveDocument(doc_no);
         log.debug("Document No :{}", LogSafe.sanitize(doc_no)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         String demoNo = request.getParameter("demoNo");
 
@@ -1074,6 +1083,46 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    private void assertNotOutboundEmailArchiveDocument(String documentNo) {
+        if (documentNo == null || documentNo.isBlank()) {
+            return;
+        }
+        try {
+            Integer parsedDocumentNo = Integer.valueOf(documentNo);
+            if (outboundEmailArchiveDao.existsByDocumentNo(parsedDocumentNo)) {
+                throw new SecurityException(
+                        "Outbound email archive eDocs must be read through the outbound email archive workflow");
+            }
+        } catch (NumberFormatException e) {
+            // Preserve existing invalid-id behavior in the caller.
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveRoutingDocument(String docType, String documentNo) {
+        if (docType == null || asciiEqualsIgnoreCase(LabResultData.DOCUMENT, docType)) {
+            assertNotOutboundEmailArchiveDocument(documentNo);
+        }
+    }
+
+    private boolean asciiEqualsIgnoreCase(String expected, String actual) {
+        if (expected == null || actual == null || expected.length() != actual.length()) {
+            return false;
+        }
+        for (int i = 0; i < expected.length(); i++) {
+            if (toLowerAscii(expected.charAt(i)) != toLowerAscii(actual.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private char toLowerAscii(char value) {
+        if (value >= 'A' && value <= 'Z') {
+            return (char) (value + ('a' - 'A'));
+        }
+        return value;
+    }
+
     /**
      * Renders both document annotations/acknowledgements/ticklers and document description
      * metadata as an HTML fragment.
@@ -1128,6 +1177,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String doc_no = request.getParameter("doc_no");
+        assertNotOutboundEmailArchiveDocument(doc_no);
         Locale locale = request.getLocale();
 
         String annotation = "", acknowledgement = "", tickler = "";

@@ -92,6 +92,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class DocumentManagerImpl implements DocumentManager {
 
     private static final String PARENT_DIR = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+    private static final String OUTBOUND_ARCHIVE_READ_MESSAGE =
+            "Outbound email archive eDocs must be read through the outbound email archive workflow";
     private final Logger logger = MiscUtils.getLogger();
 
     /**
@@ -107,6 +109,9 @@ public class DocumentManagerImpl implements DocumentManager {
 
     @Autowired
     private CtlDocumentDao ctlDocumentDao;
+
+    @Autowired
+    private OutboundEmailArchiveDao outboundEmailArchiveDao;
 
     @Autowired
     private NioFileManager nioFileManager;
@@ -138,6 +143,7 @@ public class DocumentManagerImpl implements DocumentManager {
 
         //--- log action ---
         if (result != null) {
+            assertNotOutboundEmailArchiveDocument(result);
             LogAction.addLog(loggedInInfo, "DocumentManager.getDocument", "id=" + id, "", "", "");
         }
 
@@ -146,6 +152,7 @@ public class DocumentManagerImpl implements DocumentManager {
 
     public List<Document> getDocumentsByDemographicNo(LoggedInInfo loggedInInfo, Integer demographicNo) {
         List<Document> result = documentDao.findByDemographicId(demographicNo + "");
+        result = withoutOutboundEmailArchiveDocuments(result);
 
         //--- log action ---
         if (result != null) {
@@ -160,6 +167,7 @@ public class DocumentManagerImpl implements DocumentManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", "")) {
             throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
+        assertNotOutboundEmailArchiveDocument(documentId);
 
         CtlDocument result = ctlDocumentDao.getCtrlDocument(documentId);
 
@@ -199,10 +207,12 @@ public class DocumentManagerImpl implements DocumentManager {
             fileName = file.getName();
             document.setDocfilename(fileName);
         } catch (SecurityException e) {
+            if (OUTBOUND_ARCHIVE_READ_MESSAGE.equals(e.getMessage())) {
+                throw e;
+            }
             logger.error("Document filename failed path validation: {}", Encode.forJava(rawFileName));
             throw new IOException("Document filename failed path validation", e);
         }
-
         // Gets the number of pages for the document
         int numberOfPages = 1;
         if (fileName.toLowerCase().endsWith("pdf")) {
@@ -244,6 +254,7 @@ public class DocumentManagerImpl implements DocumentManager {
         for (int attempt = 0; attempt < UNIQUE_FILENAME_MAX_ATTEMPTS; attempt++) {
             String candidateName = buildUniqueDocumentFilename(normalizedFileName);
             File candidate = PathValidationUtils.validateUserFilePath(candidateName, destinationDir);
+            assertNotOutboundEmailArchiveFileName(candidateName);
             try {
                 Files.write(candidate.toPath(), documentData, StandardOpenOption.CREATE_NEW);
                 return candidate;
@@ -276,6 +287,7 @@ public class DocumentManagerImpl implements DocumentManager {
         }
 
         List<Document> results = documentDao.findByUpdateDate(updatedAfterThisDateExclusive, itemsToReturn);
+        results = withoutOutboundEmailArchiveDocuments(results);
 
         LogAction.addLog(loggedInInfo, "DocumentManager.getUpdateAfterDate", "updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive, "", "", "Number items " + itemsToReturn);
 
@@ -288,6 +300,7 @@ public class DocumentManagerImpl implements DocumentManager {
         boolean hasConsent = patientConsentManager.hasProviderSpecificConsent(loggedInInfo) || patientConsentManager.getConsentType(ConsentType.PROVIDER_CONSENT_FILTER) == null;
         if (hasConsent) {
             results = documentDao.findByDemographicUpdateAfterDate(demographicId, updatedAfterThisDateExclusive);
+            results = withoutOutboundEmailArchiveDocuments(results);
             LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDocumentsByDemographicIdUpdateAfterDate", "demographicId=" + demographicId + " updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive);
         }
         return (results);
@@ -300,6 +313,7 @@ public class DocumentManagerImpl implements DocumentManager {
         }
 
         List<Document> results = documentDao.findByProgramProviderDemographicUpdateDate(programId, providerNo, demographicId, updatedAfterThisDateExclusive.getTime(), itemsToReturn);
+        results = withoutOutboundEmailArchiveDocuments(results);
 
         LogAction.addLog(loggedInInfo, "DocumentManager.getDocumentsByProgramProviderDemographicDate", "programId=" + programId, "providerNo=" + providerNo, demographicId + "", "updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive.getTime());
 
@@ -314,6 +328,10 @@ public class DocumentManagerImpl implements DocumentManager {
     public Integer saveDocument(LoggedInInfo loggedInInfo, Document document, CtlDocument ctlDocument) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", "")) {
             throw new RuntimeException("Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
+        }
+        assertNotOutboundEmailArchiveDocument(document);
+        if (document != null) {
+            assertNotOutboundEmailArchiveFileName(document.getDocfilename());
         }
 
         Integer savedId = null;
@@ -406,6 +424,10 @@ public class DocumentManagerImpl implements DocumentManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "x", "")) {
             throw new RuntimeException("Read and Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
+        assertNotOutboundEmailArchiveDocument(document);
+        if (document != null) {
+            assertNotOutboundEmailArchiveFileName(document.getDocfilename());
+        }
 
         // move the PDF from the temp location to CARLOS document directory.
         try {
@@ -441,6 +463,7 @@ public class DocumentManagerImpl implements DocumentManager {
         String path = null;
 
         if (document != null) {
+            assertNotOutboundEmailArchiveDocument(documentId);
             path = getFullPathToDocument(document.getDocfilename());
         }
 
@@ -466,6 +489,7 @@ public class DocumentManagerImpl implements DocumentManager {
             logger.error("Document filename contains path separator, rejected: {}", Encode.forJava(filename));
             return null;
         }
+        assertNotOutboundEmailArchiveFileName(filename);
 
         String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
@@ -495,7 +519,7 @@ public class DocumentManagerImpl implements DocumentManager {
 
         LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDemographicDocumentsByDocumentType", "fetching documents of type " + documentType.getName() + " for demographic " + demographicNo);
 
-        return documentDao.findByDemographicAndDoctype(demographicNo, documentType);
+        return withoutOutboundEmailArchiveDocuments(documentDao.findByDemographicAndDoctype(demographicNo, documentType));
     }
 
     public Document getDocumentByDemographicAndFilename(LoggedInInfo loggedInInfo, int demographicNo, String fileName) {
@@ -505,7 +529,9 @@ public class DocumentManagerImpl implements DocumentManager {
 
         LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDocumentByDemographicAndFilename", "fetching document with filename " + fileName + " for demographic " + demographicNo);
 
-        return documentDao.findByDemographicAndFilename(demographicNo, fileName);
+        Document document = documentDao.findByDemographicAndFilename(demographicNo, fileName);
+        assertNotOutboundEmailArchiveDocument(document);
+        return document;
     }
 
     /**
@@ -534,6 +560,7 @@ public class DocumentManagerImpl implements DocumentManager {
             if (existingDocument != null && existingDocument.getId() != null && existingDocument.getId() > 0) {
                 document.setDocumentNo(existingDocument.getId());
             }
+            assertNotOutboundEmailArchiveFileName(document.getDocfilename());
 
             // Always write to file system, updates will overwrite.
             EDocUtil.writeDocContent(document.getDocfilename(), document.getBase64Binary());
@@ -575,6 +602,7 @@ public class DocumentManagerImpl implements DocumentManager {
     }
 
     public List<String> getProvidersThatHaveAcknowledgedDocument(LoggedInInfo loggedInInfo, Integer documentId) {
+        assertNotOutboundEmailArchiveDocument(documentId);
         List<ProviderInboxItem> inboxList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", documentId);
         List<String> providerList = new ArrayList<String>();
         for (ProviderInboxItem item : inboxList) {
@@ -591,6 +619,7 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Access Denied");
         }
 
+        assertNotOutboundEmailArchiveDocument(eDoc);
         return renderDocument(eDoc);
     }
 
@@ -599,8 +628,58 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Access Denied");
         }
 
+        assertNotOutboundEmailArchiveDocument(documentId);
         EDoc eDoc = EDocUtil.getEDocFromDocId(String.valueOf(documentId));
         return renderDocument(eDoc);
+    }
+
+    private void assertNotOutboundEmailArchiveDocument(EDoc eDoc) {
+        if (eDoc != null) {
+            assertNotOutboundEmailArchiveDocument(eDoc.getDocId());
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveDocument(Document document) {
+        if (document != null) {
+            assertNotOutboundEmailArchiveDocument(document.getDocumentNo());
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveDocument(String documentId) {
+        if (documentId == null || documentId.isBlank()) {
+            return;
+        }
+        try {
+            assertNotOutboundEmailArchiveDocument(Integer.valueOf(documentId));
+        } catch (NumberFormatException e) {
+            // Preserve existing invalid-id behavior in the caller.
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveDocument(Integer documentId) {
+        if (documentId != null && outboundEmailArchiveDao.existsByDocumentNo(documentId)) {
+            throw new SecurityException(OUTBOUND_ARCHIVE_READ_MESSAGE);
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveFileName(String fileName) {
+        if (fileName != null && !fileName.isBlank() && outboundEmailArchiveDao.existsByFileName(fileName)) {
+            throw new SecurityException(OUTBOUND_ARCHIVE_READ_MESSAGE);
+        }
+    }
+
+    private List<Document> withoutOutboundEmailArchiveDocuments(List<Document> documents) {
+        if (documents == null || documents.isEmpty()) {
+            return documents;
+        }
+        List<Document> filteredDocuments = new ArrayList<Document>();
+        for (Document document : documents) {
+            if (document == null || document.getDocumentNo() == null
+                    || !outboundEmailArchiveDao.existsByDocumentNo(document.getDocumentNo())) {
+                filteredDocuments.add(document);
+            }
+        }
+        return filteredDocuments;
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
@@ -632,6 +711,7 @@ public class DocumentManagerImpl implements DocumentManager {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", "")) {
 			throw new RuntimeException("Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
 		}
+		assertNotOutboundEmailArchiveDocument(documentId);
 
 		if (queueId != null && queueId > 0) {
 			queueDocumentLinkDAO.addActiveQueueDocumentLink(queueId, documentId);
@@ -648,9 +728,27 @@ public class DocumentManagerImpl implements DocumentManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
-        List<DocumentListItemDTO> results = documentDao.findDocumentDTOsByDemographicNo(demographicNo);
+        List<DocumentListItemDTO> results = withoutOutboundEmailArchiveDocumentDTOs(
+                documentDao.findDocumentDTOsByDemographicNo(demographicNo));
         LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDocumentDTOs",
                 "demographicNo=" + demographicNo);
         return results;
+    }
+
+    private List<DocumentListItemDTO> withoutOutboundEmailArchiveDocumentDTOs(List<DocumentListItemDTO> documents) {
+        if (documents == null || documents.isEmpty()) {
+            return documents;
+        }
+        List<DocumentListItemDTO> filteredDocuments = new ArrayList<DocumentListItemDTO>();
+        boolean removedDocument = false;
+        for (DocumentListItemDTO document : documents) {
+            if (document == null || document.getDocumentNo() == null
+                    || !outboundEmailArchiveDao.existsByDocumentNo(document.getDocumentNo())) {
+                filteredDocuments.add(document);
+            } else {
+                removedDocument = true;
+            }
+        }
+        return removedDocument ? filteredDocuments : documents;
     }
 }

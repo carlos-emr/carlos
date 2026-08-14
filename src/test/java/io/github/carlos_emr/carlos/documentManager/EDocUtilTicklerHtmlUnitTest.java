@@ -19,6 +19,7 @@ package io.github.carlos_emr.carlos.documentManager;
 
 import java.util.List;
 
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerLink;
@@ -56,12 +57,14 @@ class EDocUtilTicklerHtmlUnitTest extends CarlosUnitTestBase {
     @Mock private TicklerLinkDao mockTicklerLinkDao;
     @Mock private TicklerManager mockTicklerManager;
     @Mock private LoggedInInfo mockLoggedInInfo;
+    @Mock private OutboundEmailArchiveDao mockOutboundEmailArchiveDao;
     private AutoCloseable mockitoCloseable;
 
     @BeforeEach
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
         // The lazy accessors resolve these via SpringUtils.getBean on first use.
+        registerMock(OutboundEmailArchiveDao.class, mockOutboundEmailArchiveDao);
         registerMock(TicklerLinkDao.class, mockTicklerLinkDao);
         registerMock(TicklerManager.class, mockTicklerManager);
     }

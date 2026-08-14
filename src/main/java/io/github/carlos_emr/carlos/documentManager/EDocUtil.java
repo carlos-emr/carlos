@@ -236,6 +236,7 @@ public final class EDocUtil {
     private static CtlDocTypeDao ctldoctypedao() { return SpringUtils.getBean(CtlDocTypeDao.class); }
     private static DemographicManager demographicManager() { return SpringUtils.getBean(DemographicManager.class); }
     private static CtlDocumentDao ctlDocumentDao() { return SpringUtils.getBean(CtlDocumentDao.class); }
+    private static OutboundEmailArchiveDao outboundEmailArchiveDao() { return SpringUtils.getBean(OutboundEmailArchiveDao.class); }
 
     public static String getProviderName(String providerNo) {
         if (providerNo == null || providerNo.length() == 0) {
@@ -243,7 +244,7 @@ public final class EDocUtil {
         }
         Provider p = providerDao().getProvider(providerNo);
         if (p != null) {
-            return p.getLastName().toUpperCase() + ", " + p.getFirstName().toUpperCase();
+            return formatUpperLastFirst(p.getLastName(), p.getFirstName());
         }
         return "";
     }
@@ -254,9 +255,36 @@ public final class EDocUtil {
         }
         Demographic d = demographicManager().getDemographic(loggedInInfo, demographicNo);
         if (d != null) {
-            return d.getLastName().toUpperCase() + ", " + d.getFirstName().toUpperCase();
+            return formatUpperLastFirstWithAlias(d.getLastName(), d.getFirstName(), d.getAlias());
         }
         return "";
+    }
+
+    private static String formatUpperLastFirst(String lastName, String firstName) {
+        String last = StringUtils.trimToEmpty(lastName).toUpperCase(Locale.ROOT);
+        String first = StringUtils.trimToEmpty(firstName).toUpperCase(Locale.ROOT);
+        if (last.isEmpty()) {
+            return first;
+        }
+        if (first.isEmpty()) {
+            return last;
+        }
+        return last + ", " + first;
+    }
+
+    private static String formatUpperLastFirstWithAlias(String lastName, String firstName, String alias) {
+        String name = formatUpperLastFirst(lastName, firstName);
+        String trimmedAlias = StringUtils.trimToEmpty(alias);
+        if (name.isEmpty() && trimmedAlias.isEmpty()) {
+            return "N/A";
+        }
+        if (trimmedAlias.isEmpty()) {
+            return name;
+        }
+        if (name.isEmpty()) {
+            return "(" + trimmedAlias + ")";
+        }
+        return name + " (" + trimmedAlias + ")";
     }
 
     public static Provider getProvider(String providerNo) {
@@ -302,6 +330,7 @@ public final class EDocUtil {
      * @return the new documentId
      */
     public static String addDocumentSQL(EDoc newDocument) {
+        assertNotOutboundEmailArchiveFileName(newDocument.getFileName());
         Document doc = new Document();
         doc.setDoctype(newDocument.getType());
         doc.setDocClass(newDocument.getDocClass());
@@ -367,7 +396,9 @@ public final class EDocUtil {
     }
 
     public static void detachDocConsult(String docNo, String consultId) {
-        List<ConsultDocs> consultDocs = getConsultDocsDao().findByRequestIdDocNoDocType(ConversionUtils.fromIntString(consultId), ConversionUtils.fromIntString(docNo), ConsultDocs.DOCTYPE_DOC);
+        Integer parsedDocumentNo = ConversionUtils.fromIntString(docNo);
+        assertNotOutboundEmailArchiveDocument(parsedDocumentNo);
+        List<ConsultDocs> consultDocs = getConsultDocsDao().findByRequestIdDocNoDocType(ConversionUtils.fromIntString(consultId), parsedDocumentNo, ConsultDocs.DOCTYPE_DOC);
         for (ConsultDocs consultDoc : consultDocs) {
             consultDoc.setDeleted("Y");
             getConsultDocsDao().merge(consultDoc);
@@ -375,7 +406,9 @@ public final class EDocUtil {
     }
 
     public static void detachDocEForm(String docNo, String consultId) {
-        List<EFormDocs> eformDocs = getEformDocsDao().findByFdidIdDocNoDocType(ConversionUtils.fromIntString(consultId), ConversionUtils.fromIntString(docNo), EFormDocs.DOCTYPE_DOC);
+        Integer parsedDocumentNo = ConversionUtils.fromIntString(docNo);
+        assertNotOutboundEmailArchiveDocument(parsedDocumentNo);
+        List<EFormDocs> eformDocs = getEformDocsDao().findByFdidIdDocNoDocType(ConversionUtils.fromIntString(consultId), parsedDocumentNo, EFormDocs.DOCTYPE_DOC);
         for (EFormDocs eformDoc : eformDocs) {
             eformDoc.setDeleted("Y");
             getEformDocsDao().merge(eformDoc);
@@ -383,9 +416,11 @@ public final class EDocUtil {
     }
 
     public static void attachDocConsult(String providerNo, String docNo, String consultId) {
+        int parsedDocumentNo = ConversionUtils.fromIntString(docNo);
+        assertNotOutboundEmailArchiveDocument(parsedDocumentNo);
         ConsultDocs consultDoc = new ConsultDocs();
         consultDoc.setRequestId(ConversionUtils.fromIntString(consultId));
-        consultDoc.setDocumentNo(ConversionUtils.fromIntString(docNo));
+        consultDoc.setDocumentNo(parsedDocumentNo);
         consultDoc.setDocType(ConsultDocs.DOCTYPE_DOC);
         consultDoc.setAttachDate(new Date());
         consultDoc.setProviderNo(providerNo);
@@ -393,9 +428,11 @@ public final class EDocUtil {
     }
 
     public static void attachDocEForm(String providerNo, String docNo, String consultId) {
+        int parsedDocumentNo = ConversionUtils.fromIntString(docNo);
+        assertNotOutboundEmailArchiveDocument(parsedDocumentNo);
         EFormDocs eformDoc = new EFormDocs();
         eformDoc.setFdid(ConversionUtils.fromIntString(consultId));
-        eformDoc.setDocumentNo(ConversionUtils.fromIntString(docNo));
+        eformDoc.setDocumentNo(parsedDocumentNo);
         eformDoc.setDocType(ConsultDocs.DOCTYPE_DOC);
         eformDoc.setAttachDate(new Date());
         eformDoc.setProviderNo(providerNo);
@@ -404,7 +441,9 @@ public final class EDocUtil {
 
     public static void editDocumentSQL(EDoc newDocument, boolean doReview) {
 
-        Document doc = getDocumentDao().find(ConversionUtils.fromIntString(newDocument.getDocId()));
+        Integer parsedDocumentNo = ConversionUtils.fromIntString(newDocument.getDocId());
+        assertNotOutboundEmailArchiveDocument(parsedDocumentNo);
+        Document doc = getDocumentDao().find(parsedDocumentNo);
         if (doc != null) {
             doc.setDoctype(newDocument.getType());
             doc.setDocClass(newDocument.getDocClass());
@@ -481,6 +520,9 @@ public final class EDocUtil {
 
         for (Object[] o : docs) {
             Document d = (Document) o[0];
+            if (isOutboundEmailArchiveDocument(d)) {
+                continue;
+            }
 
             EDoc currentdoc = new EDoc();
             currentdoc.setDocId("" + d.getDocumentNo());
@@ -517,6 +559,9 @@ public final class EDocUtil {
         } else { //remove attached documents from full document list
             for (Object[] o : ctlDocs) {
                 Document d = (Document) o[1];
+                if (isOutboundEmailArchiveDocument(d)) {
+                    continue;
+                }
 
                 EDoc currentdoc = new EDoc();
                 currentdoc.setDocId("" + d.getDocumentNo());
@@ -565,6 +610,9 @@ public final class EDocUtil {
     public static EDoc getEDocFromDocId(String docId) {
         DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
         EDoc currentdoc = new EDoc();
+        if (isOutboundEmailArchiveDocumentId(docId)) {
+            return currentdoc;
+        }
 
         for (Object[] o : dao.findCtlDocsAndDocsByDocNo(ConversionUtils.fromIntString(docId))) {
             Document d = (Document) o[0];
@@ -607,9 +655,9 @@ public final class EDocUtil {
 
         ArrayList<EDoc> resultDocs = new ArrayList<EDoc>();
         for (String docId : docIds) {
-            EDoc currentdoc = new EDoc();
-            currentdoc = getEDocFromDocId(docId);
-            resultDocs.add(currentdoc);
+            if (!isOutboundEmailArchiveDocumentId(docId)) {
+                resultDocs.add(getEDocFromDocId(docId));
+            }
         }
         return resultDocs;
     }
@@ -624,6 +672,9 @@ public final class EDocUtil {
         ArrayList<EDoc> resultDocs = new ArrayList<EDoc>();
         for (Object[] o : documents) {
             Document d = (Document) o[1];
+            if (isOutboundEmailArchiveDocument(d)) {
+                continue;
+            }
             EDoc currentdoc = toEDoc(d);
             resultDocs.add(currentdoc);
         }
@@ -644,8 +695,9 @@ public final class EDocUtil {
 
         List<EDoc> edocList = new ArrayList<EDoc>();
         for (Document document : documents) {
-            EDoc edoc = toEDoc(document);
-            edocList.add(edoc);
+            if (!isOutboundEmailArchiveDocument(document)) {
+                edocList.add(toEDoc(document));
+            }
         }
 
         if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
@@ -667,6 +719,9 @@ public final class EDocUtil {
         ArrayList<EDoc> resultDocs = new ArrayList<EDoc>();
         for (Object[] o : documents) {
             Document d = (Document) o[1];
+            if (isOutboundEmailArchiveDocument(d)) {
+                continue;
+            }
             EDoc currentdoc = toEDoc(d);
             resultDocs.add(currentdoc);
         }
@@ -720,6 +775,9 @@ public final class EDocUtil {
 
         for (Object[] o : dao.findCtlDocsAndDocsByModuleCreatorResponsibleAndDates(Module.DEMOGRAPHIC, creator, responsible, startDate, endDate, unmatchedDemographics)) {
             Document d = (Document) o[0];
+            if (isOutboundEmailArchiveDocument(d)) {
+                continue;
+            }
             CtlDocument c = (CtlDocument) o[1];
 
             EDoc currentdoc = new EDoc();
@@ -793,6 +851,9 @@ public final class EDocUtil {
         ArrayList<EDoc> resultDocs = new ArrayList<EDoc>();
         for (Object[] o : dao.findConstultDocsDocsAndProvidersByModule(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(moduleid))) {
             Document d = (Document) o[0];
+            if (outboundEmailArchiveDao().existsByDocumentNo(d.getDocumentNo())) {
+                continue;
+            }
 
             EDoc currentdoc = new EDoc();
             currentdoc.setDocId("" + d.getDocumentNo());
@@ -837,6 +898,9 @@ public final class EDocUtil {
         DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
 
         EDoc currentdoc = new EDoc();
+        if (isOutboundEmailArchiveDocumentId(documentNo)) {
+            return currentdoc;
+        }
 
         for (Object[] o : dao.findCtlDocsAndDocsByDocNo(ConversionUtils.fromIntString(documentNo))) {
             Document d = (Document) o[0];
@@ -879,7 +943,11 @@ public final class EDocUtil {
     }
 
     public String getDocumentName(String id) {
-        Document d = getDocumentDao().find(ConversionUtils.fromIntString(id));
+        Integer documentNo = ConversionUtils.fromIntString(id);
+        if (isOutboundEmailArchiveDocumentNo(documentNo)) {
+            return null;
+        }
+        Document d = getDocumentDao().find(documentNo);
         if (d != null) {
             return d.getDocfilename();
         }
@@ -887,23 +955,32 @@ public final class EDocUtil {
     }
 
     public static void undeleteDocument(String documentNo) {
-        CtlDocument cd = ctlDocumentDao().getCtrlDocument(ConversionUtils.fromIntString(documentNo));
-        String status = "";
-        if (cd != null) {
-            status = cd.getStatus();
-        }
+        Integer parsedDocumentNo = ConversionUtils.fromIntString(documentNo);
+        assertNotOutboundEmailArchiveDocument(parsedDocumentNo);
+        CtlDocument cd = ctlDocumentDao().getCtrlDocument(parsedDocumentNo);
+        char status = undeleteStatus(cd);
 
-        Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
+        Document d = getDocumentDao().find(parsedDocumentNo);
         if (d != null) {
-            d.setStatus(status.toCharArray()[0]);
+            d.setStatus(status);
             d.setUpdatedatetime(MyDateFormat.getSysDate(getDmsDateTime()));
             getDocumentDao().merge(d);
         }
     }
 
+    private static char undeleteStatus(CtlDocument cd) {
+        String status = cd == null ? null : cd.getStatus();
+        if (status == null || status.isEmpty()) {
+            return Document.STATUS_ACTIVE;
+        }
+        return status.charAt(0);
+    }
+
     public static void deleteDocument(String documentNo) {
-        Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
+        Integer parsedDocumentNo = ConversionUtils.fromIntString(documentNo);
+        Document d = getDocumentDao().find(parsedDocumentNo);
         if (d != null) {
+            assertNotActiveOutboundEmailArchiveDocument(parsedDocumentNo);
             d.setStatus('D');
             d.setUpdatedatetime(MyDateFormat.getSysDate(getDmsDateTime()));
             getDocumentDao().merge(d);
@@ -934,12 +1011,57 @@ public final class EDocUtil {
         return PathValidationUtils.validatePathComponent(baseName, "stored document filename");
     }
 
+    private static boolean isOutboundEmailArchiveDocument(Document document) {
+        return document != null && isOutboundEmailArchiveDocumentNo(document.getDocumentNo());
+    }
+
+    private static boolean isOutboundEmailArchiveDocumentId(String documentId) {
+        if (documentId == null || documentId.isBlank()) {
+            return false;
+        }
+        try {
+            return isOutboundEmailArchiveDocumentNo(Integer.valueOf(documentId));
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private static boolean isOutboundEmailArchiveDocumentNo(Integer documentNo) {
+        return documentNo != null && outboundEmailArchiveDao().existsByDocumentNo(documentNo);
+    }
+
+    private static boolean isOutboundEmailArchiveFileName(String fileName) {
+        return fileName != null && !fileName.isBlank() && outboundEmailArchiveDao().existsByFileName(fileName);
+    }
+
+    private static void assertNotOutboundEmailArchiveDocument(Integer documentNo) {
+        if (isOutboundEmailArchiveDocumentNo(documentNo)) {
+            throw new IllegalStateException(
+                    "Outbound email archive eDocs must be managed through the controlled archive workflow");
+        }
+    }
+
+    private static void assertNotOutboundEmailArchiveFileName(String fileName) {
+        if (isOutboundEmailArchiveFileName(fileName)) {
+            throw new IllegalStateException(
+                    "Outbound email archive eDocs must be managed through the controlled archive workflow");
+        }
+    }
+
+    private static void assertNotActiveOutboundEmailArchiveDocument(Integer documentNo) {
+        if (outboundEmailArchiveDao().existsActiveByDocumentNo(documentNo)) {
+            throw new IllegalStateException(
+                    "Outbound email archive eDocs must be deleted through the controlled archive deletion workflow");
+        }
+    }
+
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void refileDocument(String documentNo, String queueId) throws Exception {
 
         File sourceBaseDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         int parsedDocumentNo = parsePositiveId(documentNo, "documentNo");
+        assertNotOutboundEmailArchiveDocument(parsedDocumentNo);
         Document d = getDocumentDao().find(parsedDocumentNo);
         if (d == null) {
             throw new FileNotFoundException("Document not found");
@@ -1028,6 +1150,7 @@ public final class EDocUtil {
     }
 
     public static int addDocument(String demoNo, String docFileName, String docDesc, String docType, String docClass, String docSubClass, String contentType, String contentDateTime, String observationDate, String updateDateTime, String docCreator, String responsible, String reviewer, String reviewDateTime, String source, String sourceFacility, String receivedDate) {
+        assertNotOutboundEmailArchiveFileName(docFileName);
 
         Document doc = new Document();
         doc.setDoctype(docType);
@@ -1084,7 +1207,7 @@ public final class EDocUtil {
         String docNumber = EDocUtil.getLastDocumentNo();
         DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
         Document d = dao.find(ConversionUtils.fromIntString(docNumber));
-        if (d != null) {
+        if (d != null && !isOutboundEmailArchiveDocument(d)) {
             return d.getDocdesc();
         }
         return null;
@@ -1160,6 +1283,9 @@ public final class EDocUtil {
         Long docIdL = getTableIdFromNoteId(noteId);
         if (docIdL > 0L) {
             Integer docId = docIdL.intValue();
+            if (isOutboundEmailArchiveDocumentNo(docId)) {
+                return doc;
+            }
 
             DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
             Document d = dao.find(docId);
@@ -1174,7 +1300,9 @@ public final class EDocUtil {
     }
 
     public static void subtractOnePage(String docId) {
-        Document doc = getDocumentDao().find(ConversionUtils.fromIntString(docId));
+        Integer parsedDocumentNo = ConversionUtils.fromIntString(docId);
+        assertNotOutboundEmailArchiveDocument(parsedDocumentNo);
+        Document doc = getDocumentDao().find(parsedDocumentNo);
         doc.setNumberofpages(doc.getNumberofpages() - 1);
 
         getDocumentDao().merge(doc);
@@ -1182,6 +1310,7 @@ public final class EDocUtil {
 
     public static String getHtmlTicklers(LoggedInInfo loggedInInfo, String docId) {
 
+        assertNotOutboundEmailArchiveDocument(ConversionUtils.fromIntString(docId));
         Long table_id = Long.valueOf(docId);
         List<TicklerLink> linkList = ticklerLinkDao().getLinkByTableId("DOC", table_id);
         String HtmlTickler = "";
@@ -1199,6 +1328,7 @@ public final class EDocUtil {
 
     public static String getHtmlAcknowledgement(Locale locale, String docId) {
 
+        assertNotOutboundEmailArchiveDocument(ConversionUtils.fromIntString(docId));
         ArrayList<ReportStatus> ackList = AcknowledgementData.getAcknowledgements("DOC", docId);
         String HtmlAcknowledgement = "";
         String comment = "";
@@ -1231,6 +1361,7 @@ public final class EDocUtil {
 
     public static String getHtmlAnnotation(String docId) {
 
+        assertNotOutboundEmailArchiveDocument(ConversionUtils.fromIntString(docId));
         Long tableId = 0L;
         String note = "";
 
@@ -1290,7 +1421,9 @@ public final class EDocUtil {
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(
                 CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
         try {
-            return PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
+            File documentFile = PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
+            assertNotOutboundEmailArchiveFileName(documentFile.getName());
+            return documentFile;
         } catch (SecurityException e) {
             if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
                 return PathValidationUtils.resolveTrustedPath(resolvedFile);
@@ -1311,6 +1444,7 @@ public final class EDocUtil {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void writeDocContent(String fileName, byte[] content) throws IOException {
+        assertNotOutboundEmailArchiveFileName(fileName);
         String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDirFile = new File(docDir);
         File file = PathValidationUtils.validatePath(fileName, docDirFile);

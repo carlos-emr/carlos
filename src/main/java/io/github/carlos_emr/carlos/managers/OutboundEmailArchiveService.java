@@ -49,6 +49,28 @@ public interface OutboundEmailArchiveService {
     OutboundEmailArchive archive(LoggedInInfo loggedInInfo, OutboundEmailArchiveDto request) throws IOException;
 
     /**
+     * Loads active archive metadata for view/download workflows after enforcing patient and eDoc read access.
+     *
+     * @param loggedInInfo current user context for permissions and audit logging
+     * @param archiveId archive metadata identifier
+     * @return active archive metadata
+     * @throws IllegalArgumentException when the archive identifier is missing or not found
+     * @throws IllegalStateException when the archive has been controlled-deleted
+     */
+    OutboundEmailArchive getActiveArchive(LoggedInInfo loggedInInfo, Integer archiveId);
+
+    /**
+     * Reads the archived outbound artifact bytes from eDoc storage after enforcing access checks.
+     *
+     * @param loggedInInfo current user context for permissions and audit logging
+     * @param archiveId archive metadata identifier
+     * @return archived artifact bytes
+     * @throws IOException when the archived eDoc file cannot be read or does not match archive metadata
+     * @throws IllegalStateException when required archive metadata is missing
+     */
+    byte[] readArchivedArtifact(LoggedInInfo loggedInInfo, Integer archiveId) throws IOException;
+
+    /**
      * Marks an archive as deleted and persists a permanent tombstone.
      *
      * @param loggedInInfo deleting user context

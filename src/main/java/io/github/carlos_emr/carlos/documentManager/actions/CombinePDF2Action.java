@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -64,6 +65,7 @@ public class CombinePDF2Action extends ActionSupport {
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient OutboundEmailArchiveDao outboundEmailArchiveDao = SpringUtils.getBean(OutboundEmailArchiveDao.class);
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
@@ -82,6 +84,10 @@ public class CombinePDF2Action extends ActionSupport {
             File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
             Path filePath;
             for (int i = 0; i < files.length; i++) {
+                if (isOutboundEmailArchiveDocument(files[i])) {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    return NONE;
+                }
                 String filename = docData.getDocumentName(files[i]);
                 filePath = PathValidationUtils.validateExistingPath(new File(documentDir, filename), documentDir).toPath();
                 alist.add(filePath.toAbsolutePath().toString());
@@ -142,6 +148,17 @@ public class CombinePDF2Action extends ActionSupport {
             }
         }
         return SUCCESS;
+    }
+
+    private boolean isOutboundEmailArchiveDocument(String documentNo) {
+        if (documentNo == null || documentNo.isBlank()) {
+            return false;
+        }
+        try {
+            return outboundEmailArchiveDao.existsByDocumentNo(Integer.valueOf(documentNo));
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     /**
