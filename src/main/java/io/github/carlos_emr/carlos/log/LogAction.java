@@ -193,6 +193,39 @@ public class LogAction {
     }
 
     /**
+     * Adds a fully attributed audit entry in the calling thread and transaction.
+     */
+    public static void addLogSynchronous(
+            LoggedInInfo loggedInInfo,
+            String action,
+            String content,
+            String contentId,
+            String demographicNo,
+            String data) {
+        OscarLog logEntry = new OscarLog();
+        if (loggedInInfo.getLoggedInSecurity() != null) {
+            logEntry.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+        }
+        if (loggedInInfo.getLoggedInProvider() != null) {
+            logEntry.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        }
+        logEntry.setAction(action);
+        logEntry.setContent(content);
+        logEntry.setContentId(contentId);
+        logEntry.setIp(loggedInInfo.getIp());
+        try {
+            String normalizedDemographicNo = StringUtils.trimToNull(demographicNo);
+            if (normalizedDemographicNo != null) {
+                logEntry.setDemographicId(Integer.parseInt(normalizedDemographicNo));
+            }
+        } catch (NumberFormatException e) {
+            logger.error("Unexpected demographic number in audit log", e);
+        }
+        logEntry.setData(data);
+        addLogSynchronous(logEntry);
+    }
+
+    /**
      * This method will add a log entry asynchronously in a separate thread.
      */
     public static void addLog(String provider_no, String action, String content, String contentId, String ip, String demographicNo, String data) {

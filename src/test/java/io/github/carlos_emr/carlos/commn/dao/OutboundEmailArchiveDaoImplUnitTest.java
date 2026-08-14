@@ -56,17 +56,29 @@ class OutboundEmailArchiveDaoImplUnitTest {
             "SELECT * FROM outboundEmailArchive WHERE id = ?1 FOR UPDATE";
     private static final String EXISTS_ACTIVE_BY_DOCUMENT_NO_JPQL =
             "SELECT COUNT(archive) FROM OutboundEmailArchive archive "
-                    + "WHERE archive.document.documentNo = :documentNo "
-                    + "AND archive.deleted = false";
+                    + "WHERE archive.deleted = false AND ("
+                    + "archive.document.documentNo = :documentNo "
+                    + "OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment "
+                    + "WHERE attachment.archive = archive "
+                    + "AND attachment.document.documentNo = :documentNo))";
     private static final String EXISTS_BY_DOCUMENT_NO_JPQL =
             "SELECT COUNT(archive) FROM OutboundEmailArchive archive "
-                    + "WHERE archive.document.documentNo = :documentNo";
+                    + "WHERE archive.document.documentNo = :documentNo "
+                    + "OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment "
+                    + "WHERE attachment.archive = archive "
+                    + "AND attachment.document.documentNo = :documentNo)";
     private static final String FIND_EXISTING_DOCUMENT_NOS_JPQL =
-            "SELECT DISTINCT archive.document.documentNo FROM OutboundEmailArchive archive "
-                    + "WHERE archive.document.documentNo IN :documentNos";
+            "SELECT DISTINCT document.documentNo FROM Document document "
+                    + "WHERE document.documentNo IN :documentNos AND ("
+                    + "EXISTS (SELECT archive.id FROM OutboundEmailArchive archive "
+                    + "WHERE archive.document = document) "
+                    + "OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment "
+                    + "WHERE attachment.document = document))";
     private static final String EXISTS_BY_FILE_NAME_JPQL =
             "SELECT COUNT(archive) FROM OutboundEmailArchive archive "
-                    + "WHERE archive.fileName = :fileName";
+                    + "WHERE archive.fileName = :fileName "
+                    + "OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment "
+                    + "WHERE attachment.archive = archive AND attachment.fileName = :fileName)";
 
     private OutboundEmailArchiveDaoImpl dao;
     private EntityManager entityManager;

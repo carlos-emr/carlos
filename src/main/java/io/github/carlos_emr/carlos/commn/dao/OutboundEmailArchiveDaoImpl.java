@@ -171,8 +171,11 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
         }
         TypedQuery<Long> query = entityManager.createQuery(
                 "SELECT COUNT(archive) FROM OutboundEmailArchive archive "
-                        + "WHERE archive.document.documentNo = :documentNo "
-                        + "AND archive.deleted = false",
+                        + "WHERE archive.deleted = false AND ("
+                        + "archive.document.documentNo = :documentNo "
+                        + "OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment "
+                        + "WHERE attachment.archive = archive "
+                        + "AND attachment.document.documentNo = :documentNo))",
                 Long.class);
         query.setParameter("documentNo", documentNo);
         return query.getSingleResult() > 0L;
@@ -185,7 +188,10 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
         }
         TypedQuery<Long> query = entityManager.createQuery(
                 "SELECT COUNT(archive) FROM OutboundEmailArchive archive "
-                        + "WHERE archive.document.documentNo = :documentNo",
+                        + "WHERE archive.document.documentNo = :documentNo "
+                        + "OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment "
+                        + "WHERE attachment.archive = archive "
+                        + "AND attachment.document.documentNo = :documentNo)",
                 Long.class);
         query.setParameter("documentNo", documentNo);
         return query.getSingleResult() > 0L;
@@ -204,8 +210,12 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
             return Set.of();
         }
         TypedQuery<Integer> query = entityManager.createQuery(
-                "SELECT DISTINCT archive.document.documentNo FROM OutboundEmailArchive archive "
-                        + "WHERE archive.document.documentNo IN :documentNos",
+                "SELECT DISTINCT document.documentNo FROM Document document "
+                        + "WHERE document.documentNo IN :documentNos AND ("
+                        + "EXISTS (SELECT archive.id FROM OutboundEmailArchive archive "
+                        + "WHERE archive.document = document) "
+                        + "OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment "
+                        + "WHERE attachment.document = document))",
                 Integer.class);
         query.setParameter("documentNos", candidates);
         return new HashSet<>(query.getResultList());
@@ -218,7 +228,9 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
         }
         TypedQuery<Long> query = entityManager.createQuery(
                 "SELECT COUNT(archive) FROM OutboundEmailArchive archive "
-                        + "WHERE archive.fileName = :fileName",
+                        + "WHERE archive.fileName = :fileName "
+                        + "OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment "
+                        + "WHERE attachment.archive = archive AND attachment.fileName = :fileName)",
                 Long.class);
         query.setParameter("fileName", fileName);
         return query.getSingleResult() > 0L;

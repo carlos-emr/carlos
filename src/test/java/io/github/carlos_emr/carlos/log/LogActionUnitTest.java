@@ -11,10 +11,14 @@ import org.junit.jupiter.api.Test;
 
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.Security;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @Tag("unit")
 class LogActionUnitTest {
@@ -40,6 +44,33 @@ class LogActionUnitTest {
                         && "view".equals(log.getAction())
                         && "document".equals(log.getContent())
                         && "123".equals(log.getContentId())));
+    }
+
+    @Test
+    @Tag("create")
+    void shouldPersistFullyAttributedAuditSynchronously() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        Security security = mock(Security.class);
+        when(security.getSecurityNo()).thenReturn(17);
+        when(loggedInInfo.getLoggedInSecurity()).thenReturn(security);
+        when(loggedInInfo.getLoggedInProvider()).thenReturn(mock(Provider.class));
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(loggedInInfo.getIp()).thenReturn("127.0.0.1");
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+
+        LogAction.addLogSynchronous(
+                loggedInInfo, "integrityFailure", "archive", "archiveId=888", "123", "fixed reason");
+
+        verify(oscarLogDao).persist(argThat((OscarLog log) ->
+                Integer.valueOf(17).equals(log.getSecurityId())
+                        && "999998".equals(log.getProviderNo())
+                        && "integrityFailure".equals(log.getAction())
+                        && "archive".equals(log.getContent())
+                        && "archiveId=888".equals(log.getContentId())
+                        && "127.0.0.1".equals(log.getIp())
+                        && Integer.valueOf(123).equals(log.getDemographicId())
+                        && "fixed reason".equals(log.getData())));
     }
 
     @Test

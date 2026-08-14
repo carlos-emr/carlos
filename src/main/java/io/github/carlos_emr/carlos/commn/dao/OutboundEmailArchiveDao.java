@@ -58,7 +58,7 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
     OutboundEmailArchive findForUpdate(Integer archiveId);
 
     /**
-     * Checks whether a document is the backing eDoc for an active outbound email archive.
+     * Checks whether a document is a retained artifact eDoc for an active outbound email archive.
      *
      * @param documentNo persisted eDoc identifier
      * @return {@code true} when the document is linked to a non-deleted archive row
@@ -66,7 +66,7 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
     boolean existsActiveByDocumentNo(Integer documentNo);
 
     /**
-     * Checks whether a document is or was the backing eDoc for an outbound email archive.
+     * Checks whether a document is or was a retained artifact eDoc for an outbound email archive.
      *
      * @param documentNo persisted eDoc identifier
      * @return {@code true} when the document is linked to any archive row
@@ -74,7 +74,7 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
     boolean existsByDocumentNo(Integer documentNo);
 
     /**
-     * Finds all archive-backed eDoc identifiers in the supplied candidates using one query.
+     * Finds all main-message and attachment archive eDoc identifiers in the supplied candidates using one query.
      *
      * @param documentNos candidate persisted eDoc identifiers
      * @return archive-backed identifiers, or an empty set for no candidates

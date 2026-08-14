@@ -841,7 +841,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
                 "Outbound email archive artifact integrity failure archiveId={}: {}",
                 archive.getId(),
                 failure.getMessage());
-        LogAction.addLog(loggedInInfo,
+        LogAction.addLogSynchronous(loggedInInfo,
                 "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
                 AUDIT_ARCHIVE_LABEL,
                 AUDIT_ARCHIVE_ID_PREFIX + archive.getId()

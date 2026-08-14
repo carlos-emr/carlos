@@ -622,7 +622,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         Path archivePath = documentDir.resolve("20260707120000_outbound-email-44.eml");
         try {
             Files.createSymbolicLink(archivePath, target.getFileName());
-        } catch (UnsupportedOperationException e) {
+        } catch (UnsupportedOperationException | IOException e) {
             return;
         }
         when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(activeArchive());
@@ -671,7 +671,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("maximum read size");
 
-        logActionMock.verify(() -> LogAction.addLog(loggedInInfo,
+        logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
                 "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
                 "Outbound email archive",
                 "archiveId=888 documentNo=321 reason=Archived artifact exceeds maximum read size of "
@@ -692,7 +692,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("size does not match");
 
-        logActionMock.verify(() -> LogAction.addLog(loggedInInfo,
+        logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
                 "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
                 "Outbound email archive",
                 "archiveId=888 documentNo=321 reason=Archived artifact size does not match archive metadata",
@@ -714,7 +714,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("hash does not match");
 
-        logActionMock.verify(() -> LogAction.addLog(loggedInInfo,
+        logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
                 "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
                 "Outbound email archive",
                 "archiveId=888 documentNo=321 reason=Archived artifact hash does not match archive metadata",
@@ -733,7 +733,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("byte size is missing");
 
-        logActionMock.verify(() -> LogAction.addLog(loggedInInfo,
+        logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
                 "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
                 "Outbound email archive",
                 "archiveId=888 documentNo=321 reason=Archived artifact byte size is missing",
@@ -752,7 +752,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("SHA-256 hash is invalid");
 
-        logActionMock.verify(() -> LogAction.addLog(loggedInInfo,
+        logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
                 "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
                 "Outbound email archive",
                 "archiveId=888 documentNo=321 reason=Archived artifact SHA-256 hash is invalid",

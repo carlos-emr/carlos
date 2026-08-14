@@ -90,7 +90,7 @@ public class CombinePDF2Action extends ActionSupport {
                 try {
                     documentNos.add(Integer.valueOf(file));
                 } catch (NumberFormatException e) {
-                    // Preserve the existing invalid-id handling in EDocUtil below.
+                    // Invalid IDs are omitted from the archive query and normalize to document 0 below.
                 }
             }
             Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(documentNos);
