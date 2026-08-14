@@ -106,10 +106,9 @@ class ProviderRoleJspRegressionTest {
                  * assign that role must not be able to make it primary either.
                  */
                 .containsPattern("heldRoleName\\.equals\\(omit\\)")
-                .containsPattern("!roleName\\.equals\\(omit\\)");
+                .containsPattern("!roleName\\.equals\\(omit\\)")
 
         // The old array interpolated provider_no and role_id into a script block unencoded.
-        assertThat(jsp)
                 .doesNotContain("items.push(item)")
                 .doesNotContain("role_id: \"<%=prop.get(\"role_id\")%>\"");
     }
@@ -162,7 +161,10 @@ class ProviderRoleJspRegressionTest {
         String primaryRoleBlock = jsp.substring(blockStart, blockEnd);
         assertThat(primaryRoleBlock)
                 .containsPattern("LogAction\\.addLog\\([\\s\\S]{0,80}LogConst\\.CON_ROLE")
-                .contains("admin.providerrole.msgUpdated");
+                .contains("admin.providerrole.msgUpdated")
+                .contains("admin.providerrole.msgNotUpdated")
+                .contains("SafeEncode.forHtmlContent(roleName)", "SafeEncode.forHtmlContent(providerNo)")
+                .doesNotContain("SafeEncode.forHtml(roleName)", "SafeEncode.forHtml(providerNo)");
     }
 
     @Test
@@ -178,11 +180,10 @@ class ProviderRoleJspRegressionTest {
                 .containsPattern("!currentRoleName\\.isEmpty\\(\\)\\s*&&\\s*!vecRoleName\\.contains\\(currentRoleName\\)")
                 // data-org feeds enableAddRoleButton and must not be raw DB text.
                 .containsPattern("data-org=\"<carlos:encode")
-                .doesNotContain("data-org=\"<%= item.getProperty(\"role_name\", \"\") %>\"");
+                .doesNotContain("data-org=\"<%= item.getProperty(\"role_name\", \"\") %>\"")
 
         // One role select per row, so each carries its own id and a hidden label; without them
         // a screen reader cannot tell the rows apart.
-        assertThat(jsp)
                 .containsPattern("<label[^>]*for=\"roleNew-<%= i %>\"")
                 .containsPattern("<select id=\"roleNew-<%= i %>\" name=\"roleNew\"");
     }

@@ -186,10 +186,10 @@
              */
             LogAction.addLog(curUser_no, LogConst.UPDATE, LogConst.CON_ROLE, providerNo + "|primaryRole>" + roleName, ip);
             msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgUpdated"),
-                    SafeEncode.forHtml(roleName), SafeEncode.forHtml(providerNo));
+                    SafeEncode.forHtmlContent(roleName), SafeEncode.forHtmlContent(providerNo));
         } else {
             msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgNotUpdated"),
-                    SafeEncode.forHtml(roleName), SafeEncode.forHtml(providerNo));
+                    SafeEncode.forHtmlContent(roleName), SafeEncode.forHtmlContent(providerNo));
         }
     }
 
