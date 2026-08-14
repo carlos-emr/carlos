@@ -36,14 +36,18 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -68,6 +72,7 @@ public class CombinePDF2Action extends ActionSupport {
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient CtlDocumentDao ctlDocumentDao = SpringUtils.getBean(CtlDocumentDao.class);
     private transient DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
     private transient OutboundEmailArchiveDao outboundEmailArchiveDao = SpringUtils.getBean(OutboundEmailArchiveDao.class);
 
@@ -75,7 +80,8 @@ public class CombinePDF2Action extends ActionSupport {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String execute() {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
@@ -97,6 +103,36 @@ public class CombinePDF2Action extends ActionSupport {
             if (archiveDocumentNos != null && !archiveDocumentNos.isEmpty()) {
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 return NONE;
+            }
+            List<CtlDocument> demographicLinks = ctlDocumentDao.findByDocumentNosAndModule(
+                    documentNos, "demographic");
+            if (demographicLinks == null) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
+            Map<Integer, List<Integer>> demographicNosByDocumentNo = new HashMap<>();
+            for (CtlDocument demographicLink : demographicLinks) {
+                if (demographicLink == null || demographicLink.getId() == null
+                        || demographicLink.getId().getDocumentNo() == null
+                        || demographicLink.getId().getModuleId() == null) {
+                    continue;
+                }
+                demographicNosByDocumentNo
+                        .computeIfAbsent(demographicLink.getId().getDocumentNo(), ignored -> new ArrayList<>())
+                        .add(demographicLink.getId().getModuleId());
+            }
+            for (Integer documentNo : documentNos) {
+                List<Integer> demographicNos = demographicNosByDocumentNo.get(documentNo);
+                if (demographicNos == null || demographicNos.isEmpty()) {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    return NONE;
+                }
+                for (Integer demographicNo : demographicNos) {
+                    if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        return NONE;
+                    }
+                }
             }
             List<Document> documents = new ArrayList<>();
             for (Integer documentNo : documentNos) {

@@ -31,6 +31,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Collection;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
@@ -40,5 +41,7 @@ public interface CtlDocumentDao extends AbstractDao<CtlDocument> {
     public CtlDocument getCtrlDocument(Integer docId);
 
     public List<CtlDocument> findByDocumentNoAndModule(Integer ctlDocNo, String module);
+
+    public List<CtlDocument> findByDocumentNosAndModule(Collection<Integer> documentNos, String module);
 
 }

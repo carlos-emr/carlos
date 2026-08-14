@@ -21,8 +21,11 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -57,23 +60,27 @@ class CombinePDF2ActionTest extends CarlosUnitTestBase {
     private MockedStatic<ServletActionContext> servletActionContext;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
+    private CtlDocumentDao ctlDocumentDao;
     private DocumentDao documentDao;
     private OutboundEmailArchiveDao outboundEmailArchiveDao;
     private SecurityInfoManager securityInfoManager;
+    private LoggedInInfo loggedInInfo;
     private CombinePDF2Action action;
 
     @BeforeEach
     void setUp() {
         securityInfoManager = mock(SecurityInfoManager.class);
+        ctlDocumentDao = mock(CtlDocumentDao.class);
         documentDao = mock(DocumentDao.class);
         outboundEmailArchiveDao = mock(OutboundEmailArchiveDao.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(CtlDocumentDao.class, ctlDocumentDao);
         registerMock(DocumentDao.class, documentDao);
         registerMock(OutboundEmailArchiveDao.class, outboundEmailArchiveDao);
 
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
-        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        loggedInInfo = mock(LoggedInInfo.class);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         request.setParameter("docNo", "321");
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)).thenReturn(true);
@@ -101,7 +108,7 @@ class CombinePDF2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
         verify(outboundEmailArchiveDao).findExistingDocumentNos(List.of(321));
-        verifyNoInteractions(documentDao);
+        verifyNoInteractions(ctlDocumentDao, documentDao);
     }
 
     @Test
@@ -113,13 +120,16 @@ class CombinePDF2ActionTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-        verifyNoInteractions(outboundEmailArchiveDao, documentDao);
+        verifyNoInteractions(outboundEmailArchiveDao, ctlDocumentDao, documentDao);
     }
 
     @Test
     @DisplayName("should reject missing documents before resolving their paths")
     void shouldRejectMissingDocumentsBeforeResolvingPaths() {
         when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321))).thenReturn(Set.of());
+        when(ctlDocumentDao.findByDocumentNosAndModule(List.of(321), "demographic"))
+                .thenReturn(List.of(demographicLink(321, 123)));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
         when(documentDao.find(321)).thenReturn(null);
 
         String result = action.execute();
@@ -131,13 +141,33 @@ class CombinePDF2ActionTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should reject callers without eDoc write access before querying documents")
     void shouldRejectCallerWithoutEdocWriteAccessBeforeQueryingDocuments() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)).thenReturn(false);
 
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_edoc");
 
-        verifyNoInteractions(outboundEmailArchiveDao, documentDao);
+        verifyNoInteractions(outboundEmailArchiveDao, ctlDocumentDao, documentDao);
+    }
+
+    @Test
+    @DisplayName("should reject documents outside the caller's patient-record access")
+    void shouldRejectDocumentsOutsidePatientRecordAccess() {
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321))).thenReturn(Set.of());
+        when(ctlDocumentDao.findByDocumentNosAndModule(List.of(321), "demographic"))
+                .thenReturn(List.of(demographicLink(321, 123)));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        verifyNoInteractions(documentDao);
+    }
+
+    private CtlDocument demographicLink(Integer documentNo, Integer demographicNo) {
+        CtlDocument ctlDocument = new CtlDocument();
+        ctlDocument.setId(new CtlDocumentPK("demographic", demographicNo, documentNo));
+        return ctlDocument;
     }
 }
