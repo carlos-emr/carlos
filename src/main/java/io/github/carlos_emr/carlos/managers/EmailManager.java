@@ -172,9 +172,10 @@ public class EmailManager {
     }
 
     private String safePersistedFailureMessage(EmailSendingException failure) {
-        return ARCHIVE_FAILURE_MESSAGE.equals(failure.getMessage())
+        String failureMessage = ARCHIVE_FAILURE_MESSAGE.equals(failure.getMessage())
                 ? ARCHIVE_FAILURE_MESSAGE
                 : SEND_FAILURE_MESSAGE;
+        return failureMessage + " (" + safeDiagnosticCategory(failure) + ")";
     }
 
     private Throwable sanitizedDiagnostic(Throwable failure, int depth) {
@@ -189,25 +190,48 @@ public class EmailManager {
     }
 
     private String safeDiagnosticCategory(Throwable failure) {
+        Throwable current = failure;
+        for (int depth = 0; current != null && depth < 8; depth++) {
+            String category = safeDiagnosticCategoryFor(current);
+            if (category != null) {
+                return category;
+            }
+            Throwable cause = current.getCause();
+            current = cause != current ? cause : null;
+        }
+        return "uncategorized delivery failure";
+    }
+
+    private String safeDiagnosticCategoryFor(Throwable failure) {
         if (failure instanceof SecurityException) {
             return "authorization failure";
         }
         if (failure instanceof java.net.SocketTimeoutException) {
             return "network timeout";
         }
+        if (failure instanceof java.net.UnknownHostException) {
+            return "host lookup failure";
+        }
         if (failure instanceof java.net.ConnectException) {
             return "connection failure";
         }
-        if (failure instanceof jakarta.mail.AuthenticationFailedException) {
+        if (failure instanceof jakarta.mail.AuthenticationFailedException
+                || failure instanceof org.springframework.mail.MailAuthenticationException) {
             return "SMTP authentication failure";
+        }
+        if (failure instanceof jakarta.mail.SendFailedException) {
+            return "SMTP recipient failure";
         }
         if (failure instanceof jakarta.mail.MessagingException) {
             return "SMTP messaging failure";
         }
+        if (failure instanceof org.springframework.mail.MailSendException) {
+            return "SMTP send failure";
+        }
         if (failure instanceof IOException) {
             return "I/O failure";
         }
-        return "email delivery failure";
+        return null;
     }
 
     private void archiveOutboundEmail(LoggedInInfo loggedInInfo, EmailSender emailSender, EmailLog emailLog) throws EmailSendingException {

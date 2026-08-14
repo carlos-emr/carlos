@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -115,12 +116,13 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
 
         assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
-        assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to archive outbound email");
+        assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to archive outbound email (I/O failure)");
         ArgumentCaptor<OutboundEmailArchiveDto> archiveCaptor = ArgumentCaptor.forClass(OutboundEmailArchiveDto.class);
         verify(outboundEmailArchiveService).archive(eq(loggedInInfo), archiveCaptor.capture());
         assertThat(archiveCaptor.getValue().getContentType()).isEqualTo("message/rfc822");
         verifyNoInteractions(javaMailSender);
-        verify(emailLogDao).updateEmailStatus(44, EmailLog.EmailStatus.FAILED, "Failed to archive outbound email", emailLog.getTimestamp());
+        verify(emailLogDao).updateEmailStatus(
+                44, EmailLog.EmailStatus.FAILED, "Failed to archive outbound email (I/O failure)", emailLog.getTimestamp());
     }
 
     @Test
@@ -168,17 +170,48 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
                 SMTPEmailSender.class,
                 (smtpSender, context) -> {
                     when(smtpSender.prepareMessageBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
-                    doThrow(new io.github.carlos_emr.carlos.utility.EmailSendingException(transportFailure))
+                    doThrow(new EmailSendingException(transportFailure))
                             .when(smtpSender).sendPreparedMessage();
                 })) {
 
             EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
 
             assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
-            assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to send email");
+            assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to send email (uncategorized delivery failure)");
             verify(emailLogDao).updateEmailStatus(
-                    eq(46), eq(EmailLog.EmailStatus.FAILED), eq("Failed to send email"), any());
+                    eq(46), eq(EmailLog.EmailStatus.FAILED),
+                    eq("Failed to send email (uncategorized delivery failure)"), any());
             verify(outboundEmailArchiveService).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
+        }
+    }
+
+    @Test
+    @DisplayName("should persist a safe actionable category for SMTP authentication failures")
+    void shouldPersistSafeCategory_whenSmtpAuthenticationFails() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 47);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        String untrustedProviderText = "credential for patient@example.test was rejected";
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareMessageBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException(
+                            "transport failed", new jakarta.mail.AuthenticationFailedException(untrustedProviderText)))
+                            .when(smtpSender).sendPreparedMessage();
+                })) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to send email (SMTP authentication failure)");
+            assertThat(emailLog.getErrorMessage()).doesNotContain(untrustedProviderText);
+            verify(emailLogDao).updateEmailStatus(
+                    eq(47), eq(EmailLog.EmailStatus.FAILED),
+                    eq("Failed to send email (SMTP authentication failure)"), any());
         }
     }
 
