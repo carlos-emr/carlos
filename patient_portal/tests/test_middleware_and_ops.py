@@ -275,7 +275,9 @@ def test_internal_readiness_reports_maintenance_without_hiding_liveness() -> Non
     )
 
     assert sign_in_response.status_code == 503
-    assert sign_in_response.json()["detail"] == "service temporarily unavailable"
+    # Browser navigation gets the maintenance page; FHIR below still gets an OperationOutcome.
+    assert sign_in_response.headers["content-type"].startswith("text/html")
+    assert "Portal unavailable" in sign_in_response.text
     assert sign_in_response.headers["retry-after"] == "120"
     assert sign_in_response.headers["cache-control"] == "no-store"
     assert fhir_response.status_code == 503
@@ -317,6 +319,37 @@ def test_internal_readiness_rejects_unmigrated_database() -> None:
     }
 
 
+def test_throttled_machine_surfaces_keep_their_json_shape() -> None:
+    """Browser paths render a page; API clients must keep parsing `detail`.
+
+    The HTML branch exists for patients, and it must not leak into surfaces something else is
+    parsing. FHIR keeps its OperationOutcome, /api keeps its JSON object.
+    """
+    app = migrated_development_app(
+        global_rate_limit_max_requests=1,
+        global_rate_limit_window_seconds=60,
+    )
+    client = TestClient(app)
+
+    client.get("/api/patient/email-passwords")
+    api_response = client.get("/api/patient/email-passwords")
+
+    assert api_response.status_code == 429
+    assert api_response.headers["content-type"].startswith("application/json")
+    assert api_response.json()["detail"] == "too many requests"
+
+    fhir_app = migrated_development_app(
+        global_rate_limit_max_requests=1,
+        global_rate_limit_window_seconds=60,
+    )
+    fhir_client = TestClient(fhir_app)
+    fhir_client.get("/fhir/Patient")
+    fhir_response = fhir_client.get("/fhir/Patient")
+
+    assert fhir_response.status_code == 429
+    assert fhir_response.json()["resourceType"] == "OperationOutcome"
+
+
 def test_global_rate_limit_throttles_patient_routes_and_exempts_health() -> None:
     app = main.create_app(
         development_settings(
@@ -334,7 +367,9 @@ def test_global_rate_limit_throttles_patient_routes_and_exempts_health() -> None
     assert first_response.status_code == 200
     assert second_response.status_code == 200
     assert throttled_response.status_code == 429
-    assert throttled_response.json()["detail"] == "too many requests"
+    # A patient hit this from a browser, so it renders a page rather than a raw JSON body.
+    assert throttled_response.headers["content-type"].startswith("text/html")
+    assert "Too many requests" in throttled_response.text
     assert throttled_response.headers["retry-after"] == "60"
     assert throttled_response.headers["cache-control"] == "no-store"
     assert health_response.status_code == 200

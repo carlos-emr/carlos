@@ -240,6 +240,51 @@ class BrowserFormValidationError(Exception):
         self.safe_form_values = safe_form_values or {}
 
 
+def wants_html_response(path: str) -> bool:
+    """Whether a patient reached `path` from a browser and should get a page, not a JSON body.
+
+    Rate limiting and maintenance mode are the two states a real patient hits on an ordinary
+    browser navigation, so they are the two that most need a readable page. Machine surfaces keep
+    their JSON/FHIR shapes: an API client parsing `{"detail": ...}` must not start receiving HTML.
+    """
+    return not (
+        path.startswith("/api/")
+        or path.startswith(FHIR_PATH_PREFIX)
+        or path.startswith("/internal/")
+        or path.startswith("/dev/admin/")
+    )
+
+
+def service_notice_response(
+    request: Request,
+    *,
+    settings: Settings,
+    status_code: int,
+    heading_key: str,
+    message_key: str,
+    retry_after_seconds: int,
+) -> Response:
+    """Render the browser-facing page for a throttled or unavailable portal."""
+    locale = request_locale(request)
+    text = portal_text(locale)
+    return templates.TemplateResponse(
+        request=request,
+        name="service_notice.jinja",
+        context={
+            "clinic_name": settings.clinic_name,
+            "service_name": settings.service_name,
+            "locale": locale,
+            "locale_switch_target": locale_switch_targets(request),
+            "supported_locales": supported_locale_options(locale),
+            "text": text,
+            "notice_heading": text[heading_key],
+            "notice_message": text[message_key],
+        },
+        status_code=status_code,
+        headers={"Retry-After": str(retry_after_seconds)},
+    )
+
+
 def is_safe_local_redirect(destination: str) -> bool:
     """Whether `destination` is a same-origin path this app may redirect a patient to.
 

@@ -224,6 +224,16 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
             "Clinic staff must unlock this account before another sign-in or password reset. "
             "Contact the clinic for help."
         ),
+        "service_busy_heading": "Too many requests",
+        "service_busy_details": (
+            "The portal received too many requests from this connection. Wait a moment and try "
+            "again."
+        ),
+        "service_maintenance_heading": "Portal unavailable",
+        "service_maintenance_details": (
+            "The portal is temporarily unavailable for maintenance. Try again shortly, or contact "
+            "the clinic if you need help now."
+        ),
         "session_locked_heading": "Account locked",
         "sign_in_aria_label": SIGN_IN_LABEL,
         "sign_in_button": SIGN_IN_LABEL,

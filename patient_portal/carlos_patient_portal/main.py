@@ -108,8 +108,10 @@ from carlos_patient_portal.web_support import (
     is_valid_csrf_submission,
     portal_template_context,
     sanitized_validation_errors,
+    service_notice_response,
     set_csrf_cookie,
     templates,
+    wants_html_response,
 )
 
 logger = logging.getLogger(__name__)
@@ -387,6 +389,16 @@ def register_security_middleware(app: FastAPI, runtime: PortalRuntime) -> None:
                     code="transient",
                     diagnostics=SERVICE_UNAVAILABLE_DETAIL,
                 )
+            elif wants_html_response(request.url.path):
+                # A patient who navigated here in a browser gets a page, not a raw JSON body.
+                response = service_notice_response(
+                    request,
+                    settings=settings,
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    heading_key="service_maintenance_heading",
+                    message_key="service_maintenance_details",
+                    retry_after_seconds=settings.maintenance_retry_after_seconds,
+                )
             else:
                 response = JSONResponse(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -409,6 +421,15 @@ def register_security_middleware(app: FastAPI, runtime: PortalRuntime) -> None:
                     diagnostics="too many requests",
                 )
                 response.headers["Retry-After"] = str(retry_after_seconds)
+            elif wants_html_response(request.url.path):
+                response = service_notice_response(
+                    request,
+                    settings=settings,
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    heading_key="service_busy_heading",
+                    message_key="service_busy_details",
+                    retry_after_seconds=retry_after_seconds,
+                )
             else:
                 response = JSONResponse(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
