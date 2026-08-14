@@ -183,6 +183,21 @@ class CombinePDF2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should enforce patient access for mixed-case demographic links")
+    void shouldEnforcePatientAccessForMixedCaseDemographicLinks() {
+        Document document = new Document();
+        document.setPublic1(1);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
+
+        boolean authorized = action.isAuthorizedDocumentScope(loggedInInfo, document, List.of(
+                demographicLink("DeMoGrApHiC", 321, 123),
+                providerLink(321, 999998)));
+
+        assertThat(authorized).isFalse();
+        verify(securityInfoManager).isAllowedAccessToPatientRecord(loggedInInfo, 123);
+    }
+
+    @Test
     @DisplayName("should allow private provider documents only for the linked provider")
     void shouldAllowPrivateProviderDocumentsOnlyForLinkedProvider() {
         Document document = new Document();
@@ -195,8 +210,12 @@ class CombinePDF2ActionTest extends CarlosUnitTestBase {
     }
 
     private CtlDocument demographicLink(Integer documentNo, Integer demographicNo) {
+        return demographicLink("demographic", documentNo, demographicNo);
+    }
+
+    private CtlDocument demographicLink(String module, Integer documentNo, Integer demographicNo) {
         CtlDocument ctlDocument = new CtlDocument();
-        ctlDocument.setId(new CtlDocumentPK("demographic", demographicNo, documentNo));
+        ctlDocument.setId(new CtlDocumentPK(module, demographicNo, documentNo));
         return ctlDocument;
     }
 

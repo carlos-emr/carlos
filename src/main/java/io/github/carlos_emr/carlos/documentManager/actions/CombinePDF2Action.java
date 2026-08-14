@@ -204,7 +204,7 @@ public class CombinePDF2Action extends ActionSupport {
         for (CtlDocument documentLink : documentLinks) {
             String module = documentLink.getId().getModule();
             Integer moduleId = documentLink.getId().getModuleId();
-            if ("demographic".equals(module)) {
+            if (isDemographicModule(module)) {
                 hasDemographicLink = true;
                 if (moduleId == null
                         || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, moduleId)) {
@@ -228,6 +228,11 @@ public class CombinePDF2Action extends ActionSupport {
         return providerNo != null && documentLinks.stream()
                 .anyMatch(documentLink -> EDocUtil.isProviderModule(documentLink.getId().getModule())
                         && providerNo.equals(documentLink.getId().getModuleId()));
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "ASCII database module identifier is matched case-insensitively for legacy compatibility")
+    private boolean isDemographicModule(String module) {
+        return "demographic".equalsIgnoreCase(module);
     }
 
     private Integer parseProviderNo(String providerNo) {
