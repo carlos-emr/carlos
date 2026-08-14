@@ -373,24 +373,16 @@ public class ConsultationWebService extends AbstractServiceImpl {
         // A null (omitted) responseId means "initialize a new response" — route it to the else
         // branch rather than unboxing null into the responseId > 0 comparison.
         if (responseId != null && responseId > 0) {
-            ConsultationResponse responseD = consultationManager.getResponse(getLoggedInInfo(), responseId);
-            if (responseD == null) {
-                throw new WebApplicationException(
-                        Response.status(Response.Status.NOT_FOUND).entity("Consultation response not found").build());
-            }
-
-            // Authorize against the demographic the response actually belongs to, not the
-            // caller-supplied demographicNo, so the response cannot be read for a patient the
-            // caller is not entitled to by pairing a foreign responseId with an authorized demographicNo.
+            ConsultationResponse responseD = getAuthorizedConsultationResponse(responseId);
             demographicNo = responseD.getDemographicNo();
-            requireConsultationReadPrivilege(demographicNo);
 
             response = responseConverter.getAsTransferObject(getLoggedInInfo(), responseD);
 
             ProfessionalSpecialist referringDoctorD = consultationManager.getProfessionalSpecialist(responseD.getReferringDocId());
             response.setReferringDoctor(specialistConverter.getAsTransferObject(getLoggedInInfo(), referringDoctorD));
 
-            response.setAttachments(getResponseAttachments(responseId, demographicNo, ConsultationAttachmentTo1.ATTACHED));
+            response.setAttachments(getResponseAttachmentsForAuthorizedResponse(
+                    responseId, demographicNo, ConsultationAttachmentTo1.ATTACHED));
         } else {
             requireConsultationReadPrivilege(demographicNo);
             response.setProviderNo(getLoggedInInfo().getLoggedInProviderNo());
@@ -436,16 +428,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
             throw new WebApplicationException(
                     Response.status(Response.Status.BAD_REQUEST).entity("responseId is required").build());
         }
-        // Resolve the demographic from the response itself and authorize against it, rather than
-        // trusting the caller-supplied demographicNo, so a forged responseId cannot expose another
-        // patient's attached consultation documents.
-        ConsultationResponse responseD = consultationManager.getResponse(getLoggedInInfo(), responseId);
-        if (responseD == null) {
-            throw new WebApplicationException(
-                    Response.status(Response.Status.NOT_FOUND).entity("Consultation response not found").build());
-        }
-        Integer resolvedDemographicNo = responseD.getDemographicNo();
-        requireConsultationReadPrivilege(resolvedDemographicNo);
+        ConsultationResponse responseD = getAuthorizedConsultationResponse(responseId);
+        return getResponseAttachmentsForAuthorizedResponse(responseId, responseD.getDemographicNo(), attached);
+    }
+
+    private List<ConsultationAttachmentTo1> getResponseAttachmentsForAuthorizedResponse(
+            Integer responseId, Integer resolvedDemographicNo, boolean attached) {
 
         List<ConsultationAttachmentTo1> attachments = new ArrayList<ConsultationAttachmentTo1>();
         String demographicNo = resolvedDemographicNo.toString();
@@ -579,6 +567,36 @@ public class ConsultationWebService extends AbstractServiceImpl {
     /*******************
      * private methods *
      *******************/
+
+    /**
+     * Resolves a stored response after enforcing both the manager's global consultation
+     * privilege and the response's patient-specific privilege at the REST boundary.
+     */
+    private ConsultationResponse getAuthorizedConsultationResponse(Integer responseId) {
+        requireGlobalConsultationReadPrivilege();
+
+        ConsultationResponse response = consultationManager.getResponse(getLoggedInInfo(), responseId);
+        if (response == null) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.NOT_FOUND).entity("Consultation response not found").build());
+        }
+
+        // Resolve authorization from the persisted response rather than trusting a caller-supplied
+        // demographic, so a forged responseId cannot expose another patient's consultation data.
+        requireConsultationReadPrivilege(response.getDemographicNo());
+        return response;
+    }
+
+    /**
+     * Maps the manager's global consultation read requirement to a controlled REST response.
+     */
+    private void requireGlobalConsultationReadPrivilege() {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_con", "r", (String) null)) {
+            LogAction.addLogSynchronous(getLoggedInInfo(),
+                    "ConsultationWebService.consultationReadDenied", "scope=global");
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+    }
 
     /**
      * Enforces patient-level read access to consultation data for the given demographic.

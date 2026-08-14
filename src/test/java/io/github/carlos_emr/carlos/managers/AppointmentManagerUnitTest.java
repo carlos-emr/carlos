@@ -113,6 +113,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         // Security manager returns true for all privilege checks by default
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
             .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt()))
+            .thenReturn(true);
 
         // Create manager and inject dependencies
         appointmentManager = new AppointmentManagerImpl();
@@ -141,6 +143,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @BeforeEach
         void denyAllPrivileges() {
             when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
+                .thenReturn(false);
+            when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt()))
                 .thenReturn(false);
         }
 
@@ -582,7 +586,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
                 mockLoggedInInfo, TEST_DEMO_NO, 0, 10);
 
             // Then
-            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_appointment", "r", null);
+            verify(mockSecurityInfoManager).hasPrivilege(
+                mockLoggedInInfo, "_appointment", "r", TEST_DEMO_NO);
         }
     }
 

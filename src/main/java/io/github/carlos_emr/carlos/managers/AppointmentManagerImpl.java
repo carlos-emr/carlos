@@ -74,7 +74,7 @@ public class AppointmentManagerImpl implements AppointmentManager {
 
 
     public List<Appointment> getAppointmentHistoryWithoutDeleted(LoggedInInfo loggedInInfo, Integer demographicNo, Integer offset, Integer limit) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", demographicNo)) {
             throw new RuntimeException("Access Denied");
         }
 

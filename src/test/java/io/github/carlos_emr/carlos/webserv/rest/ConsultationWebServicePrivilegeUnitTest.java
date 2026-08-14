@@ -72,7 +72,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
@@ -186,6 +185,7 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     void shouldDenyGetResponse_usingResponseDemographicWhenCallerLacksPrivilege() {
         ConsultationResponse stored = new ConsultationResponse();
         stored.setDemographicNo(50);
+        allowGlobalConsultationRead();
         when(consultationManager.getResponse(any(), eq(123))).thenReturn(stored);
         when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(50))).thenReturn(false);
 
@@ -204,6 +204,7 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     void shouldDenyGetResponseAttachments_usingResponseDemographicWhenCallerLacksPrivilege() {
         ConsultationResponse stored = new ConsultationResponse();
         stored.setDemographicNo(50);
+        allowGlobalConsultationRead();
         when(consultationManager.getResponse(any(), eq(5))).thenReturn(stored);
         when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(50))).thenReturn(false);
 
@@ -218,6 +219,32 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return forbidden from getResponse when global consultation read privilege is denied")
+    void shouldReturnForbiddenGetResponse_whenGlobalReadPrivilegeDenied() {
+        assertThatThrownBy(() -> service.getResponse(123, 7))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
+
+        verify(consultationManager, never()).getResponse(any(), any());
+        logActionMock.verify(() -> LogAction.addLogSynchronous(
+                loggedInInfo, "ConsultationWebService.consultationReadDenied", "scope=global"));
+    }
+
+    @Test
+    @DisplayName("should return forbidden from response attachments when global consultation read privilege is denied")
+    void shouldReturnForbiddenResponseAttachments_whenGlobalReadPrivilegeDenied() {
+        assertThatThrownBy(() -> service.getResponseAttachments(5, 7, true))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
+
+        verify(consultationManager, never()).getResponse(any(), any());
+        logActionMock.verify(() -> LogAction.addLogSynchronous(
+                loggedInInfo, "ConsultationWebService.consultationReadDenied", "scope=global"));
+    }
+
+    @Test
     @DisplayName("should return getResponse data when caller can read the stored response demographic")
     void shouldReturnGetResponse_whenCallerHasReadPrivilegeForStoredDemographic() {
         ConsultationResponse stored = new ConsultationResponse();
@@ -229,6 +256,7 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
         Demographic demographic = new Demographic();
         DemographicTo1 convertedDemographic = new DemographicTo1();
 
+        allowGlobalConsultationRead();
         when(consultationManager.getResponse(any(), eq(123))).thenReturn(stored);
         when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(50))).thenReturn(true);
         when(responseConverter.getAsTransferObject(loggedInInfo, stored)).thenReturn(convertedResponse);
@@ -237,15 +265,28 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
         when(demographicManager.getDemographicWithExt(loggedInInfo, 50)).thenReturn(demographic);
         when(demographicConverter.getAsTransferObject(loggedInInfo, demographic)).thenReturn(convertedDemographic);
         when(clinicDAO.getClinic()).thenReturn(mock(Clinic.class));
-        doReturn(Collections.emptyList()).when(service).getResponseAttachments(123, 50, true);
 
-        ConsultationResponseTo1 response = service.getResponse(123, 7);
+        try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+             MockedStatic<EFormUtil> eFormUtilMock = mockStatic(EFormUtil.class);
+             MockedConstruction<CommonLabResultData> labDataMock = mockConstruction(
+                     CommonLabResultData.class,
+                     (mock, context) -> when(mock.populateLabResultsDataConsultResponse(
+                             loggedInInfo, "50", "123", true)).thenReturn(new ArrayList<>()))) {
+            eDocUtilMock.when(() -> EDocUtil.listResponseDocs(loggedInInfo, "50", "123", true))
+                    .thenReturn(new ArrayList<>());
+            eFormUtilMock.when(() -> EFormUtil.listPatientEFormsShowLatestOnly("50"))
+                    .thenReturn(Collections.emptyList());
 
-        assertThat(response).isSameAs(convertedResponse);
-        assertThat(response.getAttachments()).isEmpty();
-        verify(consultationManager).getResponse(loggedInInfo, 123);
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "r", 50);
-        verify(service).getResponseAttachments(123, 50, true);
+            ConsultationResponseTo1 response = service.getResponse(123, 7);
+
+            assertThat(response).isSameAs(convertedResponse);
+            assertThat(response.getAttachments()).isEmpty();
+            verify(consultationManager).getResponse(loggedInInfo, 123);
+            verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "r", 50);
+            eDocUtilMock.verify(() -> EDocUtil.listResponseDocs(loggedInInfo, "50", "123", true));
+            eFormUtilMock.verify(() -> EFormUtil.listPatientEFormsShowLatestOnly("50"));
+            assertThat(labDataMock.constructed()).hasSize(1);
+        }
     }
 
     @Test
@@ -253,6 +294,7 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     void shouldReturnResponseAttachments_whenCallerHasReadPrivilegeForStoredDemographic() {
         ConsultationResponse stored = new ConsultationResponse();
         stored.setDemographicNo(50);
+        allowGlobalConsultationRead();
         when(consultationManager.getResponse(any(), eq(5))).thenReturn(stored);
         when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(50))).thenReturn(true);
 
@@ -282,6 +324,7 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return not found when getResponseAttachments responseId has no stored response")
     void shouldReturnNotFound_whenResponseAttachmentsResponseUnknown() {
+        allowGlobalConsultationRead();
         when(consultationManager.getResponse(any(), eq(5))).thenReturn(null);
 
         assertThatThrownBy(() -> service.getResponseAttachments(5, 7, true))
@@ -329,6 +372,7 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return not found when responseId has no stored consultation response")
     void shouldReturnNotFound_whenResponseIdHasNoStoredResponse() {
+        allowGlobalConsultationRead();
         when(consultationManager.getResponse(any(), eq(123))).thenReturn(null);
 
         assertThatThrownBy(() -> service.getResponse(123, 7))
@@ -387,5 +431,10 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
                         .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
 
         verify(consultationManager, never()).getEReferAttachments(any(), any(), any(), any());
+    }
+
+    private void allowGlobalConsultationRead() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", (String) null))
+                .thenReturn(true);
     }
 }
