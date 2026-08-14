@@ -125,7 +125,9 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
         if (source == null) {
             throw new IOException("Generated email attachment is not a regular file");
         }
-        if (!source.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+        Path sourceFileName = source.getFileName();
+        if (sourceFileName == null
+                || !sourceFileName.toString().toLowerCase(Locale.ROOT).endsWith(".pdf")) {
             throw new IOException("Generated email attachment is not a PDF");
         }
 
@@ -204,7 +206,15 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
 
     /** Returns whether a path is an artifact in this working directory. */
     public boolean owns(Path path) {
-        return path != null && path.toAbsolutePath().normalize().startsWith(directory);
+        if (path == null) {
+            return false;
+        }
+        try {
+            Path realPath = path.toRealPath(LinkOption.NOFOLLOW_LINKS);
+            return !Files.isSymbolicLink(realPath) && realPath.startsWith(directory);
+        } catch (IOException | SecurityException e) {
+            return false;
+        }
     }
 
     /**

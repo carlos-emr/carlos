@@ -97,11 +97,16 @@ class EmailComposeWorkingDirectoryUnitTest {
         Path externalFile = Files.writeString(tempDirectory.resolve("external.pdf"), "must remain");
         EmailComposeWorkingDirectory workingDirectory = EmailComposeWorkingDirectory.create(applicationRoot);
         try {
+            Path internalSymlink;
             try {
-                Files.createSymbolicLink(workingDirectory.path().resolve("link.pdf"), externalFile);
+                internalSymlink = Files.createSymbolicLink(
+                        workingDirectory.path().resolve("link.pdf"),
+                        externalFile);
             } catch (IOException | UnsupportedOperationException e) {
                 assumeTrue(false, "filesystem does not support symbolic links");
+                return;
             }
+            assertThat(workingDirectory.owns(internalSymlink)).isFalse();
         } finally {
             workingDirectory.close();
         }
@@ -128,6 +133,9 @@ class EmailComposeWorkingDirectoryUnitTest {
                     .isInstanceOf(IOException.class);
             assertThatThrownBy(() -> workingDirectory.adoptGeneratedPdf(textFile))
                     .isInstanceOf(IOException.class);
+            assertThatThrownBy(() -> workingDirectory.adoptGeneratedPdf(applicationRoot.getRoot()))
+                    .isInstanceOf(IOException.class)
+                    .hasMessage("Generated email attachment is not a PDF");
         }
     }
 
