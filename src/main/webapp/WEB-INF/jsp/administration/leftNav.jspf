@@ -470,7 +470,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 								
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.groupCreate" rights="w" reverse="<%=false%>">
 						<li><a href="javascript:void(0);"
-							class="xlink" rel="${ctx}/admin/AdminNewGroup?submit=blank"><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+							class="xlink" rel="${ctx}/admin/AdminNewGroup"><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
 					</security:oscarSec>
 					<li><a href="javascript:void(0);"
 						class="xlink" rel="${ctx}/admin/ViewAdminDisplayMyGroup"><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>

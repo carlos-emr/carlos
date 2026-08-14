@@ -3149,6 +3149,51 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return s1.trim().equals(s2.trim());
     }
 
+    /**
+     * Parses the {@code noteId} request parameter for {@link #ticklerSaveNote()} into an existing
+     * note's primary key, or {@code null} when there is no existing note to revise.
+     * <p>The tickler-note dialog's hidden {@code noteId} field is client-populated; a stale or
+     * malformed value (historically the literal string {@code "undefined"}, see the tickler-note
+     * "undefined" display bug) must not blow up note persistence with an uncaught
+     * {@link NumberFormatException} — it should be treated the same as "no existing note".
+     */
+    static Long parseExistingNoteId(String noteId) {
+        if (noteId == null || !noteId.matches("\\d+") || noteId.equals("0")) {
+            return null;
+        }
+        try {
+            return Long.valueOf(noteId);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Computes the next revision number for {@link #ticklerSaveNote()} from the prior note's
+     * stored revision. A non-numeric {@code priorRevision} must not throw an uncaught
+     * {@link NumberFormatException} and abort the save; it is treated as if this were the first
+     * revision instead.
+     */
+    static String nextRevision(String priorRevision) {
+        try {
+            return String.valueOf(Integer.parseInt(priorRevision) + 1);
+        } catch (NumberFormatException e) {
+            return "1";
+        }
+    }
+
+    /**
+     * Prepends the new note text to the prior note's history for {@link #ticklerSaveNote()}.
+     * Legacy notes can have a {@code null} or empty stored history; concatenating that directly
+     * would persist the literal text {@code "null"} into the new note's history instead of
+     * being treated as "no prior history".
+     */
+    static String combineHistory(String newNote, String priorHistory) {
+        return (priorHistory == null || priorHistory.isEmpty())
+                ? newNote
+                : newNote + "\n" + priorHistory;
+    }
+
     /*
      * 1) load existing note if possible
      * 1) update/save the note
@@ -3166,12 +3211,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String history = strNote;
         String uuid = null;
 
-        if (noteId != null && noteId.length() > 0 && !noteId.equals("0")) {
-            CaseManagementNote existingNote = this.caseManagementNoteDao.getNote(Long.valueOf(noteId));
+        Long existingNoteId = parseExistingNoteId(noteId);
+        if (existingNoteId != null) {
+            CaseManagementNote existingNote = this.caseManagementNoteDao.getNote(existingNoteId);
 
-            revision = String.valueOf(Integer.valueOf(existingNote.getRevision()).intValue() + 1);
-            history = strNote + "\n" + existingNote.getHistory();
-            uuid = existingNote.getUuid();
+            if (existingNote != null) {
+                revision = nextRevision(existingNote.getRevision());
+                history = combineHistory(strNote, existingNote.getHistory());
+                uuid = existingNote.getUuid();
+            }
         }
 
         CaseManagementNote cmn = new CaseManagementNote();
