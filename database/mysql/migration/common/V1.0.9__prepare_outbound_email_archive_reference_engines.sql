@@ -15,6 +15,10 @@
 -- If any row reports a non-InnoDB engine, this migration will rebuild that
 -- table. Schedule the update accordingly on large legacy databases.
 
+SET @document_innodb_sql = 'ALTER TABLE `document` ENGINE=InnoDB';
+SET @email_config_innodb_sql = 'ALTER TABLE `emailConfig` ENGINE=InnoDB';
+SET @email_log_innodb_sql = 'ALTER TABLE `emailLog` ENGINE=InnoDB';
+
 SET @missing_outbound_archive_reference_table = NULL;
 SELECT required_reference_tables.table_name
   INTO @missing_outbound_archive_reference_table
@@ -37,11 +41,11 @@ SELECT required_reference_tables.table_name
 -- migration free of persistent helper routines.
 SET @outbound_archive_reference_engine_sql = CASE
   WHEN @missing_outbound_archive_reference_table = 'document'
-    THEN 'ALTER TABLE `document` ENGINE=InnoDB'
+    THEN @document_innodb_sql
   WHEN @missing_outbound_archive_reference_table = 'emailConfig'
-    THEN 'ALTER TABLE `emailConfig` ENGINE=InnoDB'
+    THEN @email_config_innodb_sql
   WHEN @missing_outbound_archive_reference_table = 'emailLog'
-    THEN 'ALTER TABLE `emailLog` ENGINE=InnoDB'
+    THEN @email_log_innodb_sql
   ELSE 'SELECT ''outbound archive reference tables exist'' AS message'
 END;
 PREPARE outbound_archive_reference_engine_stmt FROM @outbound_archive_reference_engine_sql;
@@ -62,7 +66,7 @@ SELECT `ENGINE`
 
 SET @outbound_archive_reference_engine_sql = IF(
   UPPER(@document_engine) <> 'INNODB',
-  'ALTER TABLE `document` ENGINE=InnoDB',
+  @document_innodb_sql,
   'SELECT ''document already InnoDB'' AS message'
 );
 PREPARE outbound_archive_reference_engine_stmt FROM @outbound_archive_reference_engine_sql;
@@ -80,7 +84,7 @@ SELECT `ENGINE`
 
 SET @outbound_archive_reference_engine_sql = IF(
   UPPER(@email_config_engine) <> 'INNODB',
-  'ALTER TABLE `emailConfig` ENGINE=InnoDB',
+  @email_config_innodb_sql,
   'SELECT ''emailConfig already InnoDB'' AS message'
 );
 PREPARE outbound_archive_reference_engine_stmt FROM @outbound_archive_reference_engine_sql;
@@ -98,7 +102,7 @@ SELECT `ENGINE`
 
 SET @outbound_archive_reference_engine_sql = IF(
   UPPER(@email_log_engine) <> 'INNODB',
-  'ALTER TABLE `emailLog` ENGINE=InnoDB',
+  @email_log_innodb_sql,
   'SELECT ''emailLog already InnoDB'' AS message'
 );
 PREPARE outbound_archive_reference_engine_stmt FROM @outbound_archive_reference_engine_sql;
@@ -107,6 +111,9 @@ DEALLOCATE PREPARE outbound_archive_reference_engine_stmt;
 
 SET @missing_outbound_archive_reference_table = NULL;
 SET @outbound_archive_reference_engine_sql = NULL;
+SET @document_innodb_sql = NULL;
+SET @email_config_innodb_sql = NULL;
+SET @email_log_innodb_sql = NULL;
 SET @document_engine = NULL;
 SET @email_config_engine = NULL;
 SET @email_log_engine = NULL;
