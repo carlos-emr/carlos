@@ -6,6 +6,7 @@ import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.WebappShutdownResources;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.security.NoSuchAlgorithmException;
@@ -313,8 +314,9 @@ class StartupUnitTest extends CarlosUnitTestBase {
         Object originalKeySpec = keySpecField.get(null);
 
         CarlosProperties props = CarlosProperties.getInstance();
-        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
         String originalUserHome = System.getProperty("user.home");
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
 
         Path webappRoot = tempDir.resolve("webapps").resolve("carlos");
         Files.createDirectories(webappRoot);
@@ -325,6 +327,9 @@ class StartupUnitTest extends CarlosUnitTestBase {
 
         try {
             System.setProperty("user.home", tempDir.toString());
+            // Key-handling test, so give Startup real deployment config to find: packaged defaults no
+            // longer count, so without a config file it fails fast (shouldAbortStartup_whenNoConfigFileExists).
+            writeDeploymentConfig(tempDir, "carlos");
             String existingKey = EncryptionUtils.generateSecretKey();
             props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, existingKey);
             keySpecField.set(null, null);
@@ -339,7 +344,8 @@ class StartupUnitTest extends CarlosUnitTestBase {
             assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo("startup-password");
         } finally {
             restoreUserHome(originalUserHome);
-            restoreProperty(props, originalProp);
+            props.clear();
+            props.putAll(snapshot);
             keySpecField.set(null, originalKeySpec);
         }
     }
@@ -406,13 +412,16 @@ class StartupUnitTest extends CarlosUnitTestBase {
         Object originalKeySpec = keySpecField.get(null);
 
         CarlosProperties props = CarlosProperties.getInstance();
-        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
         String originalUserHome = System.getProperty("user.home");
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
 
         ServletContextEvent event = newStartupEvent(tempDir);
 
         try {
             System.setProperty("user.home", tempDir.toString());
+            // See the sibling key test: config must exist before Startup reaches key generation.
+            writeDeploymentConfig(tempDir, "carlos");
             props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "   ");
             keySpecField.set(null, null);
 
@@ -428,7 +437,8 @@ class StartupUnitTest extends CarlosUnitTestBase {
             assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo("startup-password");
         } finally {
             restoreUserHome(originalUserHome);
-            restoreProperty(props, originalProp);
+            props.clear();
+            props.putAll(snapshot);
             keySpecField.set(null, originalKeySpec);
         }
     }
@@ -682,6 +692,65 @@ class StartupUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @Tag("create")
+    @DisplayName("should load WEB-INF config when the packaged defaults already supply a db username")
+    void shouldLoadWebInfConfig_whenPackagedDefaultsAlreadySupplyDbUsername(@TempDir Path tempDir) throws Exception {
+        // The deployed shape the sibling test hand-seeds away: CarlosProperties pre-loads the packaged
+        // /carlos.properties (shipped in the WAR at WEB-INF/classes/), which supplies a db_username. A
+        // guard reading the merged singleton therefore sees "configured", skips the /WEB-INF/ fallback,
+        // and leaves the deployment on packaged defaults - the #2969 symptom. Loads the real resource
+        // rather than a stand-in so the test stays honest if those defaults change.
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalUserHome = System.getProperty("user.home");
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
+
+        // Context "carlosmerge" -> /WEB-INF/carlosmerge.properties (db config, no key).
+        ServletContextEvent event = newStartupEvent(tempDir, "carlosmerge");
+        Path userHomeStub = tempDir.resolve("carlosmerge.properties");
+
+        try {
+            System.setProperty("user.home", tempDir.toString());
+            keySpecField.set(null, null);
+
+            // The real packaged defaults, exactly as the CarlosProperties constructor loads them.
+            props.clear();
+            props.readFromFile("/carlos.properties");
+            assertThat(props.getProperty("db_username"))
+                    .as("packaged /carlos.properties must ship a db_username; without it this test no "
+                            + "longer reproduces the #2969 regression")
+                    .isNotBlank();
+            // Keeps the trailing BASE_DOCUMENT_DIR block from calling mkdirs() outside @TempDir.
+            props.remove("BASE_DOCUMENT_DIR");
+
+            // user-home holds ONLY a real generated key - the second-boot stub.
+            String userHomeKey = EncryptionUtils.generateSecretKey();
+            Properties stub = new Properties();
+            stub.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, userHomeKey);
+            try (var out = Files.newOutputStream(userHomeStub)) {
+                stub.store(out, "issue #2969 key-only stub");
+            }
+
+            new Startup().contextInitialized(event);
+
+            // Packaged defaults are not real configuration: the WEB-INF merge must still run and win.
+            assertThat(props.getProperty("db_username")).isEqualTo("carlos_test_user");
+            assertThat(props.getProperty("db_name")).isEqualTo("carlos_test_db");
+            // The real user-home key survives (carlosmerge WEB-INF defines no key of its own).
+            assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR)).isEqualTo(userHomeKey);
+        } finally {
+            restoreUserHome(originalUserHome);
+            props.clear();
+            props.putAll(snapshot);
+            keySpecField.set(null, originalKeySpec);
+        }
+    }
+
     /**
      * Drives {@code Startup.contextInitialized} with an invalid existing key and asserts a fail-fast
      * abort. The abort is raised as an {@link IllegalStateException} but re-wrapped by the method's
@@ -736,6 +805,19 @@ class StartupUnitTest extends CarlosUnitTestBase {
         when(event.getServletContext()).thenReturn(servletContext);
         when(servletContext.getResource("/")).thenReturn(webappRoot.toUri().toURL());
         return event;
+    }
+
+    /**
+     * Writes the minimal deployment-supplied config Startup needs to get past the {@code /WEB-INF/}
+     * fallback decision. Synthetic values only - no real credentials.
+     */
+    private static void writeDeploymentConfig(Path tempDir, String contextName) throws IOException {
+        Properties config = new Properties();
+        config.setProperty("db_username", "carlos_test_user");
+        config.setProperty("db_name", "carlos_test_db");
+        try (var out = Files.newOutputStream(tempDir.resolve(contextName + ".properties"))) {
+            config.store(out, "deployment-supplied config for StartupUnitTest");
+        }
     }
 
     private static void restoreUserHome(String originalUserHome) {
