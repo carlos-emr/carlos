@@ -145,20 +145,63 @@ def test_selecting_a_locale_persists_it_and_returns_to_the_same_page() -> None:
     assert portal_text(DEFAULT_LOCALE)["username_placeholder"] in rendered.text
 
 
-def test_locale_switch_refuses_an_unknown_locale_and_an_offsite_redirect() -> None:
-    """The `next` parameter is attacker-controllable, so it must never leave this origin."""
+@pytest.mark.parametrize(
+    "destination",
+    [
+        "//evil.example",
+        "///evil.example",
+        "/\\evil.example",
+        "/\\\\evil.example",
+        "https://evil.example",
+        "http://evil.example",
+        "javascript:alert(1)",
+        "evil.example",
+        "",
+        # Browsers strip TAB/LF/CR while parsing a URL, so each of these reaches the network stack
+        # as //evil.example. An earlier version of the validator checked only for a leading `//`
+        # after folding backslashes and let every one of them through.
+        "/\t/evil.example",
+        "/\n/evil.example",
+        "/\r/evil.example",
+        "/ /evil.example",
+        "/\x0b/evil.example",
+        "/\x00//evil.example",
+        "/\x85/evil.example",
+    ],
+)
+def test_locale_switch_refuses_an_offsite_redirect(destination: str) -> None:
+    """`next` is attacker-controllable, so nothing that leaves this origin may reach Location."""
     app = main.create_app(development_settings())
-    client = TestClient(app)
+    response = TestClient(app).get(
+        "/locale/fr",
+        params={"next": destination},
+        follow_redirects=False,
+    )
 
-    unknown = client.get("/locale/zz", follow_redirects=False)
-    absolute = client.get("/locale/fr?next=https://evil.example/", follow_redirects=False)
-    scheme_relative = client.get("/locale/fr?next=//evil.example/", follow_redirects=False)
-    backslash = client.get("/locale/fr?next=/\\evil.example/", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
 
-    assert unknown.status_code == 404
-    for response in (absolute, scheme_relative, backslash):
-        assert response.status_code == 303
-        assert response.headers["location"] == "/"
+
+@pytest.mark.parametrize(
+    "destination",
+    ["/", "/portal", "/portal/account", "/portal/email-passwords?page=2"],
+)
+def test_locale_switch_returns_to_a_local_path(destination: str) -> None:
+    app = main.create_app(development_settings())
+    response = TestClient(app).get(
+        "/locale/fr",
+        params={"next": destination},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == destination
+
+
+def test_locale_switch_refuses_an_unknown_locale() -> None:
+    app = main.create_app(development_settings())
+
+    assert TestClient(app).get("/locale/zz", follow_redirects=False).status_code == 404
 
 
 def test_accept_language_selects_a_locale_when_none_was_chosen() -> None:

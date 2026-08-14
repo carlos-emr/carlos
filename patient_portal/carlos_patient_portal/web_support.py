@@ -9,6 +9,7 @@ module that composes them, which would be circular. Nothing here registers a rou
 database session, or performs I/O beyond rendering a template.
 """
 
+import re
 from collections.abc import Callable
 from datetime import date, timedelta
 from hashlib import sha256
@@ -18,7 +19,7 @@ from pathlib import Path as FilePath
 from secrets import compare_digest, token_urlsafe
 from time import time
 from typing import TypeVar
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlsplit
 
 from fastapi import HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -220,6 +221,12 @@ ACCOUNT_NOTICE_MESSAGE_KEYS = {
 VALIDATION_ERROR_PRIVATE_FIELDS = {"ctx", "input"}
 
 
+# Backslash plus everything at or below U+0020 and the C1 range. Browsers strip TAB/LF/CR while
+# parsing a URL and fold backslashes to slashes, so any of these can turn a path that looks local
+# into an authority once the browser is done with it.
+UNSAFE_REDIRECT_CHARACTER_PATTERN = re.compile(r"[\\\x00-\x20\x7f-\x9f]")
+
+
 class BrowserFormValidationError(Exception):
     """Raised when a browser form cannot be validated without exposing field details."""
 
@@ -236,14 +243,22 @@ class BrowserFormValidationError(Exception):
 def is_safe_local_redirect(destination: str) -> bool:
     """Whether `destination` is a same-origin path this app may redirect a patient to.
 
-    Rejects anything a browser would resolve off-origin: an absolute URL, a scheme-relative
-    `//evil.example`, and the backslash variants some browsers normalise to forward slashes. Only a
-    single-slash-prefixed path survives, which is all the language switcher ever needs.
+    Deliberately an allowlist of shape rather than a blocklist of known-bad prefixes. An earlier
+    version here checked only for a leading `//` after folding backslashes, which let
+    `/<TAB>/evil.example` through: browsers strip TAB, LF, and CR while parsing a URL, so that
+    value reaches the network stack as `//evil.example` and leaves the origin. A leading space
+    behaves the same way in some parsers.
+
+    So: the value must start with a single `/`, contain no backslash and no character at or below
+    U+0020 or in the C1 range, and `urlsplit` must see neither a scheme nor an authority. Paths
+    this application generates never contain any of those, so nothing legitimate is lost.
     """
-    if not destination.startswith("/"):
+    if not destination.startswith("/") or destination.startswith("//"):
         return False
-    normalized = destination.replace("\\", "/")
-    return not normalized.startswith("//")
+    if UNSAFE_REDIRECT_CHARACTER_PATTERN.search(destination) is not None:
+        return False
+    parsed_destination = urlsplit(destination)
+    return not parsed_destination.scheme and not parsed_destination.netloc
 
 
 def request_locale(request: Request) -> str:
