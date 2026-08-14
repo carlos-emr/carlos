@@ -124,6 +124,7 @@ public class EmailSend2Action extends ActionSupport {
             validateActiveSenderConfig(senderConfigId);
             try (EmailComposeSubmissionState composeState = resolveEmailComposeSubmissionState(request)) {
                 context = composeState.context();
+                ensureSendCapable(composeState);
                 ensureTransactionType(composeState, EmailLog.TransactionType.EFORM);
                 emailLog = sendEmail(request, composeState);
             }
@@ -165,6 +166,7 @@ public class EmailSend2Action extends ActionSupport {
             validateActiveSenderConfig(senderConfigId);
             try (EmailComposeSubmissionState composeState = resolveEmailComposeSubmissionState(request)) {
                 context = composeState.context();
+                ensureSendCapable(composeState);
                 ensureTransactionType(composeState, EmailLog.TransactionType.DIRECT);
                 emailLog = sendEmail(request, composeState);
             }
@@ -339,7 +341,10 @@ public class EmailSend2Action extends ActionSupport {
      */
     private EmailData prepareEmailFields(HttpServletRequest request) {
         validateSubmittedEmailFields(request);
-        return prepareEmailFields(request, resolveEmailComposeSubmissionState(request));
+        try (EmailComposeSubmissionState composeState = resolveEmailComposeSubmissionState(request)) {
+            ensureSendCapable(composeState);
+            return prepareEmailFields(request, composeState);
+        }
     }
 
     private EmailData prepareEmailFields(HttpServletRequest request, EmailComposeSubmissionState composeState) {
@@ -416,11 +421,13 @@ public class EmailSend2Action extends ActionSupport {
         if (composeState == null) {
             throw new EmailComposeStateException(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
         }
+        return composeState;
+    }
+
+    private void ensureSendCapable(EmailComposeSubmissionState composeState) {
         if (composeState.cancelOnly()) {
-            composeState.close();
             throw new EmailComposeStateException(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
         }
-        return composeState;
     }
 
     private void ensureTransactionType(

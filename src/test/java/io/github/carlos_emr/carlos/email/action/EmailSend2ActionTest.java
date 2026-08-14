@@ -133,20 +133,24 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("transactionType", "DIRECT");
         EmailComposeWorkingDirectory workingDirectory = EmailComposeWorkingDirectory.create();
-        Path generatedPdf = Files.createTempFile("email-cancel-test-", ".pdf");
-        Path ownedPdf = workingDirectory.adoptGeneratedPdf(generatedPdf);
-        String token = composeSubmissionStateService.store(
-                request.getSession(), EXAMPLE_GENERATED_VALUE,
-                DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION, List.of(),
-                EmailComposeSubmissionContext.direct("123"), workingDirectory);
-        request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
+        try {
+            Path generatedPdf = Files.createTempFile("email-cancel-test-", ".pdf");
+            Path ownedPdf = workingDirectory.adoptGeneratedPdf(generatedPdf);
+            String token = composeSubmissionStateService.store(
+                    request.getSession(), EXAMPLE_GENERATED_VALUE,
+                    DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION, List.of(),
+                    EmailComposeSubmissionContext.direct("123"), workingDirectory);
+            request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
 
-        EmailSend2Action action = new EmailSend2Action();
-        action.request = request;
-        action.response = new MockHttpServletResponse();
+            EmailSend2Action action = new EmailSend2Action();
+            action.request = request;
+            action.response = new MockHttpServletResponse();
 
-        assertThat(action.cancel()).isEqualTo("DIRECT");
-        assertThat(Files.exists(ownedPdf.getParent())).isFalse();
+            assertThat(action.cancel()).isEqualTo("DIRECT");
+            assertThat(Files.exists(ownedPdf.getParent())).isFalse();
+        } finally {
+            workingDirectory.close();
+        }
     }
 
     @Test
@@ -524,6 +528,13 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("openEFormAfterEmail")).isEqualTo(true);
         assertThat(request.getAttribute("deleteEFormAfterEmail")).isEqualTo(true);
         verify(emailManager, never()).sendEmail(any(), any());
+
+        String firstCancelToken = (String) request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM);
+        request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, firstCancelToken);
+
+        assertThat(action.sendDirectEmail()).isEqualTo("success");
+        assertThat(request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM))
+                .isNotEqualTo(firstCancelToken);
 
         request.setParameter(
                 EMAIL_PDF_PASSWORD_TOKEN_PARAM,

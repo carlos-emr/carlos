@@ -22,6 +22,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
@@ -123,7 +124,12 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         EmailLog emailLog = new EmailLog();
         emailLog.setEmailAttachments(List.of());
+        Demographic demographic = new Demographic();
+        demographic.setDemographicNo(123);
+        emailLog.setDemographic(demographic);
         when(emailComposeManager.prepareEmailForResend(any(), anyInt())).thenReturn(emailLog);
+        when(emailComposeManager.getEmailConsentStatus(any(), anyInt()))
+                .thenThrow(new IllegalStateException("metadata unavailable"));
         when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContext.when(ServletActionContext::getResponse)

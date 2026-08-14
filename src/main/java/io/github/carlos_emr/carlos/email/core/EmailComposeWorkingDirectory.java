@@ -6,6 +6,7 @@
 package io.github.carlos_emr.carlos.email.core;
 
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -302,23 +303,21 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
 
     private static Path createSecureDirectory(Path requestedRoot) throws IOException {
         Path normalized = requestedRoot.toAbsolutePath().normalize();
-        if (Files.exists(normalized, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
-            if (Files.isSymbolicLink(normalized)
-                    || !Files.isDirectory(normalized, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
-                throw new IOException("CARLOS application temp root is not a secure directory");
-            }
-        } else {
-            FileAttribute<Set<PosixFilePermission>> permissions =
-                    PosixFilePermissions.asFileAttribute(OWNER_DIRECTORY_PERMISSIONS);
-            try {
-                Files.createDirectories(normalized, permissions);
-            } catch (UnsupportedOperationException e) {
-                Files.createDirectories(normalized);
-            }
+        Path requestedParent = normalized.getParent();
+        if (requestedParent == null || normalized.getFileName() == null) {
+            throw new IOException("CARLOS application temp root has no secure parent");
         }
+        Path realParent = requestedParent.toRealPath();
+        Path candidate = realParent.resolve(normalized.getFileName());
+        try {
+            createDirectory(candidate, OWNER_DIRECTORY_PERMISSIONS);
+        } catch (FileAlreadyExistsException e) {
+            // Existing roots are allowed only after the same no-follow validation as new roots.
+        }
+        Path secureRoot = validateSecureDirectory(candidate, realParent);
         java.nio.file.attribute.UserPrincipal owner = null;
         try {
-            owner = Files.getOwner(normalized, LinkOption.NOFOLLOW_LINKS);
+            owner = Files.getOwner(secureRoot, LinkOption.NOFOLLOW_LINKS);
         } catch (UnsupportedOperationException e) {
             // The platform does not expose file ownership; unique creation and permissions still apply.
         }
@@ -326,8 +325,28 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
         if (jvmUser != null && owner != null && !jvmUser.equals(owner.getName())) {
             throw new IOException("CARLOS application temp root is owned by another user");
         }
-        applyPermissionsIfSupported(normalized, OWNER_DIRECTORY_PERMISSIONS);
-        return normalized.toRealPath();
+        applyPermissionsIfSupported(secureRoot, OWNER_DIRECTORY_PERMISSIONS);
+        return validateSecureDirectory(secureRoot, realParent);
+    }
+
+    private static void createDirectory(Path path, Set<PosixFilePermission> permissions) throws IOException {
+        FileAttribute<Set<PosixFilePermission>> filePermissions =
+                PosixFilePermissions.asFileAttribute(permissions);
+        try {
+            Files.createDirectory(path, filePermissions);
+        } catch (UnsupportedOperationException e) {
+            Files.createDirectory(path);
+        }
+    }
+
+    private static Path validateSecureDirectory(Path candidate, Path expectedParent) throws IOException {
+        Path realCandidate = candidate.toRealPath(LinkOption.NOFOLLOW_LINKS);
+        if (Files.isSymbolicLink(realCandidate)
+                || !Files.isDirectory(realCandidate, LinkOption.NOFOLLOW_LINKS)
+                || !realCandidate.getParent().equals(expectedParent)) {
+            throw new IOException("CARLOS application temp root is not a secure directory");
+        }
+        return realCandidate;
     }
 
     private static void createActiveLease(Path workingDirectory) throws IOException {

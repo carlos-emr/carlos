@@ -27,18 +27,21 @@ class EmailComposeWorkingDirectoryUnitTest {
         Path applicationRoot = tempDirectory.resolve("carlos-temp");
         Path generatedPdf = Files.writeString(tempDirectory.resolve("generated.pdf"), "patient data");
         EmailComposeWorkingDirectory workingDirectory = EmailComposeWorkingDirectory.create(applicationRoot);
-
-        Path ownedPdf = workingDirectory.adoptGeneratedPdf(generatedPdf);
         Path ownedDirectory = workingDirectory.path();
+        try {
+            Path ownedPdf = workingDirectory.adoptGeneratedPdf(generatedPdf);
 
-        assertThat(EmailComposeWorkingDirectory.isActivelyOwned(ownedDirectory)).isTrue();
-        assertThat(workingDirectory.owns(ownedPdf)).isTrue();
-        assertThat(Files.readString(ownedPdf)).isEqualTo("patient data");
-        workingDirectory.close();
-        workingDirectory.close();
+            assertThat(EmailComposeWorkingDirectory.isActivelyOwned(ownedDirectory)).isTrue();
+            assertThat(workingDirectory.owns(ownedPdf)).isTrue();
+            assertThat(Files.readString(ownedPdf)).isEqualTo("patient data");
+            workingDirectory.close();
+            workingDirectory.close();
 
-        assertThat(Files.exists(ownedDirectory)).isFalse();
-        assertThat(EmailComposeWorkingDirectory.isActivelyOwned(ownedDirectory)).isFalse();
+            assertThat(Files.exists(ownedDirectory)).isFalse();
+            assertThat(EmailComposeWorkingDirectory.isActivelyOwned(ownedDirectory)).isFalse();
+        } finally {
+            workingDirectory.close();
+        }
     }
 
     @Test
@@ -125,6 +128,25 @@ class EmailComposeWorkingDirectoryUnitTest {
                     .isInstanceOf(IOException.class);
             assertThatThrownBy(() -> workingDirectory.adoptGeneratedPdf(textFile))
                     .isInstanceOf(IOException.class);
+        }
+    }
+
+    @Test
+    @DisplayName("rejects a symbolic-link application temp root")
+    void shouldRejectSymbolicLinkApplicationTempRoot() throws IOException {
+        Path externalDirectory = Files.createDirectory(tempDirectory.resolve("external-temp-root"));
+        Path applicationRoot = tempDirectory.resolve("carlos-temp");
+        try {
+            Files.createSymbolicLink(applicationRoot, externalDirectory);
+        } catch (IOException | UnsupportedOperationException e) {
+            assumeTrue(false, "filesystem does not support symbolic links");
+        }
+
+        assertThatThrownBy(() -> EmailComposeWorkingDirectory.create(applicationRoot))
+                .isInstanceOf(IOException.class)
+                .hasMessage("CARLOS application temp root is not a secure directory");
+        try (var externalFiles = Files.list(externalDirectory)) {
+            assertThat(externalFiles).isEmpty();
         }
     }
 
