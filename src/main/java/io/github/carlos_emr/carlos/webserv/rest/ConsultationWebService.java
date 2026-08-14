@@ -72,6 +72,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter;
 import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilter;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
@@ -347,6 +348,22 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return rp;
     }
 
+    /**
+     * Retrieves an existing consultation response or initializes data for a new response.
+     *
+     * <p>A positive {@code responseId} loads the stored response and authorizes access against
+     * that response's demographic, regardless of the caller-supplied {@code demographicNo}.
+     * A null or non-positive {@code responseId} initializes a new response for the supplied
+     * demographic.
+     *
+     * @param responseId existing response identifier, or null/non-positive to initialize a new response
+     * @param demographicNo demographic used only when initializing a new response
+     * @return populated consultation response transfer object
+     * @throws WebApplicationException with HTTP 400 when the applicable demographic is missing or
+     * non-positive, HTTP 403 when consultation read access is denied, or HTTP 404 when a positive
+     * {@code responseId} does not exist
+     * @since 2026-01-24
+     */
     @GET
     @Path("/getResponse")
     @Produces(MediaType.APPLICATION_JSON)
@@ -395,6 +412,22 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Retrieves the documents, eForms, and labs associated with a consultation response.
+     *
+     * <p>The response's persisted demographic is the authorization source. The
+     * {@code demographicNoInt} query parameter is retained for API compatibility and is not
+     * trusted for authorization.
+     *
+     * @param responseId positive consultation response identifier
+     * @param demographicNoInt legacy caller-supplied demographic; not used for authorization
+     * @param attached whether to return attached or available attachment candidates
+     * @return consultation attachment transfer objects for the requested response
+     * @throws WebApplicationException with HTTP 400 when {@code responseId} or the stored
+     * demographic is invalid, HTTP 403 when consultation read access is denied, or HTTP 404
+     * when the response does not exist
+     * @since 2026-01-24
+     */
     @GET
     @Path("/getResponseAttachments")
     @Produces(MediaType.APPLICATION_JSON)
@@ -509,6 +542,17 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return RestResponse.errorResponse("Invalid or missing econsult data.");
     }
 
+    /**
+     * Retrieves recently prepared eReferral attachments for an authorized demographic.
+     *
+     * @param demographicNo demographic whose prepared attachments are requested
+     * @param httpServletRequest servlet request used by attachment rendering
+     * @param httpServletResponse servlet response used by attachment rendering
+     * @return HTTP 200 with the prepared attachments, or HTTP 500 when attachment generation fails
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing or
+     * non-positive, or HTTP 403 when consultation read access is denied
+     * @since 2026-01-24
+     */
     @GET
     @Path("/getEReferAttachments")
     @Produces(MediaType.APPLICATION_JSON)
@@ -557,6 +601,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
                     Response.status(Response.Status.BAD_REQUEST).entity("demographicNo must be positive").build());
         }
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_con", "r", demographicNo)) {
+            LogAction.addLogSynchronous(getLoggedInInfo(),
+                    "ConsultationWebService.consultationReadDenied", "demographicNo=" + demographicNo);
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
     }

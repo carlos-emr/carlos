@@ -290,6 +290,15 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Retrieves a patient's non-deleted appointment history with available billing details.
+     *
+     * @param demographicNo demographic whose appointment history is requested
+     * @return scheduling response containing appointments, enriched with billing details when present
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing or
+     * non-positive, or HTTP 403 when appointment read access is denied
+     * @since 2026-01-24
+     */
     @POST
     @Path("/{demographicNo}/appointmentHistory")
     @Consumes("application/json")

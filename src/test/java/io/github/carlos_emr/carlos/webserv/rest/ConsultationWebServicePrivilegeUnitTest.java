@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -305,6 +306,8 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
 
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(99));
         verify(consultationManager, never()).getEReferAttachments(any(), any(), any(), any());
+        logActionMock.verify(() -> LogAction.addLogSynchronous(
+                loggedInInfo, "ConsultationWebService.consultationReadDenied", "demographicNo=99"));
     }
 
     @Test
