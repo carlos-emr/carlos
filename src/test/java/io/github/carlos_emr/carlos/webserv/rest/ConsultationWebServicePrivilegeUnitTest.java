@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import java.util.ArrayList;
 import java.util.Collections;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,21 +35,47 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
+import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
+import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.eform.EFormUtil;
+import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.webserv.rest.conversion.ConsultationResponseConverter;
+import io.github.carlos_emr.carlos.webserv.rest.conversion.DemographicConverter;
+import io.github.carlos_emr.carlos.webserv.rest.conversion.ProfessionalSpecialistConverter;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.ProfessionalSpecialistTo1;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -73,21 +100,53 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     @Mock
     private SecurityInfoManager securityInfoManager;
 
+    @Mock
+    private DemographicManager demographicManager;
+
+    @Mock
+    private ProviderDao providerDao;
+
+    @Mock
+    private ClinicDAO clinicDAO;
+
+    @Mock
+    private FaxConfigDao faxConfigDao;
+
+    @Mock
+    private ConsultationResponseConverter responseConverter;
+
+    @Mock
+    private ProfessionalSpecialistConverter specialistConverter;
+
+    @Mock
+    private DemographicConverter demographicConverter;
+
     private ConsultationWebService service;
     private LoggedInInfo loggedInInfo;
 
     @BeforeEach
     void setUp() {
         loggedInInfo = new LoggedInInfo();
-        service = new ConsultationWebService() {
+        service = spy(new ConsultationWebService() {
             @Override
             protected LoggedInInfo getLoggedInInfo() {
                 return loggedInInfo;
             }
-        };
+        });
 
         injectDependency(service, "consultationManager", consultationManager);
         injectDependency(service, "securityInfoManager", securityInfoManager);
+        injectDependency(service, "demographicManager", demographicManager);
+        injectDependency(service, "providerDao", providerDao);
+        injectDependency(service, "clinicDAO", clinicDAO);
+        injectDependency(service, "faxConfigDao", faxConfigDao);
+        injectDependency(service, "responseConverter", responseConverter);
+        injectDependency(service, "specialistConverter", specialistConverter);
+        injectDependency(service, "demographicConverter", demographicConverter);
+        registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
+        registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
+        registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
+        registerMock(SecurityInfoManager.class, securityInfoManager);
     }
 
     @Test
@@ -146,6 +205,68 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(AccessDeniedException.class);
 
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(50));
+    }
+
+    @Test
+    @DisplayName("should return getResponse data when caller can read the stored response demographic")
+    void shouldReturnGetResponse_whenCallerHasReadPrivilegeForStoredDemographic() {
+        ConsultationResponse stored = new ConsultationResponse();
+        stored.setDemographicNo(50);
+        stored.setReferringDocId(14);
+        ConsultationResponseTo1 convertedResponse = new ConsultationResponseTo1();
+        ProfessionalSpecialist specialist = new ProfessionalSpecialist();
+        ProfessionalSpecialistTo1 convertedSpecialist = new ProfessionalSpecialistTo1();
+        Demographic demographic = new Demographic();
+        DemographicTo1 convertedDemographic = new DemographicTo1();
+
+        when(consultationManager.getResponse(any(), eq(123))).thenReturn(stored);
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(50))).thenReturn(true);
+        when(responseConverter.getAsTransferObject(loggedInInfo, stored)).thenReturn(convertedResponse);
+        when(consultationManager.getProfessionalSpecialist(14)).thenReturn(specialist);
+        when(specialistConverter.getAsTransferObject(loggedInInfo, specialist)).thenReturn(convertedSpecialist);
+        when(demographicManager.getDemographicWithExt(loggedInInfo, 50)).thenReturn(demographic);
+        when(demographicConverter.getAsTransferObject(loggedInInfo, demographic)).thenReturn(convertedDemographic);
+        when(clinicDAO.getClinic()).thenReturn(mock(Clinic.class));
+        doReturn(Collections.emptyList()).when(service).getResponseAttachments(123, 50, true);
+
+        ConsultationResponseTo1 response = service.getResponse(123, 7);
+
+        assertThat(response).isSameAs(convertedResponse);
+        assertThat(response.getAttachments()).isEmpty();
+        verify(consultationManager).getResponse(loggedInInfo, 123);
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "r", 50);
+        verify(service).getResponseAttachments(123, 50, true);
+    }
+
+    @Test
+    @DisplayName("should return response attachments when caller can read the stored response demographic")
+    void shouldReturnResponseAttachments_whenCallerHasReadPrivilegeForStoredDemographic() {
+        ConsultationResponse stored = new ConsultationResponse();
+        stored.setDemographicNo(50);
+        when(consultationManager.getResponse(any(), eq(5))).thenReturn(stored);
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(50))).thenReturn(true);
+
+        try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+             MockedStatic<EFormUtil> eFormUtilMock = mockStatic(EFormUtil.class);
+             MockedConstruction<CommonLabResultData> labDataMock = mockConstruction(
+                     CommonLabResultData.class,
+                     (mock, context) -> when(mock.populateLabResultsDataConsultResponse(
+                             loggedInInfo, "50", "5", true)).thenReturn(new ArrayList<>()))) {
+            eDocUtilMock.when(() -> EDocUtil.listResponseDocs(loggedInInfo, "50", "5", true))
+                    .thenReturn(new ArrayList<>());
+            eFormUtilMock.when(() -> EFormUtil.listPatientEFormsShowLatestOnly("50"))
+                    .thenReturn(Collections.emptyList());
+
+            assertThat(service.getResponseAttachments(5, 7, true)).isEmpty();
+
+            verify(consultationManager).getResponse(loggedInInfo, 5);
+            verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "r", 50);
+            eDocUtilMock.verify(() -> EDocUtil.listResponseDocs(loggedInInfo, "50", "5", true));
+            eFormUtilMock.verify(() -> EFormUtil.listPatientEFormsShowLatestOnly("50"));
+            assertThat(labDataMock.constructed()).hasSize(1);
+            verify(labDataMock.constructed().get(0))
+                    .populateLabResultsDataConsultResponse(loggedInInfo, "50", "5", true);
+        }
     }
 
     @Test

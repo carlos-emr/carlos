@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.appointment.search.FilterDefinition;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentSearchDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentSearch;
@@ -387,5 +388,6 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         assertThat(response.getAppointments()).isEmpty();
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("r"), eq(7));
         verify(appointmentManager).getAppointmentHistoryWithoutDeleted(any(), eq(7), anyInt(), anyInt());
+        verify(billingONCHeader1Dao).findByDemoNoWithItems(eq(7), eq(0), eq(OscarAppointmentDao.MAX_LIST_RETURN_SIZE));
     }
 }
