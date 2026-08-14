@@ -547,6 +547,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
     public Response getEReferAttachments(@QueryParam("demographicNo") Integer demographicNo, @Context HttpServletRequest httpServletRequest, @Context HttpServletResponse httpServletResponse) {
         // Authorize before the try block so a denial is not reclassified as a 500 by the catch.
         requireConsultationReadPrivilege(demographicNo);
+        requireGlobalConsultationReadPrivilege();
         Response response;
         try {
             /*

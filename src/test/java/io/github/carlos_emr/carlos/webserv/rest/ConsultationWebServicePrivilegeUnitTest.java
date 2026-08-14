@@ -356,6 +356,7 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return ok for getEReferAttachments when caller has consultation read privilege")
     void shouldReturnOkGetEReferAttachments_whenCallerHasReadPrivilege() throws Exception {
+        allowGlobalConsultationRead();
         when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(7))).thenReturn(true);
         when(consultationManager.getEReferAttachments(any(), any(), any(), eq(7)))
                 .thenReturn(Collections.emptyList());
@@ -367,6 +368,23 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(7));
         verify(consultationManager).getEReferAttachments(any(), any(), any(), eq(7));
+    }
+
+    @Test
+    @DisplayName("should deny getEReferAttachments when global consultation read privilege is denied")
+    void shouldDenyGetEReferAttachments_whenGlobalReadPrivilegeDenied() throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(7))).thenReturn(true);
+        HttpServletRequest request = org.mockito.Mockito.mock(HttpServletRequest.class);
+        HttpServletResponse httpResponse = org.mockito.Mockito.mock(HttpServletResponse.class);
+
+        assertThatThrownBy(() -> service.getEReferAttachments(7, request, httpResponse))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
+
+        verify(consultationManager, never()).getEReferAttachments(any(), any(), any(), any());
+        logActionMock.verify(() -> LogAction.addLogSynchronous(
+                loggedInInfo, "ConsultationWebService.consultationReadDenied", "scope=global"));
     }
 
     @Test

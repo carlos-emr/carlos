@@ -525,6 +525,18 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
     class GetAppointmentHistoryWithoutDeleted {
 
         @Test
+        @DisplayName("should reject missing demographic before checking appointment privilege")
+        void shouldRejectMissingDemographic_beforeCheckingPrivilege() {
+            assertThatThrownBy(() -> appointmentManager.getAppointmentHistoryWithoutDeleted(
+                    mockLoggedInInfo, null, 0, 10))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_appointment)");
+
+            verifyNoInteractions(mockSecurityInfoManager);
+            verify(mockAppointmentDao, never()).getAppointmentHistory(any(), any(), any());
+        }
+
+        @Test
         @DisplayName("should return non-deleted appointments from DAO")
         void shouldReturnNonDeletedAppointments_whenHistoryRequested() {
             // Given
