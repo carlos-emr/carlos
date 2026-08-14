@@ -102,14 +102,14 @@ public class CtlDocumentDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should find multiple documents by document numbers and module")
-        void shouldFindDocuments_byDocumentNosAndModule() {
-            List<CtlDocument> results = ctlDocumentDao.findByDocumentNosAndModule(
-                    List.of(20001, 20002, 20003, 20001), "demographic");
+        @DisplayName("should find all module links for multiple document numbers")
+        void shouldFindDocuments_byDocumentNos() {
+            List<CtlDocument> results = ctlDocumentDao.findByDocumentNos(
+                    List.of(20001, 20002, 20003, 20001));
 
             assertThat(results)
                     .extracting(document -> document.getId().getDocumentNo())
-                    .containsExactlyInAnyOrder(20001, 20002);
+                    .containsExactlyInAnyOrder(20001, 20002, 20003);
         }
 
         @Test

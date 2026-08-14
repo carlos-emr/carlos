@@ -68,7 +68,7 @@ public class CtlDocumentDaoImpl extends AbstractDaoImpl<CtlDocument> implements 
     }
 
     @Override
-    public List<CtlDocument> findByDocumentNosAndModule(Collection<Integer> documentNos, String module) {
+    public List<CtlDocument> findByDocumentNos(Collection<Integer> documentNos) {
         if (documentNos == null || documentNos.isEmpty()) {
             return List.of();
         }
@@ -80,10 +80,9 @@ public class CtlDocumentDaoImpl extends AbstractDaoImpl<CtlDocument> implements 
             return List.of();
         }
         TypedQuery<CtlDocument> query = entityManager.createQuery(
-                "select x from CtlDocument x where x.id.documentNo in :documentNos and x.id.module = :module",
+                "select x from CtlDocument x where x.id.documentNo in :documentNos",
                 CtlDocument.class);
         query.setParameter("documentNos", candidates);
-        query.setParameter("module", module);
         return query.getResultList();
     }
 

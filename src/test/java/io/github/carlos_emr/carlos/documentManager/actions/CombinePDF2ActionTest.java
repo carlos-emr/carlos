@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -81,6 +82,7 @@ class CombinePDF2ActionTest extends CarlosUnitTestBase {
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         request.setParameter("docNo", "321");
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)).thenReturn(true);
@@ -127,7 +129,7 @@ class CombinePDF2ActionTest extends CarlosUnitTestBase {
     @DisplayName("should reject missing documents before resolving their paths")
     void shouldRejectMissingDocumentsBeforeResolvingPaths() {
         when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321))).thenReturn(Set.of());
-        when(ctlDocumentDao.findByDocumentNosAndModule(List.of(321), "demographic"))
+        when(ctlDocumentDao.findByDocumentNos(List.of(321)))
                 .thenReturn(List.of(demographicLink(321, 123)));
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
         when(documentDao.find(321)).thenReturn(null);
@@ -153,21 +155,54 @@ class CombinePDF2ActionTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should reject documents outside the caller's patient-record access")
     void shouldRejectDocumentsOutsidePatientRecordAccess() {
+        Document document = new Document();
+        document.setDocfilename("patient-document.pdf");
         when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321))).thenReturn(Set.of());
-        when(ctlDocumentDao.findByDocumentNosAndModule(List.of(321), "demographic"))
+        when(ctlDocumentDao.findByDocumentNos(List.of(321)))
                 .thenReturn(List.of(demographicLink(321, 123)));
+        when(documentDao.find(321)).thenReturn(document);
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
-        verifyNoInteractions(documentDao);
+        verify(documentDao).find(321);
+    }
+
+    @Test
+    @DisplayName("should allow public provider documents")
+    void shouldAllowPublicProviderDocuments() {
+        Document document = new Document();
+        document.setPublic1(1);
+
+        boolean authorized = action.isAuthorizedDocumentScope(
+                loggedInInfo, document, List.of(providerLink(321, 123456)));
+
+        assertThat(authorized).isTrue();
+    }
+
+    @Test
+    @DisplayName("should allow private provider documents only for the linked provider")
+    void shouldAllowPrivateProviderDocumentsOnlyForLinkedProvider() {
+        Document document = new Document();
+        document.setPublic1(0);
+
+        assertThat(action.isAuthorizedDocumentScope(
+                loggedInInfo, document, List.of(providerLink(321, 999998)))).isTrue();
+        assertThat(action.isAuthorizedDocumentScope(
+                loggedInInfo, document, List.of(providerLink(321, 123456)))).isFalse();
     }
 
     private CtlDocument demographicLink(Integer documentNo, Integer demographicNo) {
         CtlDocument ctlDocument = new CtlDocument();
         ctlDocument.setId(new CtlDocumentPK("demographic", demographicNo, documentNo));
+        return ctlDocument;
+    }
+
+    private CtlDocument providerLink(Integer documentNo, Integer providerNo) {
+        CtlDocument ctlDocument = new CtlDocument();
+        ctlDocument.setId(new CtlDocumentPK("provider", providerNo, documentNo));
         return ctlDocument;
     }
 }

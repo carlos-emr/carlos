@@ -42,6 +42,6 @@ public interface CtlDocumentDao extends AbstractDao<CtlDocument> {
 
     public List<CtlDocument> findByDocumentNoAndModule(Integer ctlDocNo, String module);
 
-    public List<CtlDocument> findByDocumentNosAndModule(Collection<Integer> documentNos, String module);
+    public List<CtlDocument> findByDocumentNos(Collection<Integer> documentNos);
 
 }

@@ -104,41 +104,26 @@ public class CombinePDF2Action extends ActionSupport {
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 return NONE;
             }
-            List<CtlDocument> demographicLinks = ctlDocumentDao.findByDocumentNosAndModule(
-                    documentNos, "demographic");
-            if (demographicLinks == null) {
-                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                return NONE;
-            }
-            Map<Integer, List<Integer>> demographicNosByDocumentNo = new HashMap<>();
-            for (CtlDocument demographicLink : demographicLinks) {
-                if (demographicLink == null || demographicLink.getId() == null
-                        || demographicLink.getId().getDocumentNo() == null
-                        || demographicLink.getId().getModuleId() == null) {
+            List<CtlDocument> documentLinks = ctlDocumentDao.findByDocumentNos(documentNos);
+            Map<Integer, List<CtlDocument>> linksByDocumentNo = new HashMap<>();
+            for (CtlDocument documentLink : documentLinks) {
+                if (documentLink == null || documentLink.getId() == null
+                        || documentLink.getId().getDocumentNo() == null) {
                     continue;
                 }
-                demographicNosByDocumentNo
-                        .computeIfAbsent(demographicLink.getId().getDocumentNo(), ignored -> new ArrayList<>())
-                        .add(demographicLink.getId().getModuleId());
-            }
-            for (Integer documentNo : documentNos) {
-                List<Integer> demographicNos = demographicNosByDocumentNo.get(documentNo);
-                if (demographicNos == null || demographicNos.isEmpty()) {
-                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                    return NONE;
-                }
-                for (Integer demographicNo : demographicNos) {
-                    if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
-                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                        return NONE;
-                    }
-                }
+                linksByDocumentNo
+                        .computeIfAbsent(documentLink.getId().getDocumentNo(), ignored -> new ArrayList<>())
+                        .add(documentLink);
             }
             List<Document> documents = new ArrayList<>();
             for (Integer documentNo : documentNos) {
-                Document document = documentDao.find(documentNo);
+                Document document = documentDao.find(documentNo.intValue());
                 if (document == null || document.getDocfilename() == null || document.getDocfilename().isBlank()) {
                     response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                    return NONE;
+                }
+                if (!isAuthorizedDocumentScope(loggedInInfo, document, linksByDocumentNo.get(documentNo))) {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                     return NONE;
                 }
                 documents.add(document);
@@ -206,6 +191,54 @@ public class CombinePDF2Action extends ActionSupport {
             }
         }
         return SUCCESS;
+    }
+
+    boolean isAuthorizedDocumentScope(
+            LoggedInInfo loggedInInfo, Document document, List<CtlDocument> documentLinks) {
+        if (documentLinks == null || documentLinks.isEmpty()) {
+            return false;
+        }
+
+        boolean hasDemographicLink = false;
+        for (CtlDocument documentLink : documentLinks) {
+            String module = documentLink.getId().getModule();
+            Integer moduleId = documentLink.getId().getModuleId();
+            if ("demographic".equals(module)) {
+                hasDemographicLink = true;
+                if (moduleId == null
+                        || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, moduleId)) {
+                    return false;
+                }
+            }
+        }
+        if (hasDemographicLink) {
+            return true;
+        }
+
+        boolean hasProviderLink = documentLinks.stream()
+                .anyMatch(documentLink -> isProviderModule(documentLink.getId().getModule()));
+        if (!hasProviderLink) {
+            return false;
+        }
+        if (document.getPublic1() == 1) {
+            return true;
+        }
+        Integer providerNo = parseProviderNo(loggedInInfo.getLoggedInProviderNo());
+        return providerNo != null && documentLinks.stream()
+                .anyMatch(documentLink -> isProviderModule(documentLink.getId().getModule())
+                        && providerNo.equals(documentLink.getId().getModuleId()));
+    }
+
+    private boolean isProviderModule(String module) {
+        return "provider".equals(module) || "providers".equals(module);
+    }
+
+    private Integer parseProviderNo(String providerNo) {
+        try {
+            return providerNo != null ? Integer.valueOf(providerNo) : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**
