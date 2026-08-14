@@ -69,7 +69,8 @@ public class PreventionService extends AbstractServiceImpl {
      * @param demographicNo the patient demographic identifier from the request
      * @return a {@link PreventionResponse} JSON payload containing the patient's active
      * prevention records
-     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing or
+     * non-positive
      * @throws AccessDeniedException if the current user lacks {@code _prevention} read access
      * @since 2026-06-24
      */
@@ -92,11 +93,13 @@ public class PreventionService extends AbstractServiceImpl {
      * Returns the immunization records for a patient.
      *
      * <p>A request that omits the required {@code demographicNo} path segment does not match
-     * this route and receives HTTP 404 before this method is invoked.</p>
+     * this route and receives HTTP 404 before this method is invoked. A non-positive numeric
+     * identifier matches the route but receives HTTP 400.</p>
      *
      * @param demographicNo the patient demographic identifier from the request path
      * @return a {@link PreventionResponse} JSON payload containing the patient's immunization
      * records
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is non-positive
      * @throws AccessDeniedException if the current user lacks {@code _prevention} read access
      * @since 2026-06-24
      */
@@ -125,6 +128,10 @@ public class PreventionService extends AbstractServiceImpl {
         if (demographicNo == null) {
             throw new WebApplicationException(
                     Response.status(Response.Status.BAD_REQUEST).entity("demographicNo is required").build());
+        }
+        if (demographicNo <= 0) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("demographicNo must be positive").build());
         }
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_prevention", "r", demographicNo)) {
             throw new AccessDeniedException("_prevention", "r", demographicNo);

@@ -31,6 +31,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -148,5 +150,31 @@ class PreventionServiceUnitTest extends CarlosUnitTestBase {
 
         verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
         verify(preventionManager, never()).getPreventionsByDemographicNo(any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1})
+    @DisplayName("should return bad request when demographicNo is non-positive for active preventions")
+    void shouldReturnBadRequest_whenDemographicNoNonPositiveForActivePreventions(int demographicNo) {
+        assertThatThrownBy(() -> service.getCurrentPreventions(demographicNo))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
+
+        verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
+        verify(preventionManager, never()).getPreventionsByDemographicNo(any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1})
+    @DisplayName("should return bad request when demographicNo is non-positive for immunizations")
+    void shouldReturnBadRequest_whenDemographicNoNonPositiveForImmunizations(int demographicNo) {
+        assertThatThrownBy(() -> service.getImmunizations(demographicNo))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
+
+        verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
+        verify(preventionManager, never()).getImmunizationsByDemographic(any(), any());
     }
 }
