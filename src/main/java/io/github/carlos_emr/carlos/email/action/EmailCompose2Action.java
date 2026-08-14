@@ -15,6 +15,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
+import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
@@ -271,19 +272,33 @@ public class EmailCompose2Action extends ActionSupport {
 
         List<EmailConfig> senderAccounts = emailComposeManager.getAllSenderAccounts();
 
+        EmailComposeWorkingDirectory workingDirectory;
+        try {
+            workingDirectory = emailComposeSubmissionStateService.createWorkingDirectory();
+        } catch (IllegalStateException e) {
+            logger.warn("Unable to create email compose working directory", e);
+            return emailComposeError(request, EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
+        }
+
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         try {
-            emailAttachmentList.addAll(emailComposeManager.prepareEFormAttachments(loggedInInfo, fdid, attachedEForms));
-            emailAttachmentList.addAll(emailComposeManager.prepareEDocAttachments(loggedInInfo, attachedDocuments));
-            emailAttachmentList.addAll(emailComposeManager.prepareLabAttachments(loggedInInfo, attachedLabs));
-            emailAttachmentList.addAll(emailComposeManager.prepareHRMAttachments(loggedInInfo, attachedHRMDocuments));
-            emailAttachmentList.addAll(emailComposeManager.prepareFormAttachments(request, response, attachedForms, demographicNo));
+            emailAttachmentList.addAll(emailComposeManager.prepareEFormAttachments(
+                    loggedInInfo, fdid, attachedEForms, workingDirectory));
+            emailAttachmentList.addAll(emailComposeManager.prepareEDocAttachments(
+                    loggedInInfo, attachedDocuments, workingDirectory));
+            emailAttachmentList.addAll(emailComposeManager.prepareLabAttachments(
+                    loggedInInfo, attachedLabs, workingDirectory));
+            emailAttachmentList.addAll(emailComposeManager.prepareHRMAttachments(
+                    loggedInInfo, attachedHRMDocuments, workingDirectory));
+            emailAttachmentList.addAll(emailComposeManager.prepareFormAttachments(
+                    request, response, attachedForms, demographicNo, workingDirectory));
             emailComposeManager.sanitizeAttachments(emailAttachmentList);
             for (EmailAttachment attachment : emailAttachmentList) {
                 attachment.setPreviewToken(pdfPreviewCapabilityService.issue(
                         request, loggedInInfo, java.nio.file.Path.of(attachment.getFilePath())));
             }
         } catch (PDFGenerationException | RuntimeException e) {
+            workingDirectory.close();
             logger.error(e.getMessage(), e);
             return emailComposeError(request, "This eForm (and attachments, if applicable) could not be emailed. \\n\\n" + e.getMessage());
         }
@@ -302,8 +317,10 @@ public class EmailCompose2Action extends ActionSupport {
                             demographicId,
                             emailFdid,
                             isTrue(session.getAttribute("openEFormAfterEmail")),
-                            isTrue(session.getAttribute("deleteEFormAfterEmail"))));
+                            isTrue(session.getAttribute("deleteEFormAfterEmail"))),
+                    workingDirectory);
         } catch (IllegalStateException e) {
+            workingDirectory.close();
             logger.warn("Unable to prepare email compose submission state", e);
             return emailComposeError(request, EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
         }

@@ -45,6 +45,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.managers.ApplicationTempPurgeJob.PurgeOutcome;
 
 /**
@@ -175,6 +176,32 @@ class ApplicationTempPurgeJobUnitTest {
 
         assertThat(outcome.removed()).isEqualTo(1);
         assertThat(outcome.skipped()).isZero();
+        assertThat(outcome.failed()).isZero();
+    }
+
+    @Test
+    @DisplayName("Removes an orphaned email compose directory but retains an active one")
+    void shouldSweepOnlyExpiredEmailComposeWorkingDirectories() throws IOException {
+        Instant now = Instant.now();
+        Instant cutoff = now.minus(24, ChronoUnit.HOURS);
+        Path orphan = Files.createDirectory(tempRoot.resolve("email-compose-orphan"));
+        Files.createFile(orphan.resolve("artifact.pdf"));
+        Files.writeString(
+                orphan.resolve(EmailComposeWorkingDirectory.ACTIVE_LEASE_FILE_NAME),
+                Long.toString(now.minus(1, ChronoUnit.HOURS).toEpochMilli()));
+        setLastModified(orphan, now.minus(48, ChronoUnit.HOURS));
+        Path active = Files.createDirectory(tempRoot.resolve("email-compose-active"));
+        Files.createFile(active.resolve("artifact.pdf"));
+        Files.writeString(
+                active.resolve(EmailComposeWorkingDirectory.ACTIVE_LEASE_FILE_NAME),
+                Long.toString(now.plus(1, ChronoUnit.HOURS).toEpochMilli()));
+        setLastModified(active, now.minus(48, ChronoUnit.HOURS));
+
+        PurgeOutcome outcome = ApplicationTempPurgeJob.purgeExpiredEntries(tempRoot, cutoff);
+
+        assertThat(Files.exists(orphan)).isFalse();
+        assertThat(Files.isDirectory(active)).isTrue();
+        assertThat(outcome.removed()).isEqualTo(1);
         assertThat(outcome.failed()).isZero();
     }
 

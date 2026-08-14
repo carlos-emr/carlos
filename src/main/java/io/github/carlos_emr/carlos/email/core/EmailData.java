@@ -63,6 +63,7 @@ public class EmailData {
     private String providerNo;
     private String additionalParams;
     private List<EmailAttachment> attachments;
+    private transient EmailComposeWorkingDirectory workingDirectory;
 
     /**
      * Default constructor for creating an empty EmailData instance.
@@ -493,5 +494,15 @@ public class EmailData {
      */
     public void setAttachments(List<EmailAttachment> attachments) {
         this.attachments = attachments != null ? attachments : Collections.emptyList();
+    }
+
+    /** Returns the server-only owner for temporary files created while sending this email. */
+    public EmailComposeWorkingDirectory getWorkingDirectory() {
+        return workingDirectory;
+    }
+
+    /** Sets the server-only owner for generated compose and encryption artifacts. */
+    public void setWorkingDirectory(EmailComposeWorkingDirectory workingDirectory) {
+        this.workingDirectory = workingDirectory;
     }
 }

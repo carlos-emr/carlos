@@ -7,11 +7,15 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.mock.web.MockHttpServletRequest;
 
@@ -24,6 +28,84 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 @DisplayName("EmailComposeSubmissionStateService")
 class EmailComposeSubmissionStateServiceUnitTest {
     private static final String TOKEN_PARAMETER_NAME = "emailPDFPasswordToken";
+
+    @TempDir
+    Path tempDirectory;
+
+    @Test
+    @DisplayName("should retain owned files until consumed state is closed")
+    void shouldTransferWorkingDirectoryOwnershipToConsumedState() throws Exception {
+        EmailComposeSubmissionStateService service = new EmailComposeSubmissionStateService();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        EmailComposeWorkingDirectory workingDirectory = createWorkingDirectory();
+        Path ownedDirectory = workingDirectory.path();
+        try {
+            String token = service.store(
+                    request.getSession(), "password", "instruction", List.of(),
+                    EmailComposeSubmissionStateService.EmailComposeSubmissionContext.direct("123"),
+                    workingDirectory);
+            request.setParameter(TOKEN_PARAMETER_NAME, token);
+
+            EmailComposeSubmissionStateService.EmailComposeSubmissionState state = service.consume(request);
+
+            assertThat(Files.isDirectory(ownedDirectory)).isTrue();
+            state.close();
+            assertThat(Files.exists(ownedDirectory)).isFalse();
+        } finally {
+            service.shutdown();
+        }
+    }
+
+    @Test
+    @DisplayName("should clean owned files on expiry and session destruction")
+    void shouldCleanWorkingDirectoriesOnExpiryAndSessionClear() throws Exception {
+        MutableClock clock = new MutableClock(Instant.parse("2026-07-23T12:00:00Z"));
+        EmailComposeSubmissionStateService service = new EmailComposeSubmissionStateService(clock);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        EmailComposeWorkingDirectory expiredDirectory = createWorkingDirectory();
+        Path expiredPath = expiredDirectory.path();
+        EmailComposeWorkingDirectory sessionDirectory = createWorkingDirectory();
+        Path sessionPath = sessionDirectory.path();
+        try {
+            service.store(request.getSession(), "password", "instruction", List.of(),
+                    EmailComposeSubmissionStateService.EmailComposeSubmissionContext.direct("123"),
+                    expiredDirectory);
+            clock.advanceMillis(EmailComposeSubmissionStateService.PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS + 1);
+            service.store(request.getSession(), "password", "instruction", List.of(),
+                    EmailComposeSubmissionStateService.EmailComposeSubmissionContext.direct("123"),
+                    sessionDirectory);
+
+            assertThat(Files.exists(expiredPath)).isFalse();
+            assertThat(service.clear(request.getSession().getId())).isEqualTo(1);
+            assertThat(Files.exists(sessionPath)).isFalse();
+        } finally {
+            service.shutdown();
+        }
+    }
+
+    @Test
+    @DisplayName("should clean owned files on per-session eviction and shutdown")
+    void shouldCleanWorkingDirectoriesOnEvictionAndShutdown() throws Exception {
+        EmailComposeSubmissionStateService service = new EmailComposeSubmissionStateService();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        List<Path> paths = new ArrayList<>();
+        try {
+            for (int i = 0; i <= EmailComposeSubmissionStateService.MAX_PENDING_EMAIL_COMPOSE_STATES; i++) {
+                EmailComposeWorkingDirectory workingDirectory = createWorkingDirectory();
+                paths.add(workingDirectory.path());
+                service.store(request.getSession(), "password", "instruction", List.of(),
+                        EmailComposeSubmissionStateService.EmailComposeSubmissionContext.direct("123"),
+                        workingDirectory);
+            }
+
+            assertThat(Files.exists(paths.get(0))).isFalse();
+            assertThat(Files.isDirectory(paths.get(paths.size() - 1))).isTrue();
+            assertThat(service.shutdown()).isEqualTo(EmailComposeSubmissionStateService.MAX_PENDING_EMAIL_COMPOSE_STATES);
+            assertThat(paths).allMatch(path -> !Files.exists(path));
+        } finally {
+            service.shutdown();
+        }
+    }
 
     @Test
     @DisplayName("should shut down compose state when the Spring context closes")
@@ -148,5 +230,9 @@ class EmailComposeSubmissionStateServiceUnitTest {
         public Instant instant() {
             return instant;
         }
+    }
+
+    private EmailComposeWorkingDirectory createWorkingDirectory() throws Exception {
+        return EmailComposeWorkingDirectory.create(tempDirectory.resolve("carlos-temp"));
     }
 }

@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.email.core;
 
+import java.io.IOException;
 import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -102,7 +103,8 @@ public class EmailComposeSubmissionStateService {
                 emailPDFPassword,
                 emailPDFPasswordClue,
                 emailAttachmentList,
-                EmailComposeSubmissionContext.direct(""));
+                EmailComposeSubmissionContext.direct(""),
+                null);
     }
 
     /**
@@ -129,6 +131,21 @@ public class EmailComposeSubmissionStateService {
             List<EmailAttachment> emailAttachmentList,
             EmailComposeSubmissionContext context
     ) {
+        return store(session, emailPDFPassword, emailPDFPasswordClue, emailAttachmentList, context, null);
+    }
+
+    /**
+     * Stores compose state together with the server-owned directory containing its generated PDFs.
+     * Ownership transfers to this service only after the state has been accepted.
+     */
+    public String store(
+            HttpSession session,
+            String emailPDFPassword,
+            String emailPDFPasswordClue,
+            List<EmailAttachment> emailAttachmentList,
+            EmailComposeSubmissionContext context,
+            EmailComposeWorkingDirectory workingDirectory
+    ) {
         String sessionId = session.getId();
         String token = UUID.randomUUID().toString();
         long createdAtMillis = clock.millis();
@@ -137,7 +154,8 @@ public class EmailComposeSubmissionStateService {
                 emailPDFPasswordClue,
                 copyAttachments(emailAttachmentList),
                 createdAtMillis,
-                context == null ? EmailComposeSubmissionContext.direct("") : context);
+                context == null ? EmailComposeSubmissionContext.direct("") : context,
+                workingDirectory);
 
         synchronized (lock) {
             ensureOpen();
@@ -169,7 +187,8 @@ public class EmailComposeSubmissionStateService {
                 request,
                 emailPdfPasswordService,
                 emailAttachmentList,
-                EmailComposeSubmissionContext.direct(""));
+                EmailComposeSubmissionContext.direct(""),
+                null);
     }
 
     /**
@@ -193,12 +212,34 @@ public class EmailComposeSubmissionStateService {
             List<EmailAttachment> emailAttachmentList,
             EmailComposeSubmissionContext context
     ) {
+        return preparePdfPasswordSubmissionState(
+                request, emailPdfPasswordService, emailAttachmentList, context, null);
+    }
+
+    /** Prepares tokenized compose state that owns its generated-PDF working directory. */
+    public EmailPdfPasswordSubmissionState preparePdfPasswordSubmissionState(
+            HttpServletRequest request,
+            EmailPdfPasswordService emailPdfPasswordService,
+            List<EmailAttachment> emailAttachmentList,
+            EmailComposeSubmissionContext context,
+            EmailComposeWorkingDirectory workingDirectory
+    ) {
         String emailPDFPassword = emailPdfPasswordService.generatePassphrase();
         String emailPDFPasswordClue = resolveEmailPdfPasswordDeliveryInstruction(request);
         String emailPDFPasswordToken = store(
-                request.getSession(), emailPDFPassword, emailPDFPasswordClue, emailAttachmentList, context);
+                request.getSession(), emailPDFPassword, emailPDFPasswordClue,
+                emailAttachmentList, context, workingDirectory);
         return new EmailPdfPasswordSubmissionState(
                 emailPDFPassword, emailPDFPasswordClue, emailPDFPasswordToken);
+    }
+
+    /** Creates a private generated-PDF directory whose ownership can be transferred to a state. */
+    public EmailComposeWorkingDirectory createWorkingDirectory() {
+        try {
+            return EmailComposeWorkingDirectory.create();
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to create email compose working directory", e);
+        }
     }
 
     /**
@@ -251,7 +292,13 @@ public class EmailComposeSubmissionStateService {
 
         synchronized (lock) {
             int originalSize = pendingStates.size();
-            pendingStates.keySet().removeIf(key -> key.sessionId().equals(sessionId));
+            pendingStates.entrySet().removeIf(entry -> {
+                if (!entry.getKey().sessionId().equals(sessionId)) {
+                    return false;
+                }
+                entry.getValue().close();
+                return true;
+            });
             return originalSize - pendingStates.size();
         }
     }
@@ -280,6 +327,7 @@ public class EmailComposeSubmissionStateService {
                 scheduledPruner.shutdownNow();
             }
             int originalSize = pendingStates.size();
+            pendingStates.values().forEach(EmailComposeSubmissionState::close);
             pendingStates.clear();
             return originalSize;
         }
@@ -378,8 +426,13 @@ public class EmailComposeSubmissionStateService {
     }
 
     private void pruneExpired(long now) {
-        pendingStates.entrySet().removeIf(entry ->
-                now - entry.getValue().createdAtMillis() > PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS);
+        pendingStates.entrySet().removeIf(entry -> {
+            if (now - entry.getValue().createdAtMillis() <= PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS) {
+                return false;
+            }
+            entry.getValue().close();
+            return true;
+        });
     }
 
     private void trim(String sessionId) {
@@ -388,7 +441,10 @@ public class EmailComposeSubmissionStateService {
             if (oldestKey == null) {
                 return;
             }
-            pendingStates.remove(oldestKey);
+            EmailComposeSubmissionState removedState = pendingStates.remove(oldestKey);
+            if (removedState != null) {
+                removedState.close();
+            }
         }
     }
 
@@ -430,8 +486,26 @@ public class EmailComposeSubmissionStateService {
             String emailPDFPasswordClue,
             List<EmailAttachment> emailAttachmentList,
             long createdAtMillis,
-            EmailComposeSubmissionContext context
-    ) {
+            EmailComposeSubmissionContext context,
+            EmailComposeWorkingDirectory workingDirectory
+    ) implements AutoCloseable {
+        /** Backward-compatible constructor for state that has no generated-file ownership. */
+        public EmailComposeSubmissionState(
+                String emailPDFPassword,
+                String emailPDFPasswordClue,
+                List<EmailAttachment> emailAttachmentList,
+                long createdAtMillis,
+                EmailComposeSubmissionContext context
+        ) {
+            this(emailPDFPassword, emailPDFPasswordClue, emailAttachmentList, createdAtMillis, context, null);
+        }
+
+        @Override
+        public void close() {
+            if (workingDirectory != null) {
+                workingDirectory.close();
+            }
+        }
     }
 
     /**

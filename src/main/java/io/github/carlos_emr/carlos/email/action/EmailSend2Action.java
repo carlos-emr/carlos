@@ -117,18 +117,19 @@ public class EmailSend2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String sendEFormEmail() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        EmailComposeSubmissionState composeState;
+        EmailComposeSubmissionContext context;
         EmailLog emailLog;
         try {
             int senderConfigId = validateSubmittedEmailFields(request);
             validateActiveSenderConfig(senderConfigId);
-            composeState = resolveEmailComposeSubmissionState(request);
-            ensureTransactionType(composeState, EmailLog.TransactionType.EFORM);
-            emailLog = sendEmail(request, composeState);
+            try (EmailComposeSubmissionState composeState = resolveEmailComposeSubmissionState(request)) {
+                ensureTransactionType(composeState, EmailLog.TransactionType.EFORM);
+                context = composeState.context();
+                emailLog = sendEmail(request, composeState);
+            }
         } catch (EmailComposeStateException e) {
             return handleEmailComposeStateError(e);
         }
-        EmailComposeSubmissionContext context = composeState.context();
 
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
@@ -157,14 +158,14 @@ public class EmailSend2Action extends ActionSupport {
      * @return String Struts2 SUCCESS result for rendering the email result page
      */
     public String sendDirectEmail() {
-        EmailComposeSubmissionState composeState;
         EmailLog emailLog;
         try {
             int senderConfigId = validateSubmittedEmailFields(request);
             validateActiveSenderConfig(senderConfigId);
-            composeState = resolveEmailComposeSubmissionState(request);
-            ensureTransactionType(composeState, EmailLog.TransactionType.DIRECT);
-            emailLog = sendEmail(request, composeState);
+            try (EmailComposeSubmissionState composeState = resolveEmailComposeSubmissionState(request)) {
+                ensureTransactionType(composeState, EmailLog.TransactionType.DIRECT);
+                emailLog = sendEmail(request, composeState);
+            }
         } catch (EmailComposeStateException e) {
             return handleEmailComposeStateError(e);
         }
@@ -236,7 +237,10 @@ public class EmailSend2Action extends ActionSupport {
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String cancel() {
         EmailLog.TransactionType transactionType = EmailData.parseTransactionType(request.getParameter("transactionType"));
-        emailComposeSubmissionStateService.consume(request);
+        EmailComposeSubmissionState composeState = emailComposeSubmissionStateService.consume(request);
+        if (composeState != null) {
+            composeState.close();
+        }
         String emailRedirect = transactionType.name();
         if (transactionType.equals(EmailLog.TransactionType.EFORM)) {
             try {
@@ -336,6 +340,7 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setProviderNo(providerNo);
         emailData.setAdditionalParams(additionalParams);
         emailData.setAttachments(emailAttachmentList);
+        emailData.setWorkingDirectory(composeState.workingDirectory());
 
         return emailData;
     }

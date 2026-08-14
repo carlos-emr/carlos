@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -108,6 +109,15 @@ public class EmailComposeManager {
      * @throws RuntimeException if the user lacks the required _eform READ privilege
      */
     public List<EmailAttachment> prepareEFormAttachments(LoggedInInfo loggedInInfo, String fdid, String[] attachedEForms) throws PDFGenerationException {
+        return prepareEFormAttachments(loggedInInfo, fdid, attachedEForms, null);
+    }
+
+    public List<EmailAttachment> prepareEFormAttachments(
+            LoggedInInfo loggedInInfo,
+            String fdid,
+            String[] attachedEForms,
+            EmailComposeWorkingDirectory workingDirectory
+    ) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_eform)");
         }
@@ -121,6 +131,7 @@ public class EmailComposeManager {
         for (String eFormId : attachedEFormIds) {
             Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, Integer.parseInt(eFormId));
             if (eFormPDFPath != null) {
+                eFormPDFPath = ownGeneratedPdf(eFormPDFPath, workingDirectory);
                 emailAttachments.add(new EmailAttachment(eFormPDFPath.getFileName().toString(), eFormPDFPath.toString(), DocumentType.EFORM, Integer.parseInt(eFormId), getFileSize(eFormPDFPath)));
             }
         }
@@ -141,6 +152,14 @@ public class EmailComposeManager {
      * @throws RuntimeException if the user lacks the required _edoc READ privilege
      */
     public List<EmailAttachment> prepareEDocAttachments(LoggedInInfo loggedInInfo, String[] attachedDocuments) throws PDFGenerationException {
+        return prepareEDocAttachments(loggedInInfo, attachedDocuments, null);
+    }
+
+    public List<EmailAttachment> prepareEDocAttachments(
+            LoggedInInfo loggedInInfo,
+            String[] attachedDocuments,
+            EmailComposeWorkingDirectory workingDirectory
+    ) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_edoc)");
         }
@@ -151,6 +170,7 @@ public class EmailComposeManager {
         for (String eDocId : attachedEDocIds) {
             Path eDocPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, Integer.parseInt(eDocId));
             if (eDocPDFPath != null) {
+                eDocPDFPath = ownGeneratedPdf(eDocPDFPath, workingDirectory);
                 emailAttachments.add(new EmailAttachment(eDocPDFPath.getFileName().toString(), eDocPDFPath.toString(), DocumentType.DOC, Integer.parseInt(eDocId), getFileSize(eDocPDFPath)));
             }
         }
@@ -171,6 +191,14 @@ public class EmailComposeManager {
      * @throws RuntimeException if the user lacks the required _lab READ privilege
      */
     public List<EmailAttachment> prepareLabAttachments(LoggedInInfo loggedInInfo, String[] attachedLabs) throws PDFGenerationException {
+        return prepareLabAttachments(loggedInInfo, attachedLabs, null);
+    }
+
+    public List<EmailAttachment> prepareLabAttachments(
+            LoggedInInfo loggedInInfo,
+            String[] attachedLabs,
+            EmailComposeWorkingDirectory workingDirectory
+    ) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_lab)");
         }
@@ -181,6 +209,7 @@ public class EmailComposeManager {
         for (String labId : attachedLabIds) {
             Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, Integer.parseInt(labId));
             if (labPDFPath != null) {
+                labPDFPath = ownGeneratedPdf(labPDFPath, workingDirectory);
                 emailAttachments.add(new EmailAttachment(labPDFPath.getFileName().toString(), labPDFPath.toString(), DocumentType.LAB, Integer.parseInt(labId), getFileSize(labPDFPath)));
             }
         }
@@ -201,6 +230,14 @@ public class EmailComposeManager {
      * @throws PDFGenerationException if PDF rendering fails for any hospital report
      */
     public List<EmailAttachment> prepareHRMAttachments(LoggedInInfo loggedInInfo, String[] attachedHRMDocuments) throws PDFGenerationException {
+        return prepareHRMAttachments(loggedInInfo, attachedHRMDocuments, null);
+    }
+
+    public List<EmailAttachment> prepareHRMAttachments(
+            LoggedInInfo loggedInInfo,
+            String[] attachedHRMDocuments,
+            EmailComposeWorkingDirectory workingDirectory
+    ) throws PDFGenerationException {
         if (!CarlosProperties.getInstance().isOntarioBillingRegion()) {
             return new ArrayList<>();
         }
@@ -216,6 +253,7 @@ public class EmailComposeManager {
         for (String hrmId : attachedHRMIds) {
             Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, Integer.parseInt(hrmId));
             if (hrmPDFPath != null) {
+                hrmPDFPath = ownGeneratedPdf(hrmPDFPath, workingDirectory);
                 emailAttachments.add(new EmailAttachment(hrmPDFPath.getFileName().toString(), hrmPDFPath.toString(), DocumentType.HRM, Integer.parseInt(hrmId), getFileSize(hrmPDFPath)));
             }
         }
@@ -239,6 +277,16 @@ public class EmailComposeManager {
      * @throws RuntimeException if the user lacks the required _form READ privilege for the specified demographic
      */
     public List<EmailAttachment> prepareFormAttachments(HttpServletRequest request, HttpServletResponse response, String[] attachedForms, Integer demographicId) throws PDFGenerationException {
+        return prepareFormAttachments(request, response, attachedForms, demographicId, null);
+    }
+
+    public List<EmailAttachment> prepareFormAttachments(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            String[] attachedForms,
+            Integer demographicId,
+            EmailComposeWorkingDirectory workingDirectory
+    ) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, String.valueOf(demographicId))) {
             throw new RuntimeException("missing required sec object (_form)");
@@ -250,6 +298,7 @@ public class EmailComposeManager {
         for (String formId : attachedFormIds) {
             Path formPDFPath = formsManager.renderForm(request, response, Integer.parseInt(formId), demographicId);
             if (formPDFPath != null) {
+                formPDFPath = ownGeneratedPdf(formPDFPath, workingDirectory);
                 emailAttachments.add(new EmailAttachment(formPDFPath.getFileName().toString(), formPDFPath.toString(), DocumentType.FORM, Integer.parseInt(formId), getFileSize(formPDFPath)));
             }
         }
@@ -491,6 +540,20 @@ public class EmailComposeManager {
             logger.error("Error accessing file: " + e.getMessage(), e);
         }
         return fileSize;
+    }
+
+    private static Path ownGeneratedPdf(
+            Path generatedPdf,
+            EmailComposeWorkingDirectory workingDirectory
+    ) throws PDFGenerationException {
+        if (workingDirectory == null) {
+            return generatedPdf;
+        }
+        try {
+            return workingDirectory.adoptGeneratedPdf(generatedPdf);
+        } catch (IOException e) {
+            throw new PDFGenerationException("Unable to secure generated email attachment", e);
+        }
     }
 
 }

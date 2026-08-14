@@ -15,6 +15,7 @@ import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.email.action.EmailCompose2Action;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext;
+import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -248,10 +249,21 @@ public class ManageEmails2Action extends ActionSupport {
          * The purpose of the EmailComposeManager is to help prepare all necessary data to display on the emailCompose.jsp page.
          */
         EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
+        EmailComposeWorkingDirectory workingDirectory;
+        try {
+            workingDirectory = emailComposeSubmissionStateService.createWorkingDirectory();
+        } catch (IllegalStateException e) {
+            logger.warn("Unable to create resend email compose working directory", e);
+            request.setAttribute("emailErrorMessage", EmailCompose2Action.EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
+            request.setAttribute("isEmailError", true);
+            return "compose";
+        }
+
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         try {
-            emailAttachmentList = refreshEmailAttachments(request, response, emailLog);
+            emailAttachmentList = refreshEmailAttachments(request, response, emailLog, workingDirectory);
         } catch (PDFGenerationException e) {
+            workingDirectory.close();
             logger.warn("Unable to refresh email attachments during resend");
             EmailCompose2Action.cleanupEmailSessionAttributes(request);
             request.setAttribute("emailErrorMessage",
@@ -259,21 +271,36 @@ public class ManageEmails2Action extends ActionSupport {
                             + "Please generate a new email instead.");
             request.setAttribute("isEmailError", true);
             return "compose";
+        } catch (RuntimeException e) {
+            workingDirectory.close();
+            throw e;
         }
 
-        int demographicNo = emailLog.getDemographic().getDemographicNo();
-        String[] emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
-        String receiverName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
-        List<?>[] receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
-        List<EmailConfig> senderAccounts = emailComposeManager.getAllSenderAccounts();
+        int demographicNo;
+        String[] emailConsent;
+        String receiverName;
+        List<?>[] receiverEmailList;
+        List<EmailConfig> senderAccounts;
+        try {
+            demographicNo = emailLog.getDemographic().getDemographicNo();
+            emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
+            receiverName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
+            receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
+            senderAccounts = emailComposeManager.getAllSenderAccounts();
+        } catch (RuntimeException e) {
+            workingDirectory.close();
+            throw e;
+        }
         EmailComposeSubmissionStateService.EmailPdfPasswordSubmissionState emailPdfPasswordSubmissionState;
         try {
             emailPdfPasswordSubmissionState = emailComposeSubmissionStateService.preparePdfPasswordSubmissionState(
                     request,
                     emailPdfPasswordService,
                     emailAttachmentList,
-                    EmailComposeSubmissionContext.direct(String.valueOf(demographicNo)));
+                    EmailComposeSubmissionContext.direct(String.valueOf(demographicNo)),
+                    workingDirectory);
         } catch (IllegalStateException e) {
+            workingDirectory.close();
             logger.warn("Unable to prepare resend email compose submission state", e);
             EmailCompose2Action.cleanupEmailSessionAttributes(request);
             request.setAttribute("emailErrorMessage", EmailCompose2Action.EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
@@ -344,7 +371,12 @@ public class ManageEmails2Action extends ActionSupport {
      * @see FormsManager#renderForm
      * @see DocumentType
      */
-    private List<EmailAttachment> refreshEmailAttachments(HttpServletRequest request, HttpServletResponse response, EmailLog emailLog) throws PDFGenerationException {
+    private List<EmailAttachment> refreshEmailAttachments(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            EmailLog emailLog,
+            EmailComposeWorkingDirectory workingDirectory
+    ) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_email)");
@@ -355,26 +387,31 @@ public class ManageEmails2Action extends ActionSupport {
             switch (emailAttachment.getDocumentType()) {
                 case EFORM:
                     Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, emailAttachment.getDocumentId());
+                    eFormPDFPath = ownGeneratedPdf(eFormPDFPath, workingDirectory);
                     emailAttachment.setFilePath(eFormPDFPath.toString());
                     emailAttachment.setFileSize(emailComposeManager.getFileSize(eFormPDFPath));
                     break;
                 case DOC:
                     Path eDocPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, emailAttachment.getDocumentId());
+                    eDocPDFPath = ownGeneratedPdf(eDocPDFPath, workingDirectory);
                     emailAttachment.setFilePath(eDocPDFPath.toString());
                     emailAttachment.setFileSize(emailComposeManager.getFileSize(eDocPDFPath));
                     break;
                 case LAB:
                     Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, emailAttachment.getDocumentId());
+                    labPDFPath = ownGeneratedPdf(labPDFPath, workingDirectory);
                     emailAttachment.setFilePath(labPDFPath.toString());
                     emailAttachment.setFileSize(emailComposeManager.getFileSize(labPDFPath));
                     break;
                 case HRM:
                     Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, emailAttachment.getDocumentId());
+                    hrmPDFPath = ownGeneratedPdf(hrmPDFPath, workingDirectory);
                     emailAttachment.setFilePath(hrmPDFPath.toString());
                     emailAttachment.setFileSize(emailComposeManager.getFileSize(hrmPDFPath));
                     break;
                 case FORM:
                     Path formPDFPath = formsManager.renderForm(request, response, emailAttachment.getDocumentId(), emailLog.getDemographic().getDemographicNo());
+                    formPDFPath = ownGeneratedPdf(formPDFPath, workingDirectory);
                     emailAttachment.setFilePath(formPDFPath.toString());
                     emailAttachment.setFileSize(emailComposeManager.getFileSize(formPDFPath));
                     break;
@@ -387,5 +424,16 @@ public class ManageEmails2Action extends ActionSupport {
             }
         }
         return emailAttachmentList;
+    }
+
+    private static Path ownGeneratedPdf(
+            Path generatedPdf,
+            EmailComposeWorkingDirectory workingDirectory
+    ) throws PDFGenerationException {
+        try {
+            return workingDirectory.adoptGeneratedPdf(generatedPdf);
+        } catch (java.io.IOException e) {
+            throw new PDFGenerationException("Unable to secure generated email attachment", e);
+        }
     }
 }

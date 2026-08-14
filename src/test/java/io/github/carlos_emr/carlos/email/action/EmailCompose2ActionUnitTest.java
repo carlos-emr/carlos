@@ -6,14 +6,18 @@
 package io.github.carlos_emr.carlos.email.action;
 
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
+import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
+import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -27,6 +31,9 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -48,6 +55,15 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     private static final String EXAMPLE_GENERATED_VALUE = "example-generated-value";
 
     private EmailComposeSubmissionStateService composeSubmissionStateService;
+
+    private static void stubEmptyAttachmentPreparation(EmailComposeManager manager)
+            throws Exception {
+        when(manager.prepareEFormAttachments(any(), any(), any(), any())).thenReturn(List.of());
+        when(manager.prepareEDocAttachments(any(), any(), any())).thenReturn(List.of());
+        when(manager.prepareLabAttachments(any(), any(), any())).thenReturn(List.of());
+        when(manager.prepareHRMAttachments(any(), any(), any())).thenReturn(List.of());
+        when(manager.prepareFormAttachments(any(), any(), any(), anyInt(), any())).thenReturn(List.of());
+    }
 
     @BeforeEach
     void setUpComposeSubmissionStateService() {
@@ -89,11 +105,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
         when(emailComposeManager.getRecipients(any(), anyInt())).thenReturn(new List<?>[]{List.of(), List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
-        when(emailComposeManager.prepareEFormAttachments(any(), any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareEDocAttachments(any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareLabAttachments(any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareHRMAttachments(any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareFormAttachments(any(), any(), any(), anyInt())).thenReturn(List.of());
+        stubEmptyAttachmentPreparation(emailComposeManager);
         when(emailPdfPasswordService.generatePassphrase()).thenReturn(EXAMPLE_GENERATED_VALUE);
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
@@ -113,11 +125,53 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             EmailComposeSubmissionStateService.EmailComposeSubmissionState composeState =
                     composeSubmissionStateService.consume(request);
             assertThat(composeState.emailPDFPassword()).isEqualTo(EXAMPLE_GENERATED_VALUE);
+            composeState.close();
             verify(emailPdfPasswordService).generatePassphrase();
             assertThat(LogSafe.sanitize("abc\r\nforged-fid"))
                     .doesNotContain("\r")
                     .doesNotContain("\n")
                     .contains("abc\\r\\nforged-fid");
+        }
+    }
+
+    @Test
+    @DisplayName("should remove partial attachment output when a later renderer fails")
+    void shouldRemovePartialAttachmentOutput_whenLaterRendererFails() throws Exception {
+        DemographicManager demographicManager = mock(DemographicManager.class);
+        EmailComposeManager emailComposeManager = mock(EmailComposeManager.class);
+        registerMock(DemographicManager.class, demographicManager);
+        registerMock(EmailComposeManager.class, emailComposeManager);
+        registerMock(EmailPdfPasswordService.class, mock(EmailPdfPasswordService.class));
+        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        request.getSession(true).setAttribute("demographicId", "123");
+        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{"Consent", "Yes"});
+        when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
+        when(emailComposeManager.getRecipients(any(), anyInt())).thenReturn(new List<?>[]{List.of(), List.of()});
+        when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
+        AtomicReference<Path> ownedDirectory = new AtomicReference<>();
+        when(emailComposeManager.prepareEFormAttachments(any(), any(), any(), any()))
+                .thenAnswer(invocation -> {
+                    EmailComposeWorkingDirectory workingDirectory = invocation.getArgument(3);
+                    Path generatedPdf = Files.createTempFile("email-partial-test-", ".pdf");
+                    Path ownedPdf = workingDirectory.adoptGeneratedPdf(generatedPdf);
+                    ownedDirectory.set(ownedPdf.getParent());
+                    return List.of(new EmailAttachment(
+                            "attachment.pdf", ownedPdf.toString(), DocumentType.EFORM, 1));
+                });
+        when(emailComposeManager.prepareEDocAttachments(any(), any(), any()))
+                .thenThrow(new PDFGenerationException("later renderer failed"));
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            EmailCompose2Action action = new EmailCompose2Action();
+
+            assertThat(action.prepareComposeEFormMailer()).isEqualTo("eFormError");
+            assertThat(ownedDirectory.get()).isNotNull();
+            assertThat(Files.exists(ownedDirectory.get())).isFalse();
         }
     }
 
@@ -186,11 +240,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
         when(emailComposeManager.getRecipients(any(), anyInt())).thenReturn(new List<?>[]{List.of("patient@example.com"), List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
-        when(emailComposeManager.prepareEFormAttachments(any(), any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareEDocAttachments(any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareLabAttachments(any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareHRMAttachments(any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareFormAttachments(any(), any(), any(), anyInt())).thenReturn(List.of());
+        stubEmptyAttachmentPreparation(emailComposeManager);
         when(emailPdfPasswordService.generatePassphrase()).thenReturn(EXAMPLE_GENERATED_VALUE);
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
@@ -230,11 +280,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
         when(emailComposeManager.getRecipients(any(), anyInt())).thenReturn(new List<?>[]{List.of("patient@example.com"), List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
-        when(emailComposeManager.prepareEFormAttachments(any(), any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareEDocAttachments(any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareLabAttachments(any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareHRMAttachments(any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareFormAttachments(any(), any(), any(), anyInt())).thenReturn(List.of());
+        stubEmptyAttachmentPreparation(emailComposeManager);
         when(emailPdfPasswordService.generatePassphrase()).thenReturn(EXAMPLE_GENERATED_VALUE);
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
@@ -260,6 +306,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(composeState.context().transactionType()).isEqualTo(TransactionType.EFORM);
             assertThat(composeState.context().openEFormAfterEmail()).isTrue();
             assertThat(composeState.context().deleteEFormAfterEmail()).isFalse();
+            composeState.close();
             verify(emailPdfPasswordService).generatePassphrase();
         }
     }

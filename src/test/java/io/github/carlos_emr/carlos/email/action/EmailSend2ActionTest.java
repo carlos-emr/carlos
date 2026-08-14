@@ -17,6 +17,8 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import org.apache.struts2.ServletActionContext;
@@ -36,6 +38,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext;
+import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
@@ -122,6 +125,28 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(response.getRedirectedUrl()).isEqualTo(
                 "/carlos/eform/efmshowform_data?fdid="
                         + "123%26parentAjaxId%3Devil%23fragment%2525%20%2B%2F&parentAjaxId=eforms");
+    }
+
+    @Test
+    @DisplayName("should remove generated files when compose is cancelled")
+    void shouldRemoveGeneratedFiles_whenComposeCancelled() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("transactionType", "DIRECT");
+        EmailComposeWorkingDirectory workingDirectory = EmailComposeWorkingDirectory.create();
+        Path generatedPdf = Files.createTempFile("email-cancel-test-", ".pdf");
+        Path ownedPdf = workingDirectory.adoptGeneratedPdf(generatedPdf);
+        String token = composeSubmissionStateService.store(
+                request.getSession(), EXAMPLE_GENERATED_VALUE,
+                DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION, List.of(),
+                EmailComposeSubmissionContext.direct("123"), workingDirectory);
+        request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
+
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        assertThat(action.cancel()).isEqualTo("DIRECT");
+        assertThat(Files.exists(ownedPdf.getParent())).isFalse();
     }
 
     @Test
@@ -283,11 +308,11 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         when(emailComposeManager.getRecipients(any(), anyInt()))
                 .thenReturn(new List<?>[]{List.of("patient@example.com"), List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
-        when(emailComposeManager.prepareEFormAttachments(any(), any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareEDocAttachments(any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareLabAttachments(any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareHRMAttachments(any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareFormAttachments(any(), any(), any(), anyInt())).thenReturn(List.of());
+        when(emailComposeManager.prepareEFormAttachments(any(), any(), any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareEDocAttachments(any(), any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareLabAttachments(any(), any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareHRMAttachments(any(), any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareFormAttachments(any(), any(), any(), anyInt(), any())).thenReturn(List.of());
         when(emailPdfPasswordService.generatePassphrase()).thenReturn(EXAMPLE_GENERATED_VALUE);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
@@ -317,6 +342,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         assertThat(emailData.getPassword()).isEqualTo(EXAMPLE_GENERATED_VALUE);
         assertThat(emailData.getIsEncrypted()).isTrue();
+        emailData.getWorkingDirectory().close();
     }
 
     @Test
