@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Callable, Generator
+from collections.abc import Awaitable, Callable, Generator
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Protocol
@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
+from starlette.responses import Response
 
 from carlos_patient_portal.account_settings import (
     ContactReviewConflictError,
@@ -297,7 +298,10 @@ class InternalRouteDependencies:
 def register_internal_failure_audit(app: FastAPI, runtime: InternalRuntime) -> None:
     """Record every failed /internal/carlos/** request as a staff-action audit event."""
     @app.middleware("http")
-    async def audit_failed_internal_action(request: Request, call_next):
+    async def audit_failed_internal_action(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
         response = await call_next(request)
         if not request.url.path.startswith("/internal/carlos/") or response.status_code < 400:
             return response
@@ -377,7 +381,7 @@ def build_internal_dependencies(runtime: InternalRuntime) -> InternalRouteDepend
         except CarlosServiceAuthenticationError as exc:
             raise HTTPException(status_code=404, detail="not found") from exc
 
-    def staff_principal_requiring(permission: str):
+    def staff_principal_requiring(permission: str) -> Callable[..., StaffPrincipal]:
         """Authorize in the dependency phase, not in the handler body.
 
         FastAPI resolves dependencies before it validates the request model, so checking the

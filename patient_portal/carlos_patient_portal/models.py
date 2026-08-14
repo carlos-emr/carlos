@@ -1029,6 +1029,11 @@ class PatientPortalAuditEvent(Base):
         nullable=True,
     )
     demographic_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Deliberately a plain Integer, not a ForeignKey. Audit rows have to outlive the rows they
+    # describe: a cascading FK would delete history along with a pruned invite, and a restricting
+    # one would block the retention cleanup that pruning exists for. So a reference here can dangle
+    # once an expired invite is cleaned up, and that is the accepted trade — the event itself
+    # carries the actor, outcome, reason, and hashed token needed to investigate without it.
     invite_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     account_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     invite_token_hash: Mapped[str | None] = mapped_column(String(HASH_LENGTH), nullable=True)

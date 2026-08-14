@@ -69,15 +69,18 @@ def create_portal_engine(
     if is_sqlite:
         use_wal = parsed_url.database not in {None, "", ":memory:"}
 
+        # SQLAlchemy hands these hooks the raw DBAPI connection, whose type is driver-specific
+        # and not exported as a usable annotation, so Any is the accurate type here rather than a
+        # gap.
         @event.listens_for(engine, "connect")
-        def set_sqlite_transaction_mode(dbapi_connection: Any, _: Any) -> None:
+        def set_sqlite_transaction_mode(dbapi_connection: Any, _: Any) -> None:  # noqa: ANN401
             dbapi_connection.isolation_level = None
             dbapi_connection.execute("PRAGMA foreign_keys=ON")
             if use_wal:
                 dbapi_connection.execute("PRAGMA journal_mode=WAL")
 
         @event.listens_for(engine, "begin")
-        def begin_sqlite_transaction(connection: Any) -> None:
+        def begin_sqlite_transaction(connection: Any) -> None:  # noqa: ANN401
             connection.execute(text("BEGIN"))
 
     return engine

@@ -649,6 +649,19 @@ def register_password_reset_routes(
                 settings=deps.settings,
                 reset_token=result.reset_token,
             )
+            # The two branches defend different invariants, which is why they differ.
+            #
+            # Development delivers inline so a developer sees a delivery failure immediately and
+            # gets `development_reset_url` back in the response; the timing signal that leaks
+            # doesn't matter on a disposable database.
+            #
+            # Production defers so the response time is identical whether or not the submitted
+            # identity matched an account — the property that stops this endpoint being an account
+            # oracle. The cost is that the handoff is process-local: a worker killed between the
+            # response and the send loses the delivery with no failure recorded, because
+            # `deliver_password_reset` never runs to record one. That is the documented pilot
+            # blocker (README "durable reset delivery"), and it is why the timing-uniformity path
+            # is the one production takes while the tests exercise the development path.
             if deps.settings.is_development:
                 try:
                     await run_in_threadpool(

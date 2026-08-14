@@ -11,7 +11,7 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from sqlalchemy import Select, case, func, literal, or_, select
+from sqlalchemy import Select, Subquery, case, func, literal, or_, select
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal.audit import record_audit_event
@@ -777,7 +777,7 @@ def _unlock_secret_provider_identity_subquery(
     account_id: int | None = None,
     demographic_no: int | None = None,
     secret_type: str | None = None,
-):
+) -> Subquery:
     scoped_statement = scoped_unlock_secret_statement(
         clinic_id=clinic_id,
         account_id=account_id,
@@ -816,7 +816,7 @@ def _unlock_secret_provider_identity_statement(
     account_id: int | None = None,
     demographic_no: int | None = None,
     secret_type: str | None = None,
-):
+) -> Select:
     providers = _unlock_secret_provider_identity_subquery(
         clinic_id=clinic_id,
         account_id=account_id,
