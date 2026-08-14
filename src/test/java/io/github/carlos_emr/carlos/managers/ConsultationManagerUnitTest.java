@@ -464,6 +464,17 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should return null when response does not exist")
+        void shouldReturnNull_whenResponseDoesNotExist() {
+            when(mockConsultResponseDao.find(TEST_RESPONSE_ID)).thenReturn(null);
+
+            ConsultationResponse result = consultationManager.getResponse(mockLoggedInInfo, TEST_RESPONSE_ID);
+
+            assertThat(result).isNull();
+            verify(mockConsultResponseDao).find(TEST_RESPONSE_ID);
+        }
+
+        @Test
         @DisplayName("should throw RuntimeException when read privilege denied for response")
         void shouldThrowRuntimeException_whenReadPrivilegeDeniedForResponse() {
             // Given

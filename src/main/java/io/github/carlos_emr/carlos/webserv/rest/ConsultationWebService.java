@@ -57,7 +57,6 @@ import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
-import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
@@ -545,15 +544,20 @@ public class ConsultationWebService extends AbstractServiceImpl {
      * read by supplying an arbitrary {@code demographicNo}.
      *
      * @param demographicNo the demographic whose consultation data is being requested.
-     * @throws AccessDeniedException if the current user lacks {@code _con} read access to this patient.
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing or
+     * non-positive, or HTTP 403 when the current user lacks {@code _con} read access
      */
     private void requireConsultationReadPrivilege(Integer demographicNo) {
         if (demographicNo == null) {
             throw new WebApplicationException(
                     Response.status(Response.Status.BAD_REQUEST).entity("demographicNo is required").build());
         }
+        if (demographicNo <= 0) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("demographicNo must be positive").build());
+        }
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_con", "r", demographicNo)) {
-            throw new AccessDeniedException("_con", "r", demographicNo);
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
     }
 

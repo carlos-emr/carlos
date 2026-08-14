@@ -36,7 +36,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -96,7 +95,9 @@ class PreventionServiceUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(), eq("_prevention"), eq("r"), eq(99))).thenReturn(false);
 
         assertThatThrownBy(() -> service.getCurrentPreventions(99))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
 
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_prevention"), eq("r"), eq(99));
         verify(preventionManager, never()).getPreventionsByDemographicNo(any(), any());
@@ -121,7 +122,9 @@ class PreventionServiceUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(), eq("_prevention"), eq("r"), eq(99))).thenReturn(false);
 
         assertThatThrownBy(() -> service.getImmunizations(99))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
 
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_prevention"), eq("r"), eq(99));
         verify(preventionManager, never()).getImmunizationsByDemographic(any(), any());

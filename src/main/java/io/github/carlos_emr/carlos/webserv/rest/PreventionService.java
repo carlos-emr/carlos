@@ -38,7 +38,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 
-import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
@@ -71,7 +70,8 @@ public class PreventionService extends AbstractServiceImpl {
      * prevention records
      * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing or
      * non-positive
-     * @throws AccessDeniedException if the current user lacks {@code _prevention} read access
+     * @throws WebApplicationException with HTTP 403 when the current user lacks
+     * {@code _prevention} read access
      * @since 2026-06-24
      */
     @GET
@@ -100,7 +100,8 @@ public class PreventionService extends AbstractServiceImpl {
      * @return a {@link PreventionResponse} JSON payload containing the patient's immunization
      * records
      * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is non-positive
-     * @throws AccessDeniedException if the current user lacks {@code _prevention} read access
+     * @throws WebApplicationException with HTTP 403 when the current user lacks
+     * {@code _prevention} read access
      * @since 2026-06-24
      */
     @GET
@@ -122,7 +123,8 @@ public class PreventionService extends AbstractServiceImpl {
      * immunization history cannot be read by supplying an arbitrary {@code demographicNo}.
      *
      * @param demographicNo the demographic whose prevention data is being requested.
-     * @throws AccessDeniedException if the current user lacks {@code _prevention} read access to this patient.
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing or
+     * non-positive, or HTTP 403 when the current user lacks {@code _prevention} read access
      */
     private void requirePreventionReadPrivilege(Integer demographicNo) {
         if (demographicNo == null) {
@@ -134,7 +136,7 @@ public class PreventionService extends AbstractServiceImpl {
                     Response.status(Response.Status.BAD_REQUEST).entity("demographicNo must be positive").build());
         }
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_prevention", "r", demographicNo)) {
-            throw new AccessDeniedException("_prevention", "r", demographicNo);
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
     }
 

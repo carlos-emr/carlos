@@ -34,6 +34,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -45,7 +48,6 @@ import io.github.carlos_emr.carlos.commn.dao.AppointmentSearchDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
-import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentSearch;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -366,9 +368,26 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("r"), eq(99))).thenReturn(false);
 
         assertThatThrownBy(() -> service.findExistAppointments(99))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
 
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("r"), eq(99));
+        verify(appointmentManager, never()).getAppointmentHistoryWithoutDeleted(any(), anyInt(), anyInt(), anyInt());
+        verify(billingONCHeader1Dao, never()).findByDemoNoWithItems(anyInt(), anyInt(), anyInt());
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(ints = {0, -1})
+    @DisplayName("should reject appointment history when demographicNo is invalid")
+    void shouldReturnBadRequest_whenAppointmentHistoryDemographicInvalid(Integer demographicNo) {
+        assertThatThrownBy(() -> service.findExistAppointments(demographicNo))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
+
+        verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
         verify(appointmentManager, never()).getAppointmentHistoryWithoutDeleted(any(), anyInt(), anyInt(), anyInt());
         verify(billingONCHeader1Dao, never()).findByDemoNoWithItems(anyInt(), anyInt(), anyInt());
     }

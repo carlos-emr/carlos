@@ -57,7 +57,6 @@ import io.github.carlos_emr.carlos.appointment.search.SearchConfig;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentSearchDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
-import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentSearch;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
@@ -319,11 +318,20 @@ public class ScheduleService extends AbstractServiceImpl {
      * cannot be read for another patient by altering the {@code demographicNo} in the URL.
      *
      * @param demographicNo the demographic whose appointment data is being requested.
-     * @throws AccessDeniedException if the current user lacks {@code _appointment} read access to this patient.
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing or
+     * non-positive, or HTTP 403 when the current user lacks {@code _appointment} read access
      */
     private void requireAppointmentReadPrivilege(Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("demographicNo is required").build());
+        }
+        if (demographicNo <= 0) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("demographicNo must be positive").build());
+        }
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "r", demographicNo)) {
-            throw new AccessDeniedException("_appointment", "r", demographicNo);
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
     }
 

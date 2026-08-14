@@ -34,6 +34,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
@@ -45,7 +47,6 @@ import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
-import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -156,7 +157,9 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
 
         // responseId <= 0 routes to the "new response" branch, which authorizes the supplied demographic.
         assertThatThrownBy(() -> service.getResponse(0, 99))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
 
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(99));
     }
@@ -169,7 +172,9 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
         // A null (omitted) responseId must route to the "new response" branch and authorize the
         // supplied demographic, rather than unboxing null into the responseId > 0 comparison (NPE).
         assertThatThrownBy(() -> service.getResponse(null, 99))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
 
         verify(consultationManager, never()).getResponse(any(), any());
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(99));
@@ -186,7 +191,9 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
         // A foreign responseId (belongs to demographic 50) paired with an otherwise-authorized
         // demographicNo (7) must still be denied because authorization uses the response's demographic.
         assertThatThrownBy(() -> service.getResponse(123, 7))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
 
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(50));
     }
@@ -202,7 +209,9 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
         // A forged responseId (belongs to demographic 50) paired with an otherwise-authorized
         // demographicNo (7) must still be denied because authorization uses the response's demographic.
         assertThatThrownBy(() -> service.getResponseAttachments(5, 7, true))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
 
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(50));
     }
@@ -290,7 +299,9 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
         HttpServletResponse httpResponse = org.mockito.Mockito.mock(HttpServletResponse.class);
 
         assertThatThrownBy(() -> service.getEReferAttachments(99, request, httpResponse))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
 
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(99));
         verify(consultationManager, never()).getEReferAttachments(any(), any(), any(), any());
@@ -334,6 +345,19 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
                         .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
 
         verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1})
+    @DisplayName("should return bad request when demographicNo is non-positive for a new response")
+    void shouldReturnBadRequest_whenDemographicNoNonPositiveForNewResponse(int demographicNo) {
+        assertThatThrownBy(() -> service.getResponse(0, demographicNo))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
+
+        verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
+        verify(consultationManager, never()).getResponse(any(), any());
     }
 
     @Test
