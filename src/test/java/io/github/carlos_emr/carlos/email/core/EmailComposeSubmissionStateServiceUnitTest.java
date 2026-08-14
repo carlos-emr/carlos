@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.email.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -11,6 +12,7 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -22,6 +24,35 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 @DisplayName("EmailComposeSubmissionStateService")
 class EmailComposeSubmissionStateServiceUnitTest {
     private static final String TOKEN_PARAMETER_NAME = "emailPDFPasswordToken";
+
+    @Test
+    @DisplayName("should shut down compose state when the Spring context closes")
+    void shouldShutDownComposeState_whenSpringContextCloses() {
+        EmailComposeSubmissionStateService service;
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        String token;
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(EmailComposeSubmissionStateService.class);
+            context.refresh();
+            service = context.getBean(EmailComposeSubmissionStateService.class);
+            token = service.store(
+                    request.getSession(),
+                    "example-destroyed-value",
+                    "delivery instruction",
+                    List.of());
+        }
+
+        request.setParameter(TOKEN_PARAMETER_NAME, token);
+
+        assertThat(service.consume(request, TOKEN_PARAMETER_NAME)).isNull();
+        assertThatThrownBy(() -> service.store(
+                        request.getSession(),
+                        "example-rejected-value",
+                        "delivery instruction",
+                        List.of()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Email compose submission state cache is shut down");
+    }
 
     @Test
     @DisplayName("should expire pending compose submission states")

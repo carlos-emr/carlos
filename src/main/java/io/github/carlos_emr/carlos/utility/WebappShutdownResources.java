@@ -30,7 +30,6 @@ import java.util.List;
 
 import com.mysql.cj.jdbc.AbandonedConnectionCleanupThread;
 import io.github.carlos_emr.carlos.drools.DroolsShutdownResources;
-import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import org.apache.logging.log4j.Logger;
 
@@ -50,7 +49,8 @@ public final class WebappShutdownResources {
      * Releases shutdown-sensitive resources for the supplied web application class loader.
      * The call order is significant: servlet-thread DB state and datasource tracking are released before
      * async log workers, Drools executors, cache timers, MySQL cleanup, and finally webapp-owned
-     * JDBC driver deregistration.
+     * JDBC driver deregistration. Spring-managed resources are released by their bean lifecycle
+     * callbacks before this servlet-context listener runs.
      *
      * @param webappClassLoader class loader associated with the stopping CARLOS webapp
      * @return per-step shutdown report for audit logging
@@ -70,8 +70,6 @@ public final class WebappShutdownResources {
             return 0;
         });
         runStep(results, ShutdownStep.DROOLS_EXECUTORS, () -> DroolsShutdownResources.shutdownExecutors());
-        runStep(results, ShutdownStep.EMAIL_COMPOSE_STATE_CACHE,
-                () -> SpringUtils.getBean(EmailComposeSubmissionStateService.class).shutdown());
         runStep(results, ShutdownStep.QUEUE_CACHE_TIMER, () -> {
             QueueCache.shutdownSharedTimer();
             return 0;
@@ -112,8 +110,6 @@ public final class WebappShutdownResources {
         LOG_ACTION_EXECUTOR,
         /** Stop Drools compiler and KIE executor resources. */
         DROOLS_EXECUTORS,
-        /** Stop the email compose submission state pruner and clear pending compose state. */
-        EMAIL_COMPOSE_STATE_CACHE,
         /** Cancel the QueueCache shared timer. */
         QUEUE_CACHE_TIMER,
         /** Stop MySQL Connector/J's abandoned cleanup thread. */

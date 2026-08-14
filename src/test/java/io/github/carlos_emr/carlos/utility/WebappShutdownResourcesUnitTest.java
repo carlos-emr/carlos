@@ -41,13 +41,10 @@ import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.MockedStatic;
 
 import io.github.carlos_emr.carlos.drools.DroolsShutdownResources;
-import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.verify;
 
 /**
  * Unit tests for {@link WebappShutdownResources}.
@@ -194,29 +191,23 @@ public class WebappShutdownResourcesUnitTest {
     void shouldRunAllShutdownSteps_whenEarlierStepThrows() {
         ClassLoader unrelatedClassLoader = new ClassLoader(null) {
         };
-        EmailComposeSubmissionStateService emailComposeSubmissionStateService =
-                mock(EmailComposeSubmissionStateService.class);
 
         try (MockedStatic<DbConnectionFilter> dbConnections = mockStatic(DbConnectionFilter.class);
              MockedStatic<OscarTrackingBasicDataSource> tracking = mockStatic(OscarTrackingBasicDataSource.class);
              MockedStatic<LogAction> logAction = mockStatic(LogAction.class);
              MockedStatic<DroolsShutdownResources> droolsShutdown = mockStatic(DroolsShutdownResources.class);
-             MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class);
              MockedStatic<QueueCache> queueCache = mockStatic(QueueCache.class)) {
             dbConnections.when(DbConnectionFilter::releaseAllKnownDbResources)
                     .thenThrow(new AssertionError("db cleanup failed"));
-            springUtils.when(() -> SpringUtils.getBean(EmailComposeSubmissionStateService.class))
-                    .thenReturn(emailComposeSubmissionStateService);
 
             WebappShutdownResources.ShutdownReport report = WebappShutdownResources.releaseForContext(unrelatedClassLoader);
 
-            assertThat(report.results()).hasSize(8);
+            assertThat(report.results()).hasSize(7);
             assertThat(report.results().get(0).successful()).isFalse();
             assertThat(report.failureCount()).isEqualTo(1);
             tracking.verify(OscarTrackingBasicDataSource::clearTrackingState);
             logAction.verify(LogAction::shutdownExecutorService);
             droolsShutdown.verify(DroolsShutdownResources::shutdownExecutors);
-            verify(emailComposeSubmissionStateService).shutdown();
             queueCache.verify(QueueCache::shutdownSharedTimer);
         }
     }
