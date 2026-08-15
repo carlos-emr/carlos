@@ -881,7 +881,10 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     private String resolveFallbackUploadFileName(File uploadedFile, String originalName) {
-        String fallbackName = MiscUtils.sanitizeFileName(uploadedFile.getName());
+        // Normalize the temp file's own basename directly through PathValidationUtils instead of the
+        // deprecated MiscUtils.sanitizeFileName shim (issue #2213). File.getName() never returns null,
+        // and the returned value is re-validated by validateFileName() at the sole call site.
+        String fallbackName = PathValidationUtils.normalizeFileNameCharacters(uploadedFile.getName());
         String safeExtension = safeExtension(originalName);
         if (!filled(safeExtension) && isPdfUpload(uploadedFile)) {
             safeExtension = PDF_EXTENSION;
