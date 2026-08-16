@@ -59,9 +59,39 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Handles allergy mutations for users with {@code _allergy} write privilege.
+     * Requests must use {@code POST}; other methods return HTTP 405 with
+     * {@code Allow: POST} and {@link #NONE}. Missing, malformed, or
+     * mismatched rendered patient context returns HTTP 403 and {@link #NONE}.
+     * Valid add and archive requests return {@link #SUCCESS}.
+     */
     public String execute() throws IOException, ServletException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_allergy", "w", null)) {
             throw new SecurityException("missing required sec object (_allergy)");
+        }
+
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        String formDemographicNo = request.getParameter("formDemographicNo");
+        RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+        if (patient == null || formDemographicNo == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
+
+        try {
+            if (Integer.parseInt(formDemographicNo) != patient.getDemographicNo()) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
         }
 
         String id = request.getParameter("ID");
@@ -83,7 +113,6 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         String nonDrug = request.getParameter("nonDrug");
 
-        RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
         Allergy allergy = new Allergy();
             allergy.setDrugrefId(id);
 			// this can be overwritten with the conditions further down this code block

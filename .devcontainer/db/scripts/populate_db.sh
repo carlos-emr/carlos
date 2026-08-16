@@ -79,6 +79,8 @@ $SQL drugref2 < /database/mysql/drugref/2026-04-19-drugref-tc-atc-f.sql
 # the baseline reference rows with the demo dataset (patients, appointments, notes, etc.).
 echo 'Loading demo data for development...'
 $SQL oscar < /scripts/development.sql
+echo 'Restoring current Administration privileges...'
+$SQL oscar < /scripts/development_privileges.sql
 echo 'Preparing demographic names for development environment...'
 $SQL oscar < /database/mysql/updates/update-2025-11-06-demo-name-sanitization.sql
 echo 'Seeding Rich Text Letter eForm...'

@@ -39,6 +39,7 @@ public final class FormViewRoutes {
             "form/setupSelect",
             "form/select",
             "form/xmlUpload",
+            "form/formXmlUpload",
             "form/formname",
             "form/forwardshortcutname",
             "form/forwardname",
@@ -180,7 +181,6 @@ public final class FormViewRoutes {
                     "formSF36caregiver",
                     "formtreatmentpref",
                     "formVTForm",
-                    "formXmlUpload",
                     "graphHeadCirc",
                     "graphLengthWeight",
                     "patientEncounterWorksheet",
@@ -243,6 +243,9 @@ public final class FormViewRoutes {
         String pathOnly = queryIndex >= 0 ? trimmed.substring(0, queryIndex) : trimmed;
         String query = queryIndex >= 0 ? trimmed.substring(queryIndex) : "";
 
+        if ("/form/formXmlUpload.jsp".equals(pathOnly)) {
+            return "/form/formXmlUpload" + query;
+        }
         if ("/form/forwardshortcutname.jsp".equals(pathOnly)) {
             return "/form/forwardshortcutname" + query;
         }

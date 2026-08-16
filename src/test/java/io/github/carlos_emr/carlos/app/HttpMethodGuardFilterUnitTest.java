@@ -200,6 +200,23 @@ class HttpMethodGuardFilterUnitTest {
             verify(chain).doFilter(request, response);
             verify(response, never()).sendError(anyInt(), anyString());
         }
+
+        @Test
+        @DisplayName("should pass through GET to AddRelation popup render action")
+        void shouldPassThrough_forGetToAddRelationAction() throws Exception {
+            // AddRelation starts with "add" (a mutator prefix) but the "Add Relation" popup
+            // (edit-view.jsp) opens it via GET with only `demo` to render the contact-search
+            // form. AddDemographicRelationship2Action only persists when linkingDemo+relation
+            // are present, and rejects that case unless the request is POST.
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/demographic/AddRelation");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
     }
 
     @Nested

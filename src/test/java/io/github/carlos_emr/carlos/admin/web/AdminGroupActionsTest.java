@@ -17,6 +17,12 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.regex.Pattern;
+
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 
 import org.apache.struts2.ActionSupport;
@@ -41,6 +47,37 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class AdminGroupActionsTest extends CarlosWebTestBase {
 
     private static final String SCHEDULE_GROUP_CREATE_OBJECT = "_admin.schedule.groupCreate";
+    private static final Path LEGACY_ADMIN_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/admin/admin.jsp");
+    private static final Path NEW_GROUP_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/admin/adminnewgroup.jsp");
+    private static final Path ADMINISTRATION_LEFT_NAV =
+            Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf");
+    private static final Pattern RESIZE_HELPER_FUNCTION_GUARD = Pattern.compile(
+            "typeof\\s+parent\\.parent\\.resizeIframe\\s*={2,3}\\s*(['\"])function\\1");
+
+    @Test
+    @DisplayName("should navigate to group create form without mutation parameters")
+    void shouldNavigateWithoutMutationParameters_toGroupCreateForm() throws IOException {
+        String legacyAdmin = Files.readString(LEGACY_ADMIN_JSP, StandardCharsets.UTF_8);
+        String administrationLeftNav =
+                Files.readString(ADMINISTRATION_LEFT_NAV, StandardCharsets.UTF_8);
+
+        assertThat(legacyAdmin)
+                .contains("${pageContext.request.contextPath}/admin/AdminNewGroup")
+                .doesNotContain("AdminNewGroup?submit=");
+        assertThat(administrationLeftNav)
+                .contains("${ctx}/admin/AdminNewGroup")
+                .doesNotContain("AdminNewGroup?submit=");
+    }
+
+    @Test
+    @DisplayName("should tolerate administration shells without legacy resize helper")
+    void shouldTolerateMissingResizeHelper_whenGroupCreateFormLoads() throws IOException {
+        String newGroup = Files.readString(NEW_GROUP_JSP, StandardCharsets.UTF_8);
+
+        assertThat(newGroup).containsPattern(RESIZE_HELPER_FUNCTION_GUARD);
+    }
 
     @Test
     @DisplayName("should return success when group create privilege is granted")

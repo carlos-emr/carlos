@@ -47,5 +47,11 @@ public interface AppointmentStatusDao extends AbstractDao<AppointmentStatus> {
 
     public void changeStatus(int ID, int iActive);
 
+    /**
+     * Finds the first inactive status that still has associated appointments.
+     *
+     * @param allStatus statuses to check, in the order referenced by the returned index
+     * @return the index of the first inactive status in use, or {@code -1} when none are in use
+     */
     public int checkStatusUsuage(List<AppointmentStatus> allStatus);
 }

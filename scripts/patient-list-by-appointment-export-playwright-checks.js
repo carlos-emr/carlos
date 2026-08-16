@@ -1,0 +1,479 @@
+#!/usr/bin/env node
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+/*
+ * Browser regression checks for Administration > Reports > Patient List by
+ * Appointment Time (issue #3346).
+ *
+ * Before the fix, clicking Export issued
+ * GET /carlos/patientlistbyappt?... and Struts answered 404 ("There is no
+ * Action mapped for namespace [/] and action name [patientlistbyappt]"),
+ * because the global struts.action.excludePattern did not list this
+ * extensionless, web.xml-mapped servlet route. This script asserts that:
+ *   1. Export triggers a real browser download whose suggested filename is
+ *      patientlist.txt, served with HTTP 200.
+ *   2. All Doctors over the seeded range returns one row per appointment.
+ *   3. Provider filtering narrows the rows to that provider's patients only.
+ *   4. A null appointment type exports as an empty field (not "null", and not
+ *      a 500 from a NullPointerException).
+ *   5. An empty date range still downloads a valid, empty attachment.
+ *   6. An unauthenticated request is still rejected with 401 - excluding the
+ *      route from Struts must not open a hole in the auth policy.
+ *   7. The visible form submits with POST so CSRF-TOKEN remains in the request
+ *      body instead of leaking into URLs, logs, and browser history.
+ *   8. The report page has no JavaScript errors while wiring its client-side
+ *      date validation.
+ *
+ * This script only reads; it seeds nothing and mutates nothing. Its fixture set
+ * is not part of the repository's default database seed. Before running, provision
+ * the three LOCAL_SEED_OBEC_REPORT_* appointments represented in EXPECTED_ROWS
+ * (2026-08-07..2026-08-10), then explicitly select that fixture contract with
+ * PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1. Missing data remains a
+ * test failure so representative-content assertions cannot pass without coverage.
+ *
+ * Example for a local devcontainer after provisioning the required fixtures:
+ *   PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1 \
+ *     node scripts/patient-list-by-appointment-export-playwright-checks.js
+ *
+ * Optional environment:
+ *   BASE_URL=http://127.0.0.1:8080/carlos
+ *   CHROME_PATH=/path/to/chrome-or-chromium
+ *   TEST_USER=carlosdoc
+ *   TEST_PASSWORD=carlos2026
+ *   TEST_PIN=2026
+ *   PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1 (required)
+ *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-loopback HTTPS test app
+ *   TEST_USER and TEST_PASSWORD are required for non-loopback targets; TEST_PIN is
+ *   additionally required only when that target renders the legacy PIN field
+ */
+
+const { chromium } = require('playwright');
+const fs = require('fs');
+
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const REQUIRED_FIXTURE_PROFILE = 'local-seed-obec-report-v1';
+
+function isLoopbackHost(rawHost) {
+  // URL.hostname keeps the brackets on IPv6 literals (e.g. "[::1]"); strip
+  // them so bracketed loopback addresses match the same as their bare form.
+  const host = rawHost.toLowerCase().replace(/^\[|\]$/g, '');
+  return LOOPBACK_HOSTS.has(host);
+}
+
+function validateBaseUrl(rawBaseUrl) {
+  const parsed = new URL(rawBaseUrl);
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not contain embedded credentials');
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  const loopback = isLoopbackHost(host);
+  if (!loopback && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
+  }
+  if (!loopback && parsed.protocol !== 'https:') {
+    throw new Error(`Non-loopback BASE_URL must use https, got ${parsed.protocol}`);
+  }
+  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  return parsed;
+}
+
+const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+const chromePath = process.env.CHROME_PATH || '';
+const loopbackTarget = isLoopbackHost(baseUrl.hostname);
+if (process.env.PATIENT_LIST_FIXTURE_PROFILE !== REQUIRED_FIXTURE_PROFILE) {
+  throw new Error(`PATIENT_LIST_FIXTURE_PROFILE must be ${REQUIRED_FIXTURE_PROFILE}; this harness does not seed its required appointments`);
+}
+if (!loopbackTarget && ['TEST_USER', 'TEST_PASSWORD'].some((name) => !process.env[name])) {
+  throw new Error('TEST_USER and TEST_PASSWORD are required for non-loopback targets');
+}
+const testUser = process.env.TEST_USER || 'carlosdoc';
+const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
+const testPin = process.env.TEST_PIN || (loopbackTarget ? '2026' : '');
+
+// The locally seeded LOCAL_SEED_OBEC_REPORT_* appointments, all with a NULL
+// appointment type on purpose. Names are FAKE-* synthetic dev data, not PHI.
+const SEED_DATE_FROM = '2026-08-07';
+const SEED_DATE_TO = '2026-08-10';
+const PROVIDER_ALL = 'all';
+const PROVIDER_WELCH = '9';
+const PROVIDER_CARLOSDOC = '999998';
+const EXPECTED_ROWS = {
+  [PROVIDER_WELCH]: ['FAKE-Abbott,FAKE-Jerilyn,555-555-5555,555-555-5555,09:00:00,2026-08-07,,Kristen Welch,'],
+  [PROVIDER_CARLOSDOC]: [
+    'FAKE-Altenwerth,FAKE-Izola,555-555-5555,555-555-5555,10:00:00,2026-08-08,,doctor carlosdoc,',
+    'FAKE-Altenwerth,FAKE-Josh,555-555-5555,555-555-5555,11:00:00,2026-08-10,,doctor carlosdoc,',
+  ],
+};
+
+const findings = [];
+const observed = [];
+
+function appUrl(appPath) {
+  if (!appPath.startsWith('/') || appPath.startsWith('//')) {
+    throw new Error(`Application path must be root-relative, got ${appPath}`);
+  }
+  // Split off the query string before assigning to url.pathname: the pathname
+  // setter percent-encodes "?" instead of treating it as a query separator,
+  // which silently mangles any appPath that carries query parameters.
+  const [pathPart, queryPart] = appPath.split('?');
+  const url = new URL(baseUrl.href);
+  url.pathname = `${baseUrl.pathname}${pathPart}`.replace(/\/{2,}/g, '/');
+  url.search = queryPart ? `?${queryPart}` : '';
+  return url.toString();
+}
+
+function isWithinApplication(rawUrl) {
+  const candidate = new URL(rawUrl);
+  const applicationPath = baseUrl.pathname.replace(/\/$/, '');
+  return candidate.origin === baseUrl.origin
+    && (applicationPath === ''
+      || applicationPath === '/'
+      || candidate.pathname === applicationPath
+      || candidate.pathname.startsWith(`${applicationPath}/`));
+}
+
+async function safeGoto(page, appPath, options) {
+  const response = await page.goto(appUrl(appPath), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
+  if (!isWithinApplication(page.url())) {
+    throw new Error('Navigation left the configured application boundary');
+  }
+  return response;
+}
+
+function isExpectedConsoleNoise(message) {
+  const text = message.text();
+  return /Content Security Policy.*report-only/i.test(text)
+    || /Master token \[CSRF-TOKEN\]/.test(text)
+    || /Hidden token fields .* were updated with new token value/.test(text);
+}
+
+function isSevereConsoleMessage(message) {
+  if (isExpectedConsoleNoise(message)) {
+    return false;
+  }
+  const text = message.text();
+  if (message.type() === 'error') {
+    return !/imageRenderingServlet\?|favicon\.ico/i.test(text);
+  }
+  return /(ReferenceError|TypeError|SyntaxError|redeclaration|Cannot read|Cannot set)/i.test(text);
+}
+
+function wirePage(page, label) {
+  page.on('response', (response) => {
+    const status = response.status();
+    const responseUrl = response.url();
+    if (status >= 400 && !/\/favicon\.ico$/.test(responseUrl)) {
+      findings.push({ label, type: 'http', status, url: responseUrl });
+    }
+  });
+  page.on('console', (message) => {
+    if (isSevereConsoleMessage(message)) {
+      findings.push({ label, type: `console:${message.type()}`, text: message.text() });
+    }
+  });
+  page.on('pageerror', (error) => {
+    findings.push({ label, type: 'pageerror', text: error.stack || error.message });
+  });
+  page.on('dialog', async (dialog) => {
+    findings.push({ label, type: 'dialog', text: dialog.message() });
+    await dialog.accept();
+  });
+}
+
+async function login(context) {
+  const page = await context.newPage();
+  wirePage(page, 'login');
+  await safeGoto(page, '/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.locator('#username').fill(testUser);
+  await page.locator('#password').fill(testPassword);
+  const pinInput = page.locator('#pin');
+  if (await pinInput.count()) {
+    if (!testPin) {
+      throw new Error('TEST_PIN is required because the target login page includes a PIN field');
+    }
+    await pinInput.fill(testPin);
+  }
+  await Promise.all([
+    page.waitForURL(/providercontrol/, { timeout: 30000 }),
+    page.locator('input[type="submit"], button[type="submit"]').first().click(),
+  ]);
+  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  return page;
+}
+
+/**
+ * Drives the real Patient List form: selects the provider, sets both dates,
+ * clicks Export, and returns the captured download plus the export response.
+ */
+async function exportViaForm(context, label, providerNo, dateFrom, dateTo) {
+  const page = await context.newPage();
+  wirePage(page, label);
+  await safeGoto(page, '/oscarReport/ViewPatientlist', { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+  await page.locator('select[name="provider_no"]').selectOption(providerNo);
+
+  // flatpickr opens its calendar overlay on focus. Use Playwright's typed DOM
+  // APIs, then close the overlay before moving on. This preserves the browser
+  // input/change events without passing values into page.evaluate(), which
+  // security scanners correctly treat as a risky trust-boundary primitive.
+  for (const [name, value] of [['date_from', dateFrom], ['date_to', dateTo]]) {
+    const input = page.locator(`input[name="${name}"]`);
+    await input.fill(value, { force: true });
+    await input.dispatchEvent('change');
+    await input.blur();
+    await input.evaluate((element) => element._flatpickr?.close());
+    const actualValue = await input.inputValue();
+    const valid = await input.evaluate((element) => element.checkValidity());
+    if (actualValue !== value || !valid) {
+      throw new Error(`${name} rejected ${value}; actual=${actualValue}; valid=${valid}`);
+    }
+  }
+  if (await page.locator('.flatpickr-calendar.open').count()) {
+    throw new Error('flatpickr calendar remained open after setting export dates');
+  }
+
+  const exportResponsePromise = page.waitForResponse(
+    (response) => /\/patientlistbyappt(\?|$)/.test(response.url()),
+    { timeout: 30000 },
+  );
+  const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
+
+  await page.locator('button[type="submit"]').first().click();
+
+  const exportResponse = await exportResponsePromise;
+  const download = await downloadPromise.catch(() => null);
+
+  // Chromium hands an attachment response to the download manager, so its body
+  // is no longer readable through response.text() ("No resource with given
+  // identifier"). Read the bytes the user actually receives - the saved
+  // download - instead.
+  const headers = await exportResponse.allHeaders();
+  const downloadPath = download ? await download.path() : null;
+  const result = {
+    method: exportResponse.request().method(),
+    status: exportResponse.status(),
+    url: exportResponse.url(),
+    contentDisposition: headers['content-disposition'] || null,
+    contentType: headers['content-type'] || null,
+    suggestedFilename: download ? download.suggestedFilename() : null,
+    body: downloadPath ? fs.readFileSync(downloadPath, 'utf8') : await exportResponse.text().catch(() => ''),
+  };
+  if (download) {
+    await download.delete();
+  }
+  await page.close();
+  return result;
+}
+
+async function checkClientDateValidation(context) {
+  const page = await context.newPage();
+  wirePage(page, 'client-date-validation');
+  await safeGoto(page, '/oscarReport/ViewPatientlist', { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+  const validation = await page.evaluate(() => {
+    const form = document.getElementById('plForm');
+    const dateFrom = document.getElementById('date_from');
+    const dateTo = document.getElementById('date_to');
+    const setDate = (input, value) => {
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    const blankValid = form.checkValidity();
+
+    setDate(dateFrom, '2026-08-11');
+    setDate(dateTo, '2026-08-10');
+    const reversedValid = form.checkValidity();
+    const reversedMessage = dateTo.validationMessage;
+
+    setDate(dateFrom, '08/07/2026');
+    setDate(dateTo, '2026-08-10');
+    const malformedValid = form.checkValidity();
+
+    setDate(dateFrom, '2026-02-29');
+    const invalidCalendarValid = form.checkValidity();
+
+    setDate(dateFrom, '2026-08-07');
+    const validRangeAccepted = form.checkValidity();
+
+    return { blankValid, reversedValid, reversedMessage, malformedValid, invalidCalendarValid, validRangeAccepted };
+  });
+
+  observed.push({ check: 'client-date-validation', ...validation });
+  if (validation.blankValid) {
+    findings.push({ label: 'client-date-validation', type: 'blank-dates-accepted' });
+  }
+  if (validation.reversedValid || !/on or after Date From/.test(validation.reversedMessage)) {
+    findings.push({
+      label: 'client-date-validation',
+      type: 'reversed-range-accepted',
+      valid: validation.reversedValid,
+      message: validation.reversedMessage,
+    });
+  }
+  if (validation.malformedValid) {
+    findings.push({ label: 'client-date-validation', type: 'malformed-date-accepted' });
+  }
+  if (validation.invalidCalendarValid) {
+    findings.push({ label: 'client-date-validation', type: 'invalid-calendar-date-accepted' });
+  }
+  if (!validation.validRangeAccepted) {
+    findings.push({ label: 'client-date-validation', type: 'valid-range-rejected' });
+  }
+  await page.close();
+}
+
+function dataRows(body) {
+  return body.split('\n').map((line) => line.trimEnd()).filter((line) => line.length > 0);
+}
+
+function checkDownloadEnvelope(label, result) {
+  if (result.method !== 'POST') {
+    findings.push({ label, type: 'export-method', expected: 'POST', actual: result.method });
+  }
+  if (result.status !== 200) {
+    findings.push({ label, type: 'export-status', status: result.status, url: result.url });
+  }
+  if (result.suggestedFilename !== 'patientlist.txt') {
+    findings.push({ label, type: 'suggested-filename', actual: result.suggestedFilename });
+  }
+  if (!/attachment;\s*filename=patientlist\.txt/i.test(result.contentDisposition || '')) {
+    findings.push({ label, type: 'content-disposition', actual: result.contentDisposition });
+  }
+  if (!/charset=UTF-8/i.test(result.contentType || '')) {
+    findings.push({ label, type: 'content-type', actual: result.contentType });
+  }
+  if (/no Action mapped for namespace/i.test(result.body) || /HTTP Status 404/i.test(result.body)) {
+    findings.push({ label, type: 'struts-404-body' });
+  }
+}
+
+function checkRows(label, rows, expected) {
+  if (rows.length !== expected.length) {
+    findings.push({ label, type: 'row-count', expected: expected.length, actual: rows.length });
+    return;
+  }
+  const sortedRows = [...rows].sort();
+  const sortedExpected = [...expected].sort();
+  sortedExpected.forEach((expectedRow, index) => {
+    if (sortedRows[index] !== expectedRow) {
+      findings.push({ label, type: 'row-mismatch', rowIndex: index });
+    }
+  });
+  // The seeded appointments all carry a NULL type; column 7 (0-indexed 6) must
+  // therefore be empty rather than the literal string "null".
+  rows.forEach((row, rowIndex) => {
+    const typeField = row.split(',')[6];
+    if (typeField !== '') {
+      findings.push({ label, type: 'null-type-field', rowIndex });
+    }
+  });
+}
+
+async function checkUnauthenticatedRejection(browser) {
+  const anonymous = await browser.newContext({ ignoreHTTPSErrors: loopbackTarget });
+  try {
+    const response = await anonymous.request.get(
+      appUrl(`/patientlistbyappt?provider_no=all&date_from=${SEED_DATE_FROM}&date_to=${SEED_DATE_TO}`),
+      { maxRedirects: 0 },
+    );
+    observed.push({ check: 'unauthenticated', status: response.status() });
+    if (response.status() !== 401) {
+      findings.push({ label: 'unauthenticated', type: 'auth-policy', status: response.status() });
+    }
+  } finally {
+    await anonymous.close();
+  }
+}
+
+(async () => {
+  const launchOptions = { args: ['--no-sandbox', '--disable-dev-shm-usage'] };
+  if (chromePath) {
+    launchOptions.executablePath = chromePath;
+  }
+  const browser = await chromium.launch(launchOptions);
+  try {
+    // Certificate validation is only relaxed for loopback targets (self-signed dev
+    // certs are common there). A non-loopback target reached via ALLOW_NON_LOCAL_BASE_URL
+    // still gets full TLS validation, so a spoofed/invalid cert can't silently
+    // intercept the credentialed login this script performs.
+    const context = await browser.newContext({
+      ignoreHTTPSErrors: loopbackTarget,
+      viewport: { width: 1440, height: 1000 },
+      acceptDownloads: true,
+    });
+    const loginPage = await login(context);
+    await loginPage.close();
+
+    await checkClientDateValidation(context);
+
+    const allDoctors = await exportViaForm(context, 'all-doctors', PROVIDER_ALL, SEED_DATE_FROM, SEED_DATE_TO);
+    checkDownloadEnvelope('all-doctors', allDoctors);
+    const allRows = dataRows(allDoctors.body);
+    observed.push({ check: 'all-doctors', status: allDoctors.status, rowCount: allRows.length });
+
+    const expectedAll = [...EXPECTED_ROWS[PROVIDER_WELCH], ...EXPECTED_ROWS[PROVIDER_CARLOSDOC]];
+    if (allRows.length === 0) {
+      findings.push({ label: 'all-doctors', type: 'seed-data-missing', detail: 'no rows for the seeded 2026-08-07..2026-08-10 range' });
+    } else {
+      checkRows('all-doctors', allRows, expectedAll);
+    }
+
+    for (const providerNo of [PROVIDER_WELCH, PROVIDER_CARLOSDOC]) {
+      const label = `provider-${providerNo}`;
+      const result = await exportViaForm(context, label, providerNo, SEED_DATE_FROM, SEED_DATE_TO);
+      checkDownloadEnvelope(label, result);
+      const rows = dataRows(result.body);
+      observed.push({ check: label, status: result.status, rowCount: rows.length });
+      checkRows(label, rows, EXPECTED_ROWS[providerNo]);
+    }
+
+    const emptyRange = await exportViaForm(context, 'empty-range', PROVIDER_ALL, '2026-09-01', '2026-09-02');
+    checkDownloadEnvelope('empty-range', emptyRange);
+    const emptyRows = dataRows(emptyRange.body);
+    observed.push({ check: 'empty-range', status: emptyRange.status, rowCount: emptyRows.length });
+    if (emptyRows.length !== 0) {
+      findings.push({ label: 'empty-range', type: 'unexpected-rows', rowCount: emptyRows.length });
+    }
+
+    await checkUnauthenticatedRejection(browser);
+
+    console.log(JSON.stringify({ observed, findings }, null, 2));
+
+    const blockingFindings = findings.filter((finding) => finding.type !== 'dialog');
+    if (blockingFindings.length) {
+      throw new Error(`patient list export check found ${blockingFindings.length} issue(s)`);
+    }
+
+    console.log('PASS CARLOS EMR patient list by appointment time exports patientlist.txt with correct provider filtering');
+  } finally {
+    await browser.close();
+  }
+})().catch((error) => {
+  console.error('FAIL CARLOS EMR patient list by appointment time export Playwright check');
+  console.error(error.stack || error.message);
+  process.exit(1);
+});

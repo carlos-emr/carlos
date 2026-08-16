@@ -17,6 +17,7 @@ import io.github.carlos_emr.carlos.commn.dao.FlowSheetUserCreatedDao;
 import io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization;
 import io.github.carlos_emr.carlos.commn.model.FlowSheetUserCreated;
 import io.github.carlos_emr.carlos.commn.service.FlowSheetCustomizationService;
+import io.github.carlos_emr.carlos.commn.service.FlowSheetCustomizationService.CascadeCheckResult;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -35,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -67,6 +69,9 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(FlowSheetUserCreatedDao.class, mockFlowSheetUserCreatedDao);
         mockRequest.setMethod("POST");
         mockSession.setAttribute("user", "999998");
+        when(mockFlowSheetCustomizationService.checkCascadingBlocked(
+                anyString(), anyString(), anyString(), nullable(String.class), anyString()))
+                .thenReturn(CascadeCheckResult.allowed());
     }
 
     @Test
@@ -168,6 +173,23 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
         assertThat(mockRequest.getAttribute("errorMessage"))
                 .isEqualTo("Measurement is required to save a flowsheet customization.");
         verify(mockFlowSheetCustomizationDao, never()).persist(any(FlowSheetCustomization.class));
+    }
+
+    @Test
+    @DisplayName("provider-level hide should render the provider editor without demographic zero")
+    void shouldRenderProviderEditorWithoutDemographicZero_whenProviderHidesMeasurement() throws Exception {
+        allowPrivilege("_flowsheet", "w");
+        allowPrivilege("_demographic", "w");
+        addRequestParameter("method", "hide");
+        addRequestParameter("flowsheet", "hyptension");
+        addRequestParameter("measurement", "DRPW");
+
+        String result = executeAction(new FlowSheetCustom2Action());
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(mockRequest.getAttribute("flowsheet")).isEqualTo("hyptension");
+        assertThat(mockRequest.getAttribute("demographic")).isNull();
+        verify(mockFlowSheetCustomizationDao).persist(any(FlowSheetCustomization.class));
     }
 
     @Test
