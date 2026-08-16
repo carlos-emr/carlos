@@ -37,7 +37,6 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -67,6 +66,9 @@ import static org.mockito.Mockito.when;
  *   <li>{@code saveTempFile} intentionally normalizes a newly supplied name and fails loudly when it
  *       cannot produce a usable one.</li>
  * </ul>
+ *
+ * <p>Methods are kept flat (no {@code @Nested}) so they are reliably selected by a
+ * {@code -Dtest=NioFileManagerImplFilenameValidationUnitTest} Surefire run.</p>
  */
 @Tag("unit")
 @Tag("manager")
@@ -109,88 +111,79 @@ class NioFileManagerImplFilenameValidationUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Nested
-    @DisplayName("read/preview lookups return null (not a sentinel) for invalid names")
-    class ReadPathsReturnNull {
+    // ---- read/preview lookups return null (not a sentinel) for invalid names ----
 
-        @ParameterizedTest
-        @ValueSource(strings = {"../evil.png", "..\\evil.png", ".hidden.png", "sub/evil.png"})
-        @DisplayName("hasCacheVersion2 returns null for a path-like or hidden filename")
-        void shouldReturnNull_forInvalidCacheFilename(String filename) {
-            assertThat(nioFileManager.hasCacheVersion2(loggedInInfo, filename, 1)).isNull();
-        }
+    @ParameterizedTest
+    @ValueSource(strings = {"../evil.png", "..\\evil.png", ".hidden.png", "sub/evil.png"})
+    @DisplayName("hasCacheVersion2 returns null for a path-like or hidden filename")
+    void shouldReturnNull_forInvalidCacheFilename(String filename) {
+        assertThat(nioFileManager.hasCacheVersion2(loggedInInfo, filename, 1)).isNull();
+    }
 
-        @ParameterizedTest
-        @ValueSource(strings = {"../evil.pdf", "..\\evil.pdf", ".hidden.pdf", "sub/evil.pdf"})
-        @DisplayName("createCacheVersion2 returns null for a path-like or hidden source filename")
-        void shouldReturnNull_forInvalidSourceFilename(String filename) {
-            assertThat(nioFileManager.createCacheVersion2(loggedInInfo, tempDir.toString(), filename, 1)).isNull();
+    @ParameterizedTest
+    @ValueSource(strings = {"../evil.pdf", "..\\evil.pdf", ".hidden.pdf", "sub/evil.pdf"})
+    @DisplayName("createCacheVersion2 returns null for a path-like or hidden source filename")
+    void shouldReturnNull_forInvalidSourceFilename(String filename) {
+        assertThat(nioFileManager.createCacheVersion2(loggedInInfo, tempDir.toString(), filename, 1)).isNull();
+    }
+
+    // ---- open/remove paths fail loudly for invalid names ----
+
+    @ParameterizedTest
+    @ValueSource(strings = {"../secret.pdf", "..\\secret.pdf", ".hidden.pdf", "nested/secret.pdf"})
+    @DisplayName("getOscarDocument throws SecurityException rather than resolving a sentinel path")
+    void shouldThrowSecurityException_forInvalidDocumentFilename(String filename) {
+        assertThatThrownBy(() -> nioFileManager.getOscarDocument(filename))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"../secret.png", "..\\secret.png", ".hidden.png", "nested/secret.png"})
+    @DisplayName("removeCacheVersion (single) throws SecurityException for an invalid filename")
+    void shouldThrowSecurityException_forInvalidSingleRemovalFilename(String filename) {
+        assertThatThrownBy(() -> nioFileManager.removeCacheVersion(loggedInInfo, filename))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    @DisplayName("removeCacheVersions fails loudly for an invalid filename instead of reporting 0 cleared")
+    void shouldThrowSecurityException_forInvalidFlushFilename() throws IOException {
+        Path allowedSource = createApplicationTempDirectory();
+        try {
+            assertThatThrownBy(() ->
+                    nioFileManager.removeCacheVersions(loggedInInfo, allowedSource.toString(), "../secret.pdf"))
+                    .isInstanceOf(SecurityException.class);
+        } finally {
+            Files.deleteIfExists(allowedSource);
         }
     }
 
-    @Nested
-    @DisplayName("open/remove paths fail loudly for invalid names")
-    class MutatingPathsFailLoudly {
+    // ---- saveTempFile normalizes a new name and fails loudly when none remains ----
 
-        @ParameterizedTest
-        @ValueSource(strings = {"../secret.pdf", "..\\secret.pdf", ".hidden.pdf", "nested/secret.pdf"})
-        @DisplayName("getOscarDocument throws SecurityException rather than resolving a sentinel path")
-        void shouldThrowSecurityException_forInvalidDocumentFilename(String filename) {
-            assertThatThrownBy(() -> nioFileManager.getOscarDocument(filename))
-                    .isInstanceOf(SecurityException.class);
-        }
-
-        @ParameterizedTest
-        @ValueSource(strings = {"../secret.png", "..\\secret.png", ".hidden.png", "nested/secret.png"})
-        @DisplayName("removeCacheVersion (single) throws SecurityException for an invalid filename")
-        void shouldThrowSecurityException_forInvalidSingleRemovalFilename(String filename) {
-            assertThatThrownBy(() -> nioFileManager.removeCacheVersion(loggedInInfo, filename))
-                    .isInstanceOf(SecurityException.class);
-        }
-
-        @Test
-        @DisplayName("removeCacheVersions fails loudly for an invalid filename instead of reporting 0 cleared")
-        void shouldThrowSecurityException_forInvalidFlushFilename() throws IOException {
-            Path allowedSource = createApplicationTempDirectory();
-            try {
-                assertThatThrownBy(() ->
-                        nioFileManager.removeCacheVersions(loggedInInfo, allowedSource.toString(), "../secret.pdf"))
-                        .isInstanceOf(SecurityException.class);
-            } finally {
-                Files.deleteIfExists(allowedSource);
+    @Test
+    @DisplayName("saveTempFile normalizes a newly supplied temp filename (whitespace to underscore)")
+    void shouldNormalizeNewlySuppliedName_whenSavingTempFile() throws IOException {
+        Path saved = null;
+        try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+            os.write("hi".getBytes(StandardCharsets.UTF_8));
+            saved = nioFileManager.saveTempFile("my report", os, "pdf");
+            assertThat(saved.getFileName().toString()).isEqualTo("my_report.pdf");
+        } finally {
+            if (saved != null) {
+                Files.deleteIfExists(saved);
+                Files.deleteIfExists(saved.getParent());
             }
         }
     }
 
-    @Nested
-    @DisplayName("saveTempFile normalizes a new name and fails loudly when none remains")
-    class SaveTempFileContract {
-
-        @Test
-        @DisplayName("normalizes a newly supplied temp filename (whitespace to underscore)")
-        void shouldNormalizeNewlySuppliedName_whenSavingTempFile() throws IOException {
-            Path saved = null;
-            try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
-                os.write("hi".getBytes(StandardCharsets.UTF_8));
-                saved = nioFileManager.saveTempFile("my report", os, "pdf");
-                assertThat(saved.getFileName().toString()).isEqualTo("my_report.pdf");
-            } finally {
-                if (saved != null) {
-                    Files.deleteIfExists(saved);
-                    Files.deleteIfExists(saved.getParent());
-                }
-            }
-        }
-
-        @ParameterizedTest
-        @ValueSource(strings = {"@@@", "///"})
-        @DisplayName("throws rather than creating a sentinel temp file when the name cleans to empty")
-        void shouldThrow_whenTempFilenameCleansToEmpty(String filename) throws IOException {
-            try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
-                os.write("hi".getBytes(StandardCharsets.UTF_8));
-                assertThatThrownBy(() -> nioFileManager.saveTempFile(filename, os, "pdf"))
-                        .isInstanceOf(SecurityException.class);
-            }
+    @ParameterizedTest
+    @ValueSource(strings = {"@@@", "///"})
+    @DisplayName("saveTempFile throws rather than creating a sentinel temp file when the name cleans to empty")
+    void shouldThrow_whenTempFilenameCleansToEmpty(String filename) throws IOException {
+        try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+            os.write("hi".getBytes(StandardCharsets.UTF_8));
+            assertThatThrownBy(() -> nioFileManager.saveTempFile(filename, os, "pdf"))
+                    .isInstanceOf(SecurityException.class);
         }
     }
 

@@ -24,12 +24,15 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import java.lang.reflect.Method;
 
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 /**
  * Focused tests for {@code Util.sanitizeZipFileName}, the ZIP-specific filename helper that survived
@@ -46,6 +49,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("security")
 @DisplayName("Util.sanitizeZipFileName (issue #2213)")
 class UtilZipFileNameUnitTest extends CarlosUnitTestBase {
+
+    @BeforeEach
+    void registerUtilStaticDependencies() {
+        // Util's static initializer resolves PartialDateDao via SpringUtils.getBean at class-load
+        // time; register a mock first so loading Util (to reach the private helper by reflection)
+        // does not fail under CarlosUnitTestBase's strict getBean stub.
+        registerMock(PartialDateDao.class, mock(PartialDateDao.class));
+    }
 
     private static String sanitize(String input) throws Exception {
         Method method = Util.class.getDeclaredMethod("sanitizeZipFileName", String.class);
