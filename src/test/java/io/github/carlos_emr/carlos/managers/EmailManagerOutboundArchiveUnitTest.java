@@ -356,10 +356,12 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             return null;
         }).when(emailLogDao).persist(any(EmailLog.class));
 
-        // sendEmail catches EmailSendingException only. An unchecked failure during
-        // preparation (config JSON parsing, MIME construction) must be converted rather
-        // than rethrown, or it escapes sendEmail entirely: the FAILED status update is
-        // skipped, the EmailLog keeps its placeholder text, and the caller gets a raw stack.
+        // sendEmail has two failure catches: EmailSendingException records and returns,
+        // RuntimeException records and rethrows. An ordinary unchecked preparation fault
+        // (config JSON parsing, MIME construction) is converted so it lands in the first,
+        // giving the caller a FAILED EmailLog rather than a raw stack. SecurityException is
+        // deliberately exempt from that conversion -- see
+        // shouldPropagateSecurityException_whenPreparationAuthorizationIsRevoked.
         try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
                 SMTPEmailSender.class,
                 (smtpSender, context) -> when(smtpSender.prepareMessageBytes())
@@ -435,6 +437,36 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
 
             verify(emailLogDao).updateEmailStatus(
                     eq(56), eq(EmailLog.EmailStatus.FAILED), eq("Failed to send email (authorization failure)"), any());
+        }
+    }
+
+    @Test
+    @DisplayName("should propagate SecurityException when preparation authorization is revoked")
+    void shouldPropagateSecurityException_whenPreparationAuthorizationIsRevoked() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 59);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+
+        // The transport path already rethrows SecurityException. Preparation must match, or
+        // the same revoked privilege behaves differently depending on which side of the
+        // archive call it lands on -- and converting it would report an authorization
+        // failure as an ordinary failed send.
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> when(smtpSender.prepareMessageBytes())
+                        .thenThrow(new SecurityException("missing required sec object (_email)")))) {
+
+            assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData()))
+                    .isInstanceOf(SecurityException.class);
+
+            verify(emailLogDao).updateEmailStatus(
+                    eq(59), eq(EmailLog.EmailStatus.FAILED), eq("Failed to send email (authorization failure)"), any());
+            verify(outboundEmailArchiveService, never()).archive(any(), any());
+            verifyNoInteractions(javaMailSender);
         }
     }
 

@@ -190,18 +190,6 @@ public class EmailManager {
     }
 
     /**
-     * Releases a prepared message without ever replacing the failure being handled.
-     *
-     * <p>Cleanup runs on failure paths, so a throwing {@code discardPrepared()} would
-     * propagate in place of the real fault: the archive exception would be lost, and with
-     * it the FAILED status update in {@code sendEmail}. A cleanup problem must never be
-     * the reason an operator cannot see why an email failed, so it is attached to the
-     * original exception as suppressed rather than raised.</p>
-     *
-     * @param emailSender sender holding the prepared message, may be null
-     * @param primaryFailure failure already in flight, or null when cleaning up a success path
-     */
-    /**
      * Persists and logs a delivery failure without letting bookkeeping replace it.
      *
      * <p>{@code updateEmailStatus} touches the database, so it can throw. Called
@@ -220,6 +208,18 @@ public class EmailManager {
         logger.error(safeFailureOperationMessage(failure), sanitizedDiagnostic(failure, 0));
     }
 
+    /**
+     * Releases a prepared message without ever replacing the failure being handled.
+     *
+     * <p>Cleanup runs on failure paths, so a throwing {@code discardPrepared()} would
+     * propagate in place of the real fault: the archive exception would be lost, and with
+     * it the FAILED status update in {@code sendEmail}. A cleanup problem must never be
+     * the reason an operator cannot see why an email failed, so it is attached to the
+     * original exception as suppressed rather than raised.</p>
+     *
+     * @param emailSender sender holding the prepared message, may be null
+     * @param primaryFailure failure already in flight, or null when cleaning up a success path
+     */
     private void discardPreparedQuietly(EmailSender emailSender, Throwable primaryFailure) {
         if (emailSender == null) {
             return;
@@ -386,14 +386,21 @@ public class EmailManager {
         } catch (EmailSendingException e) {
             discardAfterPreparationFailure(emailSender, e);
             throw e;
+        } catch (SecurityException e) {
+            // Authorization is the caller's to see. Converting this would route it to
+            // sendEmail's non-rethrow catch, which returns an EmailLog and reports a routine
+            // failed send -- turning a revoked _email privilege into something that looks
+            // like a bad SMTP host. Transport already rethrows SecurityException; preparation
+            // must match, or the same revocation behaves differently depending on which side
+            // of the archive call it happens on.
+            discardAfterPreparationFailure(emailSender, e);
+            throw e;
         } catch (RuntimeException e) {
-            // Unchecked failures during preparation -- config JSON parsing, MIME
-            // construction -- must be converted, not rethrown. sendEmail catches
-            // EmailSendingException only, so an escaping RuntimeException skips the FAILED
-            // status update entirely: the EmailLog keeps its placeholder text and the caller
-            // gets a raw stack instead of a recorded attempt. Splitting preparation out of
-            // the archive try block regressed this; the pre-split catch wrapped every
-            // throwable, and this restores that contract for the preparation path.
+            // Other unchecked preparation failures -- config JSON parsing, MIME construction
+            // -- are converted so they reach sendEmail's non-rethrow catch: the attempt is
+            // recorded as FAILED and the caller gets an EmailLog rather than a raw stack.
+            // sendEmail does also catch RuntimeException now, but that path rethrows, which
+            // is the wrong outcome for an ordinary preparation fault.
             discardAfterPreparationFailure(emailSender, e);
             throw new EmailSendingException(SEND_FAILURE_MESSAGE, e);
         }
