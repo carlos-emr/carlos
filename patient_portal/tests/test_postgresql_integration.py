@@ -87,7 +87,9 @@ def test_postgresql_runtime_role_cannot_rewrite_or_delete_audit_events() -> None
             )
 
         with engine.begin() as connection:
-            connection.execute(text(f'SET ROLE "{runtime_role}"'))
+            # Transaction-local role switching prevents a pooled connection from returning to the
+            # test harness as the restricted runtime role after this commit.
+            connection.execute(text(f'SET LOCAL ROLE "{runtime_role}"'))
             event_id = connection.scalar(
                 text(
                     "insert into patient_portal_audit_events "
@@ -100,7 +102,7 @@ def test_postgresql_runtime_role_cannot_rewrite_or_delete_audit_events() -> None
             "delete from patient_portal_audit_events where id = :event_id",
         ):
             with engine.connect() as connection, pytest.raises(DBAPIError):
-                connection.execute(text(f'SET ROLE "{runtime_role}"'))
+                connection.execute(text(f'SET LOCAL ROLE "{runtime_role}"'))
                 connection.execute(text(statement), {"event_id": event_id})
     finally:
         if original_owner:
