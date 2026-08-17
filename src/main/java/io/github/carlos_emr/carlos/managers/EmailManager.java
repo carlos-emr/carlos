@@ -193,16 +193,80 @@ public class EmailManager {
     }
 
     private String safeDiagnosticCategory(Throwable failure) {
-        Throwable current = failure;
-        for (int depth = 0; current != null && depth < 8; depth++) {
-            String category = safeDiagnosticCategoryFor(current);
-            if (category != null) {
-                return category;
-            }
-            Throwable cause = current.getCause();
-            current = cause != current ? cause : null;
+        String category = searchDiagnosticCategory(failure, 0);
+        return category != null ? category : "uncategorized delivery failure";
+    }
+
+    /**
+     * Finds the most specific category for a failure, searching both the cause chain
+     * and Spring's aggregated per-message exceptions.
+     *
+     * <p>{@code MailSendException} needs special handling because
+     * {@code JavaMailSenderImpl} does not put the real fault on the cause chain. For a
+     * per-recipient failure it collects each message's exception and throws
+     * {@code new MailSendException(failedMessages)} with a {@code null} cause, so the
+     * {@code SendFailedException} that says what actually went wrong is reachable only
+     * through {@link org.springframework.mail.MailSendException#getMessageExceptions()}.
+     * Walking {@code getCause()} alone therefore always degraded to the generic
+     * "SMTP send failure" label.</p>
+     *
+     * <p>The generic label is now a fallback applied only after both the nested message
+     * exceptions and the cause chain come back empty. Previously it matched eagerly and
+     * short-circuited the whole search, which also swallowed the connection-failure case
+     * where Spring <em>does</em> supply a cause
+     * ({@code new MailSendException("Mail server connection failed", ex)}).</p>
+     *
+     * <p>Only the category label is derived here. Message subjects, recipients, and the
+     * failed {@code MimeMessage} keys of {@code getFailedMessages()} are never read, so
+     * no PHI can reach the log or the persisted {@code EmailLog} error text.</p>
+     */
+    private String searchDiagnosticCategory(Throwable failure, int depth) {
+        if (failure == null || depth >= 8) {
+            return null;
         }
-        return "uncategorized delivery failure";
+        String specific = safeDiagnosticCategoryFor(failure);
+        if (specific != null) {
+            return specific;
+        }
+        // Descend before settling for a wrapper's own generic label.
+        if (failure instanceof org.springframework.mail.MailSendException mailSendFailure) {
+            Exception[] messageExceptions = mailSendFailure.getMessageExceptions();
+            if (messageExceptions != null) {
+                for (Exception messageException : messageExceptions) {
+                    String nested = searchDiagnosticCategory(messageException, depth + 1);
+                    if (nested != null) {
+                        return nested;
+                    }
+                }
+            }
+        }
+        String fromCause = searchCauseCategory(failure, depth);
+        return fromCause != null ? fromCause : genericDiagnosticCategoryFor(failure);
+    }
+
+    private String searchCauseCategory(Throwable failure, int depth) {
+        Throwable cause = failure.getCause();
+        return cause != null && cause != failure ? searchDiagnosticCategory(cause, depth + 1) : null;
+    }
+
+    /**
+     * Labels for exception types that describe a layer rather than a fault.
+     *
+     * <p>Applied only once the search has exhausted the nested message exceptions and
+     * the cause chain. Matching these eagerly is what made the specific network
+     * categories unreachable: a refused connection arrives as
+     * {@code MailSendException -> MessagingException -> ConnectException}, so both outer
+     * frames would answer before anything looked at the {@code ConnectException}, and
+     * "connection failure" could never be reported for a real SMTP send.</p>
+     */
+    private String genericDiagnosticCategoryFor(Throwable failure) {
+        if (failure instanceof jakarta.mail.MessagingException) {
+            return "SMTP messaging failure";
+        }
+        if (failure instanceof org.springframework.mail.MailSendException) {
+            return "SMTP send failure";
+        }
+        return null;
     }
 
     private String safeDiagnosticCategoryFor(Throwable failure) {
@@ -225,12 +289,9 @@ public class EmailManager {
         if (failure instanceof jakarta.mail.SendFailedException) {
             return "SMTP recipient failure";
         }
-        if (failure instanceof jakarta.mail.MessagingException) {
-            return "SMTP messaging failure";
-        }
-        if (failure instanceof org.springframework.mail.MailSendException) {
-            return "SMTP send failure";
-        }
+        // MessagingException and MailSendException are handled in
+        // genericDiagnosticCategoryFor, not here: they name a layer, not a fault, and
+        // matching them at this point would hide the specific cause they wrap.
         if (failure instanceof IOException) {
             return "I/O failure";
         }

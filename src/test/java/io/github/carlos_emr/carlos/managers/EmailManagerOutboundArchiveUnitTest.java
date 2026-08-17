@@ -216,6 +216,102 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should report the recipient failure Spring aggregates inside MailSendException")
+    void shouldPersistRecipientCategory_whenMailSendExceptionAggregatesTheFailure() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 48);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+
+        // JavaMailSenderImpl does not put per-recipient faults on the cause chain: it
+        // collects them per message and throws MailSendException(failedMessages) with a
+        // null cause. Walking getCause() alone therefore degraded every one of these to
+        // the generic "SMTP send failure".
+        String untrustedProviderText = "550 5.1.1 <patient@example.test> recipient rejected";
+        java.util.Map<Object, Exception> failedMessages = new java.util.LinkedHashMap<>();
+        failedMessages.put("prepared-message", new jakarta.mail.SendFailedException(untrustedProviderText));
+        org.springframework.mail.MailSendException aggregated =
+                new org.springframework.mail.MailSendException(failedMessages);
+        assertThat(aggregated.getCause()).as("precondition: Spring leaves the cause chain empty").isNull();
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareMessageBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("transport failed", aggregated))
+                            .when(smtpSender).sendPreparedMessage();
+                })) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to send email (SMTP recipient failure)");
+            assertThat(emailLog.getErrorMessage()).doesNotContain(untrustedProviderText);
+            assertThat(emailLog.getErrorMessage()).doesNotContain("patient@example.test");
+        }
+    }
+
+    @Test
+    @DisplayName("should report the underlying connection failure a MailSendException wraps")
+    void shouldPersistConnectionCategory_whenMailSendExceptionWrapsTheCause() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 49);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+
+        // The other half of the old bug: MailSendException matched eagerly and
+        // short-circuited the search, so even the cases where Spring DOES supply a cause
+        // never got walked.
+        org.springframework.mail.MailSendException wrapped = new org.springframework.mail.MailSendException(
+                "Mail server connection failed",
+                new jakarta.mail.MessagingException("connect", new java.net.ConnectException("refused")));
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareMessageBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("transport failed", wrapped))
+                            .when(smtpSender).sendPreparedMessage();
+                })) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to send email (connection failure)");
+        }
+    }
+
+    @Test
+    @DisplayName("should fall back to the generic label when a MailSendException carries nothing specific")
+    void shouldPersistGenericCategory_whenMailSendExceptionCarriesNothingSpecific() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 50);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareMessageBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("transport failed",
+                            new org.springframework.mail.MailSendException("bare")))
+                            .when(smtpSender).sendPreparedMessage();
+                })) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to send email (SMTP send failure)");
+        }
+    }
+
+    @Test
     @DisplayName("should not archive when the email configuration is missing")
     void shouldNotArchive_whenEmailConfigurationIsMissing() {
         EmailSender emailSender = new EmailSender(loggedInInfo, null, emailData());
