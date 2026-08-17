@@ -35,15 +35,19 @@ class DevelopmentAdminSeedRegressionTest {
 
         assertThat(dockerfile)
                 .contains("COPY ./.devcontainer/db/scripts/admin_test_data.sql /scripts/admin_test_data.sql");
+        // Assert the path rather than the full command. populate_db.sh has carried
+        // both a "$SQL oscar < ..." form and a literal "mysql -u root -p..." form,
+        // and the load order is what this test actually cares about.
         assertThat(populate)
-                .contains("$SQL oscar < /scripts/admin_test_data.sql")
+                .contains("/scripts/admin_test_data.sql")
                 .satisfies(script -> assertThat(script.indexOf("/scripts/admin_test_data.sql"))
-                        .isGreaterThan(script.indexOf("update-2026-03-22-rtl-2026.3.0-modernize.sql")));
+                        .isGreaterThan(script.indexOf("update-2026-03-22-rtl-2026.3.0-modernize.sql"))
+                        .isGreaterThan(script.indexOf("update-2026-03-12-rtl-enable-direct.sql")));
     }
 
     @Test
     @DisplayName("should cover the data-backed Administration screens that are empty in the base dump")
-    void shouldCoverEmptyAdministrationScreens() throws IOException {
+    void shouldCoverAdministrationScreens_whenBaseDumpIsEmpty() throws IOException {
         String seed = Files.readString(ADMIN_SEED, StandardCharsets.UTF_8);
 
         assertThat(seed).contains(
@@ -53,6 +57,9 @@ class DevelopmentAdminSeedRegressionTest {
                 "INSERT INTO incomingLabRulesType",
                 "INSERT INTO eform_groups",
                 "INSERT INTO eform_data",
+                "INSERT INTO billingreferral",
+                "INSERT INTO default_issue",
+                "INSERT INTO reportTemplates",
                 "INSERT INTO reportByExamplesFavorite",
                 "INSERT INTO demographicQueryFavourites",
                 "INSERT INTO appointmentType",
@@ -67,10 +74,21 @@ class DevelopmentAdminSeedRegressionTest {
         assertThat(seed).contains(
                 "'Local Test - Independent Checklist'",
                 "'Local Test - Shared Operations Note'",
-                "'Local Test - Monthly Safety Review'",
-                "'Local Test - Quarterly Operations Review'",
-                "'Local Test - Archived Safety Draft'",
                 "patient_independent");
+
+        // Pin the status column, not just the subject. The eform_data column order
+        // is (subject, demographic_no, status), so the trailing pair below is
+        // "0, 1" for a current instance and "0, 0" for a deleted one. Asserting
+        // only the subject would let a fixture silently flip between the
+        // Administration "current" and "deleted" views.
+        assertThat(seed)
+                .as("current patient-independent eForms must keep status 1")
+                .contains(
+                        "'Local Test - Monthly Safety Review', 0, 1,",
+                        "'Local Test - Quarterly Operations Review', 0, 1,");
+        assertThat(seed)
+                .as("the archived fixture must keep status 0 so the Deleted eForms view stays populated")
+                .contains("'Local Test - Archived Safety Draft', 0, 0,");
     }
 
     @Test
