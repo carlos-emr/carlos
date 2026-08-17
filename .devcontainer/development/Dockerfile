@@ -118,65 +118,27 @@ RUN /usr/local/bin/apt-install pipx && \
     pipx install aider-chat && \
     pipx ensurepath
 
-# Install Postfix for local mail capture testing with default values
-RUN /usr/local/bin/apt-install postfix
+# Install Postfix and flock for local mail capture testing with default values.
+RUN /usr/local/bin/apt-install postfix util-linux
 
-# Capture script: appends the full raw MIME message (stdin) plus envelope
-# metadata to a dev-only capture file. Runs as 'nobody' via the Postfix pipe
-# transport (see master.cf below), never as root. See docs/postfix-mail-server.md.
-RUN cat <<'EOF' > /usr/local/bin/postfix-capture-mail && chmod 0755 /usr/local/bin/postfix-capture-mail
-#!/bin/sh
-set -eu
-
-# The append redirection below recreates the capture file if it was deleted at
-# runtime. Without this umask it would come back 0644 (world-readable), losing
-# the 0660 guarantee set at image build time; 007 makes any recreation 0660.
-umask 007
-
-CAPTURE_FILE="/var/log/carlos-mail-capture.eml"
-sender="${1:-unknown-sender}"
-recipient="${2:-unknown-recipient}"
-
-# Recreate with explicit perms if missing, so the guarantee holds even if a
-# future edit changes the umask above.
-if [ ! -e "$CAPTURE_FILE" ]; then
-  : > "$CAPTURE_FILE"
-  chmod 0660 "$CAPTURE_FILE"
-fi
-
-# Serialize the whole append under an exclusive lock so concurrent devcapture
-# deliveries cannot interleave and corrupt the captured MIME. fd 9 opens the
-# capture file in append mode and is both the write target and the lock object;
-# if flock is unavailable, fall back to a plain (non-atomic) append.
-{
-  if command -v flock >/dev/null 2>&1; then
-    flock 9
-  fi
-  {
-    printf '\n\n===== CARLOS DEV EMAIL CAPTURE =====\n'
-    printf 'Captured-At: %s\n' "$(date -Is)"
-    printf 'Envelope-From: %s\n' "$sender"
-    printf 'Envelope-To: %s\n' "$recipient"
-    printf -- '----- BEGIN RAW MESSAGE -----\n'
-    cat
-    printf -- '\n----- END RAW MESSAGE -----\n'
-  } >&9
-} 9>> "$CAPTURE_FILE"
-
-exit 0
-EOF
-
-# Create the capture file writable by the Postfix pipe user ('nobody').
-RUN touch /var/log/carlos-mail-capture.eml && \
-    chown nobody:nogroup /var/log/carlos-mail-capture.eml && \
-    chmod 0660 /var/log/carlos-mail-capture.eml
+# Give the Postfix pipe a dedicated identity and a tightly permissioned capture
+# directory. Keeping the file inside a directory owned by the delivery user lets
+# it be recreated safely at runtime without making /var/log broadly writable.
+RUN groupadd --system carlos-mail && \
+    useradd --system --gid carlos-mail --home-dir /nonexistent \
+      --shell /usr/sbin/nologin carlos-mail && \
+    install -d -o carlos-mail -g carlos-mail -m 0770 /var/log/carlos-mail-capture && \
+    install -o carlos-mail -g carlos-mail -m 0660 /dev/null \
+      /var/log/carlos-mail-capture/messages.eml && \
+    install -o carlos-mail -g carlos-mail -m 0660 /dev/null \
+      /var/log/carlos-mail-capture/.lock
 
 # Register a custom pipe transport that streams every accepted message to the
 # capture script. ${sender}/${recipient} pass envelope metadata; the raw
 # message body arrives on stdin.
 RUN printf '%s\n%s\n' \
     'devcapture unix  -       n       n       -       -       pipe' \
-    '  flags=q user=nobody argv=/usr/local/bin/postfix-capture-mail ${sender} ${recipient}' \
+    '  flags=q user=carlos-mail argv=/scripts/postfix-capture-mail ${sender} ${recipient}' \
     >> /etc/postfix/master.cf
 
 # Route every recipient to the capture transport.

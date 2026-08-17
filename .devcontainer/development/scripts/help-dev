@@ -31,7 +31,7 @@ MAIL MANAGEMENT (captures email locally by default; nothing leaves the container
   mail status             Show Postfix status, capture file, and send mode
   mail restart            Restart Postfix mail server
   mail log                Tail Postfix logs (mail.log)
-  mail capture            Tail captured emails (carlos-mail-capture.eml)
+  mail capture            Tail captured emails (carlos-mail-capture/messages.eml)
   mail list               List captured emails
   mail read [number]      Read one email (latest by default)
   mail show               Print captured emails

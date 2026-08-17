@@ -159,7 +159,7 @@ CARLOS logs are sent to the console and can be viewed using Docker commands. The
 ### Email Testing
 
 For local email testing, see [`docs/postfix-mail-server.md`](../docs/postfix-mail-server.md).
-The devcontainer captures outbound email to `/var/log/carlos-mail-capture.eml`
+The devcontainer captures outbound email to `/var/log/carlos-mail-capture/messages.eml`
 instead of sending it externally. Start the local mail server with `mail start`
 and inspect captured messages with `mail list` and `mail read`.
 

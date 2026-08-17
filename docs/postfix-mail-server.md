@@ -8,11 +8,13 @@ functionality. By default, Postfix accepts mail on `localhost:25` and routes
 messages externally. Real outbound delivery is possible but strictly opt-in and
 allowlisted; see [Opt-in real delivery](#opt-in-real-delivery-advanced) below.
 
-- **Capture file:** `/var/log/carlos-mail-capture.eml`
+- **Capture file:** `/var/log/carlos-mail-capture/messages.eml`
 - **Postfix log:** `/var/log/mail.log`
 
 The capture file holds the full raw MIME message — headers, body, and
 base64-encoded attachments — so you can verify exactly what CARLOS generated.
+Each record declares the raw payload's byte length, so MIME content that looks
+like capture metadata cannot be mistaken for another message boundary.
 
 ## Quick Start
 
@@ -59,7 +61,9 @@ mail clear
    `SMTP` / `LOCAL` / `{"host":"localhost","port":"25"}`).
 2. Postfix accepts the connection from localhost only.
 3. Postfix routes all recipients to the `devcapture` pipe transport.
-4. The pipe writes the raw MIME message to `/var/log/carlos-mail-capture.eml`.
+4. The pipe writes the raw MIME message to
+   `/var/log/carlos-mail-capture/messages.eml` using length-prefixed records and
+   the same lock used by `mail clear`.
 5. No message is delivered to the public internet.
 
 By default, outbound delivery is blocked by defense in depth: a `transport_maps`
@@ -117,7 +121,7 @@ To go back to capture-only, restart without the flag (`mail restart`).
 | `mail restart` | Restart Postfix |
 | `mail status` | Show Postfix status, capture file, and delivery mode |
 | `mail log` | Tail `/var/log/mail.log` |
-| `mail capture` | Tail `/var/log/carlos-mail-capture.eml` |
+| `mail capture` | Tail `/var/log/carlos-mail-capture/messages.eml` |
 | `mail list` | List messages with number, time, recipient, and subject |
 | `mail read [number\|latest]` | Print one message; defaults to the latest |
 | `mail show` | Print captured emails |
@@ -140,7 +144,7 @@ flows it may include PHI-like test data, encrypted content, and attachments.
 - **Do not commit the capture file.**
 - Clear it with `mail clear` when finished.
 - Use fake/test patients and fake recipient addresses.
-- Treat `/var/log/carlos-mail-capture.eml` as sensitive.
+- Treat `/var/log/carlos-mail-capture/messages.eml` as sensitive.
 
 ## Troubleshooting
 
@@ -192,6 +196,8 @@ capture map — `mail status` reports the active mode.
 - **Config:** `/etc/postfix/main.cf`, `/etc/postfix/master.cf`
 - **Transport map:** `/etc/postfix/carlos-transport-regexp`
 - **Send allowlist (opt-in):** `/etc/postfix/carlos-send-allowlist` (empty by default)
-- **Capture script:** `/usr/local/bin/postfix-capture-mail` (runs as `nobody`)
-- **Capture file:** `/var/log/carlos-mail-capture.eml`
+- **Capture script:** `/scripts/postfix-capture-mail` (runs as the dedicated `carlos-mail` user)
+- **Capture directory:** `/var/log/carlos-mail-capture` (`carlos-mail:carlos-mail`, `0770`)
+- **Capture file:** `/var/log/carlos-mail-capture/messages.eml` (`0660`)
+- **Record format:** metadata plus `Raw-Length`, followed by that exact number of raw MIME bytes
 - **Log:** `/var/log/mail.log`
