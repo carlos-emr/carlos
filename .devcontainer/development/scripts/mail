@@ -16,6 +16,8 @@ SEND_ALLOWLIST="/etc/postfix/carlos-send-allowlist"
 # permissions suitable for the dedicated Postfix pipe user. This helper runs as
 # root in the devcontainer; delivery itself never does.
 ensure_capture_file() {
+  local repair_mode="${1:-repair}"
+
   install -d -o "$CAPTURE_USER" -g "$CAPTURE_GROUP" -m 0770 "$CAPTURE_DIR"
   : >> "$CAPTURE_LOCK"
   chown "$CAPTURE_USER:$CAPTURE_GROUP" "$CAPTURE_LOCK"
@@ -27,6 +29,12 @@ ensure_capture_file() {
     fi
     chown "$CAPTURE_USER:$CAPTURE_GROUP" "$CAPTURE_FILE"
     chmod 0660 "$CAPTURE_FILE"
+    if [ "$repair_mode" = "repair" ]; then
+      # Make prior complete messages readable again if an uncatchable delivery
+      # crash left a partial trailing frame. Explicit `mail clear` skips this so
+      # it remains the reset path for other kinds of corruption.
+      "$CAPTURE_INBOX" "$CAPTURE_FILE" repair
+    fi
   } 9>> "$CAPTURE_LOCK"
 }
 
@@ -164,7 +172,7 @@ case "$command" in
       flock -s "$CAPTURE_LOCK" cat "$CAPTURE_FILE"
     ;;
     clear)
-      ensure_capture_file
+      ensure_capture_file skip-repair
       {
         flock 9
         : > "$CAPTURE_FILE"

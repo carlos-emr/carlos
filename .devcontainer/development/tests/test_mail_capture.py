@@ -80,6 +80,19 @@ class MailCaptureTest(unittest.TestCase):
             check=True,
         )
 
+    def append_incomplete_record(self) -> bytes:
+        incomplete_record = (
+            b"===== CARLOS DEV EMAIL CAPTURE v2 =====\n"
+            b"Captured-At: interrupted\n"
+            b"Envelope-From: sender@example.test\n"
+            b"Envelope-To: patient@example.test\n"
+            b"Raw-Length: 1000\n\n"
+            b"partial payload"
+        )
+        with self.capture_file.open("ab") as capture_stream:
+            capture_stream.write(incomplete_record)
+        return incomplete_record
+
     def test_marker_lines_in_raw_mime_do_not_split_records(self) -> None:
         first_message = (
             b"From: sender@example.test\r\n"
@@ -137,6 +150,53 @@ class MailCaptureTest(unittest.TestCase):
         listing = self.mail("list").stdout
         for index in range(5):
             self.assertIn(f"Concurrent {index}".encode(), listing)
+
+    def test_mail_list_repairs_an_incomplete_trailing_record(self) -> None:
+        complete_message = b"Subject: Before crash\n\ncomplete body\n"
+        self.capture(complete_message)
+        incomplete_record = self.append_incomplete_record()
+
+        listing = self.mail("list")
+
+        self.assertIn(b"Before crash", listing.stdout)
+        self.assertIn(b"removed", listing.stderr)
+        self.assertNotIn(incomplete_record, self.capture_file.read_bytes())
+        self.assertEqual(self.inbox("count").stdout, b"1\n")
+
+    def test_delivery_repairs_an_incomplete_trailing_record(self) -> None:
+        first_message = b"Subject: Before delivery repair\n\nfirst body\n"
+        second_message = b"Subject: After delivery repair\n\nsecond body\n"
+        self.capture(first_message)
+        self.append_incomplete_record()
+
+        self.capture(second_message)
+
+        self.assertEqual(self.inbox("count").stdout, b"2\n")
+        self.assertIn(first_message, self.inbox("read", "1").stdout)
+        self.assertIn(second_message, self.inbox("read", "2").stdout)
+
+    def test_repair_does_not_discard_invalid_data(self) -> None:
+        invalid_capture = b"not a capture record\n"
+        self.capture_file.write_bytes(invalid_capture)
+
+        result = subprocess.run(
+            [INBOX, self.capture_file, "repair"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(b"Invalid mail capture record marker", result.stderr)
+        self.assertEqual(self.capture_file.read_bytes(), invalid_capture)
+
+    def test_clear_remains_available_for_invalid_data(self) -> None:
+        self.capture_file.write_bytes(b"not a capture record\n")
+
+        result = self.mail("clear")
+
+        self.assertIn(b"Cleared", result.stdout)
+        self.assertEqual(self.capture_file.read_bytes(), b"")
 
     def test_clear_waits_for_the_delivery_lock(self) -> None:
         self.capture(b"Subject: Locked\n\nbody\n")
