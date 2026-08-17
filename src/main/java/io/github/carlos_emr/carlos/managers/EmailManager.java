@@ -146,6 +146,9 @@ public class EmailManager {
         sanitizeEmailFields(emailData);
         EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData);
         EmailSender emailSender = null;
+        // Scoped to delivery only. Post-send bookkeeping lives outside this block: once the
+        // message is on the wire, no later failure may reopen that verdict.
+        boolean delivered = false;
         try {
             if (emailData.getIsEncrypted()) {
                 encryptEmail(emailData);
@@ -157,25 +160,30 @@ public class EmailManager {
             } else {
                 emailSender.send();
             }
-            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
-            if (emailLog.getChartDisplayOption().equals(ChartDisplayOption.WITH_FULL_NOTE)) {
-                addEmailNote(loggedInInfo, emailLog);
-            }
+            delivered = true;
         } catch (EmailSendingException e) {
-            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, safePersistedFailureMessage(e));
-            logger.error(safeFailureOperationMessage(e), sanitizedDiagnostic(e, 0));
+            recordDeliveryFailure(loggedInInfo, emailLog, e);
         } catch (RuntimeException e) {
             // Transport can still fail unchecked -- a revoked _email privilege between this
             // method's entry check and sendPrepared(), or any unchecked fault inside the
             // sender. Record the attempt so the EmailLog does not keep its placeholder text,
             // then rethrow: an authorization failure is the caller's to see, and swallowing
             // it here would turn a security signal into a routine failed send.
-            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, safePersistedFailureMessage(e));
-            logger.error(safeFailureOperationMessage(e), sanitizedDiagnostic(e, 0));
+            recordDeliveryFailure(loggedInInfo, emailLog, e);
             throw e;
         } finally {
             if (emailSender != null) {
                 discardPreparedQuietly(emailSender, null);
+            }
+        }
+
+        if (delivered) {
+            // Deliberately outside the catches above. A failure here means bookkeeping broke
+            // after a message actually went out; marking that send FAILED would be false and
+            // would invite a retry that sends the patient a second copy.
+            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
+            if (emailLog.getChartDisplayOption().equals(ChartDisplayOption.WITH_FULL_NOTE)) {
+                addEmailNote(loggedInInfo, emailLog);
             }
         }
         return emailLog;
@@ -193,6 +201,25 @@ public class EmailManager {
      * @param emailSender sender holding the prepared message, may be null
      * @param primaryFailure failure already in flight, or null when cleaning up a success path
      */
+    /**
+     * Persists and logs a delivery failure without letting bookkeeping replace it.
+     *
+     * <p>{@code updateEmailStatus} touches the database, so it can throw. Called
+     * unguarded from a catch block it would propagate in place of the real failure: the
+     * caller would see a persistence error, the log would never record why the send
+     * failed, and in the rethrow path the original exception would be lost outright. The
+     * status failure is attached as suppressed and reported separately instead.</p>
+     */
+    private void recordDeliveryFailure(LoggedInInfo loggedInInfo, EmailLog emailLog, Throwable failure) {
+        try {
+            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, safePersistedFailureMessage(failure));
+        } catch (RuntimeException statusFailure) {
+            failure.addSuppressed(statusFailure);
+            logger.error("Failed to persist outbound email failure status: {}", statusFailure.getClass().getSimpleName());
+        }
+        logger.error(safeFailureOperationMessage(failure), sanitizedDiagnostic(failure, 0));
+    }
+
     private void discardPreparedQuietly(EmailSender emailSender, Throwable primaryFailure) {
         if (emailSender == null) {
             return;

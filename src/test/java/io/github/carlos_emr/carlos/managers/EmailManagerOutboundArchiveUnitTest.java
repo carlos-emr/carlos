@@ -439,6 +439,68 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep a delivered email SUCCESS when chart note creation fails afterwards")
+    void shouldKeepStatusSuccess_whenChartNoteCreationFailsAfterDelivery() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 57);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+
+        // Stand in for any post-delivery bookkeeping fault (status write, chart note). The
+        // message is already on the wire by the time this throws.
+        doThrow(new IllegalStateException("bookkeeping failed after delivery"))
+                .when(emailLogDao).updateEmailStatus(eq(57), eq(EmailLog.EmailStatus.SUCCESS), eq(""), any());
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> when(smtpSender.prepareMessageBytes())
+                        .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8)))) {
+
+            assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData()))
+                    .isInstanceOf(IllegalStateException.class);
+
+            // The message was transmitted. Bookkeeping breaking afterwards must not rewrite
+            // that verdict to FAILED -- doing so invites a retry that sends a second copy.
+            verify(emailLogDao, never()).updateEmailStatus(
+                    eq(57), eq(EmailLog.EmailStatus.FAILED), any(String.class), any());
+        }
+    }
+
+    @Test
+    @DisplayName("should preserve the original failure when persisting FAILED status throws")
+    void shouldPreserveOriginalFailure_whenPersistingFailedStatusThrows() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 58);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        // Status persistence is a database call and can fail. Unguarded in a catch block it
+        // would propagate in place of the real fault, hiding why the send failed.
+        doThrow(new IllegalStateException("status write failed"))
+                .when(emailLogDao).updateEmailStatus(eq(58), eq(EmailLog.EmailStatus.FAILED), any(String.class), any());
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareMessageBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new SecurityException("missing required sec object (_email)"))
+                            .when(smtpSender).sendPreparedMessage();
+                })) {
+
+            assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData()))
+                    .isInstanceOf(SecurityException.class)
+                    .satisfies(thrown -> assertThat(thrown.getSuppressed())
+                            .as("the status-write failure is attached, not substituted")
+                            .hasSize(1));
+        }
+    }
+
+    @Test
     @DisplayName("should follow the Jakarta Mail next-exception chain to the underlying fault")
     void shouldPersistNetworkCategory_whenMessagingExceptionChainsViaNextException() throws Exception {
         EmailConfig emailConfig = smtpEmailConfig();
