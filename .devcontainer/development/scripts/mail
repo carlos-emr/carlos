@@ -12,29 +12,39 @@ CAPTURE_GROUP="${CARLOS_MAIL_CAPTURE_GROUP:-carlos-mail}"
 CAPTURE_MAP="/etc/postfix/carlos-transport-regexp"
 SEND_ALLOWLIST="/etc/postfix/carlos-send-allowlist"
 
-# Make sure the capture directory, data file, and stable lock file exist with
-# permissions suitable for the dedicated Postfix pipe user. This helper runs as
-# root in the devcontainer; delivery itself never does.
-ensure_capture_file() {
-  local repair_mode="${1:-repair}"
-
+# Make sure the capture directory and stable lock file exist. This helper runs
+# as root in the devcontainer; delivery itself never does.
+ensure_capture_lock() {
   install -d -o "$CAPTURE_USER" -g "$CAPTURE_GROUP" -m 0770 "$CAPTURE_DIR"
   : >> "$CAPTURE_LOCK"
   chown "$CAPTURE_USER:$CAPTURE_GROUP" "$CAPTURE_LOCK"
   chmod 0660 "$CAPTURE_LOCK"
+}
+
+# Prepare the capture file while fd 9 owns the stable lock.
+ensure_capture_file_locked() {
+  local repair_mode="${1:-repair}"
+
+  if [ ! -f "$CAPTURE_FILE" ]; then
+    install -o "$CAPTURE_USER" -g "$CAPTURE_GROUP" -m 0660 /dev/null "$CAPTURE_FILE"
+  fi
+  chown "$CAPTURE_USER:$CAPTURE_GROUP" "$CAPTURE_FILE"
+  chmod 0660 "$CAPTURE_FILE"
+  if [ "$repair_mode" = "repair" ]; then
+    # Make prior complete messages readable again if an uncatchable delivery
+    # crash left a partial trailing frame. Explicit `mail clear` skips this so
+    # it remains the reset path for other kinds of corruption.
+    "$CAPTURE_INBOX" "$CAPTURE_FILE" repair
+  fi
+}
+
+# Make sure the capture file exists and is readable, repairing crash residue
+# under the stable lock before returning it to a caller.
+ensure_capture_file() {
+  ensure_capture_lock
   {
     flock 9
-    if [ ! -f "$CAPTURE_FILE" ]; then
-      install -o "$CAPTURE_USER" -g "$CAPTURE_GROUP" -m 0660 /dev/null "$CAPTURE_FILE"
-    fi
-    chown "$CAPTURE_USER:$CAPTURE_GROUP" "$CAPTURE_FILE"
-    chmod 0660 "$CAPTURE_FILE"
-    if [ "$repair_mode" = "repair" ]; then
-      # Make prior complete messages readable again if an uncatchable delivery
-      # crash left a partial trailing frame. Explicit `mail clear` skips this so
-      # it remains the reset path for other kinds of corruption.
-      "$CAPTURE_INBOX" "$CAPTURE_FILE" repair
-    fi
+    ensure_capture_file_locked
   } 9>> "$CAPTURE_LOCK"
 }
 
@@ -172,9 +182,10 @@ case "$command" in
       flock -s "$CAPTURE_LOCK" cat "$CAPTURE_FILE"
     ;;
     clear)
-      ensure_capture_file skip-repair
+      ensure_capture_lock
       {
         flock 9
+        ensure_capture_file_locked skip-repair
         : > "$CAPTURE_FILE"
         find "$CAPTURE_DIR" -maxdepth 1 -type f -name '.raw-message.*' -delete
         chown "$CAPTURE_USER:$CAPTURE_GROUP" "$CAPTURE_FILE"

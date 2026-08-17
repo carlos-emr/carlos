@@ -66,8 +66,7 @@ class MailCaptureTest(unittest.TestCase):
     def inbox(self, *arguments: str) -> subprocess.CompletedProcess[bytes]:
         return subprocess.run(
             [INBOX, self.capture_file, *arguments],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             check=True,
         )
 
@@ -75,8 +74,7 @@ class MailCaptureTest(unittest.TestCase):
         return subprocess.run(
             [MAIL, *arguments],
             env=self.environment,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             check=True,
         )
 
@@ -135,8 +133,7 @@ class MailCaptureTest(unittest.TestCase):
             return subprocess.run(
                 [WRITER, "sender@example.test", f"patient-{index}@example.test"],
                 input=raw_message,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
                 env=self.environment,
                 check=False,
             )
@@ -181,8 +178,7 @@ class MailCaptureTest(unittest.TestCase):
 
         result = subprocess.run(
             [INBOX, self.capture_file, "repair"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             check=False,
         )
 
@@ -220,6 +216,36 @@ class MailCaptureTest(unittest.TestCase):
         self.assertEqual(self.capture_file.read_bytes(), b"")
         self.assertFalse(orphan_spool.exists())
 
+    def test_clear_holds_one_lock_across_file_preparation_and_truncation(self) -> None:
+        self.capture(b"Subject: Clear snapshot\n\nbody\n")
+        fake_binary_directory = self.capture_directory / "clear-flock-bin"
+        fake_binary_directory.mkdir()
+        flock_log = self.capture_directory / "clear-flock.log"
+        recording_flock = fake_binary_directory / "flock"
+        recording_flock.write_text(
+            "#!/bin/sh\n"
+            "printf '%s\\n' \"$*\" >> \"$FLOCK_LOG\"\n"
+            "exec \"$REAL_FLOCK\" \"$@\"\n"
+        )
+        recording_flock.chmod(0o755)
+        clear_environment = self.environment | {
+            "FLOCK_LOG": str(flock_log),
+            "PATH": f"{fake_binary_directory}:/usr/bin:/bin",
+            "REAL_FLOCK": shutil.which("flock", path="/usr/bin:/bin")
+            or "/usr/bin/flock",
+        }
+
+        result = subprocess.run(
+            [MAIL, "clear"],
+            env=clear_environment,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+        self.assertEqual(flock_log.read_text().splitlines(), ["9"])
+        self.assertEqual(self.capture_file.read_bytes(), b"")
+
     def test_capture_file_recreation_waits_for_the_delivery_lock(self) -> None:
         self.capture(b"Subject: Create lock\n\nbody\n")
         self.capture_file.unlink()
@@ -251,8 +277,7 @@ class MailCaptureTest(unittest.TestCase):
 
         result = subprocess.run(
             [INBOX, self.capture_file, "count"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             check=False,
         )
 
@@ -273,8 +298,7 @@ class MailCaptureTest(unittest.TestCase):
         result = subprocess.run(
             [MAIL, "status"],
             env=status_environment,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             check=False,
         )
 
@@ -306,8 +330,7 @@ class MailCaptureTest(unittest.TestCase):
         result = subprocess.run(
             [MAIL, "read", "latest"],
             env=read_environment,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             check=False,
         )
 
@@ -323,8 +346,7 @@ class MailCaptureTest(unittest.TestCase):
             [WRITER, "sender@example.test", "patient@example.test"],
             input=b"Subject: Must retry\n\nbody\n",
             env=failure_environment,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             check=False,
         )
 
@@ -365,8 +387,7 @@ class MailCaptureTest(unittest.TestCase):
             [WRITER, "sender@example.test", "patient@example.test"],
             input=b"Subject: Rolled back\n\nnew body\n",
             env=failure_environment,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             check=False,
         )
 
