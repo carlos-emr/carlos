@@ -46,6 +46,8 @@ IDENTITY_PROOF_SECRET = "i" * MIN_PRODUCTION_SECRET_LENGTH
 
 AUDIT_HASH_SECRET = "a" * MIN_PRODUCTION_SECRET_LENGTH
 
+OUTBOX_ENCRYPTION_SECRET = "o" * MIN_PRODUCTION_SECRET_LENGTH
+
 
 UNLOCK_SECRET_ENCRYPTION_SECRET = "u" * MIN_PRODUCTION_SECRET_LENGTH
 
@@ -114,6 +116,7 @@ def production_settings(**overrides: object) -> Settings:
         "session_secret": NON_DEVELOPMENT_SESSION_SECRET,
         "identity_proof_secret": IDENTITY_PROOF_SECRET,
         "audit_hash_secret": AUDIT_HASH_SECRET,
+        "outbox_encryption_secret": OUTBOX_ENCRYPTION_SECRET,
         "unlock_secret_encryption_secret": UNLOCK_SECRET_ENCRYPTION_SECRET,
         "internal_health_token": INTERNAL_HEALTH_TOKEN,
         "internal_api_token": INTERNAL_API_TOKEN,
@@ -195,19 +198,29 @@ class RecordingPortalEmailSender:
         recipient: str,
         reset_url: str,
         expires_in_seconds: int,
+        message_id: str | None = None,
     ) -> None:
-        self.messages.append(
-            {
-                "recipient": recipient,
-                "reset_url": reset_url,
-                "expires_in_seconds": expires_in_seconds,
-            }
-        )
+        message: dict[str, object] = {
+            "recipient": recipient,
+            "reset_url": reset_url,
+            "expires_in_seconds": expires_in_seconds,
+        }
+        if message_id is not None:
+            message["message_id"] = message_id
+        self.messages.append(message)
         if self.fail:
             raise PortalEmailDeliveryError("simulated delivery failure")
 
-    def send_contact_change_notice(self, *, recipient: str) -> None:
-        self.messages.append({"recipient": recipient, "type": "contact_change_notice"})
+    def send_contact_change_notice(
+        self, *, recipient: str, message_id: str | None = None
+    ) -> None:
+        message: dict[str, object] = {
+            "recipient": recipient,
+            "type": "contact_change_notice",
+        }
+        if message_id is not None:
+            message["message_id"] = message_id
+        self.messages.append(message)
         if self.fail:
             raise PortalEmailDeliveryError("simulated delivery failure")
 

@@ -56,6 +56,7 @@ from tests.support import (
     UNLOCK_SECRET_ENCRYPTION_SECRET,
     FailingNoticeSender,
     RecordingPortalEmailSender,
+    RecordingPortalSmsSender,
     _sample_mfa_delivery,
     _template_variable_names,
     activate_seeded_patient_account,
@@ -246,7 +247,8 @@ def test_jinja_templates_always_autoescape_jinja_files() -> None:
 
 def test_account_contact_update_creates_staff_review_request() -> None:
     sender = RecordingPortalEmailSender()
-    app = migrated_development_app(email_sender=sender)
+    sms_sender = RecordingPortalSmsSender()
+    app = migrated_development_app(email_sender=sender, sms_sender=sms_sender)
     client = TestClient(app)
     account_id = browser_sign_in_seeded_patient(app, client)
     account_response = client.get("/portal/account")
@@ -275,7 +277,7 @@ def test_account_contact_update_creates_staff_review_request() -> None:
         },
         follow_redirects=False,
     )
-    notice_response = client.get("/portal/account?status=email-confirmation-required")
+    notice_response = client.get("/portal/account?status=contact-confirmation-required")
 
     assert failed_response.status_code == 403
     assert "Account change could not be completed." in failed_response.text
@@ -283,10 +285,11 @@ def test_account_contact_update_creates_staff_review_request() -> None:
     assert updated_response.status_code == 303
     assert (
         updated_response.headers["location"]
-        == "/portal/account?status=email-confirmation-required"
+        == "/portal/account?status=contact-confirmation-required"
     )
     assert notice_response.status_code == 200
-    assert "Check the new email address" in notice_response.text
+    assert "Confirm the new email address" in notice_response.text
+    assert sms_sender.messages[-1]["recipient"] == "+15550105555"
     # The confirmation link goes to the proposed address; the current address is told only that a
     # change was requested, and is not given the proposed address.
     assert sender.messages[-1] == {
@@ -326,6 +329,18 @@ def test_account_contact_update_creates_staff_review_request() -> None:
 
     assert confirmed.status_code == 200
     assert "Email address confirmed" in confirmed.text
+    assert "enter the code sent to the new phone number" in confirmed.text
+    phone_confirmation_page = client.get("/portal/account")
+    phone_confirmed = client.post(
+        "/portal/account/contact/confirm-phone",
+        data={
+            "csrf_token": csrf_token_from_response(phone_confirmation_page),
+            "phone_confirmation_code": sms_sender.messages[-1]["code"],
+        },
+        follow_redirects=False,
+    )
+    assert phone_confirmed.status_code == 303
+    assert phone_confirmed.headers["location"] == "/portal/account?status=contact-updated"
     with app.state.session_factory() as session:
         account = session.get(PatientPortalAccount, account_id)
         review_request = session.scalar(select(PatientPortalContactReviewRequest))

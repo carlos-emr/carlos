@@ -6,13 +6,15 @@ from threading import Barrier, Event
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, inspect, select, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal.account_settings import (
-    CONTACT_UPDATE_OUTCOME_EMAIL_CONFIRMATION_REQUIRED,
+    CONTACT_UPDATE_OUTCOME_CONFIRMATION_REQUIRED,
     AccountSettingsStepUpError,
     EmailChangeTokenInvalidError,
     confirm_email_change,
+    confirm_phone_change,
     update_account_contact,
     update_account_mfa_method,
 )
@@ -43,6 +45,78 @@ pytestmark = pytest.mark.skipif(
     POSTGRES_URL is None,
     reason="PORTAL_TEST_POSTGRES_URL is required for PostgreSQL integration tests",
 )
+
+
+def test_postgresql_runtime_role_cannot_rewrite_or_delete_audit_events() -> None:
+    """Exercise the deployment grant model against the real audit table."""
+    assert POSTGRES_URL is not None
+    engine = create_portal_engine(POSTGRES_URL)
+    owner_role = "portal_test_audit_owner"
+    runtime_role = "portal_test_runtime"
+    original_owner = ""
+    try:
+        with engine.begin() as connection:
+            original_owner = str(
+                connection.scalar(
+                    text(
+                        "select pg_get_userbyid(relowner) from pg_class "
+                        "where oid = 'public.patient_portal_audit_events'::regclass"
+                    )
+                )
+            )
+            connection.execute(text(f'DROP ROLE IF EXISTS "{runtime_role}"'))
+            connection.execute(text(f'DROP ROLE IF EXISTS "{owner_role}"'))
+            connection.execute(text(f'CREATE ROLE "{owner_role}" NOLOGIN'))
+            connection.execute(text(f'CREATE ROLE "{runtime_role}" NOLOGIN'))
+            connection.execute(
+                text(
+                    f'ALTER TABLE public.patient_portal_audit_events OWNER TO "{owner_role}"'
+                )
+            )
+            connection.execute(
+                text(
+                    f'GRANT SELECT, INSERT ON public.patient_portal_audit_events '
+                    f'TO "{runtime_role}"'
+                )
+            )
+            connection.execute(
+                text(
+                    f'GRANT USAGE, SELECT ON SEQUENCE patient_portal_audit_events_id_seq '
+                    f'TO "{runtime_role}"'
+                )
+            )
+
+        with engine.begin() as connection:
+            connection.execute(text(f'SET ROLE "{runtime_role}"'))
+            event_id = connection.scalar(
+                text(
+                    "insert into patient_portal_audit_events "
+                    "(event_type, outcome, actor_type, created_at) "
+                    "values ('login', 'success', 'system', now()) returning id"
+                )
+            )
+        for statement in (
+            "update patient_portal_audit_events set outcome = 'failure' where id = :event_id",
+            "delete from patient_portal_audit_events where id = :event_id",
+        ):
+            with engine.connect() as connection, pytest.raises(DBAPIError):
+                connection.execute(text(f'SET ROLE "{runtime_role}"'))
+                connection.execute(text(statement), {"event_id": event_id})
+    finally:
+        if original_owner:
+            quoted_owner = engine.dialect.identifier_preparer.quote(original_owner)
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "ALTER TABLE public.patient_portal_audit_events "
+                        f"OWNER TO {quoted_owner}"
+                    )
+                )
+                connection.execute(text(f'DROP OWNED BY "{runtime_role}"'))
+                connection.execute(text(f'DROP ROLE IF EXISTS "{runtime_role}"'))
+                connection.execute(text(f'DROP OWNED BY "{owner_role}"'))
+                connection.execute(text(f'DROP ROLE IF EXISTS "{owner_role}"'))
+        engine.dispose()
 
 
 def clean_postgresql_database() -> None:
@@ -169,7 +243,7 @@ def test_postgresql_password_reset_and_contact_update_serialize_without_deadlock
             assert account is not None
             barrier.wait(timeout=10)
             try:
-                update_account_contact(
+                contact_update = update_account_contact(
                     session,
                     account,
                     current_password=POSTGRES_PATIENT_PASSWORD,
@@ -178,6 +252,16 @@ def test_postgresql_password_reset_and_contact_update_serialize_without_deadlock
                     max_failed_password_attempts=10,
                     email_change_token_secret=postgres_email_change_token_secret(settings),
                     email_change_token_ttl=timedelta(days=1),
+                    phone_change_code_ttl=timedelta(minutes=10),
+                )
+                assert contact_update.phone_confirmation_code is not None
+                confirm_phone_change(
+                    session,
+                    account,
+                    code=contact_update.phone_confirmation_code,
+                    token_secret=postgres_email_change_token_secret(settings),
+                    max_failed_attempts=10,
+                    code_ttl=timedelta(minutes=10),
                 )
             except AccountSettingsStepUpError:
                 session.rollback()
@@ -529,10 +613,7 @@ def test_postgresql_unlock_idempotency_and_contact_review_replacement() -> None:
             account = session.get(PatientPortalAccount, account_id)
             assert account is not None
             barrier.wait(timeout=10)
-            # Phone-only, so both writers reach the immediate-apply branch that supersedes the
-            # previous pending review. An email change would defer the review to confirmation and
-            # this race would not exist here at all.
-            update_account_contact(
+            contact_update = update_account_contact(
                 session,
                 account,
                 current_password=POSTGRES_PATIENT_PASSWORD,
@@ -541,6 +622,16 @@ def test_postgresql_unlock_idempotency_and_contact_review_replacement() -> None:
                 max_failed_password_attempts=10,
                 email_change_token_secret=postgres_email_change_token_secret(settings),
                 email_change_token_ttl=timedelta(days=1),
+                phone_change_code_ttl=timedelta(minutes=10),
+            )
+            assert contact_update.phone_confirmation_code is not None
+            confirm_phone_change(
+                session,
+                account,
+                code=contact_update.phone_confirmation_code,
+                token_secret=postgres_email_change_token_secret(settings),
+                max_failed_attempts=10,
+                code_ttl=timedelta(minutes=10),
             )
             session.commit()
 
@@ -594,8 +685,9 @@ def test_postgresql_concurrent_email_changes_leave_one_pending_confirmation() ->
                 max_failed_password_attempts=10,
                 email_change_token_secret=token_secret,
                 email_change_token_ttl=timedelta(days=1),
+                phone_change_code_ttl=timedelta(minutes=10),
             )
-            assert result.outcome == CONTACT_UPDATE_OUTCOME_EMAIL_CONFIRMATION_REQUIRED
+            assert result.outcome == CONTACT_UPDATE_OUTCOME_CONFIRMATION_REQUIRED
             session.commit()
             return result.confirmation_token
 

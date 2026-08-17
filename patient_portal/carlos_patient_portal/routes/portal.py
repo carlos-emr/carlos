@@ -9,7 +9,7 @@ import logging
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi import Path as PathParam
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -18,18 +18,26 @@ from starlette.responses import Response
 
 from carlos_patient_portal.account_settings import (
     ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE,
-    CONTACT_UPDATE_OUTCOME_EMAIL_CONFIRMATION_REQUIRED,
+    CONTACT_UPDATE_OUTCOME_CONFIRMATION_REQUIRED,
     CONTACT_UPDATE_OUTCOME_NO_CHANGE,
     AccountSettingsStepUpError,
     AccountSettingsValidationError,
     ContactUpdateResult,
+    PhoneChangeCodeInvalidError,
+    PhoneChangeRateLimitedError,
     change_account_password,
+    confirm_phone_change,
     record_account_settings_audit_event,
+    resend_phone_change_code,
     update_account_contact,
     update_account_mfa_method,
 )
 from carlos_patient_portal.audit import record_audit_event
 from carlos_patient_portal.auth import AuthenticatedPortalSession
+from carlos_patient_portal.delivery_outbox import (
+    enqueue_contact_change_delivery,
+    process_one_delivery,
+)
 from carlos_patient_portal.email_delivery import PortalEmailDeliveryError
 from carlos_patient_portal.i18n import DEFAULT_LOCALE, portal_text
 from carlos_patient_portal.models import (
@@ -62,6 +70,7 @@ from carlos_patient_portal.runtime import (
     function_scoped_database_dependency,
 )
 from carlos_patient_portal.schemas import EmailPasswordListResponse, EmailPasswordSecretResponse
+from carlos_patient_portal.sms_delivery import PortalSmsDeliveryError
 from carlos_patient_portal.unlock_secrets import (
     DEFAULT_UNLOCK_SECRET_LIST_LIMIT,
     MAX_UNLOCK_SECRET_LIST_LIMIT,
@@ -306,6 +315,7 @@ def register_portal_routes(
     @app.post("/portal/account/contact")
     async def portal_account_contact(
         request: Request,
+        background_tasks: BackgroundTasks,
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> Response:
         form_values = await get_portal_account_form_values(
@@ -329,6 +339,9 @@ def register_portal_routes(
                 email_change_token_ttl=timedelta(
                     seconds=settings.email_change_token_ttl_seconds
                 ),
+                phone_change_code_ttl=timedelta(
+                    seconds=settings.phone_change_code_ttl_seconds
+                ),
             )
         except AccountSettingsStepUpError:
             return render_account_change_error(
@@ -344,8 +357,8 @@ def register_portal_routes(
             )
         if contact_update.outcome == CONTACT_UPDATE_OUTCOME_NO_CHANGE:
             return redirect_to_account_status("no-change")
-        session.commit()
-        if contact_update.outcome == CONTACT_UPDATE_OUTCOME_EMAIL_CONFIRMATION_REQUIRED:
+        if contact_update.outcome == CONTACT_UPDATE_OUTCOME_CONFIRMATION_REQUIRED:
+            session.commit()
             return await deliver_email_change_request(
                 request,
                 session,
@@ -355,6 +368,7 @@ def register_portal_routes(
         return await deliver_contact_change_notices(
             session,
             authenticated_session.account,
+            background_tasks=background_tasks,
             recipients=contact_update.notice_recipients,
             success_status_key="contact-updated",
             failure_status_key="contact-updated-notice-failed",
@@ -370,6 +384,7 @@ def register_portal_routes(
         session: Session,
         account: PatientPortalAccount,
         *,
+        background_tasks: BackgroundTasks,
         recipients: tuple[str, ...],
         success_status_key: str,
         failure_status_key: str,
@@ -380,6 +395,30 @@ def register_portal_routes(
         gets, so a delivery failure has to be visible to them and recorded, not swallowed into an
         unqualified success row.
         """
+        if not settings.is_development:
+            deliveries = [
+                enqueue_contact_change_delivery(
+                    session,
+                    account_id=account.id,
+                    recipient=recipient,
+                    encryption_secret=runtime.outbox_encryption_secret,
+                )
+                for recipient in recipients
+            ]
+            session.commit()
+            for delivery in deliveries:
+                background_tasks.add_task(
+                    process_one_delivery,
+                    runtime.session_factory,
+                    email_sender=runtime.email_sender,
+                    encryption_secret=runtime.outbox_encryption_secret,
+                    max_attempts=settings.outbox_max_attempts,
+                    lease_seconds=settings.outbox_lease_seconds,
+                    delivery_id=delivery.id,
+                )
+            return redirect_to_account_status(success_status_key)
+
+        session.commit()
         notices_delivered = True
         for recipient in recipients:
             try:
@@ -417,19 +456,29 @@ def register_portal_routes(
         one-pending-per-account slot and leaves them believing a change is in flight. If the
         confirmation cannot be sent, the request is revoked and the patient is told plainly.
         """
-        confirmation_url = build_email_change_confirmation_url(
-            request,
-            settings=settings,
-            confirmation_token=contact_update.confirmation_token or "",
-        )
         try:
-            await run_in_threadpool(
-                send_email_change_confirmation,
-                runtime,
-                recipient=contact_update.confirmation_recipient or "",
-                confirmation_url=confirmation_url,
-            )
-        except PortalEmailDeliveryError:
+            if contact_update.confirmation_recipient is not None:
+                confirmation_url = build_email_change_confirmation_url(
+                    request,
+                    settings=settings,
+                    confirmation_token=contact_update.confirmation_token or "",
+                )
+                await run_in_threadpool(
+                    send_email_change_confirmation,
+                    runtime,
+                    recipient=contact_update.confirmation_recipient,
+                    confirmation_url=confirmation_url,
+                )
+            if contact_update.phone_confirmation_recipient is not None:
+                if runtime.sms_sender is None:
+                    raise PortalEmailDeliveryError("phone confirmation delivery is not configured")
+                await run_in_threadpool(
+                    runtime.sms_sender.send_code,
+                    recipient=contact_update.phone_confirmation_recipient,
+                    code=contact_update.phone_confirmation_code or "",
+                    expires_in_seconds=settings.phone_change_code_ttl_seconds,
+                )
+        except (PortalEmailDeliveryError, PortalSmsDeliveryError):
             runtime.operational_metrics.record_failure("email_change_delivery")
             logger.error("Email-change confirmation delivery failed")
             if contact_update.email_change_request is not None:
@@ -454,7 +503,91 @@ def register_portal_routes(
         except PortalEmailDeliveryError:
             runtime.operational_metrics.record_failure("contact_change_delivery")
             logger.error("Email-change requested notice delivery failed")
+        if (
+            contact_update.confirmation_recipient is not None
+            and contact_update.phone_confirmation_recipient is not None
+        ):
+            return redirect_to_account_status("contact-confirmation-required")
+        if contact_update.phone_confirmation_recipient is not None:
+            return redirect_to_account_status("phone-confirmation-required")
         return redirect_to_account_status("email-confirmation-required")
+
+    @app.post("/portal/account/contact/confirm-phone")
+    async def portal_account_confirm_phone(
+        request: Request,
+        background_tasks: BackgroundTasks,
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
+    ) -> Response:
+        form_values = await get_portal_account_form_values(
+            request,
+            csrf_error_detail="phone confirmation could not be completed",
+        )
+        authenticated_session = get_portal_cookie_session_or_redirect(request, session)
+        if isinstance(authenticated_session, RedirectResponse):
+            return authenticated_session
+        try:
+            confirmation = await run_in_threadpool(
+                confirm_phone_change,
+                session,
+                authenticated_session.account,
+                code=first_form_value_or_empty(form_values, "phone_confirmation_code"),
+                token_secret=runtime.token_keys.email_change,
+                max_failed_attempts=settings.phone_change_max_failed_attempts,
+                code_ttl=timedelta(seconds=settings.phone_change_code_ttl_seconds),
+            )
+        except (PhoneChangeCodeInvalidError, ValueError):
+            session.commit()
+            return redirect_to_account_status("phone-confirmation-invalid")
+        if not confirmation.applied:
+            session.commit()
+            return redirect_to_account_status("email-confirmation-required")
+        return await deliver_contact_change_notices(
+            session,
+            authenticated_session.account,
+            background_tasks=background_tasks,
+            recipients=confirmation.notice_recipients,
+            success_status_key="contact-updated",
+            failure_status_key="contact-updated-notice-failed",
+        )
+
+    @app.post("/portal/account/contact/resend-phone")
+    async def portal_account_resend_phone(
+        request: Request,
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
+    ) -> Response:
+        await get_portal_account_form_values(
+            request,
+            csrf_error_detail="phone confirmation could not be resent",
+        )
+        authenticated_session = get_portal_cookie_session_or_redirect(request, session)
+        if isinstance(authenticated_session, RedirectResponse):
+            return authenticated_session
+        try:
+            code, recipient = resend_phone_change_code(
+                session,
+                authenticated_session.account,
+                token_secret=runtime.token_keys.email_change,
+                resend_cooldown=timedelta(
+                    seconds=settings.phone_change_resend_cooldown_seconds
+                ),
+            )
+            if runtime.sms_sender is None:
+                raise PortalSmsDeliveryError("phone confirmation delivery is not configured")
+            await run_in_threadpool(
+                runtime.sms_sender.send_code,
+                recipient=recipient,
+                code=code,
+                expires_in_seconds=settings.phone_change_code_ttl_seconds,
+            )
+            session.commit()
+        except PhoneChangeRateLimitedError:
+            session.rollback()
+            return redirect_to_account_status("phone-confirmation-rate-limited")
+        except (PhoneChangeCodeInvalidError, PortalSmsDeliveryError, ValueError):
+            # Preserve the last successfully delivered code when a resend fails.
+            session.rollback()
+            return redirect_to_account_status("phone-confirmation-invalid")
+        return redirect_to_account_status("phone-confirmation-required")
 
     @app.post("/portal/account/mfa")
     async def portal_account_mfa(

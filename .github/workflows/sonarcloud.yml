@@ -86,14 +86,12 @@ jobs:
         run: python -m pip install --require-hashes -r requirements.lock
 
       - name: Generate patient portal coverage
+        working-directory: patient_portal
         run: >-
           python -m pytest
-          -c patient_portal/pyproject.toml
-          patient_portal/tests
-          --cov=patient_portal/carlos_patient_portal
-          --cov-config=patient_portal/pyproject.toml
+          --cov=carlos_patient_portal
           --cov-report=term-missing
-          --cov-report=xml:patient_portal/coverage.xml
+          --cov-report=xml:coverage.xml
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f

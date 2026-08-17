@@ -150,6 +150,27 @@
                   </label>
                   <button class="primary-action" type="submit">{{ text.update_contact }}</button>
                 </form>
+                <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_confirm_phone') }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <label>
+                    {{ text.phone_confirmation_code }}
+                    <input
+                      type="text"
+                      name="phone_confirmation_code"
+                      inputmode="numeric"
+                      autocomplete="one-time-code"
+                      minlength="6"
+                      maxlength="6"
+                      pattern="[0-9]{6}"
+                      required
+                    >
+                  </label>
+                  <button class="primary-action" type="submit">{{ text.confirm_phone }}</button>
+                </form>
+                <form method="post" action="{{ url_for('portal_account_resend_phone') }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button class="secondary-action" type="submit">{{ text.resend_phone_confirmation }}</button>
+                </form>
               </section>
 
               <section class="settings-section">

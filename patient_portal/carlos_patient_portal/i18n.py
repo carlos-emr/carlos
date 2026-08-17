@@ -56,6 +56,10 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "account_status_contact_updated": (
             "Portal contact updated. Staff will review the matching CARLOS demographics."
         ),
+        "account_status_contact_confirmation_required": (
+            "Confirm the new email address and enter the code sent to the new phone number. "
+            "Your current contact details remain active until both are confirmed."
+        ),
         "account_status_email_confirmation_required": (
             "Check the new email address for a confirmation link. Your current address keeps "
             "receiving verification codes and password reset links until you use it."
@@ -63,6 +67,17 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "account_status_email_confirmation_notice_failed": (
             "Confirmation could not be emailed to the new address. Your contact details were not "
             "changed. Try again, or contact the clinic."
+        ),
+        "account_status_phone_confirmation_required": (
+            "Enter the confirmation code sent to the new phone number. Your current phone number "
+            "remains active until it is confirmed."
+        ),
+        "account_status_phone_confirmation_invalid": (
+            "The phone confirmation code is invalid or expired. Request another code and try "
+            "again."
+        ),
+        "account_status_phone_confirmation_rate_limited": (
+            "A phone confirmation code was sent recently. Wait before requesting another."
         ),
         "account_status_mfa_updated": "MFA settings updated.",
         "account_status_no_change": "No account changes.",
@@ -95,6 +110,10 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
             "details."
         ),
         "email_change_success_heading": "Email address confirmed",
+        "email_change_phone_confirmation_pending": (
+            "Your new email address is confirmed. Sign in and enter the code sent to the new "
+            "phone number to finish the contact change."
+        ),
         "change_password": "Change password",
         "clinic": "Clinic",
         "clinic_help": "Clinic help",
@@ -208,6 +227,9 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "password_updated": "Password updated",
         "patient_dashboard": "Patient dashboard",
         "phone": "Phone",
+        "phone_confirmation_code": "Phone confirmation code",
+        "confirm_phone": "Confirm phone number",
+        "resend_phone_confirmation": "Send another code",
         "previous": "Previous",
         "provider": "Provider",
         "provider_options_truncated": (

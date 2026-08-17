@@ -1,10 +1,13 @@
+import json
 import os
 import sqlite3
 import stat
 
 import pytest
+from sqlalchemy.orm import Session
 
 from carlos_patient_portal import cli
+from carlos_patient_portal.audit import record_audit_event
 from carlos_patient_portal.config import Settings
 from carlos_patient_portal.database import Base, create_portal_engine
 from carlos_patient_portal.maintenance import (
@@ -143,3 +146,47 @@ def test_transient_cleanup_cli_reports_each_table_count(
     assert "reset_records=0" in output
     assert "invites=0" in output
     assert "total=0" in output
+
+
+def test_audit_pruning_refuses_runtime_database_credentials(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'audit.db'}"
+    settings = Settings(environment="development", database_url=database_url)
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+
+    with pytest.raises(SystemExit):
+        cli.maintenance(["prune-audit"])
+
+    assert "PATIENT_PORTAL_MAINTENANCE_DATABASE_URL" in capsys.readouterr().err
+
+
+def test_audit_export_cli_emits_ordered_jsonl(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'audit-export.db'}"
+    settings = Settings(environment="development", database_url=database_url)
+    engine = create_portal_engine(database_url)
+    Base.metadata.create_all(engine)
+    with Session(engine) as session, session.begin():
+        event = record_audit_event(
+            session,
+            event_type="login",
+            outcome="success",
+            actor_type="system",
+            clinic_id="clinic-a",
+        )
+        event_id = event.id
+    engine.dispose()
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+
+    cli.maintenance(["export-audit", "--after-id", "0", "--batch-size", "10"])
+
+    exported = json.loads(capsys.readouterr().out)
+    assert exported["id"] == event_id
+    assert exported["event_type"] == "login"
+    assert exported["clinic_id"] == "clinic-a"

@@ -6,7 +6,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from carlos_patient_portal import internal_routes
-from carlos_patient_portal.account_settings import confirm_email_change, update_account_contact
+from carlos_patient_portal.account_settings import (
+    confirm_email_change,
+    confirm_phone_change,
+    update_account_contact,
+)
 from carlos_patient_portal.config import MIN_PRODUCTION_SECRET_LENGTH, Settings
 from carlos_patient_portal.credentials import hash_password
 from carlos_patient_portal.database import Base
@@ -61,6 +65,7 @@ def apply_contact_change(
         max_failed_password_attempts=10,
         email_change_token_secret=EMAIL_CHANGE_TOKEN_SECRET,
         email_change_token_ttl=timedelta(days=1),
+        phone_change_code_ttl=timedelta(minutes=10),
     )
     assert contact_update.confirmation_token is not None
     confirmation = confirm_email_change(
@@ -69,6 +74,16 @@ def apply_contact_change(
         token_secret=EMAIL_CHANGE_TOKEN_SECRET,
         clinic_id=clinic_id,
     )
+    if contact_update.phone_confirmation_code is not None:
+        confirmation = confirm_phone_change(
+            session,
+            account,
+            code=contact_update.phone_confirmation_code,
+            token_secret=EMAIL_CHANGE_TOKEN_SECRET,
+            max_failed_attempts=10,
+            code_ttl=timedelta(minutes=10),
+        )
+    assert confirmation.review_request is not None
     return confirmation.review_request
 
 

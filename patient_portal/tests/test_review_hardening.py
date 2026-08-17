@@ -60,6 +60,7 @@ def production_settings_values(**overrides: object) -> dict[str, object]:
         "session_secret": "s" * SECRET_LENGTH,
         "identity_proof_secret": "i" * SECRET_LENGTH,
         "audit_hash_secret": "a" * SECRET_LENGTH,
+        "outbox_encryption_secret": "o" * SECRET_LENGTH,
         "unlock_secret_encryption_secret": "u" * SECRET_LENGTH,
         "internal_health_token": "h" * SECRET_LENGTH,
         "internal_api_token": "c" * SECRET_LENGTH,

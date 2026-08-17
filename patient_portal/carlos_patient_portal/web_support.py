@@ -208,10 +208,14 @@ PORTAL_MODULES = (
 
 
 ACCOUNT_NOTICE_MESSAGE_KEYS = {
+    "contact-confirmation-required": "account_status_contact_confirmation_required",
     "contact-updated": "account_status_contact_updated",
     "contact-updated-notice-failed": "account_status_contact_notice_failed",
     "email-confirmation-required": "account_status_email_confirmation_required",
     "email-confirmation-notice-failed": "account_status_email_confirmation_notice_failed",
+    "phone-confirmation-required": "account_status_phone_confirmation_required",
+    "phone-confirmation-invalid": "account_status_phone_confirmation_invalid",
+    "phone-confirmation-rate-limited": "account_status_phone_confirmation_rate_limited",
     "mfa-updated": "account_status_mfa_updated",
     "no-change": "account_status_no_change",
     "password-updated": "account_status_password_updated",

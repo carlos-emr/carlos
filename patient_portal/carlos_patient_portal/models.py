@@ -76,6 +76,12 @@ SESSION_REVOKED_REASON_ACCOUNT_DISABLED = "account_disabled"
 EMAIL_CHANGE_STATUS_PENDING = "pending"
 EMAIL_CHANGE_STATUS_CONFIRMED = "confirmed"
 EMAIL_CHANGE_STATUS_REVOKED = "revoked"
+OUTBOX_STATUS_PENDING = "pending"
+OUTBOX_STATUS_PROCESSING = "processing"
+OUTBOX_STATUS_DELIVERED = "delivered"
+OUTBOX_STATUS_FAILED = "failed"
+OUTBOX_KIND_PASSWORD_RESET = "password_reset"
+OUTBOX_KIND_CONTACT_CHANGE = "contact_change"
 CONTACT_REVIEW_STATUS_PENDING = "pending"
 CONTACT_REVIEW_STATUS_REVIEWED = "reviewed"
 CONTACT_REVIEW_DECISION_APPROVED = "approved"
@@ -111,6 +117,7 @@ MAX_UNLOCK_SECRET_ALGORITHM_LENGTH = 32
 MAX_UNLOCK_SECRET_KEY_ID_LENGTH = 64
 MAX_UNLOCK_SECRET_REVOKE_REASON_LENGTH = 64
 UNLOCK_SECRET_NONCE_LENGTH = 12
+OUTBOX_NONCE_LENGTH = 12
 ACCOUNT_FOREIGN_KEY_TARGET = "patient_portal_accounts.id"
 DEMOGRAPHIC_NO_POSITIVE_SQL = "demographic_no > 0"
 EXPIRY_AFTER_CREATION_SQL = "expires_at > created_at"
@@ -573,6 +580,14 @@ class PatientPortalEmailChangeRequest(Base):
             "status != 'confirmed' or confirmed_at is not null",
             name="ck_pp_email_change_confirmed_at_present",
         ),
+        CheckConstraint(
+            f"phone_code_hash is null or length(phone_code_hash) = {HASH_LENGTH}",
+            name="ck_pp_email_change_phone_code_hash_length",
+        ),
+        CheckConstraint(
+            "phone_failed_attempts >= 0",
+            name="ck_pp_email_change_phone_attempts_non_negative",
+        ),
         Index("ux_pp_email_change_token_hash", "token_hash", unique=True),
         Index("ix_pp_email_change_account_status", "account_id", "status"),
         Index(
@@ -603,6 +618,82 @@ class PatientPortalEmailChangeRequest(Base):
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    email_confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    phone_code_hash: Mapped[str | None] = mapped_column(String(HASH_LENGTH), nullable=True)
+    phone_confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    phone_code_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    phone_failed_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class PatientPortalOutboundDelivery(Base):
+    """Durable encrypted handoff for non-interactive email delivery."""
+
+    __tablename__ = "patient_portal_outbound_deliveries"
+    __table_args__ = (
+        CheckConstraint(
+            "kind in ('password_reset', 'contact_change')",
+            name="ck_pp_outbound_delivery_kind",
+        ),
+        CheckConstraint(
+            "status in ('pending', 'processing', 'delivered', 'failed')",
+            name="ck_pp_outbound_delivery_status",
+        ),
+        CheckConstraint(
+            "attempt_count >= 0",
+            name="ck_pp_outbound_delivery_attempts_non_negative",
+        ),
+        CheckConstraint(
+            "length(encryption_key_id) between 1 and 64",
+            name="ck_pp_outbound_delivery_key_id_length",
+        ),
+        CheckConstraint(
+            "length(message_id) between 1 and 255",
+            name="ck_pp_outbound_delivery_message_id_length",
+        ),
+        CheckConstraint(
+            "status != 'delivered' or delivered_at is not null",
+            name="ck_pp_outbound_delivery_delivered_at_present",
+        ),
+        Index(
+            "ix_pp_outbound_delivery_available",
+            "status",
+            "available_at",
+            "id",
+        ),
+        Index("ux_pp_outbound_delivery_message_id", "message_id", unique=True),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey(ACCOUNT_FOREIGN_KEY_TARGET),
+        nullable=False,
+    )
+    reset_token_id: Mapped[int | None] = mapped_column(
+        ForeignKey("patient_portal_password_reset_tokens.id"),
+        nullable=True,
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    encrypted_payload: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    encryption_nonce: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    encryption_key_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    message_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_failure_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class PatientPortalInvite(Base):

@@ -92,6 +92,9 @@ class Settings(BaseSettings):
     # deployment that must not answer to loopback at all.
     probe_allowed_hosts_exclusive: bool = False
     database_url: str = DEFAULT_DATABASE_URL
+    # Used only by the offline pruning command. Keeping DELETE credentials out of the web and
+    # outbox processes lets the runtime role remain append-only for audit events.
+    maintenance_database_url: str | None = None
     database_pool_size: int = Field(default=DEFAULT_DATABASE_POOL_SIZE, ge=1, le=100)
     database_max_overflow: int = Field(default=DEFAULT_DATABASE_MAX_OVERFLOW, ge=0, le=100)
     database_pool_timeout_seconds: int = Field(
@@ -124,6 +127,7 @@ class Settings(BaseSettings):
     session_secret: SecretStr | None = None
     identity_proof_secret: SecretStr | None = None
     audit_hash_secret: SecretStr | None = None
+    outbox_encryption_secret: SecretStr | None = None
     unlock_secret_encryption_secret: SecretStr | None = None
     unlock_secret_encryption_keyring: SecretStr | None = None
     unlock_secret_active_key_id: str = Field(default="primary", min_length=1, max_length=64)
@@ -182,11 +186,17 @@ class Settings(BaseSettings):
         ge=300,
         le=7 * 24 * 60 * 60,
     )
+    phone_change_code_ttl_seconds: int = Field(default=10 * 60, ge=60, le=60 * 60)
+    phone_change_resend_cooldown_seconds: int = Field(default=60, ge=30, le=60 * 60)
+    phone_change_max_failed_attempts: int = Field(default=10, ge=1, le=100)
     password_reset_request_cooldown_seconds: int = Field(
         default=60,
         ge=30,
         le=60 * 60,
     )
+    outbox_max_attempts: int = Field(default=8, ge=1, le=100)
+    outbox_lease_seconds: int = Field(default=5 * 60, ge=30, le=60 * 60)
+    outbox_poll_seconds: int = Field(default=5, ge=1, le=60)
     global_rate_limit_window_seconds: int = Field(default=60, ge=1, le=60 * 60)
     global_rate_limit_max_requests: int = Field(default=300, ge=1, le=10000)
     auth_rate_limit_window_seconds: int = Field(default=60, ge=1, le=60 * 60)
@@ -328,6 +338,7 @@ class Settings(BaseSettings):
         "unlock_secret_active_key_id",
         "service_name",
         "clinic_name",
+        "maintenance_database_url",
         mode="before",
     )
     @classmethod
@@ -459,6 +470,7 @@ class Settings(BaseSettings):
         "session_secret",
         "identity_proof_secret",
         "audit_hash_secret",
+        "outbox_encryption_secret",
         "unlock_secret_encryption_secret",
         "unlock_secret_encryption_keyring",
         "internal_health_token",
@@ -506,6 +518,7 @@ class Settings(BaseSettings):
         secret_fields = {
             "identity_proof_secret": "PATIENT_PORTAL_IDENTITY_PROOF_SECRET",
             "audit_hash_secret": "PATIENT_PORTAL_AUDIT_HASH_SECRET",
+            "outbox_encryption_secret": "PATIENT_PORTAL_OUTBOX_ENCRYPTION_SECRET",
             "unlock_secret_encryption_secret": ("PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET"),
             "internal_health_token": "PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN",
             "internal_api_token": "PATIENT_PORTAL_INTERNAL_API_TOKEN",
@@ -542,6 +555,9 @@ class Settings(BaseSettings):
                 "PATIENT_PORTAL_SESSION_SECRET": session_secret_value,
                 "PATIENT_PORTAL_IDENTITY_PROOF_SECRET": self.secret_value("identity_proof_secret"),
                 "PATIENT_PORTAL_AUDIT_HASH_SECRET": self.secret_value("audit_hash_secret"),
+                "PATIENT_PORTAL_OUTBOX_ENCRYPTION_SECRET": self.secret_value(
+                    "outbox_encryption_secret"
+                ),
                 "PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN": self.secret_value("internal_health_token"),
                 "PATIENT_PORTAL_INTERNAL_API_TOKEN": self.secret_value("internal_api_token"),
                 "PATIENT_PORTAL_INTERNAL_API_TOKEN_PREVIOUS": self.secret_value(
@@ -673,9 +689,21 @@ class Settings(BaseSettings):
     def validate_database_transport_policy(self) -> None:
         if not self.is_production:
             return
-        parsed_url = urlsplit(self.database_url)
+        self.validate_database_transport_url(
+            self.database_url,
+            environment_name="PATIENT_PORTAL_DATABASE_URL",
+        )
+        if self.maintenance_database_url is not None:
+            self.validate_database_transport_url(
+                self.maintenance_database_url,
+                environment_name="PATIENT_PORTAL_MAINTENANCE_DATABASE_URL",
+            )
+
+    @staticmethod
+    def validate_database_transport_url(database_url: str, *, environment_name: str) -> None:
+        parsed_url = urlsplit(database_url)
         if parsed_url.scheme != "postgresql+psycopg":
-            raise ValueError("production PATIENT_PORTAL_DATABASE_URL must use postgresql+psycopg")
+            raise ValueError(f"production {environment_name} must use postgresql+psycopg")
         database_host = parsed_url.hostname
         if database_host is None or database_host.casefold() == "localhost":
             return
@@ -689,7 +717,7 @@ class Settings(BaseSettings):
         if ssl_mode != "verify-full":
             raise ValueError(
                 "remote production PostgreSQL connections must set sslmode=verify-full "
-                "in PATIENT_PORTAL_DATABASE_URL"
+                f"in {environment_name}"
             )
 
     def validate_clinic_policy(self) -> None:
@@ -730,6 +758,8 @@ class Settings(BaseSettings):
             )
         if self.is_production and self.internal_api_token is None:
             raise ValueError("PATIENT_PORTAL_INTERNAL_API_TOKEN must be set in production")
+        if self.is_production and self.outbox_encryption_secret is None:
+            raise ValueError("PATIENT_PORTAL_OUTBOX_ENCRYPTION_SECRET must be set in production")
 
     def validate_audit_retention_policy(self) -> None:
         """Require an explicit opt-in before retention drops below the regulatory default.

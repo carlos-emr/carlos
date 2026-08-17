@@ -42,12 +42,16 @@ from carlos_patient_portal.auth import (
     start_login,
     verify_mfa_challenge,
 )
+from carlos_patient_portal.delivery_outbox import (
+    enqueue_contact_change_delivery,
+    enqueue_password_reset_delivery,
+    process_one_delivery,
+)
 from carlos_patient_portal.email_delivery import PortalEmailDeliveryError
 from carlos_patient_portal.i18n import DEFAULT_LOCALE, portal_text
 from carlos_patient_portal.models import AUDIT_OUTCOME_FAILURE, AUDIT_OUTCOME_SUCCESS
 from carlos_patient_portal.notifications import (
     build_password_reset_url,
-    deliver_password_reset,
     record_mfa_delivery_and_commit,
     send_contact_change_notice,
     send_mfa_challenge,
@@ -643,7 +647,6 @@ def register_password_reset_routes(
         response_reset_token = result.reset_token
         development_reset_url = None
         if result.reset_token is not None and result.recipient is not None:
-            session.commit()
             reset_url = build_password_reset_url(
                 request,
                 settings=deps.settings,
@@ -655,14 +658,12 @@ def register_password_reset_routes(
             # gets `development_reset_url` back in the response; the timing signal that leaks
             # doesn't matter on a disposable database.
             #
-            # Production defers so the response time is identical whether or not the submitted
-            # identity matched an account — the property that stops this endpoint being an account
-            # oracle. The cost is that the handoff is process-local: a worker killed between the
-            # response and the send loses the delivery with no failure recorded, because
-            # `deliver_password_reset` never runs to record one. That is the documented pilot
-            # blocker (README "durable reset delivery"), and it is why the timing-uniformity path
-            # is the one production takes while the tests exercise the development path.
+            # Non-development environments commit an encrypted outbox row with the reset token,
+            # then wake a worker after the response. The response time stays uniform whether the
+            # submitted identity matched, while the committed lease/retry state survives worker
+            # loss and terminal failure revokes the undelivered reset token.
             if deps.settings.is_development:
+                session.commit()
                 try:
                     await run_in_threadpool(
                         send_password_reset_email,
@@ -695,11 +696,22 @@ def register_password_reset_routes(
                     session.commit()
                     development_reset_url = reset_url
             else:
-                background_tasks.add_task(
-                    deliver_password_reset,
-                    runtime,
+                delivery = enqueue_password_reset_delivery(
+                    session,
                     result=result,
                     reset_url=reset_url,
+                    expires_in_seconds=deps.settings.password_reset_token_ttl_seconds,
+                    encryption_secret=runtime.outbox_encryption_secret,
+                )
+                session.commit()
+                background_tasks.add_task(
+                    process_one_delivery,
+                    runtime.session_factory,
+                    email_sender=runtime.email_sender,
+                    encryption_secret=runtime.outbox_encryption_secret,
+                    max_attempts=deps.settings.outbox_max_attempts,
+                    lease_seconds=deps.settings.outbox_lease_seconds,
+                    delivery_id=delivery.id,
                 )
         if is_browser_form:
             return deps.render_password_reset_request(
@@ -798,6 +810,7 @@ def register_email_change_routes(
     @app.post("/auth/email-change/confirm", name="confirm_email_change_submission")
     async def confirm_email_change_submission(
         request: Request,
+        background_tasks: BackgroundTasks,
         session: Annotated[
             Session,
             function_scoped_database_dependency(deps.get_app_database_session),
@@ -836,26 +849,50 @@ def register_email_change_routes(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 error_message=deps.text["email_change_complete_error"],
             )
-        session.commit()
-        for recipient in confirmation.notice_recipients:
-            try:
-                await run_in_threadpool(
-                    send_contact_change_notice,
-                    runtime,
+        if deps.settings.is_development:
+            session.commit()
+            for recipient in confirmation.notice_recipients:
+                try:
+                    await run_in_threadpool(
+                        send_contact_change_notice,
+                        runtime,
+                        recipient=recipient,
+                    )
+                except PortalEmailDeliveryError:
+                    runtime.operational_metrics.record_failure("contact_change_delivery")
+                    logger.error("Contact-change notice delivery failed")
+        else:
+            deliveries = [
+                enqueue_contact_change_delivery(
+                    session,
+                    account_id=confirmation.review_request.account_id,
                     recipient=recipient,
+                    encryption_secret=runtime.outbox_encryption_secret,
                 )
-            except PortalEmailDeliveryError:
-                # The change is already committed and the patient is looking at the result page,
-                # so a failed notice is recorded and surfaced in metrics rather than rolled back.
-                runtime.operational_metrics.record_failure("contact_change_delivery")
-                logger.error("Contact-change notice delivery failed")
+                for recipient in confirmation.notice_recipients
+            ]
+            session.commit()
+            for delivery in deliveries:
+                background_tasks.add_task(
+                    process_one_delivery,
+                    runtime.session_factory,
+                    email_sender=runtime.email_sender,
+                    encryption_secret=runtime.outbox_encryption_secret,
+                    max_attempts=deps.settings.outbox_max_attempts,
+                    lease_seconds=deps.settings.outbox_lease_seconds,
+                    delivery_id=delivery.id,
+                )
         return render_public_auth_template(
             request,
             settings=deps.settings,
             csrf_secret=deps.csrf_secret,
             template_name="auth_result.jinja",
             result_heading=deps.text["email_change_success_heading"],
-            result_message=deps.text["email_change_success"],
+            result_message=deps.text[
+                "email_change_success"
+                if confirmation.applied
+                else "email_change_phone_confirmation_pending"
+            ],
         )
 
 

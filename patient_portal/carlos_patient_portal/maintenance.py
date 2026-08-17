@@ -109,6 +109,35 @@ def prune_audit_events(
     return int(result.rowcount or 0)
 
 
+def export_audit_events(
+    session: Session,
+    *,
+    after_id: int = 0,
+    batch_size: int = DEFAULT_AUDIT_PRUNE_BATCH_SIZE,
+) -> list[dict[str, object]]:
+    """Return an ordered JSON-safe batch for an append-only external audit sink."""
+    if after_id < 0:
+        raise ValueError("after_id must not be negative")
+    normalized_batch_size = normalize_prune_batch_size(batch_size)
+    events = session.scalars(
+        select(PatientPortalAuditEvent)
+        .where(PatientPortalAuditEvent.id > after_id)
+        .order_by(PatientPortalAuditEvent.id)
+        .limit(normalized_batch_size)
+    )
+    field_names = tuple(column.name for column in PatientPortalAuditEvent.__table__.columns)
+    return [
+        {
+            field_name: (
+                value.isoformat() if isinstance(value, datetime) else value
+            )
+            for field_name in field_names
+            if (value := getattr(event, field_name)) is not None
+        }
+        for event in events
+    ]
+
+
 def cleanup_transient_auth_rows(
     session: Session,
     *,

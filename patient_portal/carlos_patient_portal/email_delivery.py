@@ -38,10 +38,13 @@ class PortalEmailSender(Protocol):
         recipient: str,
         reset_url: str,
         expires_in_seconds: int,
+        message_id: str | None = None,
     ) -> None:
         raise NotImplementedError
 
-    def send_contact_change_notice(self, *, recipient: str) -> None:
+    def send_contact_change_notice(
+        self, *, recipient: str, message_id: str | None = None
+    ) -> None:
         raise NotImplementedError
 
     def send_email_change_confirmation(
@@ -100,6 +103,7 @@ class SmtpPortalEmailSender:
         recipient: str,
         reset_url: str,
         expires_in_seconds: int,
+        message_id: str | None = None,
     ) -> None:
         self._send_message(
             self._build_message(
@@ -110,10 +114,13 @@ class SmtpPortalEmailSender:
                     reset_url=reset_url,
                     expires_in_seconds=expires_in_seconds,
                 ),
+                message_id=message_id,
             )
         )
 
-    def send_contact_change_notice(self, *, recipient: str) -> None:
+    def send_contact_change_notice(
+        self, *, recipient: str, message_id: str | None = None
+    ) -> None:
         self._send_message(
             self._build_message(
                 recipient,
@@ -121,6 +128,7 @@ class SmtpPortalEmailSender:
                     service_name=self.service_name,
                     clinic_name=self.clinic_name,
                 ),
+                message_id=message_id,
             )
         )
 
@@ -154,13 +162,21 @@ class SmtpPortalEmailSender:
             )
         )
 
-    def _build_message(self, recipient: str, content: OutboundMessage) -> EmailMessage:
+    def _build_message(
+        self,
+        recipient: str,
+        content: OutboundMessage,
+        *,
+        message_id: str | None = None,
+    ) -> EmailMessage:
         try:
             message = EmailMessage()
             message["From"] = self.from_address
             message["To"] = recipient
             message["Subject"] = content.subject
             message["Auto-Submitted"] = "auto-generated"
+            if message_id is not None:
+                message["Message-ID"] = message_id
             message.set_content(content.body)
             return message
         except (TypeError, ValueError):

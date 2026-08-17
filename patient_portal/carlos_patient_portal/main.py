@@ -157,6 +157,11 @@ def build_portal_runtime(
         if settings.audit_hash_secret is not None
         else token_urlsafe(32)
     )
+    outbox_encryption_secret = (
+        settings.outbox_encryption_secret.get_secret_value()
+        if settings.outbox_encryption_secret is not None
+        else token_urlsafe(32)
+    )
     unlock_secret_encryption_keys = settings.resolved_unlock_secret_keyring
     if not unlock_secret_encryption_keys:
         unlock_secret_encryption_keys = {"primary": token_urlsafe(32)}
@@ -201,6 +206,7 @@ def build_portal_runtime(
         token_keys=token_keys,
         identity_proof_secret=identity_proof_secret,
         audit_hash_secret=audit_hash_secret,
+        outbox_encryption_secret=outbox_encryption_secret,
         unlock_secret_encryption_secret=unlock_secret_encryption_secret,
         unlock_secret_encryption_keys=unlock_secret_encryption_keys,
         unlock_secret_active_key_id=unlock_secret_active_key_id,

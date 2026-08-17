@@ -129,6 +129,7 @@ class PortalRuntime:
     token_keys: PortalTokenKeys
     identity_proof_secret: str
     audit_hash_secret: str
+    outbox_encryption_secret: str
     unlock_secret_encryption_secret: str
     activation_rate_limit: ActivationRateLimit
     auth_policy: AuthPolicy

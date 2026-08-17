@@ -98,6 +98,9 @@ jobs:
         run: python -m ruff check .
 
       - name: Run tests
+        # SonarCloud owns the Python 3.12 coverage run for develop PRs. Keep the 3.11 compatibility
+        # run here; for every other target, where Sonar does not run, retain both matrix legs.
+        if: matrix.python-version == '3.11' || github.base_ref != 'develop'
         run: >-
           python -m pytest
           --cov=carlos_patient_portal

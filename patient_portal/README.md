@@ -35,11 +35,11 @@ The MVP foundation currently includes:
 | Slice | Portal status | Remaining integration |
 | --- | --- | --- |
 | Foundation and activation | Portal implementation and tests present | CARLOS invite delivery and activation-link UI are not wired |
-| Authentication and MFA | Portal implementation and account-scoped controls present | Durable reset delivery and shared edge throttling are pilot blockers |
+| Authentication and MFA | Portal implementation, durable reset outbox, and account-scoped controls present | Deploy and tune the shared edge throttling policy |
 | Dashboard and email passwords | Portal implementation and responsive tests present | CARLOS must confirm successful message delivery before publishing each password |
-| Account settings | Email changes require confirmation from the new address; immutable sync reviews are queued | CARLOS must update eChart then idempotently confirm the reviewed revision; phone numbers are still unverified |
+| Account settings | Changed email and phone destinations require independent ownership proof; immutable sync reviews are queued | CARLOS must update eChart then idempotently confirm the reviewed revision |
 | FHIR R4 and HL7 v2.5.1 | Scoped resources and conformance artifacts are validator-tested | This is a narrow portal profile, not a general-purpose exchange server |
-| Pilot hardening | In-process controls and operator commands are present | External monitoring, audit export, managed backups, and restore drills remain required |
+| Pilot hardening | Reference edge/role policies and operator commands are present | External monitoring, protected audit sink, managed backups, and restore drills remain required |
 
 Why this is a separate Python service with its own PostgreSQL database, what was traded away, and
 the conditions under which the decision should be revisited are recorded in
@@ -206,10 +206,15 @@ in the link fragment so they are not sent in the initial HTTP request or written
 Matched password-reset requests are limited to one email per account per minute by default; tune
 this with `PATIENT_PORTAL_PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS`.
 Production delivery runs after the uniform HTTP response so SMTP latency does not disclose whether
-the submitted identity matched an account. That handoff currently uses an in-process
-`BackgroundTasks` callback and is not durable across worker loss. A production pilot must replace
-it with a transactional outbox/queue with idempotent retry; until then, reset delivery remains a
-documented pilot blocker.
+the submitted identity matched an account. Reset links and post-change security notices are
+encrypted into a transactional outbox in the same commit as their source state. Start at least one
+worker alongside the web service; leases recover work after process loss, retries retain a stable
+SMTP `Message-ID`, and terminal reset-delivery failure revokes the undelivered token:
+
+```bash
+export PATIENT_PORTAL_OUTBOX_ENCRYPTION_SECRET="a separate 32+ character secret"
+carlos-patient-portal-outbox-worker
+```
 
 Production SMS uses an authenticated HTTPS JSON webhook configured with
 `PATIENT_PORTAL_SMS_WEBHOOK_URL` and `PATIENT_PORTAL_SMS_WEBHOOK_TOKEN`. The provider adapter receives
@@ -247,6 +252,7 @@ Non-development deployments must set `PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN`,
 `PATIENT_PORTAL_AUDIT_HASH_SECRET`, `PATIENT_PORTAL_INTERNAL_API_TOKEN`, SMTP, SMS, and either
 `PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET` or
 `PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING`.
+Production must additionally set `PATIENT_PORTAL_OUTBOX_ENCRYPTION_SECRET`.
 The internal readiness endpoint expects the health token as a Bearer token:
 
 ```bash
@@ -297,6 +303,8 @@ Authentication defaults:
 - Patient sessions have a one-hour absolute lifetime and expire after 10 minutes of inactivity.
 - Password reset tokens expire after one hour and are one-time use.
 - Email-change confirmation links expire after 24 hours and are one-time use.
+- Changed phone numbers receive a separate six-digit proof code; the account retains its current
+  contact and recovery destinations until every changed destination has been confirmed.
 
 The deployment can tune these with `PATIENT_PORTAL_REQUIRE_MFA`,
 `PATIENT_PORTAL_AUTH_MAX_FAILED_PASSWORD_ATTEMPTS`, `PATIENT_PORTAL_MFA_MAX_FAILED_ATTEMPTS`,
@@ -305,7 +313,10 @@ The deployment can tune these with `PATIENT_PORTAL_REQUIRE_MFA`,
 `PATIENT_PORTAL_MFA_EMAIL_RESEND_COOLDOWN_SECONDS`,
 `PATIENT_PORTAL_MFA_SMS_RESEND_COOLDOWN_SECONDS`,
 `PATIENT_PORTAL_PASSWORD_RESET_TOKEN_TTL_SECONDS`, and
-`PATIENT_PORTAL_EMAIL_CHANGE_TOKEN_TTL_SECONDS`.
+`PATIENT_PORTAL_EMAIL_CHANGE_TOKEN_TTL_SECONDS`. Phone enrollment uses
+`PATIENT_PORTAL_PHONE_CHANGE_CODE_TTL_SECONDS`,
+`PATIENT_PORTAL_PHONE_CHANGE_RESEND_COOLDOWN_SECONDS`, and
+`PATIENT_PORTAL_PHONE_CHANGE_MAX_FAILED_ATTEMPTS`.
 
 By default, client throttling uses the direct peer address reported by the ASGI server. If the portal
 runs behind a trusted proxy, set `PATIENT_PORTAL_TRUSTED_CLIENT_IP_HEADER` to `x-forwarded-for` or
@@ -322,7 +333,11 @@ Pilot hardening defaults:
   `PATIENT_PORTAL_AUTH_RATE_LIMIT_WINDOW_SECONDS`, and
   `PATIENT_PORTAL_AUTH_RATE_LIMIT_MAX_REQUESTS`. The bucket cache is bounded by
   `PATIENT_PORTAL_RATE_LIMIT_MAX_BUCKETS`. Keep shared edge/load-balancer throttles in front of
-  every production deployment because worker-local counters are not distributed.
+  every production deployment because worker-local counters are not distributed. The packaged
+  [`deploy/nginx.conf`](carlos_patient_portal/deploy/nginx.conf) provides route-specific limits,
+  PHI-safe access logging, and CARLOS-header isolation. Tune it from a representative host run of
+  `carlos-patient-portal-maintenance benchmark-password-hashing`; do not copy example rates into
+  production without validating worker count, CPU, and memory limits.
 - `PATIENT_PORTAL_MAINTENANCE_MODE=true` returns `503` and `Retry-After` on patient-facing routes
   while keeping `/health`, `/internal/health/db`, and `/internal/readiness` available. Tune the
   retry hint with `PATIENT_PORTAL_MAINTENANCE_RETRY_AFTER_SECONDS`.
@@ -375,6 +390,8 @@ and encrypted unlock-secret tables.
 Migration `0005_pending_email_confirmation` refuses to downgrade while pending email-change
 requests or email-change audit events exist, so a rollback cannot silently discard evidence that a
 patient asked to move the address their verification codes are delivered to.
+Migration `0007_durable_outbound_delivery` refuses to downgrade while a delivery is queued or
+leased, and `0008_phone_contact_confirmation` refuses to discard a pending phone-ownership proof.
 Migration `0003_portal_lifecycle_hardening` refuses to downgrade while v3-only encrypted records,
 pending secrets, disabled accounts, superseded reviews, or v3 audit events exist. This prevents a
 rollback from dropping encryption context or lifecycle evidence. Preserve or transform those rows
@@ -391,7 +408,15 @@ carlos-patient-portal-maintenance prune-audit --dry-run
 carlos-patient-portal-maintenance prune-audit --batch-size 1000
 carlos-patient-portal-maintenance cleanup-transient-auth --dry-run
 carlos-patient-portal-maintenance cleanup-transient-auth --retention-days 30
+carlos-patient-portal-maintenance export-audit --after-id 0 --batch-size 1000
 ```
+
+Apply [`deploy/postgresql-audit-roles.sql`](carlos_patient_portal/deploy/postgresql-audit-roles.sql)
+after migrations. The web/outbox runtime role can select and append audit events but cannot update,
+delete, or truncate them. Configure `PATIENT_PORTAL_MAINTENANCE_DATABASE_URL` with the separate
+audit-maintenance role only in the offline prune job; destructive pruning refuses the runtime URL.
+Checkpoint each successful JSONL export by its final `id` and ship it to an access-controlled,
+append-only centralized sink before advancing the checkpoint.
 
 The built-in backup/restore helper is intentionally limited to file-backed SQLite databases for
 local development and small pilot recovery drills:
@@ -473,6 +498,11 @@ Permissions are deliberately narrow:
 - `portal.account.manage`: read portal status and disable/re-enable patient access.
 - `portal.secret.manage`: idempotently create, publish, and revoke generated email passphrases.
 - `portal.contact.review`: list and approve/reject pending patient contact changes.
+
+A contact-review decision controls only whether CARLOS should copy the verified portal contact into
+the chart. Rejection deliberately does not roll back the patient's proven portal contact. If the
+review indicates suspected takeover, staff must separately disable portal access with
+`portal.account.manage`, which immediately revokes sessions, pending MFA, and reset artifacts.
 
 The service token authenticates CARLOS itself; provider ID and permissions must be derived from the
 authenticated CARLOS session by the CARLOS server, never accepted from a browser. Every mutation

@@ -27,6 +27,7 @@ dependencies = [
 [project.scripts]
 carlos-patient-portal-migrate = "carlos_patient_portal.cli:migrate"
 carlos-patient-portal-maintenance = "carlos_patient_portal.cli:maintenance"
+carlos-patient-portal-outbox-worker = "carlos_patient_portal.cli:outbox_worker"
 
 [project.optional-dependencies]
 dev = [
@@ -56,6 +57,8 @@ carlos_patient_portal = [
   "migrations/script.py.mako",
   "migrations/versions/*.py",
   "migrations/versions/.gitkeep",
+  "deploy/*.conf",
+  "deploy/*.sql",
 ]
 
 [tool.pytest.ini_options]
