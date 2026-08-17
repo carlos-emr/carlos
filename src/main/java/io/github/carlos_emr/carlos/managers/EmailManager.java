@@ -308,6 +308,11 @@ public class EmailManager {
         return null;
     }
 
+    private void discardAfterPreparationFailure(EmailSender emailSender, Exception failure) {
+        emailSender.discardPrepared();
+        logger.warn("Outbound email preparation failed: {}", failure.getClass().getSimpleName());
+    }
+
     private void archiveOutboundEmail(LoggedInInfo loggedInInfo, EmailSender emailSender, EmailLog emailLog) throws EmailSendingException {
         OutboundEmailArchiveDto archiveRequest;
         try {
@@ -316,10 +321,19 @@ public class EmailManager {
             // send-configuration problem. Reporting it as an archive fault would send an
             // operator to inspect the archive subsystem over a mistyped SMTP password.
             archiveRequest = emailSender.prepareOutboundArchive(emailLog);
-        } catch (EmailSendingException | RuntimeException e) {
-            emailSender.discardPrepared();
-            logger.warn("Outbound email preparation failed: {}", e.getClass().getSimpleName());
+        } catch (EmailSendingException e) {
+            discardAfterPreparationFailure(emailSender, e);
             throw e;
+        } catch (RuntimeException e) {
+            // Unchecked failures during preparation -- config JSON parsing, MIME
+            // construction -- must be converted, not rethrown. sendEmail catches
+            // EmailSendingException only, so an escaping RuntimeException skips the FAILED
+            // status update entirely: the EmailLog keeps its placeholder text and the caller
+            // gets a raw stack instead of a recorded attempt. Splitting preparation out of
+            // the archive try block regressed this; the pre-split catch wrapped every
+            // throwable, and this restores that contract for the preparation path.
+            discardAfterPreparationFailure(emailSender, e);
+            throw new EmailSendingException(SEND_FAILURE_MESSAGE, e);
         }
 
         try {

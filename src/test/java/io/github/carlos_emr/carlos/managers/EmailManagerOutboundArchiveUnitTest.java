@@ -345,6 +345,37 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should record the failed attempt when preparation throws an unchecked exception")
+    void shouldRecordFailedAttempt_whenPreparationThrowsUncheckedException() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 54);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+
+        // sendEmail catches EmailSendingException only. An unchecked failure during
+        // preparation (config JSON parsing, MIME construction) must be converted rather
+        // than rethrown, or it escapes sendEmail entirely: the FAILED status update is
+        // skipped, the EmailLog keeps its placeholder text, and the caller gets a raw stack.
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> when(smtpSender.prepareMessageBytes())
+                        .thenThrow(new IllegalStateException("malformed SMTP config JSON")))) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+            assertThat(emailLog.getErrorMessage()).startsWith("Failed to send email");
+            verify(emailLogDao).updateEmailStatus(
+                    eq(54), eq(EmailLog.EmailStatus.FAILED), any(String.class), any());
+            verify(outboundEmailArchiveService, never()).archive(any(), any());
+            verifyNoInteractions(javaMailSender);
+        }
+    }
+
+    @Test
     @DisplayName("should follow the Jakarta Mail next-exception chain to the underlying fault")
     void shouldPersistNetworkCategory_whenMessagingExceptionChainsViaNextException() throws Exception {
         EmailConfig emailConfig = smtpEmailConfig();
