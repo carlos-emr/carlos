@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import pwd
 import grp
+import shutil
 import stat
 import subprocess
 import tempfile
@@ -220,6 +221,39 @@ class MailCaptureTest(unittest.TestCase):
         self.assertEqual(result.returncode, 3)
         self.assertIn(b"postfix is not running", result.stdout)
         self.assertIn(b"Capture file:", result.stdout)
+
+    def test_read_holds_one_shared_lock_across_count_and_output(self) -> None:
+        raw_message = b"Subject: Stable snapshot\n\nbody\n"
+        self.capture(raw_message)
+        fake_binary_directory = self.capture_directory / "flock-bin"
+        fake_binary_directory.mkdir()
+        flock_log = self.capture_directory / "flock.log"
+        recording_flock = fake_binary_directory / "flock"
+        recording_flock.write_text(
+            "#!/bin/sh\n"
+            "printf '%s\\n' \"$*\" >> \"$FLOCK_LOG\"\n"
+            "exec \"$REAL_FLOCK\" \"$@\"\n"
+        )
+        recording_flock.chmod(0o755)
+        read_environment = self.environment | {
+            "FLOCK_LOG": str(flock_log),
+            "PATH": f"{fake_binary_directory}:/usr/bin:/bin",
+            "REAL_FLOCK": (
+                shutil.which("flock", path="/usr/bin:/bin") or "/usr/bin/flock"
+            ),
+        }
+
+        result = subprocess.run(
+            [MAIL, "read", "latest"],
+            env=read_environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+        self.assertIn(raw_message, result.stdout)
+        self.assertEqual(flock_log.read_text().splitlines(), ["9", "-s 9"])
 
     def test_capture_failure_returns_postfix_tempfail(self) -> None:
         failure_environment = self.environment | {

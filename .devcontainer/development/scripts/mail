@@ -30,10 +30,6 @@ ensure_capture_file() {
   } 9>> "$CAPTURE_LOCK"
 }
 
-capture_message_count() {
-  flock -s "$CAPTURE_LOCK" "$CAPTURE_INBOX" "$CAPTURE_FILE" count
-}
-
 list_captured_messages() {
   ensure_capture_file
   flock -s "$CAPTURE_LOCK" "$CAPTURE_INBOX" "$CAPTURE_FILE" list
@@ -45,28 +41,33 @@ read_captured_message() {
   local requested_message
 
   ensure_capture_file
-  message_count="$(capture_message_count)"
-  if [ "$message_count" -eq 0 ]; then
-    echo "No captured messages." >&2
-    return 1
-  fi
+  {
+    # Keep one snapshot stable across count, validation, and output. Otherwise
+    # `mail clear` can truncate the capture between the two parser invocations.
+    flock -s 9
+    message_count="$("$CAPTURE_INBOX" "$CAPTURE_FILE" count)"
+    if [ "$message_count" -eq 0 ]; then
+      echo "No captured messages." >&2
+      return 1
+    fi
 
-  requested_message="${1:-latest}"
-  if [ "$requested_message" = "latest" ]; then
-    message_number="$message_count"
-  elif [[ "$requested_message" =~ ^[1-9][0-9]*$ ]]; then
-    message_number="$requested_message"
-  else
-    echo "Message must be a positive number or 'latest'." >&2
-    return 1
-  fi
+    requested_message="${1:-latest}"
+    if [ "$requested_message" = "latest" ]; then
+      message_number="$message_count"
+    elif [[ "$requested_message" =~ ^[1-9][0-9]*$ ]]; then
+      message_number="$requested_message"
+    else
+      echo "Message must be a positive number or 'latest'." >&2
+      return 1
+    fi
 
-  if [ "$message_number" -gt "$message_count" ]; then
-    echo "Message $message_number does not exist; captured messages: $message_count." >&2
-    return 1
-  fi
+    if [ "$message_number" -gt "$message_count" ]; then
+      echo "Message $message_number does not exist; captured messages: $message_count." >&2
+      return 1
+    fi
 
-  flock -s "$CAPTURE_LOCK" "$CAPTURE_INBOX" "$CAPTURE_FILE" read "$message_number"
+    "$CAPTURE_INBOX" "$CAPTURE_FILE" read "$message_number"
+  } 9< "$CAPTURE_LOCK"
 }
 
 # Non-comment, non-blank entries in the send allowlist.
