@@ -561,6 +561,14 @@ a.module-tile:focus-visible {
   font-weight: bold;
 }
 
+/* Keep the fixed sidebar at tablet widths, but reduce the dashboard card grid before its three
+   180px minimum columns can force the document wider than the viewport. */
+@media (min-width: 641px) and (max-width: 900px) {
+  .module-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .module-toolbar {
   display: flex;
   align-items: end;

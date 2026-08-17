@@ -335,6 +335,20 @@ function screenshotPath(name) {
       path: screenshotPath('patient-portal-dashboard-mobile'),
       fullPage: true,
     });
+
+    // The sidebar remains visible at tablet widths. Three minimum-width cards previously made the
+    // dashboard 813px wide in a 768px viewport, clipping the final card off-screen.
+    await page.setViewportSize({ width: 768, height: 1024 });
+    const dashboardTabletLayout = await page.evaluate(() => ({
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+    }));
+    assert(
+      dashboardTabletLayout.documentWidth <= dashboardTabletLayout.viewportWidth + 1,
+      `tablet dashboard overflows horizontally: ${dashboardTabletLayout.documentWidth}px > ${dashboardTabletLayout.viewportWidth}px`
+    );
+
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('link', { name: 'Account', exact: true }).click();
     await page.waitForURL(/\/portal\/account$/);
     await page.getByRole('heading', { name: 'Account' }).waitFor();
