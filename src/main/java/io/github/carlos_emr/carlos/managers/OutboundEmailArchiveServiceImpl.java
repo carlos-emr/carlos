@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDeletionDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveLegalHoldEventDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
@@ -35,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveAttachment;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveDeletion;
+import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveLegalHoldEvent;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveAttachmentDto;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -83,6 +85,8 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
     private final OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao;
 
+    private final OutboundEmailArchiveLegalHoldEventDao outboundEmailArchiveLegalHoldEventDao;
+
     private final CtlDocumentDao ctlDocumentDao;
 
     private final SecurityInfoManager securityInfoManager;
@@ -93,12 +97,14 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             EmailLogDao emailLogDao,
             OutboundEmailArchiveDao outboundEmailArchiveDao,
             OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao,
+            OutboundEmailArchiveLegalHoldEventDao outboundEmailArchiveLegalHoldEventDao,
             CtlDocumentDao ctlDocumentDao,
             SecurityInfoManager securityInfoManager) {
         this.documentManager = documentManager;
         this.emailLogDao = emailLogDao;
         this.outboundEmailArchiveDao = outboundEmailArchiveDao;
         this.outboundEmailArchiveDeletionDao = outboundEmailArchiveDeletionDao;
+        this.outboundEmailArchiveLegalHoldEventDao = outboundEmailArchiveLegalHoldEventDao;
         this.ctlDocumentDao = ctlDocumentDao;
         this.securityInfoManager = securityInfoManager;
     }
@@ -160,17 +166,18 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
         EmailLog requestedEmailLog = request.getEmailLog();
         byte[] artifactBytes = request.getArtifactBytes();
-        String contentType = truncate(
-                defaultIfBlank(request.getContentType(), DEFAULT_CONTENT_TYPE),
-                MAX_CONTENT_TYPE_LENGTH);
+        String contentType = archiveContentType(request.getContentType());
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         if (providerNo == null || providerNo.isBlank()) {
             throw new IllegalArgumentException("Provider number is required for outbound email archive");
         }
+        // Authority check precedes the EmailLog read: a caller with no eDoc write
+        // right must not be able to probe emailLog ids through the "not found" message.
+        requireArchiveWriteAuthority(loggedInInfo);
         EmailLog emailLog = loadEmailLog(requestedEmailLog.getId());
         String fileName = uniqueArchiveFileName(emailLog, contentType);
         Integer demographicNo = emailLog.getDemographic().getDemographicNo();
-        authorizeArchiveAccess(loggedInInfo, demographicNo);
+        requirePatientRecordAccess(loggedInInfo, demographicNo);
         List<OutboundEmailArchiveAttachment> attachments = buildAttachments(request, providerNo, demographicNo);
 
         Document document = buildDocument(emailLog, fileName, contentType, providerNo);
@@ -215,14 +222,21 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             throw new IllegalArgumentException("Deleting provider number is required");
         }
 
+        // Authority check precedes findForUpdate: an unauthorized caller must not be
+        // able to take a FOR UPDATE row lock, nor learn which archive ids exist from
+        // the "not found" message.
+        requireArchiveAdminAuthority(loggedInInfo);
+
         OutboundEmailArchive archive = outboundEmailArchiveDao.findForUpdate(archiveId);
         if (archive == null) {
             throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
         }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
-        authorizeControlledDeletion(loggedInInfo, archive);
+        requirePatientRecordAccess(loggedInInfo, requireArchiveDemographicNo(archive));
         String truncatedDeleteReason = truncate(deleteReason.trim(), 1000);
+        // Throws while the archive is still under legal hold, which is the default state
+        // for every archive — an admin must have released it via releaseLegalHold first.
         archive.markDeleted(providerNo, truncatedDeleteReason);
         OutboundEmailArchiveDeletion deletion = OutboundEmailArchiveDeletion.fromArchive(archive, providerNo, truncatedDeleteReason);
 
@@ -237,6 +251,71 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
                 ""));
 
         return deletion;
+    }
+
+    @Override
+    @Transactional
+    public OutboundEmailArchiveLegalHoldEvent releaseLegalHold(LoggedInInfo loggedInInfo, Integer archiveId, String reason) {
+        return changeLegalHold(loggedInInfo, archiveId, reason, OutboundEmailArchiveLegalHoldEvent.ACTION_RELEASED);
+    }
+
+    @Override
+    @Transactional
+    public OutboundEmailArchiveLegalHoldEvent placeLegalHold(LoggedInInfo loggedInInfo, Integer archiveId, String reason) {
+        return changeLegalHold(loggedInInfo, archiveId, reason, OutboundEmailArchiveLegalHoldEvent.ACTION_PLACED);
+    }
+
+    /**
+     * Shared transition for both legal hold directions.
+     *
+     * <p>Kept as one method because the authority gate, row lock, patient-record check,
+     * event record, and audit entry are identical; only the entity transition differs.
+     * The {@code FOR UPDATE} lock matters here for the same reason it does on deletion:
+     * two concurrent releases must not both succeed and write two RELEASED events.</p>
+     */
+    private OutboundEmailArchiveLegalHoldEvent changeLegalHold(
+            LoggedInInfo loggedInInfo, Integer archiveId, String reason, String action) {
+        if (archiveId == null) {
+            throw new IllegalArgumentException("Archive ID is required");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("Legal hold reason is required");
+        }
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null || loggedInInfo.getLoggedInProviderNo().isBlank()) {
+            throw new IllegalArgumentException("Legal hold provider number is required");
+        }
+
+        requireArchiveAdminAuthority(loggedInInfo);
+
+        OutboundEmailArchive archive = outboundEmailArchiveDao.findForUpdate(archiveId);
+        if (archive == null) {
+            throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
+        }
+
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        requirePatientRecordAccess(loggedInInfo, requireArchiveDemographicNo(archive));
+        String truncatedReason = truncate(reason.trim(), 1000);
+
+        if (OutboundEmailArchiveLegalHoldEvent.ACTION_RELEASED.equals(action)) {
+            archive.releaseLegalHold(providerNo);
+        } else {
+            archive.placeLegalHold(providerNo);
+        }
+
+        OutboundEmailArchiveLegalHoldEvent event =
+                OutboundEmailArchiveLegalHoldEvent.of(archive, action, providerNo, truncatedReason);
+
+        outboundEmailArchiveDao.merge(archive);
+        outboundEmailArchiveLegalHoldEventDao.persist(event);
+
+        registerAfterCommitLog(() -> LogAction.addLog(loggedInInfo,
+                "OutboundEmailArchiveService.changeLegalHold",
+                "Outbound email archive legal hold " + action,
+                "archiveId=" + archive.getId() + " documentNo=" + documentId(archive),
+                demographicNo(archive),
+                ""));
+
+        return event;
     }
 
     private void validateArchiveRequest(LoggedInInfo loggedInInfo, OutboundEmailArchiveDto request) {
@@ -363,6 +442,8 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             throw new IllegalArgumentException("Attachment byte size is required");
         }
 
+        validateSourceDocumentId(request.getSourceDocumentId(), attachmentDocument);
+
         OutboundEmailArchiveAttachment attachment = new OutboundEmailArchiveAttachment();
         attachment.setFileName(truncate(defaultIfBlank(request.getFileName(), "attachment"), 255));
         attachment.setContentType(truncate(request.getContentType(), 100));
@@ -373,6 +454,32 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         attachment.setDocument(attachmentDocument);
         attachment.setLastUpdateUser(providerNo);
         return attachment;
+    }
+
+    /**
+     * Keeps {@code sourceDocumentId} consistent with the linked eDoc {@code Document}.
+     *
+     * <p>{@code documentNo} is demographic-checked in
+     * {@link #validateAttachmentDocumentDemographic}; {@code sourceDocumentId} is not,
+     * and it has no foreign key. Left unchecked, an attachment could be stored claiming
+     * provenance from one patient's document while linking to another's, so when both
+     * are present they must agree.</p>
+     *
+     * <p><b>Contract for future readers:</b> when no {@code Document} is supplied,
+     * {@code sourceDocumentId} is caller-asserted provenance metadata for an artifact
+     * that lives outside the eDoc store. It is <em>not</em> demographic-checked and MUST
+     * NOT be used as a fetch key to resolve and display a CARLOS document — doing so
+     * would reintroduce a cross-patient read. Any viewer must read through
+     * {@code documentNo} instead.</p>
+     */
+    private void validateSourceDocumentId(Integer sourceDocumentId, Document attachmentDocument) {
+        if (sourceDocumentId == null || attachmentDocument == null) {
+            return;
+        }
+        if (!sourceDocumentId.equals(attachmentDocument.getId())) {
+            throw new IllegalArgumentException(
+                    "Attachment sourceDocumentId does not match the linked attachment document");
+        }
     }
 
     private void validateAttachmentDocumentDemographic(Document attachmentDocument, Integer demographicNo) {
@@ -393,6 +500,25 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             }
         }
         throw new SecurityException("attachment document is not linked to outbound email archive demographic");
+    }
+
+    /**
+     * Reduces a caller-supplied Content-Type to the bare media type stored on the
+     * eDoc row and the archive metadata.
+     *
+     * <p>MIME parameters are dropped rather than truncated. A blind
+     * {@code substring(0, 100)} on something like
+     * {@code message/rfc822; name="<200 char filename>"} persists a syntactically
+     * broken Content-Type — an unterminated quoted string — into
+     * {@code document.contenttype}, which is what every eDoc viewer and download
+     * handler reads back. Nothing is lost: the filename hint is already retained in
+     * {@code originalFileName}, and an RFC822 artifact carries its own charset in
+     * its MIME headers. The length bound stays as a backstop for absurd media
+     * types.</p>
+     */
+    private String archiveContentType(String requestedContentType) {
+        String mediaType = normalizeMediaType(requestedContentType);
+        return truncate(defaultIfBlank(mediaType, DEFAULT_CONTENT_TYPE), MAX_CONTENT_TYPE_LENGTH);
     }
 
     private String uniqueArchiveFileName(EmailLog emailLog, String contentType) {
@@ -506,30 +632,49 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         return value;
     }
 
-    private void authorizeArchiveAccess(LoggedInInfo loggedInInfo, Integer demographicNo) {
+    /**
+     * Rejects callers without eDoc write authority.
+     *
+     * <p>Deliberately split from the per-patient check so it can run before any
+     * lookup. Loading rows for a caller that has no business calling the service
+     * at all turns "not found" messages into an existence oracle and, in the
+     * deletion path, lets an unauthorized caller take a {@code FOR UPDATE} row
+     * lock.</p>
+     */
+    private void requireArchiveWriteAuthority(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(
                 loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_edoc w)");
         }
+    }
+
+    /**
+     * Rejects callers without admin eDoc delete authority.
+     *
+     * <p>Unlike {@code DocumentUndelete2Action}, plain {@code _edoc w} is NOT
+     * accepted here. {@code _edoc w} is the right needed to <em>create</em> an
+     * archive, so admitting it would make retiring an evidentiary record no
+     * harder than writing one. The same gate guards legal hold changes, since
+     * releasing a hold is what makes deletion reachable at all.</p>
+     */
+    private void requireArchiveAdminAuthority(LoggedInInfo loggedInInfo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.edocdelete", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_admin.edocdelete w)");
+        }
+    }
+
+    private void requirePatientRecordAccess(LoggedInInfo loggedInInfo, Integer demographicNo) {
         if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
             throw new SecurityException("not authorized for outbound email archive demographic");
         }
     }
 
-    private void authorizeControlledDeletion(LoggedInInfo loggedInInfo, OutboundEmailArchive archive) {
+    private Integer requireArchiveDemographicNo(OutboundEmailArchive archive) {
         Integer demographicNo = archive.getDemographic() != null ? archive.getDemographic().getDemographicNo() : null;
         if (demographicNo == null) {
             throw new IllegalStateException("Outbound email archive demographic is required");
         }
-
-        boolean canDeleteEdoc = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.edocdelete", SecurityInfoManager.WRITE, null)
-                || securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null);
-        if (!canDeleteEdoc) {
-            throw new SecurityException("missing required sec object (_admin.edocdelete w)");
-        }
-        if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
-            throw new SecurityException("not authorized for outbound email archive demographic");
-        }
+        return demographicNo;
     }
 
     private void registerRollbackCleanup(Document savedDocument) {

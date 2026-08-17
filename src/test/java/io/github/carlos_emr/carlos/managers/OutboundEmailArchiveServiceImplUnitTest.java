@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDeletionDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveLegalHoldEventDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -36,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveAttachment;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveDeletion;
+import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveLegalHoldEvent;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveAttachmentDto;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
@@ -82,6 +84,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     private EmailLogDao emailLogDao;
     private OutboundEmailArchiveDao outboundEmailArchiveDao;
     private OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao;
+    private OutboundEmailArchiveLegalHoldEventDao outboundEmailArchiveLegalHoldEventDao;
     private CtlDocumentDao ctlDocumentDao;
     private SecurityInfoManager securityInfoManager;
     private LoggedInInfo loggedInInfo;
@@ -93,10 +96,11 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         emailLogDao = mock(EmailLogDao.class);
         outboundEmailArchiveDao = mock(OutboundEmailArchiveDao.class);
         outboundEmailArchiveDeletionDao = mock(OutboundEmailArchiveDeletionDao.class);
+        outboundEmailArchiveLegalHoldEventDao = mock(OutboundEmailArchiveLegalHoldEventDao.class);
         ctlDocumentDao = mock(CtlDocumentDao.class);
         securityInfoManager = mock(SecurityInfoManager.class);
         loggedInInfo = mock(LoggedInInfo.class);
-        service = new OutboundEmailArchiveServiceImpl(documentManager, emailLogDao, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao, ctlDocumentDao, securityInfoManager);
+        service = new OutboundEmailArchiveServiceImpl(documentManager, emailLogDao, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao, outboundEmailArchiveLegalHoldEventDao, ctlDocumentDao, securityInfoManager);
 
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
         allowControlledDeletion();
@@ -184,13 +188,13 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should bound content type before creating the eDoc and reuse it in archive metadata")
-    void shouldReuseBoundedContentType_whenMimeMetadataExceedsArchiveLimit() throws Exception {
+    @DisplayName("should store the bare media type when MIME parameters would overflow the archive limit")
+    void shouldStoreBareMediaType_whenMimeMetadataExceedsArchiveLimit() throws Exception {
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
-        String longContentType = "message/rfc822; name=\"" + "x".repeat(200) + "\"";
-        String expectedContentType = longContentType.substring(0, 100);
-        request.setContentType(longContentType);
+        // Truncating this at 100 chars would persist an unterminated quoted string
+        // into document.contenttype, which every eDoc viewer reads back.
+        request.setContentType("message/rfc822; name=\"" + "x".repeat(200) + "\"");
         when(documentManager.createDocument(
                 eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
                 .thenReturn(savedDocument());
@@ -200,8 +204,23 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         ArgumentCaptor<Document> documentCaptor = ArgumentCaptor.forClass(Document.class);
         verify(documentManager).createDocument(
                 eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
-        assertThat(documentCaptor.getValue().getContenttype()).isEqualTo(expectedContentType);
-        assertThat(archive.getContentType()).isEqualTo(expectedContentType);
+        assertThat(documentCaptor.getValue().getContenttype()).isEqualTo("message/rfc822");
+        assertThat(archive.getContentType()).isEqualTo("message/rfc822");
+    }
+
+    @Test
+    @DisplayName("should fall back to the default media type when the content type is only parameters")
+    void shouldFallBackToDefaultMediaType_whenContentTypeIsOnlyParameters() throws Exception {
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        request.setContentType("; charset=UTF-8");
+        when(documentManager.createDocument(
+                eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                .thenReturn(savedDocument());
+
+        OutboundEmailArchive archive = service.archive(loggedInInfo, request);
+
+        assertThat(archive.getContentType()).isEqualTo("application/octet-stream");
     }
 
     @Test
@@ -392,6 +411,28 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject attachment whose sourceDocumentId contradicts its linked document")
+    void shouldRejectAttachment_whenSourceDocumentIdContradictsLinkedDocument() {
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        OutboundEmailArchiveAttachmentDto attachmentRequest = new OutboundEmailArchiveAttachmentDto();
+        attachmentRequest.setFileName("message.pdf");
+        attachmentRequest.setContentType("application/pdf");
+        attachmentRequest.setArtifactBytes("encrypted pdf bytes".getBytes(StandardCharsets.UTF_8));
+        attachmentRequest.setDocument(attachmentDocument());
+        // documentNo 777 is demographic-checked; sourceDocumentId is not and has no FK,
+        // so a disagreeing pair would record provenance from a document we never verified.
+        attachmentRequest.setSourceDocumentId(9901);
+        request.addAttachment(attachmentRequest);
+        when(ctlDocumentDao.findByDocumentNoAndModule(777, "demographic")).thenReturn(List.of(ctlDocument(123, 777)));
+
+        assertThatThrownBy(() -> service.archive(loggedInInfo, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("sourceDocumentId does not match");
+        verifyNoInteractions(documentManager);
+    }
+
+    @Test
     @DisplayName("should reject attachment bytes without a persisted document before storing the eDoc")
     void shouldRejectAttachmentBytesWithoutPersistedDocument_beforeStoringEdoc() {
         EmailLog emailLog = emailLog();
@@ -452,7 +493,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject archive without eDoc write authority")
+    @DisplayName("should reject archive without eDoc write authority before reading the email log")
     void shouldRejectArchive_whenCallerLacksEdocWriteAuthority() {
         when(securityInfoManager.hasPrivilege(
                 loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(false);
@@ -463,6 +504,9 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_edoc w");
 
+        // The authority gate must precede the lookup: otherwise the "EmailLog not found"
+        // message tells an unauthorized caller which email log ids exist.
+        verify(emailLogDao, never()).find(any());
         verifyNoInteractions(documentManager);
     }
 
@@ -540,18 +584,23 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject controlled deletion without eDoc delete authority")
+    @DisplayName("should reject controlled deletion for a caller holding only eDoc write")
     void shouldRejectDeletion_whenCallerLacksEdocDeleteAuthority() {
-        OutboundEmailArchive archive = archiveForDeletion();
-        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+        // _edoc w is the right needed to create an archive. If it also admitted deletion,
+        // retiring an evidentiary record would be no harder than writing one.
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.edocdelete", SecurityInfoManager.WRITE, null)).thenReturn(false);
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(true);
 
         assertThatThrownBy(() -> service.recordControlledDeletion(loggedInInfo, 888, "cleanup"))
                 .isInstanceOf(SecurityException.class)
+                // Exact match, not "contains": the message is the only thing a caller
+                // sees, and it previously claimed admin-only while the condition still
+                // admitted _edoc w. Pinning it whole keeps the two from drifting again.
                 .hasMessage("missing required sec object (_admin.edocdelete w)");
 
-        verify(outboundEmailArchiveDao, never()).merge(any(OutboundEmailArchive.class));
+        // findForUpdate issues SELECT ... FOR UPDATE. An unauthorized caller must not be
+        // able to take that row lock, nor probe archive ids via the "not found" message.
+        verifyNoInteractions(outboundEmailArchiveDao);
         verifyNoInteractions(outboundEmailArchiveDeletionDao);
     }
 
@@ -571,15 +620,121 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject controlled deletion while legal hold is active")
+    @DisplayName("should reject controlled deletion while the default legal hold is still active")
     void shouldRejectDeletion_whenLegalHoldIsActive() {
-        OutboundEmailArchive archive = archiveForDeletion();
-        archive.setLegalHold(true);
+        // No releaseLegalHold call: a freshly created archive is on hold, so this is the
+        // out-of-the-box behaviour rather than a state the test had to arrange.
+        OutboundEmailArchive archive = archiveUnderLegalHold();
         when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
 
         assertThatThrownBy(() -> service.recordControlledDeletion(loggedInInfo, 888, "cleanup"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("legal hold");
+
+        verify(outboundEmailArchiveDao, never()).merge(any(OutboundEmailArchive.class));
+        verifyNoInteractions(outboundEmailArchiveDeletionDao);
+    }
+
+    @Test
+    @DisplayName("should place every new archive under legal hold")
+    void shouldPlaceArchiveUnderLegalHold_whenCreated() throws Exception {
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                .thenReturn(savedDocument());
+
+        OutboundEmailArchive archive = service.archive(loggedInInfo, request);
+
+        assertThat(archive.isLegalHold()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should release legal hold and record who did it")
+    void shouldReleaseLegalHold_andRecordResponsibleProvider() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+
+        OutboundEmailArchiveLegalHoldEvent event =
+                service.releaseLegalHold(loggedInInfo, 888, "  Counsel authorised release  ");
+
+        verify(outboundEmailArchiveDao).merge(archive);
+        verify(outboundEmailArchiveLegalHoldEventDao).persist(event);
+        assertThat(archive.isLegalHold()).isFalse();
+        assertThat(event.getAction()).isEqualTo(OutboundEmailArchiveLegalHoldEvent.ACTION_RELEASED);
+        assertThat(event.getProviderNo()).isEqualTo(PROVIDER_NO);
+        assertThat(event.getReason()).isEqualTo("Counsel authorised release");
+        assertThat(event.getArchive()).isSameAs(archive);
+        assertThat(event.getLastUpdateUser()).isEqualTo(PROVIDER_NO);
+    }
+
+    @Test
+    @DisplayName("should re-apply legal hold and record who did it")
+    void shouldPlaceLegalHold_andRecordResponsibleProvider() {
+        OutboundEmailArchive archive = archiveForDeletion();
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+
+        OutboundEmailArchiveLegalHoldEvent event = service.placeLegalHold(loggedInInfo, 888, "Litigation opened");
+
+        assertThat(archive.isLegalHold()).isTrue();
+        assertThat(event.getAction()).isEqualTo(OutboundEmailArchiveLegalHoldEvent.ACTION_PLACED);
+        assertThat(event.getProviderNo()).isEqualTo(PROVIDER_NO);
+        verify(outboundEmailArchiveLegalHoldEventDao).persist(event);
+    }
+
+    @Test
+    @DisplayName("should reject legal hold release without admin authority before locking the row")
+    void shouldRejectLegalHoldRelease_whenCallerLacksAdminAuthority() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.edocdelete", SecurityInfoManager.WRITE, null)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.releaseLegalHold(loggedInInfo, 888, "cleanup"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_admin.edocdelete w");
+
+        verifyNoInteractions(outboundEmailArchiveDao);
+        verifyNoInteractions(outboundEmailArchiveLegalHoldEventDao);
+    }
+
+    @Test
+    @DisplayName("should reject legal hold release without a reason")
+    void shouldRejectLegalHoldRelease_whenReasonIsBlank() {
+        assertThatThrownBy(() -> service.releaseLegalHold(loggedInInfo, 888, "   "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Legal hold reason is required");
+
+        verifyNoInteractions(outboundEmailArchiveDao);
+        verifyNoInteractions(outboundEmailArchiveLegalHoldEventDao);
+    }
+
+    @Test
+    @DisplayName("should reject releasing a legal hold that is not active")
+    void shouldRejectLegalHoldRelease_whenNoHoldIsActive() {
+        OutboundEmailArchive archive = archiveForDeletion();
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+
+        assertThatThrownBy(() -> service.releaseLegalHold(loggedInInfo, 888, "cleanup"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not under legal hold");
+
+        verifyNoInteractions(outboundEmailArchiveLegalHoldEventDao);
+    }
+
+    @Test
+    @DisplayName("should defer legal hold audit until transaction commit")
+    void shouldDeferLegalHoldAudit_untilTransactionCommit() {
+        TransactionSynchronizationManager.initSynchronization();
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+
+        service.releaseLegalHold(loggedInInfo, 888, "Counsel authorised release");
+
+        logActionMock.verifyNoInteractions();
+        runAfterCommitSynchronizations();
+        logActionMock.verify(() -> LogAction.addLog(loggedInInfo,
+                "OutboundEmailArchiveService.changeLegalHold",
+                "Outbound email archive legal hold RELEASED",
+                "archiveId=888 documentNo=321",
+                "123",
+                ""));
     }
 
     @Test
@@ -679,7 +834,8 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         return ctlDocument;
     }
 
-    private OutboundEmailArchive archiveForDeletion() {
+    /** An archive in its as-created state: under legal hold, so not yet deletable. */
+    private OutboundEmailArchive archiveUnderLegalHold() {
         OutboundEmailArchive archive = new OutboundEmailArchive();
         archive.setId(888);
         archive.setEmailLog(emailLog());
@@ -692,6 +848,16 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         return archive;
     }
 
+    /**
+     * An archive whose legal hold an admin has already released — the only state from
+     * which controlled deletion can succeed.
+     */
+    private OutboundEmailArchive archiveForDeletion() {
+        OutboundEmailArchive archive = archiveUnderLegalHold();
+        archive.releaseLegalHold(PROVIDER_NO);
+        return archive;
+    }
+
     private String sha256Hex(byte[] input) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(input));
@@ -701,7 +867,9 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     private void allowControlledDeletion() {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.edocdelete", SecurityInfoManager.WRITE, null)).thenReturn(false);
+        // Deletion and legal hold changes are admin-only: plain _edoc w is the right
+        // needed to CREATE an archive and is deliberately not sufficient to retire one.
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.edocdelete", SecurityInfoManager.WRITE, null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(true);
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
     }
