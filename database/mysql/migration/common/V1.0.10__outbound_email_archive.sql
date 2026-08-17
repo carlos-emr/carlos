@@ -149,12 +149,23 @@ SELECT '_admin.edocdelete', 'Right to delete eDocs', 0
    SELECT 1 FROM `secObjectName` WHERE `objectName` = '_admin.edocdelete'
  );
 
--- Operator note: seeding the object name grants it to nobody. An administrator
--- must still assign _admin.edocdelete write rights to the roles that should be
--- able to release legal holds and retire archives:
+-- Grant it to the admin role, and only to the admin role.
 --
---   SELECT * FROM secObjPrivilege WHERE objectName = '_admin.edocdelete';
+-- CARLOS does not infer dotted-object privileges: `admin` holds `_admin` = 'x'
+-- AND a separate explicit row for each of the 31 `_admin.*` objects it can use.
+-- Nothing walks the hierarchy, so seeding the object name alone would leave
+-- _admin.edocdelete granted to no one and the feature unreachable. This row is
+-- what the other 31 grants look like -- privilege 'x' ("All rights", which
+-- SecurityInfoManagerImpl accepts in place of the 'w' this service asks for).
 --
--- No rows there means no user can delete an outbound email archive. That is the
--- intended secure default, but it should be a deliberate deployment choice
--- rather than a surprise.
+-- Deliberately NOT granted to `doctor`, which holds 14 other `_admin.*` objects.
+-- Retiring an evidentiary communication archive is an administrative act; the
+-- whole point of requiring _admin.edocdelete rather than _edoc is that the
+-- deletion gate must be stricter than the archive gate.
+INSERT INTO `secObjPrivilege` (`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`)
+SELECT 'admin', '_admin.edocdelete', 'x', 0, NULL
+  FROM DUAL
+ WHERE NOT EXISTS (
+   SELECT 1 FROM `secObjPrivilege`
+    WHERE `roleUserGroup` = 'admin' AND `objectName` = '_admin.edocdelete'
+ );
