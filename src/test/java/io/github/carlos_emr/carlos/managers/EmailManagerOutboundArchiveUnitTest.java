@@ -441,6 +441,36 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should propagate SecurityException when archive storage denies access")
+    void shouldPropagateSecurityException_whenArchiveStorageDeniesAccess() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 60);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        // OutboundEmailArchiveService.archive throws SecurityException for a missing _edoc w
+        // right and for patient-record access denial. Wrapping either as an archive fault
+        // would tell the operator storage broke when access was actually refused.
+        doThrow(new SecurityException("missing required sec object (_edoc w)"))
+                .when(outboundEmailArchiveService).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> when(smtpSender.prepareMessageBytes())
+                        .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8)))) {
+
+            assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData()))
+                    .isInstanceOf(SecurityException.class);
+
+            verify(emailLogDao).updateEmailStatus(
+                    eq(60), eq(EmailLog.EmailStatus.FAILED), eq("Failed to send email (authorization failure)"), any());
+            verifyNoInteractions(javaMailSender);
+        }
+    }
+
+    @Test
     @DisplayName("should propagate SecurityException when preparation authorization is revoked")
     void shouldPropagateSecurityException_whenPreparationAuthorizationIsRevoked() throws Exception {
         EmailConfig emailConfig = smtpEmailConfig();

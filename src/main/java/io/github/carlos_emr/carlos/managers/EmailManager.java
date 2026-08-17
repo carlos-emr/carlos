@@ -81,6 +81,22 @@ import io.github.carlos_emr.carlos.util.StringUtils;
  * @see CaseManagementNote
  * @since 2026-01-24
  */
+/*
+ * Authorization-propagation rule for the outbound send path.
+ *
+ * A SecurityException must always reach the caller. Converting one into
+ * EmailSendingException or OutboundEmailArchiveException routes it to sendEmail's
+ * recording catch, which returns an EmailLog describing a routine failed send -- so a
+ * revoked privilege becomes indistinguishable from a bad SMTP host. The attempt is still
+ * recorded as FAILED; the exception is rethrown on top of that, not instead of it.
+ *
+ * Three catches in the delivery path are subject to this and each rethrows explicitly:
+ * preparation, archive storage, and transport. They were fixed one at a time across
+ * successive reviews because the rule lived only in whichever branch was being edited;
+ * it is stated here so a fourth site cannot quietly diverge. The suppression catches in
+ * recordDeliveryFailure and discardPreparedQuietly are deliberately exempt: there a
+ * primary failure is already in flight and is the one that propagates.
+ */
 @Service
 public class EmailManager {
     private static final String ARCHIVE_FAILURE_MESSAGE = "Failed to archive outbound email";
@@ -410,6 +426,14 @@ public class EmailManager {
             // capture of that immutable artifact; EmailLog remains the source of truth for whether
             // delivery subsequently succeeded or failed, so failed attempts retain their audit record.
             outboundEmailArchiveService.archive(loggedInInfo, archiveRequest);
+        } catch (SecurityException e) {
+            // Third and last site subject to the authorization-propagation rule above.
+            // OutboundEmailArchiveService.archive throws SecurityException for a missing
+            // _edoc w right and for patient-record access denial; wrapping either as an
+            // archive fault would tell the operator storage broke when access was refused.
+            discardPreparedQuietly(emailSender, e);
+            logger.warn("Outbound email archive authorization failed: {}", e.getClass().getSimpleName());
+            throw e;
         } catch (IOException | RuntimeException e) {
             discardPreparedQuietly(emailSender, e);
             logger.warn("Outbound email archive failed: {}", e.getClass().getSimpleName());
