@@ -50,6 +50,46 @@ clinic identity per clinic. It is not a shared multi-clinic identity service. Th
 contract is deployable only after the CARLOS Java application is wired to it.
 Green portal CI does not by itself prove that staff can reach these actions from CARLOS.
 
+## Five-minute standalone demo
+
+This starts only the patient portal with disposable SQLite data. It does not require CARLOS,
+PostgreSQL, SMTP, or an SMS provider. SQLite and the on-page MFA code are development conveniences;
+do not use this configuration for patient data or a pilot deployment.
+
+From the repository root, run the following block in one shell with Python 3.11 or 3.12:
+
+```bash
+cd patient_portal
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --require-hashes -r requirements.lock
+python -m pip install --no-build-isolation --no-deps -e .
+
+export PORTAL_DEMO_DIRECTORY="$(mktemp -d)"
+export PATIENT_PORTAL_ENVIRONMENT=development
+export PATIENT_PORTAL_DATABASE_URL="sqlite+pysqlite:///${PORTAL_DEMO_DIRECTORY}/portal.db"
+export PATIENT_PORTAL_IDENTITY_PROOF_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+export PATIENT_PORTAL_AUDIT_HASH_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+export PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+
+python -m alembic upgrade head
+python tests/seed_browser.py
+python -m uvicorn carlos_patient_portal.main:create_app \
+  --factory --host 127.0.0.1 --port 8090
+```
+
+Open <http://127.0.0.1:8090/> and sign in with:
+
+- Username: `CarlosPatient`
+- Password: `Carlos` + `2026` + `!!` (concatenate the three parts without spaces)
+- MFA: use the development code displayed on the verification page
+
+The seeded account has twelve sample email-password records. Stop the server with `Ctrl+C`. The
+database is stored under the temporary directory printed by `echo "$PORTAL_DEMO_DIRECTORY"`; remove
+that directory when the demo data is no longer needed. Keep the same shell environment if you
+restart this demo, because the generated secrets are required to read its existing data. To start
+over cleanly, open a new shell and repeat the block, which creates a new temporary directory.
+
 ## Local Setup
 
 ```bash
