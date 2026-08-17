@@ -161,6 +161,10 @@ function screenshotPath(name) {
       (image) => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0
     );
     assert(logoLoaded, 'CARLOS logo did not load');
+    assert(
+      await page.locator('link[rel="icon"][href$="/static/carlos-logo.png"]').count() === 1,
+      'CARLOS favicon is not declared'
+    );
     // Four links plus a span for the active locale — the switcher navigates now rather than
     // opening a "language unavailable" modal, so these are no longer buttons.
     assert(await page.locator('.language-switch .text-tab').count() === 5, 'expected five languages');

@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ service_name }}</title>
+  {% include "_head_assets.jinja" %}
   <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
   <script src="{{ url_for('static', path='/portal.js') }}" defer></script>
 </head>
