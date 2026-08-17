@@ -49,7 +49,7 @@ Send a sample message through Postfix:
 mail test
 ```
 
-Clear captured messages:
+Clear captured messages and any incomplete crash-left spool files:
 
 ```bash
 mail clear
@@ -125,7 +125,7 @@ To go back to capture-only, restart without the flag (`mail restart`).
 | `mail list` | List messages with number, time, recipient, and subject |
 | `mail read [number\|latest]` | Print one message; defaults to the latest |
 | `mail show` | Print captured emails |
-| `mail clear` | Clear captured emails |
+| `mail clear` | Clear captured emails and incomplete spool files |
 | `mail test` | Send a sample message through local Postfix |
 
 ## Testing CARLOS Email

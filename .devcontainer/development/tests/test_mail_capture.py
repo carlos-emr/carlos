@@ -139,6 +139,8 @@ class MailCaptureTest(unittest.TestCase):
 
     def test_clear_waits_for_the_delivery_lock(self) -> None:
         self.capture(b"Subject: Locked\n\nbody\n")
+        orphan_spool = self.capture_directory / ".raw-message.orphaned"
+        orphan_spool.write_bytes(b"sensitive unfinished message")
         with self.capture_lock.open("a+b") as lock_stream:
             fcntl.flock(lock_stream, fcntl.LOCK_EX)
             clear_process = subprocess.Popen(
@@ -155,6 +157,50 @@ class MailCaptureTest(unittest.TestCase):
         self.assertEqual(clear_process.returncode, 0, stderr.decode())
         self.assertIn(b"Cleared", stdout)
         self.assertEqual(self.capture_file.read_bytes(), b"")
+        self.assertFalse(orphan_spool.exists())
+
+    def test_capture_failure_returns_postfix_tempfail(self) -> None:
+        failure_environment = self.environment | {
+            "CARLOS_MAIL_CAPTURE_FILE": "/dev/full",
+        }
+        result = subprocess.run(
+            [WRITER, "sender@example.test", "patient@example.test"],
+            input=b"Subject: Must retry\n\nbody\n",
+            env=failure_environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 75)
+        self.assertIn(b"4.3.0 Temporary CARLOS development mail capture failure", result.stderr)
+
+    def test_capture_failure_rolls_back_partial_record(self) -> None:
+        original_message = b"Subject: Existing message\n\nexisting body\n"
+        self.capture(original_message)
+        original_capture = self.capture_file.read_bytes()
+        fake_binary_directory = self.capture_directory / "fake-bin"
+        fake_binary_directory.mkdir()
+        failing_chmod = fake_binary_directory / "chmod"
+        failing_chmod.write_text("#!/bin/sh\nexit 1\n")
+        failing_chmod.chmod(0o755)
+        failure_environment = self.environment | {
+            "PATH": f"{fake_binary_directory}:/usr/bin:/bin",
+        }
+
+        result = subprocess.run(
+            [WRITER, "sender@example.test", "patient@example.test"],
+            input=b"Subject: Rolled back\n\nnew body\n",
+            env=failure_environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 75)
+        self.assertEqual(self.capture_file.read_bytes(), original_capture)
+        self.assertEqual(self.inbox("count").stdout, b"1\n")
+        self.assertIn(original_message, self.inbox("read", "1").stdout)
 
 
 if __name__ == "__main__":

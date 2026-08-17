@@ -9,7 +9,7 @@ from email import policy
 from email.parser import BytesParser
 from pathlib import Path
 import sys
-from typing import BinaryIO, Iterator
+from typing import BinaryIO, Iterable, Iterator
 
 
 FRAME_MARKER = b"===== CARLOS DEV EMAIL CAPTURE v2 =====\n"
@@ -89,38 +89,43 @@ def _subject(message: CapturedMessage) -> str:
     return " ".join(subject.splitlines())
 
 
-def list_messages(messages: list[CapturedMessage]) -> None:
+def list_messages(messages: Iterable[CapturedMessage]) -> None:
     """Print the inbox summary used by `mail list`."""
 
-    if not messages:
-        print("No captured messages.")
-        return
-    print(f"{'ID':<4}  {'CAPTURED AT':<25}  {'RECIPIENT':<30}  SUBJECT")
+    found_message = False
     for index, message in enumerate(messages, start=1):
+        if not found_message:
+            print(f"{'ID':<4}  {'CAPTURED AT':<25}  {'RECIPIENT':<30}  SUBJECT")
+            found_message = True
         print(
             f"{index:<4}  {message.captured_at:<25}  "
             f"{message.envelope_to:<30}  {_subject(message)}"
         )
+    if not found_message:
+        print("No captured messages.")
 
 
-def read_message(messages: list[CapturedMessage], requested: int) -> None:
+def read_message(messages: Iterable[CapturedMessage], requested: int) -> None:
     """Print one record with readable metadata around the exact MIME bytes."""
 
-    if requested < 1 or requested > len(messages):
-        raise ValueError(
-            f"Message {requested} does not exist; captured messages: {len(messages)}."
-        )
-    message = messages[requested - 1]
-    output = sys.stdout.buffer
-    output.write(FRAME_MARKER)
-    output.write(f"Captured-At: {message.captured_at}\n".encode())
-    output.write(f"Envelope-From: {message.envelope_from}\n".encode())
-    output.write(f"Envelope-To: {message.envelope_to}\n".encode())
-    output.write(b"----- BEGIN RAW MESSAGE -----\n")
-    output.write(message.raw_message)
-    if not message.raw_message.endswith(b"\n"):
-        output.write(b"\n")
-    output.write(b"----- END RAW MESSAGE -----\n")
+    message_count = 0
+    for message_count, message in enumerate(messages, start=1):
+        if message_count != requested:
+            continue
+        output = sys.stdout.buffer
+        output.write(FRAME_MARKER)
+        output.write(f"Captured-At: {message.captured_at}\n".encode())
+        output.write(f"Envelope-From: {message.envelope_from}\n".encode())
+        output.write(f"Envelope-To: {message.envelope_to}\n".encode())
+        output.write(b"----- BEGIN RAW MESSAGE -----\n")
+        output.write(message.raw_message)
+        if not message.raw_message.endswith(b"\n"):
+            output.write(b"\n")
+        output.write(b"----- END RAW MESSAGE -----\n")
+        return
+    raise ValueError(
+        f"Message {requested} does not exist; captured messages: {message_count}."
+    )
 
 
 def main() -> int:
@@ -131,15 +136,16 @@ def main() -> int:
     arguments = parser.parse_args()
 
     try:
-        messages = list(captured_messages(arguments.capture_file))
         if arguments.command == "count":
-            print(len(messages))
+            print(sum(1 for _ in captured_messages(arguments.capture_file)))
         elif arguments.command == "list":
-            list_messages(messages)
+            list_messages(captured_messages(arguments.capture_file))
         elif arguments.message_number is None:
             parser.error("read requires a message number")
         else:
-            read_message(messages, arguments.message_number)
+            read_message(
+                captured_messages(arguments.capture_file), arguments.message_number
+            )
     except (CaptureFormatError, OSError, ValueError) as error:
         print(f"mail capture: {error}", file=sys.stderr)
         return 1

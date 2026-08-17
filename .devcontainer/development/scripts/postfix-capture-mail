@@ -10,24 +10,54 @@ CAPTURE_FILE="${CARLOS_MAIL_CAPTURE_FILE:-$CAPTURE_DIR/messages.eml}"
 CAPTURE_LOCK="${CARLOS_MAIL_CAPTURE_LOCK:-$CAPTURE_DIR/.lock}"
 sender="${1:-unknown-sender}"
 recipient="${2:-unknown-recipient}"
+raw_message=""
+capture_size=""
+
+# Postfix pipe(8) interprets command statuses using sysexits.h. Any capture
+# failure is temporary, so normalize it to EX_TEMPFAIL instead of allowing a
+# utility's generic status (usually 1) to turn it into a permanent failure.
+cleanup() {
+  status=$?
+  trap - EXIT HUP INT TERM
+  if [ -n "$raw_message" ]; then
+    rm -f "$raw_message" || true
+  fi
+  if [ "$status" -ne 0 ]; then
+    if [ -n "$capture_size" ] && [ -f "$CAPTURE_FILE" ]; then
+      truncate -s "$capture_size" "$CAPTURE_FILE" || true
+    fi
+    printf '%s\n' '4.3.0 Temporary CARLOS development mail capture failure' >&2
+    status=75
+  fi
+  exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 75' HUP INT TERM
 
 if [ ! -d "$CAPTURE_DIR" ] || [ ! -w "$CAPTURE_DIR" ]; then
   echo "Mail capture directory is missing or not writable: $CAPTURE_DIR" >&2
   exit 75
 fi
 
-# Spool stdin first so the record can declare its exact raw byte length. Readers
-# skip that many bytes, so marker-looking lines in a MIME body are never parsed
-# as record boundaries and the payload itself remains byte-for-byte unchanged.
-raw_message="$(mktemp "$CAPTURE_DIR/.raw-message.XXXXXX")"
-trap 'rm -f "$raw_message"' EXIT HUP INT TERM
-cat > "$raw_message"
-raw_length="$(wc -c < "$raw_message" | tr -d '[:space:]')"
-
 # The stable lock file coordinates delivery with `mail clear`, including when
 # messages.eml was deleted and must be recreated by this unprivileged process.
+# It also covers spooling so `mail clear` can safely remove any raw temp files
+# left behind by a process that was forcibly killed.
 {
   flock 9
+
+  # Spool stdin so the record can declare its exact raw byte length. Readers
+  # skip that many bytes, so marker-looking MIME lines are never boundaries and
+  # the payload itself remains byte-for-byte unchanged.
+  raw_message="$(mktemp "$CAPTURE_DIR/.raw-message.XXXXXX")"
+  cat > "$raw_message"
+  raw_length="$(wc -c < "$raw_message" | tr -d '[:space:]')"
+  if [ -f "$CAPTURE_FILE" ]; then
+    capture_size="$(wc -c < "$CAPTURE_FILE" | tr -d '[:space:]')"
+  else
+    capture_size=0
+  fi
+
   {
     printf '===== CARLOS DEV EMAIL CAPTURE v2 =====\n'
     printf 'Captured-At: %s\n' "$(date -Is)"
@@ -37,6 +67,9 @@ raw_length="$(wc -c < "$raw_message" | tr -d '[:space:]')"
     cat "$raw_message"
   } >> "$CAPTURE_FILE"
   chmod 0660 "$CAPTURE_FILE"
+  rm -f "$raw_message"
+  raw_message=""
+  capture_size=""
 } 9>> "$CAPTURE_LOCK"
 
 exit 0

@@ -162,6 +162,7 @@ case "$command" in
       {
         flock 9
         : > "$CAPTURE_FILE"
+        find "$CAPTURE_DIR" -maxdepth 1 -type f -name '.raw-message.*' -delete
         chown "$CAPTURE_USER:$CAPTURE_GROUP" "$CAPTURE_FILE"
         chmod 0660 "$CAPTURE_FILE"
       } 9>> "$CAPTURE_LOCK"
