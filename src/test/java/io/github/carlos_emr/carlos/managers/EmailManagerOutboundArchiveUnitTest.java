@@ -286,6 +286,42 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should follow the Jakarta Mail next-exception chain to the underlying fault")
+    void shouldPersistNetworkCategory_whenMessagingExceptionChainsViaNextException() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 51);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+
+        // Jakarta Mail chains via setNextException, not initCause. This pins that the
+        // plain getCause() walk still reaches it: MessagingException overrides getCause()
+        // to return `next`, so no separate getNextException() traversal is required. If a
+        // future Jakarta Mail drops that override, this test fails rather than silently
+        // degrading every SMTP fault to the generic category.
+        jakarta.mail.MessagingException chained = new jakarta.mail.MessagingException("send failed");
+        chained.setNextException(new java.net.UnknownHostException("smtp.example.test"));
+        assertThat(chained.getCause())
+                .as("precondition: MessagingException.getCause() exposes the next exception")
+                .isInstanceOf(java.net.UnknownHostException.class);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareMessageBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("transport failed", chained))
+                            .when(smtpSender).sendPreparedMessage();
+                })) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to send email (host lookup failure)");
+        }
+    }
+
+    @Test
     @DisplayName("should fall back to the generic label when a MailSendException carries nothing specific")
     void shouldPersistGenericCategory_whenMailSendExceptionCarriesNothingSpecific() throws Exception {
         EmailConfig emailConfig = smtpEmailConfig();
