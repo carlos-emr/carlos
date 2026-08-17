@@ -91,7 +91,7 @@
         <!-- Hapi Fhir Version -->
         <hapifhir.version>8.4.0</hapifhir.version>
         <!-- Apache CXF Version -->
-        <cxf.version>4.1.6</cxf.version>
+        <cxf.version>4.1.8</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
         <netty.version>4.1.136.Final</netty.version>
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
@@ -320,14 +320,6 @@
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-api</artifactId>
                 <version>1.62.0</version>
-            </dependency>
-            <!-- Override transitive Artemis 2.50.0 from cxf-services-wsn-core.
-                 Security fix for missing authentication on critical functions (patched in 2.52.0);
-                 see the Dependabot alert for org.apache.artemis:artemis-server 2.50.0. -->
-            <dependency>
-                <groupId>org.apache.artemis</groupId>
-                <artifactId>artemis-server</artifactId>
-                <version>2.52.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
