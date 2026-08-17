@@ -21,9 +21,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -112,6 +114,34 @@ class DocumentManagerImplFilenameValidationTest extends CarlosUnitTestBase {
             // ...and neither file was overwritten: each still holds its own patient's bytes.
             assertThat(Files.readString(tempDir.resolve(firstResult.getDocfilename()))).isEqualTo("patient-A");
             assertThat(Files.readString(tempDir.resolve(secondResult.getDocfilename()))).isEqualTo("patient-B");
+        }
+    }
+
+    @Test
+    @DisplayName("should expose the server-generated filename on the caller's document when persistence fails")
+    void shouldExposeServerGeneratedFilename_whenPersistenceFailsAfterFileWrite() {
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+            CarlosProperties properties = mock(CarlosProperties.class);
+            propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("DOCUMENT_DIR")).thenReturn(tempDir.toString());
+            doThrow(new IllegalStateException("document insert failed"))
+                    .when(documentDao).persist(any(Document.class));
+
+            DocumentManagerImpl manager = newDocumentManager();
+            Document document = new Document();
+            document.setDocfilename("scan.pdf");
+
+            assertThatThrownBy(() -> manager.createDocument(loggedInInfo, document, null, null,
+                    "patient bytes".getBytes(StandardCharsets.UTF_8)))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("document insert failed");
+
+            // The bytes were already written under a server-generated name. Callers that clean
+            // up an orphaned file on failure (OutboundEmailArchiveServiceImpl) can only find it
+            // if docfilename was updated on the caller's Document before the failure — the
+            // caller's own "scan.pdf" points at nothing on disk.
+            assertThat(document.getDocfilename()).matches("\\d{14}_\\d{5}_scan\\.pdf");
+            assertThat(Files.exists(tempDir.resolve(document.getDocfilename()))).isTrue();
         }
     }
 

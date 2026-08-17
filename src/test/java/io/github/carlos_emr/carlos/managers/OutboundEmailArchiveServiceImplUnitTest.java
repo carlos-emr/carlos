@@ -170,13 +170,13 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should bound content type before creating the eDoc and reuse it in archive metadata")
-    void shouldReuseBoundedContentType_whenMimeMetadataExceedsArchiveLimit() throws Exception {
+    @DisplayName("should store the bare media type when MIME parameters would overflow the archive limit")
+    void shouldStoreBareMediaType_whenMimeMetadataExceedsArchiveLimit() throws Exception {
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
-        String longContentType = "message/rfc822; name=\"" + "x".repeat(200) + "\"";
-        String expectedContentType = longContentType.substring(0, 100);
-        request.setContentType(longContentType);
+        // Truncating this at 100 chars would persist an unterminated quoted string
+        // into document.contenttype, which every eDoc viewer reads back.
+        request.setContentType("message/rfc822; name=\"" + "x".repeat(200) + "\"");
         when(documentManager.createDocument(
                 eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
                 .thenReturn(savedDocument());
@@ -186,8 +186,23 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         ArgumentCaptor<Document> documentCaptor = ArgumentCaptor.forClass(Document.class);
         verify(documentManager).createDocument(
                 eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
-        assertThat(documentCaptor.getValue().getContenttype()).isEqualTo(expectedContentType);
-        assertThat(archive.getContentType()).isEqualTo(expectedContentType);
+        assertThat(documentCaptor.getValue().getContenttype()).isEqualTo("message/rfc822");
+        assertThat(archive.getContentType()).isEqualTo("message/rfc822");
+    }
+
+    @Test
+    @DisplayName("should fall back to the default media type when the content type is only parameters")
+    void shouldFallBackToDefaultMediaType_whenContentTypeIsOnlyParameters() throws Exception {
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        request.setContentType("; charset=UTF-8");
+        when(documentManager.createDocument(
+                eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                .thenReturn(savedDocument());
+
+        OutboundEmailArchive archive = service.archive(loggedInInfo, request);
+
+        assertThat(archive.getContentType()).isEqualTo("application/octet-stream");
     }
 
     @Test
@@ -378,6 +393,28 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject attachment whose sourceDocumentId contradicts its linked document")
+    void shouldRejectAttachment_whenSourceDocumentIdContradictsLinkedDocument() {
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        OutboundEmailArchiveAttachmentDto attachmentRequest = new OutboundEmailArchiveAttachmentDto();
+        attachmentRequest.setFileName("message.pdf");
+        attachmentRequest.setContentType("application/pdf");
+        attachmentRequest.setArtifactBytes("encrypted pdf bytes".getBytes(StandardCharsets.UTF_8));
+        attachmentRequest.setDocument(attachmentDocument());
+        // documentNo 777 is demographic-checked; sourceDocumentId is not and has no FK,
+        // so a disagreeing pair would record provenance from a document we never verified.
+        attachmentRequest.setSourceDocumentId(9901);
+        request.addAttachment(attachmentRequest);
+        when(ctlDocumentDao.findByDocumentNoAndModule(777, "demographic")).thenReturn(List.of(ctlDocument(123, 777)));
+
+        assertThatThrownBy(() -> service.archive(loggedInInfo, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("sourceDocumentId does not match");
+        verifyNoInteractions(documentManager);
+    }
+
+    @Test
     @DisplayName("should reject attachment bytes without a persisted document before storing the eDoc")
     void shouldRejectAttachmentBytesWithoutPersistedDocument_beforeStoringEdoc() {
         EmailLog emailLog = emailLog();
@@ -438,7 +475,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject archive without eDoc write authority")
+    @DisplayName("should reject archive without eDoc write authority before reading the email log")
     void shouldRejectArchive_whenCallerLacksEdocWriteAuthority() {
         when(securityInfoManager.hasPrivilege(
                 loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(false);
@@ -449,6 +486,9 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_edoc w");
 
+        // The authority gate must precede the lookup: otherwise the "EmailLog not found"
+        // message tells an unauthorized caller which email log ids exist.
+        verify(emailLogDao, never()).find(any());
         verifyNoInteractions(documentManager);
     }
 
@@ -526,10 +566,8 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject controlled deletion without eDoc delete authority")
+    @DisplayName("should reject controlled deletion without eDoc delete authority before locking the row")
     void shouldRejectDeletion_whenCallerLacksEdocDeleteAuthority() {
-        OutboundEmailArchive archive = archiveForDeletion();
-        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.edocdelete", SecurityInfoManager.WRITE, null)).thenReturn(false);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(false);
 
@@ -537,7 +575,9 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_admin.edocdelete");
 
-        verify(outboundEmailArchiveDao, never()).merge(any(OutboundEmailArchive.class));
+        // findForUpdate issues SELECT ... FOR UPDATE. An unauthorized caller must not be
+        // able to take that row lock, nor probe archive ids via the "not found" message.
+        verifyNoInteractions(outboundEmailArchiveDao);
         verifyNoInteractions(outboundEmailArchiveDeletionDao);
     }
 
