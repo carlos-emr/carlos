@@ -205,12 +205,40 @@ public class EmailManager {
             // Deliberately outside the catches above. A failure here means bookkeeping broke
             // after a message actually went out; marking that send FAILED would be false and
             // would invite a retry that sends the patient a second copy.
-            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
+            recordDeliverySuccess(loggedInInfo, emailLog);
             if (emailLog.getChartDisplayOption().equals(ChartDisplayOption.WITH_FULL_NOTE)) {
                 addEmailNote(loggedInInfo, emailLog);
             }
         }
         return emailLog;
+    }
+
+    /**
+     * Flips a delivered message from its as-created FAILED state to SUCCESS.
+     *
+     * <p>{@code prepareEmailForOutbox} creates every EmailLog as FAILED with placeholder
+     * text, so this update is not cosmetic: it is the only thing that stops a message that
+     * actually went out from sitting in the outbox looking retryable. If it throws, the row
+     * stays FAILED and a user re-sending from the outbox mails the patient a second copy,
+     * so the failure is logged explicitly in those terms rather than as a generic
+     * persistence error, and rethrown so the caller cannot treat the send as fully done.</p>
+     *
+     * <p>This does not eliminate the hazard -- a database that cannot accept the write
+     * cannot be made to -- it makes it loud. Closing it properly needs a neutral initial
+     * state (the EmailStatus enum currently offers only SUCCESS, FAILED and RESOLVED, and
+     * the column carries a matching check constraint), which is a schema change beyond this
+     * PR's scope.</p>
+     */
+    private void recordDeliverySuccess(LoggedInInfo loggedInInfo, EmailLog emailLog) {
+        try {
+            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
+        } catch (RuntimeException statusFailure) {
+            logger.error(
+                    "Outbound email was delivered but its status could not be recorded; emailLogId={} remains FAILED "
+                            + "and re-sending it from the outbox would deliver a duplicate: {}",
+                    emailLog.getId(), statusFailure.getClass().getSimpleName());
+            throw statusFailure;
+        }
     }
 
     /**

@@ -526,6 +526,13 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
 
             // The message was transmitted. Bookkeeping breaking afterwards must not rewrite
             // that verdict to FAILED -- doing so invites a retry that sends a second copy.
+            //
+            // Asserting the absence of a FAILED write is NOT sufficient on its own: every
+            // EmailLog is created FAILED by prepareEmailForOutbox, so "no FAILED write" is
+            // trivially true and would pass even if the record were left stale. The SUCCESS
+            // attempt is asserted too, so this fails if the flip is ever skipped rather than
+            // merely not overwritten.
+            verify(emailLogDao).updateEmailStatus(eq(57), eq(EmailLog.EmailStatus.SUCCESS), eq(""), any());
             verify(emailLogDao, never()).updateEmailStatus(
                     eq(57), eq(EmailLog.EmailStatus.FAILED), any(String.class), any());
         }
