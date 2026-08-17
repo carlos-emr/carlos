@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveDeletion;
+import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveLegalHoldEvent;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -65,10 +66,14 @@ public interface OutboundEmailArchiveService {
      * patient erasure request. Suppressing retired archives from the eDoc view, and any
      * genuine purge path, belong to the archive UI work and must keep the tombstone.</p>
      *
-     * <p>Authority note: deletion admits either {@code _admin.edocdelete w} or plain
-     * {@code _edoc w}, so today the delete gate is no stricter than the archive gate —
-     * anyone who can create an archive can retire one. Tightening that (for example to
-     * admin-only, or to the archiving provider) is a policy decision, not an oversight.</p>
+     * <p>Requires {@code _admin.edocdelete w}. Plain {@code _edoc w} is deliberately
+     * not sufficient: that is the same right needed to create an archive, so accepting
+     * it would make the delete gate no stricter than the archive gate.</p>
+     *
+     * <p>Every archive is created under legal hold, so this call fails until an admin
+     * has released the hold through {@link #releaseLegalHold}. That release is recorded
+     * separately, because the provider who authorises a deletion and the provider who
+     * performs it are frequently different people.</p>
      *
      * @param loggedInInfo deleting user context
      * @param archiveId archive metadata identifier
@@ -79,4 +84,35 @@ public interface OutboundEmailArchiveService {
      * @throws SecurityException when the caller lacks delete authority or patient-record access
      */
     OutboundEmailArchiveDeletion recordControlledDeletion(LoggedInInfo loggedInInfo, Integer archiveId, String deleteReason);
+
+    /**
+     * Releases the legal hold on an archive, making it eligible for controlled deletion.
+     *
+     * <p>Legal hold is on from creation, so this is the gate that actually protects the
+     * archive — it requires {@code _admin.edocdelete w} and writes an immutable
+     * {@link OutboundEmailArchiveLegalHoldEvent} naming the releasing provider, the
+     * reason, and the timestamp. Releasing does not delete anything.</p>
+     *
+     * @param loggedInInfo releasing user context
+     * @param archiveId archive metadata identifier
+     * @param reason required justification retained for audit
+     * @return immutable legal hold event
+     * @throws IllegalArgumentException when the archive identifier or reason is missing
+     * @throws IllegalStateException when no hold is active or the archive is already deleted
+     * @throws SecurityException when the caller lacks admin delete authority or patient-record access
+     */
+    OutboundEmailArchiveLegalHoldEvent releaseLegalHold(LoggedInInfo loggedInInfo, Integer archiveId, String reason);
+
+    /**
+     * Re-applies the legal hold on an archive, blocking controlled deletion again.
+     *
+     * @param loggedInInfo user context placing the hold
+     * @param archiveId archive metadata identifier
+     * @param reason required justification retained for audit
+     * @return immutable legal hold event
+     * @throws IllegalArgumentException when the archive identifier or reason is missing
+     * @throws IllegalStateException when a hold is already active or the archive is already deleted
+     * @throws SecurityException when the caller lacks admin delete authority or patient-record access
+     */
+    OutboundEmailArchiveLegalHoldEvent placeLegalHold(LoggedInInfo loggedInInfo, Integer archiveId, String reason);
 }

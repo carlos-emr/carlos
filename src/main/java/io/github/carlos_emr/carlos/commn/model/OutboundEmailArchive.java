@@ -99,8 +99,18 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
     @Column(nullable = false, length = 50)
     private String retentionPolicy = RETENTION_POLICY_PERMANENT;
 
+    /**
+     * Legal hold is ON for every archive from the moment it is created.
+     *
+     * <p>Outbound communication archives are evidentiary, so the safe default is
+     * "cannot be retired". Releasing the hold is therefore the real security
+     * boundary for this table — it is an admin-only operation that leaves its own
+     * {@link OutboundEmailArchiveLegalHoldEvent} record, and it is the only way to
+     * reach {@link #markDeleted}. The field is deliberately not settable: see
+     * {@link #releaseLegalHold} and {@link #placeLegalHold}.</p>
+     */
     @Column(nullable = false)
-    private boolean legalHold;
+    private boolean legalHold = true;
 
     @Column(nullable = false)
     private boolean deleted;
@@ -230,8 +240,44 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
         return legalHold;
     }
 
-    public void setLegalHold(boolean legalHold) {
-        this.legalHold = legalHold;
+    /**
+     * Releases the legal hold so this archive becomes eligible for controlled deletion.
+     *
+     * <p>There is intentionally no {@code setLegalHold}. A plain setter would let any
+     * caller clear the hold silently, which would make the default-on policy
+     * decorative. Callers must go through
+     * {@code OutboundEmailArchiveService.releaseLegalHold}, which enforces admin
+     * authority and writes an {@link OutboundEmailArchiveLegalHoldEvent}.</p>
+     *
+     * @param providerNo provider number responsible for the release
+     * @throws IllegalStateException when no hold is active or the archive is already deleted
+     */
+    public void releaseLegalHold(String providerNo) {
+        if (!legalHold) {
+            throw new IllegalStateException("Outbound email archive is not under legal hold");
+        }
+        if (deleted) {
+            throw new IllegalStateException("Outbound email archive is already deleted");
+        }
+        this.legalHold = false;
+        setLastUpdateUser(providerNo);
+    }
+
+    /**
+     * Re-applies the legal hold, blocking controlled deletion again.
+     *
+     * @param providerNo provider number responsible for placing the hold
+     * @throws IllegalStateException when a hold is already active or the archive is already deleted
+     */
+    public void placeLegalHold(String providerNo) {
+        if (legalHold) {
+            throw new IllegalStateException("Outbound email archive is already under legal hold");
+        }
+        if (deleted) {
+            throw new IllegalStateException("Outbound email archive is already deleted");
+        }
+        this.legalHold = true;
+        setLastUpdateUser(providerNo);
     }
 
     public boolean isDeleted() {

@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveAttachment;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveDeletion;
+import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveLegalHoldEvent;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -83,6 +84,9 @@ class OutboundEmailArchiveDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao;
+
+    @Autowired
+    private OutboundEmailArchiveLegalHoldEventDao outboundEmailArchiveLegalHoldEventDao;
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
@@ -160,7 +164,9 @@ class OutboundEmailArchiveDaoIntegrationTest extends CarlosTestBase {
             assertThat(reloaded.getSendStatus()).isEqualTo(OutboundEmailArchive.SEND_STATUS_ARCHIVED);
             assertThat(reloaded.getArchivedAt()).isNotNull();
             assertThat(reloaded.getLastUpdateDate()).isNotNull();
-            assertThat(reloaded.isLegalHold()).isFalse();
+            // Legal hold is ON from creation: an archive is not deletable until an
+            // admin releases it, and that release leaves its own event record.
+            assertThat(reloaded.isLegalHold()).isTrue();
             assertThat(reloaded.isDeleted()).isFalse();
         }
 
@@ -228,6 +234,7 @@ class OutboundEmailArchiveDaoIntegrationTest extends CarlosTestBase {
             outboundEmailArchiveDao.persist(archive);
             entityManager.flush();
 
+            archive.releaseLegalHold(PROVIDER_NO);
             archive.markDeleted(PROVIDER_NO, "Patient requested cleanup");
             OutboundEmailArchiveDeletion deletion =
                     OutboundEmailArchiveDeletion.fromArchive(archive, PROVIDER_NO, "Patient requested cleanup");
@@ -256,6 +263,7 @@ class OutboundEmailArchiveDaoIntegrationTest extends CarlosTestBase {
             outboundEmailArchiveDao.persist(archive);
             entityManager.flush();
 
+            archive.releaseLegalHold(PROVIDER_NO);
             archive.markDeleted(PROVIDER_NO, "Patient requested cleanup");
             OutboundEmailArchiveDeletion deletion =
                     OutboundEmailArchiveDeletion.fromArchive(archive, PROVIDER_NO, "Patient requested cleanup");
@@ -263,6 +271,67 @@ class OutboundEmailArchiveDaoIntegrationTest extends CarlosTestBase {
             entityManager.flush();
 
             deletion.setDeleteReason("Rewritten reason");
+
+            assertThatThrownBy(() -> entityManager.flush())
+                    .isInstanceOf(UnsupportedOperationException.class)
+                    .hasMessageContaining("immutable");
+        }
+    }
+
+    @Nested
+    @DisplayName("Legal hold events")
+    class LegalHoldEvents {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should record place and release events in reverse chronological order")
+        void shouldRecordLegalHoldEvents_inReverseChronologicalOrder() {
+            OutboundEmailArchive archive = newArchive();
+            outboundEmailArchiveDao.persist(archive);
+            entityManager.flush();
+
+            archive.releaseLegalHold(PROVIDER_NO);
+            outboundEmailArchiveLegalHoldEventDao.persist(OutboundEmailArchiveLegalHoldEvent.of(
+                    archive, OutboundEmailArchiveLegalHoldEvent.ACTION_RELEASED, PROVIDER_NO, "Counsel authorised release"));
+
+            archive.placeLegalHold(PROVIDER_NO);
+            outboundEmailArchiveLegalHoldEventDao.persist(OutboundEmailArchiveLegalHoldEvent.of(
+                    archive, OutboundEmailArchiveLegalHoldEvent.ACTION_PLACED, PROVIDER_NO, "Litigation reopened"));
+
+            entityManager.flush();
+            entityManager.clear();
+
+            List<OutboundEmailArchiveLegalHoldEvent> events =
+                    outboundEmailArchiveLegalHoldEventDao.findByArchiveId(archive.getId());
+
+            assertThat(events).hasSize(2);
+            // Secondary id ordering keeps the pair stable even though both rows land in
+            // the same DATETIME second.
+            assertThat(events).extracting(OutboundEmailArchiveLegalHoldEvent::getAction)
+                    .containsExactly(
+                            OutboundEmailArchiveLegalHoldEvent.ACTION_PLACED,
+                            OutboundEmailArchiveLegalHoldEvent.ACTION_RELEASED);
+            assertThat(events).allSatisfy(event -> {
+                assertThat(event.getProviderNo()).isEqualTo(PROVIDER_NO);
+                assertThat(event.getEventAt()).isNotNull();
+            });
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should reject mutation of a persisted legal hold event")
+        void shouldRejectMutation_ofPersistedLegalHoldEvent() {
+            OutboundEmailArchive archive = newArchive();
+            outboundEmailArchiveDao.persist(archive);
+            entityManager.flush();
+
+            archive.releaseLegalHold(PROVIDER_NO);
+            OutboundEmailArchiveLegalHoldEvent event = OutboundEmailArchiveLegalHoldEvent.of(
+                    archive, OutboundEmailArchiveLegalHoldEvent.ACTION_RELEASED, PROVIDER_NO, "Counsel authorised release");
+            outboundEmailArchiveLegalHoldEventDao.persist(event);
+            entityManager.flush();
+
+            event.setReason("Rewritten justification");
 
             assertThatThrownBy(() -> entityManager.flush())
                     .isInstanceOf(UnsupportedOperationException.class)

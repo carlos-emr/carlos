@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDeletionDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveLegalHoldEventDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
@@ -35,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveAttachment;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveDeletion;
+import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveLegalHoldEvent;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveAttachmentDto;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -83,6 +85,8 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
     private final OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao;
 
+    private final OutboundEmailArchiveLegalHoldEventDao outboundEmailArchiveLegalHoldEventDao;
+
     private final CtlDocumentDao ctlDocumentDao;
 
     private final SecurityInfoManager securityInfoManager;
@@ -93,12 +97,14 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             EmailLogDao emailLogDao,
             OutboundEmailArchiveDao outboundEmailArchiveDao,
             OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao,
+            OutboundEmailArchiveLegalHoldEventDao outboundEmailArchiveLegalHoldEventDao,
             CtlDocumentDao ctlDocumentDao,
             SecurityInfoManager securityInfoManager) {
         this.documentManager = documentManager;
         this.emailLogDao = emailLogDao;
         this.outboundEmailArchiveDao = outboundEmailArchiveDao;
         this.outboundEmailArchiveDeletionDao = outboundEmailArchiveDeletionDao;
+        this.outboundEmailArchiveLegalHoldEventDao = outboundEmailArchiveLegalHoldEventDao;
         this.ctlDocumentDao = ctlDocumentDao;
         this.securityInfoManager = securityInfoManager;
     }
@@ -219,7 +225,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         // Authority check precedes findForUpdate: an unauthorized caller must not be
         // able to take a FOR UPDATE row lock, nor learn which archive ids exist from
         // the "not found" message.
-        requireControlledDeletionAuthority(loggedInInfo);
+        requireArchiveAdminAuthority(loggedInInfo);
 
         OutboundEmailArchive archive = outboundEmailArchiveDao.findForUpdate(archiveId);
         if (archive == null) {
@@ -229,6 +235,8 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         requirePatientRecordAccess(loggedInInfo, requireArchiveDemographicNo(archive));
         String truncatedDeleteReason = truncate(deleteReason.trim(), 1000);
+        // Throws while the archive is still under legal hold, which is the default state
+        // for every archive — an admin must have released it via releaseLegalHold first.
         archive.markDeleted(providerNo, truncatedDeleteReason);
         OutboundEmailArchiveDeletion deletion = OutboundEmailArchiveDeletion.fromArchive(archive, providerNo, truncatedDeleteReason);
 
@@ -243,6 +251,71 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
                 ""));
 
         return deletion;
+    }
+
+    @Override
+    @Transactional
+    public OutboundEmailArchiveLegalHoldEvent releaseLegalHold(LoggedInInfo loggedInInfo, Integer archiveId, String reason) {
+        return changeLegalHold(loggedInInfo, archiveId, reason, OutboundEmailArchiveLegalHoldEvent.ACTION_RELEASED);
+    }
+
+    @Override
+    @Transactional
+    public OutboundEmailArchiveLegalHoldEvent placeLegalHold(LoggedInInfo loggedInInfo, Integer archiveId, String reason) {
+        return changeLegalHold(loggedInInfo, archiveId, reason, OutboundEmailArchiveLegalHoldEvent.ACTION_PLACED);
+    }
+
+    /**
+     * Shared transition for both legal hold directions.
+     *
+     * <p>Kept as one method because the authority gate, row lock, patient-record check,
+     * event record, and audit entry are identical; only the entity transition differs.
+     * The {@code FOR UPDATE} lock matters here for the same reason it does on deletion:
+     * two concurrent releases must not both succeed and write two RELEASED events.</p>
+     */
+    private OutboundEmailArchiveLegalHoldEvent changeLegalHold(
+            LoggedInInfo loggedInInfo, Integer archiveId, String reason, String action) {
+        if (archiveId == null) {
+            throw new IllegalArgumentException("Archive ID is required");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("Legal hold reason is required");
+        }
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null || loggedInInfo.getLoggedInProviderNo().isBlank()) {
+            throw new IllegalArgumentException("Legal hold provider number is required");
+        }
+
+        requireArchiveAdminAuthority(loggedInInfo);
+
+        OutboundEmailArchive archive = outboundEmailArchiveDao.findForUpdate(archiveId);
+        if (archive == null) {
+            throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
+        }
+
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        requirePatientRecordAccess(loggedInInfo, requireArchiveDemographicNo(archive));
+        String truncatedReason = truncate(reason.trim(), 1000);
+
+        if (OutboundEmailArchiveLegalHoldEvent.ACTION_RELEASED.equals(action)) {
+            archive.releaseLegalHold(providerNo);
+        } else {
+            archive.placeLegalHold(providerNo);
+        }
+
+        OutboundEmailArchiveLegalHoldEvent event =
+                OutboundEmailArchiveLegalHoldEvent.of(archive, action, providerNo, truncatedReason);
+
+        outboundEmailArchiveDao.merge(archive);
+        outboundEmailArchiveLegalHoldEventDao.persist(event);
+
+        registerAfterCommitLog(() -> LogAction.addLog(loggedInInfo,
+                "OutboundEmailArchiveService.changeLegalHold",
+                "Outbound email archive legal hold " + action,
+                "archiveId=" + archive.getId() + " documentNo=" + documentId(archive),
+                demographicNo(archive),
+                ""));
+
+        return event;
     }
 
     private void validateArchiveRequest(LoggedInInfo loggedInInfo, OutboundEmailArchiveDto request) {
@@ -576,19 +649,17 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     }
 
     /**
-     * Rejects callers without eDoc delete authority.
+     * Rejects callers without admin eDoc delete authority.
      *
-     * <p>Mirrors {@code DocumentUndelete2Action}: either the eDoc delete admin
-     * right or plain eDoc write authority admits the caller. Note that this
-     * makes the delete gate no stricter than the archive gate — see the class
-     * Javadoc on {@link OutboundEmailArchiveService#recordControlledDeletion}
-     * for the retention implications.</p>
+     * <p>Unlike {@code DocumentUndelete2Action}, plain {@code _edoc w} is NOT
+     * accepted here. {@code _edoc w} is the right needed to <em>create</em> an
+     * archive, so admitting it would make retiring an evidentiary record no
+     * harder than writing one. The same gate guards legal hold changes, since
+     * releasing a hold is what makes deletion reachable at all.</p>
      */
-    private void requireControlledDeletionAuthority(LoggedInInfo loggedInInfo) {
-        boolean canDeleteEdoc = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.edocdelete", SecurityInfoManager.WRITE, null)
-                || securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null);
-        if (!canDeleteEdoc) {
-            throw new SecurityException("missing required sec object (_admin.edocdelete w or _edoc w)");
+    private void requireArchiveAdminAuthority(LoggedInInfo loggedInInfo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.edocdelete", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_admin.edocdelete w)");
         }
     }
 
