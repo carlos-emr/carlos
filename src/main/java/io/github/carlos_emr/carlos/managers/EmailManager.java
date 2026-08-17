@@ -188,6 +188,14 @@ public class EmailManager {
             recordDeliveryFailure(loggedInInfo, emailLog, e);
             throw e;
         } finally {
+            // Currently a no-op on every path: sendPrepared() discards in its own finally,
+            // archiveOutboundEmail discards on both failure branches, and the non-archive
+            // send() never prepares. It is kept deliberately as the structural guarantee that
+            // no prepared message -- and no PHI-bearing attachment snapshot -- survives this
+            // method, so a future branch that forgets to discard cannot leak one. Passing
+            // null as the primary failure is correct here: on the success path there is no
+            // exception to attach a cleanup problem to, and on the failure paths the real
+            // exception has already been handled by the catches above.
             if (emailSender != null) {
                 discardPreparedQuietly(emailSender, null);
             }
