@@ -73,6 +73,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  * introduces your feature. Do NOT add it to the allowlist below — that list is for
  * pre-existing debt only.</p>
  *
+ * <p><b>Known limits — this is a net, not a proof.</b> The scan only sees object
+ * names written as string literals near a {@code hasPrivilege(} call. It does not
+ * resolve constants (for example {@code FORM_SECURITY_OBJECT}), literals more than
+ * 400 characters into a call, comma-separated object lists such as
+ * {@code "_admin,_admin.consult"}, or gates expressed in JSP {@code <security:oscarSec>}
+ * tags. A green run therefore means "no literal-named gate is unreachable", not
+ * "every gate is reachable". Widening the scan is welcome; until then, do not read
+ * a pass as clearance for a gate you added indirectly.</p>
+ *
  * @since 2026-08-17
  */
 @DisplayName("Security object seed contract")
