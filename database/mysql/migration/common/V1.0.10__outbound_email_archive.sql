@@ -5,8 +5,19 @@
 CREATE TABLE IF NOT EXISTS `outboundEmailArchive` (
     `id` INT PRIMARY KEY AUTO_INCREMENT,
     `emailLogId` BIGINT NOT NULL,
-    -- Retained as snapshot identifiers rather than foreign keys: an archive
-    -- must remain readable after source demographic/provider lifecycle changes.
+    -- No foreign keys on demographicNo/providerNo, unlike emailLogId, configId and
+    -- documentNo below. The reason is engine/legacy scope, not decoupling: V1.0.9
+    -- guarantees InnoDB only for document, emailConfig and emailLog, and constraining
+    -- these two would widen that conversion to demographic and provider.
+    --
+    -- Do NOT read this as "the archive survives a missing demographic". It does not.
+    -- OutboundEmailArchive maps both as @ManyToOne with nullable = false, so a dangling
+    -- value would throw EntityNotFoundException the moment any non-identifier property
+    -- is dereferenced. That is currently safe only because CARLOS has no hard-delete
+    -- path for demographics or providers -- merges go through demographic_merged and
+    -- keep both rows -- and because the service reads these two associations for their
+    -- identifier alone. A future reader that displays patient or provider names will be
+    -- the first caller to depend on the row actually being there.
     `demographicNo` INT NOT NULL,
     `providerNo` VARCHAR(6),
     `configId` BIGINT,

@@ -63,6 +63,20 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
     @JoinColumn(name = "emailLogId", nullable = false)
     private EmailLog emailLog;
 
+    /**
+     * Demographic and provider carry no database foreign key (see
+     * {@code V1.0.10__outbound_email_archive.sql}), unlike emailLog, emailConfig and
+     * document. That is an engine-scope decision, not a decoupling one: these remain
+     * ordinary hard associations.
+     *
+     * <p>Reading the identifier off an uninitialized proxy — {@code getDemographicNo()},
+     * {@code getProviderNo()} — is safe and does not hit the database. Reading anything
+     * else initializes the proxy and throws {@code EntityNotFoundException} if the row
+     * is gone. Nothing in CARLOS hard-deletes demographics or providers today (merges
+     * go through {@code demographic_merged} and keep both rows), so this holds; but a
+     * reader that renders patient or provider names is depending on that, and should
+     * say so rather than assume the archive is self-contained.</p>
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "demographicNo", nullable = false)
     private Demographic demographic;
