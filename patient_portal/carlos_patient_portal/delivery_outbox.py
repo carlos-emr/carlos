@@ -249,6 +249,8 @@ def _mark_terminal_reset_failure(session: Session, delivery: PatientPortalOutbou
             outcome=AUDIT_OUTCOME_FAILURE,
         )
     except PasswordResetTokenInvalidError:
+        # The token may already have been consumed or revoked concurrently. The
+        # delivery is terminal either way, so there is no outcome left to record.
         pass
 
 
