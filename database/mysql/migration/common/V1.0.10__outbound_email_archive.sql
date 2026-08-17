@@ -23,7 +23,12 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchive` (
     `byteSize` BIGINT NOT NULL,
     `storageType` VARCHAR(25) NOT NULL DEFAULT 'EDOC',
     `retentionPolicy` VARCHAR(50) NOT NULL DEFAULT 'PERMANENT',
-    `legalHold` BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Legal hold is ON for every archive from creation. Releasing it is an
+    -- admin-only action recorded in outboundEmailArchiveLegalHoldEvent, and it is
+    -- the only route to controlled deletion. OutboundEmailArchive initialises the
+    -- field to true independently; this default backstops rows inserted outside
+    -- the service.
+    `legalHold` BOOLEAN NOT NULL DEFAULT TRUE,
     `deleted` BOOLEAN NOT NULL DEFAULT FALSE,
     `sendStatus` VARCHAR(25) NOT NULL DEFAULT 'ARCHIVED',
     `archivedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -90,3 +95,55 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveDeletion` (
     CONSTRAINT `fk_outboundEmailArchiveDeletion_emailLog`
         FOREIGN KEY (`emailLogId`) REFERENCES `emailLog` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Append-only record of every legal hold transition on an archive.
+--
+-- Because legal hold is on by default, releasing it is the act that makes an
+-- archive deletable at all -- and the provider who authorises that release is
+-- frequently not the provider who later performs the deletion. The deletion
+-- tombstone names only the latter, so it cannot express that split on its own.
+CREATE TABLE IF NOT EXISTS `outboundEmailArchiveLegalHoldEvent` (
+    `id` INT PRIMARY KEY AUTO_INCREMENT,
+    `archiveId` INT NOT NULL,
+    -- PLACED | RELEASED
+    `action` VARCHAR(25) NOT NULL,
+    `providerNo` VARCHAR(6) NOT NULL,
+    `reason` VARCHAR(1000) NOT NULL,
+    `eventAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `lastUpdateUser` VARCHAR(6) NOT NULL,
+    `lastUpdateDate` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Composite index matches the DAO's ORDER BY eventAt DESC, id DESC.
+    INDEX `idx_outboundEmailArchiveLegalHoldEvent_archiveId` (`archiveId`, `eventAt`),
+    INDEX `idx_outboundEmailArchiveLegalHoldEvent_providerNo` (`providerNo`)
+    -- Deliberately no foreign key on archiveId, matching
+    -- outboundEmailArchiveDeletion: the event is an audit record that must
+    -- outlive any future reorganisation of archive rows. The JPA mapping declares
+    -- ConstraintMode.NO_CONSTRAINT so Hibernate agrees.
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Seed the security object that guards archive deletion and legal hold release.
+--
+-- REQUIRED, not cosmetic. `_admin.edocdelete` is created only by the FROZEN
+-- legacy script database/mysql/updates/update-2008-10-20.sql and appears nowhere
+-- else in the Flyway migration set. Without this insert a fresh CARLOS database
+-- has no such row in secObjectName, hasPrivilege() returns false for every user,
+-- and no one can ever release a legal hold or retire an archive.
+--
+-- Idempotent: safe on fresh installs and on legacy databases that already ran
+-- the 2008 patch.
+INSERT INTO `secObjectName` (`objectName`, `description`, `orgapplicable`)
+SELECT '_admin.edocdelete', 'Right to delete eDocs', 0
+  FROM DUAL
+ WHERE NOT EXISTS (
+   SELECT 1 FROM `secObjectName` WHERE `objectName` = '_admin.edocdelete'
+ );
+
+-- Operator note: seeding the object name grants it to nobody. An administrator
+-- must still assign _admin.edocdelete write rights to the roles that should be
+-- able to release legal holds and retire archives:
+--
+--   SELECT * FROM secObjPrivilege WHERE objectName = '_admin.edocdelete';
+--
+-- No rows there means no user can delete an outbound email archive. That is the
+-- intended secure default, but it should be a deliberate deployment choice
+-- rather than a surprise.
