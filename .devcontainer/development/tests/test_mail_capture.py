@@ -277,11 +277,28 @@ class MailCaptureTest(unittest.TestCase):
         original_capture = self.capture_file.read_bytes()
         fake_binary_directory = self.capture_directory / "fake-bin"
         fake_binary_directory.mkdir()
+        truncate_lock_log = self.capture_directory / "truncate-lock.log"
         failing_chmod = fake_binary_directory / "chmod"
         failing_chmod.write_text("#!/bin/sh\nexit 1\n")
         failing_chmod.chmod(0o755)
+        recording_truncate = fake_binary_directory / "truncate"
+        recording_truncate.write_text(
+            "#!/bin/sh\n"
+            "if \"$REAL_FLOCK\" -n \"$CARLOS_MAIL_CAPTURE_LOCK\" true; then\n"
+            "  echo unlocked >> \"$TRUNCATE_LOCK_LOG\"\n"
+            "else\n"
+            "  echo locked >> \"$TRUNCATE_LOCK_LOG\"\n"
+            "fi\n"
+            "exec \"$REAL_TRUNCATE\" \"$@\"\n"
+        )
+        recording_truncate.chmod(0o755)
         failure_environment = self.environment | {
             "PATH": f"{fake_binary_directory}:/usr/bin:/bin",
+            "REAL_FLOCK": shutil.which("flock", path="/usr/bin:/bin")
+            or "/usr/bin/flock",
+            "REAL_TRUNCATE": shutil.which("truncate", path="/usr/bin:/bin")
+            or "/usr/bin/truncate",
+            "TRUNCATE_LOCK_LOG": str(truncate_lock_log),
         }
 
         result = subprocess.run(
@@ -294,6 +311,7 @@ class MailCaptureTest(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 75)
+        self.assertEqual(truncate_lock_log.read_text(), "locked\n")
         self.assertEqual(self.capture_file.read_bytes(), original_capture)
         self.assertEqual(self.inbox("count").stdout, b"1\n")
         self.assertIn(original_message, self.inbox("read", "1").stdout)

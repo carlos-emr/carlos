@@ -13,6 +13,17 @@ recipient="${2:-unknown-recipient}"
 raw_message=""
 capture_size=""
 
+# Roll back only while the caller still owns the delivery lock. Running this
+# from the EXIT trap would be too late: the shell closes the compound command's
+# lock fd before invoking that trap, allowing another delivery to append before
+# the truncate and lose its successfully captured record.
+rollback_capture() {
+  if [ -n "$capture_size" ] && [ -f "$CAPTURE_FILE" ]; then
+    truncate -s "$capture_size" "$CAPTURE_FILE" || true
+  fi
+  capture_size=""
+}
+
 # Postfix pipe(8) interprets command statuses using sysexits.h. Any capture
 # failure is temporary, so normalize it to EX_TEMPFAIL instead of allowing a
 # utility's generic status (usually 1) to turn it into a permanent failure.
@@ -23,16 +34,13 @@ cleanup() {
     rm -f "$raw_message" || true
   fi
   if [ "$status" -ne 0 ]; then
-    if [ -n "$capture_size" ] && [ -f "$CAPTURE_FILE" ]; then
-      truncate -s "$capture_size" "$CAPTURE_FILE" || true
-    fi
     printf '%s\n' '4.3.0 Temporary CARLOS development mail capture failure' >&2
     status=75
   fi
   exit "$status"
 }
 trap cleanup EXIT
-trap 'exit 75' HUP INT TERM
+trap 'rollback_capture; exit 75' HUP INT TERM
 
 if [ ! -d "$CAPTURE_DIR" ] || [ ! -w "$CAPTURE_DIR" ]; then
   echo "Mail capture directory is missing or not writable: $CAPTURE_DIR" >&2
@@ -58,18 +66,25 @@ fi
     capture_size=0
   fi
 
-  {
-    printf '===== CARLOS DEV EMAIL CAPTURE v2 =====\n'
-    printf 'Captured-At: %s\n' "$(date -Is)"
-    printf 'Envelope-From: %s\n' "$sender"
-    printf 'Envelope-To: %s\n' "$recipient"
-    printf 'Raw-Length: %s\n\n' "$raw_length"
-    cat "$raw_message"
-  } >> "$CAPTURE_FILE"
-  chmod 0660 "$CAPTURE_FILE"
-  rm -f "$raw_message"
-  raw_message=""
-  capture_size=""
+  if {
+    printf '===== CARLOS DEV EMAIL CAPTURE v2 =====\n' &&
+      printf 'Captured-At: %s\n' "$(date -Is)" &&
+      printf 'Envelope-From: %s\n' "$sender" &&
+      printf 'Envelope-To: %s\n' "$recipient" &&
+      printf 'Raw-Length: %s\n\n' "$raw_length" &&
+      cat "$raw_message"
+  } >> "$CAPTURE_FILE" &&
+    chmod 0660 "$CAPTURE_FILE" &&
+    rm -f "$raw_message"; then
+    # From here the record is complete. Ignore termination during the tiny
+    # bookkeeping window so Postfix cannot retry a message we already kept.
+    trap '' HUP INT TERM
+    raw_message=""
+    capture_size=""
+  else
+    rollback_capture
+    exit 1
+  fi
 } 9>> "$CAPTURE_LOCK"
 
 exit 0
