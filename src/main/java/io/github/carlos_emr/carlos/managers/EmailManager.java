@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.email.util.EmailNoteUtil;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
+import io.github.carlos_emr.carlos.utility.OutboundEmailArchiveException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -175,8 +176,17 @@ public class EmailManager {
         return safeFailureOperationMessage(failure) + " (" + safeDiagnosticCategory(failure) + ")";
     }
 
+    /**
+     * Classifies a failure as archive or send by exception <em>type</em>.
+     *
+     * <p>Deliberately not a message comparison. {@code SMTPEmailSender} rethrows with
+     * {@code e.getMessage()} from JavaMail, so the text is provider-controlled: a remote
+     * server whose error string happened to contain the archive constant would have been
+     * misreported as an archive failure, making the classification depend on a third
+     * party's wording.</p>
+     */
     private String safeFailureOperationMessage(EmailSendingException failure) {
-        return ARCHIVE_FAILURE_MESSAGE.equals(failure.getMessage())
+        return failure instanceof OutboundEmailArchiveException
                 ? ARCHIVE_FAILURE_MESSAGE
                 : SEND_FAILURE_MESSAGE;
     }
@@ -299,16 +309,28 @@ public class EmailManager {
     }
 
     private void archiveOutboundEmail(LoggedInInfo loggedInInfo, EmailSender emailSender, EmailLog emailLog) throws EmailSendingException {
+        OutboundEmailArchiveDto archiveRequest;
         try {
-            OutboundEmailArchiveDto archiveRequest = emailSender.prepareOutboundArchive(emailLog);
+            // Message preparation, NOT archive storage. This validates SMTP configuration
+            // (host, port, credentials) and builds the MIME message, so a failure here is a
+            // send-configuration problem. Reporting it as an archive fault would send an
+            // operator to inspect the archive subsystem over a mistyped SMTP password.
+            archiveRequest = emailSender.prepareOutboundArchive(emailLog);
+        } catch (EmailSendingException | RuntimeException e) {
+            emailSender.discardPrepared();
+            logger.warn("Outbound email preparation failed: {}", e.getClass().getSimpleName());
+            throw e;
+        }
+
+        try {
             // Preserve the exact attempted message before transport. ARCHIVED describes successful
             // capture of that immutable artifact; EmailLog remains the source of truth for whether
             // delivery subsequently succeeded or failed, so failed attempts retain their audit record.
             outboundEmailArchiveService.archive(loggedInInfo, archiveRequest);
-        } catch (EmailSendingException | IOException | RuntimeException e) {
+        } catch (IOException | RuntimeException e) {
             emailSender.discardPrepared();
             logger.warn("Outbound email archive failed: {}", e.getClass().getSimpleName());
-            throw new EmailSendingException(ARCHIVE_FAILURE_MESSAGE, e);
+            throw new OutboundEmailArchiveException(ARCHIVE_FAILURE_MESSAGE, e);
         }
     }
 

@@ -57,6 +57,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -282,6 +283,64 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
 
             assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to send email (connection failure)");
+        }
+    }
+
+    @Test
+    @DisplayName("should not classify a transport failure as an archive failure from provider text")
+    void shouldClassifyAsSendFailure_whenTransportErrorTextMimicsTheArchiveMessage() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 52);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+
+        // SMTPEmailSender rethrows with e.getMessage() straight from JavaMail, so this text
+        // is provider-controlled. Classifying on it let a remote server decide whether its own
+        // transport failure was reported as an archive failure.
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareMessageBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("Failed to archive outbound email"))
+                            .when(smtpSender).sendPreparedMessage();
+                })) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getErrorMessage()).startsWith("Failed to send email");
+            assertThat(emailLog.getErrorMessage()).doesNotStartWith("Failed to archive");
+        }
+    }
+
+    @Test
+    @DisplayName("should report SMTP configuration faults as a send failure, not an archive failure")
+    void shouldClassifyAsSendFailure_whenMessagePreparationFails() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 53);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+
+        // prepareMessageBytes validates SMTP host/port/credentials. A mistyped password is a
+        // send-configuration fault; reporting it as an archive failure would send an operator
+        // to inspect the archive subsystem instead of the mail account.
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> when(smtpSender.prepareMessageBytes())
+                        .thenThrow(new EmailSendingException("Invalid SMTP credentials configured")))) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getErrorMessage()).startsWith("Failed to send email");
+            assertThat(emailLog.getErrorMessage()).doesNotStartWith("Failed to archive");
+            // Fail-closed still holds: nothing was archived and nothing was transmitted.
+            verify(outboundEmailArchiveService, never()).archive(any(), any());
+            verifyNoInteractions(javaMailSender);
         }
     }
 
