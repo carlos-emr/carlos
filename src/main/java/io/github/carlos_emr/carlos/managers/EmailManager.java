@@ -164,15 +164,50 @@ public class EmailManager {
         } catch (EmailSendingException e) {
             updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, safePersistedFailureMessage(e));
             logger.error(safeFailureOperationMessage(e), sanitizedDiagnostic(e, 0));
+        } catch (RuntimeException e) {
+            // Transport can still fail unchecked -- a revoked _email privilege between this
+            // method's entry check and sendPrepared(), or any unchecked fault inside the
+            // sender. Record the attempt so the EmailLog does not keep its placeholder text,
+            // then rethrow: an authorization failure is the caller's to see, and swallowing
+            // it here would turn a security signal into a routine failed send.
+            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, safePersistedFailureMessage(e));
+            logger.error(safeFailureOperationMessage(e), sanitizedDiagnostic(e, 0));
+            throw e;
         } finally {
             if (emailSender != null) {
-                emailSender.discardPrepared();
+                discardPreparedQuietly(emailSender, null);
             }
         }
         return emailLog;
     }
 
-    private String safePersistedFailureMessage(EmailSendingException failure) {
+    /**
+     * Releases a prepared message without ever replacing the failure being handled.
+     *
+     * <p>Cleanup runs on failure paths, so a throwing {@code discardPrepared()} would
+     * propagate in place of the real fault: the archive exception would be lost, and with
+     * it the FAILED status update in {@code sendEmail}. A cleanup problem must never be
+     * the reason an operator cannot see why an email failed, so it is attached to the
+     * original exception as suppressed rather than raised.</p>
+     *
+     * @param emailSender sender holding the prepared message, may be null
+     * @param primaryFailure failure already in flight, or null when cleaning up a success path
+     */
+    private void discardPreparedQuietly(EmailSender emailSender, Throwable primaryFailure) {
+        if (emailSender == null) {
+            return;
+        }
+        try {
+            emailSender.discardPrepared();
+        } catch (RuntimeException cleanupFailure) {
+            if (primaryFailure != null) {
+                primaryFailure.addSuppressed(cleanupFailure);
+            }
+            logger.warn("Prepared outbound email cleanup failed: {}", cleanupFailure.getClass().getSimpleName());
+        }
+    }
+
+    private String safePersistedFailureMessage(Throwable failure) {
         return safeFailureOperationMessage(failure) + " (" + safeDiagnosticCategory(failure) + ")";
     }
 
@@ -185,7 +220,7 @@ public class EmailManager {
      * misreported as an archive failure, making the classification depend on a third
      * party's wording.</p>
      */
-    private String safeFailureOperationMessage(EmailSendingException failure) {
+    private String safeFailureOperationMessage(Throwable failure) {
         return failure instanceof OutboundEmailArchiveException
                 ? ARCHIVE_FAILURE_MESSAGE
                 : SEND_FAILURE_MESSAGE;
@@ -309,7 +344,7 @@ public class EmailManager {
     }
 
     private void discardAfterPreparationFailure(EmailSender emailSender, Exception failure) {
-        emailSender.discardPrepared();
+        discardPreparedQuietly(emailSender, failure);
         logger.warn("Outbound email preparation failed: {}", failure.getClass().getSimpleName());
     }
 
@@ -342,7 +377,7 @@ public class EmailManager {
             // delivery subsequently succeeded or failed, so failed attempts retain their audit record.
             outboundEmailArchiveService.archive(loggedInInfo, archiveRequest);
         } catch (IOException | RuntimeException e) {
-            emailSender.discardPrepared();
+            discardPreparedQuietly(emailSender, e);
             logger.warn("Outbound email archive failed: {}", e.getClass().getSimpleName());
             throw new OutboundEmailArchiveException(ARCHIVE_FAILURE_MESSAGE, e);
         }

@@ -50,6 +50,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -372,6 +373,68 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
                     eq(54), eq(EmailLog.EmailStatus.FAILED), any(String.class), any());
             verify(outboundEmailArchiveService, never()).archive(any(), any());
             verifyNoInteractions(javaMailSender);
+        }
+    }
+
+    @Test
+    @DisplayName("should still record the archive failure when cleanup itself throws")
+    void shouldRecordArchiveFailure_whenPreparedCleanupThrows() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 55);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        doThrow(new IOException("archive unavailable"))
+                .when(outboundEmailArchiveService).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
+
+        // Cleanup runs on the failure path. If it throws, it must not propagate in place of
+        // the archive failure -- that would lose the real fault and skip the FAILED update,
+        // leaving an operator with a snapshot-deletion error and no idea the archive broke.
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareMessageBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new IllegalStateException("snapshot handle already closed"))
+                            .when(smtpSender).discardPreparedMessage();
+                })) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+            assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to archive outbound email (I/O failure)");
+            verifyNoInteractions(javaMailSender);
+        }
+    }
+
+    @Test
+    @DisplayName("should record the attempt and still propagate when transport throws unchecked")
+    void shouldRecordAttemptAndPropagate_whenTransportThrowsUnchecked() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 56);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+
+        // A privilege revoked between sendEmail's entry check and transport. The attempt must
+        // be recorded, but the SecurityException must still reach the caller -- swallowing it
+        // would turn a security signal into a routine failed send.
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareMessageBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new SecurityException("missing required sec object (_email)"))
+                            .when(smtpSender).sendPreparedMessage();
+                })) {
+
+            assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData()))
+                    .isInstanceOf(SecurityException.class);
+
+            verify(emailLogDao).updateEmailStatus(
+                    eq(56), eq(EmailLog.EmailStatus.FAILED), eq("Failed to send email (authorization failure)"), any());
         }
     }
 
