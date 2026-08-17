@@ -169,8 +169,8 @@ def test_reset_and_outbox_rollback_together_when_the_source_transaction_fails() 
     app = migrated_development_app(outbox_encryption_secret=OUTBOX_ENCRYPTION_SECRET)
     account_id = activate_seeded_patient_account(app, TestClient(app))
 
-    with app.state.session_factory() as session:
-        with pytest.raises(RuntimeError), session.begin():
+    def fail_source_transaction() -> None:
+        with app.state.session_factory() as session, session.begin():
             reset = PatientPortalPasswordResetToken(
                 account_id=account_id,
                 token_hash="t" * 64,
@@ -193,6 +193,9 @@ def test_reset_and_outbox_rollback_together_when_the_source_transaction_fails() 
                 encryption_secret=OUTBOX_ENCRYPTION_SECRET,
             )
             raise RuntimeError("simulated source transaction failure")
+
+    with pytest.raises(RuntimeError):
+        fail_source_transaction()
 
     with app.state.session_factory() as session:
         assert session.scalar(
