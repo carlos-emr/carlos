@@ -70,7 +70,16 @@ def captured_messages(path: Path) -> Iterator[CapturedMessage]:
             if raw_length < 0:
                 raise CaptureFormatError("Invalid negative Raw-Length metadata")
 
-            raw_message = stream.read(raw_length)
+            payload_start = stream.tell()
+            stream.seek(0, 2)
+            remaining_bytes = stream.tell() - payload_start
+            stream.seek(payload_start)
+            if raw_length > remaining_bytes:
+                raise CaptureFormatError("Incomplete raw MIME payload")
+            try:
+                raw_message = stream.read(raw_length)
+            except (MemoryError, OverflowError) as error:
+                raise CaptureFormatError("Raw-Length exceeds supported size") from error
             if len(raw_message) != raw_length:
                 raise CaptureFormatError("Incomplete raw MIME payload")
             yield CapturedMessage(

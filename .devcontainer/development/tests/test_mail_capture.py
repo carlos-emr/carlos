@@ -159,6 +159,68 @@ class MailCaptureTest(unittest.TestCase):
         self.assertEqual(self.capture_file.read_bytes(), b"")
         self.assertFalse(orphan_spool.exists())
 
+    def test_capture_file_recreation_waits_for_the_delivery_lock(self) -> None:
+        self.capture(b"Subject: Create lock\n\nbody\n")
+        self.capture_file.unlink()
+        with self.capture_lock.open("a+b") as lock_stream:
+            fcntl.flock(lock_stream, fcntl.LOCK_EX)
+            list_process = subprocess.Popen(
+                [MAIL, "list"],
+                env=self.environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            time.sleep(0.2)
+            self.assertIsNone(list_process.poll())
+            self.assertFalse(self.capture_file.exists())
+            fcntl.flock(lock_stream, fcntl.LOCK_UN)
+
+        stdout, stderr = list_process.communicate(timeout=5)
+        self.assertEqual(list_process.returncode, 0, stderr.decode())
+        self.assertEqual(stdout, b"No captured messages.\n")
+
+    def test_oversized_raw_length_is_reported_without_a_traceback(self) -> None:
+        self.capture_file.write_bytes(
+            b"===== CARLOS DEV EMAIL CAPTURE v2 =====\n"
+            b"Captured-At: now\n"
+            b"Envelope-From: sender@example.test\n"
+            b"Envelope-To: patient@example.test\n"
+            b"Raw-Length: 999999999999999999999999999999999999\n\n"
+        )
+
+        result = subprocess.run(
+            [INBOX, self.capture_file, "count"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(b"Incomplete raw MIME payload", result.stderr)
+        self.assertNotIn(b"Traceback", result.stderr)
+
+    def test_status_preserves_the_postfix_service_exit_code(self) -> None:
+        fake_binary_directory = self.capture_directory / "status-bin"
+        fake_binary_directory.mkdir()
+        stopped_service = fake_binary_directory / "service"
+        stopped_service.write_text("#!/bin/sh\necho 'postfix is not running'\nexit 3\n")
+        stopped_service.chmod(0o755)
+        status_environment = self.environment | {
+            "PATH": f"{fake_binary_directory}:/usr/bin:/bin",
+        }
+
+        result = subprocess.run(
+            [MAIL, "status"],
+            env=status_environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 3)
+        self.assertIn(b"postfix is not running", result.stdout)
+        self.assertIn(b"Capture file:", result.stdout)
+
     def test_capture_failure_returns_postfix_tempfail(self) -> None:
         failure_environment = self.environment | {
             "CARLOS_MAIL_CAPTURE_FILE": "/dev/full",

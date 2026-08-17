@@ -17,14 +17,17 @@ SEND_ALLOWLIST="/etc/postfix/carlos-send-allowlist"
 # root in the devcontainer; delivery itself never does.
 ensure_capture_file() {
   install -d -o "$CAPTURE_USER" -g "$CAPTURE_GROUP" -m 0770 "$CAPTURE_DIR"
-  if [ ! -f "$CAPTURE_FILE" ]; then
-    install -o "$CAPTURE_USER" -g "$CAPTURE_GROUP" -m 0660 /dev/null "$CAPTURE_FILE"
-  fi
-  if [ ! -f "$CAPTURE_LOCK" ]; then
-    install -o "$CAPTURE_USER" -g "$CAPTURE_GROUP" -m 0660 /dev/null "$CAPTURE_LOCK"
-  fi
-  chown "$CAPTURE_USER:$CAPTURE_GROUP" "$CAPTURE_FILE" "$CAPTURE_LOCK"
-  chmod 0660 "$CAPTURE_FILE" "$CAPTURE_LOCK"
+  : >> "$CAPTURE_LOCK"
+  chown "$CAPTURE_USER:$CAPTURE_GROUP" "$CAPTURE_LOCK"
+  chmod 0660 "$CAPTURE_LOCK"
+  {
+    flock 9
+    if [ ! -f "$CAPTURE_FILE" ]; then
+      install -o "$CAPTURE_USER" -g "$CAPTURE_GROUP" -m 0660 /dev/null "$CAPTURE_FILE"
+    fi
+    chown "$CAPTURE_USER:$CAPTURE_GROUP" "$CAPTURE_FILE"
+    chmod 0660 "$CAPTURE_FILE"
+  } 9>> "$CAPTURE_LOCK"
 }
 
 capture_message_count() {
@@ -122,7 +125,8 @@ case "$command" in
       service postfix stop
     ;;
     status)
-      service postfix status || true
+      service_status=0
+      service postfix status || service_status=$?
       echo
       echo "Capture file: $CAPTURE_FILE"
       if [ -f "$CAPTURE_FILE" ]; then
@@ -132,6 +136,7 @@ case "$command" in
       fi
       echo
       report_send_mode
+      exit "$service_status"
     ;;
     restart)
       echo "Restarting Postfix..."
