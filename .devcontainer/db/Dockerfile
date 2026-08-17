@@ -14,6 +14,7 @@ LABEL description="OpenOSP-EMR Docker Image for Development Environment"
 COPY ./.devcontainer/db/scripts/populate_db.sh /docker-entrypoint-initdb.d/populate_db.sh
 RUN mkdir /scripts
 COPY ./.devcontainer/db/scripts/development.sql /scripts/development.sql
+COPY ./.devcontainer/db/scripts/development_privileges.sql /scripts/development_privileges.sql
 COPY ./.devcontainer/db/scripts/admin_test_data.sql /scripts/admin_test_data.sql
 COPY ./database /database
 COPY ./.devcontainer/development/config/shared/my.cnf /etc/mysql/my.cnf
