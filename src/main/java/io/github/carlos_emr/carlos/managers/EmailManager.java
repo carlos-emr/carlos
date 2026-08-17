@@ -251,11 +251,26 @@ public class EmailManager {
      * status failure is attached as suppressed and reported separately instead.</p>
      */
     private void recordDeliveryFailure(LoggedInInfo loggedInInfo, EmailLog emailLog, Throwable failure) {
+        String persistedMessage = safePersistedFailureMessage(failure);
         try {
-            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, safePersistedFailureMessage(failure));
+            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, persistedMessage);
         } catch (RuntimeException statusFailure) {
-            failure.addSuppressed(statusFailure);
-            logger.error("Failed to persist outbound email failure status: {}", statusFailure.getClass().getSimpleName());
+            // updateEmailStatus re-checks _email WRITE. When the failure being recorded IS a
+            // revoked _email privilege, that check refuses the write and the diagnostic
+            // category is lost -- the row keeps the placeholder text from
+            // prepareEmailForOutbox, so an operator sees "unknown reasons" for what was
+            // actually an authorization failure. Fall back to the DAO directly: the row
+            // already exists, this call already passed the entry privilege check, and
+            // recording what the system just did is not a new privileged action.
+            try {
+                emailLogDao.updateEmailStatus(emailLog.getId(), EmailStatus.FAILED, persistedMessage, new Date());
+                emailLog.setStatus(EmailStatus.FAILED);
+                emailLog.setErrorMessage(persistedMessage);
+            } catch (RuntimeException daoFailure) {
+                failure.addSuppressed(statusFailure);
+                failure.addSuppressed(daoFailure);
+                logger.error("Failed to persist outbound email failure status: {}", daoFailure.getClass().getSimpleName());
+            }
         }
         logger.error(safeFailureOperationMessage(failure), sanitizedDiagnostic(failure, 0));
     }

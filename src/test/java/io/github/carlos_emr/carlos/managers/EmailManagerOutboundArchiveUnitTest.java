@@ -115,16 +115,26 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         doThrow(new IOException("archive unavailable"))
                 .when(outboundEmailArchiveService).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
 
-        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+        // Isolated behind MockedConstruction like every sibling test. Left unmocked, this
+        // depends on the real SMTPEmailSender parsing config JSON and serializing a
+        // MimeMessage, so a change in that unrelated path would fail this test for the wrong
+        // reason and its assertion would exercise a different branch than intended.
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                SMTPEmailSender.class,
+                (smtpSender, context) -> when(smtpSender.prepareMessageBytes())
+                        .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8)))) {
 
-        assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
-        assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to archive outbound email (I/O failure)");
-        ArgumentCaptor<OutboundEmailArchiveDto> archiveCaptor = ArgumentCaptor.forClass(OutboundEmailArchiveDto.class);
-        verify(outboundEmailArchiveService).archive(eq(loggedInInfo), archiveCaptor.capture());
-        assertThat(archiveCaptor.getValue().getContentType()).isEqualTo("message/rfc822");
-        verifyNoInteractions(javaMailSender);
-        verify(emailLogDao).updateEmailStatus(
-                44, EmailLog.EmailStatus.FAILED, "Failed to archive outbound email (I/O failure)", emailLog.getTimestamp());
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+            assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to archive outbound email (I/O failure)");
+            ArgumentCaptor<OutboundEmailArchiveDto> archiveCaptor = ArgumentCaptor.forClass(OutboundEmailArchiveDto.class);
+            verify(outboundEmailArchiveService).archive(eq(loggedInInfo), archiveCaptor.capture());
+            assertThat(archiveCaptor.getValue().getContentType()).isEqualTo("message/rfc822");
+            verifyNoInteractions(javaMailSender);
+            verify(emailLogDao).updateEmailStatus(
+                    44, EmailLog.EmailStatus.FAILED, "Failed to archive outbound email (I/O failure)", emailLog.getTimestamp());
+        }
     }
 
     @Test
@@ -481,6 +491,17 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             return null;
         }).when(emailLogDao).persist(any(EmailLog.class));
 
+        // Model a genuine mid-flight revocation: _email WRITE passes sendEmail's entry check,
+        // then is revoked. updateEmailStatus re-checks the same right, so it refuses the
+        // FAILED write too -- the reason recordDeliveryFailure needs its DAO fallback. Simply
+        // leaving the privilege granted would make this test pass against a code path that
+        // cannot occur for this failure in production.
+        // _email WRITE is consulted four times: sendEmail's entry check, prepareEmailForOutbox,
+        // EmailSender.assertEmailWritePrivilege, then updateEmailStatus. Revoking from the
+        // third models the privilege being withdrawn after the send was admitted.
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
+                .thenReturn(true, true, false);
+
         // The transport path already rethrows SecurityException. Preparation must match, or
         // the same revoked privilege behaves differently depending on which side of the
         // archive call it lands on -- and converting it would report an authorization
@@ -493,6 +514,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData()))
                     .isInstanceOf(SecurityException.class);
 
+            // The category survives via the DAO fallback despite the refused manager write.
             verify(emailLogDao).updateEmailStatus(
                     eq(59), eq(EmailLog.EmailStatus.FAILED), eq("Failed to send email (authorization failure)"), any());
             verify(outboundEmailArchiveService, never()).archive(any(), any());
@@ -564,8 +586,9 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData()))
                     .isInstanceOf(SecurityException.class)
                     .satisfies(thrown -> assertThat(thrown.getSuppressed())
-                            .as("the status-write failure is attached, not substituted")
-                            .hasSize(1));
+                            .as("both the refused manager write and the failed DAO fallback are "
+                                    + "attached, not substituted for the original failure")
+                            .hasSize(2));
         }
     }
 
