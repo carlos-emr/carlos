@@ -215,6 +215,7 @@ ACCOUNT_NOTICE_MESSAGE_KEYS = {
     "email-confirmation-notice-failed": "account_status_email_confirmation_notice_failed",
     "phone-confirmation-required": "account_status_phone_confirmation_required",
     "phone-confirmation-invalid": "account_status_phone_confirmation_invalid",
+    "phone-confirmation-notice-failed": "account_status_phone_confirmation_notice_failed",
     "phone-confirmation-rate-limited": "account_status_phone_confirmation_rate_limited",
     "mfa-updated": "account_status_mfa_updated",
     "no-change": "account_status_no_change",

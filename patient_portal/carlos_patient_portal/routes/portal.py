@@ -491,7 +491,13 @@ def register_portal_routes(
                 reason=ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE,
             )
             session.commit()
-            return redirect_to_account_status("email-confirmation-notice-failed")
+            failure_status = (
+                "phone-confirmation-notice-failed"
+                if contact_update.confirmation_recipient is None
+                and contact_update.phone_confirmation_recipient is not None
+                else "email-confirmation-notice-failed"
+            )
+            return redirect_to_account_status(failure_status)
         # Best-effort: the current address is told a change was requested. Unlike the confirmation
         # itself, failing to send this must not cancel the request the patient just made.
         try:

@@ -76,6 +76,10 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
             "The phone confirmation code is invalid or expired. Request another code and try "
             "again."
         ),
+        "account_status_phone_confirmation_notice_failed": (
+            "A confirmation code could not be sent to the new phone number. Your contact details "
+            "were not changed. Try again, or contact the clinic."
+        ),
         "account_status_phone_confirmation_rate_limited": (
             "A phone confirmation code was sent recently. Wait before requesting another."
         ),

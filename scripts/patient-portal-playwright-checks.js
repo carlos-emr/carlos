@@ -389,19 +389,25 @@ function screenshotPath(name) {
       'an unconfirmed email change must not move the account address'
     );
 
-    // A change that leaves the email alone still applies immediately and opens the CARLOS review.
+    // A phone-only change also waits for ownership proof. This smoke environment deliberately has
+    // no SMS sender, so delivery fails closed and the account keeps the original phone number.
+    const originalPhone = await contactForm.locator('input[name="phone_number"]').inputValue();
     await contactForm.locator('input[name="phone_number"]').fill('+1 555 010 9090');
     await contactForm.locator('input[name="current_password"]').fill(testPassword);
     await Promise.all([
       page.waitForURL((url) => (
         url.pathname === '/portal/account'
-        && url.searchParams.get('status') === 'contact-updated'
+        && url.searchParams.get('status') === 'phone-confirmation-notice-failed'
       )),
       contactForm.getByRole('button', { name: 'Update contact' }).click(),
     ]);
     await page.getByRole('status').filter({
-      hasText: 'Portal contact updated. Staff will review the matching CARLOS demographics.',
+      hasText: 'A confirmation code could not be sent to the new phone number.',
     }).waitFor();
+    assert(
+      await contactForm.locator('input[name="phone_number"]').inputValue() === originalPhone,
+      'an unconfirmed phone change must not move the account phone number'
+    );
 
     const changedPassword = ['Carlos', '2027', '!!'].join('');
     const passwordForm = page.locator('form', {
