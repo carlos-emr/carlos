@@ -31,6 +31,8 @@ import java.util.List;
 
 /**
  * JPA DAO implementation for durable outbound email archive records.
+ *
+ * @since 2026-08-14
  */
 @Repository
 public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailArchive> implements OutboundEmailArchiveDao {

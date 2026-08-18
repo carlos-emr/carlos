@@ -29,6 +29,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -261,15 +262,21 @@ class SecurityObjectSeedContractUnitTest {
     }
 
     /**
-     * Reads a file as UTF-8. A handful of legacy sources and SQL dumps carry
-     * non-UTF-8 bytes; those are skipped rather than failing the contract, since a
-     * decoding quirk in an unrelated file is not a security-seed defect.
+     * Reads a file as UTF-8. A handful of legacy sources and SQL dumps carry non-UTF-8
+     * bytes; those are skipped rather than failing the contract, since a decoding quirk
+     * in an unrelated file is not a security-seed defect.
+     *
+     * <p>Only the decoding failure is swallowed. Any other I/O error means the scan did
+     * not actually see the file, and a scan that quietly covers less than it claims is
+     * how this contract would go green while missing an unreachable gate.</p>
      */
     private String read(Path path) {
         try {
             return Files.readString(path, StandardCharsets.UTF_8);
-        } catch (IOException e) {
+        } catch (CharacterCodingException e) {
             return "";
+        } catch (IOException e) {
+            throw new UncheckedIOException("cannot read " + path, e);
         }
     }
 }

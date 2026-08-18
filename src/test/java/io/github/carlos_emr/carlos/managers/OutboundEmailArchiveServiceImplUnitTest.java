@@ -308,6 +308,35 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should strip MIME parameters from an attachment content type")
+    void shouldStripMimeParameters_fromAttachmentContentType() throws Exception {
+        // The raw value exceeds the 100-character column, so truncating it verbatim would
+        // store a content type cut mid-parameter. Normalising first keeps the media type
+        // intact and drops the parameters, matching how the main artifact is handled.
+        byte[] attachmentBytes = "pdf bytes".getBytes(StandardCharsets.UTF_8);
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        OutboundEmailArchiveAttachmentDto attachmentRequest = new OutboundEmailArchiveAttachmentDto();
+        Document attachmentDocument = attachmentDocument();
+        attachmentRequest.setFileName("report.pdf");
+        attachmentRequest.setContentType("application/pdf; name=\"" + "x".repeat(200) + "\"");
+        attachmentRequest.setArtifactBytes(attachmentBytes);
+        attachmentRequest.setSourceDocumentType("DOCUMENT");
+        attachmentRequest.setSourceDocumentId(777);
+        attachmentRequest.setDocument(attachmentDocument);
+        request.addAttachment(attachmentRequest);
+
+        when(ctlDocumentDao.findByDocumentNoAndModule(777, "demographic")).thenReturn(List.of(ctlDocument(123, 777)));
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                .thenReturn(savedDocument());
+
+        OutboundEmailArchive archive = service.archive(loggedInInfo, request);
+
+        assertThat(archive.getAttachments()).hasSize(1);
+        assertThat(archive.getAttachments().get(0).getContentType()).isEqualTo("application/pdf");
+    }
+
+    @Test
     @DisplayName("should calculate final attachment hashes from supplied bytes")
     void shouldCalculateAttachmentHashes_whenBytesSupplied() throws Exception {
         byte[] attachmentBytes = "encrypted pdf bytes".getBytes(StandardCharsets.UTF_8);

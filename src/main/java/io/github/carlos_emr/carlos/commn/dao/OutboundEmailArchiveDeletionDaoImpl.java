@@ -27,6 +27,8 @@ import org.springframework.stereotype.Repository;
 
 /**
  * JPA DAO implementation for outbound email archive controlled deletion tombstones.
+ *
+ * @since 2026-08-14
  */
 @Repository
 public class OutboundEmailArchiveDeletionDaoImpl extends AbstractDaoImpl<OutboundEmailArchiveDeletion> implements OutboundEmailArchiveDeletionDao {

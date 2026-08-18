@@ -23,10 +23,8 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.ConstraintMode;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -71,12 +69,16 @@ public class OutboundEmailArchiveLegalHoldEvent extends AbstractModel<Integer> {
     private Integer id;
 
     /**
-     * Deliberately unconstrained at the database level, mirroring
-     * {@link OutboundEmailArchiveDeletion}: the event must survive as an audit
-     * record even if archive rows are ever reorganised.
+     * Constrained at the database level, mirroring {@link OutboundEmailArchiveDeletion}.
+     * Archives are never hard-deleted -- {@link OutboundEmailArchive#preRemove} refuses
+     * removal and retirement is a soft flag plus a tombstone -- so the foreign key can
+     * never block anything the design permits, and it makes an orphaned event
+     * impossible. That matters because this association is navigable: unconstrained, a
+     * stale {@code archiveId} would surface as {@code EntityNotFoundException} on the
+     * first dereference rather than being rejected at insert.
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "archiveId", nullable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @JoinColumn(name = "archiveId", nullable = false)
     private OutboundEmailArchive archive;
 
     @Column(nullable = false, length = 25)

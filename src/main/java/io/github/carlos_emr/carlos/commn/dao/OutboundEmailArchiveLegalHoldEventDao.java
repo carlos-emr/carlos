@@ -28,6 +28,8 @@ import java.util.List;
 
 /**
  * Data access contract for outbound email archive legal hold events.
+ *
+ * @since 2026-08-17
  */
 public interface OutboundEmailArchiveLegalHoldEventDao extends AbstractDao<OutboundEmailArchiveLegalHoldEvent> {
 

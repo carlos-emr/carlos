@@ -139,15 +139,13 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveLegalHoldEvent` (
     `lastUpdateDate` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     -- Composite index matches the DAO's ORDER BY eventAt DESC, id DESC.
     INDEX `idx_outboundEmailArchiveLegalHoldEvent_archiveId` (`archiveId`, `eventAt`),
-    INDEX `idx_outboundEmailArchiveLegalHoldEvent_providerNo` (`providerNo`)
-    -- Deliberately no foreign key on archiveId -- unlike
-    -- outboundEmailArchiveDeletion above, which does constrain it. The JPA mapping
-    -- declares ConstraintMode.NO_CONSTRAINT so Hibernate agrees.
-    --
-    -- The asymmetry is not principled and is worth revisiting: the argument for
-    -- constraining the tombstone (archives are never hard-deleted, so the constraint
-    -- costs nothing and blocks orphans) applies to this table equally. Left
-    -- unconstrained here only to keep the change that introduced it narrow.
+    INDEX `idx_outboundEmailArchiveLegalHoldEvent_providerNo` (`providerNo`),
+    -- Constrained for the same reason as outboundEmailArchiveDeletion above:
+    -- archives are never hard-deleted, so RESTRICT cannot block anything this design
+    -- permits, and the key is what makes an orphaned event impossible. Both audit
+    -- tables now follow one rule rather than differing for no stated reason.
+    CONSTRAINT `fk_outboundEmailArchiveLegalHoldEvent_archive`
+        FOREIGN KEY (`archiveId`) REFERENCES `outboundEmailArchive` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Seed the security object that guards archive deletion and legal hold release.

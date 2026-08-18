@@ -438,7 +438,10 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
         OutboundEmailArchiveAttachment attachment = new OutboundEmailArchiveAttachment();
         attachment.setFileName(truncate(defaultIfBlank(request.getFileName(), "attachment"), 255));
-        attachment.setContentType(truncate(request.getContentType(), 100));
+        // Same normalisation as the main artifact: strip MIME parameters before the
+        // length cap, so a long "type/subtype; name=..." is not cut mid-parameter into
+        // a malformed content type.
+        attachment.setContentType(archiveContentType(request.getContentType()));
         attachment.setSha256Hash(sha256Hash);
         attachment.setByteSize(byteSize);
         attachment.setSourceDocumentType(truncate(request.getSourceDocumentType(), 50));

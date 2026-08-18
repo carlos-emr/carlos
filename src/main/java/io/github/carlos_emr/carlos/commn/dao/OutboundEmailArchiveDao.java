@@ -28,6 +28,8 @@ import java.util.List;
 
 /**
  * Data access contract for durable outbound email archive records.
+ *
+ * @since 2026-08-14
  */
 public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchive> {
 

@@ -26,6 +26,8 @@ import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveAttachment;
 
 /**
  * Data access contract for outbound email archive attachment metadata.
+ *
+ * @since 2026-08-14
  */
 public interface OutboundEmailArchiveAttachmentDao extends AbstractDao<OutboundEmailArchiveAttachment> {
 }

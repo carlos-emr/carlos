@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveLegalHoldEven
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -336,6 +337,29 @@ class OutboundEmailArchiveDaoIntegrationTest extends CarlosTestBase {
             assertThatThrownBy(() -> entityManager.flush())
                     .isInstanceOf(UnsupportedOperationException.class)
                     .hasMessageContaining("immutable");
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should reject a legal hold event for an archive that does not exist")
+        void shouldRejectLegalHoldEvent_whenArchiveDoesNotExist() {
+            // Pins that the archive association is foreign-key constrained. The mapping
+            // previously declared ConstraintMode.NO_CONSTRAINT, under which this orphaned
+            // audit row inserted cleanly and only failed much later, on the first attempt
+            // to dereference the missing archive.
+            OutboundEmailArchive missing =
+                    entityManager.getReference(OutboundEmailArchive.class, 999_999);
+            OutboundEmailArchiveLegalHoldEvent orphan = OutboundEmailArchiveLegalHoldEvent.of(
+                    missing, OutboundEmailArchiveLegalHoldEvent.ACTION_RELEASED, PROVIDER_NO, "orphan");
+
+            assertThatThrownBy(() -> {
+                outboundEmailArchiveLegalHoldEventDao.persist(orphan);
+                entityManager.flush();
+            })
+                    .isInstanceOf(ConstraintViolationException.class)
+                    // Named explicitly so a NOT NULL violation cannot pass this test by
+                    // accident -- it is the archive foreign key that must reject the row.
+                    .hasMessageContaining("FOREIGN KEY");
         }
     }
 
