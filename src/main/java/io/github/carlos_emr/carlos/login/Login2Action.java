@@ -821,7 +821,7 @@ public final class Login2Action extends ActionSupport {
 
         boolean validCode;
         try {
-            validCode = isValidTotpCode(mfaSecret, this.code);
+            validCode = isValidTotpCode(mfaSecret, this.code, security.getSecurityNo());
         } catch (InvalidKeyException e) {
             logger.error("Unable to validate MFA code: providerNo={}, securityId={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(security.getProviderNo()),
@@ -915,14 +915,22 @@ public final class Login2Action extends ActionSupport {
      * or next time step preserves the usual +/- one-step tolerance without accepting an unbounded
      * replay window.</p>
      *
+     * <p>An accepted code is recorded in {@link MfaUsedCodeCache} for the validity window. A code
+     * that has already authenticated within that window is rejected (RFC 6238 §5.2), preventing a
+     * code observed for one pending-MFA session from being replayed against another.</p>
+     *
      * @param mfaSecret Base32-encoded MFA secret
      * @param submittedCode user-submitted TOTP code; length validation is performed by the TOTP
      *        comparison rather than this helper
-     * @return true when the submitted code matches the current, previous, or next time step
+     * @param securityNo security record id the code is being validated for; used to scope used-code
+     *        tracking so a code accepted for one account does not block others
+     * @return true when the submitted code matches the current, previous, or next time step and has
+     *         not already been accepted within the validity window
      * @throws InvalidKeyException when the Base32 secret is null, empty, malformed, or cannot
      *         create a valid TOTP key
      */
-    private boolean isValidTotpCode(String mfaSecret, String submittedCode) throws InvalidKeyException {
+    private boolean isValidTotpCode(String mfaSecret, String submittedCode, Integer securityNo)
+            throws InvalidKeyException {
         TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
         SecretKeySpec key;
         try {
@@ -937,9 +945,16 @@ public final class Login2Action extends ActionSupport {
         java.time.Instant now = java.time.Instant.now();
         java.time.Duration timeStep = totpGenerator.getTimeStep();
 
-        return constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now), submittedCode)
+        boolean matchesTimeStep =
+                constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now), submittedCode)
                 || constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now.minus(timeStep)), submittedCode)
                 || constantTimeEquals(totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)), submittedCode);
+        if (!matchesTimeStep) {
+            return false;
+        }
+        // Reject a code that already authenticated within its validity window so an observed code
+        // cannot be replayed against a separate pending-MFA session (RFC 6238 §5.2).
+        return MfaUsedCodeCache.getInstance().recordIfUnused(securityNo, submittedCode);
     }
 
     private static boolean constantTimeEquals(String expected, String actual) {

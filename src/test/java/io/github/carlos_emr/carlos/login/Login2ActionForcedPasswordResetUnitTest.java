@@ -189,6 +189,9 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         }
         pendingMfaTokens.forEach(token -> PendingMfaChallengeCache.getInstance().invalidate(token));
         pendingMfaTokens.clear();
+        // Used-code tracking is a process-wide singleton; reset it so deterministic test codes do
+        // not leak between tests and trip replay protection.
+        MfaUsedCodeCache.getInstance().invalidateAll();
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
@@ -1036,6 +1039,36 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             assertThat(request.getSession(false).getAttribute(Login2Action.PENDING_MFA_AUTH_ATTR)).isNull();
             assertThat(request.getSession(false).getAttribute("user")).isEqualTo("999998");
             assertThat(PendingMfaChallengeCache.getInstance().peek(token)).isNull();
+        }
+    }
+
+    @Test
+    @DisplayName("should reject a TOTP code replayed for a second pending challenge within the validity window")
+    void shouldRejectTotpCode_replayedForSecondPendingChallenge() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action firstAttempt = newAction(null, null, null);
+            firstAttempt.setCode("123456");
+
+            assertThat(firstAttempt.execute()).isEqualTo(ActionSupport.NONE);
+
+            // A second, independent pending-MFA challenge replays the same observed code while it is
+            // still within the TOTP validity window; it must be rejected as already used.
+            stagePendingMfa(security);
+            Login2Action replayAttempt = newAction(null, null, null);
+            replayAttempt.setCode("123456");
+
+            String result = replayAttempt.execute();
+
+            assertThat(result).isEqualTo("mfaHandler");
+            assertThat(request.getAttribute("mfaValidateCodeErr")).isEqualTo("Invalid MFA Code");
+            logActionMock.verify(() -> LogAction.addLog("999998", "login", "mfa_failed", "mfa",
+                    request.getRemoteAddr()));
         }
     }
 
