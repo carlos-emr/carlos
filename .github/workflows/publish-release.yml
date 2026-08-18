@@ -1,0 +1,295 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - "20*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing protected release tag to retry
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.release-state.outputs.skip }}
+      tag: ${{ steps.metadata.outputs.tag }}
+      commit: ${{ steps.metadata.outputs.commit }}
+      source_branch: ${{ steps.metadata.outputs.source_branch }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
+      line: ${{ steps.metadata.outputs.line }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - name: Detect an already-published immutable release
+        id: release-state
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          if release_json=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" 2>/dev/null); then
+            if [ "$(jq -r '.draft' <<< "$release_json")" = "false" ]; then
+              echo "Release $RELEASE_TAG is already published; nothing to change."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Existing draft release will be resumed."
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout the tagged source
+        if: steps.release-state.outputs.skip != 'true'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up JDK 21
+        if: steps.release-state.outputs.skip != 'true'
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Verify Maven toolchain
+        if: steps.release-state.outputs.skip != 'true'
+        run: mvn --version
+
+      - name: Validate CalVer, annotation, source branch, and Maven metadata
+        if: steps.release-state.outputs.skip != 'true'
+        id: metadata
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          tag_regex='^([0-9]{4})\.((0[1-9])|(1[0-2]))\.([0-9]+)(-(alpha|beta|rc)[1-9][0-9]*)?$'
+          if [[ ! "$RELEASE_TAG" =~ $tag_regex ]]; then
+            echo "::error::Tag must match YYYY.MM.PATCH[-alphaN|-betaN|-rcN]."
+            exit 1
+          fi
+          if [[ "$RELEASE_TAG" == *SNAPSHOT* ]]; then
+            echo "::error::Snapshot versions cannot be released."
+            exit 1
+          fi
+
+          tag_type=$(git cat-file -t "refs/tags/$RELEASE_TAG")
+          if [ "$tag_type" != "tag" ]; then
+            echo "::error::Release tags must be annotated; found $tag_type."
+            exit 1
+          fi
+
+          tag_commit=$(git rev-parse "$RELEASE_TAG^{commit}")
+          checked_out_commit=$(git rev-parse HEAD)
+          if [ "$tag_commit" != "$checked_out_commit" ]; then
+            echo "::error::Checkout does not resolve to the tagged commit."
+            exit 1
+          fi
+
+          project_version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          scm_tag=$(mvn help:evaluate -Dexpression=project.scm.tag -q -DforceStdout)
+          if [ "$project_version" != "$RELEASE_TAG" ] || [ "$scm_tag" != "$RELEASE_TAG" ]; then
+            echo "::error::Tag, project.version, and project.scm.tag must be identical."
+            echo "tag=$RELEASE_TAG project.version=$project_version project.scm.tag=$scm_tag"
+            exit 1
+          fi
+
+          release_line=$(sed -E 's/^([0-9]{4}\.[0-9]{2})\..*$/\1/' <<< "$RELEASE_TAG")
+          git fetch --no-tags origin \
+            "refs/heads/main:refs/remotes/origin/main" \
+            "refs/heads/release/$release_line:refs/remotes/origin/release/$release_line" || \
+            git fetch --no-tags origin "refs/heads/main:refs/remotes/origin/main"
+
+          source_branch=""
+          if [ "$(git rev-parse origin/main)" = "$tag_commit" ]; then
+            source_branch=main
+          elif git show-ref --verify --quiet "refs/remotes/origin/release/$release_line" &&
+               [ "$(git rev-parse "origin/release/$release_line")" = "$tag_commit" ]; then
+            source_branch="release/$release_line"
+          else
+            echo "::error::Tag must point to the current head of main or release/$release_line."
+            exit 1
+          fi
+
+          tag_message=$(git for-each-ref --format='%(contents)' "refs/tags/$RELEASE_TAG")
+          grep -qF "Release $RELEASE_TAG" <<< "$tag_message" || {
+            echo "::error::Annotated tag message must contain 'Release $RELEASE_TAG'."
+            exit 1
+          }
+
+          prerelease=false
+          if [[ "$RELEASE_TAG" =~ -(alpha|beta|rc)[1-9][0-9]*$ ]]; then
+            prerelease=true
+          fi
+
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "commit=$tag_commit" >> "$GITHUB_OUTPUT"
+          echo "source_branch=$source_branch" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "line=$release_line" >> "$GITHUB_OUTPUT"
+
+  full-check:
+    name: Full release verification
+    needs: validate
+    if: needs.validate.outputs.skip != 'true'
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/maven-project.yml
+    with:
+      ref: refs/tags/${{ needs.validate.outputs.tag }}
+
+  package-and-publish:
+    name: Package and publish immutable release
+    needs: [validate, full-check]
+    if: always() && needs.validate.outputs.skip != 'true' && needs.full-check.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+      TAG_COMMIT: ${{ needs.validate.outputs.commit }}
+      RELEASE_LINE: ${{ needs.validate.outputs.line }}
+      IS_PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Checkout the complete tagged history
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Build the release environment from tagged source
+        run: |
+          set -euo pipefail
+
+          docker build --pull -t carlos-release-build-env .devcontainer/development
+
+      - name: Build the WAR and CycloneDX SBOM from a clean checkout
+        run: |
+          set -euo pipefail
+
+          mkdir -p .m2-cache release-assets
+          docker run --rm --name carlos-release-build \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -v "$GITHUB_WORKSPACE/.m2-cache:/root/.m2" \
+            -w /workspace \
+            carlos-release-build-env bash -euo pipefail -c "
+              git config --global --add safe.directory /workspace
+              mvn se.vandmo:dependency-lock-maven-plugin:check -q
+              mvn clean -DskipTests=true -T 1C package
+              mvn org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeAggregateBom \
+                -DoutputFormat=json \
+                -DschemaVersion=1.6 \
+                -DincludeBomSerialNumber=true \
+                -DoutputReactorProjects=false \
+                -DoutputName=carlos-$RELEASE_TAG-cyclonedx
+            "
+
+          war="target/carlos-$RELEASE_TAG.war"
+          sbom="target/carlos-$RELEASE_TAG-cyclonedx.json"
+          test -f "$war"
+          test -f "$sbom"
+          unzip -t "$war" >/dev/null
+
+          build_properties=$(unzip -p "$war" WEB-INF/classes/buildNumber.properties)
+          if ! grep -qxF "git-sha-1=$TAG_COMMIT" <<< "$build_properties"; then
+            echo "::error::WAR source SHA does not match the tagged commit."
+            printf '%s\n' "$build_properties"
+            exit 1
+          fi
+          if grep -qi SNAPSHOT pom.xml || [[ "$war" == *SNAPSHOT* ]] || [[ "$sbom" == *SNAPSHOT* ]]; then
+            echo "::error::Release artifacts must not contain snapshot version metadata."
+            exit 1
+          fi
+
+          cp "$war" "$sbom" release-assets/
+          (
+            cd release-assets
+            sha256sum "carlos-$RELEASE_TAG.war" > "carlos-$RELEASE_TAG.war.sha256"
+            sha256sum "carlos-$RELEASE_TAG-cyclonedx.json" > "carlos-$RELEASE_TAG-cyclonedx.json.sha256"
+          )
+
+      - name: Attest the WAR and SBOM provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: |
+            release-assets/carlos-${{ env.RELEASE_TAG }}.war
+            release-assets/carlos-${{ env.RELEASE_TAG }}-cyclonedx.json
+
+      - name: Create or resume the draft release
+        run: |
+          set -euo pipefail
+
+          previous_tag=$(gh release list --repo "$REPO" --limit 100 \
+            --json tagName,isDraft,publishedAt \
+            --jq ".[] | select(.isDraft == false) | .tagName" |
+            grep -E "^$RELEASE_LINE\." |
+            grep -Fxv "$RELEASE_TAG" |
+            head -n 1 || true)
+
+          if ! gh release view "$RELEASE_TAG" --repo "$REPO" >/dev/null 2>&1; then
+            args=(
+              "$RELEASE_TAG"
+              --repo "$REPO"
+              --verify-tag
+              --target "$TAG_COMMIT"
+              --title "$RELEASE_TAG"
+              --draft
+              --generate-notes
+            )
+            if [ -n "$previous_tag" ]; then
+              args+=(--notes-start-tag "$previous_tag")
+            fi
+            if [ "$IS_PRERELEASE" = "true" ]; then
+              args+=(--prerelease)
+            fi
+            gh release create "${args[@]}"
+          fi
+
+      - name: Upload and verify release assets
+        run: |
+          set -euo pipefail
+
+          gh release upload "$RELEASE_TAG" release-assets/* --repo "$REPO" --clobber
+          release_json=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG")
+
+          for asset in release-assets/*; do
+            name=$(basename "$asset")
+            expected="sha256:$(sha256sum "$asset" | awk '{print $1}')"
+            actual=$(jq -r --arg name "$name" '.assets[] | select(.name == $name) | .digest' <<< "$release_json")
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::GitHub digest mismatch for $name: expected $expected, got $actual"
+              exit 1
+            fi
+          done
+
+      - name: Publish the immutable release
+        run: |
+          set -euo pipefail
+
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease --latest=false
+          else
+            gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease=false --latest
+          fi

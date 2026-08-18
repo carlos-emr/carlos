@@ -15,5 +15,5 @@ grouping table and seeds numeric billing diagnoses with ICD-9 chapter categories
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. Ontario already uses `V1.0.11`, so the next
-shared version is `V1.0.12` (see `../README.md`).
+next free number accounts for province deltas too. Ontario already uses `V1.0.12`, so the next
+shared version is `V1.0.13` (see `../README.md`).

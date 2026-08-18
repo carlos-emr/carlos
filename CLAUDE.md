@@ -1030,8 +1030,9 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 3. **Complex Changes**: Ask clarifying questions first, create implementation plan, proceed after approval
 
 ### Branch Protection
-- **Protected Branches**: `develop`, `main`, `experimental` - direct commits prohibited
+- **Protected Branches**: `develop`, `main`, `experimental`, and `release/*` - direct commits prohibited
 - **All changes** must go through pull requests with review
+- **Release policy**: `docs/release-process.md` is authoritative for target branches, CalVer, snapshots, tags, maintenance fixes, and forward merges
 - Claude creates feature branches: `claude/issue-<number>-<timestamp>`
 
 ### Security Checklist (Every Code Change)
@@ -1042,7 +1043,7 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - [ ] No PHI in logs or error messages
 
 ### PR Requirements
-- ✅ Target `develop` branch (not `main`)
+- ✅ Target `develop` for normal work; target `release/YYYY.MM` only for an approved supported-release fix, and `main` only for release preparation
 - ✅ Include tests for new functionality
 - ✅ Reference related issues (`fixes #123`)
 - ✅ Add "Generated with Claude Code" signature
@@ -1106,7 +1107,7 @@ Commands in the ASK tier include:
 
 **Safety Guardrails:**
 - **Repository scoped** - Operations run within the checked-out `carlos-emr/carlos` repository context
-- Branch protection rules prevent direct pushes to `develop`, `main`, `experimental`
+- Branch protection rules prevent direct pushes to `develop`, `main`, `experimental`, and `release/*`
 - All PRs require human review before merge
 - Destructive operations are blocked:
   - File deletion: `rm -rf`, `rm -fr`, `rm -r`, `rm --recursive`

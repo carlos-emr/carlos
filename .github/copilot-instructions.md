@@ -3,6 +3,7 @@
 > **Source of truth**: `CLAUDE.md` at repository root. Last synced: April 2026.
 > **Specialized agents**: See `.github/agents/` for domain-specific guidance (security, backend, testing, database, frontend).
 > **Path-specific rules**: See `.github/instructions/` for auto-applied rules on JSP, Action, test, and SQL files.
+> **Release policy**: `docs/release-process.md` is authoritative for branch targets, CalVer versions, snapshots, tags, hotfixes, and forward merges.
 
 **PROJECT IDENTITY**: Always refer to this system as "CARLOS EMR" or "CARLOS" in user-facing displays and documentation.
 
