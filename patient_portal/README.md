@@ -369,6 +369,20 @@ runs behind a trusted proxy, set `PATIENT_PORTAL_TRUSTED_CLIENT_IP_HEADER` to `x
 may supply that header. Forwarded values are ignored unless the direct peer is in that allowlist.
 For `X-Forwarded-For`, the portal walks the chain from the right and uses the first untrusted hop.
 
+Whichever header you choose, the proxy must **set** it rather than pass through whatever the client
+sent. The peer check cannot protect you here: the peer is your own proxy, which is in
+`PATIENT_PORTAL_TRUSTED_PROXY_CIDRS` by definition, so a forwarded header the proxy did not write is
+accepted as genuine. If it is client-controlled, every client-keyed control — the request and login
+throttles, the per-client activation budget, and the source address recorded in the audit trail —
+becomes attacker-chosen.
+
+The packaged `deploy/nginx.conf` satisfies this for both options: it overwrites `X-Real-IP` with
+`$remote_addr`, and sets `X-Forwarded-For` to `$proxy_add_x_forwarded_for` so the real peer is
+appended on the right, which is what the right-to-left walk expects. If you replace that config,
+carry both directives over — and note that defining any `proxy_set_header` inside an nginx
+`location` disables inheritance of the entire server-level set, so each such block needs its own
+copy.
+
 Pilot hardening defaults:
 
 - Coarse per-process request throttling allows 300 patient-facing requests per client per minute,

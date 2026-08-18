@@ -53,6 +53,28 @@ def test_reference_proxy_restricts_every_internal_prefix_not_just_the_carlos_one
     assert "proxy_pass" not in patient_internal_block
 
 
+def test_reference_proxy_sets_forwarded_for_in_every_block_that_breaks_inheritance() -> None:
+    """The proxy must write X-Forwarded-For rather than pass a client-supplied one through.
+
+    parse_trusted_client_ip_header gates on the *peer* being a trusted proxy, which this nginx
+    always is, then walks the chain right-to-left. That is only sound if the proxy appends the real
+    peer. Forwarding the client's header untouched makes every client-keyed throttle and every
+    recorded source address attacker-chosen.
+
+    Asserted twice because defining any proxy_set_header inside a location disables inheritance of
+    the whole server-level set, so the /internal/carlos/ block needs its own copy.
+    """
+    configuration = (PACKAGE_ROOT / "deploy" / "nginx.conf").read_text()
+
+    assert configuration.count("proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;") == 2
+    # Never the bare client value, which is the spoofable form.
+    assert "proxy_set_header X-Forwarded-For $http_x_forwarded_for" not in configuration
+
+    internal_block = configuration.split("location ^~ /internal/carlos/ {", 1)[1]
+    internal_block = internal_block.split("\n  }", 1)[0]
+    assert "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;" in internal_block
+
+
 def test_audit_role_policy_keeps_runtime_append_only_and_pruning_separate() -> None:
     policy = (PACKAGE_ROOT / "deploy" / "postgresql-audit-roles.sql").read_text()
 
