@@ -182,7 +182,7 @@
                         </tr>
                         <tr>
                             <td colspan="2" class="Cell" align="center">NOTE: <a
-                                    href="javascript:newWindow('http://www.regenstrief.org/medinformatics/loinc/relma','RELMA')">It
+                                    href="javascript:newWindow('https://www.regenstrief.org/medinformatics/loinc/relma','RELMA')">It
                                 is suggested that you use the RELMA application to help determine
                                 correct loinc codes.</a></td>
                         </tr>
