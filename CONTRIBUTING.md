@@ -263,10 +263,14 @@ make install --run-integration-tests  # Integration tests (requires database)
 
 ### Branch Strategy
 
-CARLOS uses `develop` as the default branch and the focus for all active development.
-Pull requests and merges target `develop`. Releases are promoted from staging branches
-to `main`. **Do not work directly on `develop`** — always create a feature branch for
-your changes.
+CARLOS uses `develop` as the default integration branch for the next release train.
+Normal feature and bug-fix pull requests target `develop`. High-priority fixes for a
+supported release target its `release/YYYY.MM` maintenance branch, and release-preparation
+pull requests promote exact versions to `main`. **Do not work directly on a protected
+branch** — always create a topic branch.
+
+The canonical [release process](docs/release-process.md) defines CalVer versions, supported
+release lines, forward merges, snapshots, tags, and release publication.
 
 ### Internal vs. External Contributors
 
@@ -280,8 +284,9 @@ you're there!), then clone your fork to your local machine. You'll make changes 
 branches to *your* fork, then open a pull request back to the CARLOS repository when your
 work is ready for review.
 
-Both workflows end the same way: **all changes go through a pull request** targeting the
-`develop` branch, reviewed and approved before merging. No one pushes directly to
+Both workflows end the same way: **all changes go through a reviewed pull request**.
+Use `develop` for normal work; maintainers will identify the applicable
+`release/YYYY.MM` branch for a supported-release fix. No one pushes directly to
 protected branches.
 
 ### External Contributor Workflow (Fork-Based)
@@ -334,7 +339,8 @@ protected branches.
 All changes — from internal and external contributors alike — must go through a pull
 request. Direct pushes to `develop`, `main`, and other protected branches are not allowed.
 
-- **Target `develop`**, never `main`
+- **Target `develop` for normal work**; use `release/YYYY.MM` only for an approved
+  supported-release fix, and `main` only for release preparation
 - **Reference related issues** (e.g., `fixes #123`)
 - **Include a clear description** of what changed and why
 - **Add tests** for new functionality
