@@ -366,8 +366,8 @@ def register_login_routes(
             return deps.render_mfa_page(request, result.mfa_challenge)
         if is_browser_form and result.session_token is not None:
             # URLPath.path cannot contain the scheme or authority from the request.
-            # nosemgrep: python.fastapi.web.tainted-redirect-fastapi.tainted-redirect-fastapi
             redirect_response = RedirectResponse(
+                # nosemgrep: python.fastapi.web.tainted-redirect-fastapi.tainted-redirect-fastapi
                 request.url_for("portal_dashboard").path,
                 status_code=status.HTTP_303_SEE_OTHER,
             )
@@ -588,8 +588,8 @@ def register_mfa_routes(
             )
         if is_browser_form:
             # URLPath.path cannot contain the scheme or authority from the request.
-            # nosemgrep: python.fastapi.web.tainted-redirect-fastapi.tainted-redirect-fastapi
             redirect_response = RedirectResponse(
+                # nosemgrep: python.fastapi.web.tainted-redirect-fastapi.tainted-redirect-fastapi
                 request.url_for("portal_dashboard").path,
                 status_code=status.HTTP_303_SEE_OTHER,
             )
