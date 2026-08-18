@@ -514,7 +514,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("should mark archive deleted and persist tombstone")
     void shouldMarkArchiveDeletedAndPersistTombstone_whenDeletionAllowed() {
         OutboundEmailArchive archive = archiveForDeletion();
-        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+        stubArchiveLookup(archive);
 
         OutboundEmailArchiveDeletion deletion = service.recordControlledDeletion(loggedInInfo, 888, "Patient requested cleanup");
 
@@ -542,7 +542,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("should trim controlled deletion reason before truncating")
     void shouldTrimControlledDeletionReason_beforeTruncating() {
         OutboundEmailArchive archive = archiveForDeletion();
-        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+        stubArchiveLookup(archive);
 
         OutboundEmailArchiveDeletion deletion = service.recordControlledDeletion(loggedInInfo, 888, " ".repeat(1000) + "Meaningful reason");
 
@@ -555,7 +555,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     void shouldDeferControlledDeletionAudit_untilTransactionCommit() {
         TransactionSynchronizationManager.initSynchronization();
         OutboundEmailArchive archive = archiveForDeletion();
-        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+        stubArchiveLookup(archive);
 
         service.recordControlledDeletion(loggedInInfo, 888, "Patient requested cleanup");
 
@@ -591,13 +591,16 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("should reject controlled deletion without patient access")
     void shouldRejectDeletion_whenCallerCannotAccessPatientRecord() {
         OutboundEmailArchive archive = archiveForDeletion();
-        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+        stubArchiveLookup(archive);
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
 
         assertThatThrownBy(() -> service.recordControlledDeletion(loggedInInfo, 888, "cleanup"))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("archive demographic");
 
+        // The patient-record gate runs on an unlocked read, so a caller who holds
+        // _admin.edocdelete but not this patient never reaches SELECT ... FOR UPDATE.
+        verify(outboundEmailArchiveDao, never()).findForUpdate(any());
         verify(outboundEmailArchiveDao, never()).merge(any(OutboundEmailArchive.class));
         verifyNoInteractions(outboundEmailArchiveDeletionDao);
     }
@@ -608,7 +611,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         // No releaseLegalHold call: a freshly created archive is on hold, so this is the
         // out-of-the-box behaviour rather than a state the test had to arrange.
         OutboundEmailArchive archive = archiveUnderLegalHold();
-        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+        stubArchiveLookup(archive);
 
         assertThatThrownBy(() -> service.recordControlledDeletion(loggedInInfo, 888, "cleanup"))
                 .isInstanceOf(IllegalStateException.class)
@@ -635,7 +638,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("should release legal hold and record who did it")
     void shouldReleaseLegalHold_andRecordResponsibleProvider() {
         OutboundEmailArchive archive = archiveUnderLegalHold();
-        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+        stubArchiveLookup(archive);
 
         OutboundEmailArchiveLegalHoldEvent event =
                 service.releaseLegalHold(loggedInInfo, 888, "  Counsel authorised release  ");
@@ -654,7 +657,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("should re-apply legal hold and record who did it")
     void shouldPlaceLegalHold_andRecordResponsibleProvider() {
         OutboundEmailArchive archive = archiveForDeletion();
-        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+        stubArchiveLookup(archive);
 
         OutboundEmailArchiveLegalHoldEvent event = service.placeLegalHold(loggedInInfo, 888, "Litigation opened");
 
@@ -692,7 +695,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("should reject releasing a legal hold that is not active")
     void shouldRejectLegalHoldRelease_whenNoHoldIsActive() {
         OutboundEmailArchive archive = archiveForDeletion();
-        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+        stubArchiveLookup(archive);
 
         assertThatThrownBy(() -> service.releaseLegalHold(loggedInInfo, 888, "cleanup"))
                 .isInstanceOf(IllegalStateException.class)
@@ -706,7 +709,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     void shouldDeferLegalHoldAudit_untilTransactionCommit() {
         TransactionSynchronizationManager.initSynchronization();
         OutboundEmailArchive archive = archiveUnderLegalHold();
-        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+        stubArchiveLookup(archive);
 
         service.releaseLegalHold(loggedInInfo, 888, "Counsel authorised release");
 
@@ -725,7 +728,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     void shouldRejectDeletion_whenArchiveAlreadyDeleted() {
         OutboundEmailArchive archive = archiveForDeletion();
         archive.markDeleted(PROVIDER_NO, "previous cleanup");
-        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+        stubArchiveLookup(archive);
 
         assertThatThrownBy(() -> service.recordControlledDeletion(loggedInInfo, 888, "cleanup"))
                 .isInstanceOf(IllegalStateException.class)
@@ -847,6 +850,15 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /**
+     * Stubs both reads the service performs for a privileged archive change: the
+     * unlocked read that the patient-record gate runs on, then the locked row.
+     */
+    private void stubArchiveLookup(OutboundEmailArchive archive) {
+        when(outboundEmailArchiveDao.find((Object) 888)).thenReturn(archive);
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
     }
 
     private void allowControlledDeletion() {

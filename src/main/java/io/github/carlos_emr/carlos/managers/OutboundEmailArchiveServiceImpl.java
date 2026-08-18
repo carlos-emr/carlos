@@ -227,13 +227,9 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         // the "not found" message.
         requireArchiveAdminAuthority(loggedInInfo);
 
-        OutboundEmailArchive archive = outboundEmailArchiveDao.findForUpdate(archiveId);
-        if (archive == null) {
-            throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
-        }
+        OutboundEmailArchive archive = lockArchiveForAuthorizedCaller(loggedInInfo, archiveId);
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
-        requirePatientRecordAccess(loggedInInfo, requireArchiveDemographicNo(archive));
         String truncatedDeleteReason = truncate(deleteReason.trim(), 1000);
         // Throws while the archive is still under legal hold, which is the default state
         // for every archive — an admin must have released it via releaseLegalHold first.
@@ -268,7 +264,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     /**
      * Shared transition for both legal hold directions.
      *
-     * <p>Kept as one method because the authority gate, row lock, patient-record check,
+     * <p>Kept as one method because the authority gate, patient-record check, row lock,
      * event record, and audit entry are identical; only the entity transition differs.
      * The {@code FOR UPDATE} lock matters here for the same reason it does on deletion:
      * two concurrent releases must not both succeed and write two RELEASED events.</p>
@@ -287,13 +283,9 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
         requireArchiveAdminAuthority(loggedInInfo);
 
-        OutboundEmailArchive archive = outboundEmailArchiveDao.findForUpdate(archiveId);
-        if (archive == null) {
-            throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
-        }
+        OutboundEmailArchive archive = lockArchiveForAuthorizedCaller(loggedInInfo, archiveId);
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
-        requirePatientRecordAccess(loggedInInfo, requireArchiveDemographicNo(archive));
         String truncatedReason = truncate(reason.trim(), 1000);
 
         if (OutboundEmailArchiveLegalHoldEvent.ACTION_RELEASED.equals(action)) {
@@ -661,6 +653,45 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.edocdelete", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_admin.edocdelete w)");
         }
+    }
+
+    /**
+     * Resolves and write-locks an archive for a privileged state change, refusing a
+     * caller who may not see the archive's patient.
+     *
+     * <p>The unlocked read comes first for the same reason
+     * {@link #requireArchiveAdminAuthority} precedes the lookup: {@code findForUpdate}
+     * issues {@code SELECT ... FOR UPDATE}, and a caller holding
+     * {@code _admin.edocdelete} but no access to this patient must not be able to take
+     * a lock on that patient's row. Checking access only after the lock left exactly
+     * the side effect moving the authority gate up was meant to remove.</p>
+     *
+     * <p>The demographic is compared again after locking so the row that gets mutated
+     * is provably the row that was authorised, rather than trusting that the two reads
+     * described the same patient.</p>
+     *
+     * @param loggedInInfo current user context
+     * @param archiveId persisted archive identifier
+     * @return the write-locked archive
+     * @throws IllegalArgumentException when no archive has that identifier
+     * @throws SecurityException when the caller may not access the archive's patient
+     */
+    private OutboundEmailArchive lockArchiveForAuthorizedCaller(LoggedInInfo loggedInInfo, Integer archiveId) {
+        OutboundEmailArchive unlocked = outboundEmailArchiveDao.find(archiveId);
+        if (unlocked == null) {
+            throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
+        }
+        Integer authorizedDemographicNo = requireArchiveDemographicNo(unlocked);
+        requirePatientRecordAccess(loggedInInfo, authorizedDemographicNo);
+
+        OutboundEmailArchive archive = outboundEmailArchiveDao.findForUpdate(archiveId);
+        if (archive == null) {
+            throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
+        }
+        if (!authorizedDemographicNo.equals(requireArchiveDemographicNo(archive))) {
+            throw new SecurityException("not authorized for outbound email archive demographic");
+        }
+        return archive;
     }
 
     private void requirePatientRecordAccess(LoggedInInfo loggedInInfo, Integer demographicNo) {
