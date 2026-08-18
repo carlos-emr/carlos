@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from carlos_patient_portal import cli
 from carlos_patient_portal.audit import record_audit_event
 from carlos_patient_portal.config import Settings
-from carlos_patient_portal.database import Base, create_portal_engine
+from carlos_patient_portal.database import create_portal_engine
 from carlos_patient_portal.maintenance import (
     BackupUnavailableError,
     BackupUnsupportedError,
@@ -17,6 +17,7 @@ from carlos_patient_portal.maintenance import (
     restore_sqlite_database,
     sqlite_database_path,
 )
+from tests.support import upgrade_to_head
 
 
 def test_alembic_config_escapes_percent_interpolation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -184,7 +185,7 @@ def test_transient_cleanup_cli_reports_each_table_count(
         database_url=f"sqlite+pysqlite:///{database_path}",
     )
     engine = create_portal_engine(settings.database_url)
-    Base.metadata.create_all(engine)
+    upgrade_to_head(engine)
     engine.dispose()
     monkeypatch.setattr(cli, "get_settings", lambda: settings)
 
@@ -240,7 +241,7 @@ def test_audit_export_cli_emits_ordered_jsonl(
     database_url = f"sqlite+pysqlite:///{tmp_path / 'audit-export.db'}"
     settings = Settings(environment="development", database_url=database_url)
     engine = create_portal_engine(database_url)
-    Base.metadata.create_all(engine)
+    upgrade_to_head(engine)
     with Session(engine) as session, session.begin():
         event = record_audit_event(
             session,

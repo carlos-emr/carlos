@@ -57,7 +57,9 @@ def derive_token_key(session_secret: str, purpose: str) -> str:
     return urlsafe_b64encode(derived_key).decode("ascii")
 
 
-@dataclass(frozen=True)
+# repr suppressed: every field is live key material, and the default dataclass repr would put
+# all five into any log line or traceback that formats the object.
+@dataclass(frozen=True, repr=False)
 class PortalTokenKeys:
     """One independent key per authentication-token purpose.
 

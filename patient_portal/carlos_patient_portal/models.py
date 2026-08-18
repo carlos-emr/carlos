@@ -379,6 +379,14 @@ class PatientPortalSession(Base):
             "revoked_reason is null or length(revoked_reason) between 1 and 64",
             name="ck_patient_portal_sessions_revoked_reason_length",
         ),
+        # Authentication gates on revoked_at alone, so a row carrying a reason without a timestamp
+        # is a live bearer session that the audit trail reports as revoked. revoke_account_sessions
+        # writes the pair across two statements; this makes a half-written revocation impossible.
+        CheckConstraint(
+            "(revoked_at is null and revoked_reason is null) or "
+            "(revoked_at is not null and revoked_reason is not null)",
+            name="ck_patient_portal_sessions_revocation_fields_complete",
+        ),
         Index("ux_patient_portal_sessions_token_hash", "token_hash", unique=True),
         Index("ix_patient_portal_sessions_account_expires", "account_id", "expires_at"),
         Index("ix_pp_sessions_expires", "expires_at", "id"),
@@ -588,6 +596,15 @@ class PatientPortalEmailChangeRequest(Base):
             "status != 'confirmed' or confirmed_at is not null",
             name="ck_pp_email_change_confirmed_at_present",
         ),
+        # The applied contact change is what syncs to the CARLOS demographic record, and the phone
+        # it moves to is where MFA codes will be sent. apply_confirmed_email_change already returns
+        # early unless both proofs are present; this stops a future path reaching 'confirmed'
+        # without them.
+        CheckConstraint(
+            "status != 'confirmed' or "
+            "(email_confirmed_at is not null and phone_confirmed_at is not null)",
+            name="ck_pp_email_change_confirmed_requires_both_proofs",
+        ),
         CheckConstraint(
             f"phone_code_hash is null or length(phone_code_hash) = {HASH_LENGTH}",
             name="ck_pp_email_change_phone_code_hash_length",
@@ -678,6 +695,14 @@ class PatientPortalOutboundDelivery(Base):
             "status != 'delivered' or delivered_at is not null",
             name="ck_pp_outbound_delivery_delivered_at_present",
         ),
+        # The reclaim query is `status = 'processing' and lease_expires_at <= now`, which is NULL
+        # (never true) for a processing row with no lease -- so such a row is never retried, never
+        # reaches 'failed', and strands a password-reset message with no failure code and no alert.
+        CheckConstraint(
+            "(status = 'processing' and lease_expires_at is not null) or "
+            "(status != 'processing' and lease_expires_at is null)",
+            name="ck_pp_outbound_delivery_lease_matches_status",
+        ),
         Index(
             "ix_pp_outbound_delivery_available",
             "status",
@@ -685,6 +710,12 @@ class PatientPortalOutboundDelivery(Base):
             "id",
         ),
         Index("ux_pp_outbound_delivery_message_id", "message_id", unique=True),
+        # reset_token_id is ON DELETE CASCADE and reset tokens are bulk-deleted by
+        # cleanup-transient-auth. Without an index PostgreSQL enforces the cascade with a sequential
+        # scan per deleted parent row, so the DELETE exceeds statement_timeout and cleanup stops
+        # completing at all.
+        Index("ix_pp_outbound_delivery_reset_token", "reset_token_id"),
+        Index("ix_pp_outbound_delivery_account", "account_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

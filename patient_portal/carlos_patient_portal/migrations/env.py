@@ -34,6 +34,17 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    # An embedding caller (the test harness, or anything migrating a database it already holds open)
+    # can hand us a live connection. Honouring it matters for in-memory SQLite, where building a
+    # second engine would silently migrate a different, throwaway database. The connection is not
+    # closed here because it belongs to the caller.
+    existing_connection = config.attributes.get("connection")
+    if existing_connection is not None:
+        context.configure(connection=existing_connection, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+
     configuration = config.get_section(config.config_ini_section, {})
     configuration["sqlalchemy.url"] = get_url()
     connectable = engine_from_config(

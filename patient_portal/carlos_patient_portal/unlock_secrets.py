@@ -1,6 +1,6 @@
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
@@ -97,7 +97,7 @@ class ProviderFilterOptions:
 @dataclass(frozen=True)
 class CreatedUnlockSecret:
     unlock_secret: PatientPortalUnlockSecret
-    secret: str
+    secret: str = field(repr=False)
 
 
 @dataclass(frozen=True)
@@ -105,7 +105,7 @@ class DisclosedUnlockSecret:
     """One audited disclosure: the record that was read and the passphrase it held."""
 
     unlock_secret: PatientPortalUnlockSecret
-    secret: str
+    secret: str = field(repr=False)
 
 
 @dataclass(frozen=True)

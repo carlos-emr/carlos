@@ -8,12 +8,11 @@ flow, and records what the outbound senders were asked to deliver.
 import re
 from datetime import UTC, datetime, timedelta
 
+from alembic import command
 from alembic.config import Config
-from alembic.runtime.migration import MigrationContext
-from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 from jinja2 import meta
-from sqlalchemy import select
+from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal import main, web_support
@@ -21,9 +20,6 @@ from carlos_patient_portal.auth import MfaChallengeDelivery
 from carlos_patient_portal.config import (
     MIN_PRODUCTION_SECRET_LENGTH,
     Settings,
-)
-from carlos_patient_portal.database import (
-    Base,
 )
 from carlos_patient_portal.email_delivery import PortalEmailDeliveryError, PortalEmailSender
 from carlos_patient_portal.identity import IdentityProof
@@ -165,16 +161,31 @@ def migrated_development_app(
         email_sender=email_sender,
         sms_sender=sms_sender,
     )
-    Base.metadata.create_all(app.state.database_engine)
+    upgrade_to_head(app.state.database_engine)
+    return app
+
+
+def alembic_config_for_tests() -> Config:
     alembic_config = Config()
     alembic_config.set_main_option("script_location", str(web_support.PACKAGE_DIR / "migrations"))
-    migration_scripts = ScriptDirectory.from_config(alembic_config)
-    with app.state.database_engine.begin() as connection:
-        MigrationContext.configure(connection).stamp(
-            migration_scripts,
-            migration_scripts.get_current_head(),
-        )
-    return app
+    return alembic_config
+
+
+def upgrade_to_head(engine: Engine) -> None:
+    """Build the schema by running the real migrations, not by create_all + stamp.
+
+    The previous approach created tables from models.py and then stamped the Alembic head, so no
+    test in the suite ever executed migrations 0003-0008 or their preflights, and the stamp made the
+    readiness version check pass regardless. A migration that drifted from the models would have
+    gone unnoticed here.
+
+    The live connection is passed through Config.attributes because these tests run against
+    in-memory SQLite, where letting Alembic build its own engine would migrate a different database.
+    """
+    with engine.begin() as connection:
+        alembic_config = alembic_config_for_tests()
+        alembic_config.attributes["connection"] = connection
+        command.upgrade(alembic_config, "head")
 
 
 class RecordingPortalEmailSender:

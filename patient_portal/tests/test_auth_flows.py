@@ -17,7 +17,6 @@ from carlos_patient_portal.auth import (
     seconds_until_allowed,
 )
 from carlos_patient_portal.database import (
-    Base,
     create_portal_engine,
     create_session_factory,
     session_scope,
@@ -73,6 +72,7 @@ from tests.support import (
     migrated_development_app,
     request_seeded_email_change,
     sign_in_patient_api_session,
+    upgrade_to_head,
 )
 
 
@@ -1680,7 +1680,7 @@ def test_saving_unchanged_mfa_method_preserves_live_challenge() -> None:
 
 def test_session_scope_commits_success() -> None:
     engine = create_portal_engine("sqlite+pysqlite:///:memory:")
-    Base.metadata.create_all(engine)
+    upgrade_to_head(engine)
     session_factory = create_session_factory(engine)
 
     with session_scope(session_factory) as session:

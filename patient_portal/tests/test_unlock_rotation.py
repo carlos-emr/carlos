@@ -2,13 +2,13 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from carlos_patient_portal.database import Base
 from carlos_patient_portal.models import PatientPortalUnlockSecret
 from carlos_patient_portal.unlock_secrets import (
     create_unlock_secret,
     decrypt_unlock_secret_payload,
     reencrypt_unlock_secrets,
 )
+from tests.support import upgrade_to_head
 
 
 def test_unlock_secret_keyring_rotation_preserves_plaintext() -> None:
@@ -17,7 +17,7 @@ def test_unlock_secret_keyring_rotation_preserves_plaintext() -> None:
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    Base.metadata.create_all(engine)
+    upgrade_to_head(engine)
     old_secret = "o" * 32
     new_secret = "n" * 32
     with Session(engine) as session:

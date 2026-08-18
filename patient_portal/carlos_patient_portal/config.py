@@ -43,7 +43,13 @@ DEFAULT_AUDIT_RETENTION_DAYS = 25 * 366
 MIN_AUDIT_RETENTION_DAYS = 30
 # Loopback only: a Host header an attacker could poison into a patient-visible link is useless if
 # it points back at the patient's own machine. Real deployments add pod IPs/service names here.
-DEFAULT_PROBE_ALLOWED_HOSTS = ("127.0.0.1", "localhost", "[::1]")
+# "[::1]" was listed here and could never match. Starlette's TrustedHostMiddleware derives the host
+# as `headers["host"].split(":")[0]`, yielding "[" for `Host: [::1]:8000` and "" for `::1`, so no
+# allowlist entry can match an IPv6 literal in either form. The only pattern that would match is the
+# literal "[", which would accept every IPv6 host and is therefore not an option. Keeping the entry
+# implied IPv6 probes were supported when they always received 400. An IPv6-only probe must target a
+# hostname (or the canonical public host) rather than an address literal; see README.
+DEFAULT_PROBE_ALLOWED_HOSTS = ("127.0.0.1", "localhost")
 DEFAULT_CLINIC_ID = "default"
 DEFAULT_CLINIC_NAME = "Maple Creek Medical"
 ENVIRONMENT_ALIASES = {

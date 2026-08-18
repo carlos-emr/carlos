@@ -9,15 +9,22 @@ which behaviour is load-bearing for that review.
 from datetime import timedelta
 
 import pytest
+from alembic.autogenerate import compare_metadata
+from alembic.runtime.migration import MigrationContext
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import create_engine, select
+from sqlalchemy.pool import StaticPool
 
 from carlos_patient_portal import auth
 from carlos_patient_portal.auth import (
     AUTH_LOCKED_BY_AUTOMATION,
+    MfaChallengeDelivery,
+    PasswordResetRequestResult,
     hash_auth_token,
     hash_mfa_code,
 )
+from carlos_patient_portal.config import DEFAULT_PROBE_ALLOWED_HOSTS
+from carlos_patient_portal.database import Base
 from carlos_patient_portal.delivery_outbox import (
     enqueue_contact_change_delivery,
     process_one_delivery,
@@ -35,6 +42,7 @@ from carlos_patient_portal.models import (
     PatientPortalPasswordResetToken,
     utc_now,
 )
+from carlos_patient_portal.token_keys import PortalTokenKeys
 from carlos_patient_portal.web_support import is_rate_limited_path
 from tests.support import (
     INTERNAL_API_TOKEN,
@@ -44,10 +52,95 @@ from tests.support import (
     STRONG_RESET_PASSWORD,
     activate_seeded_patient_account,
     migrated_development_app,
+    upgrade_to_head,
 )
 
 SECRET = "regression-secret-value-32-characters"
 SEEDED_USERNAME = "patient.user"
+
+
+# --------------------------------------------------------------------------------------
+# Schema drift - the migrations are the only source of schema, and they must match the models
+# --------------------------------------------------------------------------------------
+
+
+def test_migrated_schema_matches_the_models_exactly() -> None:
+    """Fail the build when a migration and `models.py` drift apart.
+
+    The suite used to build its schema with `create_all` and then *stamp* the Alembic head, so no
+    test ever executed migrations 0003+ and a migration that forgot a column would pass pytest,
+    pass `alembic upgrade head`, and pass the readiness probe. The harness now migrates, and this
+    asserts the end state is what the models describe.
+    """
+    engine = create_engine("sqlite+pysqlite:///:memory:", poolclass=StaticPool)
+    try:
+        upgrade_to_head(engine)
+        with engine.connect() as connection:
+            differences = compare_metadata(MigrationContext.configure(connection), Base.metadata)
+    finally:
+        engine.dispose()
+
+    assert differences == [], f"migrations and models.py disagree: {differences}"
+
+
+# --------------------------------------------------------------------------------------
+# Probe hosts - IPv6 literals cannot be allowlisted, so we must not claim they can
+# --------------------------------------------------------------------------------------
+
+
+def test_ipv6_literal_host_is_rejected_and_no_longer_advertised_as_a_default() -> None:
+    """Pin the IPv6 limitation instead of shipping a default that silently never matches.
+
+    TrustedHostMiddleware derives the host as `headers["host"].split(":")[0]`, which yields "[" for
+    a bracketed literal and "" for a bare one. `[::1]` therefore sat in the defaults implying IPv6
+    probes worked when they always got 400 -- which on a dual-stack cluster reads as an unhealthy
+    pod. The only pattern that would match is "[", which would accept every IPv6 host.
+    """
+    assert "[::1]" not in DEFAULT_PROBE_ALLOWED_HOSTS
+    assert "::1" not in DEFAULT_PROBE_ALLOWED_HOSTS
+
+    app = migrated_development_app()
+    client = TestClient(app)
+
+    assert client.get("/health", headers={"Host": "127.0.0.1:8000"}).status_code == 200
+    assert client.get("/health", headers={"Host": "[::1]:8000"}).status_code == 400
+
+
+# --------------------------------------------------------------------------------------
+# Secret material must never reach a log line through a default dataclass repr
+# --------------------------------------------------------------------------------------
+
+
+def test_secret_bearing_dataclasses_keep_their_material_out_of_repr() -> None:
+    """One `logger.warning("... %s", delivery)` should not write a live MFA code to the log."""
+    delivery = MfaChallengeDelivery(
+        challenge_id=1,
+        challenge_token="CHALLENGE-TOKEN-SECRET",
+        code="123456",
+        delivery_method="email",
+        destination="patient@example.test",
+        available_delivery_methods=("email",),
+        expires_at=utc_now(),
+        expected_code_hash="EXPECTED-HASH-SECRET",
+    )
+    rendered = repr(delivery)
+    for secret in ("CHALLENGE-TOKEN-SECRET", "123456", "EXPECTED-HASH-SECRET"):
+        assert secret not in rendered
+    # Fields that are useful for diagnosis are deliberately still shown.
+    assert "email" in rendered
+
+    keys = PortalTokenKeys(
+        csrf="CSRF-KEY", session="SESSION-KEY", mfa="MFA-KEY",
+        password_reset="RESET-KEY", email_change="CHANGE-KEY",
+    )
+    assert not any(
+        key in repr(keys)
+        for key in ("CSRF-KEY", "SESSION-KEY", "MFA-KEY", "RESET-KEY", "CHANGE-KEY")
+    )
+
+    assert "RESET-TOKEN-SECRET" not in repr(
+        PasswordResetRequestResult(reset_token="RESET-TOKEN-SECRET", recipient="p@example.test")
+    )
 
 
 # --------------------------------------------------------------------------------------

@@ -85,13 +85,24 @@ jobs:
         working-directory: patient_portal
         run: python -m pip install --require-hashes -r requirements.lock
 
+      # Run from the repository root so the emitted report is rooted where SonarCloud resolves it.
+      # With working-directory: patient_portal the report carried
+      # <source>carlos_patient_portal</source> and bare filenames, which Sonar resolved against the
+      # repo root and never found -- so every portal file imported as 0% covered. Passing
+      # --cov-config explicitly matters too: without it coverage cannot find relative_files=true
+      # from this directory and falls back to absolute paths, which the containerized scanner
+      # cannot resolve either.
       - name: Generate patient portal coverage
-        working-directory: patient_portal
+        env:
+          PYTHONPATH: patient_portal
         run: >-
-          python -m pytest
-          --cov=carlos_patient_portal
+          python -m pytest patient_portal/tests
+          -c patient_portal/pyproject.toml
+          --rootdir=patient_portal
+          --cov=patient_portal/carlos_patient_portal
+          --cov-config=patient_portal/pyproject.toml
           --cov-report=term-missing
-          --cov-report=xml:coverage.xml
+          --cov-report=xml:patient_portal/coverage.xml
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f

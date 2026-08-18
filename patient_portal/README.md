@@ -236,8 +236,16 @@ address as shown in the production launch command.
 
 Setting it also makes that hostname the only `Host` header accepted for patient and FHIR traffic.
 Health and readiness probes normally arrive under a different name (loopback, a pod IP, or a
-Kubernetes service name), so `127.0.0.1`, `localhost`, and `[::1]` are accepted as probe aliases by
-default. Add to that list with `PATIENT_PORTAL_PROBE_ALLOWED_HOSTS` (comma-separated) when probes
+Kubernetes service name), so `127.0.0.1` and `localhost` are accepted as probe aliases by
+default.
+
+**IPv6 address literals cannot be allowlisted.** Starlette's `TrustedHostMiddleware` derives the
+host as `headers["host"].split(":")[0]`, which produces `[` for `Host: [::1]:8000` and an empty
+string for `::1` — so no entry matches an IPv6 literal in either form, and the only pattern that
+would match (`[`) would accept every IPv6 host. A probe that targets `http://[::1]:8080/health`
+therefore receives `400 Invalid host header`, and on a dual-stack or IPv6-only cluster that reads as
+an unhealthy pod. Point IPv6 probes at a hostname (a Kubernetes service name, or the canonical
+public host) rather than an address literal, or keep the probe on IPv4 loopback. Add to that list with `PATIENT_PORTAL_PROBE_ALLOWED_HOSTS` (comma-separated) when probes
 reach the service under another name — for example
 `PATIENT_PORTAL_PROBE_ALLOWED_HOSTS="portal.svc.cluster.local,10.0.0.7"`. Configured aliases extend
 the loopback defaults rather than replacing them; set

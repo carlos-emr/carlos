@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from carlos_patient_portal import auth, main
 from carlos_patient_portal.config import MIN_PRODUCTION_SECRET_LENGTH, Settings
 from carlos_patient_portal.credentials import hash_password, verify_password
-from carlos_patient_portal.database import Base, create_portal_engine
+from carlos_patient_portal.database import create_portal_engine
 from carlos_patient_portal.interop import (
     build_fhir_organization_id,
     build_fhir_patient_id,
@@ -36,6 +36,7 @@ from carlos_patient_portal.unlock_secrets import (
     create_unlock_secret,
     decrypt_unlock_secret_payload,
 )
+from tests.support import upgrade_to_head
 
 SECRET_LENGTH = MIN_PRODUCTION_SECRET_LENGTH
 
@@ -107,7 +108,7 @@ def test_canonical_host_is_enforced_without_rendering_credentials() -> None:
         )
     )
     app = main.create_app(settings)
-    Base.metadata.create_all(app.state.database_engine)
+    upgrade_to_head(app.state.database_engine)
     client = TestClient(app, base_url="https://portal.example.test")
 
     assert client.get("/").status_code == 200
@@ -125,7 +126,7 @@ def test_fhir_validation_errors_are_operation_outcomes_and_offsets_are_bounded()
             session_secret="s" * SECRET_LENGTH,
         )
     )
-    Base.metadata.create_all(app.state.database_engine)
+    upgrade_to_head(app.state.database_engine)
     client = TestClient(app)
     now = datetime.now(UTC)
     with app.state.session_factory() as session:
@@ -206,7 +207,7 @@ def test_session_enforces_idle_and_absolute_expiry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:")
-    Base.metadata.create_all(engine)
+    upgrade_to_head(engine)
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
     policy = main.auth_policy_from_settings(Settings(environment="development"))
     started_at = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
@@ -275,7 +276,7 @@ def test_session_enforces_idle_and_absolute_expiry(
 
 def test_successful_login_rehashes_legacy_argon2_parameters() -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:")
-    Base.metadata.create_all(engine)
+    upgrade_to_head(engine)
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
     policy = main.auth_policy_from_settings(Settings(environment="development", require_mfa=False))
     legacy_hasher = PasswordHasher(
@@ -324,7 +325,7 @@ def test_successful_login_rehashes_legacy_argon2_parameters() -> None:
 
 def test_transient_cleanup_retains_accepted_invites_and_rechecks_status() -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:")
-    Base.metadata.create_all(engine)
+    upgrade_to_head(engine)
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
     now = datetime(2026, 7, 28, tzinfo=UTC)
     expired_at = now - timedelta(days=60)
@@ -388,7 +389,7 @@ def test_transient_cleanup_retains_accepted_invites_and_rechecks_status() -> Non
 
 def test_transient_cleanup_unlinks_a_retained_replacement_invite() -> None:
     engine = create_portal_engine("sqlite+pysqlite:///:memory:")
-    Base.metadata.create_all(engine)
+    upgrade_to_head(engine)
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
     now = datetime(2026, 7, 28, tzinfo=UTC)
     old_expiry = now - timedelta(days=60)
@@ -444,7 +445,7 @@ def test_transient_cleanup_unlinks_a_retained_replacement_invite() -> None:
 
 def test_unlock_secret_rejects_tampered_algorithm_metadata() -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:")
-    Base.metadata.create_all(engine)
+    upgrade_to_head(engine)
     with Session(engine) as session:
         created = create_unlock_secret(
             session,

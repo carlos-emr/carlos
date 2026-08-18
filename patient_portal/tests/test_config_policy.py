@@ -486,13 +486,15 @@ def test_probe_allowed_hosts_extends_the_loopback_defaults() -> None:
         probe_allowed_hosts="portal.internal, 10.0.0.7",
     )
 
+    # "[::1]" is deliberately absent: TrustedHostMiddleware matches on
+    # `headers["host"].split(":")[0]`, so no IPv6 literal can ever match and listing one only
+    # implied support that never existed. See test_review_blocker_regressions.
     assert settings.allowed_hosts == (
         "portal.example.test",
         "portal.internal",
         "10.0.0.7",
         "127.0.0.1",
         "localhost",
-        "[::1]",
     )
 
 

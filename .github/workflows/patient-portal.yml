@@ -92,8 +92,8 @@ jobs:
 
       - name: Audit dependencies
         run: |
-          python -m pip_audit --require-hashes --progress-spinner off -r requirements-runtime.lock
-          python -m pip_audit --require-hashes --progress-spinner off -r requirements.lock
+          python -m pip_audit --strict --require-hashes --progress-spinner off -r requirements-runtime.lock
+          python -m pip_audit --strict --require-hashes --progress-spinner off -r requirements.lock
 
       - name: Run Ruff
         run: python -m ruff check .

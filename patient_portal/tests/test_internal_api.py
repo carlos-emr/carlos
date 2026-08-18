@@ -13,7 +13,6 @@ from carlos_patient_portal.account_settings import (
 )
 from carlos_patient_portal.config import MIN_PRODUCTION_SECRET_LENGTH, Settings
 from carlos_patient_portal.credentials import hash_password
-from carlos_patient_portal.database import Base
 from carlos_patient_portal.identity import IdentityProof
 from carlos_patient_portal.invites import create_invite
 from carlos_patient_portal.main import create_app
@@ -34,6 +33,7 @@ from carlos_patient_portal.models import (
     PatientPortalUnlockSecret,
     utc_now,
 )
+from tests.support import upgrade_to_head
 
 INTERNAL_API_TOKEN = "c" * MIN_PRODUCTION_SECRET_LENGTH
 IDENTITY_PROOF_SECRET = "i" * MIN_PRODUCTION_SECRET_LENGTH
@@ -102,7 +102,7 @@ def internal_app(**overrides: object):
             **overrides,
         )
     )
-    Base.metadata.create_all(app.state.database_engine)
+    upgrade_to_head(app.state.database_engine)
     return app
 
 

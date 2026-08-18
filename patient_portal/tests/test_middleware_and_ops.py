@@ -20,7 +20,6 @@ from carlos_patient_portal.config import (
     DEFAULT_DATABASE_URL,
 )
 from carlos_patient_portal.database import (
-    Base,
     create_portal_engine,
     create_session_factory,
     session_scope,
@@ -66,6 +65,7 @@ from tests.support import (
     seeded_identity_proof,
     sign_in_patient_api_session,
     staging_settings,
+    upgrade_to_head,
 )
 
 
@@ -508,7 +508,7 @@ def test_sqlite_backup_and_restore_round_trip(tmp_path) -> None:
     backup_path = tmp_path / "portal.backup.db"
     database_url = f"sqlite+pysqlite:///{database_path}"
     engine = create_portal_engine(database_url)
-    Base.metadata.create_all(engine)
+    upgrade_to_head(engine)
     session_factory = create_session_factory(engine)
 
     with session_scope(session_factory) as session:

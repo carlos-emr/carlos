@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from hashlib import sha256
@@ -151,14 +151,16 @@ class AuthPolicy:
 @dataclass(frozen=True)
 class MfaChallengeDelivery:
     challenge_id: int
-    challenge_token: str
-    code: str
+    # A live code and the token it is keyed to. Without repr suppression a single
+    # logger call that formats this object writes both into the application log.
+    challenge_token: str = field(repr=False)
+    code: str = field(repr=False)
     delivery_method: str
     destination: str
     available_delivery_methods: tuple[str, ...]
     expires_at: datetime
-    expected_code_hash: str
-    previous_code_hash: str | None = None
+    expected_code_hash: str = field(repr=False)
+    previous_code_hash: str | None = field(default=None, repr=False)
     previous_delivery_method: str | None = None
     previous_expires_at: datetime | None = None
     # The account-level send cooldown is reserved before delivery is attempted. A failed send
@@ -173,13 +175,13 @@ class MfaChallengeDelivery:
 class LoginResult:
     status: str
     account: PatientPortalAccount
-    session_token: str | None = None
+    session_token: str | None = field(default=None, repr=False)
     mfa_challenge: MfaChallengeDelivery | None = None
 
 
 @dataclass(frozen=True)
 class PasswordResetRequestResult:
-    reset_token: str | None
+    reset_token: str | None = field(repr=False)
     recipient: str | None
     reset_token_id: int | None = None
     account_id: int | None = None
