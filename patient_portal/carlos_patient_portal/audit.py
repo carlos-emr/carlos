@@ -33,8 +33,10 @@ def hash_sensitive_reference(secret: str, purpose: str, value: str) -> str:
     ).hexdigest()
 
 
-def record_audit_event(  # NOSONAR - keyword-only fields deliberately mirror the sparse audit row
-    session: Session,
+# Keyword-only fields deliberately mirror the sparse audit row; grouping them would only hide which
+# values each security-sensitive call records.
+def record_audit_event(
+    session: Session,  # NOSONAR
     *,
     event_type: str,
     outcome: str,

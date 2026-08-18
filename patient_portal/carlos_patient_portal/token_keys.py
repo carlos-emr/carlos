@@ -29,7 +29,8 @@ DERIVED_TOKEN_KEY_BYTES = 32
 CSRF_KEY_PURPOSE = "csrf"
 SESSION_KEY_PURPOSE = "session"
 MFA_KEY_PURPOSE = "mfa"
-PASSWORD_RESET_KEY_PURPOSE = "password-reset"  # noqa: S105 -- a label, not a credential
+# This is a public HKDF purpose label, not a password or credential.
+PASSWORD_RESET_KEY_PURPOSE = "password-reset"  # noqa: S105
 EMAIL_CHANGE_KEY_PURPOSE = "email-change"
 
 
