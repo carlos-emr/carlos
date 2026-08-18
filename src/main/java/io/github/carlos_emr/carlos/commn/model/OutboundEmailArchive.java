@@ -38,6 +38,7 @@ import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -354,8 +355,18 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
         this.deleteReason = deleteReason;
     }
 
+    /**
+     * Returns the attachments as a read-only view.
+     *
+     * <p>Unmodifiable so {@link #addAttachment} stays the only way into the
+     * collection. Adding straight to the returned list would skip the owning-side
+     * assignment that method performs, and the attachment would then fail to
+     * persist because {@code archiveId} is {@code NOT NULL}.</p>
+     *
+     * @return attachments associated with this archive, never {@code null}
+     */
     public List<OutboundEmailArchiveAttachment> getAttachments() {
-        return attachments;
+        return Collections.unmodifiableList(attachments);
     }
 
     /**

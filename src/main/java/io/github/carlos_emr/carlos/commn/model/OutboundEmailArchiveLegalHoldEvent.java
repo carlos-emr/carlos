@@ -140,7 +140,20 @@ public class OutboundEmailArchiveLegalHoldEvent extends AbstractModel<Integer> {
         return action;
     }
 
+    /**
+     * Sets the transition this event records.
+     *
+     * <p>Rejects anything other than the two known actions. The column is the only
+     * thing that says which way the hold moved, and these rows are append-only, so a
+     * value that slipped through here could never be corrected afterwards.</p>
+     *
+     * @param action one of {@link #ACTION_PLACED} or {@link #ACTION_RELEASED}
+     * @throws IllegalArgumentException when the action is not one of those two
+     */
     public void setAction(String action) {
+        if (!ACTION_PLACED.equals(action) && !ACTION_RELEASED.equals(action)) {
+            throw new IllegalArgumentException("Unsupported outbound email archive legal hold action: " + action);
+        }
         this.action = action;
     }
 
