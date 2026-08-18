@@ -69,7 +69,7 @@ class CarlosdocPrivilegeSeedRegressionTest {
     private static final Path BC_SEED = Path.of("database", "mysql", "migration", "bc", "V1.0.2__bc_data.sql");
     private static final Path FLYWAY_GROUP_PRIVILEGE_MIGRATION = Path.of(
             "database", "mysql", "migration", "common",
-            "V1.0.9__remove_carlosdoc_schedule_group_denial.sql");
+            "V1.0.10__remove_carlosdoc_schedule_group_denial.sql");
     private static final Path MIGRATION = Path.of("database", "mysql", "updates",
             "update-2026-05-21-carlosdoc-schedule-group-privilege.sql");
     private static final Set<String> ADMIN_ROLE_GROUPS = Set.of("admin", "999998");
