@@ -33,6 +33,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import io.github.carlos_emr.carlos.commn.dao.CtlSpecialInstructionsDao;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
@@ -260,6 +261,23 @@ public class RxManagerImpl implements RxManager {
             return null;
         }
 
+        // Cross-patient guard: 'old' is loaded by primary key alone, so a caller authorized for their
+        // own patient could pass another patient's drugId and have that drug archived below. Reject when
+        // the loaded drug does not belong to the demographic being updated — the same check discontinue()
+        // and archiveDrug() already perform. Objects.equals (not !=) because getDemographicId() is a
+        // nullable Integer and != would compare references. Done before addDrug() so a rejected request
+        // never creates a replacement drug.
+        if (!java.util.Objects.equals(old.getDemographicId(), d.getDemographicId())) {
+            // Deny EXPLICITLY, do not return null: prescribe() treats a null from updateDrug as
+            // "drug not in the DB, add it", which would launder this security denial into an insert
+            // (a phantom medication in the caller's own patient chart) reported as success. Throwing
+            // keeps the denial distinguishable from the legitimate not-found/not-persisted nulls above.
+            logger.info("Drug demographic ({}) does not match input demographic ({}), update denied.",
+                    LogSafe.sanitize(String.valueOf(old.getDemographicId())),
+                    LogSafe.sanitize(String.valueOf(d.getDemographicId()))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            throw new AccessDeniedException("_rx", "w", String.valueOf(d.getDemographicId()));
+        }
+
         // Attempt to add the new drug first, if this fails
         // the don't try to update the old drug to archived.
 
@@ -319,7 +337,7 @@ public class RxManagerImpl implements RxManager {
 
         if (d == null) { //make sure we have a drug to operate on.
 
-            logger.info("No drug with drugId: " + drugId + " found, failed to discontinue.");
+            logger.info("No drug with drugId: {} found, failed to discontinue.", LogSafe.sanitize(String.valueOf(drugId))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
             return false;
 

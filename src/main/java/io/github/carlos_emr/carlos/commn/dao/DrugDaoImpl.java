@@ -30,20 +30,25 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
-import javax.persistence.Query;
-import javax.persistence.TypedQuery;
+import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
+
+    private static final Set<String> FIND_BY_PARAMETER_ALLOWED_COLUMNS =
+            Set.of("customName", "regional_identifier", "BN");
 
     public DrugDaoImpl() {
         super(Drug.class);
@@ -212,6 +217,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
                 null);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public List<Drug> findByDemographicIdSimilarDrugOrderByDate(Integer demographicId, String regionalIdentifier,
                                                                 String customName, String brandName, String atc) {
@@ -311,7 +318,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         query.setParameter(1, providerNo);
         query.setParameter(2, startDate);
         query.setParameter(3, endDate);
-        BigInteger bint = (BigInteger) query.getSingleResult();
+        Number bint = (Number) query.getSingleResult();
         return bint.intValue();
     }
 
@@ -427,7 +434,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
                                  Boolean patientCompliance, String specialInstruction, String comment, boolean startDateUnknown) {
 
         Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName()
-                + " d WHERE (d.archived = 0 OR d.archived IS NULL) AND "
+                + " d WHERE (d.archived = false OR d.archived IS NULL) AND "
                 + "d.providerNo = :providerNo AND d.demographicId = :demographicNo AND d.rxDate = :rxDate AND d.endDate = :endDate AND d.writtenDate = :writtenDate AND d.brandName = :brandName AND "
                 + "d.gcnSeqNo = :gcnSeqNo AND d.customName = :customName AND d.takeMin = :takemin AND d.takeMax = :takemax AND d.freqCode = :freqCode AND d.duration = :duration AND d.durUnit = :durunit AND d.quantity = :quantity AND d.unitName = :unitName AND d.repeat = :repeat AND "
                 + "d.lastRefillDate = :lastRefillDate AND d.noSubs = :nosubs AND d.prn = :prn AND d.special = :special AND d.outsideProviderName = :outsideProviderName AND d.outsideProviderOhip = :outsideProviderOhip AND d.customInstructions = :customInstructions AND d.longTerm = :longTerm AND "
@@ -480,9 +487,12 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findByParameter(String parameter, String value) {
-        String sql = "select special,special_instruction from drugs where " + parameter + " = '" + value
-                + "' order by drugid desc";
+        if (!FIND_BY_PARAMETER_ALLOWED_COLUMNS.contains(parameter)) {
+            throw new IllegalArgumentException("Unsupported parameter: " + parameter);
+        }
+        String sql = "select special, special_instruction from drugs where " + parameter + " = :value order by drugid desc";
         Query query = entityManager.createNativeQuery(sql);
+        query.setParameter("value", value);
         return query.getResultList();
     }
 
@@ -560,7 +570,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     public Drug findByDemographicIdRegionalIdentifierAndAtcCode(String atcCode, String regionalIdentifier,
                                                                 int demographicNo) {
         Query query = createQuery("d",
-                "d.archived = 1 AND d.archivedReason != '' AND d.regionalIdentifier = :rid AND d.demographicId = :dn AND d.atc = :atc ORDER BY d.id DESC");
+                "d.archived = true AND d.archivedReason != '' AND d.regionalIdentifier = :rid AND d.demographicId = :dn AND d.atc = :atc ORDER BY d.id DESC");
         query.setParameter("dn", demographicNo);
         query.setParameter("atc", atcCode);
         query.setParameter("rid", regionalIdentifier);
@@ -601,7 +611,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
 
     @Override
     public List<Drug> findLongTermDrugsByDemographic(Integer demographicId) {
-        String sqlCommand = "select x from Drug x where x.demographicId=?1 and x.archived = false and x.longTerm = 1";
+        String sqlCommand = "select x from Drug x where x.demographicId=?1 and x.archived = false and x.longTerm = true";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);
@@ -630,6 +640,32 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         typedQuery.setParameter("searchString", "%" + spInstructQuery + "%");
 
         return typedQuery.getResultList();
+    }
+
+    /**
+     * Returns lightweight drug/prescription list DTOs for a demographic, ordered by
+     * prescription date descending. Carries 20 fields vs 101 on the full Drug entity.
+     *
+     * @param demographicId Integer the patient demographic identifier
+     * @return List&lt;DrugListItemDTO&gt; ordered by rxDate descending; empty if none found
+     * @throws jakarta.persistence.PersistenceException if the underlying query fails
+     * @since 2026-04-11
+     */
+    @Override
+    public List<DrugListItemDTO> findDrugDTOsByDemographicId(Integer demographicId) {
+        TypedQuery<DrugListItemDTO> query = entityManager.createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO(
+                    d.id, d.demographicId, d.brandName, d.genericName, d.customName,
+                    d.dosage, d.route, d.freqCode, d.duration, d.durUnit, d.quantity,
+                    d.repeat, d.rxDate, d.endDate, d.lastRefillDate, d.archived,
+                    d.longTerm, d.providerNo, d.special, d.scriptNo)
+                FROM Drug d
+                WHERE d.demographicId = :demoId
+                ORDER BY d.rxDate DESC
+                """,
+                DrugListItemDTO.class);
+        query.setParameter("demoId", demographicId);
+        return query.getResultList();
     }
 
 }

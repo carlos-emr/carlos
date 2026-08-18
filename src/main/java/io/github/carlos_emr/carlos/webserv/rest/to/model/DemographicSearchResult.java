@@ -55,8 +55,6 @@ public class DemographicSearchResult {
     private String phone;
     private String hin;
 
-    private Integer remoteFacilityId;
-
 
     public DemographicSearchResult() {
 
@@ -180,14 +178,6 @@ public class DemographicSearchResult {
 
     public String getFormattedDOB() {
         return getDob() != null ? sdf.format(getDob()) : null;
-    }
-
-    public Integer getRemoteFacilityId() {
-        return remoteFacilityId;
-    }
-
-    public void setRemoteFacilityId(Integer remoteFacilityId) {
-        this.remoteFacilityId = remoteFacilityId;
     }
 
 

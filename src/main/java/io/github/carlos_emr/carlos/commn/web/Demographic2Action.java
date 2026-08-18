@@ -28,7 +28,8 @@
  */
 package io.github.carlos_emr.carlos.commn.web;
 
-import com.opensymphony.xwork2.ActionSupport;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.struts2.ActionSupport;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -38,7 +39,6 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicExtArchiveDao;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicArchive;
 import io.github.carlos_emr.carlos.commn.model.DemographicExtArchive;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -46,8 +46,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -82,6 +82,8 @@ public class Demographic2Action extends ActionSupport {
         return getSubdivisionCodes();
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String getSubdivisionCodes()
             throws Exception {
 
@@ -125,11 +127,15 @@ public class Demographic2Action extends ActionSupport {
             }
         }
 
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().write(results.toString());
 
         return null;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String getCountryAndProvinceCodes()
             throws Exception {
 
@@ -177,11 +183,15 @@ public class Demographic2Action extends ActionSupport {
             }
         }
 
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().write(results.toString());
 
         return null;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String getAddressAndPhoneHistoryAsJson()
             throws Exception {
 
@@ -258,6 +268,8 @@ public class Demographic2Action extends ActionSupport {
 
             ObjectMapper mapper = new ObjectMapper();
             String json = mapper.writeValueAsString(items);
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
             response.getWriter().print(json);
         }
 
@@ -266,22 +278,27 @@ public class Demographic2Action extends ActionSupport {
     }
 
     public String checkForDuplicates() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request),
+                "_demographic", "w", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         String firstName = request.getParameter("firstName");
         String lastName = request.getParameter("lastName");
-        String yearOfBirth = request.getParameter("yearOfBirth");
-        String monthOfBirth = request.getParameter("monthOfBirth");
-        String dayOfBirth = request.getParameter("dayOfBirth");
-
-        List<Demographic> duplicateList = demographicDao.getDemographicWithLastFirstDOBExact(lastName, firstName,
-                yearOfBirth, monthOfBirth, dayOfBirth);
-
         Map<String, Object> result = new HashMap<>();
-        result.put("hasDuplicates", !duplicateList.isEmpty());
+
+        if (firstName == null || firstName.trim().isEmpty()
+                || lastName == null || lastName.trim().isEmpty()) {
+            result.put("hasDuplicates", false);
+        } else {
+            result.put("hasDuplicates", demographicDao.existsByFirstAndLastName(
+                    firstName.trim(), lastName.trim()));
+        }
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         try {
-            new ObjectMapper().writeValue(response.getWriter(), result);
+            objectMapper.writeValue(response.getWriter(), result);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error in checkForDuplicates", e);
         }

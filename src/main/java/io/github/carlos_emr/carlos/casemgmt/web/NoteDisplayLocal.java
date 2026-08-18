@@ -141,10 +141,6 @@ public class NoteDisplayLocal implements NoteDisplay {
         return (caseManagementNote.getProviderNo());
     }
 
-    public Integer getRemoteFacilityId() {
-        return (null);
-    }
-
     public String getRevision() {
         return (caseManagementNote.getRevision());
     }

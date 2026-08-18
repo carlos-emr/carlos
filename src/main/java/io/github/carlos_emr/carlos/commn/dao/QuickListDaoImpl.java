@@ -36,7 +36,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.QuickList;
@@ -80,13 +80,12 @@ public class QuickListDaoImpl extends AbstractDaoImpl<QuickList> implements Quic
     @SuppressWarnings("unchecked")
     @Override
     public List<QuickList> findByCodingSystem(String codingSystem) {
-        String csQuery = "";
+        Query query;
         if (codingSystem != null) {
-            csQuery = " WHERE ql.codingSystem = ?1";
-        }
-        Query query = entityManager.createQuery("select ql from QuickList ql " + csQuery + " GROUP BY ql.quickListName");
-        if (codingSystem != null) {
+            query = entityManager.createQuery("select ql from QuickList ql WHERE ql.codingSystem = ?1 AND ql.id IN (SELECT MIN(ql2.id) FROM QuickList ql2 WHERE ql2.codingSystem = ?1 GROUP BY ql2.quickListName)");
             query.setParameter(1, codingSystem);
+        } else {
+            query = entityManager.createQuery("select ql from QuickList ql WHERE ql.id IN (SELECT MIN(ql2.id) FROM QuickList ql2 GROUP BY ql2.quickListName)");
         }
         return query.getResultList();
     }

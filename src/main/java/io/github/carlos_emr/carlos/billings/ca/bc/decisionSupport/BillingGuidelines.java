@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline;
@@ -44,12 +45,14 @@ import io.github.carlos_emr.carlos.decisionSupport.model.DSGuidelineFactory;
 import io.github.carlos_emr.carlos.decisionSupport.model.DecisionSupportException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import java.io.InputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * Class used to Manage BillingGuidelines.
@@ -88,7 +91,7 @@ public class BillingGuidelines {
     }
 
     static public BillingGuidelines getInstance() {
-        String tmpRegion = OscarProperties.getInstance().getProperty("billregion", "");
+        String tmpRegion = CarlosProperties.getInstance().getProperty("billregion", "");
         if (measurementTemplateFlowSheetConfig.billingGuideLines == null || !tmpRegion.equals(region)) {
             region = tmpRegion;
             measurementTemplateFlowSheetConfig.loadGuidelines(region);
@@ -114,14 +117,14 @@ public class BillingGuidelines {
         }
 
         //load external billing rule files
-        String fileLocation = OscarProperties.getInstance().getProperty("decision_support_dir");
+        String fileLocation = CarlosProperties.getInstance().getProperty("decision_support_dir");
         if (fileLocation != null && !fileLocation.isEmpty()) {
 
             if (!fileLocation.endsWith("/")) {
                 fileLocation = fileLocation + "/";
             }
 
-            String[] filenamesLocal = OscarProperties.getInstance().getProperty("decision_support_files").split(",");
+            String[] filenamesLocal = CarlosProperties.getInstance().getProperty("decision_support_files").split(",");
             if (filenamesLocal != null) {
                 for (String filename : filenamesLocal) {
                     filenamesList.put(fileLocation + filename, !DEFAULT_LOCATION);
@@ -135,6 +138,8 @@ public class BillingGuidelines {
     /**
      * Loads all the guidelines from preset files in this package.  This will probably change to load them from a table in the database.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     void loadGuidelines(String regionCode) {
         log.debug("LOADING GUIDELINES");
         billingGuideLines = new ArrayList<DSGuideline>();
@@ -154,7 +159,7 @@ public class BillingGuidelines {
                     if (isDefaultFileLocation) {
                         is = this.getClass().getClassLoader().getResourceAsStream(streamToGet);
                     } else {
-                        is = new FileInputStream(streamToGet);
+                        is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(streamToGet)));
                     }
                     in = new BufferedReader(new InputStreamReader(is));
                     String str;
@@ -173,12 +178,14 @@ public class BillingGuidelines {
                         try {
                             in.close();
                         } catch (IOException e) {
+                            // ignore: failure closing stream during cleanup is non-actionable
                         }
                     }
                     if (is != null) {
                         try {
                             is.close();
                         } catch (IOException e) {
+                            // ignore: failure closing stream during cleanup is non-actionable
                         }
                     }
                 }

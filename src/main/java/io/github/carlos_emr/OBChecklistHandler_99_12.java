@@ -177,9 +177,9 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
             String riskname = "";
             for (int i = 0; i < atts.getLength(); i++) {
                 count = 1;
-                if (atts.getLocalName(i) == "name") clname = atts.getValue(i);
-                if (atts.getLocalName(i) == "risk") riskname = atts.getValue(i);
-                if (atts.getLocalName(i) == "checkbox") checkbox = true;
+                if ("name".equals(atts.getLocalName(i))) clname = atts.getValue(i);
+                if ("risk".equals(atts.getLocalName(i))) riskname = atts.getValue(i);
+                if ("checkbox".equals(atts.getLocalName(i))) checkbox = true;
             }
 
             if (riskname.equals("") || savedar1params.getProperty(riskname) != null) {
@@ -284,6 +284,10 @@ public class OBChecklistHandler_99_12 extends DefaultHandler {
         try {
             now.setTime(df.parse(savedar1params.getProperty("finalEDB")));
         } catch (java.text.ParseException pe) {
+            // Log only the exception class, not pe itself — the message echoes the
+            // unparseable input which could be a patient-context date value.
+            MiscUtils.getLogger().error("Error parsing finalEDB date in OBChecklistHandler_99_12: "
+                    + pe.getClass().getSimpleName());
         }
         now.add(Calendar.DATE, -280);
     }

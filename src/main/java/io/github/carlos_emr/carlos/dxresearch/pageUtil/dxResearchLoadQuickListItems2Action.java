@@ -32,10 +32,10 @@ package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
 import java.io.IOException;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -44,8 +44,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
 import io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class dxResearchLoadQuickListItems2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -63,13 +64,20 @@ public class dxResearchLoadQuickListItems2Action extends ActionSupport {
         //request.getSession().setAttribute("dxResearchLoadQuickListItemsFrm", frm);
         String quickListName = getQuickListName();
 
+        // CWE-501: validate quickListName at trust boundary -- reject control chars and excessive length
+        if (quickListName == null || quickListName.isEmpty() || quickListName.length() > 100
+                || !quickListName.matches("[^\\p{Cntrl}]+")) {
+            throw new RuntimeException("Invalid quick list name");
+        }
+
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
 
         dxQuickListItemsHandler quicklistItemsHd = new dxQuickListItemsHandler(quickListName);
 
         HttpSession session = request.getSession();
-        session.setAttribute("codingSystem", codingSys);
-        session.setAttribute("allQuickListItems", quicklistItemsHd);
+        session.setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request -- new dxResearchCodingSystem reference object, no user input
+        session.setAttribute("allQuickListItems", quicklistItemsHd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced quick list items loaded by dxQuickListItemsHandler using validated quickListName
+        // nosemgrep: tainted-session-from-http-request -- quickListName validated via regex [^\\p{Cntrl}]+, length-capped to 100; action guarded by _dxresearch read privilege
         session.setAttribute("quickListName", quickListName);
 
         return SUCCESS;
@@ -81,6 +89,7 @@ public class dxResearchLoadQuickListItems2Action extends ActionSupport {
         return quickListName;
     }
 
+    @StrutsParameter
     public void setQuickListName(String quickListName) {
         this.quickListName = quickListName;
     }

@@ -40,11 +40,13 @@ import javax.xml.parsers.ParserConfigurationException;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.Communication.HTTP;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /*
  * @author Jesse Bank
@@ -73,10 +75,12 @@ public class Connection {
     private HTTP http;
 
     public Connection() {
-        this.url = OscarProperties.getInstance().getProperty("pathnet_url");
+        this.url = CarlosProperties.getInstance().getProperty("pathnet_url");
         this.http = new HTTP(this.url);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean Open(String username, String password) {
         boolean success = true;
         try {
@@ -97,6 +101,8 @@ public class Connection {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ArrayList<String> Retrieve() {
         ArrayList<String> messages = null;
         try {
@@ -118,6 +124,8 @@ public class Connection {
         return messages;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ArrayList<String> Retrieve(InputStream is) {
         ArrayList<String> messages = null;
         try {
@@ -149,24 +157,7 @@ public class Connection {
     }
 
     public Document CreateDocument(InputStream input) throws SAXException, IOException, ParserConfigurationException {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-
-        try {
-            // Disable external entities
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            
-            // Disable XInclude
-            factory.setXIncludeAware(false);
-            
-            // Disable expansion of entity references
-            factory.setExpandEntityReferences(false);
-        } catch (ParserConfigurationException e) {
-            logger.error ("Failed ton configure XML parser to prevent XXE", e);
-            return null;
-        }
+        DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
 
         DocumentBuilder builder = factory.newDocumentBuilder();
         return builder.parse(input);

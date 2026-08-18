@@ -33,8 +33,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.AdmissionSearchBean;
@@ -47,10 +47,15 @@ import io.github.carlos_emr.carlos.PMmodule.web.formbean.ActivityReportFormBean;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ActivityReport2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -62,6 +67,11 @@ public class ActivityReport2Action extends ActionSupport {
     private ClientManager clientManager = SpringUtils.getBean(ClientManager.class);
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "r", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
+
         if ("generate".equals(request.getParameter("method"))) {
             return generate();
         }
@@ -116,10 +126,12 @@ public class ActivityReport2Action extends ActionSupport {
 
     private ActivityReportFormBean form;
 
+    @StrutsParameter(depth = 1)
     public ActivityReportFormBean getForm() {
         return form;
     }
 
+    @StrutsParameter
     public void setForm(ActivityReportFormBean form) {
         this.form = form;
     }

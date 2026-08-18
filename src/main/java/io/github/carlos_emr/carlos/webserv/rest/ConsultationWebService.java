@@ -36,18 +36,18 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -74,6 +74,7 @@ import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilte
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ConsultationRequestConverter;
@@ -84,7 +85,7 @@ import io.github.carlos_emr.carlos.webserv.rest.conversion.DemographicConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DocumentConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ProfessionalSpecialistConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.ReferralResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationAttachment;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationAttachmentTo1;
@@ -320,24 +321,6 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return response;
     }
 
-    @GET
-    @Path("/eSendRequest")
-    @Produces(MediaType.APPLICATION_JSON)
-    public GenericRESTResponse eSendRequest(@QueryParam("requestId") Integer requestId) {
-        GenericRESTResponse rp = new GenericRESTResponse();
-        try {
-            consultationManager.doHl7Send(getLoggedInInfo(), requestId);
-            rp.setSuccess(true);
-            rp.setMessage("Referral Electronically Sent");
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error contacting remote server.", e);
-            rp.setSuccess(false);
-            rp.setMessage("There was an error sending electronically, please try again or manually process the referral.");
-        }
-        return rp;
-    }
-
-
     /********************************
      * Consultation Response methods *
      ********************************/
@@ -467,25 +450,31 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return null;
     }
 
+    /**
+     * Imports an Ontario Telemedicine Network (OTN) eConsult record into the local EMR.
+     *
+     * <p>Validates the econsult data and demographic association, then delegates to
+     * the consultation manager for persistence. Error details are logged server-side
+     * only; clients receive a generic error message to avoid leaking internal state.</p>
+     *
+     * @param data OtnEconsult the econsult payload including demographic number and file name
+     * @return RestResponse with success confirmation or a generic error message
+     */
     @POST
     @Path("/importEconsult")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public GenericRESTResponse importEconsult(OtnEconsult data) {
-        GenericRESTResponse response = new GenericRESTResponse();
-
+    public RestResponse<String> importEconsult(OtnEconsult data) {
         if (data != null && data.getDemographicNo() > 0) {
             try {
                 consultationManager.importEconsult(getLoggedInInfo(), data);
-                response.setSuccess(true);
-                response.setMessage("File " + data.getFileName() + " imported.");
+                return RestResponse.successResponse("File " + data.getFileName() + " imported.");
             } catch (Exception e) {
-                response.setSuccess(false);
-                response.setMessage(e.getMessage());
                 MiscUtils.getLogger().error("Exception", e);
+                return RestResponse.errorResponse("Unable to import econsult file.");
             }
         }
-        return response;
+        return RestResponse.errorResponse("Invalid or missing econsult data.");
     }
 
     @GET
@@ -514,7 +503,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
      *******************/
     private Date convertJSONDate(String val) {
         try {
-            return javax.xml.bind.DatatypeConverter.parseDateTime(val).getTime();
+            return jakarta.xml.bind.DatatypeConverter.parseDateTime(val).getTime();
         } catch (Exception e) {
             MiscUtils.getLogger().warn("Error parsing date - " + val);
         }
@@ -673,7 +662,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     private void getDocuments(List<EDoc> edocs, boolean attached, List<ConsultationAttachmentTo1> attachments) {
         for (EDoc edoc : edocs) {
-            String url = "documentManager/ManageDocument.do?method=display&doc_no=" + edoc.getDocId();
+            String url = "documentManager/ManageDocument?method=display&doc_no=" + edoc.getDocId();
             attachments.add(new ConsultationAttachmentTo1(ConversionUtils.fromIntString(edoc.getDocId()), ConsultationAttachmentTo1.TYPE_DOC, attached, edoc.getDescription(), url));
         }
     }
@@ -684,12 +673,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
             String url = null;
             if (lab.isMDS())
-                url = "oscarMDS/SegmentDisplay.jsp?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
+                url = "oscarMDS/ViewSegmentDisplay?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
             else if (lab.isCML())
-                url = "lab/CA/ON/CMLDisplay.jsp?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
+                url = "lab/CA/ON/ViewCMLDisplay?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
             else if (lab.isHL7TEXT())
-                url = "lab/CA/ALL/labDisplay.jsp?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
-            else url = "lab/CA/BC/labDisplay.jsp?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
+                url = "lab/CA/ALL/ViewLabDisplay?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
+            else url = "lab/CA/BC/ViewLabDisplay?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
 
             attachments.add(new ConsultationAttachmentTo1(ConversionUtils.fromIntString(lab.getLabPatientId()), ConsultationAttachmentTo1.TYPE_LAB, attached, displayName, url));
         }
@@ -729,7 +718,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
             if (attached == found) {
                 //if attached is wanted and attached found		OR
                 //if detached is wanted and attached not found
-                String url = "eform/efmshowform_data.jsp?fdid=" + eform.getId();
+                String url = "eform/efmshowform_data?fdid=" + eform.getId();
                 String displayName = eform.getFormName() + " " + eform.getFormDate();
                 attachments.add(new ConsultationAttachmentTo1(ConversionUtils.fromIntString(eform.getId()), ConsultationAttachmentTo1.TYPE_EFORM, attached, displayName, url));
             }
@@ -754,8 +743,17 @@ public class ConsultationWebService extends AbstractServiceImpl {
                         attachment.setDocumentNo(document.getDocumentNo());
                         attachment.getDocument().setId(document.getDocumentNo());
                         goodAttachments.add(attachment);
+                    } catch (FileValidationException e) {
+                        MiscUtils.getLogger().warn("saveRequestAttachments: invalid attachment filename");
+                        markAttachmentSaveFailure(goodAttachments, attachment, "Invalid attachment filename");
                     } catch (IOException e) {
-                        MiscUtils.getLogger().warn("saveRequestAttachments: Could not create document for attachment", e);
+                        if (isFileValidationFailure(e)) {
+                            MiscUtils.getLogger().warn("saveRequestAttachments: invalid attachment filename");
+                            markAttachmentSaveFailure(goodAttachments, attachment, "Invalid attachment filename");
+                        } else {
+                            MiscUtils.getLogger().warn("saveRequestAttachments: Could not create document for attachment", e);
+                            markAttachmentSaveFailure(goodAttachments, attachment, "Attachment could not be saved");
+                        }
                     }
                 }
             } else {
@@ -776,6 +774,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
         List<String> uniqueAttachments = new ArrayList<>();
         //compare current & new, remove from current list the unchanged ones - no need to update them
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
+            if (newAtth.getValidationError() != null) {
+                continue;
+            }
             if (uniqueAttachments.contains(newAtth.getDocumentType() + newAtth.getDocumentNo())) {
                 continue;
             }
@@ -829,5 +830,22 @@ public class ConsultationWebService extends AbstractServiceImpl {
         for (ConsultResponseDoc doc : currentDocs) {
             consultationManager.saveConsultResponseDoc(getLoggedInInfo(), doc);
         }
+    }
+
+    private void markAttachmentSaveFailure(List<ConsultationAttachmentTo1> attachments,
+                                           ConsultationAttachmentTo1 attachment,
+                                           String validationError) {
+        attachment.setValidationError(validationError);
+        attachments.add(attachment);
+    }
+
+    private static boolean isFileValidationFailure(Throwable throwable) {
+        while (throwable != null) {
+            if (throwable instanceof FileValidationException) {
+                return true;
+            }
+            throwable = throwable.getCause();
+        }
+        return false;
     }
 }

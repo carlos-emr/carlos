@@ -25,7 +25,7 @@ package io.github.carlos_emr.carlos.commn.dao.utils;
 
 import java.util.Locale;
 
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Provider;

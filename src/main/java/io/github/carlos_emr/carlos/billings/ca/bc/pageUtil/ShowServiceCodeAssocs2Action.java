@@ -31,17 +31,27 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ShowServiceCodeAssocs2Action
         extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         BillingAssociationPersistence per = new BillingAssociationPersistence();
         List lst = per.getServiceCodeAssocs();
         request.setAttribute("assocs", lst);

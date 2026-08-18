@@ -30,17 +30,23 @@
 
 package io.github.carlos_emr.carlos.casemgmt.web;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.util.ExtPrintRegistry;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ExtPrintRegistry2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -48,6 +54,11 @@ public class ExtPrintRegistry2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         return register();
     }
 
@@ -57,7 +68,7 @@ public class ExtPrintRegistry2Action extends ActionSupport {
 
         ExtPrintRegistry.addEntry(name, bean);
 
-        logger.info("ext print registry added " + name + ":" + bean);
+        logger.info("ext print registry added {}:{}", LogSafe.sanitize(name), LogSafe.sanitize(bean)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         return null;
     }
 

@@ -28,44 +28,69 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.regex.Pattern;
+import java.util.Map;
 
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.OscarDocumentCreator;
 
 /**
  * @author Toby
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class printLabDaySheet2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger logger = MiscUtils.getLogger();
-    
-    // Whitelist pattern for allowed XML style files - alphanumeric, dash, underscore only, must end with .xml
-    private static final Pattern ALLOWED_XML_STYLE_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]+\\.xml$");
+
+    // Allowlist of permitted XML style filenames mapped to their exact classpath resource names.
+    // Using a Map (key=user input, value=trusted constant) ensures the value used for resource
+    // loading is never derived from user input, which breaks CodeQL's taint chain.
+    // Keys and values are intentionally identical; the Map lookup is what matters for security.
+    private static final Map<String, String> ALLOWED_XML_STYLE_FILES;
+    static {
+        Map<String, String> m = new HashMap<>();
+        m.put("labDaySheet.xml", "labDaySheet.xml");
+        m.put("billDaySheet.xml", "billDaySheet.xml");
+        ALLOWED_XML_STYLE_FILES = Collections.unmodifiableMap(m);
+    }
 
     public printLabDaySheet2Action() {
     }
 
     @Override
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
+            throw new SecurityException("missing required sec object (_report)");
+        }
+
 
         String classpath = (String) request.getSession().getServletContext().getAttribute("org.apache.catalina.jsp_classpath");
         if (classpath == null)
@@ -79,32 +104,29 @@ public class printLabDaySheet2Action extends ActionSupport {
         InputStream ins = null;
 
         try {
-            ins = new FileInputStream(System.getProperty("user.home") + "Addresslabel.xml");
-        } catch (FileNotFoundException ex1) {
-            logger.debug("Addresslabel.xml not found in user's home directory. Using default instead");
+            ins = new FileInputStream(PathValidationUtils.resolveConfiguredFile(new File(System.getProperty("user.home"), "Addresslabel.xml").getPath(), "lab day sheet user template"));
+        } catch (FileNotFoundException | SecurityException ex1) {
+            logger.debug("Addresslabel.xml not found in user's home directory. Using default instead", ex1);
         }
 
         if (ins == null) {
             try {
-                // Validate xmlStyleFile parameter to prevent path injection
-                if (xmlStyleFile == null || xmlStyleFile.isEmpty()) {
-                    // Use default file if parameter is not provided
-                    xmlStyleFile = "labDaySheet.xml";
-                } else {
-                    // Remove any path traversal sequences
-                    xmlStyleFile = xmlStyleFile.replaceAll("\\.\\.", "");
-                    xmlStyleFile = xmlStyleFile.replaceAll("[\\\\/]", "");
-                    
-                    // Validate against whitelist pattern
-                    if (!ALLOWED_XML_STYLE_PATTERN.matcher(xmlStyleFile).matches()) {
-                        logger.error("Invalid xmlStyle parameter: " + xmlStyleFile);
-                        // Fall back to default file for security
-                        xmlStyleFile = "labDaySheet.xml";
+                // Validate xmlStyleFile against an explicit allowlist.
+                // The Map value (not the user-supplied input) is used for resource loading,
+                // which breaks CodeQL's taint chain.
+                String safeXmlStyleFile = "labDaySheet.xml";
+                if (xmlStyleFile != null && !xmlStyleFile.isEmpty()) {
+                    String baseName = FilenameUtils.getName(xmlStyleFile);
+                    String resolved = ALLOWED_XML_STYLE_FILES.get(baseName);
+                    if (resolved != null) {
+                        safeXmlStyleFile = resolved;
+                    } else {
+                        logger.error("Invalid xmlStyle parameter rejected: {}", LogSafe.sanitize(baseName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     }
                 }
                 
-                ins = getClass().getResourceAsStream("/oscar/oscarReport/pageUtil/" + xmlStyleFile);
-                logger.debug("loading from : /oscar/oscarReport/pageUtil/" + xmlStyleFile + " " + ins);
+                ins = getClass().getResourceAsStream("/oscar/oscarReport/pageUtil/" + safeXmlStyleFile);
+                logger.debug("loading from : /oscar/oscarReport/pageUtil/" + safeXmlStyleFile + " " + ins);
             } catch (Exception ex1) {
                 MiscUtils.getLogger().error("Error", ex1);
             }
@@ -117,14 +139,23 @@ public class printLabDaySheet2Action extends ActionSupport {
         }
 
         response.setHeader("Content-disposition", getHeader(response).toString());
+        if (ins == null) {
+            logger.error("No lab day sheet template stream available");
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
+        }
+
         OscarDocumentCreator osc = new OscarDocumentCreator();
-        try {
-            osc.fillDocumentStream(parameters, sos, "pdf", ins, DbConnectionFilter.getThreadLocalDbConnection());
-        } catch (SQLException e) {
+        try (InputStream input = ins;
+             Connection connection = LegacyJdbcQuery.getConnection()) {
+            osc.fillDocumentStream(parameters, sos, "pdf", input, connection);
+        } catch (SQLException | IOException e) {
             MiscUtils.getLogger().error("Error", e);
         }
 
-        return SUCCESS;
+        // This action streams the PDF directly and its Struts mapping has no success result.
+        // Returning SUCCESS makes Struts render the global error page over the PDF as "0".
+        return NONE;
 
     }
 

@@ -31,8 +31,8 @@ package io.github.carlos_emr.carlos.commn.web;
 import java.util.Arrays;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.EpisodeDao;
 import io.github.carlos_emr.carlos.commn.model.Episode;
@@ -41,10 +41,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.beans.BeanUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class Episode2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -85,7 +86,7 @@ public class Episode2Action extends ActionSupport {
             request.setAttribute("episode", e);
         }
 
-        String[] codingSystems = OscarProperties.getInstance().getProperty("dxResearch_coding_sys", "").split(",");
+        String[] codingSystems = CarlosProperties.getInstance().getProperty("dxResearch_coding_sys", "").split(",");
         List<String> cs = Arrays.asList(codingSystems);
         request.setAttribute("codingSystems", cs);
         request.setAttribute("demographicNo", request.getParameter("demographicNo"));
@@ -123,10 +124,12 @@ public class Episode2Action extends ActionSupport {
 
     private Episode episode;
 
+    @StrutsParameter(depth = 1)
     public Episode getEpisode() {
         return episode;
     }
 
+    @StrutsParameter
     public void setEpisode(Episode episode) {
         this.episode = episode;
     }

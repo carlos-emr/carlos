@@ -31,8 +31,8 @@ package io.github.carlos_emr.carlos.lab.tld;
 
 import java.util.List;
 
-import javax.servlet.jsp.JspException;
-import javax.servlet.jsp.tagext.TagSupport;
+import jakarta.servlet.jsp.JspException;
+import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;

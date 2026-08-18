@@ -43,9 +43,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
@@ -53,16 +53,22 @@ import io.github.carlos_emr.carlos.commn.dao.IncomingLabRulesDao;
 import io.github.carlos_emr.carlos.commn.model.IncomingLabRules;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ForwardingRules;
 
 /**
  * @author wrighd
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ForwardingRules2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -76,6 +82,11 @@ public class ForwardingRules2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
+            throw new SecurityException("missing required sec object (_lab)");
+        }
+
 
         String providerNo = request.getParameter("providerNo");
         String operation = request.getParameter("operation");
@@ -83,7 +94,7 @@ public class ForwardingRules2Action extends ActionSupport {
             operation = "";
         }
 
-        logger.info("ForwardingRules2Action performing: " + operation + " for providers: " + providerNo);
+        logger.info("ForwardingRules2Action performing: {} for providers: {}", LogSafe.sanitize(operation), LogSafe.sanitize(providerNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         if (operation.equals("update")) {
             String[] providerNums = request.getParameterValues("providerNums");
             if (providerNums == null) {
@@ -91,7 +102,7 @@ public class ForwardingRules2Action extends ActionSupport {
             }
             String status = request.getParameter("status");
 
-            logger.info("Updating Rules for providers " + Arrays.toString(providerNums) + "; Status is " + status);
+            logger.info("Updating Rules for providers {}; Status is {}", LogSafe.sanitize(Arrays.toString(providerNums)), LogSafe.sanitize(status)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             try {
                 // insert forwarding rules
                 if (providerNums != null && providerNums.length > 0) {
@@ -107,7 +118,7 @@ public class ForwardingRules2Action extends ActionSupport {
                         r.setFrwdProviderNo(providerNums[i]);
                         dao.persist(r);
 
-                        logger.info("Added rule: " + r);
+                        logger.info("Added rule: {}", LogSafe.sanitizeObject(r)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     }
                 }
 
@@ -125,7 +136,7 @@ public class ForwardingRules2Action extends ActionSupport {
                         r.setFrwdProviderNo("0");
                         dao.persist(r);
 
-                        logger.info("Inserted a new rule: " + r);
+                        logger.info("Inserted a new rule: {}", LogSafe.sanitizeObject(r)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
                         // clear the rules if there is no forwarding and the user sets the
                         // status to New... since this is the default
@@ -140,7 +151,7 @@ public class ForwardingRules2Action extends ActionSupport {
                         result.setStatus(status);
                         dao.merge(result);
 
-                        logger.info("Set status to " + status + " for " + result);
+                        logger.info("Set status to {} for {}", LogSafe.sanitize(status), LogSafe.sanitizeObject(result)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     }
                 }
             } catch (Exception e) {
@@ -168,9 +179,11 @@ public class ForwardingRules2Action extends ActionSupport {
         return true;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean removeRule(String providerNo, String remProviderNum) {
         try {
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             String autoFileLabs = props.getProperty("AUTO_FILE_LABS");
 
             ForwardingRules fr = new ForwardingRules();

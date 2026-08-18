@@ -26,9 +26,9 @@ import java.util.LinkedList;
 import java.util.List;
 
 import javax.xml.XMLConstants;
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBException;
-import javax.xml.bind.Unmarshaller;
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.JAXBException;
+import jakarta.xml.bind.Unmarshaller;
 import javax.xml.transform.Source;
 import javax.xml.transform.stream.StreamSource;
 import javax.xml.validation.Schema;
@@ -38,8 +38,9 @@ import javax.xml.validation.SchemaFactory;
 //Replaced old CXF FileUtils and DOM parser imports with Java NIO for simpler UTF-8 file reads
 import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 
-import org.apache.commons.codec.digest.DigestUtils;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
@@ -58,21 +59,28 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentSubCla
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.sax.SAXSource;
 
 import org.springframework.core.io.ClassPathResource;
 
 import org.xml.sax.SAXException;
 
-import omd.hrm.OmdCds;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.OmdCds;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 public class HRMReportParser {
 
     private static Logger logger = MiscUtils.getLogger();
+    private static final Set<String> HRM_SCHEMA_IMPORTS = Set.of("ontariomd_hrm_dt.xsd");
 
     private HRMReportParser() {
     }
@@ -93,6 +101,8 @@ public class HRMReportParser {
     /*
      * Called when a report is added to system
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use; path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use; path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static HRMReport parseReport(LoggedInInfo loggedInInfo, String hrmReportFileLocation, List<Throwable> errors) {
         OmdCds root = null;
 
@@ -103,12 +113,24 @@ public class HRMReportParser {
             try {
                 // a lot of the parsers need to refer to a file and even when they provide
                 // parse(String text) it treats the text as a URL, so we load from disk
-                File tmpXMLholder = new File(hrmReportFileLocation);
+                String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+                File documentDir = PathValidationUtils.resolveConfiguredDirectory(place, "DOCUMENT_DIR");
+                File tmpXMLholder = PathValidationUtils.resolveTrustedPath(new File(hrmReportFileLocation));
 
-                // check DOCUMENT_DIR if not found
-                if (!tmpXMLholder.exists()) {
-                    String place = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
-                    tmpXMLholder = new File(place + File.separator + hrmReportFileLocation);
+                // Enforce DOCUMENT_DIR containment: only trust the resolved absolute path if it both
+                // exists and is within DOCUMENT_DIR; otherwise resolve the name relative to (and
+                // contained within) DOCUMENT_DIR rather than reading an arbitrary on-disk location.
+                boolean withinDocumentDir = false;
+                if (tmpXMLholder.exists()) {
+                    try {
+                        PathValidationUtils.validateExistingPath(tmpXMLholder, documentDir);
+                        withinDocumentDir = true;
+                    } catch (SecurityException e) {
+                        withinDocumentDir = false;
+                    }
+                }
+                if (!withinDocumentDir) {
+                    tmpXMLholder = PathValidationUtils.validateExistingPath(new File(documentDir, hrmReportFileLocation), documentDir);
                 }
 
                 if (!tmpXMLholder.exists()) {
@@ -125,35 +147,52 @@ public class HRMReportParser {
                 }
 
                 // Load and compile the XSD schema
-                SchemaFactory factory = SchemaFactory
-                    .newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-                File schemaFile = new ClassPathResource("/xsd/hrm/1.1.2/ontariomd_hrm.xsd").getFile();
-                Source schemaSource = new StreamSource(schemaFile);
-                Schema schema = factory.newSchema(schemaSource);
+                SchemaFactory factory = XmlUtils.createSecureSchemaFactory(
+                    XMLConstants.W3C_XML_SCHEMA_NS_URI);
+                factory.setResourceResolver(XmlUtils.createClasspathSchemaResolver(
+                    HRMReportParser.class,
+                    "/xsd/hrm/1.1.2/",
+                    HRM_SCHEMA_IMPORTS));
+                ClassPathResource schemaResource = new ClassPathResource("/xsd/hrm/1.1.2/ontariomd_hrm.xsd");
+                Schema schema;
+                try (java.io.InputStream schemaInputStream = schemaResource.getInputStream()) {
+                    Source schemaSource = new StreamSource(schemaInputStream);
+                    schemaSource.setSystemId(schemaResource.getURL().toExternalForm());
+                    schema = factory.newSchema(schemaSource);
+                }
 
                 // Unmarshal into JAXB model
-                JAXBContext jc = JAXBContext.newInstance("omd.hrm");
+                JAXBContext jc = JAXBContext.newInstance(OmdCds.class);
                 Unmarshaller u = jc.createUnmarshaller();
                 u.setSchema(schema);
                 try (FileInputStream fileInputStream = new FileInputStream(tmpXMLholder)) {
-                    root = (OmdCds) u.unmarshal(fileInputStream);
+                    SAXSource secureSource = XmlUtils.createSecureJaxbSource(fileInputStream);
+                    root = (OmdCds) u.unmarshal(secureSource);
                 }
 
                 tmpXMLholder = null;
             } catch (FileNotFoundException e) {
                 logger.error("File Not Found " + e);
                 if (errors != null) errors.add(e);
-            } catch (SAXException e) {
+            } catch (SAXException | ParserConfigurationException e) {
                 logger.error("SAX ERROR PARSING XML " + e);
                 if (errors != null) errors.add(e);
             } catch (JAXBException e) {
-                logger.error("error", e);
                 String msg = (e.getLinkedException() != null)
                     ? e.getLinkedException().getMessage()
                     : e.getMessage();
-                SFTPConnector.notifyHrmError(loggedInInfo, msg);
+                logger.error("HRM JAXB parse error: " + msg, e);
+                if (errors != null) errors.add(e);
             } catch (IOException e) {
-                logger.error("ERROR READING report_manager_cds.xsd RESOURCE" + e);
+                logger.error("ERROR READING report_manager_cds.xsd RESOURCE", e);
+                if (errors != null) errors.add(e);
+            } catch (SecurityException e) {
+                // PathValidationUtils rejects a misconfigured DOCUMENT_DIR or a DB-sourced report path
+                // that escapes it (FileValidationException extends SecurityException). Return null instead
+                // of letting the throw abort the whole HRM list render / batch import; list-render callers
+                // skip null reports, and the throw no longer aborts the batch loop.
+                logger.error("Rejected HRM report path; skipping document: {}", LogSafe.sanitize(hrmReportFileLocation));
+                if (errors != null) errors.add(e);
             }
 
             if (root != null && hrmReportFileLocation != null && fileData != null) {
@@ -164,106 +203,8 @@ public class HRMReportParser {
         return null;
     }
 
-    public static void addReportToInbox(LoggedInInfo loggedInInfo, HRMReport report) {
-
-        if (report == null) {
-            logger.info("addReportToInbox cannot continue, report parameter is null");
-            return;
-        }
-
-        logger.info("Adding Report to Inbox, for file:" + report.getFileLocation());
-
-        HRMDocument document = new HRMDocument();
-
-        File fileLocation = new File(report.getFileLocation());
-
-        document.setReportFile(fileLocation.getName());
-        document.setReportStatus(report.getResultStatus());
-        document.setReportType(report.getFirstReportClass());
-        document.setTimeReceived(new Date());
-        document.setSourceFacility(report.getSendingFacilityId());
-        document.setSourceFacilityReportNo(report.getSendingFacilityReportNo());
-
-        String reportFileData = report.getFileData();
-
-        String noMessageIdFileData = reportFileData.replaceAll("<MessageUniqueID>.*?</MessageUniqueID>", "<MessageUniqueID></MessageUniqueID>");
-        String noTransactionInfoFileData = reportFileData.replaceAll("<TransactionInformation>.*?</TransactionInformation>", "<TransactionInformation></TransactionInformation>");
-        String noDemograhpicInfoFileData = reportFileData.replaceAll("<Demographics>.*?</Demographics>", "<Demographics></Demographics").replaceAll("<MessageUniqueID>.*?</MessageUniqueID>", "<MessageUniqueID></MessageUniqueID>");
-
-        String noMessageIdHash = DigestUtils.md5Hex(noMessageIdFileData);
-        String noTransactionInfoHash = DigestUtils.md5Hex(noTransactionInfoFileData);
-        String noDemographicInfoHash = DigestUtils.md5Hex(noDemograhpicInfoFileData);
-
-        document.setReportHash(noMessageIdHash);
-        document.setReportLessTransactionInfoHash(noTransactionInfoHash);
-        document.setReportLessDemographicInfoHash(noDemographicInfoHash);
-
-        document.setReportDate(HRMReportParser.getAppropriateDateFromReport(report));
-
-        document.setDescription("");
-
-        String name = report.getLegalLastName() + ", " + report.getLegalFirstName();
-        for (String iName : report.getLegalOtherNames()) {
-            name = name + " " + iName;
-        }
-        document.setFormattedName(name);
-        document.setDob(report.getDateOfBirthAsString());
-        document.setGender(report.getGender());
-        document.setHcn(report.getHCN());
-
-        document.setClassName(report.getFirstReportClass());
-        document.setSubClassName(report.getFirstReportSubClass());
-
-        document.setRecipientId(report.getDeliverToUserId());
-        document.setRecipientName(report.getDeliveryToUserIdFormattedName());
-
-        // We're going to check to see if there's a match in the database already for either of these
-        // report hash matches = duplicate report for same recipient
-        // no transaction info hash matches = duplicate report, but different recipient
-        HRMDocumentDao hrmDocumentDao = (HRMDocumentDao) SpringUtils.getBean(HRMDocumentDao.class);
-        List<Integer> exactMatchList = hrmDocumentDao.findByHash(noMessageIdHash);
-
-        if (exactMatchList == null || exactMatchList.size() == 0) {
-            List<HRMDocument> sameReportDifferentRecipientReportList = hrmDocumentDao.findByNoTransactionInfoHash(noTransactionInfoHash);
-
-            if (sameReportDifferentRecipientReportList != null && sameReportDifferentRecipientReportList.size() > 0) {
-                logger.info("Same Report Different Recipient, for file:" + report.getFileLocation());
-                HRMReportParser.routeReportToProvider(sameReportDifferentRecipientReportList.get(0), report);
-            } else {
-                // New report or changed report
-                hrmDocumentDao.persist(document);
-                logger.debug("MERGED DOCUMENTS ID" + document.getId());
-
-
-                HRMReportParser.routeReportToDemographic(report, document);
-                HRMReportParser.doSimilarReportCheck(loggedInInfo, report, document);
-                // Attempt a route to the providers listed in the report -- if they don't exist, note that in the record
-                Boolean routeSuccess = HRMReportParser.routeReportToProvider(report, document.getId());
-                if (!routeSuccess) {
-
-                    logger.info("Adding the providers name to the list of unidentified providers, for file:" + report.getFileLocation());
-
-                    // Add the providers name to the list of unidentified providers for this report
-                    document.setUnmatchedProviders((document.getUnmatchedProviders() != null ? document.getUnmatchedProviders() : "") + "|" + ((report.getDeliverToUserIdLastName() != null) ? report.getDeliverToUserIdLastName() + ", " + report.getDeliverToUserIdFirstName() : report.getDeliverToUserId()) + " (" + report.getDeliverToUserId() + ")");
-                    hrmDocumentDao.merge(document);
-                    // Route this report to the "system" user so that a search for "all" in the inbox will come up with them
-                    HRMReportParser.routeReportToProvider(document.getId(), "-1");
-                }
-
-                HRMReportParser.routeReportToSubClass(report, document.getId());
-            }
-        } else if (exactMatchList != null && exactMatchList.size() > 0) {
-            // We've seen this one before.  Increment the counter on how many times we've seen it before
-            //TODO: do we need to save more info about when we saw the duplicates!
-            logger.debug("We've seen this report before. Increment the counter on how many times we've seen it before, for file:" + report.getFileLocation());
-
-            HRMDocument existingDocument = hrmDocumentDao.findById(exactMatchList.get(0)).get(0);
-            existingDocument.setNumDuplicatesReceived((existingDocument.getNumDuplicatesReceived() != null ? existingDocument.getNumDuplicatesReceived() : 0) + 1);
-
-            hrmDocumentDao.merge(existingDocument);
-        }
-    }
-
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static void routeReportToDemographic(HRMReport report, HRMDocument mergedDocument) {
 
         if (report == null) {
@@ -280,7 +221,7 @@ public class HRMReportParser {
         List<Demographic> matchingDemographicListByHin = demographicDao.searchDemographicByHIN(report.getHCN());
 
         if (matchingDemographicListByHin.size() > 0) {
-            if (OscarProperties.getInstance().isPropertyActive("omd_hrm_demo_matching_criteria")) {
+            if (CarlosProperties.getInstance().isPropertyActive("omd_hrm_demo_matching_criteria")) {
                 for (Demographic d : matchingDemographicListByHin) {
                     if (report.getGender().equalsIgnoreCase(d.getSex())
                             && report.getDateOfBirthAsString().equalsIgnoreCase(d.getBirthDayAsString())
@@ -301,6 +242,8 @@ public class HRMReportParser {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static boolean hasSameStatus(HRMReport report, HRMReport loadedReport) {
         if (report.getResultStatus() != null) {
             return report.getResultStatus().equalsIgnoreCase(loadedReport.getResultStatus());
@@ -316,6 +259,8 @@ public class HRMReportParser {
      * 1) If this report was sent to another patient before, then we set the parentId of this report to that one
      *
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static void doSimilarReportCheck(LoggedInInfo loggedInInfo, HRMReport report, HRMDocument mergedDocument) {
 
         if (report == null) {
@@ -416,6 +361,8 @@ public class HRMReportParser {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void routeReportToSubClass(HRMReport report, Integer reportId) {
         if (report == null) {
             logger.info("routeReportToSubClass cannot continue, report parameter is null");
@@ -452,6 +399,8 @@ public class HRMReportParser {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String getAppropriateDateStringFromReport(HRMReport report) {
         if (report.getFirstReportClass().equalsIgnoreCase("Diagnostic Imaging Report") || report.getFirstReportClass().equalsIgnoreCase("Cardio Respiratory Report")) {
             return (String) report.getAccompanyingSubclassList().get(0).get(4);
@@ -464,6 +413,8 @@ public class HRMReportParser {
         return sdf.format(calendar.getTime());
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Date getAppropriateDateFromReport(HRMReport report) {
         if (report.getFirstReportClass().equalsIgnoreCase("Diagnostic Imaging Report") || report.getFirstReportClass().equalsIgnoreCase("Cardio Respiratory Report")) {
             return ((Date) (report.getAccompanyingSubclassList().get(0).get(3)));
@@ -487,23 +438,14 @@ public class HRMReportParser {
 
         String practitionerNo = report.getDeliverToUserId();
 
-        Provider sendToProvider = null;
-        if (OscarProperties.getInstance().isPropertyActive("OMD_match_using_OLIS_identifier_type")) {
-            if (practitionerNo.startsWith("D")) {
-                sendToProvider = providerDao.getProviderByPractitionerNoAndOlisType(practitionerNo.substring(1), "MDL");
-            } else if (practitionerNo.startsWith("N")) {
-                sendToProvider = providerDao.getProviderByPractitionerNoAndOlisType(practitionerNo.substring(1), "NPL");
-            }
-        } else {
-            sendToProvider = providerDao.getProviderByPractitionerNo(practitionerNo.substring(1));
-        }
+        Provider sendToProvider = providerDao.getProviderByPractitionerNo(practitionerNo.substring(1));
 
         List<Provider> sendToProviderList = new LinkedList<Provider>();
         if (sendToProvider != null) {
             sendToProviderList.add(sendToProvider);
         }
 
-        if (OscarProperties.getInstance().isPropertyActive("queens_resident_tagging")) {
+        if (CarlosProperties.getInstance().isPropertyActive("queens_resident_tagging")) {
             DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
             List<Demographic> matchingDemographicListByHin = demographicDao.searchDemographicByHIN(report.getHCN());
             if (!matchingDemographicListByHin.isEmpty()) {
@@ -576,18 +518,6 @@ public class HRMReportParser {
 
     }
 
-    public static void setDocumentParent(String reportId, String childReportId) {
-        HRMDocumentDao hrmDocumentDao = (HRMDocumentDao) SpringUtils.getBean(HRMDocumentDao.class);
-        try {
-            HRMDocument childDocument = hrmDocumentDao.find(childReportId);
-            childDocument.setParentReport(Integer.parseInt(reportId));
-
-            hrmDocumentDao.merge(childDocument);
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Can't set HRM document parent", e);
-        }
-    }
-
     public static void routeReportToProvider(HRMDocument originalDocument, HRMReport newReport) {
         routeReportToProvider(newReport, originalDocument.getId());
     }
@@ -601,17 +531,6 @@ public class HRMReportParser {
 
         hrmDocumentToProviderDao.merge(providerRouting);
 
-    }
-
-    public static void signOffOnReport(String providerRoutingId, Integer signOffStatus) {
-        HRMDocumentToProviderDao hrmDocumentToProviderDao = (HRMDocumentToProviderDao) SpringUtils.getBean(HRMDocumentToProviderDao.class);
-        HRMDocumentToProvider providerRouting = hrmDocumentToProviderDao.find(providerRoutingId);
-
-        if (providerRouting != null) {
-            providerRouting.setSignedOff(signOffStatus);
-            providerRouting.setSignedOffTimestamp(new Date());
-            hrmDocumentToProviderDao.merge(providerRouting);
-        }
     }
 
     public static void routeReportToDemographic(Integer reportId, Integer demographicNo) {

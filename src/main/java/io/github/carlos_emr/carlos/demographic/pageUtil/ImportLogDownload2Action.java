@@ -37,9 +37,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import javax.servlet.ServletContext;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
@@ -47,13 +47,14 @@ import org.apache.logging.log4j.Logger;
 /**
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class ImportLogDownload2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
@@ -78,7 +79,7 @@ public class ImportLogDownload2Action extends ActionSupport {
         
         // Get the temp directory from servlet context
         ServletContext servletContext = ServletActionContext.getServletContext();
-        File tempDir = (File) servletContext.getAttribute("javax.servlet.context.tempdir");
+        File tempDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir");
         
         if (tempDir == null) {
             logger.error("Unable to access temp directory");
@@ -90,7 +91,7 @@ public class ImportLogDownload2Action extends ActionSupport {
             String sanitizedFilename = FilenameUtils.getName(importLogParam);
             
             if (sanitizedFilename == null || sanitizedFilename.isEmpty()) {
-                logger.warn("Invalid import log filename: " + importLogParam);
+                logger.warn("Invalid import log filename: {}", LogSafe.sanitize(importLogParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return "error";
             }
             
@@ -99,15 +100,15 @@ public class ImportLogDownload2Action extends ActionSupport {
 
             // Validate using PathValidationUtils to prevent directory traversal
             try {
-                PathValidationUtils.validateExistingPath(importLogFile, tempDir);
+                importLogFile = PathValidationUtils.validateExistingPath(importLogFile, tempDir);
             } catch (SecurityException e) {
-                logger.error("Path is not in the correct directory: " + importLogParam);
+                logger.error("Path is not in the correct directory: {}", LogSafe.sanitize(importLogParam), e);
                 return "error";
             }
 
             // Check if file is readable
             if (!importLogFile.canRead()) {
-                logger.warn("Import log file not readable: " + sanitizedFilename);
+                logger.warn("Import log file not readable: {}", LogSafe.sanitize(sanitizedFilename)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return "error";
             }
             
@@ -122,7 +123,7 @@ public class ImportLogDownload2Action extends ActionSupport {
                 byte[] buffer = new byte[8192];
                 int bytesRead;
                 while ((bytesRead = in.read(buffer)) != -1) {
-                    out.write(buffer, 0, bytesRead);
+                    out.write(buffer, 0, bytesRead); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/octet-stream file download
                 }
                 out.flush();
             }

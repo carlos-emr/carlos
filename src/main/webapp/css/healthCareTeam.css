@@ -57,7 +57,10 @@ input#searchHealthCareTeamInput:focus {
 }
 
 
-/* OVERRIDE ELEMENTS IN HOST PAGE */
+/* OVERRIDE ELEMENTS IN HOST PAGE
+   These tables are embedded in the demographic edit page; !important is needed
+   to override inline bgcolor attributes still present in the JSP markup.
+   Border color migrated from legacy lavender (#CCCCFF) to CARLOS primary blue. */
 body#demographiceditdemographic table#demographicPatientNotes,
 body#demographiceditdemographic table#waitingListTable,
 body#demographiceditdemographic table#privacyConsentTable,
@@ -65,7 +68,7 @@ body#demographiceditdemographic table#rxinteractionTable,
 body#demographiceditdemographic table#firstnationsdatatable {
     background-color: white !important;
     border-collapse: collapse !important;
-    border-bottom: thin solid #CCCCFF !important;
+    border-bottom: thin solid var(--carlos-primary, #337ab7) !important;
 }
 
 /* DISPLAY HEALTH CARE TEAM */
@@ -92,9 +95,12 @@ table#listHealthCareTeam .alignRight {
 
 }
 
+/* Header background migrated from legacy lavender (#CCCCFF) to CARLOS primary
+   blue; white text added for contrast against the darker background. */
 table#listHealthCareTeam th {
     padding-left: 5px;
-    background-color: #CCCCFF;
+    background-color: var(--carlos-primary, #337ab7);
+    color: white;
     font-size: 7.5pt;
 }
 
@@ -135,9 +141,13 @@ table#privacyConsentTable {
     width: 100%;
 }
 
+/* Category section headings (Privacy Consent, Patient Notes, Waiting List, etc.)
+   Background migrated from legacy lavender (#CCCCFF) to CARLOS primary blue;
+   white text added for legibility against the darker background. */
 tr#privacyConsentHeading th, tr#paitientNotesHeading th, tr#waitingListHeading th, .category_table_heading th {
     padding-left: 5px;
-    background-color: #CCCCFF;
+    background-color: var(--carlos-primary, #337ab7);
+    color: white;
     font-size: 7.5pt;
 }
 
@@ -177,13 +187,14 @@ body#detachedView #tableTitle {
     display: none;
 }
 
+/* Detached view border migrated from legacy lavender (#CCCCFF) to CARLOS primary blue. */
 body#detachedView
 ul {
     list-style-type: none;
     padding: 0;
     margin: 1px;
     background-color: white;
-    border: #CCCCFF 1px solid;
+    border: var(--carlos-primary, #337ab7) 1px solid;
 }
 
 body#detachedView
@@ -192,9 +203,10 @@ ul li {
     padding: 2px;
 }
 
+/* Odd-row tint migrated from legacy lavender (#EEEEFF) to a light CARLOS primary tint. */
 body#detachedView
 ul li.odd {
-    background-color: #EEEEFF;
+    background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 10%, white);
 
 }
 
@@ -220,10 +232,11 @@ table.MainTable {
     background-color: #A9A9A9;
 }
 
+/* Detail table borders migrated from legacy lavender (#CCCCFF) to CARLOS primary blue. */
 body#detachedView
 table.healthCareTeamMemberDetailTable {
-    border-top: #CCCCFF 1px solid;
-    border-bottom: #CCCCFF 1px solid;
+    border-top: var(--carlos-primary, #337ab7) 1px solid;
+    border-bottom: var(--carlos-primary, #337ab7) 1px solid;
     width: 100%;
 }
 

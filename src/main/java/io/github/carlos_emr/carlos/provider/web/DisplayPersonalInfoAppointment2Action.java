@@ -28,8 +28,8 @@
 
 package io.github.carlos_emr.carlos.provider.web;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 /**
@@ -37,10 +37,15 @@ import javax.servlet.http.HttpServletResponse;
  *
  * @author rjonasz
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class DisplayPersonalInfoAppointment2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -52,6 +57,11 @@ public class DisplayPersonalInfoAppointment2Action extends ActionSupport {
     }
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         return toggle();
     }
 
@@ -65,9 +75,10 @@ public class DisplayPersonalInfoAppointment2Action extends ActionSupport {
             showPersonal = !showPersonal;
         }
 
+        // nosemgrep: tainted-session-from-http-request -- showPersonal is a Boolean toggled from existing session state, not user input
         request.getSession().setAttribute("showPersonal", showPersonal);
 
-        return null;
+        return NONE;
     }
 
 }

@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -30,17 +30,18 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Hashtable;
 
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import net.sf.jasperreports.engine.JREmptyDataSource;
 import net.sf.jasperreports.engine.JasperExportManager;
 import net.sf.jasperreports.engine.JasperFillManager;
@@ -53,7 +54,9 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.documentManager.EDoc;
@@ -63,11 +66,12 @@ import io.github.carlos_emr.carlos.prevention.reports.FollowupManagement;
 import io.github.carlos_emr.carlos.report.data.ManageLetters;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GeneratePatientLetters2Action extends ActionSupport {
@@ -78,6 +82,8 @@ public class GeneratePatientLetters2Action extends ActionSupport {
     private static Logger log = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
@@ -90,6 +96,17 @@ public class GeneratePatientLetters2Action extends ActionSupport {
         String[] demos = request.getParameterValues("demos");
         String id = request.getParameter("reportLetter");
         String providerNo = (String) request.getSession().getAttribute("user");
+
+        // Validate all demographic numbers are strictly numeric to prevent path traversal
+        // via crafted values flowing into the generated filename.
+        if (demos != null) {
+            for (String demo : demos) {
+                if (demo == null || !demo.matches("\\d+")) {
+                    log.warn("Invalid non-numeric demographic number rejected: {}", LogSafe.sanitize(demo));
+                    throw new SecurityException("Invalid demographic number");
+                }
+            }
+        }
 
         if (log.isTraceEnabled()) {
             if (demos == null) {
@@ -121,17 +138,23 @@ public class GeneratePatientLetters2Action extends ActionSupport {
 
         ArrayList<Object> fullPatientlist = new ArrayList<Object>();
 
+        if (demos == null || demos.length == 0) {
+            return null;
+        }
+
+        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         //for each demographic generate a letter for that patient
         for (int i = 0; i < demos.length; i++) {
             //fill the map with patient info
             if (log.isTraceEnabled()) {
-                log.trace("Getting demographic info for " + demos[i]);
+                log.trace("Getting demographic info for {}", LogSafe.sanitize(demos[i]));
             }
 
             HashMap parameters = new HashMap();
             if (reportParams != null) {
                 for (int p = 0; p < reportParams.length; p++) {
-                    MiscUtils.getLogger().debug("demo = " + demos[i]);
+                    MiscUtils.getLogger().debug("demo = {}", LogSafe.sanitize(demos[i]));
+                    // deepcode ignore SqlInjection: report template SQL executed via DatabaseAP; templates are admin-configured
                     parameters.put(reportParams[p], apExe.execute(reportParams[p], demos[i]));
                 }
             }
@@ -139,7 +162,7 @@ public class GeneratePatientLetters2Action extends ActionSupport {
             try {
 
                 if (log.isTraceEnabled()) {
-                    log.trace("Filling report for " + demos[i]);
+                    log.trace("Filling report for {}", LogSafe.sanitize(demos[i]));
                 }
                 JasperPrint print = JasperFillManager.fillReport(jasperReport, parameters, new JREmptyDataSource());
 
@@ -165,18 +188,24 @@ public class GeneratePatientLetters2Action extends ActionSupport {
                 }
 
                 fileName = newDoc.getFileName();
-                String savePath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR") + "/" + fileName;
+                File validatedFile = PathValidationUtils.validatePath(fileName, documentDir);
+                // Sync the EDoc filename with the validated (sanitized) name so the DB
+                // record matches the actual file on disk.
+                newDoc.setFileName(validatedFile.getName());
+                String savePath = validatedFile.getAbsolutePath();
                 if (log.isTraceEnabled()) {
-                    log.trace("writing report to disk location " + savePath);
+                    log.trace("writing report to disk for file {}", LogSafe.sanitize(fileName));
                 }
                 JasperExportManager.exportReportToPdfFile(print, savePath);
                 if (log.isTraceEnabled()) {
-                    log.trace("Saving reference to database for" + demos[i]);
+                    log.trace("Saving reference to database for {}", LogSafe.sanitize(demos[i]));
                 }
                 EDocUtil.addDocumentSQL(newDoc);
 
                 fullPatientlist.add(savePath);
 
+            } catch (SecurityException secEx) {
+                MiscUtils.getLogger().error("Security violation generating letter for demo {}: {}", LogSafe.sanitize(demos[i]), secEx.getMessage());
             } catch (Exception jpException) {
                 MiscUtils.getLogger().error("Error", jpException);
             }
@@ -186,14 +215,14 @@ public class GeneratePatientLetters2Action extends ActionSupport {
 
         //LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_JASPERREPORTLETER, demographic$, request.getRemoteAddr());
         manageLetters.logLetterCreated(providerNo, id, demos);
-        MiscUtils.getLogger().debug("Add Follow Up " + request.getParameter("addFollowUp"));
+        MiscUtils.getLogger().debug("Add Follow Up {}", LogSafe.sanitize(request.getParameter("addFollowUp")));
         if (request.getParameter("addFollowUp") != null && request.getParameter("addFollowUp").equals("ON")) {
             //MARK IN MEASUREMENTS????
             MiscUtils.getLogger().debug("IN MARK MEASUREMENTS");
             String followUpType = request.getParameter("followupType"); //"FLUF";
             String followUpValue = request.getParameter("followupValue"); //"L1";
             String comment = request.getParameter("message");
-            MiscUtils.getLogger().debug("Follow up type " + followUpType + " follow up value " + followUpValue);
+            MiscUtils.getLogger().debug("Follow up type {} follow up value {}", LogSafe.sanitize(followUpType), LogSafe.sanitize(followUpValue));
             if (followUpType != null && followUpValue != null) {
                 FollowupManagement fup = new FollowupManagement();
                 fup.markFollowupProcedure(followUpType, followUpValue, demos, providerNo, new Date(), comment);

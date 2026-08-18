@@ -3,15 +3,9 @@
 By Oliver Bryant with help of Matthew Tagg
 http://boxover.swazz.org */
 
-if (typeof document.attachEvent != 'undefined') {
-    window.attachEvent('onload', init);
-    document.attachEvent('onmousemove', moveMouse);
-    document.attachEvent('onclick', checkMove);
-} else {
-    window.addEventListener('load', init, false);
-    document.addEventListener('mousemove', moveMouse, false);
-    document.addEventListener('click', checkMove, false);
-}
+window.addEventListener('load', init, false);
+document.addEventListener('mousemove', moveMouse, false);
+document.addEventListener('click', checkMove, false);
 
 var oDv = document.createElement("div");
 var dvHdr = document.createElement("div");
@@ -82,14 +76,14 @@ function scanBO(curNode) {
         curNode.delay = (getParam('delay', curNode.title) != '') ? parseInt(getParam('delay', curNode.title)) : 0;
         if (getParam('requireclick', curNode.title) == 'on') {
             curNode.requireclick = true;
-            document.all ? curNode.attachEvent('onclick', showHideBox) : curNode.addEventListener('click', showHideBox, false);
-            document.all ? curNode.attachEvent('onmouseover', hideBox) : curNode.addEventListener('mouseover', hideBox, false);
+            curNode.addEventListener('click', showHideBox, false);
+            curNode.addEventListener('mouseover', hideBox, false);
         } else {// Note : if requireclick is on the stop clicks are ignored
             if (getParam('doubleclickstop', curNode.title) != 'off') {
-                document.all ? curNode.attachEvent('ondblclick', pauseBox) : curNode.addEventListener('dblclick', pauseBox, false);
+                curNode.addEventListener('dblclick', pauseBox, false);
             }
             if (getParam('singleclickstop', curNode.title) == 'on') {
-                document.all ? curNode.attachEvent('onclick', pauseBox) : curNode.addEventListener('click', pauseBox, false);
+                curNode.addEventListener('click', pauseBox, false);
             }
         }
         curNode.windowLock = getParam('windowlock', curNode.title).toLowerCase() == 'off' ? false : true;

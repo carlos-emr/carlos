@@ -4,7 +4,7 @@ import org.hibernate.Hibernate;
 import io.github.carlos_emr.carlos.commn.model.EReferAttachment;
 import org.springframework.stereotype.Repository;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.util.Date;
 import java.util.List;
 

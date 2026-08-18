@@ -29,10 +29,9 @@
 package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.List;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -43,24 +42,33 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.commn.model.Icd10;
 import io.github.carlos_emr.carlos.commn.model.Icd9;
 import io.github.carlos_emr.carlos.managers.CodingSystemManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.JsonUtil;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class dxCodeSearchJSON2Action extends ActionSupport {
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
     private static Logger logger = MiscUtils.getLogger();
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!hasCodeSearchPrivilege(loggedInInfo)) {
+            throw new SecurityException("missing required sec object (_dxresearch/_rx/_billing/_report r)");
+        }
         String method = request.getParameter("method");
         if ("searchICD9".equals(method)) {
             return searchICD9();
@@ -75,6 +83,23 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         } 
         return getDescription();
         
+    }
+
+    /**
+     * Shared code-search JSON is used by dxresearch, prescribing, billing,
+     * and reporting workflows. Keep the endpoint protected, but authorize
+     * callers based on the workflow privileges that already gate those UIs.
+     */
+    private boolean hasCodeSearchPrivilege(LoggedInInfo loggedInInfo) {
+        if (loggedInInfo == null) {
+            return false;
+        }
+
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_dxresearch", SecurityInfoManager.READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_billing", SecurityInfoManager.READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", SecurityInfoManager.READ, null);
     }
 
     @SuppressWarnings("unused")
@@ -152,10 +177,8 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         ObjectNode jsonResponse = objectMapper.createObjectNode();
         jsonResponse.put("dxvalid", dxvalid);
 
-        response.setContentType("text/x-json");
-
-        try (PrintWriter pout = response.getWriter()) {
-            pout.write(jsonResponse.toString());
+        try {
+            JsonResponseWriter.write(response, jsonResponse);
         } catch (IOException e) {
             logger.error("JSON Error", e);
         }
@@ -179,10 +202,8 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         jsonResponse.put("description", description);
         jsonResponse.put("code", code);
 
-        response.setContentType("text/x-json");
-
-        try (PrintWriter pout = response.getWriter()) {
-            pout.write(jsonResponse.toString());
+        try {
+            JsonResponseWriter.write(response, jsonResponse);
         } catch (IOException e) {
             logger.error("JSON Error", e);
         }
@@ -193,21 +214,13 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
     private static void jsonify(final List<?> classList,
                                 final HttpServletResponse response, String[] ignoreMethods) throws IOException {
 
-        response.setContentType("text/x-json");
-
-        String jsonstring = null;
+        String jsonString = "{}";
 
         if (classList != null && !classList.isEmpty()) {
-            jsonstring = JsonUtil.pojoCollectionToJson(classList, ignoreMethods);
+            jsonString = JsonUtil.pojoCollectionToJson(classList, ignoreMethods);
         }
 
-        if (jsonstring == null) {
-            jsonstring = "{}";
-        }
-
-        try (PrintWriter pout = response.getWriter()) {
-            pout.write(jsonstring);
-        }
+        JsonResponseWriter.write(response, jsonString);
     }
 
 

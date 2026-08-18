@@ -33,10 +33,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.NativeSql;
@@ -50,6 +52,7 @@ import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBean;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author toby
@@ -63,6 +66,8 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
         super(Dxresearch.class);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public List<DxRegistedPTInfo> getPatientRegisted(List<Dxresearch> dList, List<String> doctorList) {
 
         List<DxRegistedPTInfo> rList = new ArrayList<DxRegistedPTInfo>();
@@ -115,24 +120,25 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
 
         Query query = null;
         if (listItems != null && listItems.size() > 0) {
+            Map<String, Object> params = new HashMap<>();
+            HQL = "SELECT dxres FROM Dxresearch dxres WHERE ";
+            int idx = 0;
             Iterator<dxCodeSearchBean> ite = listItems.listIterator();
-            HQL = "SELECT dxres FROM Dxresearch dxres";
-
-            if (ite.hasNext()) {
-                HQL += " WHERE ";
-            }
-
             while (ite.hasNext()) {
                 dxCodeSearchBean bean = ite.next();
-                String codeSys = bean.getType();
-                String code = bean.getDxSearchCode();
-                HQL += "dxres.codingSystem= '" + codeSys + "' AND dxres.dxresearchCode='" + code + "'";
+                String codeSysParam = "codeSys" + idx;
+                String codeParam = "code" + idx;
+                HQL += "dxres.codingSystem = :" + codeSysParam + " AND dxres.dxresearchCode = :" + codeParam;
+                params.put(codeSysParam, bean.getType());
+                params.put(codeParam, bean.getDxSearchCode());
                 if (ite.hasNext()) {
                     HQL += " OR ";
                 }
+                idx++;
             }
             HQL += " GROUP BY dxres.demographicNo ORDER BY dxres.updateDate asc";
             query = entityManager.createQuery(HQL);
+            params.forEach(query::setParameter);
         } else {
             HQL = "SELECT dxres FROM Dxresearch dxres GROUP BY dxres.demographicNo ORDER BY dxres.updateDate asc";
             query = entityManager.createQuery(HQL);
@@ -154,24 +160,25 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
         String HQL = "";
         Query query = null;
         if (listItems != null && listItems.size() > 0) {
+            Map<String, Object> params = new HashMap<>();
+            HQL = "SELECT dxres FROM Dxresearch dxres WHERE ";
+            int idx = 0;
             Iterator<dxCodeSearchBean> ite = listItems.listIterator();
-            HQL = "SELECT dxres FROM Dxresearch dxres";
-
-            if (ite.hasNext()) {
-                HQL += " WHERE ";
-            }
-
             while (ite.hasNext()) {
                 dxCodeSearchBean bean = ite.next();
-                String codeSys = bean.getType();
-                String code = bean.getDxSearchCode().trim();
-                HQL += "dxres.codingSystem= '" + codeSys + "' AND dxres.dxresearchCode='" + code + "'";
+                String codeSysParam = "codeSys" + idx;
+                String codeParam = "code" + idx;
+                HQL += "dxres.codingSystem = :" + codeSysParam + " AND dxres.dxresearchCode = :" + codeParam;
+                params.put(codeSysParam, bean.getType());
+                params.put(codeParam, bean.getDxSearchCode().trim());
                 if (ite.hasNext()) {
                     HQL += " OR ";
                 }
+                idx++;
             }
             HQL += " ORDER BY dxres.demographicNo asc, dxres.updateDate asc";
             query = entityManager.createQuery(HQL);
+            params.forEach(query::setParameter);
         } else {
             HQL = "SELECT dxres FROM Dxresearch dxres ORDER BY dxres.demographicNo asc, dxres.updateDate asc";
             query = entityManager.createQuery(HQL);
@@ -189,20 +196,48 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
         }
     }
 
+    /**
+     * Returns registry records whose status is active ({@code 'A'}).
+     *
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
     public List<DxRegistedPTInfo> patientRegistedActive(List<dxCodeSearchBean> searchItems, List<String> doctorList) {
-        return patientRegistedStatus("A", searchItems, doctorList);
+        return patientRegistedStatus('A', searchItems, doctorList);
     }
 
+    /**
+     * Returns registry records whose status is resolved ({@code 'C'}).
+     *
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
     public List<DxRegistedPTInfo> patientRegistedResolve(List<dxCodeSearchBean> searchItems, List<String> doctorList) {
-        return patientRegistedStatus("C", searchItems, doctorList);
+        return patientRegistedStatus('C', searchItems, doctorList);
     }
 
+    /**
+     * Returns registry records whose status is deleted ({@code 'D'}).
+     *
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
     public List<DxRegistedPTInfo> patientRegistedDeleted(List<dxCodeSearchBean> searchItems, List<String> doctorList) {
-        return patientRegistedStatus("D", searchItems, doctorList);
+        return patientRegistedStatus('D', searchItems, doctorList);
     }
 
-
-    public List<DxRegistedPTInfo> patientRegistedStatus(String status, List<dxCodeSearchBean> searchItems, List<String> doctorList) {
+    /**
+     * Returns registry records matching one entity-level status code.
+     *
+     * @param status registry status stored by {@link Dxresearch}, normally {@code 'A'}, {@code 'C'}, or {@code 'D'}
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
+    private List<DxRegistedPTInfo> patientRegistedStatus(Character status, List<dxCodeSearchBean> searchItems, List<String> doctorList) {
         List<Dxresearch> dList = null;
 
         List<dxCodeSearchBean> listItems = searchItems;
@@ -210,26 +245,33 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
 
         Query query = null;
         if (listItems != null && listItems.size() > 0) {
-            Iterator<dxCodeSearchBean> ite = listItems.listIterator();
+            Map<String, Object> params = new HashMap<>();
             HQL = "SELECT dxres FROM Dxresearch dxres WHERE (";
-
+            int idx = 0;
+            Iterator<dxCodeSearchBean> ite = listItems.listIterator();
             while (ite.hasNext()) {
                 dxCodeSearchBean bean = ite.next();
-                String codeSys = bean.getType();
-                String code = bean.getDxSearchCode();
-                HQL += "dxres.codingSystem= '" + codeSys + "' AND dxres.dxresearchCode='" + code + "'";
+                String codeSysParam = "codeSys" + idx;
+                String codeParam = "code" + idx;
+                HQL += "dxres.codingSystem = :" + codeSysParam + " AND dxres.dxresearchCode = :" + codeParam;
+                params.put(codeSysParam, bean.getType());
+                params.put(codeParam, bean.getDxSearchCode());
                 if (ite.hasNext()) {
                     HQL += " OR ";
                 }
+                idx++;
             }
             if (listItems.size() > 0)
                 HQL += ") AND ";
 
-            HQL += "dxres.status= '" + status + "' ORDER BY dxres.demographicNo asc, dxres.updateDate asc";
+            HQL += "dxres.status = :status ORDER BY dxres.demographicNo asc, dxres.updateDate asc";
+            params.put("status", status);
             query = entityManager.createQuery(HQL);
+            params.forEach(query::setParameter);
         } else {
-            HQL = "SELECT dxres FROM Dxresearch dxres WHERE dxres.status= '" + status + "' ORDER BY dxres.demographicNo asc, dxres.updateDate asc";
+            HQL = "SELECT dxres FROM Dxresearch dxres WHERE dxres.status = :status ORDER BY dxres.demographicNo asc, dxres.updateDate asc";
             query = entityManager.createQuery(HQL);
+            query.setParameter("status", status);
         }
         dList = query.getResultList();
 
@@ -351,19 +393,7 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
     }
 
     public List<Object[]> getDataForInrReport(Date fromDate, Date toDate) {
-        String sql = "FROM Demographic d, Measurement m, Dxresearch dx " +
-                "wHERE m.demographicId = dx.demographicNo " +
-                "AND dx.status != 'D' " +
-                "AND dx.codingSystem = 'icd9' " +
-                "AND (" +
-                "	dx.dxresearchCode = '42731' " +
-                "	OR dx.dxresearchCode = 'V5861' " +
-                "	OR dx.dxresearchCode = 'V1251'" +
-                ") AND m.demographicId = d.DemographicNo " +
-                "AND m.type = 'INR' " +
-                "AND m.dateObserved >= ?1" +
-                "AND m.dateObserved <= ?2" +
-                "ORDER BY d.LastName, d.FirstName, m.dateObserved";
+        String sql = "SELECT d, m, dx FROM Demographic d, Measurement m, Dxresearch dx WHERE m.demographicId = dx.demographicNo AND dx.status != 'D' AND dx.codingSystem = 'icd9' AND (dx.dxresearchCode = '42731' OR dx.dxresearchCode = 'V5861' OR dx.dxresearchCode = 'V1251') AND m.demographicId = d.demographicNo AND m.type = 'INR' AND m.dateObserved >= ?1 AND m.dateObserved <= ?2 ORDER BY d.lastName, d.firstName, m.dateObserved";
         Query q = entityManager.createQuery(sql);
         q.setParameter(1, fromDate);
         q.setParameter(2, toDate);

@@ -30,6 +30,8 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.util.Comparator;
 import java.util.Date;
@@ -37,6 +39,9 @@ import java.util.Date;
 /**
  * This is the object class that relates to the provider table. Any customizations belong here.
  */
+@Entity
+@Table(name = "provider")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class Provider extends AbstractModel<String> implements Comparable<Provider> {
 
     public static final String SYSTEM_PROVIDER_NO = "-1";
@@ -64,7 +69,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     private String providerActivity;
     private String firstName;
     private String rmaNo;
-    private Date SignedConfidentiality;
+    private Date signedConfidentiality;
     private String practitionerNo;
     private String practitionerNoType;
     private String email;
@@ -72,6 +77,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     private String lastUpdateUser;
     private Date lastUpdateDate = new Date();
     private String supervisor;
+    @jakarta.persistence.Column(name = "practitionerNo", length = 20)
 
     public String getPractitionerNo() {
         return practitionerNo;
@@ -80,6 +86,8 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setPractitionerNo(String practitionerNo) {
         this.practitionerNo = practitionerNo;
     }
+
+    @jakarta.persistence.Column(name = "practitionerNoType", length = 255)
 
 
     public String getPractitionerNoType() {
@@ -133,7 +141,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
         providerActivity = provider.providerActivity;
         firstName = provider.firstName;
         rmaNo = provider.rmaNo;
-        SignedConfidentiality = provider.SignedConfidentiality;
+        signedConfidentiality = provider.signedConfidentiality;
         practitionerNo = provider.practitionerNo;
         practitionerNoType = provider.practitionerNoType;
         email = provider.email;
@@ -143,14 +151,19 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
         supervisor = provider.supervisor;
 
     }
+    @jakarta.persistence.Transient
 
     public String getFormattedName() {
         return getLastName() + ", " + getFirstName();
     }
+    @jakarta.persistence.Transient
 
     public String getFullName() {
         return getFirstName() + " " + getLastName();
     }
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.Column(name = "provider_no")
 
     public String getProviderNo() {
         return providerNo;
@@ -160,6 +173,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
         this.providerNo = providerNo;
         this.hashCode = Integer.MIN_VALUE;
     }
+    @jakarta.persistence.Column(name = "comments")
 
     public String getComments() {
         return comments;
@@ -168,6 +182,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setComments(String comments) {
         this.comments = comments;
     }
+    @jakarta.persistence.Column(name = "phone", length = 20)
 
     public String getPhone() {
         return phone;
@@ -176,6 +191,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setPhone(String phone) {
         this.phone = phone;
     }
+    @jakarta.persistence.Column(name = "billing_no", length = 20)
 
     public String getBillingNo() {
         return billingNo;
@@ -184,6 +200,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setBillingNo(String billingNo) {
         this.billingNo = billingNo;
     }
+    @jakarta.persistence.Column(name = "work_phone", length = 50)
 
     public String getWorkPhone() {
         return workPhone;
@@ -192,6 +209,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setWorkPhone(String workPhone) {
         this.workPhone = workPhone;
     }
+    @jakarta.persistence.Column(name = "address", length = 40)
 
     public String getAddress() {
         return address;
@@ -200,6 +218,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setAddress(String address) {
         this.address = address;
     }
+    @jakarta.persistence.Column(name = "team", length = 20)
 
     public String getTeam() {
         return team;
@@ -208,6 +227,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setTeam(String team) {
         this.team = team;
     }
+    @jakarta.persistence.Column(name = "status", length = 1)
 
     public String getStatus() {
         return status;
@@ -216,6 +236,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setStatus(String status) {
         this.status = status;
     }
+    @jakarta.persistence.Column(name = "last_name", length = 30, nullable = false)
 
     public String getLastName() {
         // sanitize extra white space.  There are lots of areas in the
@@ -234,6 +255,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
      * @deprecated no longer is use 2010-04-23, marked for future removal
      */
     @Deprecated
+    @jakarta.persistence.Column(name = "provider_type", length = 15, nullable = false)
     public String getProviderType() {
         return providerType;
     }
@@ -241,6 +263,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setProviderType(String providerType) {
         this.providerType = providerType;
     }
+    @jakarta.persistence.Column(name = "sex", length = 1, nullable = false)
 
     public String getSex() {
         return sex;
@@ -249,6 +272,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setSex(String sex) {
         this.sex = sex;
     }
+    @jakarta.persistence.Column(name = "ohip_no", length = 20)
 
     public String getOhipNo() {
         return ohipNo;
@@ -257,6 +281,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setOhipNo(String ohipNo) {
         this.ohipNo = ohipNo;
     }
+    @jakarta.persistence.Column(name = "specialty", length = 20, nullable = false)
 
     public String getSpecialty() {
         return specialty;
@@ -265,6 +290,9 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setSpecialty(String specialty) {
         this.specialty = specialty;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.DATE)
+
+    @jakarta.persistence.Column(name = "dob")
 
     public java.util.Date getDob() {
         return dob;
@@ -273,6 +301,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setDob(java.util.Date dob) {
         this.dob = dob;
     }
+    @jakarta.persistence.Column(name = "hso_no", length = 10)
 
     public String getHsoNo() {
         return hsoNo;
@@ -281,6 +310,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setHsoNo(String hsoNo) {
         this.hsoNo = hsoNo;
     }
+    @jakarta.persistence.Column(name = "provider_activity", length = 3)
 
     public String getProviderActivity() {
         return providerActivity;
@@ -289,6 +319,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setProviderActivity(String providerActivity) {
         this.providerActivity = providerActivity;
     }
+    @jakarta.persistence.Column(name = "first_name", length = 30, nullable = false)
 
     public String getFirstName() {
         // sanitize extra white space.  There are lots of areas in the
@@ -302,6 +333,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setFirstName(String firstName) {
         this.firstName = firstName;
     }
+    @jakarta.persistence.Column(name = "rma_no", length = 20)
 
     public String getRmaNo() {
         return rmaNo;
@@ -310,6 +342,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setRmaNo(String rmaNo) {
         this.rmaNo = rmaNo;
     }
+    @jakarta.persistence.Column(name = "email")
 
     public String getEmail() {
         return email;
@@ -318,14 +351,16 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setEmail(String email) {
         this.email = email;
     }
+    @jakarta.persistence.Column(name = "signed_confidentiality")
 
     public Date getSignedConfidentiality() {
-        return this.SignedConfidentiality;
+        return this.signedConfidentiality == null ? null : new Date(this.signedConfidentiality.getTime());
     }
 
-    public void setSignedConfidentiality(Date SignedConfidentiality) {
-        this.SignedConfidentiality = SignedConfidentiality;
+    public void setSignedConfidentiality(Date signedConfidentiality) {
+        this.signedConfidentiality = signedConfidentiality == null ? null : new Date(signedConfidentiality.getTime());
     }
+    @jakarta.persistence.Column(name = "title")
 
     public String getTitle() {
         return title;
@@ -335,6 +370,8 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
         this.title = title;
     }
 
+    @jakarta.persistence.Column(name = "lastUpdateUser")
+
 
     public String getLastUpdateUser() {
         return lastUpdateUser;
@@ -343,10 +380,14 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     public void setLastUpdateUser(String lastUpdateUser) {
         this.lastUpdateUser = lastUpdateUser;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
+
+    @jakarta.persistence.Column(name = "lastUpdateDate")
 
     public Date getLastUpdateDate() {
         return lastUpdateDate;
     }
+    @jakarta.persistence.Column(name = "supervisor")
 
     public String getSupervisor() {
         return this.supervisor;
@@ -411,6 +452,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     }
 
     @Override
+    @jakarta.persistence.Transient
     public String getId() {
         return providerNo;
     }

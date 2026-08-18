@@ -32,9 +32,9 @@ package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
 import java.util.*;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -42,8 +42,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class RptSelectCDMReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -62,14 +63,19 @@ public final class RptSelectCDMReport2Action extends ActionSupport {
         HttpSession session = request.getSession();
         String CDMgroup = (String) this.getValue("CDMgroup");
 
-        MiscUtils.getLogger().debug("The selected group is" + CDMgroup);
+        // CWE-501: validate CDMgroup at trust boundary -- reject control chars and excessive length
+        if (CDMgroup != null && (CDMgroup.length() > 100 || !CDMgroup.matches("[^\\p{Cntrl}]+"))) {
+            throw new SecurityException("Invalid CDM group name");
+        }
+
+        MiscUtils.getLogger().debug("The selected group is {}", CDMgroup);
         RptMeasurementTypesBeanHandler hd = new RptMeasurementTypesBeanHandler(CDMgroup);
         Vector mInstrcVector = hd.getMeasuringInstrcBeanVector();
 
         for (int i = 0; i < mInstrcVector.size(); i++) {
             RptMeasuringInstructionBeanHandler mInstrcs = (RptMeasuringInstructionBeanHandler) mInstrcVector.elementAt(i);
             String mInstrcName = "mInstrcs" + i;
-            session.setAttribute(mInstrcName, mInstrcs);
+            session.setAttribute(mInstrcName, mInstrcs); // nosemgrep: tainted-session-from-http-request -- DAO-sourced measuring instruction bean from RptMeasurementTypesBeanHandler
 
         }
         MiscUtils.getLogger().debug("the value of forward is :" + forward);
@@ -80,10 +86,11 @@ public final class RptSelectCDMReport2Action extends ActionSupport {
         String today = now.get(Calendar.YEAR) + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DATE);
         String lastYear = now.get(Calendar.YEAR) - 1 + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DATE);
 
-        session.setAttribute("measurementTypes", hd);
+        session.setAttribute("measurementTypes", hd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced measurement types handler
+        // nosemgrep: tainted-session-from-http-request -- CDMgroup validated via regex [^\\p{Cntrl}]+, length-capped to 100; action guarded by _report read privilege
         session.setAttribute("CDMGroup", CDMgroup);
-        session.setAttribute("today", today);
-        session.setAttribute("lastYear", lastYear);
+        session.setAttribute("today", today); // nosemgrep: tainted-session-from-http-request -- server-generated date string from GregorianCalendar
+        session.setAttribute("lastYear", lastYear); // nosemgrep: tainted-session-from-http-request -- server-generated date string from GregorianCalendar
 
         if (forward != null) {
             if (forward.compareTo("patientWhoMetGuideline") == 0) {
@@ -115,6 +122,7 @@ public final class RptSelectCDMReport2Action extends ActionSupport {
         return forward;
     }
 
+    @StrutsParameter
     public void setForward(String forward) {
         this.forward = forward;
     }

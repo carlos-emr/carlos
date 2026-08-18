@@ -35,23 +35,23 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.OneToMany;
-import javax.persistence.PrePersist;
-import javax.persistence.PreUpdate;
-import javax.persistence.Table;
-import javax.persistence.Temporal;
-import javax.persistence.TemporalType;
-import javax.persistence.Transient;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
+import jakarta.persistence.Transient;
 
 import org.apache.commons.lang3.StringUtils;
-import org.joda.time.DateTime;
-import org.joda.time.Days;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.integration.fhir.interfaces.ImmunizationInterface;
 
@@ -233,6 +233,27 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
 
     public String getDeletedRawValue() {
         return String.valueOf(deleted);
+    }
+
+    /**
+     * Returns the raw integer value of the {@code refused} field.
+     * <p>
+     * Standard semantics: {@code 0}=active/completed, {@code 1}=refused,
+     * {@code 2}=ineligible, {@code 3}=completed externally.
+     * <p>
+     * For the "Smoking" prevention type, this field is repurposed to encode
+     * smoking history status: {@code 0}=Yes (current smoker), {@code 1}=No (non-smoker),
+     * {@code 2}=Previous (ex-smoker).
+     *
+     * @return int raw refused status value (0, 1, 2, or 3), or {@code -1} if the stored
+     *         value is outside the expected range
+     * @since 2026-03-14
+     */
+    public int getRefusedRawValue() {
+        if (refused >= '0' && refused <= '3') {
+            return refused - '0';
+        }
+        return -1;
     }
 
     public List<PreventionExt> getPreventionExts() {
@@ -507,9 +528,9 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
 
     @Override
     public boolean isHistorical(int days) {
-        DateTime immunizationDate = new DateTime(getImmunizationDate());
-        DateTime submissionDate = new DateTime(System.currentTimeMillis());
-        int daysBetween = Days.daysBetween(immunizationDate, submissionDate).getDays();
+        Instant immunizationDate = getImmunizationDate().toInstant();
+        Instant now = Instant.now();
+        long daysBetween = ChronoUnit.DAYS.between(immunizationDate, now);
         return (daysBetween > days);
     }
 

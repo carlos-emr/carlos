@@ -243,21 +243,21 @@ public class EctValidation {
         List<MeasurementGroupStyle> styles = dao.findByGroupName(inputGroupName);
         for (MeasurementGroupStyle style : styles) {
             MeasurementCSSLocation location = cssDao.find(style.getCssId());
-            String place = "StreamStyleSheet.do?cssfilename="; // Streams by default
+            String place = "StreamStyleSheet?cssfilename="; // Streams by default
 
             // Use the following commented code in place of the above line to allow the
             // option of using the oscarMeasurement_css property to form the css path.
             // If using this code, also uncomment the line in oscar.login.Startup.java
             // that checks and sets that property.
             /*
-             * String downloadMethod = OscarProperties.getInstance().getProperty("oscarMeasurement_css_download_method");
+             * String downloadMethod = CarlosProperties.getInstance().getProperty("oscarMeasurement_css_download_method");
              * String place = "";
              * if (downloadMethod == null || !(downloadMethod.equalsIgnoreCase("stream"))) {
-             *    place = OscarProperties.getInstance().getProperty("oscarMeasurement_css");
+             *    place = CarlosProperties.getInstance().getProperty("oscarMeasurement_css");
              *    if(!place.endsWith("/"))
              *       place = new StringBuilder(place).insert(place.length(),"/").toString();
              * } else {
-             *    place = "StreamStyleSheet.do?cssfilename=";
+             *    place = "StreamStyleSheet?cssfilename=";
              * }
              */
             if (location != null) {

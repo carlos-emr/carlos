@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -40,8 +41,8 @@ import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.TypedQuery;
-import javax.persistence.criteria.*;
+import jakarta.persistence.TypedQuery;
+import jakarta.persistence.criteria.*;
 
 /**
  * Implementation of ProgramDao interface for database access to Program model objects.
@@ -652,7 +653,7 @@ public class ProgramDaoImpl extends AbstractDaoImpl<Program> implements ProgramD
     public void resetHoldingTank() {
         List<Program> programs = this.getAllPrograms();
         for (Program p : programs) {
-            if (p.getHoldingTank()) {
+            if (p.isHoldingTank()) {
                 p.setHoldingTank(false);
                 this.saveProgram(p);
             }
@@ -724,7 +725,7 @@ public class ProgramDaoImpl extends AbstractDaoImpl<Program> implements ProgramD
         if (p1 == null || p2 == null)
             return false;
 
-        return (p1.getFacilityId() == p2.getFacilityId());
+        return Objects.equals(p1.getFacilityId(), p2.getFacilityId());
     }
 
     /**
@@ -811,6 +812,7 @@ public class ProgramDaoImpl extends AbstractDaoImpl<Program> implements ProgramD
      */
     @Override
     public List<String> getRecordsAddedAndUpdatedSinceTime(Date date) {
+        // Provider is annotation-mapped with JavaBean property names; HQL must use providerNo and lastUpdateDate.
         String queryStr = "SELECT DISTINCT p.providerNo FROM Provider p WHERE p.lastUpdateDate > ?1";
         TypedQuery<String> query = entityManager.createQuery(queryStr, String.class);
         query.setParameter(1, date);

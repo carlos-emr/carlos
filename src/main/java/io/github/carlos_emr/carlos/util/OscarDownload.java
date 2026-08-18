@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -28,32 +28,91 @@
  */
 package io.github.carlos_emr.carlos.util;
 
+import java.io.File;
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.util.Set;
 
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class OscarDownload extends GenericDownload {
-    public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
-        HttpSession session = req.getSession(true);
-        String filename = req.getParameter("filename") != null ? req.getParameter("filename") : "null";
-        String homepath = req.getParameter("homepath") != null ? req.getParameter("homepath") : "null";
 
-        String backupfilepath = ((String) session.getAttribute(homepath)) != null ? ((String) session.getAttribute(homepath)) : "null";
-        if (filename != null && backupfilepath != null && ((String) session.getAttribute("user")) != null) {
-            ServletOutputStream stream = res.getOutputStream();
-            transferFile(res, stream, backupfilepath, filename);
-            stream.close();
-        } else {
-            res.setContentType("text/html");
-            PrintWriter out = res.getWriter();
-            out.println("<html>");
-            out.println("<head><body>You have no right to download the file(s).");
-            out.println("</body>");
-            out.println("</html>");
+    private static final long serialVersionUID = 1L;
+    private static final Logger log = MiscUtils.getLogger();
+
+    private static final Set<String> ALLOWED_HOMEPATH_KEYS = Set.of(
+            "homepath", "ohipdownload", "obecdownload"
+    );
+
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
+        try {
+            String rawFilename = req.getParameter("filename");
+            String filename = rawFilename == null ? null : PathValidationUtils.validateStrictFileName(rawFilename);
+            String homepath = req.getParameter("homepath");
+
+            if (filename == null || filename.isBlank()) {
+                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
+                return;
+            }
+            if (homepath == null || !ALLOWED_HOMEPATH_KEYS.contains(homepath)) {
+                log.warn("OscarDownload rejected invalid homepath key from {}", req.getRemoteAddr());
+                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download path key.");
+                return;
+            }
+            HttpSession session = req.getSession(false);
+            if (session == null) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN,
+                        "You have no right to download the file(s).");
+                return;
+            }
+
+            String backupfilepath = (String) session.getAttribute(homepath); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): homepath is user-supplied but allowlist-validated against ALLOWED_HOMEPATH_KEYS before use as session lookup key; session value is server-side data
+            if (backupfilepath != null
+                    && !backupfilepath.isEmpty()
+                    && ((String) session.getAttribute("user")) != null) {
+                File downloadDir = new File(backupfilepath).getCanonicalFile();
+                if (!downloadDir.isDirectory()) {
+                    log.warn("OscarDownload rejected non-directory path from {}", req.getRemoteAddr());
+                    res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
+                    return;
+                }
+                ServletOutputStream stream = res.getOutputStream();
+                transferFile(res, stream, backupfilepath, filename);
+            } else {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
+            }
+        } catch (FileValidationException e) {
+            log.warn("OscarDownload rejected invalid filename from {}", req.getRemoteAddr());
+            sendErrorForCaughtException(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error in OscarDownload", e);
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
+        }
+    }
+
+    private void sendErrorForCaughtException(HttpServletResponse res, int statusCode, String message) {
+        if (res.isCommitted()) {
+            return;
+        }
+        try {
+            res.sendError(statusCode, message);
+        } catch (IOException e) {
+            log.warn("Unable to send OscarDownload error response (status: {}, message: {})", statusCode, message, e);
         }
     }
 }

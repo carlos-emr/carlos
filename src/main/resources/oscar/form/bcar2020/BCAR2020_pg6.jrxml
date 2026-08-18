@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Created with Jaspersoft Studio version 6.13.0.final using JasperReports Library version 6.13.0  -->
-<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="bcar2020" pageWidth="612" pageHeight="792" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="b9997476-3eb5-48e8-b3a7-28b4b42bd333">
-	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
-	<import value="org.apache.commons.lang3.StringUtils"/>
+<jasperReport name="bcar2020" pageWidth="612" pageHeight="792" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="b9997476-3eb5-48e8-b3a7-28b4b42bd333">
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record" />
+	<import value="org.apache.commons.lang3.StringUtils" />
 	<parameter name="background_image" class="java.lang.String">
 		<parameterDescription><![CDATA[The background image of the current page]]></parameterDescription>
 	</parameter>
@@ -12,216 +11,133 @@
 	<parameter name="t_patientGivenName" class="java.lang.String">
 		<parameterDescription><![CDATA[First name of the patient]]></parameterDescription>
 	</parameter>
-	<parameter name="t_patientAddress" class="java.lang.String"/>
-	<parameter name="t_patientCity" class="java.lang.String"/>
-	<parameter name="t_patientProvince" class="java.lang.String"/>
-	<parameter name="t_patientPostal" class="java.lang.String"/>
-	<parameter name="t_patientPhone" class="java.lang.String"/>
-	<parameter name="t_patientPhoneWork" class="java.lang.String"/>
-	<parameter name="t_patientPhoneCell" class="java.lang.String"/>
-	<parameter name="t_patientHIN" class="java.lang.String"/>
-	<parameter name="c_attMedications" class="java.lang.String"/>
-	<parameter name="mt_attMedications" class="java.lang.String"/>
-	<parameter name="c_attAllergies" class="java.lang.String"/>
-	<parameter name="mt_attAllergies" class="java.lang.String"/>
-	<parameter name="c_attAdditionalInfo" class="java.lang.String"/>
-	<parameter name="mt_attAdditionalInfo" class="java.lang.String"/>
+	<parameter name="t_patientAddress" class="java.lang.String" />
+	<parameter name="t_patientCity" class="java.lang.String" />
+	<parameter name="t_patientProvince" class="java.lang.String" />
+	<parameter name="t_patientPostal" class="java.lang.String" />
+	<parameter name="t_patientPhone" class="java.lang.String" />
+	<parameter name="t_patientPhoneWork" class="java.lang.String" />
+	<parameter name="t_patientPhoneCell" class="java.lang.String" />
+	<parameter name="t_patientHIN" class="java.lang.String" />
+	<parameter name="c_attMedications" class="java.lang.String" />
+	<parameter name="mt_attMedications" class="java.lang.String" />
+	<parameter name="c_attAllergies" class="java.lang.String" />
+	<parameter name="mt_attAllergies" class="java.lang.String" />
+	<parameter name="c_attAdditionalInfo" class="java.lang.String" />
+	<parameter name="mt_attAdditionalInfo" class="java.lang.String" />
 	<queryString>
 		<![CDATA[]]>
 	</queryString>
-	<background>
-		<band height="792" splitType="Stretch">
-			<image>
-				<reportElement mode="Transparent" x="0" y="0" width="612" height="792" isRemoveLineWhenBlank="true" backcolor="#000000" uuid="7a3c6eed-42d8-4cac-9b37-0b3ad6239468"/>
-				<imageExpression><![CDATA[$P{background_image}]]></imageExpression>
-			</image>
-		</band>
+	<background height="792" splitType="Stretch">
+		<element kind="image" uuid="7a3c6eed-42d8-4cac-9b37-0b3ad6239468" mode="Transparent" x="0" y="0" width="612" height="792" backcolor="#000000" isRemoveLineWhenBlank="true">
+			<expression><![CDATA[$P{background_image}]]></expression>
+		</element>
 	</background>
-	<pageHeader>
-		<band height="155">
-			<textField isBlankWhenNull="true">
-				<reportElement x="364" y="120" width="229" height="13" uuid="fca0c332-c58b-4cdb-8ecb-b709e167ed08"/>
-				<textElement verticalAlignment="Middle">
-					<font size="8"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$P{t_patientHIN}]]></textFieldExpression>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement x="364" y="52" width="229" height="13" uuid="ea9ef213-fbe3-45a3-b3a4-305660b04f5d"/>
-				<textElement verticalAlignment="Middle">
-					<font size="8"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$P{t_patientAddress}]]></textFieldExpression>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement x="364" y="30" width="133" height="13" uuid="74e7a780-34a7-4b66-9717-0fb592adbf43"/>
-				<textElement verticalAlignment="Middle">
-					<font size="8"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$P{t_patientSurname}]]></textFieldExpression>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement x="516" y="74" width="77" height="13" uuid="134134cd-cd35-4336-a885-8c9db4cc0149"/>
-				<textElement verticalAlignment="Middle">
-					<font size="8"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$P{t_patientPostal}]]></textFieldExpression>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement x="364" y="74" width="76" height="13" uuid="6066f107-3d55-46af-a69d-166b1458405b"/>
-				<textElement verticalAlignment="Middle">
-					<font size="8"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$P{t_patientCity}]]></textFieldExpression>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement x="497" y="30" width="96" height="13" uuid="5536f392-afad-4d1f-982a-54fe028ba8dc"/>
-				<textElement verticalAlignment="Middle">
-					<font size="8"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$P{t_patientGivenName}]]></textFieldExpression>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement x="364" y="97" width="229" height="13" uuid="f01e786e-b329-45d7-94d1-be0749e32c28"/>
-				<textElement verticalAlignment="Middle">
-					<font size="8"/>
-				</textElement>
-				<textFieldExpression><![CDATA[((StringUtils.isBlank($P{t_patientPhone}) ? "" : "H: " + $P{t_patientPhone} + " ")
+	<pageHeader height="155">
+		<element kind="textField" uuid="fca0c332-c58b-4cdb-8ecb-b709e167ed08" x="364" y="120" width="229" height="13" vTextAlign="Middle" fontSize="8.0" blankWhenNull="true">
+			<expression><![CDATA[$P{t_patientHIN}]]></expression>
+		</element>
+		<element kind="textField" uuid="ea9ef213-fbe3-45a3-b3a4-305660b04f5d" x="364" y="52" width="229" height="13" vTextAlign="Middle" fontSize="8.0" blankWhenNull="true">
+			<expression><![CDATA[$P{t_patientAddress}]]></expression>
+		</element>
+		<element kind="textField" uuid="74e7a780-34a7-4b66-9717-0fb592adbf43" x="364" y="30" width="133" height="13" vTextAlign="Middle" fontSize="8.0" blankWhenNull="true">
+			<expression><![CDATA[$P{t_patientSurname}]]></expression>
+		</element>
+		<element kind="textField" uuid="134134cd-cd35-4336-a885-8c9db4cc0149" x="516" y="74" width="77" height="13" vTextAlign="Middle" fontSize="8.0" blankWhenNull="true">
+			<expression><![CDATA[$P{t_patientPostal}]]></expression>
+		</element>
+		<element kind="textField" uuid="6066f107-3d55-46af-a69d-166b1458405b" x="364" y="74" width="76" height="13" vTextAlign="Middle" fontSize="8.0" blankWhenNull="true">
+			<expression><![CDATA[$P{t_patientCity}]]></expression>
+		</element>
+		<element kind="textField" uuid="5536f392-afad-4d1f-982a-54fe028ba8dc" x="497" y="30" width="96" height="13" vTextAlign="Middle" fontSize="8.0" blankWhenNull="true">
+			<expression><![CDATA[$P{t_patientGivenName}]]></expression>
+		</element>
+		<element kind="textField" uuid="f01e786e-b329-45d7-94d1-be0749e32c28" x="364" y="97" width="229" height="13" vTextAlign="Middle" fontSize="8.0" blankWhenNull="true">
+			<expression><![CDATA[((StringUtils.isBlank($P{t_patientPhone}) ? "" : "H: " + $P{t_patientPhone} + " ")
 + (StringUtils.isBlank($P{t_patientPhoneWork}) ? "" : "W: " + $P{t_patientPhoneWork} + " ")
-+ (StringUtils.isBlank($P{t_patientPhoneCell}) ? "" : "C: " + $P{t_patientPhoneCell} + " "))]]></textFieldExpression>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement x="440" y="74" width="76" height="13" uuid="3cb835c7-0c11-4643-8131-664402d16f3c"/>
-				<textElement verticalAlignment="Middle">
-					<font size="8"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$P{t_patientProvince}]]></textFieldExpression>
-			</textField>
-			<line>
-				<reportElement x="20" y="146" width="571" height="1" uuid="6dcb6b5e-8745-4e01-bdf3-20fc1951784c">
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<property name="com.jaspersoft.studio.unit.y" value="px"/>
-				</reportElement>
-				<graphicElement>
-					<pen lineStyle="Solid"/>
-				</graphicElement>
-			</line>
-			<staticText>
-				<reportElement x="20" y="37" width="330" height="105" uuid="05435277-7045-4c4e-b2d8-8a612f97e68f">
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-				</reportElement>
-				<textElement textAlignment="Justified">
-					<font size="10" isBold="false"/>
-				</textElement>
-				<text><![CDATA[This page is not part of the standard BC Antenatal Record 2020 form. Any additional information that does not fit onto the standard form will be added to the sections below.
++ (StringUtils.isBlank($P{t_patientPhoneCell}) ? "" : "C: " + $P{t_patientPhoneCell} + " "))]]></expression>
+		</element>
+		<element kind="textField" uuid="3cb835c7-0c11-4643-8131-664402d16f3c" x="440" y="74" width="76" height="13" vTextAlign="Middle" fontSize="8.0" blankWhenNull="true">
+			<expression><![CDATA[$P{t_patientProvince}]]></expression>
+		</element>
+		<element kind="line" uuid="6dcb6b5e-8745-4e01-bdf3-20fc1951784c" x="20" y="146" width="571" height="1">
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<property name="com.jaspersoft.studio.unit.y" value="px" />
+			<graphicElement>
+				<pen lineStyle="Solid" />
+			</graphicElement>
+		</element>
+		<element kind="staticText" uuid="05435277-7045-4c4e-b2d8-8a612f97e68f" x="20" y="37" width="330" height="105" hTextAlign="Justified" fontSize="10.0" bold="false">
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<text><![CDATA[This page is not part of the standard BC Antenatal Record 2020 form. Any additional information that does not fit onto the standard form will be added to the sections below.
 
 The Privacy Statement is a requirement by PHSA, it cannot be modified or removed, and must be printed as part of the BCAR2020.]]></text>
-			</staticText>
-		</band>
+		</element>
 	</pageHeader>
 	<detail>
 		<band height="105" splitType="Stretch">
 			<printWhenExpression><![CDATA[$P{c_attMedications}.equals("X")]]></printWhenExpression>
-			<textField isBlankWhenNull="true" isStretchWithOverflow="true">
-				<reportElement positionType="Float" stretchType="RelativeToTallestObject" x="20" y="25" width="570" height="70" isPrintWhenDetailOverflows="true" uuid="b3250ef5-ee95-4db2-b3fb-4b0935b85874">
-					<property name="com.jaspersoft.studio.unit.y" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-				</reportElement>
-				<textElement verticalAlignment="Top">
-					<font size="10"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$P{mt_attMedications}]]></textFieldExpression>
-			</textField>
-			<staticText>
-				<reportElement x="20" y="5" width="100" height="20" uuid="58631d1e-ffeb-4d80-a662-42925209ab34"/>
-				<textElement>
-					<font size="10" isBold="true"/>
-				</textElement>
+			<element kind="textField" uuid="b3250ef5-ee95-4db2-b3fb-4b0935b85874" positionType="Float" stretchType="RelativeToTallestObject" x="20" y="25" width="570" height="70" vTextAlign="Top" fontSize="10.0" textAdjust="StretchHeight" blankWhenNull="true" isPrintWhenDetailOverflows="true">
+				<property name="com.jaspersoft.studio.unit.y" value="px" />
+				<property name="com.jaspersoft.studio.unit.height" value="px" />
+				<expression><![CDATA[$P{mt_attMedications}]]></expression>
+			</element>
+			<element kind="staticText" uuid="58631d1e-ffeb-4d80-a662-42925209ab34" x="20" y="5" width="100" height="20" fontSize="10.0" bold="true">
 				<text><![CDATA[Medications List:]]></text>
-			</staticText>
-			<line>
-				<reportElement positionType="Float" x="20" y="100" width="571" height="1" uuid="f3f0829e-8543-4430-93bc-e08dc1a15b90">
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-				</reportElement>
+			</element>
+			<element kind="line" uuid="f3f0829e-8543-4430-93bc-e08dc1a15b90" positionType="Float" x="20" y="100" width="571" height="1">
+				<property name="com.jaspersoft.studio.unit.height" value="px" />
 				<graphicElement>
-					<pen lineStyle="Solid"/>
+					<pen lineStyle="Solid" />
 				</graphicElement>
-			</line>
+			</element>
 		</band>
 		<band height="105" splitType="Stretch">
-			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
 			<printWhenExpression><![CDATA[$P{c_attAllergies}.equals("X")]]></printWhenExpression>
-			<staticText>
-				<reportElement x="20" y="5" width="100" height="20" uuid="0e02bd95-6190-4b15-aee4-c4998b78c45e"/>
-				<textElement>
-					<font size="10" isBold="true"/>
-				</textElement>
+			<element kind="staticText" uuid="0e02bd95-6190-4b15-aee4-c4998b78c45e" x="20" y="5" width="100" height="20" fontSize="10.0" bold="true">
 				<text><![CDATA[Allergies List:]]></text>
-			</staticText>
-			<textField isBlankWhenNull="true" isStretchWithOverflow="true">
-				<reportElement x="20" y="25" width="570" height="70" uuid="f5bae054-5940-4151-ae0d-0b05ffddea19">
-					<property name="com.jaspersoft.studio.unit.y" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-				</reportElement>
-				<textElement verticalAlignment="Top">
-					<font size="10"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$P{mt_attAllergies}]]></textFieldExpression>
-			</textField>
-			<line>
-				<reportElement positionType="Float" x="20" y="100" width="571" height="1" uuid="7c5e4b9f-569c-4e80-80b8-96df04176941">
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-				</reportElement>
+			</element>
+			<element kind="textField" uuid="f5bae054-5940-4151-ae0d-0b05ffddea19" x="20" y="25" width="570" height="70" vTextAlign="Top" fontSize="10.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<property name="com.jaspersoft.studio.unit.y" value="px" />
+				<property name="com.jaspersoft.studio.unit.height" value="px" />
+				<expression><![CDATA[$P{mt_attAllergies}]]></expression>
+			</element>
+			<element kind="line" uuid="7c5e4b9f-569c-4e80-80b8-96df04176941" positionType="Float" x="20" y="100" width="571" height="1">
+				<property name="com.jaspersoft.studio.unit.height" value="px" />
 				<graphicElement>
-					<pen lineStyle="Solid"/>
+					<pen lineStyle="Solid" />
 				</graphicElement>
-			</line>
+			</element>
 		</band>
 		<band height="105" splitType="Stretch">
-			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
 			<printWhenExpression><![CDATA[$P{c_attAdditionalInfo}.equals("X")]]></printWhenExpression>
-			<textField isBlankWhenNull="true" isStretchWithOverflow="true">
-				<reportElement x="20" y="25" width="570" height="70" uuid="d456622c-91e7-47e8-8c24-b8c086b6dd63">
-					<property name="com.jaspersoft.studio.unit.y" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-				</reportElement>
-				<textElement verticalAlignment="Top">
-					<font size="10"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$P{mt_attAdditionalInfo}]]></textFieldExpression>
-			</textField>
-			<staticText>
-				<reportElement x="20" y="5" width="150" height="20" uuid="a56161e5-c6f5-4fe6-bb49-2b105b5731d1"/>
-				<textElement>
-					<font size="10" isBold="true"/>
-				</textElement>
+			<element kind="textField" uuid="d456622c-91e7-47e8-8c24-b8c086b6dd63" x="20" y="25" width="570" height="70" vTextAlign="Top" fontSize="10.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<property name="com.jaspersoft.studio.unit.y" value="px" />
+				<property name="com.jaspersoft.studio.unit.height" value="px" />
+				<expression><![CDATA[$P{mt_attAdditionalInfo}]]></expression>
+			</element>
+			<element kind="staticText" uuid="a56161e5-c6f5-4fe6-bb49-2b105b5731d1" x="20" y="5" width="150" height="20" fontSize="10.0" bold="true">
 				<text><![CDATA[Additional Information:]]></text>
-			</staticText>
-			<line>
-				<reportElement positionType="Float" x="20" y="100" width="571" height="1" uuid="6e44c33d-4eb3-4b34-9df2-3ad9b9db3897">
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-				</reportElement>
+			</element>
+			<element kind="line" uuid="6e44c33d-4eb3-4b34-9df2-3ad9b9db3897" positionType="Float" x="20" y="100" width="571" height="1">
+				<property name="com.jaspersoft.studio.unit.height" value="px" />
 				<graphicElement>
-					<pen lineStyle="Solid"/>
+					<pen lineStyle="Solid" />
 				</graphicElement>
-			</line>
+			</element>
 		</band>
 		<band height="145">
-			<property name="com.jaspersoft.studio.unit.height" value="px"/>
-			<staticText>
-				<reportElement x="20" y="10" width="150" height="20" uuid="19a19b44-ac71-490f-9d8c-f22810f7b827"/>
-				<textElement>
-					<font size="10" isBold="true"/>
-				</textElement>
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<element kind="staticText" uuid="19a19b44-ac71-490f-9d8c-f22810f7b827" x="20" y="10" width="150" height="20" fontSize="10.0" bold="true">
 				<text><![CDATA[Privacy Statement:]]></text>
-			</staticText>
-			<staticText>
-				<reportElement x="20" y="30" width="570" height="106" uuid="dc348c23-2ef0-494a-97a5-42e1df7aa9ae">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-				</reportElement>
+			</element>
+			<element kind="staticText" uuid="dc348c23-2ef0-494a-97a5-42e1df7aa9ae" x="20" y="30" width="570" height="106">
+				<property name="com.jaspersoft.studio.unit.width" value="px" />
+				<property name="com.jaspersoft.studio.unit.height" value="px" />
 				<text><![CDATA[Perinatal Services BC collects, uses and discloses personal information only as authorized under section 26(c), 33, and 35 of the BC Freedom of Information and Protection of Privacy Act, other legislation and PHSA's Privacy and Confidentiality Policy.  Information is collected for the purposes of supporting health care providers, leaders, researchers, and policymakers in their work to improve maternal, fetal, and neonatal health.  This includes work carried out for purposes of research, surveillance, program delivery, and evaluation.  We take all reasonable steps to make sure personal information is treated confidentially, is used only for the intended purpose and securely stored.  For questions regarding collection, use or disclosure of personal information, please contact the Provincial Director, Informatics and Privacy at (604) 877-2121 extension 223761 or business address:  Perinatal Services BC, Suite 350 - West Tower, 555 West 12th Avenue, Vancouver, BC   V5Z 3X7.]]></text>
-			</staticText>
+			</element>
 		</band>
 	</detail>
 </jasperReport>

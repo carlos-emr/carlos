@@ -27,23 +27,31 @@
  */
 package io.github.carlos_emr.carlos.providers.pageUtil;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ProEditPrinter2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     private HttpServletRequest request = ServletActionContext.getRequest();
     private UserPropertyDAO propertyDao = SpringUtils.getBean(UserPropertyDAO.class);
 
     public String execute() throws Exception {
-        String forward;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
+            throw new SecurityException("missing required sec object (_pref)");
+        }
+
+        String forward;
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         createOrUpdateProperty(providerNo, UserProperty.DEFAULT_PRINTER_APPOINTMENT_RECEIPT, defaultPrinterNameAppointmentReceipt);
@@ -94,6 +102,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return defaultPrinterNameAppointmentReceipt;
     }
 
+    @StrutsParameter
     public void setDefaultPrinterNameAppointmentReceipt(String defaultPrinterNameAppointmentReceipt) {
         this.defaultPrinterNameAppointmentReceipt = defaultPrinterNameAppointmentReceipt;
     }
@@ -102,6 +111,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return defaultPrinterNamePDFEnvelope;
     }
 
+    @StrutsParameter
     public void setDefaultPrinterNamePDFEnvelope(String defaultPrinterNamePDFEnvelope) {
         this.defaultPrinterNamePDFEnvelope = defaultPrinterNamePDFEnvelope;
     }
@@ -110,6 +120,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return defaultPrinterNamePDFLabel;
     }
 
+    @StrutsParameter
     public void setDefaultPrinterNamePDFLabel(String defaultPrinterNamePDFLabel) {
         this.defaultPrinterNamePDFLabel = defaultPrinterNamePDFLabel;
     }
@@ -118,6 +129,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return defaultPrinterNamePDFAddressLabel;
     }
 
+    @StrutsParameter
     public void setDefaultPrinterNamePDFAddressLabel(String defaultPrinterNamePDFAddressLabel) {
         this.defaultPrinterNamePDFAddressLabel = defaultPrinterNamePDFAddressLabel;
     }
@@ -126,6 +138,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return defaultPrinterNamePDFChartLabel;
     }
 
+    @StrutsParameter
     public void setDefaultPrinterNamePDFChartLabel(String defaultPrinterNamePDFChartLabel) {
         this.defaultPrinterNamePDFChartLabel = defaultPrinterNamePDFChartLabel;
     }
@@ -134,6 +147,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return defaultPrinterNameClientLabLabel;
     }
 
+    @StrutsParameter
     public void setDefaultPrinterNameClientLabLabel(String defaultPrinterNameClientLabLabel) {
         this.defaultPrinterNameClientLabLabel = defaultPrinterNameClientLabLabel;
     }
@@ -142,6 +156,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return silentPrintAppointmentReceipt;
     }
 
+    @StrutsParameter
     public void setSilentPrintAppointmentReceipt(boolean silentPrintAppointmentReceipt) {
         this.silentPrintAppointmentReceipt = silentPrintAppointmentReceipt;
     }
@@ -150,6 +165,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return silentPrintPDFEnvelope;
     }
 
+    @StrutsParameter
     public void setSilentPrintPDFEnvelope(boolean silentPrintPDFEnvelope) {
         this.silentPrintPDFEnvelope = silentPrintPDFEnvelope;
     }
@@ -158,6 +174,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return silentPrintPDFLabel;
     }
 
+    @StrutsParameter
     public void setSilentPrintPDFLabel(boolean silentPrintPDFLabel) {
         this.silentPrintPDFLabel = silentPrintPDFLabel;
     }
@@ -166,6 +183,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return silentPrintPDFAddressLabel;
     }
 
+    @StrutsParameter
     public void setSilentPrintPDFAddressLabel(boolean silentPrintPDFAddressLabel) {
         this.silentPrintPDFAddressLabel = silentPrintPDFAddressLabel;
     }
@@ -174,6 +192,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return silentPrintPDFChartLabel;
     }
 
+    @StrutsParameter
     public void setSilentPrintPDFChartLabel(boolean silentPrintPDFChartLabel) {
         this.silentPrintPDFChartLabel = silentPrintPDFChartLabel;
     }
@@ -182,6 +201,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return silentPrintClientLabLabel;
     }
 
+    @StrutsParameter
     public void setSilentPrintClientLabLabel(boolean silentPrintClientLabLabel) {
         this.silentPrintClientLabLabel = silentPrintClientLabLabel;
     }

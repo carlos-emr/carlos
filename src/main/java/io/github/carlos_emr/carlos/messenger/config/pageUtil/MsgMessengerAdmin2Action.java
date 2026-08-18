@@ -36,23 +36,27 @@ import io.github.carlos_emr.carlos.commn.model.Groups;
 import io.github.carlos_emr.carlos.managers.MessengerGroupManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 import io.github.carlos_emr.carlos.messenger.data.MsgAddressBookMaker;
 import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.logging.log4j.Logger;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * Struts2 Action class for administering messenger groups and their memberships in the OpenO EMR system.
+ * Struts2 Action class for administering messenger groups and their memberships in the CARLOS EMR system.
  * 
  * <p>This action provides comprehensive management functionality for the messenger group system,
  * including creating groups, managing group memberships, and deleting groups. It supports both
@@ -64,7 +68,7 @@ import org.apache.struts2.ServletActionContext;
  *   <li>Adding and removing providers from groups</li>
  *   <li>Creating new groups within the hierarchy</li>
  *   <li>Deleting groups (with validation to prevent orphaning child groups)</li>
- *   <li>Managing both local and remote messenger contacts</li>
+ *   <li>Managing local messenger contacts</li>
  * </ul>
  * </p>
  * 
@@ -81,6 +85,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static final Logger logger = MiscUtils.getLogger();
 
     private MessengerGroupManager messengerGroupManager = SpringUtils.getBean(MessengerGroupManager.class);
     private GroupsDao groupsDao = SpringUtils.getBean(GroupsDao.class);
@@ -93,12 +98,50 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * <p>This method implements a method-based routing pattern common in Struts2 actions,
      * allowing multiple related operations to be handled by a single action class.</p>
      * 
-     * @return Result string for Struts navigation:
-     *         - SUCCESS for successful operations
-     *         - "failure" if operation fails (e.g., attempting to delete a group with children)
+     * @return Struts navigation result:
+     *         {@link #SUCCESS} for successful operations;
+     *         {@code "failure"} if an operation fails (e.g. deleting a group with children);
+     *         {@link #NONE} when the request is rejected with HTTP 405 (non-POST mutation)
+     *         or when a mutating branch writes its response directly
+     * @throws java.io.IOException if the 405 error response cannot be written
+     * @throws SecurityException if the current user lacks the required
+     *         {@code _admin} read (view/fetch) or write (mutating method) privilege
      */
-    public String execute() {
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @Override
+    public String execute() throws java.io.IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String method = request.getParameter("method");
+
+        // Mutating endpoints: require _admin write + POST. Read endpoints
+        // (fetchGroups / view): require _admin read. Without these checks an
+        // authenticated non-admin could enumerate or alter messenger groups.
+        boolean isMutation = "add".equals(method) || "remove".equals(method)
+                || "create".equals(method) || "delete".equals(method) || "update".equals(method);
+
+        String providerNo = loggedInInfo == null ? "anon" : loggedInInfo.getLoggedInProviderNo();
+        if (isMutation) {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
+                logger.warn("MsgMessengerAdmin denied: provider={} method={} lacks _admin write",
+                        providerNo, method);
+                throw new SecurityException("missing required sec object (_admin)");
+            }
+            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+                logger.warn("MsgMessengerAdmin method not allowed: provider={} method={} httpMethod={}",
+                        providerNo, method, request.getMethod());
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
+        } else {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+                logger.warn("MsgMessengerAdmin denied: provider={} lacks _admin read (method={})",
+                        providerNo, method);
+                throw new SecurityException("missing required sec object (_admin)");
+            }
+        }
+
         if ("add".equals(method)) {
             return add();
         } else if ("remove".equals(method)) {
@@ -120,7 +163,6 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * <ul>
      *   <li>All groups with their current members</li>
      *   <li>All local healthcare provider contacts available for messaging</li>
-     *   <li>All remote contacts from connected healthcare facilities</li>
      * </ul>
      * </p>
      * 
@@ -135,21 +177,17 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
         Map<Groups, List<MsgProviderData>> groups = messengerGroupManager.getAllGroupsWithMembers(loggedInInfo);
         // Get all local providers available for messaging
         List<MsgProviderData> localContacts = messengerGroupManager.getAllLocalMessengerContactList(loggedInInfo);
-        // Get remote contacts from other connected facilities
-        Map<String, List<MsgProviderData>> remoteContacts = messengerGroupManager.getAllRemoteMessengerContactList(loggedInInfo);
-
         request.setAttribute("groups", groups);
         request.setAttribute("localContacts", localContacts);
-        request.setAttribute("remoteContacts", remoteContacts);
         return SUCCESS;
     }
 
     /**
      * Adds a healthcare provider or contact to a messenger group.
      * 
-     * <p>This method handles adding members to groups using composite identifiers that
-     * can represent both local providers and remote contacts. The member ID is expected
-     * to be in a composite format that includes the contact type and identifier.</p>
+     * <p>This method handles adding members to groups using composite identifiers.
+     * The member ID is expected to be in a composite format that includes the contact
+     * type and identifier.</p>
      * 
      * Request parameter "member": The composite member ID to add (format: type:id).
      * Request parameter "group": The target group ID, defaults to "0" (root) if not specified.
@@ -435,6 +473,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * 
      * @param update The button value to set
      */
+    @StrutsParameter
     public void setUpdate(String update) {
         this.update = update;
     }
@@ -456,6 +495,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * 
      * @param delete The button value to set
      */
+    @StrutsParameter
     public void setDelete(String delete) {
         this.delete = delete;
     }
@@ -474,6 +514,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * 
      * @param provider The provider ID array to set
      */
+    @StrutsParameter
     public void setProvider(String[] provider) {
         this.provider = provider;
     }
@@ -495,6 +536,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * 
      * @param prov The provider ID array to set
      */
+    @StrutsParameter
     public void setProviders(String[] prov) {
         this.provider = prov;
     }
@@ -516,6 +558,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * 
      * @param grpNo The group number to set
      */
+    @StrutsParameter
     public void setGrpNo(String grpNo) {
         this.grpNo = grpNo;
     }

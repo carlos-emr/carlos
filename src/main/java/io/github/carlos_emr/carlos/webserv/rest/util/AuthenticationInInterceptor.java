@@ -28,11 +28,11 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.util;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.ResponseBuilder;
-import javax.ws.rs.core.Response.Status;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.ResponseBuilder;
+import jakarta.ws.rs.core.Response.Status;
 
 import org.apache.cxf.interceptor.Fault;
 import org.apache.cxf.message.Message;
@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.log.LogAction;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class AuthenticationInInterceptor extends AbstractPhaseInterceptor<Message> {
 
@@ -55,6 +56,8 @@ public class AuthenticationInInterceptor extends AbstractPhaseInterceptor<Messag
         return LoggedInInfo.getLoggedInInfoFromSession(request);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public void handleMessage(Message message) throws Fault {
         // allows WADL requests for unauthenticated users

@@ -33,8 +33,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.daos.DefaultIssueDao;
 import io.github.carlos_emr.carlos.model.DefaultIssue;
@@ -49,16 +49,24 @@ import io.github.carlos_emr.carlos.log.LogAction;
 /**
  * @author Administrator
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class DefaultEncounterIssue2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         String method = request.getParameter("method");
         if ("edit".equals(method)) {
             return edit();

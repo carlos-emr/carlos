@@ -29,8 +29,8 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 /**
@@ -45,16 +45,30 @@ import javax.servlet.http.HttpServletResponse;
  * @author not attributable
  * @version 1.0
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import java.io.IOException;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class AssociateCodes2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         ServiceCodeAssociation svc = this.getSvcAssoc();
         /**
          * Send back to originating screen if there are no associated codes selected
@@ -62,7 +76,7 @@ public class AssociateCodes2Action extends ActionSupport {
          */
         if (!svc.hasDXCodes()) {
             try {
-                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/dxcode_svccode_assoc.jsp");
+                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/showServiceCodeAssocs");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -81,14 +95,17 @@ public class AssociateCodes2Action extends ActionSupport {
         return mode;
     }
 
+    @StrutsParameter
     public void setMode(String mode) {
         this.mode = mode;
     }
 
+    @StrutsParameter(depth = 1)
     public ServiceCodeAssociation getSvcAssoc() {
         return svcAssoc;
     }
 
+    @StrutsParameter
     public void setSvcAssoc(ServiceCodeAssociation svcAssoc) {
         this.svcAssoc = svcAssoc;
     }

@@ -28,10 +28,14 @@
  */
 package io.github.carlos_emr.carlos.dashboard.handler;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+
+import jakarta.persistence.Query;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.*;
+import org.hibernate.query.NativeQuery;
 import io.github.carlos_emr.carlos.dashboard.handler.IndicatorTemplateXML.RangeType;
 import io.github.carlos_emr.carlos.dashboard.query.Column;
 import io.github.carlos_emr.carlos.dashboard.query.DrillDownAction;
@@ -40,19 +44,21 @@ import io.github.carlos_emr.carlos.dashboard.query.RangeInterface;
 import io.github.carlos_emr.carlos.dashboard.query.RangeInterface.Limit;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public abstract class AbstractQueryHandler extends HibernateDaoSupport {
+// @Transactional at class level so the protected execute() / execute(String)
+// entry points are both covered when subclasses (DrilldownQueryHandler,
+// ExportQueryHandler, IndicatorQueryHandler) invoke them via super.execute(...).
+// A method-level annotation is not enough here: the no-arg execute() delegates
+// to execute(getQuery()) through this.execute(...), a self-invocation that
+// would bypass Spring's transactional proxy.
+@Transactional(readOnly = true)
+public abstract class AbstractQueryHandler extends AbstractJpaDao {
 
     private static Logger logger = MiscUtils.getLogger();
-
-    @Autowired
-    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        super.setSessionFactory(sessionFactory);
-    }
 
     private static final String PLACE_HOLDER_PATTERN = "(\\$){1}(\\{){1}( )*##( )*(\\}){1}";
     private static final String COMMENT_BLOCK_PATTERN = "/\\*(?:.|[\\n\\r])*?\\*/";
@@ -81,28 +87,32 @@ public abstract class AbstractQueryHandler extends HibernateDaoSupport {
 
         setResultList(null);
 
-        Transaction tx = null;
-        try (Session session = getSessionFactory().openSession()) {
-            tx = session.beginTransaction();
-            SQLQuery sqlQuery = session.createSQLQuery(query);
-            List<?> results = sqlQuery.setResultTransformer(Criteria.ALIAS_TO_ENTITY_MAP).list();
+        try {
+            Query jpaQuery = entityManager().createNativeQuery(query); // nosemgrep: hibernate-sqli -- query is a dashboard XML-configured read-only SELECT; validated by caller
+            // Replaces the removed Hibernate 5 AliasToEntityMapResultTransformer: emit
+            // each row as a LinkedHashMap keyed by the column alias, preserving insertion
+            // order so downstream consumers that iterate by position still see consistent
+            // column ordering.
+            NativeQuery<?> hibernateQuery = jpaQuery.unwrap(NativeQuery.class);
+            hibernateQuery.setTupleTransformer((tuple, aliases) -> {
+                Map<String, Object> map = new LinkedHashMap<>();
+                for (int i = 0; i < aliases.length; i++) {
+                    String key = (aliases[i] != null && !aliases[i].isEmpty())
+                            ? aliases[i]
+                            : "col" + i;
+                    map.put(key, tuple[i]);
+                }
+                return map;
+            });
+            List<?> results = hibernateQuery.getResultList();
 
             //TODO work on method to detect and exclude demographic files that are
             // defined in the securityInfoManager object.
 
             setResultList(results);
-            tx.commit();
-
             return results;
         } catch (Exception e) {
-            if (tx != null) {
-                try {
-                    tx.rollback();
-                } catch (Exception rollbackEx) {
-                    e.addSuppressed(rollbackEx);
-                }
-            }
-            logger.error("Query execution failed");
+            logger.error("Query execution failed", e);
             throw new RuntimeException("Error executing query", e);
         }
     }
@@ -172,7 +182,7 @@ public abstract class AbstractQueryHandler extends HibernateDaoSupport {
      * <p>
      * Not Thread Safe
      */
-    protected final String buildQuery(final String query) {
+    protected String buildQuery(final String query) {
 
         String queryString = new String(query);
 
@@ -200,7 +210,7 @@ public abstract class AbstractQueryHandler extends HibernateDaoSupport {
      * Searches the query string for a specific string pattern.
      * ie: "(\\$){1}(\\{){1}( )* [firstName] ( )*(\\}){1}"
      */
-    public final String addParameters(List<Parameter> parameters, String query) {
+    public String addParameters(List<Parameter> parameters, String query) {
 
         for (Parameter parameter : parameters) {
             query = addParameter(parameter, query);
@@ -225,7 +235,7 @@ public abstract class AbstractQueryHandler extends HibernateDaoSupport {
      * ie: "(\\$){1}(\\{){1}( )* [firstName] ( )*(\\}){1}"
      */
 
-    public final String addRanges(List<RangeInterface> ranges, String query) {
+    public String addRanges(List<RangeInterface> ranges, String query) {
 
         for (RangeInterface range : ranges) {
             query = addRange(range, query);

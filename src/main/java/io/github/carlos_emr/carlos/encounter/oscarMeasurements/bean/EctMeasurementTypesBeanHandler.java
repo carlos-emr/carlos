@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 public class EctMeasurementTypesBeanHandler {
@@ -70,7 +70,7 @@ public class EctMeasurementTypesBeanHandler {
         MeasurementTypeDao dao = SpringUtils.getBean(MeasurementTypeDao.class);
         ValidationsDao valDao = SpringUtils.getBean(ValidationsDao.class);
 
-        boolean orderById = "true".equals(OscarProperties.getInstance().getProperty("oscarMeasurements.orderGroupById", "false"));
+        boolean orderById = "true".equals(CarlosProperties.getInstance().getProperty("oscarMeasurements.orderGroupById", "false"));
 
         List<MeasurementType> types = (orderById) ? dao.findAllOrderById() : dao.findAllOrderByName();
 

@@ -33,8 +33,8 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.time.DateUtils;
 import io.github.carlos_emr.carlos.PMmodule.utility.DateTimeFormatUtils;
@@ -45,10 +45,14 @@ import io.github.carlos_emr.carlos.commn.model.ShelterUsage;
 import io.github.carlos_emr.carlos.commn.service.PopulationReportManager;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class PopulationReport2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -72,6 +76,11 @@ public class PopulationReport2Action extends ActionSupport {
 
     @Override
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
+            throw new SecurityException("missing required sec object (_report)");
+        }
+
         return report();
     }
 

@@ -37,7 +37,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.InputStream;
 import java.util.Iterator;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import org.apache.commons.io.IOUtils;
 import io.github.carlos_emr.carlos.commn.model.ISO36612;

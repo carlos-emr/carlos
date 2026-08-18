@@ -50,7 +50,36 @@ public interface AppointmentSearchManager {
 
     public SearchConfig getProviderSearchConfig(String providerNo);
 
-    public List<TimeSlot> findAppointment(LoggedInInfo loggedInInfo, SearchConfig config, Integer demographicNo, Long appointmentTypeId, Calendar startDate) throws java.lang.ClassNotFoundException, java.lang.InstantiationException, java.lang.IllegalAccessException;
+    public List<TimeSlot> findAppointment(LoggedInInfo loggedInInfo, SearchConfig config, Integer demographicNo, Long appointmentTypeId, Calendar startDate);
+
+    /**
+     * Thrown when appointment search filter resolution fails due to
+     * misconfiguration or an unauthorized filter key.
+     *
+     * <p>Callers should handle this as a configuration or system error.</p>
+     *
+     * @since 2026-04-10
+     */
+    public static class AppointmentSearchException extends RuntimeException {
+        /**
+         * Constructs a new exception with the specified detail message.
+         *
+         * @param message String the detail message describing the instantiation failure
+         */
+        public AppointmentSearchException(String message) {
+            super(message);
+        }
+
+        /**
+         * Constructs a new exception with the specified detail message and cause.
+         *
+         * @param message String the detail message describing the instantiation failure
+         * @param cause Throwable the underlying reflective operation failure
+         */
+        public AppointmentSearchException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
 
     public static List<TimeSlot> getAllowedTimesByType(DayWorkSchedule dayWorkSchedule, Character[] codes, String providerNo) {
         ArrayList<TimeSlot> allowedTimesFilteredByType = new ArrayList<TimeSlot>();

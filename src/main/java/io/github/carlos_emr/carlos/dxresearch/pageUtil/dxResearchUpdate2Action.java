@@ -29,7 +29,7 @@
 
 package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
@@ -42,13 +42,16 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class dxResearchUpdate2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -57,9 +60,16 @@ public class dxResearchUpdate2Action extends ActionSupport {
     private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "u", null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new SecurityException("missing required sec object (_dxresearch u)");
         }
 
         String status = request.getParameter("status");
@@ -68,6 +78,21 @@ public class dxResearchUpdate2Action extends ActionSupport {
         String providerNo = request.getParameter("providerNo");
         String startDate = request.getParameter("startdate");
 
+        if (did == null || !did.matches("\\d+")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid did parameter");
+            return NONE;
+        }
+        if (demographicNo == null || !demographicNo.matches("\\d+")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid demographicNo parameter");
+            return NONE;
+        }
+        if (providerNo == null || !providerNo.matches("\\d+")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid providerNo parameter");
+            return NONE;
+        }
+
+        int demographicNoInt = Integer.parseInt(demographicNo);
+        int providerNoInt = Integer.parseInt(providerNo);
 
         partialDateDao.setPartialDate(startDate, PartialDate.DXRESEARCH, Integer.valueOf(did), PartialDate.DXRESEARCH_STARTDATE);
         startDate = partialDateDao.getFullDate(startDate);
@@ -94,13 +119,14 @@ public class dxResearchUpdate2Action extends ActionSupport {
             dao.merge(research);
         }
 
-        StringBuffer forward = new StringBuffer(request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch.do");
-        forward.append("?demographicNo=").append(demographicNo);
-        forward.append("&providerNo=").append(providerNo);
+        StringBuffer forward = new StringBuffer(request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch");
+        forward.append("?demographicNo=").append(URLEncoder.encode(Integer.toString(demographicNoInt), StandardCharsets.UTF_8));
+        forward.append("&providerNo=").append(URLEncoder.encode(Integer.toString(providerNoInt), StandardCharsets.UTF_8));
         forward.append("&quickList=");
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, "DX", "" + research.getId(), ip, "");
+        String contentId = (research != null) ? String.valueOf(research.getId()) : did;
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, "DX", contentId, ip, "");
 
 
         response.sendRedirect(forward.toString());

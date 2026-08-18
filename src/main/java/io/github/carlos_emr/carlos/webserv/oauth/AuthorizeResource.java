@@ -9,7 +9,8 @@
  *
  * Responsibilities:
  *   • GET  /ws/oauth/authorize: Display consent UI (3rdpartyLogin.jsp),
- *     pre-populated with client and requested scopes.
+ *     pre-populated with client and requested scopes, and stage a
+ *     one-time server-side authorization nonce.
  *   • POST /ws/oauth/authorize: Handle approval, finalize authorization
  *     with the provider, and redirect the user agent back to the client
  *     with oauth_token and oauth_verifier.
@@ -22,7 +23,8 @@
  *   model and JSP-based consent UI.
  *
  * Notes:
- *   • Requires an authenticated user session (via "user" attribute).
+ *   • Requires an authenticated user session (via "user" attribute) before
+ *     POST approval can bind the request token to a provider.
  *   • Does not log or expose verifier/token values beyond what’s required
  *     by the protocol.
  *   • Responds with 400/401 for missing tokens, invalid request tokens,
@@ -31,12 +33,13 @@
 
 package io.github.carlos_emr.carlos.webserv.oauth;
 
-import javax.inject.Inject;
-import javax.servlet.RequestDispatcher;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.*;
-import javax.ws.rs.core.*;
+import jakarta.inject.Inject;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.*;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -55,7 +58,8 @@ public class AuthorizeResource {
     @Inject  private OscarOAuthDataProvider provider;
 
     private String getLoggedInProviderNo() {
-        Object u = request.getSession().getAttribute("user");
+        HttpSession session = request.getSession(false);
+        Object u = session == null ? null : session.getAttribute("user");
         return u != null ? u.toString() : null;
     }
 
@@ -79,6 +83,7 @@ public class AuthorizeResource {
         OAuthData od = new OAuthData();
         od.setOauthToken(tokenId);
         od.setReplyTo(request.getContextPath() + "/ws/oauth/authorize");
+        od.setAuthenticityToken(OAuthAuthorizationSessionState.stageNonce(request.getSession(), tokenId));
         if (c != null) {
             od.setApplicationName(c.getName());
             od.setApplicationURI(c.getUri());
@@ -90,8 +95,10 @@ public class AuthorizeResource {
 
         request.setAttribute("oauthData", od);
 
-        // Correct servlet forward
-        RequestDispatcher rd = request.getRequestDispatcher("/login/3rdpartyLogin.jsp");
+        // Correct servlet forward. JSP now lives behind /WEB-INF/jsp/ since
+        // the tail-interactive migration; RequestDispatcher can still reach
+        // it via internal dispatch (see follow-up validation ticket #1731).
+        RequestDispatcher rd = request.getRequestDispatcher("/WEB-INF/jsp/login/3rdpartyLogin.jsp");
         rd.forward(request, response); // response committed by forward
     }
 
@@ -99,34 +106,103 @@ public class AuthorizeResource {
     @POST
     @Path("/authorize")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    public Response approve(@FormParam("oauth_token") String tokenId) {
+    public Response approve(@FormParam("oauth_token") String tokenId,
+                            @FormParam("session_authenticity_token") String submittedNonce,
+                            @FormParam("oauthDecision") String oauthDecision) {
         if (tokenId == null || tokenId.isEmpty()) {
-            return Response.status(400).entity("missing oauth_token").type(MediaType.TEXT_PLAIN).build();
+            return textResponse(400, "missing oauth_token");
         }
 
         RequestToken rt = provider.getRequestToken(tokenId);
         if (rt == null) {
-            return Response.status(400).entity("invalid_request_token").type(MediaType.TEXT_PLAIN).build();
+            return textResponse(400, "invalid_request_token");
+        }
+        if (!"allow".equals(oauthDecision)) {
+            return textResponse(403, "authorization_denied");
+        }
+        if (!OAuthAuthorizationSessionState.consumeNonce(request.getSession(false), tokenId, submittedNonce)) {
+            return textResponse(403, "invalid_authorization_nonce");
         }
 
         String providerNo = getLoggedInProviderNo();
         if (providerNo == null || providerNo.isEmpty()) {
-            return Response.status(401).entity("login_required").type(MediaType.TEXT_PLAIN).build();
+            return textResponse(401, "login_required");
         }
 
-        // Let the provider set & persist the verifier + providerNo
-        String verifier = provider.finalizeAuthorization(rt);
+        URI callbackUri;
+        try {
+            callbackUri = callbackRedirectUri(rt.getCallback());
+        } catch (OAuth1Exception e) {
+            return textResponse(e.getHttpCode(), e.getMessage());
+        }
 
-        String cb = rt.getCallback();
-        if (cb != null && !"oob".equalsIgnoreCase(cb)) {
-            String sep = cb.contains("?") ? "&" : "?";
-            String loc = cb + sep + "oauth_token=" + enc(tokenId) + "&oauth_verifier=" + enc(verifier);
-            return Response.seeOther(URI.create(loc)).build(); // 303 redirect
+        String verifier = provider.finalizeAuthorization(rt, providerNo);
+
+        if (callbackUri != null) {
+            return redirectToCallback(callbackUri, tokenId, verifier);
         }
 
         // OOB: show verifier
         return Response.ok("oauth_verifier=" + enc(verifier)).type(MediaType.TEXT_PLAIN).build();
     }
 
+    private static URI callbackRedirectUri(String callback) {
+        if (callback == null || isOutOfBandCallback(callback)) {
+            return null;
+        }
+        URI callbackUri;
+        try {
+            callbackUri = URI.create(callback);
+        } catch (IllegalArgumentException e) {
+            throw new OAuth1Exception(400, "invalid_callback");
+        }
+        String scheme = callbackUri.getScheme();
+        if (!isHttpScheme(scheme)) {
+            throw new OAuth1Exception(400, "invalid_callback_scheme");
+        }
+        String host = callbackUri.getHost();
+        if (host == null || host.isBlank()) {
+            throw new OAuth1Exception(400, "invalid_callback");
+        }
+        return callbackUri;
+    }
+
+    private static Response redirectToCallback(URI callbackUri, String tokenId, String verifier) {
+        URI loc = UriBuilder.fromUri(callbackUri)
+                .queryParam("oauth_token", tokenId)
+                .queryParam("oauth_verifier", verifier)
+                .build();
+        // nosemgrep: open-redirect -- callback comes from the server-persisted request token
+        // (set during /initiate by OscarRequestTokenService), not from user input in this POST.
+        return Response.seeOther(loc).build(); // 303 redirect
+    }
+
+    private static Response textResponse(int status, String entity) {
+        return Response.status(status).entity(entity).type(MediaType.TEXT_PLAIN).build();
+    }
+
+    private static boolean isOutOfBandCallback(String callback) {
+        return asciiEqualsIgnoreCase(callback, "oob");
+    }
+
+    private static boolean isHttpScheme(String scheme) {
+        return asciiEqualsIgnoreCase(scheme, "http") || asciiEqualsIgnoreCase(scheme, "https");
+    }
+
+    private static boolean asciiEqualsIgnoreCase(String actual, String expected) {
+        if (actual == null || actual.length() != expected.length()) {
+            return false;
+        }
+        for (int i = 0; i < actual.length(); i++) {
+            char c = actual.charAt(i);
+            char lowered = c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c;
+            if (lowered != expected.charAt(i)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private static String enc(String v) { return URLEncoder.encode(v, StandardCharsets.UTF_8); }
+
 }

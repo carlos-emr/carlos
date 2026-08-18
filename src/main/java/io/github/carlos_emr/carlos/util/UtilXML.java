@@ -31,19 +31,21 @@
 package io.github.carlos_emr.carlos.util;
 
 import java.io.FileNotFoundException;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.Properties;
 
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
@@ -56,7 +58,7 @@ public class UtilXML {
 
     public static Document newDocument() {
         try {
-            Document document = DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
+            Document document = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().newDocument();
             return document;
         } catch (Exception e) {
             Document document1 = null;
@@ -84,7 +86,7 @@ public class UtilXML {
         DOMSource src = new DOMSource(xmlDoc);
         StreamResult rslt = new StreamResult(ret);
         try {
-            Transformer trans = TransformerFactory.newInstance().newTransformer();
+            Transformer trans = XmlUtils.createSecureTransformerFactory().newTransformer();
             //trans.setOutputProperty(OutputKeys.INDENT, "yes");
             //trans.setOutputProperty("{http://xml.apache.org/xslt}baseIndent-amount", "1");
             trans.transform(src, rslt);
@@ -99,7 +101,7 @@ public class UtilXML {
         DOMSource src = new DOMSource(xmlDoc);
         StreamResult rslt = new StreamResult(ret);
         try {
-            Transformer trans = TransformerFactory.newInstance().newTransformer();
+            Transformer trans = XmlUtils.createSecureTransformerFactory().newTransformer();
             trans.setOutputProperty(javax.xml.transform.OutputKeys.INDENT, "yes");
             trans.setOutputProperty(javax.xml.transform.OutputKeys.DOCTYPE_SYSTEM, dtdname);
             //trans.setOutputProperty("{http://xml.apache.org/xslt}baseIndent-amount", "1");
@@ -116,7 +118,7 @@ public class UtilXML {
         DOMSource src = new DOMSource(xmlDoc);
         StreamResult rslt = new StreamResult(ret);
         try {
-            Transformer trans = TransformerFactory.newInstance().newTransformer();
+            Transformer trans = XmlUtils.createSecureTransformerFactory().newTransformer();
             trans.transform(src, rslt);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -128,21 +130,7 @@ public class UtilXML {
         Document document;
         try {
             InputSource is = new InputSource(new StringReader(xmlInput));
-            DocumentBuilderFactory docBuilder = DocumentBuilderFactory.newInstance();
-
-            // Disable external entities to prevent XXE attacks
-            docBuilder.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            docBuilder.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            docBuilder.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            docBuilder.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            
-            // Disable XInclude
-            docBuilder.setXIncludeAware(false);
-            
-            // Disabled expansion of entity references
-            docBuilder.setExpandEntityReferences(false);
-            
-            Document doc = docBuilder.newDocumentBuilder().parse(is);
+            Document doc = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
             Document document1 = doc;
             return document1;
         } catch (Exception e) {
@@ -151,11 +139,14 @@ public class UtilXML {
         return document;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static Document parseXMLFile(String fileName)
             throws IOException, FileNotFoundException, Exception {
-        InputSource is = new InputSource(new FileReader(fileName));
-        Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(is);
-        return doc;
+        try (FileReader reader = new FileReader(PathValidationUtils.resolveTrustedPath(new File(fileName)))) {
+            InputSource is = new InputSource(reader);
+            return XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
+        }
     }
 
 

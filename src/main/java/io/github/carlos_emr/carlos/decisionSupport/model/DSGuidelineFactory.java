@@ -46,6 +46,8 @@ import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.decisionSupport.model.conditionValue.DSValue;
 import io.github.carlos_emr.carlos.decisionSupport.model.impl.drools.DSGuidelineDrools;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Factory class for creating and parsing clinical decision support guidelines from XML configuration.
@@ -111,9 +113,11 @@ public class DSGuidelineFactory {
      * @throws DecisionSupportParseException if XML is invalid, malformed, or contains unrecognized elements
      * @see DSGuideline for the resulting guideline object structure
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public DSGuideline createGuidelineFromXml(String xml) throws DecisionSupportParseException {
         if (xml == null || xml.equals("")) throw new DecisionSupportParseException("Xml not set");
-        SAXBuilder parser = new SAXBuilder();
+        SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
         Document doc;
         try {
             doc = parser.build(new StringReader(xml));

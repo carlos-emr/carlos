@@ -187,7 +187,7 @@ public class DesAntenatalPlannerChecklistHandler_99_12 extends DefaultHandler {
         // Process week elements - gestational week sections with calculated visit dates
         if (rawName.equals("week")) {
             for (int i = 0; i < atts.getLength(); i++) {
-                if (atts.getQName(i) == "number") {
+                if ("number".equals(atts.getQName(i))) {
                     count = Integer.parseInt(atts.getValue(i));
                 }
             }
@@ -218,9 +218,9 @@ public class DesAntenatalPlannerChecklistHandler_99_12 extends DefaultHandler {
             // Parse item attributes for name, risk factors, and checkbox requirement
             for (int i = 0; i < atts.getLength(); i++) {
                 count = 1;
-                if (atts.getQName(i) == "name") clname = atts.getValue(i);
-                if (atts.getQName(i) == "risk") riskname = atts.getValue(i);
-                if (atts.getQName(i) == "checkbox") checkbox = true;
+                if ("name".equals(atts.getQName(i))) clname = atts.getValue(i);
+                if ("risk".equals(atts.getQName(i))) riskname = atts.getValue(i);
+                if ("checkbox".equals(atts.getQName(i))) checkbox = true;
             }
 
             // Display item only if no specific risk factor or if risk factor is present

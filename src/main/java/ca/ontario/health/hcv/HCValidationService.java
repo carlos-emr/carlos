@@ -3,12 +3,12 @@ package ca.ontario.health.hcv;
 import java.net.MalformedURLException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.xml.ws.WebServiceFeature;
-import javax.xml.ws.WebEndpoint;
+import jakarta.xml.ws.WebServiceFeature;
+import jakarta.xml.ws.WebEndpoint;
 import javax.xml.namespace.QName;
 import java.net.URL;
-import javax.xml.ws.WebServiceClient;
-import javax.xml.ws.Service;
+import jakarta.xml.ws.WebServiceClient;
+import jakarta.xml.ws.Service;
 
 /**
  * JAX-WS client service for Ontario Health Card (HC) Validation.

@@ -324,32 +324,4 @@ public class QrCodeUtils {
 		return ImageIO.read(inputStream);
 	}
 
-	public static void main(String... argv) throws Exception
-	{
-        byte[] b = toSingleQrCodePng("this is a test of some text", ErrorCorrectionLevel.H, 1);
-
-        FileOutputStream fos = new FileOutputStream("/tmp/test_h.png");
-        fos.write(b);
-        fos.flush();
-        fos.close();
-
-        //------
-        {
-            byte[] b1 = toMultipleQrCodePngs("1234567890abcdefghijklmnopqrstuvwxyz", ErrorCorrectionLevel.H, QrCodesOrientation.HORIZONTAL, null, 5, 1);
-
-            FileOutputStream fos1 = new FileOutputStream("/tmp/test_h1.png");
-            fos1.write(b1);
-            fos1.flush();
-            fos1.close();
-        }
-        //------
-        {
-            byte[] b1 = toMultipleQrCodePngs("1234567890abcdefghijklmnopqrstuvwxyz", ErrorCorrectionLevel.H, QrCodesOrientation.HORIZONTAL, null, 5, 3);
-
-            FileOutputStream fos1 = new FileOutputStream("/tmp/test_h1_x3.png");
-            fos1.write(b1);
-            fos1.flush();
-            fos1.close();
-        }
-    }
 }

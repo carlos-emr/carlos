@@ -72,9 +72,15 @@ public interface BillingDao extends AbstractDao<Billing> {
 
     Integer search_billing_no(int demographicNo);
 
-    List<Object[]> search_billob(String providerNo, Date startDate, Date endDate);
+    List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillObRow> search_billob(String providerNo, Date startDate, Date endDate);
 
-    List<Object[]> search_billflu(String creator, Date startDate, Date endDate);
+    List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillFluRow> search_billflu(String creator, Date startDate, Date endDate);
+
+    List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidBillingRow>
+    findBillingOnNewReportPaidBillings(String providerNo, String startDate, String endDate);
+
+    List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportUnpaidRow>
+    findBillingOnNewReportUnpaidRows(String providerNo, String startDate, String endDate);
 
     List<Billing> search_unsettled_history_daterange(String providerNo, Date startDate, Date endDate);
 

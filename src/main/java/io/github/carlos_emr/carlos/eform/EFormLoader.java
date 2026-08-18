@@ -30,20 +30,26 @@
 
 package io.github.carlos_emr.carlos.eform;
 
-import io.github.carlos_emr.OscarProperties;
-import org.apache.commons.digester3.Digester;
+import io.github.carlos_emr.CarlosProperties;
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.Unmarshaller;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import io.github.carlos_emr.carlos.eform.data.DatabaseAP;
 import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.eform.data.EFormApConfig;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EFormLoader {
 
@@ -53,7 +59,6 @@ public class EFormLoader {
     static private Vector<DatabaseAP> eFormAPs = new Vector<DatabaseAP>();
     static private String marker = "oscarDB";
     static private String opener = "oscarOPEN";
-    static private String inputMarker = "oscarDBinput";
 
 
     static public EFormLoader getInstance() {
@@ -110,10 +115,6 @@ public class EFormLoader {
         return marker;
     }
 
-    public static String getInputMarker() {
-        return inputMarker;
-    }
-
     public static String getOpener() {
         return opener;
     }
@@ -129,20 +130,22 @@ public class EFormLoader {
         String formId = efm.getFid();
         String appointmentNo = efm.getAppointmentNo();
 
-        if (url.contains("efmformadd_data.jsp")) { //whole new eform
+        if (url.contains("efmformadd_data")) { //whole new eform
             url += "?fid=" + fid + "&demographic_no=" + demographicNo + "&appointment=" + appointmentNo;
         } else if (!StringUtils.isBlank(fdid)) { //filled eform, eform already linked
             url += "?fdid=" + fdid + "&appointment=" + appointmentNo;
         } else if (demographicNo.equals("-1")) { //eform viewed in admin
             url += "?fid=" + fid;
         } else { //filled eform, but create new eform link
-            url = url.replaceFirst("efmshowform_data.jsp", "efmformadd_data.jsp");
+            url = url.replaceFirst("efmshowform_data", "efmformadd_data");
             url += "?fid=" + fid + "&demographic_no=" + demographicNo + "&appointment=" + appointmentNo;
         }
         String link = "&eform_link=" + providerNo + "_" + demographicNo + "_" + formId + "_" + field;
         return "window.open('" + url + link + "');";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static DatabaseAP getAP(String apName) {
         //returns he DatabaseAP corresponding to the ap name
         DatabaseAP curAP = null;
@@ -172,33 +175,28 @@ public class EFormLoader {
      *</eformap-config>
      *Call ap like so: <input type="text" oscarDB=patient_name size="20">*/
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static void parseXML() {
-        Digester digester = new Digester();
-        digester.push(_instance); // Push controller servlet onto the stack
-        digester.setValidating(false);
-
-        digester.addObjectCreate("eformap-config/databaseap", DatabaseAP.class);
-        //digester.addSetProperties("eformap-config/databaseap");
-        digester.addBeanPropertySetter("eformap-config/databaseap/ap-name", "apName");
-        digester.addBeanPropertySetter("eformap-config/databaseap/ap-sql", "apSQL");
-        digester.addBeanPropertySetter("eformap-config/databaseap/ap-output", "apOutput");
-        digester.addBeanPropertySetter("eformap-config/databaseap/ap-insql", "apInSQL");
-        digester.addBeanPropertySetter("eformap-config/databaseap/archive", "archive");
-        digester.addBeanPropertySetter("eformap-config/databaseap/ap-json-output", "apJsonOutput");
-        digester.addSetNext("eformap-config/databaseap", "addDatabaseAP");
         try {
-            Properties op = OscarProperties.getInstance();
+            Properties op = CarlosProperties.getInstance();
             String configpath = op.getProperty("eform_databaseap_config");
-            InputStream fs = null;
+            InputStream fs;
             if (configpath == null) {
                 EFormLoader eLoader = new EFormLoader();
                 ClassLoader loader = eLoader.getClass().getClassLoader();
-                fs = loader.getResourceAsStream("/oscar/eform/apconfig.xml");
+                fs = loader.getResourceAsStream("oscar/eform/apconfig.xml");
             } else {
-                fs = new FileInputStream(configpath);
+                fs = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(configpath)));
             }
-            digester.parse(fs);
-            fs.close();
+            try (InputStream autoClose = fs) {
+                JAXBContext ctx = JAXBContext.newInstance(EFormApConfig.class);
+                Unmarshaller unmarshaller = ctx.createUnmarshaller();
+                EFormApConfig config = (EFormApConfig) unmarshaller.unmarshal(XmlUtils.createSecureJaxbSource(autoClose));
+                for (DatabaseAP ap : config.getDatabaseAPs()) {
+                    addDatabaseAP(ap);
+                }
+            }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }

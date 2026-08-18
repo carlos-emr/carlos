@@ -34,11 +34,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.dashboard.display.beans.GraphPlot;
 import io.github.carlos_emr.carlos.managers.DashboardManagerImpl;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 /**
@@ -52,7 +53,7 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
     private static Logger logger = MiscUtils.getLogger();
     private List<GraphPlot[]> graphPlots;
     private static Double DEFAULT_DENOMINATOR = 100.0;
-    private static final boolean showNumbers = OscarProperties.getInstance().getBooleanProperty("SHOW_INDICATOR_DASHBOARD_NUMBERS", "true");
+    private static final boolean showNumbers = CarlosProperties.getInstance().getBooleanProperty("SHOW_INDICATOR_DASHBOARD_NUMBERS", "true");
 
     public IndicatorQueryHandler() {
         if (showNumbers) {
@@ -90,7 +91,7 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
     }
 
     @Override
-    public final String filterQueryString(String queryString) {
+    public String filterQueryString(String queryString) {
         return super.filterQueryString(queryString);
     }
 
@@ -171,6 +172,8 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
     /**
      * Value is the query result and key is the column (or result) alias
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static GraphPlot[] createGraphPlots(Map<String, ?> row) {
 
         List<GraphPlot> graphPlots = null;
@@ -221,23 +224,41 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
 
     // helper utilities.
 
+    /**
+     * Serialises graph plots as a valid JSON array of series for use in HTML hidden inputs.
+     * Format: [[["label1", value1], ["label2", value2]], ...]
+     * Each series corresponds to one SQL result row; each element within a series is one column.
+     * Using valid JSON (double-quoted strings) avoids client-side quote-replacement hacks that
+     * corrupt labels containing apostrophes (e.g., "Women's Health").
+     *
+     * @param graphPlots list of series; each series is an array of GraphPlot objects
+     * @return JSON string representation of the graph plot data
+     */
     public static String plotsToStringArray(List<GraphPlot[]> graphPlots) {
-        StringBuilder json = new StringBuilder("");
+        if (graphPlots == null || graphPlots.isEmpty()) {
+            return "[]";
+        }
+        StringBuilder json = new StringBuilder("[");
         for (GraphPlot[] graphPlotArray : graphPlots) {
             json.append("[");
             for (GraphPlot graphPlot : graphPlotArray) {
-                json.append("['");
-                json.append(graphPlot.getLabel());
-                json.append("',");
+                json.append("[\"");
+                // Escape backslashes and double quotes so the output is always valid JSON
+                String label = graphPlot.getLabel()
+                        .replace("\\", "\\\\")
+                        .replace("\"", "\\\"");
+                json.append(label);
+                json.append("\",");
                 json.append(graphPlot.getNumerator());
                 json.append("],");
             }
-            json.deleteCharAt(json.length() - 1);
-
+            if (graphPlotArray.length > 0) {
+                json.deleteCharAt(json.length() - 1);
+            }
             json.append("],");
         }
         json.deleteCharAt(json.length() - 1);
-
+        json.append("]");
         return json.toString();
     }
 

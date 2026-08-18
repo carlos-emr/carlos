@@ -35,7 +35,7 @@ import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
 import io.github.carlos_emr.carlos.commn.model.Icd10;
 import org.springframework.stereotype.Repository;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.util.Collections;
 import java.util.List;
 

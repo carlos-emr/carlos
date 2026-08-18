@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.exception.UserSessionNotFoundException;
 
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSession;
 
 /**
  * Manages user sessions.  Provides methods to register, unregister, and retrieve user sessions based on a user sec code.
@@ -53,6 +53,15 @@ public interface UserSessionManager {
      * @throws UserSessionNotFoundException If the user session is not found.
      */
     HttpSession unregisterUserSession(Integer userSecurityCode) throws UserSessionNotFoundException;
+
+    /**
+     * Unregisters one user session without affecting other active sessions for the same user.
+     * @param userSecurityCode The user's sec code.
+     * @param session The HTTP session object to unregister.
+     * @return The unregistered HTTP session object.
+     * @throws UserSessionNotFoundException If the user session is not found.
+     */
+    HttpSession unregisterUserSession(Integer userSecurityCode, HttpSession session) throws UserSessionNotFoundException;
 
     /**
      * Retrieves a registered user session.

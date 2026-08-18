@@ -32,14 +32,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -53,14 +54,16 @@ import io.github.carlos_emr.carlos.commn.model.EFormReportTool;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DemographicSetsManager;
 import io.github.carlos_emr.carlos.managers.EFormReportToolManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prev.reports.Report;
 import io.github.carlos_emr.carlos.prev.reports.ReportBuilder;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.web.PatientListApptBean;
 import io.github.carlos_emr.carlos.web.PatientListApptItemBean;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.EFormReportToolConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.EFormReportToolTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.MenuItemTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PreventionSearchTo1;
@@ -72,6 +75,9 @@ import org.springframework.stereotype.Component;
 @Consumes(MediaType.APPLICATION_JSON)
 public class ReportingService extends AbstractServiceImpl {
     private static Logger logger = MiscUtils.getLogger();
+
+    /** Shared, thread-safe ObjectMapper (safe after configuration). */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     //private static final Logger logger = MiscUtils.getLogger();
 
@@ -87,10 +93,29 @@ public class ReportingService extends AbstractServiceImpl {
     @Autowired
     PreventionReportDao preventionReportDao;
 
+    @Autowired
+    SecurityInfoManager securityInfoManager;
+
+    /**
+     * Security objects gating this service's three sub-resources. They are deliberately
+     * distinct: demographic-set queries belong to the general reporting module ({@code _report},
+     * matching {@code DemographicSetEdit2Action}); the eForm report tool is an admin utility
+     * ({@code _admin.eformreporttool}, already enforced by {@code EFormReportToolManager} — the
+     * checks here are defense-in-depth at the REST entry point); and prevention reports belong to
+     * the prevention module ({@code _prevention}, matching the page that hosts them,
+     * {@code PreventionReporting.jsp}). See issue #2798.
+     */
+    private static final String SECOBJ_REPORT = "_report";
+    private static final String SECOBJ_EFORM_REPORT_TOOL = "_admin.eformreporttool";
+    private static final String SECOBJ_PREVENTION = "_prevention";
+
     @GET
     @Path("/demographicSets/list")
     @Produces("application/json")
     public AbstractSearchResponse<String> listDemographicSets() {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_REPORT, "r", null)) {
+            throw new SecurityException("missing required sec object (" + SECOBJ_REPORT + ")");
+        }
         AbstractSearchResponse<String> response = new AbstractSearchResponse<String>();
 
         response.setContent(demographicSetsManager.getNames(getLoggedInInfo()));
@@ -103,6 +128,9 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/demographicSets/demographicSet/{name}")
     @Produces("application/json")
     public AbstractSearchResponse<DemographicSets> getDemographicSetByName(@PathParam("name") String name) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_REPORT, "r", null)) {
+            throw new SecurityException("missing required sec object (" + SECOBJ_REPORT + ")");
+        }
         AbstractSearchResponse<DemographicSets> response = new AbstractSearchResponse<DemographicSets>();
 
         response.setContent(demographicSetsManager.getByName(getLoggedInInfo(), name));
@@ -116,6 +144,9 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public PatientListApptBean getAsPatientList(JsonNode json) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_REPORT, "r", null)) {
+            throw new SecurityException("missing required sec object (" + SECOBJ_REPORT + ")");
+        }
 
         PatientListApptBean response = new PatientListApptBean();
 
@@ -142,6 +173,9 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/eformReportTool/list")
     @Produces("application/json")
     public AbstractSearchResponse<EFormReportToolTo1> eformReportToolList() {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_EFORM_REPORT_TOOL, "r", null)) {
+            throw new SecurityException("missing required sec object (" + SECOBJ_EFORM_REPORT_TOOL + ")");
+        }
 
         List<EFormReportTool> results = eformReportToolManager.findAll(getLoggedInInfo(), 0, EFormReportToolDao.MAX_LIST_RETURN_SIZE);
 
@@ -160,34 +194,38 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/eformReportTool/add")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse addEFormReportTool(EFormReportToolTo1 json) {
-
-        GenericRESTResponse response = new GenericRESTResponse();
+    public RestResponse<String> addEFormReportTool(EFormReportToolTo1 json) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_EFORM_REPORT_TOOL, "w", null)) {
+            return RestResponse.errorResponse("Access Denied");
+        }
 
         if (StringUtils.isEmpty(json.getName()) || json.getEformId() == 0) {
-            response.setSuccess(false);
-            response.setMessage("Need required fields");
-            return response;
+            return RestResponse.errorResponse("Need required fields");
         }
 
         EFormReportToolConverter converter = new EFormReportToolConverter();
 
-        eformReportToolManager.addNew(getLoggedInInfo(), converter.getAsDomainObject(getLoggedInInfo(), json));
+        try {
+            eformReportToolManager.addNew(getLoggedInInfo(), converter.getAsDomainObject(getLoggedInInfo(), json));
+        } catch (IllegalArgumentException e) {
+            return RestResponse.errorResponse(e.getMessage());
+        }
 
-        return (response);
+        return RestResponse.successResponse(null);
     }
 
     @POST
     @Path("/eformReportTool/populate")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse populateEFormReportTool(EFormReportToolTo1 json) {
-
-        GenericRESTResponse response = new GenericRESTResponse();
+    public RestResponse<String> populateEFormReportTool(EFormReportToolTo1 json) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_EFORM_REPORT_TOOL, "w", null)) {
+            return RestResponse.errorResponse("Access Denied");
+        }
 
         eformReportToolManager.populateReportTable(getLoggedInInfo(), json.getId());
 
-        return (response);
+        return RestResponse.successResponse(null);
     }
 
 
@@ -195,26 +233,28 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/eformReportTool/remove")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse removeEFormReportTool(EFormReportToolTo1 json) {
-
-        GenericRESTResponse response = new GenericRESTResponse();
+    public RestResponse<String> removeEFormReportTool(EFormReportToolTo1 json) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_EFORM_REPORT_TOOL, "w", null)) {
+            return RestResponse.errorResponse("Access Denied");
+        }
 
         eformReportToolManager.remove(getLoggedInInfo(), json.getId());
 
-        return (response);
+        return RestResponse.successResponse(null);
     }
 
     @POST
     @Path("/eformReportTool/markLatest")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse markLatestEFormReportTool(EFormReportToolTo1 json) {
-
-        GenericRESTResponse response = new GenericRESTResponse();
+    public RestResponse<String> markLatestEFormReportTool(EFormReportToolTo1 json) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_EFORM_REPORT_TOOL, "w", null)) {
+            return RestResponse.errorResponse("Access Denied");
+        }
 
         eformReportToolManager.markLatest(getLoggedInInfo(), json.getId());
 
-        return (response);
+        return RestResponse.successResponse(null);
     }
 
 
@@ -222,11 +262,12 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/preventionReport/saveNew")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse saveNewPreventionReport(PreventionSearchTo1 preventionSearch) {
-        GenericRESTResponse response = new GenericRESTResponse();
-
+    public RestResponse<String> saveNewPreventionReport(PreventionSearchTo1 preventionSearch) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_PREVENTION, "w", null)) {
+            return RestResponse.errorResponse("Access Denied");
+        }
         //Next thing to do is to save the JSON object to the database
-        ObjectMapper mapper = new ObjectMapper();
+        ObjectMapper mapper = OBJECT_MAPPER;
         try {
             String jsonStr = mapper.writeValueAsString(preventionSearch);
             PreventionReport pr = new PreventionReport();
@@ -235,13 +276,11 @@ public class ReportingService extends AbstractServiceImpl {
             pr.setProviderNo(getLoggedInInfo().getLoggedInProviderNo());
             pr.setUuid(UUID.randomUUID().toString());
             preventionReportDao.persist(pr);
-            response.setMessage("" + pr.getId());
-            response.setSuccess(true);
+            return RestResponse.successResponse("" + pr.getId());
         } catch (Exception e) {
-            logger.error("error converting to STring");
-            response.setSuccess(false);
+            logger.error("Error saving prevention report", e);
+            return RestResponse.errorResponse("Error saving prevention report");
         }
-        return (response);
     }
 
     @GET
@@ -249,6 +288,9 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public List<MenuItemTo1> getPreventionReports() {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_PREVENTION, "r", null)) {
+            throw new SecurityException("missing required sec object (" + SECOBJ_PREVENTION + ")");
+        }
         List<MenuItemTo1> returnList = new ArrayList<MenuItemTo1>();
         List<PreventionReport> list = preventionReportDao.getPreventionReports();
         for (PreventionReport pr : list) {
@@ -262,12 +304,24 @@ public class ReportingService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Runs the prevention report for the given parsed search config. Overridable so unit tests can
+     * exercise the success and empty-result paths without initializing {@link ReportBuilder}, whose
+     * static dependencies (resolved via {@code SpringUtils}) require a running Spring context.
+     */
+    protected Report buildPreventionReport(LoggedInInfo loggedInInfo, String providerNo, PreventionSearchTo1 search) {
+        return new ReportBuilder().runReport(loggedInInfo, providerNo, search);
+    }
+
     @POST
     @Path("/preventionReport/runReport/{id}")
     @Produces("application/json")
     @Consumes("application/json")
-    public javax.ws.rs.core.Response runPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
-        GenericRESTResponse response = new GenericRESTResponse();
+    public jakarta.ws.rs.core.Response runPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_PREVENTION, "r", null)) {
+            return jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.FORBIDDEN)
+                    .entity("{\"Error\":\"Access Denied\"}").build();
+        }
         Report report = null;
         //Next thing to do is to save the JSON object to the database
         String providerNo = jSONObject.has("providerNo") ? jSONObject.get("providerNo").asText() : "";
@@ -277,63 +331,95 @@ public class ReportingService extends AbstractServiceImpl {
         }
 
         PreventionReport pr = preventionReportDao.find(id);
-        ObjectMapper mapper = new ObjectMapper();
+        if (pr == null) {
+            logger.warn("Prevention report not found id={}", id);
+            return jakarta.ws.rs.core.Response.status(404)
+                    .entity("{\"Error\":\"Prevention report not found\"}").build();
+        }
+        ObjectMapper mapper = OBJECT_MAPPER;
         try {
-            logger.info("pr: " + pr.getJson());
+            if (logger.isDebugEnabled()) {
+                String reportJson = pr.getJson();
+                logger.debug("Loaded prevention report id={} jsonLength={}", id,
+                        reportJson != null ? reportJson.length() : 0);
+            }
             PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(pr.getJson(), PreventionSearchTo1.class);
-            logger.info("preventionSearchTo1: " + preventionSearchTo1);
-            ReportBuilder reportBuilder = new ReportBuilder();
-            report = reportBuilder.runReport(getLoggedInInfo(), providerNo, preventionSearchTo1);
+            report = buildPreventionReport(getLoggedInInfo(), providerNo, preventionSearchTo1);
             if (!pr.isActive()) {
                 report.setActive(false);
             }
         } catch (Exception e) {
-            logger.error("Error parsing ", e);
+            logger.error("Error running prevention report id={}", id, e);
         }
 
-        logger.info("providers was " + providerNo);
         if (report == null) {
-            javax.ws.rs.core.Response.status(268).entity("{\"Error\":\"Error building report\"}");
+            logger.warn("Prevention report build returned no result id={}", id);
+            return jakarta.ws.rs.core.Response.status(268)
+                    .entity("{\"Error\":\"Error building report\"}").build();
         }
-        return javax.ws.rs.core.Response.ok(report).build();
+        return jakarta.ws.rs.core.Response.ok(report).build();
     }
 
     @POST
     @Path("/preventionReport/getReport/{id}")
     @Produces("application/json")
     @Consumes("application/json")
-    public javax.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
-        GenericRESTResponse response = new GenericRESTResponse();
-        Report report = null;
-        //Next thing to do is to save the JSON object to the database
-        String providerNo = jSONObject.has("providerNo") ? jSONObject.get("providerNo").asText() : "";
-
-
+    public jakarta.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_PREVENTION, "r", null)) {
+            return jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.FORBIDDEN)
+                    .entity("{\"Error\":\"Access Denied\"}").build();
+        }
         PreventionReport pr = preventionReportDao.find(id);
-        ObjectMapper mapper = new ObjectMapper();
+        if (pr == null) {
+            logger.warn("Prevention report not found id={}", id);
+            return jakarta.ws.rs.core.Response.status(404)
+                    .entity("{\"Error\":\"Prevention report not found\"}").build();
+        }
+        // json is a nullable column; readValue((String) null, ...) throws an unchecked
+        // IllegalArgumentException that the narrow catch below would NOT handle, so guard it here.
+        String reportJson = pr.getJson();
+        if (reportJson == null) {
+            logger.warn("Prevention report has no JSON payload id={}", id);
+            return jakarta.ws.rs.core.Response.status(268)
+                    .entity("{\"Error\":\"Error get Search Config\"}").build();
+        }
+        ObjectMapper mapper = OBJECT_MAPPER;
         try {
-            logger.info("pr: " + pr.getJson());
-            PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(pr.getJson(), PreventionSearchTo1.class);
-            return javax.ws.rs.core.Response.ok(preventionSearchTo1).build();
-        } catch (Exception e) {
-            logger.error("Error parsing ", e);
+            if (logger.isDebugEnabled()) {
+                logger.debug("Loaded prevention report id={} jsonLength={}", id, reportJson.length());
+            }
+            PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(reportJson, PreventionSearchTo1.class);
+            return jakarta.ws.rs.core.Response.ok(preventionSearchTo1).build();
+        } catch (JsonProcessingException e) {
+            // Intentionally narrower than runPreventionReport's catch(Exception): the only
+            // non-Jackson failure here (null JSON) is guarded above, and readValue(String, Class)
+            // reports parse/mapping problems as JsonProcessingException, so a broad catch would
+            // only mask unrelated runtime bugs.
+            logger.error("Error parsing prevention report JSON id={}", id, e);
         }
 
-        return javax.ws.rs.core.Response.status(268).entity("{\"Error\":\"Error get Search Config\"}").build();
+        return jakarta.ws.rs.core.Response.status(268).entity("{\"Error\":\"Error get Search Config\"}").build();
     }
 
     @POST
     @Path("/preventionReport/dectivateReport/{id}")
     @Produces("application/json")
     @Consumes("application/json")
-    public javax.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id) { // will need to change providers to an ojbect
-        GenericRESTResponse response = new GenericRESTResponse();
-
+    public jakarta.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id) { // will need to change providers to an ojbect
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_PREVENTION, "w", null)) {
+            return jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.FORBIDDEN)
+                    .entity("{\"Error\":\"Access Denied\"}").build();
+        }
         PreventionReport pr = preventionReportDao.find(id);
+        if (pr == null) {
+            logger.warn("Prevention report not found id={}", id);
+            return jakarta.ws.rs.core.Response.status(404)
+                    .entity("{\"Error\":\"Prevention report not found\"}").build();
+        }
         pr.setActive(false);
         preventionReportDao.merge(pr);
 
-        return javax.ws.rs.core.Response.ok("{\"Message\":\"report deactivated\"}").build();
+        return jakarta.ws.rs.core.Response.ok("{\"Message\":\"report deactivated\"}").build();
     }
 
 

@@ -5,6 +5,7 @@ Comprehensive UI testing for CARLOS EMR using Playwright MCP (Model Context Prot
 ## 📚 Quick Start
 
 - **New to UI testing?** Start with [UI-TEST-PROCESS.md](UI-TEST-PROCESS.md) - Complete testing procedures
+- **Testing eForm PDF fidelity?** Use [eform-pdf-render-smoke-test.md](eform-pdf-render-smoke-test.md) - Branch-focused smoke test runbook
 - **Running Test 1?** See [test-1/test-1-EXECUTION.md](test-1/test-1-EXECUTION.md) - Step-by-step execution guide
 - **Test results?** Check [test-1/test-1-results.md](test-1/test-1-results.md) - Latest test results with screenshots
 - **Implementation details?** Read [SUMMARY.md](SUMMARY.md) - Technical implementation and troubleshooting
@@ -158,7 +159,7 @@ Run tests using Claude Code slash commands:
 
 2. **Database Seeded**:
    - Development database must contain test data
-   - Test user `openodoc` with password `openo2025` and PIN `2025`
+   - Test user `carlosdoc` with password `carlos2026` and PIN `2026`
    - Test patients with "FAKE-" prefix
 
 3. **Playwright MCP Available**:
@@ -180,9 +181,9 @@ The UI tests are currently run using the Playwright MCP server through Claude Co
 3. **Run UI test commands** (example):
    ```
    Navigate to http://localhost:8080/oscar/index.jsp
-   Fill username: openodoc
-   Fill password: openo2025
-   Fill PIN: 2025
+   Fill username: carlosdoc
+   Fill password: carlos2026
+   Fill PIN: 2026
    Press Enter
    Verify dashboard loaded
    ```
@@ -205,16 +206,16 @@ The Maven dependency for Playwright has been added to `pom.xml`:
 </dependency>
 ```
 
-**Planned**: JUnit 5 test classes in `src/test-modern/java/io/github/carlos_emr/carlos/ui/smoke/`
+**Planned**: JUnit 5 test classes in `src/test/java/io/github/carlos_emr/carlos/ui/smoke/`
 
 ## Test Credentials
 
 ### Provider Account
-- **Username**: `openodoc`
-- **Password**: `openo2025`
-- **PIN**: `2025`
+- **Username**: `carlosdoc`
+- **Password**: `carlos2026`
+- **PIN**: `2026`
 - **Provider No**: `999998`
-- **Name**: doctor openodoc
+- **Name**: doctor carlosdoc
 
 ### Test Patients
 
@@ -251,7 +252,7 @@ See [smoke-test-results.md](./smoke-test-results.md) for detailed test results f
 - Search query returns 0 results (may be query/filtering issue)
 
 **Investigation Needed**:
-- Review `demographiccontrol.jsp` search query logic
+- Review `DemographicSearch.do` search query logic (migrated from legacy `demographiccontrol.jsp`)
 - Check JavaScript table population
 - Verify security filtering
 - Test with different search criteria
@@ -278,13 +279,13 @@ See [smoke-test-results.md](./smoke-test-results.md) for detailed test results f
 
 ```bash
 # Connect to database
-mysql -h db -uroot -ppassword oscar
+mariadb -h db -uroot -ppassword oscar
 
 # Reset specific test user password
 UPDATE security
-SET password='{bcrypt}$2b$12$9mdpjGHFmuVrW7uv7HlZter.6Gdqx.V/i.ba52e9VP6ZYnwJR6h96',
+SET password='{bcrypt}$2a$12$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO',
     forcePasswordReset=0
-WHERE user_name='openodoc';
+WHERE user_name='carlosdoc';
 
 # Exit
 exit
@@ -303,7 +304,7 @@ To reload:
 server stop
 
 # Reload database
-mysql -h db -uroot -ppassword oscar < .devcontainer/db/scripts/development.sql
+mariadb -h db -uroot -ppassword oscar < .devcontainer/db/scripts/development.sql
 
 # Start application
 server start
@@ -344,10 +345,10 @@ server start
 | Login | `/index.jsp` | ✅ |
 | Dashboard | `/provider/providercontrol.jsp` | ✅ |
 | Patient Search | `/demographic/search.jsp` | ✅ |
-| Search Results | `/demographic/demographiccontrol.jsp?search_mode=search_name&keyword=...` | ⚠️ |
-| Patient Record | `/demographic/demographiccontrol.jsp?demographic_no=3&displaymode=edit` | ✅ |
+| Search Results | `/demographic/DemographicSearch.do?search_mode=search_name&keyword=...` | ⚠️ |
+| Patient Record | `/demographic/DemographicEdit.do?demographic_no=3` | ✅ |
 | Appointments | `/appointment/appointmentcontrol.jsp` | Not tested |
-| E-Chart | `/oscarEncounter/Index.jsp` | Not tested |
+| E-Chart | `/encounter/Index.jsp` | Not tested |
 | Prescriptions | `/oscarRx/choosePatient.do` | Not tested |
 
 ## Troubleshooting
@@ -372,19 +373,19 @@ server restart
 docker ps | grep mariadb
 
 # Test connection
-mysql -h db -uroot -ppassword -e "SHOW DATABASES;"
+mariadb -h db -uroot -ppassword -e "SHOW DATABASES;"
 ```
 
 ### Login Fails
 
 ```bash
 # Check if user exists
-mysql -h db -uroot -ppassword oscar -e \
-  "SELECT user_name, pin, forcePasswordReset FROM security WHERE user_name='openodoc';"
+mariadb -h db -uroot -ppassword oscar -e \
+  "SELECT user_name, pin, forcePasswordReset FROM security WHERE user_name='carlosdoc';"
 
 # Reset password
-mysql -h db -uroot -ppassword oscar -e \
-  "UPDATE security SET password='{bcrypt}\$2b\$12\$9mdpjGHFmuVrW7uv7HlZter.6Gdqx.V/i.ba52e9VP6ZYnwJR6h96', forcePasswordReset=0 WHERE user_name='openodoc';"
+mariadb -h db -uroot -ppassword oscar -e \
+  "UPDATE security SET password='{bcrypt}\$2a\$12\$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO', forcePasswordReset=0 WHERE user_name='carlosdoc';"
 ```
 
 ### JavaScript Errors in Console
@@ -468,8 +469,8 @@ make install && server start
 curl http://localhost:8080/oscar/index.jsp
 
 # 3. Check test user
-mysql -h db -uroot -ppassword oscar -e \
-  "SELECT user_name, pin FROM security WHERE user_name='openodoc';"
+mariadb -h db -uroot -ppassword oscar -e \
+  "SELECT user_name, pin FROM security WHERE user_name='carlosdoc';"
 
 # 4. Run UI tests (via Playwright MCP)
 ```

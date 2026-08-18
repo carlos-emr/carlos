@@ -34,7 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingTrayFee;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;

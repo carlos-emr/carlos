@@ -42,20 +42,18 @@ import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 
 import java.text.SimpleDateFormat;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.Date;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Locale;
 
 import org.owasp.encoder.Encode;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class RxWriteToEncounter2Action extends ActionSupport {
@@ -136,16 +134,7 @@ public class RxWriteToEncounter2Action extends ActionSupport {
     public CaseManagementNote getLastSaved(HttpServletRequest request, String demono, String providerNo, CaseManagementManager caseManagementMgr) {
         HttpSession session = request.getSession();
         String programId = (String) session.getAttribute("case_program_id");
-        Map unlockedNotesMap = this.getUnlockedNotesMap(request);
-        return caseManagementMgr.getLastSaved(programId, demono, providerNo, unlockedNotesMap);
-    }
-
-    protected Map getUnlockedNotesMap(HttpServletRequest request) {
-        Map<Long, Boolean> map = (Map<Long, Boolean>) request.getSession().getAttribute("unlockedNoteMap");
-        if (map == null) {
-            map = new HashMap<Long, Boolean>();
-        }
-        return map;
+        return caseManagementMgr.getLastSaved(programId, demono, providerNo);
     }
 
     private void createAndSaveNewNote(LoggedInInfo loggedInInfo, String demographicNo, String programNo, CaseManagementManager caseManagementMgr, Date today, String noteBody, String signNote) {
@@ -174,7 +163,6 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         }
         note.setReporter_caisi_role(role);
         note.setReporter_program_team("0");
-        note.setPassword(null);
         note.setLocked(false);
         note.setHistory(noteBody);
         note.setUpdate_date(today);

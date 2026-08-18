@@ -28,21 +28,30 @@
  */
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web;
 
-import com.opensymphony.xwork2.ActionSupport;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.OscarProperties;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhForm2Bean;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.business.BpmhForm2Handler;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.pdf.PDFController;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Date;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class BpmhFormRetrieve2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -51,6 +60,11 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
     private BpmhForm2Handler bpmhFormHandler;
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         String method = request.getParameter("method");
         if ("save".equals(method)) {
             return save();
@@ -94,7 +108,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         addActionMessage("Form Saved");
 
 
-        StringBuilder actionRedirect = new StringBuilder("/formBPMH.do?method=fetch");
+        StringBuilder actionRedirect = new StringBuilder("/formBPMH?method=fetch");
         actionRedirect.append("&demographic_no=").append(demographicNo);
         actionRedirect.append("&formId=").append(formId);
         actionRedirect.append("&provNo=");
@@ -107,9 +121,10 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         return NONE;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String print() throws IOException {
 
-        FileInputStream input = null;
         OutputStream output = null;
         byte[] pdfContent = null;
         Integer demographicNo = Integer.parseInt(form.getDemographicNo());
@@ -127,7 +142,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         bpmhFormHandler.populateFormBean();
 
         PDFController pdfController = new PDFController(ServletActionContext.getServletContext().getRealPath(BPMH_PDF_TEMPLATE));
-        pdfController.setOutputPath(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        pdfController.setOutputPath(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         pdfController.writeDataToPDF(form, new String[]{"1"}, demographicNo + "");
 
         form.setEditDate(new Date());
@@ -136,9 +151,9 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             bpmhFormHandler.saveFormHistory();
         }
 
-        input = new FileInputStream(pdfController.getOutputPath());
-        pdfContent = new byte[input.available()];
-        input.read(pdfContent, 0, input.available());
+        try (FileInputStream pdfInput = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(pdfController.getOutputPath())))) {
+            pdfContent = pdfInput.readAllBytes();
+        }
 
         response.reset();
         response.setContentType("application/pdf");
@@ -150,19 +165,17 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             output.close();
         }
 
-        if (input != null) {
-            input.close();
-        }
-
         return null;
     }
 
     private BpmhForm2Bean form;
 
+    @StrutsParameter(depth = 1)
     public BpmhForm2Bean getForm() {
         return form;
     }
 
+    @StrutsParameter
     public void setForm(BpmhForm2Bean form) {
         this.form = form;
     }

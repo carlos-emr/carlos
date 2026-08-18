@@ -30,13 +30,16 @@
 
 package io.github.carlos_emr.carlos.login;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.WebappShutdownResources;
 
-import javax.servlet.ServletContextEvent;
-import javax.servlet.ServletContextListener;
+import jakarta.servlet.ServletContextEvent;
+import jakarta.servlet.ServletContextListener;
+import jakarta.servlet.ServletContext;
 import java.io.File;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
@@ -52,7 +55,7 @@ import java.util.Objects;
  */
 public class Startup implements ServletContextListener {
 	private static final Logger logger = MiscUtils.getLogger();
-	private OscarProperties p = OscarProperties.getInstance();
+	private CarlosProperties p = CarlosProperties.getInstance();
 
     public void contextInitialized(ServletContextEvent sc) {
         logger.info("Starting OSCAR application ");
@@ -101,11 +104,16 @@ public class Startup implements ServletContextListener {
                     p.readFromFile("/WEB-INF/" + propName);
                     logger.info("loading properties from /WEB-INF/" + propName);
                 } catch (java.io.FileNotFoundException e) {
-                    logger.error("Configuration file: " + propName + " cannot be found, it should be put either in the User's home or in WEB-INF ");
-                    return;
+                    /*
+                     * No configuration in either location means the app has no DB connection and,
+                     * critically, no encryption key. Booting on would defer the failure to the first
+                     * PHI/credential operation. Fail fast at startup instead.
+                     */
+                    throw new IllegalStateException("Configuration file " + propName
+                            + " not found in user home or WEB-INF; refusing to start.", e);
                 } catch (Exception e) {
-                    logger.error("Error", e);
-                    return;
+                    throw new IllegalStateException("Failed to read configuration file " + propName
+                            + "; refusing to start.", e);
                 }
             }
             try {
@@ -120,22 +128,6 @@ public class Startup implements ServletContextListener {
 
                 sc.getServletContext().setAttribute("CaseMgmtUsers", listUsers);
 
-                // Temporary Testing of new ECHART
-                // To be removed
-                String newDocs = p.getProperty("DOCS_NEW_ECHART");
-
-                if (newDocs != null) {
-                    String[] arrnewDocs = newDocs.split(",");
-                    ArrayList<String> newDocArr = new ArrayList<String>(Arrays.asList(arrnewDocs));
-                    Collections.sort(newDocArr);
-                    sc.getServletContext().setAttribute("newDocArr", newDocArr);
-                }
-
-                String echartSwitch = p.getProperty("USE_NEW_ECHART");
-                if (echartSwitch != null && echartSwitch.equalsIgnoreCase("yes")) {
-                    sc.getServletContext().setAttribute("useNewEchart", true);
-                }
-
                 logger.info("BILLING REGION : " + p.getProperty("billregion", "NOTSET"));
                 logger.info("DB PROPS: Username :" + p.getProperty("db_username", "NOTSET") + " db name: " + p.getProperty("db_name", "NOTSET"));
                 p.setProperty("OSCAR_START_TIME", "" + System.currentTimeMillis());
@@ -149,17 +141,36 @@ public class Startup implements ServletContextListener {
 			// 	Ensure that a secret key for encryption is available when OSCAR starts, either by retrieving a
 			// 	previously saved key or generating a new one and storing it for future use.
 			String secretKey = p.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
-			if (Objects.isNull(secretKey)) {
+			if (Objects.isNull(secretKey) || secretKey.isBlank()) {
 				try {
 					secretKey = EncryptionUtils.generateSecretKey();
 					p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
-					EncryptionUtils.prepareSecretKeySpec();
 					logger.info("New Secret Key generated...");
 				} catch (IOException | NoSuchAlgorithmException e) {
-					logger.error("Error generating new Secret Key - ", e);
+					/*
+					 * A usable encryption key is mandatory: it protects stored PHI and provider
+					 * credentials. Fail fast rather than booting with no key, which would defer the
+					 * failure to the first credential save (an opaque runtime error for clinicians).
+					 */
+					throw new IllegalStateException("Unable to generate and persist a new encryption key at startup", e);
 				}
 			} else {
 				logger.info("Using existing Secret Key...");
+			}
+
+			/*
+			 * EncryptionUtils may be loaded before the application properties are read, leaving its
+			 * cached SecretKeySpec unset even when a key already exists in the properties file.
+			 * Always prepare the key after startup has ensured a key exists so credential saves can
+			 * encrypt passwords reliably. An invalid existing key is NOT auto-rotated: regenerating
+			 * over it would permanently orphan everything already encrypted under the real key.
+			 * Instead, abort startup so an operator can restore the correct key.
+			 */
+			try {
+				EncryptionUtils.prepareSecretKeySpec();
+			} catch (IllegalArgumentException e) {
+				throw new IllegalStateException("Configured encryption key is invalid (" + e.getMessage()
+						+ "); refusing to start. Restore the correct encryption key, or remove it to have a new one generated.", e);
 			}
 
 			// CHECK FOR DEFAULT PROPERTIES
@@ -171,15 +182,12 @@ public class Startup implements ServletContextListener {
 				checkAndSetProperty(baseDocumentDir, contextPath, "DOCUMENT_CACHE_DIR", "/document_cache/");
 				checkAndSetProperty(baseDocumentDir, contextPath, "EFORM_IMAGES_DIR", "/eform/images/");
 
-                checkAndSetProperty(baseDocumentDir, contextPath, "oscarMeasurement_css_upload_path", "/oscarEncounter/oscarMeasurements/styles/");
+                checkAndSetProperty(baseDocumentDir, contextPath, "oscarMeasurement_css_upload_path", "/encounter/oscarMeasurements/styles/");
                 checkAndSetProperty(baseDocumentDir, contextPath, "TMP_DIR", "/export/");
                 checkAndSetProperty(baseDocumentDir, contextPath, "form_record_path", "/form/records/");
 
                 //HRM Directories
                 checkAndSetProperty(baseDocumentDir, contextPath, "OMD_hrm", "/hrm/");
-                checkAndSetProperty(baseDocumentDir, contextPath, "OMD_directory", "/hrm/OMD/");
-                checkAndSetProperty(baseDocumentDir, contextPath, "OMD_log_directory", "/hrm/logs/");
-                checkAndSetProperty(baseDocumentDir, contextPath, "OMD_stored", "/hrm/stored/");
                 checkAndSetProperty(baseDocumentDir, contextPath, "OMD_downloads", "/hrm/sftp_downloads/");
 
 
@@ -203,16 +211,37 @@ public class Startup implements ServletContextListener {
             logger.debug("Setting property " + propName + " with value " + propertyDir);
             p.setProperty(propName, propertyDir);
             // Create directory if it does not exist
-            if (!(new File(propertyDir)).exists()) {
+            File propertyDirectory = PathValidationUtils.resolveConfiguredDirectory(propertyDir, propName);
+            if (!propertyDirectory.exists()) {
                 logger.warn("Directory does not exist:  " + propertyDir + ". Creating.");
-                boolean success = (new File(propertyDir)).mkdirs();
+                boolean success = propertyDirectory.mkdirs();
                 if (!success) logger.error("An error occured when creating " + propertyDir);
             }
         }
     }
 
     public void contextDestroyed(ServletContextEvent arg0) {
-        // nothing to do right now
+        WebappShutdownResources.ShutdownReport report = WebappShutdownResources.releaseForContext(getWebappClassLoader(arg0));
+        if (report.successful()) {
+            logger.info("Webapp shutdown cleanup completed; deregistered JDBC drivers={}", report.deregisteredDriverCount());
+        } else {
+            logger.warn("Webapp shutdown cleanup completed with {} failed step(s); deregistered JDBC drivers={}",
+                    report.failureCount(), report.deregisteredDriverCount());
+        }
+    }
+
+    /**
+     * Resolves the stopping webapp class loader, falling back to the context class
+     * loader for direct unit calls or unusual container callbacks with no event.
+     */
+    private ClassLoader getWebappClassLoader(ServletContextEvent event) {
+        if (event != null) {
+            ServletContext servletContext = event.getServletContext();
+            if (servletContext != null) {
+                return servletContext.getClassLoader();
+            }
+        }
+        return Thread.currentThread().getContextClassLoader();
     }
 
 }

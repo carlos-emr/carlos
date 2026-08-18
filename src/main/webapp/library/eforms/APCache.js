@@ -16,7 +16,7 @@
 
  Therefore, it is essential that you include the following line in your richeform. 
  
- <script language="javascript" type="text/javascript" src="${oscar_image_path}jquery-1.4.2.js"></script>
+ <script type="text/javascript" src="${oscar_image_path}jquery-3.7.1.min.js"></script>
 
  
  ------------------------------------------------------------------------------
@@ -110,7 +110,7 @@ Below we will modify some of the examples above to create a fully working eform 
         <title>AP Cache Example</title>
         
         <!-- APCache requires jQuery. !-->
-        <script language="javascript" type="text/javascript" src="${oscar_image_path}jquery-1.4.2.js"></script>
+        <script type="text/javascript" src="${oscar_image_path}jquery-3.7.1.min.js"></script>
         
         <!-- APCache requires APCache. !-->
         <script language="javascript" type="text/javascript" src="${oscar_image_path}APCache.js"></script>        
@@ -164,6 +164,50 @@ Below we will modify some of the examples above to create a fully working eform 
 </html>
 <!-- END EXAMPLE -->                 
  */
+
+/**
+ * Tells the clinician which fields could not be populated, so a blank one is not mistaken for
+ * "this patient has no such data" and saved into the record that way.
+ *
+ * Deliberately does not block: on the viewer the form is still being filled, and the decision to
+ * refuse a document belongs to the PDF completeness gate, which blocks on the same condition and
+ * offers an explicit approval. This is the earlier, quieter half of that — a chance to notice and
+ * correct before saving, at the point where correcting is still cheap.
+ *
+ * @param {string} failedKeys comma-separated AP key names the server could not resolve
+ */
+function showLookupFailureNotice(failedKeys) {
+    var keys = String(failedKeys == null ? "" : failedKeys)
+        .split(",")
+        .filter(function (key) { return key.length > 0; });
+    if (keys.length === 0 || !document.body) {
+        return;
+    }
+    var noticeId = "carlos-apcache-lookup-failure";
+    var notice = document.getElementById(noticeId);
+    if (!notice) {
+        notice = document.createElement("div");
+        notice.id = noticeId;
+        notice.setAttribute("role", "alert");
+        // Same id is also hidden at print time by the renderer's print-hide rules, alongside the
+        // other CARLOS advisory banners, so it can never be baked into a delivered PDF.
+        notice.className = "DoNotPrint";
+        notice.style.cssText = "position:fixed;z-index:2147483647;top:0;left:0;right:0;padding:12px;"
+            + "background:#8a6d00;color:#fff;font:14px sans-serif;text-align:center";
+        var dismiss = document.createElement("button");
+        dismiss.type = "button";
+        dismiss.textContent = "Dismiss";
+        dismiss.style.cssText = "margin-left:12px;padding:2px 10px";
+        dismiss.onclick = function () { notice.parentNode.removeChild(notice); };
+        notice.appendChild(document.createElement("span"));
+        notice.appendChild(dismiss);
+        document.body.insertBefore(notice, document.body.firstChild);
+    }
+    // textContent, never innerHTML: these names come from the request's key parameters.
+    notice.firstChild.textContent =
+        "Some fields could not be filled in automatically and are blank: " + keys.join(", ")
+        + ". Check them before saving.";
+}
 
 function createCache(options) {
     function Cache(options) {
@@ -239,9 +283,13 @@ function createCache(options) {
                 query += "&demographic_no=" + demographicNo;
             }
 
+            var rendererEndpointElement = document.getElementById("carlosEformRendererApCacheUrl");
+            var rendererEndpoint = rendererEndpointElement == null ? "" : rendererEndpointElement.value;
             jQuery.ajax({
-                url: "efmformapconfig_lookup.jsp",
-                data: query + "&" + window.location.search.substr(1),
+                url: rendererEndpoint || "efmformapconfig_lookup",
+                // Renderer identity is capability-bound on the server. Never forward fdid,
+                // demographic, provider, or appointment values from the browser query string.
+                data: rendererEndpoint ? query : query + "&" + window.location.search.substr(1),
                 success: function (response) {
                     response = jQuery(response);
                     var y;
@@ -255,6 +303,14 @@ function createCache(options) {
 
                         if (_key == "oscarAPCacheLookupType") {
                             _lookupType = _val;
+                            continue;
+                        }
+                        // Reserved name, not a cache entry: the server lists the keys it could not
+                        // resolve (unconfigured, unusable result, or lookup error). Keys that simply
+                        // matched no rows are deliberately absent — that is data, and reporting it
+                        // would fire on nearly every form.
+                        if (_key == "oscarAPCacheLookupFailures") {
+                            showLookupFailureNotice(_val);
                             continue;
                         }
                         // Checking if a key has a mapping.

@@ -28,17 +28,36 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.service;
 
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.PdfPageEventHelper;
+import java.io.IOException;
 
-public class FooterSupport extends PdfPageEventHelper {
+import io.github.carlos_emr.carlos.commn.printing.FontSettings;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.PdfPageEventHelper;
+
+/**
+ * Base class for PDF page event handlers that render footer content. Provides
+ * shared font configuration (family, size) and a configurable vertical offset
+ * from the page bottom margin.
+ *
+ * <p>Subclasses override the appropriate {@link PdfPageEventHelper} callback
+ * methods (e.g. {@code onEndPage}) to render their specific footer content
+ * using the font and offset provided by this class.
+ *
+ * <p>Defaults to Helvetica 12pt, WinAnsi encoding, not embedded.
+ *
+ * @see PageNumberStamper
+ * @see PromoTextStamper
+ * @since 2012-09-10
+ */
+public abstract class FooterSupport extends PdfPageEventHelper {
 
     private int baseOffset;
     private int fontSize;
     private BaseFont font;
 
     /**
-     * Creates a new instance with as the Helvetica 12pt base font.
+     * Creates a new instance with Helvetica 12pt as the default base font.
      */
     public FooterSupport() {
         super();
@@ -52,13 +71,14 @@ public class FooterSupport extends PdfPageEventHelper {
      * @param fontName   Name of the font
      * @param encoding   Text encoding
      * @param isEmbedded Boolean flag indicating if font is embedded
+     * @throws RuntimeException if the font cannot be created (wraps DocumentException or IOException)
      * @see BaseFont
      */
     public void setFont(String fontName, String encoding, boolean isEmbedded) {
         try {
             font = BaseFont.createFont(fontName, encoding, isEmbedded);
-        } catch (Exception e) {
-            throw new RuntimeException("Unable to create base font", e);
+        } catch (DocumentException | IOException e) {
+            throw new RuntimeException("Unable to create base font: " + fontName + " / " + encoding, e);
         }
     }
 
@@ -71,23 +91,51 @@ public class FooterSupport extends PdfPageEventHelper {
         return baseOffset;
     }
 
+    /** @param baseOffset int the offset in points below the bottom margin */
     public void setBaseOffset(int baseOffset) {
         this.baseOffset = baseOffset;
     }
 
+    /** @return int the font size in points */
     public int getFontSize() {
         return fontSize;
     }
 
+    /**
+     * @param fontSize int the font size in points (must be positive)
+     * @throws IllegalArgumentException if fontSize is not positive
+     */
     public void setFontSize(int fontSize) {
+        if (fontSize <= 0) {
+            throw new IllegalArgumentException("fontSize must be positive, got: " + fontSize);
+        }
         this.fontSize = fontSize;
     }
 
+    /** @return BaseFont the font instance used for footer rendering */
     public BaseFont getFont() {
         return font;
     }
 
+    /**
+     * @param font BaseFont the font instance to use for footer rendering
+     * @throws NullPointerException if font is null
+     */
     public void setFont(BaseFont font) {
+        java.util.Objects.requireNonNull(font, "font must not be null");
         this.font = font;
+    }
+
+    /**
+     * Applies all font properties from the given settings in a single call.
+     *
+     * @param settings FontSettings the font configuration to apply
+     * @throws NullPointerException if settings is null
+     * @throws RuntimeException if the font cannot be created
+     */
+    public void applyFont(FontSettings settings) {
+        java.util.Objects.requireNonNull(settings, "settings must not be null");
+        setFont(settings.getFont(), settings.getCodePage(), settings.isEmbedded());
+        setFontSize(settings.getFontSize());
     }
 }

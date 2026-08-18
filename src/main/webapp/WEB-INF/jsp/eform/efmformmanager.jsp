@@ -1,0 +1,259 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+--%>
+<%--
+  Page role: Renders `efmformmanager.jsp` for the eForm workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<!DOCTYPE html>
+<%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+
+<%
+    String orderByRequest = request.getParameter("orderby");
+    String orderBy = "";
+    if (orderByRequest == null) orderBy = EFormUtil.DATE;
+    else if (orderByRequest.equals("form_subject")) orderBy = EFormUtil.SUBJECT;
+    else if (orderByRequest.equals("form_name")) orderBy = EFormUtil.NAME;
+    else if (orderByRequest.equals("file_name")) orderBy = EFormUtil.FILE_NAME;
+%>
+<html>
+    <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
+    <title>E-Form Manager</title>
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
+<%@ include file="/WEB-INF/jsp/eform/eformBootstrapScript.jspf" %>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+
+
+    <script language="javascript">
+        function newWindow(url, id) {
+            Popup = window.open(url, id, 'toolbar=no,location=no,status=yes,menubar=no, scrollbars=yes,resizable=yes,width=900,height=600,left=200,top=0');
+        }
+
+        function confirmNDelete(fid) {
+            if (confirm("<fmt:message key="eform.uploadhtml.confirmDelete"/>")) {
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = '<%= request.getContextPath() %>/eform/delEForm';
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'fid';
+                input.value = fid;
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        var normalStyle = "eformInputHeading"
+        var activeStyle = "eformInputHeading eformInputHeadingActive"
+
+        function closeInputs() {
+            document.getElementById("uploadDiv").style.display = 'none';
+            document.getElementById("importDiv").style.display = 'none';
+            document.getElementById("uploadHeading").className = normalStyle;
+            document.getElementById("importHeading").className = normalStyle;
+        }
+
+        function openUpload() {
+            closeInputs();
+            document.getElementById("uploadHeading").className = activeStyle;
+            document.getElementById("uploadDiv").style.display = 'block';
+        }
+
+        function openImport() {
+            closeInputs();
+            document.getElementById("importHeading").className = activeStyle;
+            document.getElementById("importDiv").style.display = 'block';
+        }
+
+        function openDownload() {
+            closeInputs();
+            document.getElementById("downloadHeading").className = activeStyle;
+            document.getElementById("downloadDiv").style.display = 'block';
+        }
+
+        function doOnLoad() {
+            <%String input = request.getParameter("input");
+            if (input == null) input = (String) request.getAttribute("input");
+            if (input != null && input.equals("import")) {%>
+            openImport();
+            <%}%>
+        }
+
+        $(function () {
+            document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function(el) { new bootstrap.Popover(el); });
+        });
+
+    </script>
+
+    <style>
+        div#eformTbl_wrapper table tr td a,
+        div#eformTbl_wrapper table tr td:nth-child(3){
+            text-wrap: auto;
+            word-wrap: anywhere;
+            word-break: break-word;
+        }
+    </style>
+</head>
+    <body>
+
+
+    <%@ include file="efmTopNav.jspf" %>
+
+    <h3 style='display:inline;padding-right:10px'><fmt:message key="eform.uploadhtml.msgLibrary"/></h3> <a
+            href="<%= request.getContextPath() %>/eform/efmformmanagerdeleted" class="contentLink">View Deleted
+        <!--<fmt:message key="eform.uploadhtml.btnDeleted"/>--> </a>
+
+
+    <ul class="nav nav-pills" id="eformOptions">
+        <li class="nav-item"><a class="nav-link active" data-bs-toggle="pill" href="#upload">Upload</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#import">Import</a></li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane show active" id="upload">
+            <div class="row">
+                <div class="card card-body bg-body-tertiary">
+
+                    <iframe id="uploadFrame" name="uploadFrame" frameborder="0" width="100%" height="auto"
+                            scrolling="no" src="<%=request.getContextPath()%>/eform/partials/upload${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}"></iframe>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane" id="import">
+            <div class="row">
+                <div class="card card-body bg-body-tertiary">
+
+                    <iframe id="importFrame" name="importFrame" frameborder="0" width="100%" height="auto"
+                            src="<%=request.getContextPath()%>/eform/partials/import${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}"></iframe>
+
+                </div>
+            </div>
+        </div>
+    </div><!-- tab content eformOptions -->
+
+    <div class="row" style="overflow-x:scroll;">
+        <table class="table table-sm table-striped" id="eformTbl">
+            <thead>
+            <tr>
+                <th></th>
+
+                <th><a href="<%= request.getContextPath() %>/eform/efmformmanager?orderby=form_name"
+                       class="contentLink"><fmt:message key="eform.uploadhtml.btnFormName"/></a></th>
+                <th><a href="<%= request.getContextPath() %>/eform/efmformmanager?orderby=form_subject"
+                       class="contentLink"><fmt:message key="eform.uploadhtml.btnSubject"/></a></th>
+
+                <th><a href="<%= request.getContextPath() %>/eform/efmformmanager?"
+                       class="contentLink"><fmt:message key="eform.uploadhtml.btnDate"/></a></th>
+                <th><fmt:message key="eform.uploadhtml.btnTime"/></th>
+                <th><fmt:message key="eform.uploadhtml.btnRoleType"/></th>
+                <th><fmt:message key="eform.uploadhtml.msgAction"/></th>
+            </tr>
+            </thead>
+
+            <tbody>
+            <%
+                LoggedInInfo tableLoggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+                SecurityInfoManager tableSecurityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+                boolean tableIsEFormAdmin = tableSecurityInfoManager.hasPrivilege(tableLoggedInInfo, "_admin.eform", SecurityInfoManager.WRITE, null);
+
+                ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEForms(orderBy, EFormUtil.CURRENT);
+                for (int i = 0; i < eForms.size(); i++) {
+                    HashMap<String, ? extends Object> curForm = eForms.get(i);
+                    boolean canDelete = tableIsEFormAdmin;
+            %>
+            <tr>
+                <td><%if (curForm.get("formFileName") != null && curForm.get("formFileName").toString().length() != 0) {%><i
+                        class="fa-solid fa-file" title="<%=SafeEncode.forHtmlAttribute((String) curForm.get("formFileName"))%>"></i><%}%></td>
+                <td title="<%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>">
+                    <a href="#"
+                       onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data?fid=<%=SafeEncode.forJavaScript((String) curForm.get("fid"))%>', '<%="Form"+i%>'); return false;"><%=SafeEncode.forHtmlContent((String) curForm.get("formName"))%>
+                    </a>
+                </td>
+                <td><%=SafeEncode.forHtmlContent((String) curForm.get("formSubject"))%>
+                </td>
+                <td><%=SafeEncode.forHtmlContent((String) curForm.get("formDate"))%>
+                </td>
+                <td><%=SafeEncode.forHtmlContent((String) curForm.get("formTime"))%>
+                </td>
+                <td><%=SafeEncode.forHtmlContent((String) curForm.get("roleType"))%>
+                </td>
+                <td>
+
+                    <div class="btn-group">
+                        <a class="btn btn-link contentLink"
+                           href="<%= request.getContextPath() %>/eform/efmformmanageredit?fid=<%= SafeEncode.forHtmlAttribute((String) curForm.get("fid"))%>"
+                           title='<fmt:message key="eform.uploadhtml.editform"/><%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>'><i
+                                class="fa-solid fa-pencil" title="<fmt:message key="eform.uploadhtml.editform"/>"></i></a>
+
+
+                        <a class="btn btn-link"
+                           href='<%= request.getContextPath() %>/eform/manageEForm?method=exportEForm&fid=<%=SafeEncode.forHtmlAttribute((String) curForm.get("fid"))%>'
+                           title='<fmt:message key="eform.uploadhtml.btnExport"/> <%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>'><i
+                                class="fa-solid fa-download" title="<fmt:message key="eform.uploadhtml.btnExport"/>"></i></a>
+
+
+                        <% if (canDelete) { %>
+                        <a class="btn btn-link contentLink"
+                           href='javascript:void(0);' onclick='confirmNDelete("<%=SafeEncode.forJavaScript((String) curForm.get("fid"))%>")'
+                           title='<fmt:message key="eform.uploadhtml.btnDelete"/> <%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>'><i
+                                class="fa-solid fa-trash" title="<fmt:message key="eform.uploadhtml.btnDelete"/>"></i></a>
+                        <% } %>
+                    </div>
+                </td>
+
+            </tr>
+            <% } %>
+            </tbody>
+        </table>
+    </div>
+    <%@ include file="efmFooter.jspf" %>
+
+    <script>
+        if (typeof registerFormSubmit === 'function') {
+            registerFormSubmit('eformImportForm', 'dynamic-content');
+        }
+
+        $('#eformTbl').DataTable({
+            "paging": false,
+            "columnDefs": [{"orderable": false, "targets": [0]}]
+        });
+    </script>
+    </body>
+</html>

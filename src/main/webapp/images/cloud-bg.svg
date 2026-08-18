@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <!-- Sky gradient -->
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a6fc4"/>
+      <stop offset="35%" stop-color="#4a9fe5"/>
+      <stop offset="65%" stop-color="#7fbcf0"/>
+      <stop offset="100%" stop-color="#b8daf5"/>
+    </linearGradient>
+    <!-- Cloud softness filter -->
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8"/>
+    </filter>
+    <filter id="softer" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="14"/>
+    </filter>
+  </defs>
+
+  <!-- Sky -->
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+
+  <!-- Distant haze clouds (back layer) -->
+  <g opacity="0.25" filter="url(#softer)">
+    <ellipse cx="300" cy="200" rx="280" ry="70" fill="#fff"/>
+    <ellipse cx="1600" cy="150" rx="320" ry="80" fill="#fff"/>
+    <ellipse cx="900" cy="120" rx="250" ry="55" fill="#fff"/>
+  </g>
+
+  <!-- Mid-layer clouds -->
+  <g opacity="0.5" filter="url(#soft)">
+    <!-- Cloud cluster left -->
+    <ellipse cx="200" cy="350" rx="180" ry="60" fill="#fff"/>
+    <ellipse cx="320" cy="330" rx="150" ry="70" fill="#fff"/>
+    <ellipse cx="260" cy="360" rx="200" ry="55" fill="#fff"/>
+
+    <!-- Cloud cluster center-right -->
+    <ellipse cx="1300" cy="280" rx="200" ry="65" fill="#fff"/>
+    <ellipse cx="1440" cy="260" rx="170" ry="75" fill="#fff"/>
+    <ellipse cx="1370" cy="290" rx="220" ry="55" fill="#fff"/>
+
+    <!-- Small wisp -->
+    <ellipse cx="750" cy="250" rx="120" ry="35" fill="#fff"/>
+  </g>
+
+  <!-- Foreground clouds (bright, prominent) -->
+  <g opacity="0.85" filter="url(#soft)">
+    <!-- Large cloud left -->
+    <ellipse cx="150" cy="550" rx="220" ry="70" fill="#fff"/>
+    <ellipse cx="300" cy="520" rx="200" ry="85" fill="#fff"/>
+    <ellipse cx="220" cy="540" rx="250" ry="65" fill="#fff"/>
+    <ellipse cx="380" cy="550" rx="160" ry="60" fill="#fff"/>
+
+    <!-- Large cloud right -->
+    <ellipse cx="1550" cy="480" rx="240" ry="80" fill="#fff"/>
+    <ellipse cx="1700" cy="460" rx="200" ry="90" fill="#fff"/>
+    <ellipse cx="1620" cy="490" rx="260" ry="65" fill="#fff"/>
+    <ellipse cx="1780" cy="480" rx="170" ry="65" fill="#fff"/>
+
+    <!-- Medium cloud center -->
+    <ellipse cx="900" cy="420" rx="180" ry="65" fill="#fff"/>
+    <ellipse cx="1020" cy="400" rx="160" ry="75" fill="#fff"/>
+    <ellipse cx="960" cy="430" rx="210" ry="55" fill="#fff"/>
+  </g>
+
+  <!-- Bottom haze for depth -->
+  <g opacity="0.3" filter="url(#softer)">
+    <ellipse cx="500" cy="750" rx="350" ry="90" fill="#fff"/>
+    <ellipse cx="1400" cy="800" rx="400" ry="100" fill="#fff"/>
+    <ellipse cx="960" cy="850" rx="500" ry="120" fill="#fff"/>
+  </g>
+
+  <!-- Subtle light rays from upper area -->
+  <g opacity="0.06">
+    <polygon points="960,0 800,1080 1120,1080" fill="#fff"/>
+    <polygon points="700,0 580,1080 820,1080" fill="#fff"/>
+    <polygon points="1250,0 1100,1080 1400,1080" fill="#fff"/>
+  </g>
+</svg>

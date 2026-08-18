@@ -5,7 +5,7 @@
     "workspaceFolder": "/workspace",
     "shutdownAction": "stopCompose",
     "dockerComposeOptions": ["--project-name", "carlos-emr"],
-    "postCreateCommand": "sh .devcontainer/development/setup/seed_data.sh && cd /workspace && mvn -B dependency:go-offline dependency:sources dependency:resolve -Dclassifier=javadoc",
+    "postCreateCommand": "cd /workspace && sh .devcontainer/development/setup/seed_data.sh && mvn -B dependency:go-offline dependency:sources dependency:resolve -Dclassifier=javadoc",
 
     "customizations": {
         "vscode": {
@@ -36,7 +36,20 @@
         }
     },
 
-    "forwardPorts": [8080, 8000, 3306, 3000],
+    "forwardPorts": [8080, 8000, 3306, 3000, 13579],
+    "portsAttributes": {
+        "13579": {
+            "label": "Gemini OAuth Callback",
+            "onAutoForward": "silent"
+        },
+        // Claude Code (`claude setup-token`, `claude /login`) binds a random
+        // high port for its OAuth callback. Scope silent auto-forwarding to
+        // that range so unrelated low ports still use VS Code's defaults.
+        "30000-65535": {
+            "label": "Claude Code OAuth Callback",
+            "onAutoForward": "silent"
+        }
+    },
     "containerUser": "root",
     "remoteUser": "root"
 }

@@ -32,9 +32,9 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pa
 
 import java.io.IOException;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
@@ -44,10 +44,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctConAddSpecialist2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -131,7 +132,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
 
     private boolean referralNoValid(String referralNo) {
 
-        String pattern = OscarProperties.getInstance().getProperty("referral_no.pattern", "^[a-zA-Z0-9]*$");
+        String pattern = CarlosProperties.getInstance().getProperty("referral_no.pattern", "^[a-zA-Z0-9]*$");
 
         try {
             if (referralNo.matches(pattern))
@@ -155,10 +156,6 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         professionalSpecialist.setWebSite(this.getWebsite());
         professionalSpecialist.setEmailAddress(this.getEmail());
         professionalSpecialist.setSpecialtyType(this.getSpecType());
-        professionalSpecialist.seteDataUrl(this.geteDataUrl());
-        professionalSpecialist.seteDataOscarKey(this.geteDataOscarKey());
-        professionalSpecialist.seteDataServiceKey(this.geteDataServiceKey());
-        professionalSpecialist.seteDataServiceName(this.geteDataServiceName());
         professionalSpecialist.setAnnotation(this.getAnnotation());
         professionalSpecialist.setReferralNo(this.getReferralNo());
         professionalSpecialist.setInstitutionId(Integer.parseInt(this.getInstitution()));
@@ -183,10 +180,6 @@ public class EctConAddSpecialist2Action extends ActionSupport {
     String transType;
     String specId;
     int whichType;
-    String eDataUrl;
-    String eDataOscarKey;
-    String eDataServiceKey;
-    String eDataServiceName;
     String annotation;
     String institution;
     String department;
@@ -208,6 +201,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return transType;
     }
 
+    @StrutsParameter
     public void setTransType(String str) {
         transType = str;
     }
@@ -217,6 +211,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return fName;
     }
 
+    @StrutsParameter
     public void setFirstName(String str) {
         fName = str;
     }
@@ -226,6 +221,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return lName;
     }
 
+    @StrutsParameter
     public void setLastName(String str) {
         lName = str;
     }
@@ -235,6 +231,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return proLetters;
     }
 
+    @StrutsParameter
     public void setProLetters(String str) {
         proLetters = str;
     }
@@ -244,6 +241,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return address;
     }
 
+    @StrutsParameter
     public void setAddress(String str) {
         address = str;
     }
@@ -253,6 +251,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return phone;
     }
 
+    @StrutsParameter
     public void setPhone(String str) {
         phone = str;
     }
@@ -262,6 +261,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return fax;
     }
 
+    @StrutsParameter
     public void setFax(String str) {
         fax = str;
     }
@@ -271,6 +271,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return website;
     }
 
+    @StrutsParameter
     public void setWebsite(String str) {
         website = str;
     }
@@ -280,6 +281,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return email;
     }
 
+    @StrutsParameter
     public void setEmail(String str) {
         email = str;
     }
@@ -289,6 +291,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return specType;
     }
 
+    @StrutsParameter
     public void setSpecType(String str) {
         specType = str;
     }
@@ -298,6 +301,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return specId;
     }
 
+    @StrutsParameter
     public void setSpecId(String str) {
         specId = str;
     }
@@ -318,9 +322,6 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         specType = null;
         transType = null;
         specId = null;
-        eDataUrl = null;
-        eDataOscarKey = null;
-        eDataServiceKey = null;
         annotation = null;
         referralNo = null;
         privatePhoneNumber = null;
@@ -344,50 +345,21 @@ public class EctConAddSpecialist2Action extends ActionSupport {
      *
      * @param whichType The whichType to set
      */
+    @StrutsParameter
     public void setWhichType(int whichType) {
         this.whichType = whichType;
-    }
-
-    public String geteDataUrl() {
-        return eDataUrl;
-    }
-
-    public void seteDataUrl(String eDataUrl) {
-        this.eDataUrl = eDataUrl;
-    }
-
-    public String geteDataOscarKey() {
-        return eDataOscarKey;
-    }
-
-    public void seteDataOscarKey(String eDataOscarKey) {
-        this.eDataOscarKey = eDataOscarKey;
-    }
-
-    public String geteDataServiceKey() {
-        return eDataServiceKey;
-    }
-
-    public void seteDataServiceKey(String eDataServiceKey) {
-        this.eDataServiceKey = eDataServiceKey;
-    }
-
-    public String geteDataServiceName() {
-        return eDataServiceName;
-    }
-
-    public void seteDataServiceName(String eDataServiceName) {
-        this.eDataServiceName = eDataServiceName;
     }
 
     public String getAnnotation() {
         return annotation;
     }
 
+    @StrutsParameter
     public void setAnnotation(String annotation) {
         this.annotation = annotation;
     }
 
+    @StrutsParameter
     public void setReferralNo(String referralNo) {
         this.referralNo = referralNo;
     }
@@ -400,6 +372,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return institution;
     }
 
+    @StrutsParameter
     public void setInstitution(String institution) {
         this.institution = institution;
     }
@@ -408,6 +381,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return department;
     }
 
+    @StrutsParameter
     public void setDepartment(String department) {
         this.department = department;
     }
@@ -416,6 +390,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return privatePhoneNumber;
     }
 
+    @StrutsParameter
     public void setPrivatePhoneNumber(String privatePhoneNumber) {
         this.privatePhoneNumber = privatePhoneNumber;
     }
@@ -424,6 +399,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return cellPhoneNumber;
     }
 
+    @StrutsParameter
     public void setCellPhoneNumber(String cellPhoneNumber) {
         this.cellPhoneNumber = cellPhoneNumber;
     }
@@ -432,6 +408,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return pagerNumber;
     }
 
+    @StrutsParameter
     public void setPagerNumber(String pagerNumber) {
         this.pagerNumber = pagerNumber;
     }
@@ -440,6 +417,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return salutation;
     }
 
+    @StrutsParameter
     public void setSalutation(String salutation) {
         this.salutation = salutation;
     }
@@ -448,6 +426,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return hideFromView;
     }
 
+    @StrutsParameter
     public void setHideFromView(Boolean hideFromView) {
         this.hideFromView = hideFromView;
     }
@@ -456,6 +435,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         return eformId;
     }
 
+    @StrutsParameter
     public void setEformId(Integer eformId) {
         this.eformId = eformId;
     }

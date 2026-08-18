@@ -28,7 +28,7 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.io.Serializable;
 
 @Entity
@@ -47,7 +47,6 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
     public static final String RX_PAGE_SIZE = "rx_page_size";
     public static final String RX_DEFAULT_QUANTITY = "rx_default_quantity";
     public static final String RX_PROFILE_VIEW = "rx_profile_view";
-    public static final String RX_USE_RX3 = "rx_use_rx3";
     public static final String DMFLOW_SHEET_VIEW = "DMFlowsheet_view";
     public static final String DOC_DEFAULT_QUEUE = "doc_default_queue";
     public static final String HC_TYPE = "HC_Type";
@@ -61,13 +60,14 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
     public static final String OFFICIAL_FIRST_NAME = "official_first_name";
     public static final String OFFICIAL_SECOND_NAME = "official_second_name";
     public static final String OFFICIAL_LAST_NAME = "official_last_name";
-    public static final String OFFICIAL_OLIS_IDTYPE = "official_olis_idtype";
-    public static final String OSCAR_MSG_RECVD = "oscarMsgRecvd";
     public static final String LAB_MACRO_JSON = "labMacroJSON";
 
     //added to user properties with new interface
     public static final String FAX = "fax";
     public static final String SIGNATURE = "signature";
+    public static final String PROVIDER_CONSULT_SIGNATURE = "provider_consult_signature";
+    /** Filename prefix for provider stamp signature images: {@code consult_sig_<providerNo>.png} */
+    public static final String CONSULT_SIGNATURE_PREFIX = "consult_sig_";
     public static final String COLOUR = "colour";
     public static final String SEX = "sex";
     public static final String SCHEDULE_START_HOUR = "schedule.start_hour";
@@ -110,7 +110,32 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
     public static final String PENDINGDOCS = "pendingDocs";
     public static final String UPLOAD_INCOMING_DOCUMENT_FOLDER = "upload_incoming_document_folder";
     public static final String HIDE_OLD_ECHART_LINK_IN_APPT = "hide_old_echart_link_in_appointment";
-
+    /** Provider preference key: when set to {@code "yes"}, encounters open in a browser tab instead of a popup window. */
+    public static final String ENCOUNTER_OPEN_IN_TAB = "encounter_open_in_tab";
+    /**
+     * Provider preference key for the schedule top-menu launch mode.
+     * Keep this separate from ENCOUNTER_OPEN_IN_TAB because the schedule shell
+     * behavior is a navigation preference, while encounter tabs affect clinical
+     * popup behavior across other screens.
+     */
+    public static final String SCHEDULE_NAVIGATION_MODE = "schedule_navigation_mode";
+    public static final String SCHEDULE_NAVIGATION_MODE_POPUP = "popup";
+    public static final String SCHEDULE_NAVIGATION_MODE_TAB = "tab";
+    public static final String SCHEDULE_NAVIGATION_MODE_FOCUSED = "focused";
+    public static String resolveScheduleNavigationMode(String savedMode, boolean legacyTabEnabled) {
+        if (SCHEDULE_NAVIGATION_MODE_TAB.equals(savedMode)
+                || SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(savedMode)
+                || SCHEDULE_NAVIGATION_MODE_POPUP.equals(savedMode)) {
+            return savedMode;
+        }
+        if (savedMode != null) {
+            return SCHEDULE_NAVIGATION_MODE_POPUP;
+        }
+        if (legacyTabEnabled) {
+            return SCHEDULE_NAVIGATION_MODE_TAB;
+        }
+        return SCHEDULE_NAVIGATION_MODE_FOCUSED;
+    }
 
     public static final String DEFAULT_PRINTER_PDF_LABEL = "default_printer_pdf_label";
     public static final String DEFAULT_PRINTER_PDF_ENVELOPE = "default_printer_pdf_envelope";
@@ -125,29 +150,6 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
     public static final String DEFAULT_PRINTER_PDF_CHART_LABEL_SILENT_PRINT = "default_printer_pdf_chart_label_silent_print";
     public static final String DEFAULT_PRINTER_CLIENT_LAB_LABEL_SILENT_PRINT = "default_printer_client_lab_label_silent_print";
 
-    public static final String INTEGRATOR_DEMOGRAPHIC_SYNC = "integrator_demographic_sync";
-    public static final String INTEGRATOR_DEMOGRAPHIC_ISSUES = "integrator_demographic_issues";
-    public static final String INTEGRATOR_DEMOGRAPHIC_CONSENT = "integrator_demographic_consent";
-    public static final String INTEGRATOR_DEMOGRAPHIC_ADMISSIONS = "integrator_demographic_admissions";
-    public static final String INTEGRATOR_DEMOGRAPHIC_PREVENTIONS = "integrator_demographic_preventions";
-    public static final String INTEGRATOR_DEMOGRAPHIC_NOTES = "integrator_demographic_notes";
-    public static final String INTEGRATOR_DEMOGRAPHIC_DRUGS = "integrator_demographic_drugs";
-    public static final String INTEGRATOR_DEMOGRAPHIC_APPOINTMENTS = "integrator_demographic_appointments";
-    public static final String INTEGRATOR_DEMOGRAPHIC_DXRESEARCH = "integrator_demographic_dxresearch";
-    public static final String INTEGRATOR_DEMOGRAPHIC_BILLING = "integrator_demographic_billing";
-    public static final String INTEGRATOR_DEMOGRAPHIC_EFORMS = "integrator_demographic_eforms";
-    public static final String INTEGRATOR_DEMOGRAPHIC_MEASUREMENTS = "integrator_demographic_measurements";
-    public static final String INTEGRATOR_DEMOGRAPHIC_DOCUMENTS = "integrator_demographic_documents";
-    public static final String INTEGRATOR_DEMOGRAPHIC_ALLERGIES = "integrator_demographic_allergies";
-    public static final String INTEGRATOR_DEMOGRAPHIC_LABREQ = "integrator_demographic_labreq";
-    public static final String INTEGRATOR_PROGRAMS = "integrator_programs_sync";
-    public static final String INTEGRATOR_PROVIDERS = "integrator_providers_sync";
-    public static final String INTEGRATOR_FACILITY = "integrator_facility_sync";
-    public static final String INTEGRATOR_FULL_PUSH = "integrator_full_push";
-    public static final String INTEGRATOR_LAST_PUSH = "integrator_last_push";
-    public static final String INTEGRATOR_LAST_UPDATED = "integrator_last_updated";
-    public static final String INTEGRATOR_LAST_PULL_PRIMARY_EMR = "integrator_last_pull";
-    public static final String INTEGRATOR_PATIENT_CONSENT = "integrator_patient_consent";
     public static final String STUDENT_PARTICIPATION_CONSENT = "student_participation_consent";
     public static final String PROVIDER_FOR_TICKLER_WARNING = "provider_for_tickler_warning";
 

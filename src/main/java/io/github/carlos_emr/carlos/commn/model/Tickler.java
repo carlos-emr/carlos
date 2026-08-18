@@ -36,15 +36,16 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
-import javax.persistence.*;
+import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.commn.model.converter.TicklerPriorityConverter;
+import io.github.carlos_emr.carlos.commn.model.converter.TicklerStatusConverter;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
+import jakarta.persistence.*;
 
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
-import org.hibernate.annotations.NotFound;
-import org.hibernate.annotations.NotFoundAction;
-import io.github.carlos_emr.carlos.PMmodule.model.Program;
-import io.github.carlos_emr.carlos.utility.LocaleUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Entity
 @Table(name = "tickler")
@@ -86,7 +87,7 @@ public class Tickler extends AbstractModel<Integer> {
     private String message;
 
     @Column(length = 1)
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = TicklerStatusConverter.class)
     private STATUS status = STATUS.A;
 
     @Column(name = "creation_date")
@@ -105,7 +106,7 @@ public class Tickler extends AbstractModel<Integer> {
     private String creator;
 
     @Column(length = 6)
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = TicklerPriorityConverter.class)
     private PRIORITY priority = PRIORITY.Normal;
 
     @Column(name = "task_assigned_to")
@@ -114,54 +115,43 @@ public class Tickler extends AbstractModel<Integer> {
     @Column(name = "category_id")
     private Integer categoryId;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", referencedColumnName = "id", insertable = false, updatable = false)
-    @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
-    @BatchSize(size = 25)
     private TicklerCategory ticklerCategory;
 
     @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "tickler_no", referencedColumnName = "tickler_no")
-    @NotFound(action = NotFoundAction.IGNORE)
+    @BatchSize(size = 25)
     private Set<TicklerUpdate> updates = new HashSet<TicklerUpdate>();
 
-    @OneToMany(fetch = FetchType.EAGER)
+    @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "tickler_no", referencedColumnName = "tickler_no")
     @OrderBy("updateDate ASC")
-    @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
     @BatchSize(size = 25)
     private Set<TicklerComment> comments = new HashSet<TicklerComment>();
 
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "demographic_no", referencedColumnName = "demographic_no", insertable = false, updatable = false)
-    @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
-    @BatchSize(size = 25)
     private Demographic demographic;
 
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "creator", referencedColumnName = "provider_no", insertable = false, updatable = false)
-    @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
-    @BatchSize(size = 25)
     private Provider provider;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_assigned_to", referencedColumnName = "provider_no", insertable = false, updatable = false)
-    @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
-    @BatchSize(size = 25)
     private Provider assignee;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "program_id", referencedColumnName = "id", insertable = false, updatable = false)
-    @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
-    @BatchSize(size = 25)
     private Program program;
 
 
@@ -342,6 +332,8 @@ public class Tickler extends AbstractModel<Integer> {
             throw new IllegalArgumentException("Invalid status");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setPriorityAsString(String p) {
         if (p != null && p.equalsIgnoreCase("Normal"))
             setPriority(Tickler.PRIORITY.Normal);
@@ -627,4 +619,3 @@ public class Tickler extends AbstractModel<Integer> {
     }
 
 }
-

@@ -24,9 +24,9 @@ allowed-tools:
   - Bash(ls /workspace/.playwright-mcp/*)
   - Bash(wc *)
   - Bash(curl * http://localhost:8080/*)
-  - Bash(mysql -h db -uroot -ppassword oscar *)
-  - Bash(mysql -h db -uroot -ppassword oscar -e *)
-  - Bash(mysql * oscar * 2>&1 | tail -1)
+  - Bash(mariadb -h db -uroot -ppassword oscar *)
+  - Bash(mariadb -h db -uroot -ppassword oscar -e *)
+  - Bash(mariadb * oscar * 2>&1 | tail -1)
   - Bash(date *)
   - Bash(TIMESTAMP=*)
   - Write(path:ui-test-runs/**)
@@ -65,7 +65,7 @@ Before starting, verify application and database are ready:
 1. **Application Check**: Run `curl -sI http://localhost:8080/oscar/index.jsp | head -1`
    - Expected: `HTTP/1.1 200`
 
-2. **Database Check**: Run `mysql -h db -uroot -ppassword oscar -e "SELECT demographic_no FROM demographic WHERE demographic_no = 1;"`
+2. **Database Check**: Run `mariadb -h db -uroot -ppassword oscar -e "SELECT demographic_no FROM demographic WHERE demographic_no = 1;"`
    - Expected: Patient ID 1 exists
 
 **If checks fail**: Run `server start` to start Tomcat, or check `server log` for errors.
@@ -76,7 +76,7 @@ Follow the 12-step workflow defined in `docs/ui-tests/test-9/test-9-EXECUTION.md
 
 ### Phase 1: Authentication & Prevention Access (Steps 1-4)
 1. **Login Page** - Navigate to http://localhost:8080/oscar, screenshot
-2. **Provider Dashboard** - Login (openodoc/openo2025/2025), screenshot
+2. **Provider Dashboard** - Login (carlosdoc/carlos2026/2026), screenshot
 3. **Patient Search** - Search "FAKE-J", screenshot results
 4. **Patient Chart** - Open patient chart, screenshot
 
@@ -156,7 +156,7 @@ Date Administered: Today (auto-populated)
 Route: Intramuscular: IM
 Site: Left arm (optional)
 Lot Number: TEST-LOT-001 (optional)
-Provider: openodoc doctor (auto-populated)
+Provider: carlosdoc doctor (auto-populated)
 ```
 
 ### Form Auto-Population Behavior
@@ -164,8 +164,8 @@ The Add Prevention Data form automatically populates several fields when opened:
 - **Prevention**: Pre-filled with the vaccine type clicked (e.g., "Flu")
 - **Status**: "Completed" radio button selected by default
 - **Date**: Current date/time in format YYYY-MM-DD HH:MM (e.g., 2026-01-19 15:02)
-- **Provider**: Logged-in provider (e.g., "openodoc doctor")
-- **Creator**: Same as provider (e.g., "openodoc doctor")
+- **Provider**: Logged-in provider (e.g., "carlosdoc doctor")
+- **Creator**: Same as provider (e.g., "carlosdoc doctor")
 
 **Route Options Available**:
 - Intradermal: ID
@@ -185,7 +185,7 @@ After completing all 12 steps:
 3. **Save Prevention PDF**: Copy `Prevention.pdf` from `.playwright-mcp/` to `ui-test-runs/$TIMESTAMP/test-9/reports/` directory
 4. **Database Verification**:
    ```bash
-   mysql -h db -uroot -ppassword oscar -e "
+   mariadb -h db -uroot -ppassword oscar -e "
    SELECT id, prevention_type, prevention_date, provider_name FROM preventions
    WHERE demographic_no = 1 AND prevention_type = 'Flu'
    ORDER BY id DESC LIMIT 2;"

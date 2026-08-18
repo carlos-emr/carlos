@@ -35,40 +35,63 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroup;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.MeasurementManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctStyleSheetBeanHandler;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctSelectMeasurementGroup2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private MeasurementGroupStyleDao styleDao = SpringUtils.getBean(MeasurementGroupStyleDao.class);
     private MeasurementGroupDao groupDao = SpringUtils.getBean(MeasurementGroupDao.class);
     private MeasurementManager measurementManager = SpringUtils.getBean(MeasurementManager.class);
 
     public String execute() throws ServletException, IOException {
         String groupName = this.getSelectedGroupName();
-        //String forward = frm.getForward();
+
+        // CWE-501: validate groupName at trust boundary — reject control chars and excessive length
+        if (groupName == null || groupName.isEmpty() || groupName.length() > 100
+                || !groupName.matches("[^\\p{Cntrl}]+")) {
+            throw new SecurityException("Invalid measurement group name");
+        }
 
         MiscUtils.getLogger().debug("The forward message is: " + forward);
 
         HttpSession session = request.getSession();
+
+        // Delete requires admin privilege check BEFORE any session mutation
+        if (forward.compareTo("delete") == 0) {
+            if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)
+                    && !securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
+                throw new SecurityException("missing required sec object (_admin.measurements)");
+            }
+            // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [^\\p{Cntrl}]+, length-capped to 100; admin privilege verified above
+            session.setAttribute("groupName", groupName);
+            deleteGroup(groupName);
+            return "delete";
+        }
+
+        // For non-delete paths, store validated groupName for navigation
+        // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [^\\p{Cntrl}]+, length-capped to 100
         session.setAttribute("groupName", groupName);
 
         if (forward.compareTo("style") == 0) {
@@ -81,9 +104,6 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
             request.setAttribute("allStyleSheets", allStyleSheets);
             request.setAttribute("groupName", groupName);
             return "style";
-        } else if (forward.compareTo("delete") == 0) {
-            deleteGroup(groupName);
-            return "delete";
         }
         if (forward.compareTo("dsHTML") == 0) {
 
@@ -143,6 +163,7 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
         return forward;
     }
 
+    @StrutsParameter
     public void setForward(String forward) {
         this.forward = forward;
     }
@@ -153,6 +174,7 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
         return selectedGroupName;
     }
 
+    @StrutsParameter
     public void setSelectedGroupName(String selectedGroupName) {
         this.selectedGroupName = selectedGroupName;
     }

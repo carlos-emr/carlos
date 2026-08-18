@@ -38,11 +38,11 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -72,27 +72,31 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
             boolean inboxflag = IsPropertiesOn.propertiesOn("inboxmnger");
             // set lefthand module heading and link
             String winName = "docs" + bean.demographicNo;
-            String url = "popupPage(500,1115,'" + winName + "', '" + request.getContextPath() + "/documentManager/documentReport.jsp?" + "function=demographic&doctype=lab&functionid=" + bean.demographicNo + "&curUser=" + bean.providerNo + "')";
+            String leftPath;
 
-            Dao.setLeftHeading(getText("oscarEncounter.Index.msgDocuments"));
+            Dao.setLeftHeading(getText("encounter.Index.msgDocuments"));
             if (inboxflag) {
-                url = "popupPage(600,1024,'" + winName + "', '" + request.getContextPath() + "/mod/docmgmtComp/DocList.do?method=list&&demographic_no=" + bean.demographicNo + "');";
-                Dao.setLeftHeading(getText("oscarEncounter.Index.inboxManager"));
+                leftPath = request.getContextPath() + "/mod/docmgmtComp/DocList?method=list&&demographic_no=" + bean.demographicNo;
+                Dao.setLeftPopup(600, 1024, winName, leftPath);
+                Dao.setLeftHeading(getText("encounter.Index.inboxManager"));
+            } else {
+                leftPath = request.getContextPath() + "/documentManager/ViewDocumentReport?"
+                        + "function=demographic&doctype=lab&functionid=" + SafeEncode.forUriComponent(bean.demographicNo);
+                Dao.setLeftPopup(500, 1115, winName, leftPath);
             }
-            Dao.setLeftURL(url);
 
             // set the right hand heading link to call addDocument in index jsp
             winName = "addDoc" + bean.demographicNo;
-            url = "popupPage(500,1115,'" + winName + "','" + request.getContextPath() + "/documentManager/documentReport.jsp?" + "function=demographic&doctype=lab&functionid=" + bean.demographicNo + "&curUser=" + bean.providerNo + "&mode=add" + "&parentAjaxId=" + cmd + "');return false;";
 
             if (inboxflag) {
-                url = "popupPage(300,600,'" + winName + "','" + request.getContextPath() + "/mod/docmgmtComp/FileUpload.do?method=newupload&demographic_no=" + bean.demographicNo + "');return false;";
+                Dao.setRightPopup(300, 600, winName, request.getContextPath() + "/mod/docmgmtComp/FileUpload?method=newupload&demographic_no=" + bean.demographicNo);
+            } else {
+                Dao.setRightPopup(500, 1115, winName, request.getContextPath() + "/documentManager/ViewDocumentReport?"
+                        + "function=demographic&doctype=lab&functionid=" + SafeEncode.forUriComponent(bean.demographicNo)
+                        + "&mode=add&parentAjaxId=" + SafeEncode.forUriComponent(cmd));
             }
-            Dao.setRightURL(url);
             Dao.setRightHeadingID(cmd); // no menu so set div id to unique id for this action
 
-            StringBuilder javascript = new StringBuilder("<script type=\"text/javascript\">");
-            String js = "";
             ArrayList<EDoc> docList = EDocUtil.listDocs(loggedInInfo, "demographic", bean.demographicNo, null, EDocUtil.PRIVATE, EDocSort.OBSERVATIONDATE, "active");
             String dbFormat = "yyyy-MM-dd";
             String serviceDateStr = "";
@@ -100,18 +104,8 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
             String title;
             int hash;
             String BGCOLOUR = request.getParameter("hC");
+            String url;
             Date date;
-
-            // --- add remote documents ---
-
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                try {
-                    ArrayList<EDoc> remoteDocuments = EDocUtil.getRemoteDocuments(loggedInInfo, Integer.parseInt(bean.demographicNo));
-                    docList.addAll(remoteDocuments);
-                } catch (Exception e) {
-                    logger.error("error getting remote documents", e);
-                }
-            }
 
             // sort complete list by date descending
             sortByDate(docList);
@@ -137,7 +131,7 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
 
                 String dispDocNo = curDoc.getDocId();
                 title = StringUtils.maxLenString(curDoc.getDescription(), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
-                title = Encode.forHtml(title);
+                title = SafeEncode.forHtml(title);
 
                 if (EDocUtil.getDocUrgentFlag(dispDocNo))
                     title = StringUtils.maxLenString("!" + curDoc.getDescription(), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
@@ -160,30 +154,24 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
 
                 if (inboxflag) {
                     String path = IsPropertiesOn.getProperty("DOCUMENT_DIR");
- 		    url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/mod/docmgmtComp/FillARForm.do?method=showInboxDocDetails&path=" + Encode.forJavaScript(path) + "&demoNo=" + Encode.forJavaScript(bean.demographicNo) + "&name=" + Encode.forJavaScript(dispFilename) + "'); return false;";
+ 		    url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/mod/docmgmtComp/FillARForm?method=showInboxDocDetails&path=" + SafeEncode.forJavaScript(path) + "&demoNo=" + SafeEncode.forJavaScript(bean.demographicNo) + "&name=" + SafeEncode.forJavaScript(dispFilename) + "'); return false;";
                     isURLjavaScript = true;
-                } else if (curDoc.getRemoteFacilityId() == null && curDoc.isPDF()) {
-                    url = "popupPage(window.screen.width,window.screen.height,'" + hash + "','" + request.getContextPath() + "/documentManager/showDocument.jsp?inWindow=true&segmentID=" + Encode.forJavaScript(dispDocNo) + "'); return false;";
+                } else if (curDoc.isPDF()) {
+                    url = "popupPage(window.screen.width,window.screen.height,'" + hash + "','" + request.getContextPath() + "/documentManager/ViewShowDocument?inWindow=true&segmentID=" + SafeEncode.forJavaScript(dispDocNo) + "'); return false;";
                     isURLjavaScript = true;
                 } else {
-                    url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/documentManager/ManageDocument.do?method=display&doc_no=" + Encode.forJavaScript(dispDocNo) + "&providerNo=" + Encode.forJavaScript(user) + (curDoc.getRemoteFacilityId() != null ? "&remoteFacilityId=" + Encode.forJavaScript(curDoc.getRemoteFacilityId().toString()) : "") + "'); return false;";
+                    url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/documentManager/ManageDocument?method=display&doc_no=" + SafeEncode.forJavaScript(dispDocNo) + "&providerNo=" + SafeEncode.forJavaScript(user) + "'); return false;";
                 }
 
                 item.setLinkTitle(title + serviceDateStr);
                 item.setTitle(title);
                 key = StringUtils.maxLenString(curDoc.getDescription(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + "(" + serviceDateStr + ")";
-                key = Encode.forJavaScript(key);
                 if (inboxflag) {
                     if (!EDocUtil.getDocReviewFlag(dispDocNo)) item.setColour("FF0000");
                 }
-                js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompleted['" + key + "'] = \"" + url + "\"; autoCompList.push('" + key + "');";
-                javascript.append(js);
+                Dao.addAutoCompleteItem(key, url, BGCOLOUR);
                 item.setURL(url);
                 item.setURLJavaScript(true);
-
-                if ("integrator".equalsIgnoreCase(curDoc.getSource())) {
-                    item.setBgColour("#FFCCCC");
-                }
 
                 if ("true".equals(curDoc.getAbnormal())) {
                     item.setColour("red");
@@ -192,9 +180,6 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
                 Dao.addItem(item);
 
             }
-            javascript.append("</script>");
-
-            Dao.setJavaScript(javascript.toString());
             return true;
         }
     }

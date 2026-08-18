@@ -30,14 +30,10 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
-import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
-import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
-import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.DrugReasonDao;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.DrugReason;
 import io.github.carlos_emr.carlos.commn.model.PartialDate;
@@ -58,17 +54,17 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.owasp.encoder.Encode;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -83,6 +79,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.Vector;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public final class RxWriteScript2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -123,11 +120,14 @@ public final class RxWriteScript2Action extends ActionSupport {
             case "updateSpecialInstruction" -> updateSpecialInstruction();
             case "updateProperty" -> updateProperty();
             case "updateSaveAllDrugs" -> updateSaveAllDrugs();
-            case "getDemoNameAndHIN" -> getDemoNameAndHIN();
             case "updateLongTermStatus" -> updateLongTermStatus();
             case "checkNoStashItem" -> checkNoStashItem();
             case "searchSpecialInstructions" -> {
                 searchSpecialInstructions();
+                yield null;
+            }
+            case "getInstructionsAutocomplete" -> {
+                getInstructionsAutocomplete();
                 yield null;
             }
             default -> null;
@@ -208,12 +208,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 logger.warn("Drug.special appears to be empty : " + rx.getSpecial() + " : " + this.getSpecial());
             }
 
-            String annotation_attrib = request.getParameter("annotation_attrib");
-            if (annotation_attrib == null) {
-                annotation_attrib = "";
-            }
-
-            bean.addAttributeName(annotation_attrib, bean.getStashIndex());
             bean.setStashItem(bean.getStashIndex(), rx);
             rx = null;
 
@@ -227,9 +221,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 // SAVE THE DRUG
                 int i;
                 String scriptId = prescription.saveScript(loggedInInfo, bean);
-                @SuppressWarnings("unchecked")
-                ArrayList<String> attrib_names = bean.getAttributeNames();
-                // p("attrib_names", attrib_names.toString());
                 StringBuilder auditStr = new StringBuilder();
                 for (i = 0; i < bean.getStashSize(); i++) {
                     rx = bean.getStashItem(i);
@@ -238,30 +229,12 @@ public final class RxWriteScript2Action extends ActionSupport {
                     auditStr.append(rx.getAuditString());
                     auditStr.append("\n");
 
-                    /* Save annotation */
-                    HttpSession se = request.getSession();
-                    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(se.getServletContext());
-                    CaseManagementManager cmm = (CaseManagementManager) ctx.getBean(CaseManagementManager.class);
-                    String attrib_name = attrib_names.get(i);
-                    if (attrib_name != null) {
-                        CaseManagementNote cmn = (CaseManagementNote) se.getAttribute(attrib_name);
-                        if (cmn != null) {
-                            cmm.saveNoteSimple(cmn);
-                            CaseManagementNoteLink cml = new CaseManagementNoteLink();
-                            cml.setTableName(CaseManagementNoteLink.DRUGS);
-                            cml.setTableId((long) rx.getDrugId());
-                            cml.setNoteId(cmn.getId());
-                            cmm.saveNoteLink(cml);
-                            se.removeAttribute(attrib_name);
-                            LogAction.addLog(cmn.getProviderNo(), LogConst.ANNOTATE, CaseManagementNoteLink.DISP_PRESCRIP, scriptId, request.getRemoteAddr(), cmn.getDemographic_no(), cmn.getNote());
-                        }
-                    }
                     rx = null;
                 }
                 fwd = "viewScript";
                 String ip = request.getRemoteAddr();
                 request.setAttribute("scriptId", scriptId);
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
+                LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
             }
         }
         return fwd;
@@ -392,7 +365,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             rx.setAtcCode("");
             RxUtil.setDefaultSpecialQuantityRepeat(rx);
             rx = setCustomRxDurationQuantity(rx);
-            bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
+
             List<RxPrescriptionData.Prescription> listRxDrugs = new ArrayList();
 
             if (RxUtil.isRxUniqueInStash(bean, rx)) {
@@ -485,7 +458,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             rx.setAtcCode("");
             RxUtil.setDefaultSpecialQuantityRepeat(rx); // 1 OD, 20, 0;
             rx = setCustomRxDurationQuantity(rx);
-            bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
+
             List<RxPrescriptionData.Prescription> listRxDrugs = new ArrayList();
 
             if (RxUtil.isRxUniqueInStash(bean, rx)) {
@@ -561,6 +534,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String createNewRx() throws IOException {
         logger.debug("=============Start createNewRx RxWriteScript2Action.java===============");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -635,7 +610,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 					}
 
 					if (! strength.contains("/")) {
-						strength = strength.toLowerCase().replaceAll(unit.toLowerCase(), "");
+						strength = strength.toLowerCase().replace(unit.toLowerCase(), "");
 						strength += unit.toLowerCase();
 					}
 
@@ -712,7 +687,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 
 				// covers all cases when unit is missing -or- included with the strength.
 				if (! strength.contains("/")) {
-					strength = strength.toLowerCase().trim().replaceAll(unit.toLowerCase().trim(), "");
+					strength = strength.toLowerCase().trim().replace(unit.toLowerCase().trim(), "");
 					strength += unit.toLowerCase().trim();
 				}
 
@@ -730,7 +705,6 @@ public final class RxWriteScript2Action extends ActionSupport {
             if (RxUtil.isRxUniqueInStash(bean, rx)) {
                 listRxDrugs.add(rx);
             }
-			bean.addAttributeName(rx.getAtcCode() + "-" + bean.getStashIndex());
             int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
             bean.setStashIndex(rxStashIndex);
             String today = null;
@@ -754,6 +728,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         return success;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String updateDrug() throws IOException {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
@@ -780,7 +756,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 logger.debug("instruction:" + instructions);
                 rx.setSpecial(instructions);
                 RxUtil.instrucParser(rx);
-                bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getIndexFromRx(Integer.parseInt(randomId))));
                 bean.setStashItem(bean.getIndexFromRx(Integer.parseInt(randomId)), rx);
 
                 HashMap<String, Object> hm = new HashMap<String, Object>();
@@ -867,7 +842,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                     // if not, recalculate duration based on frequency if frequency is not empty
                     // if there is already a duration uni present, use that duration unit. if not, set duration unit to days, and output duration in days
                 }
-                bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getIndexFromRx(Integer.parseInt(randomId))));
                 bean.setStashItem(bean.getIndexFromRx(Integer.parseInt(randomId)), rx);
 
                 if (rx.getRoute() == null) {
@@ -908,6 +882,8 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String updateSpecialInstruction() throws Exception {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
 
@@ -927,6 +903,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String updateProperty() throws Exception {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
 
@@ -967,10 +945,13 @@ public final class RxWriteScript2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String updateSaveAllDrugs() throws IOException, ServletException, Exception {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
 
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        // nosemgrep: tainted-session-from-http-request -- value is null literal (clearing session attribute), not user input
         request.getSession().setAttribute("rePrint", null); // set to print.
         List<String> paramList = new ArrayList<String>();
         Enumeration em = request.getParameterNames();
@@ -1081,7 +1062,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                         } else if (elem.equals("nosubs_" + num)) {
                             nosubs = "on".equals(val);
                         } else if (elem.equals("refillDuration_" + num)) {
-                            rx.setRefillDuration(Integer.parseInt(val));
+                            if (val != null && !val.isEmpty() && !val.equalsIgnoreCase("null")) rx.setRefillDuration(Integer.parseInt(val));
                         } else if (elem.equals("refillQuantity_" + num)) {
                             rx.setRefillQuantity(Integer.parseInt(val));
                         } else if (elem.equals("dispenseInterval_" + num)) {
@@ -1236,7 +1217,6 @@ public final class RxWriteScript2Action extends ActionSupport {
 
                     rx.setSpecial(special.trim());
 
-                    bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(stashIndex));
                     bean.setStashItem(stashIndex, rx);
                 }
             } catch (Exception e) {
@@ -1262,27 +1242,6 @@ public final class RxWriteScript2Action extends ActionSupport {
         return "refresh";
     }
 
-    public String getDemoNameAndHIN() throws IOException, Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", PRIVILEGE_READ, null)) {
-            throw new RuntimeException("missing required sec object (_demographic)");
-        }
-
-        String demoNo = request.getParameter("demoNo").trim();
-        Demographic d = demographicManager.getDemographic(loggedInInfo, demoNo);
-        HashMap hm = new HashMap();
-        if (d != null) {
-            hm.put("patientName", d.getDisplayName());
-            hm.put("patientHIN", d.getHin());
-        } else {
-            hm.put("patientName", "Unknown");
-            hm.put("patientHIN", "Unknown");
-        }
-        ObjectNode jo = objectMapper.valueToTree(hm);
-        response.getOutputStream().write(jo.toString().getBytes());
-        return null;
-    }
-
     public String updateLongTermStatus() throws IOException, Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
@@ -1303,6 +1262,10 @@ public final class RxWriteScript2Action extends ActionSupport {
 
             RxPrescriptionData rxData = new RxPrescriptionData();
             RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
+            if (oldRx.getDemographicNo() != bean.getDemographicNo()) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
             oldRx.setLongTerm(isLongTerm);
             oldRx.setShortTerm(false);
             boolean saveStatus = oldRx.Save(oldRx.getScript_no());
@@ -1330,8 +1293,6 @@ public final class RxWriteScript2Action extends ActionSupport {
         RxPrescriptionData prescription = new RxPrescriptionData();
         String scriptId = prescription.saveScript(loggedInInfo, bean);
         StringBuilder auditStr = new StringBuilder();
-        ArrayList<String> attrib_names = bean.getAttributeNames();
-
         for (int i = 0; i < bean.getStashSize(); i++) {
             try {
                 rx = bean.getStashItem(i);
@@ -1360,24 +1321,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 logger.error("Error", e);
             }
 
-            // Save annotation
-            HttpSession se = request.getSession();
-            WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(se.getServletContext());
-            CaseManagementManager cmm = (CaseManagementManager) ctx.getBean(CaseManagementManager.class);
-            String attrib_name = attrib_names.get(i);
-            if (attrib_name != null) {
-                CaseManagementNote cmn = (CaseManagementNote) se.getAttribute(attrib_name);
-                if (cmn != null) {
-                    cmm.saveNoteSimple(cmn);
-                    CaseManagementNoteLink cml = new CaseManagementNoteLink();
-                    cml.setTableName(CaseManagementNoteLink.DRUGS);
-                    cml.setTableId((long) rx.getDrugId());
-                    cml.setNoteId(cmn.getId());
-                    cmm.saveNoteLink(cml);
-                    se.removeAttribute(attrib_name);
-                    LogAction.addLog(cmn.getProviderNo(), LogConst.ANNOTATE, CaseManagementNoteLink.DISP_PRESCRIP, scriptId, request.getRemoteAddr(), cmn.getDemographic_no(), cmn.getNote());
-                }
-            }
             rx = null;
         }
 
@@ -1403,15 +1346,92 @@ public final class RxWriteScript2Action extends ActionSupport {
             drugDao.merge(drug);
 
             //log that this med is being re-prescribed
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REPRESCRIBE, LogConst.CON_MEDICATION, "drugid=" + item, ip, "" + bean.getDemographicNo(), auditStr.toString());
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.REPRESCRIBE, LogConst.CON_MEDICATION, "drugid=" + item, ip, "" + bean.getDemographicNo(), auditStr.toString());
 
             //log that the med is being discontinued buy the system
             LogAction.addLog("-1", LogConst.DISCONTINUE, LogConst.CON_MEDICATION, "drugid=" + item, "", "" + bean.getDemographicNo(), auditStr.toString());
 
         }
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
 
         return;
+    }
+
+    /**
+     * Returns a JSON list of instruction suggestions for the autocomplete on the instructions field.
+     * Uses the same data source as displayMedHistory (RxUtil.getPreviousInstructions), filtered by
+     * the typed term.
+     *
+     * @return null (writes JSON directly to response)
+     * @throws IOException if response writing fails
+     * @since 2026-03-22
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    public String getInstructionsAutocomplete() throws IOException {
+        checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_READ);
+
+        String randomId = request.getParameter("randomId");
+        String term = request.getParameter("term");
+
+        // Reject excessively long term values to prevent potential abuse
+        if (term != null && term.length() > 100) {
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write("{\"results\":[]}");
+            return null;
+        }
+
+        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        if (bean == null || randomId == null || randomId.isBlank()) {
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write("{\"results\":[]}");
+            return null;
+        }
+
+        int randomIdInt;
+        try {
+            randomIdInt = Integer.parseInt(randomId.trim());
+        } catch (NumberFormatException e) {
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write("{\"results\":[]}");
+            return null;
+        }
+        RxPrescriptionData.Prescription rx = bean.getStashItem2(randomIdInt);
+        if (rx == null) {
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write("{\"results\":[]}");
+            return null;
+        }
+        List<HashMap<String, String>> history = RxUtil.getPreviousInstructions(rx);
+        if (history == null) {
+            history = new ArrayList<>();
+        }
+
+        List<String> instructions = new ArrayList<>();
+        for (HashMap<String, String> hm : history) {
+            String ins = hm.get("instruction");
+            if (ins != null && !ins.equalsIgnoreCase("null") && !ins.trim().isEmpty()) {
+                String trimmed = ins.trim();
+                // filter by typed term (case-insensitive), or include all if term is empty
+                if (term == null || term.isEmpty() || trimmed.toLowerCase().contains(term.toLowerCase())) {
+                    if (!instructions.contains(trimmed)) {
+                        instructions.add(trimmed);
+                    }
+                }
+            }
+        }
+
+        Map<String, Object> json = new HashMap<>();
+        json.put("results", instructions);
+
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        objectMapper.writeValue(response.getWriter(), json);
+        return null;
     }
 
     public String searchSpecialInstructions() throws IOException {
@@ -1493,7 +1513,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         drugReasonDao.addNewDrugReason(dr);
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, dr.getAuditString());
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, dr.getAuditString());
 
     }
 
@@ -1539,6 +1559,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.action;
     }
 
+    @StrutsParameter
     public void setAction(String RHS) {
         this.action = RHS;
     }
@@ -1547,6 +1568,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.drugId;
     }
 
+    @StrutsParameter
     public void setDrugID(int RHS) {
         this.drugId = RHS;
     }
@@ -1555,6 +1577,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.demographicNo;
     }
 
+    @StrutsParameter
     public void setDemographicNo(int RHS) {
         this.demographicNo = RHS;
     }
@@ -1563,6 +1586,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.rxDate;
     }
 
+    @StrutsParameter
     public void setRxDate(String RHS) {
         this.rxDate = RHS;
     }
@@ -1571,6 +1595,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.endDate;
     }
 
+    @StrutsParameter
     public void setEndDate(String RHS) {
         this.endDate = RHS;
     }
@@ -1579,6 +1604,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.writtenDate;
     }
 
+    @StrutsParameter
     public void setWrittenDate(String RHS) {
         this.writtenDate = RHS;
     }
@@ -1587,6 +1613,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.GN;
     }
 
+    @StrutsParameter
     public void setGenericName(String RHS) {
         this.GN = RHS;
     }
@@ -1595,6 +1622,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.BN;
     }
 
+    @StrutsParameter
     public void setBrandName(String RHS) {
         this.BN = RHS;
     }
@@ -1603,6 +1631,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.GCN_SEQNO;
     }
 
+    @StrutsParameter
     public void setGCN_SEQNO(String RHS) {
         this.GCN_SEQNO = RHS;
     }
@@ -1611,6 +1640,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.customName;
     }
 
+    @StrutsParameter
     public void setCustomName(String RHS) {
         this.customName = RHS;
     }
@@ -1619,40 +1649,50 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.takeMin;
     }
 
+    @StrutsParameter
     public void setTakeMin(String RHS) {
         this.takeMin = RHS;
     }
 
     public float getTakeMinFloat() {
-        float i = -1;
         try {
-            i = Float.parseFloat(this.takeMin);
-        } catch (Exception e) {
+            return Float.parseFloat(this.takeMin);
+        } catch (NumberFormatException | NullPointerException e) {
+            // -1 is the legacy "unspecified" sentinel. Absent/empty input maps to it as intended; a
+            // non-empty value that fails to parse is a data-quality problem, so surface it (previously
+            // swallowed silently) rather than corrupting the dose to -1 with no signal.
+            if (this.takeMin != null && !this.takeMin.trim().isEmpty()) {
+                logger.warn("Unparseable takeMin dose value; defaulting to the -1 unspecified sentinel");
+            }
+            return -1;
         }
-        return i;
     }
 
     public String getTakeMax() {
         return this.takeMax;
     }
 
+    @StrutsParameter
     public void setTakeMax(String RHS) {
         this.takeMax = RHS;
     }
 
     public float getTakeMaxFloat() {
-        float i = -1;
         try {
-            i = Float.parseFloat(this.takeMax);
-        } catch (Exception e) {
+            return Float.parseFloat(this.takeMax);
+        } catch (NumberFormatException | NullPointerException e) {
+            if (this.takeMax != null && !this.takeMax.trim().isEmpty()) {
+                logger.warn("Unparseable takeMax dose value; defaulting to the -1 unspecified sentinel");
+            }
+            return -1;
         }
-        return i;
     }
 
     public String getFrequencyCode() {
         return this.frequencyCode;
     }
 
+    @StrutsParameter
     public void setFrequencyCode(String RHS) {
         this.frequencyCode = RHS;
     }
@@ -1661,6 +1701,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.duration;
     }
 
+    @StrutsParameter
     public void setDuration(String RHS) {
         this.duration = RHS;
     }
@@ -1669,6 +1710,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.durationUnit;
     }
 
+    @StrutsParameter
     public void setDurationUnit(String RHS) {
         this.durationUnit = RHS;
     }
@@ -1677,6 +1719,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.quantity;
     }
 
+    @StrutsParameter
     public void setQuantity(String RHS) {
         this.quantity = RHS;
     }
@@ -1685,6 +1728,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.repeat;
     }
 
+    @StrutsParameter
     public void setRepeat(int RHS) {
         this.repeat = RHS;
     }
@@ -1693,6 +1737,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.lastRefillDate;
     }
 
+    @StrutsParameter
     public void setLastRefillDate(String RHS) {
         this.lastRefillDate = RHS;
     }
@@ -1701,6 +1746,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.nosubs;
     }
 
+    @StrutsParameter
     public void setNosubs(boolean RHS) {
         this.nosubs = RHS;
     }
@@ -1709,6 +1755,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.prn;
     }
 
+    @StrutsParameter
     public void setPrn(boolean RHS) {
         this.prn = RHS;
     }
@@ -1717,6 +1764,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.special;
     }
 
+    @StrutsParameter
     public void setSpecial(String RHS) {
 
         if (RHS == null || RHS.length() < 6)
@@ -1729,6 +1777,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.customInstr;
     }
 
+    @StrutsParameter
     public void setCustomInstr(boolean c) {
         this.customInstr = c;
     }
@@ -1737,6 +1786,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.longTerm;
     }
 
+    @StrutsParameter
     public void setLongTerm(Boolean trueFalseNull) {
         this.longTerm = trueFalseNull;
     }
@@ -1745,6 +1795,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.shortTerm;
     }
 
+    @StrutsParameter
     public void setShortTerm(boolean st) {
         this.shortTerm = st;
     }
@@ -1753,6 +1804,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.pastMed;
     }
 
+    @StrutsParameter
     public void setPastMed(Boolean trueFalseNull) {
         this.pastMed = trueFalseNull;
     }
@@ -1765,6 +1817,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return dispenseInternal;
     }
 
+    @StrutsParameter
     public void setDispenseInternal(boolean dispenseInternal) {
         this.dispenseInternal = dispenseInternal;
     }
@@ -1773,6 +1826,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.patientCompliance;
     }
 
+    @StrutsParameter
     public void setPatientCompliance(Boolean trueFalseNull) {
         this.patientCompliance = trueFalseNull;
     }
@@ -1781,6 +1835,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      * Setter accepts String to handle both numeric IDs and composite IDs.
      * Only sets the int property if the input is a pure integer.
      */
+    @StrutsParameter
     public void setDrugId(String drugId) {
         if (drugId != null) {
             try {
@@ -1795,6 +1850,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return GN;
     }
 
+    @StrutsParameter
     public void setGN(String GN) {
         this.GN = GN;
     }
@@ -1803,6 +1859,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return BN;
     }
 
+    @StrutsParameter
     public void setBN(String BN) {
         this.BN = BN;
     }
@@ -1827,6 +1884,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return atcCode;
     }
 
+    @StrutsParameter
     public void setAtcCode(String atcCode) {
         this.atcCode = atcCode;
     }
@@ -1835,6 +1893,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return regionalIdentifier;
     }
 
+    @StrutsParameter
     public void setRegionalIdentifier(String regionalIdentifier) {
         this.regionalIdentifier = regionalIdentifier;
     }
@@ -1843,6 +1902,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return method;
     }
 
+    @StrutsParameter
     public void setMethod(String method) {
         this.method = method;
     }
@@ -1851,6 +1911,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return unit;
     }
 
+    @StrutsParameter
     public void setUnit(String unit) {
         this.unit = unit;
     }
@@ -1859,6 +1920,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return unitName;
     }
 
+    @StrutsParameter
     public void setUnitName(String unitName) {
         this.unitName = unitName;
     }
@@ -1867,6 +1929,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return route;
     }
 
+    @StrutsParameter
     public void setRoute(String route) {
         this.route = route;
     }
@@ -1875,6 +1938,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return dosage;
     }
 
+    @StrutsParameter
     public void setDosage(String dosage) {
         this.dosage = dosage;
     }
@@ -1883,6 +1947,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return outsideProviderName;
     }
 
+    @StrutsParameter
     public void setOutsideProviderName(String outsideProviderName) {
         this.outsideProviderName = outsideProviderName;
     }
@@ -1891,6 +1956,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return outsideProviderOhip;
     }
 
+    @StrutsParameter
     public void setOutsideProviderOhip(String outsideProviderOhip) {
         this.outsideProviderOhip = outsideProviderOhip;
     }

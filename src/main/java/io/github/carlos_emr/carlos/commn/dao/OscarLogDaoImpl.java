@@ -31,20 +31,25 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.PersistenceException;
+import jakarta.persistence.Query;
 
+import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarLogDao {
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     public OscarLogDaoImpl() {
         super(OscarLog.class);
@@ -108,6 +113,8 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
         return results;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public List<OscarLog> findByAction(String action, int start, int length, String orderBy, String orderByDirection) {
         if (!"asc".equalsIgnoreCase(orderByDirection) && !"desc".equalsIgnoreCase(orderByDirection)) {
@@ -151,7 +158,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
 
     @Override
     public List<Integer> getDemographicIdsOpenedSinceTime(Date value) {
-        String sqlCommand = "select distinct demographicId from " + modelClass.getSimpleName() + " where dateTime >= ?1";
+        String sqlCommand = "select distinct x.demographicId from " + modelClass.getSimpleName() + " x where x.created >= ?1";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, value);
@@ -166,7 +173,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
     @Override
     public List<Integer> getRecentDemographicsAccessedByProvider(String providerNo, int startPosition,
                                                                  int itemsToReturn) {
-        String sqlCommand = "select distinct demographicId from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.demographicId is not null and l.demographicId != '-1' order by dateTime desc";
+        String sqlCommand = "select distinct demographicId from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.demographicId is not null and l.demographicId != -1 order by l.created desc";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, providerNo);
@@ -188,7 +195,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
     @Override
     public List<Object[]> getRecentDemographicsViewedByProvider(String providerNo, int startPosition,
                                                                 int itemsToReturn) {
-        String sqlCommand = "select l.demographicId,MAX(l.created) as dt from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.demographicId is not null and l.demographicId != '-1' group by l.demographicId order by MAX(l.created) desc";
+        String sqlCommand = "select l.demographicId,MAX(l.created) as dt from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.demographicId is not null and l.demographicId != -1 group by l.demographicId order by MAX(l.created) desc";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, providerNo);
@@ -210,7 +217,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
     @Override
     public List<Object[]> getRecentDemographicsViewedByProviderAfterDateIncluded(String providerNo, Date date,
                                                                                  int startPosition, int itemsToReturn) {
-        String sqlCommand = "select l.demographicId,MAX(l.created) as dt from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.created >= ?2 and l.demographicId is not null and l.demographicId != '-1' group by l.demographicId order by MAX(l.created) desc";
+        String sqlCommand = "select l.demographicId,MAX(l.created) as dt from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.created >= ?2 and l.demographicId is not null and l.demographicId != -1 group by l.demographicId order by MAX(l.created) desc";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, providerNo);
@@ -224,17 +231,83 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
         return (results);
     }
 
+    @Override
+    public List<OscarLog> findForReport(Date startDate, Date endDate, String content, String providerNo,
+                                        List<String> siteProviderNos) {
+        if (siteProviderNos != null && siteProviderNos.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Native SQL preserves the FORCE INDEX (datetime) hint inherited from the previous JDBC
+        // implementation. The composite index datetime(dateTime, provider_no) covers the
+        // date-range and provider predicates; without the hint MariaDB may choose
+        // provider_noIndex and sort, which regresses on large production audit-log tables.
+        // H2 (used in tests) does not recognise FORCE INDEX even in MySQL compatibility mode,
+        // so the hint is only emitted against MySQL/MariaDB connections.
+        //
+        // When a specific provider is supplied the caller (LogReport2Action) has already verified
+        // that it falls within the site-allowed set, so the provider_no IN (?4) clause would be
+        // redundant and is omitted.
+        String fromClause = isMySqlFamilyDatabase()
+                ? "from log force index (datetime)"
+                : "from log";
+
+        String sql;
+        if (providerNo != null) {
+            sql = "select * " + fromClause + " where dateTime <= ?1 and dateTime >= ?2 and content like ?3 and provider_no = ?4 order by dateTime desc";
+        } else if (siteProviderNos != null) {
+            sql = "select * " + fromClause + " where dateTime <= ?1 and dateTime >= ?2 and content like ?3 and provider_no in (?4) order by dateTime desc";
+        } else {
+            sql = "select * " + fromClause + " where dateTime <= ?1 and dateTime >= ?2 and content like ?3 order by dateTime desc";
+        }
+
+        Query query = entityManager.createNativeQuery(sql, OscarLog.class);
+        query.setParameter(1, endDate);
+        query.setParameter(2, startDate);
+        query.setParameter(3, content);
+
+        if (providerNo != null) {
+            query.setParameter(4, providerNo);
+        } else if (siteProviderNos != null) {
+            query.setParameter(4, siteProviderNos);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<OscarLog> results = query.getResultList();
+
+        return results;
+    }
+
+    private Boolean mysqlFamilyCache;
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    private boolean isMySqlFamilyDatabase() {
+        if (mysqlFamilyCache != null) {
+            return mysqlFamilyCache;
+        }
+        try {
+            String product = entityManager.unwrap(org.hibernate.Session.class)
+                    .doReturningWork(connection -> connection.getMetaData().getDatabaseProductName());
+            mysqlFamilyCache = product != null
+                    && (product.equalsIgnoreCase("MySQL") || product.equalsIgnoreCase("MariaDB"));
+            return mysqlFamilyCache;
+        } catch (PersistenceException e) {
+            logger.warn("Unable to determine database product for OscarLog query selection; using portable log table", e);
+            mysqlFamilyCache = false;
+            return mysqlFamilyCache;
+        }
+    }
+
     /*
      * Warning. Don't use this. It's only for the log purging feature.
      */
     @Override
     public int purgeLogEntries(Date maxDateToRemove) {
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
-        String sqlCommand = "delete from " + modelClass.getSimpleName() + " WHERE dateTime <= ?1";
+        String sqlCommand = "delete from " + modelClass.getSimpleName() + " WHERE created <= ?1";
 
         Query query = entityManager.createQuery(sqlCommand);
-        query.setParameter(1, formatter.format(maxDateToRemove));
+        query.setParameter(1, maxDateToRemove);
         int ret = query.executeUpdate();
 
         return ret;

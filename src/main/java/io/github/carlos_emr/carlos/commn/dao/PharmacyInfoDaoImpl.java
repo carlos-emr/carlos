@@ -37,7 +37,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.PharmacyInfo;
 import org.springframework.stereotype.Repository;

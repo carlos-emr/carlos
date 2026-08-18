@@ -32,19 +32,22 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Calendar;
 import java.util.Date;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import org.apache.logging.log4j.Logger;
-import org.joda.time.Days;
-import org.joda.time.LocalDate;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.stereotype.Service;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 @Service
@@ -52,20 +55,23 @@ public class AuditLogManager {
 
     Logger logger = MiscUtils.getLogger();
 
-    String minDays = OscarProperties.getInstance().getProperty("log.purge.minDays", String.valueOf(365 * 10));
-    String mysqldump = OscarProperties.getInstance().getProperty("log.purge.mysqldump");
-    String outputDirectory = OscarProperties.getInstance().getProperty("log.purge.outputdir");
-    String daysFromNowToRemove = OscarProperties.getInstance().getProperty("log.purge.daysfromnowtopurge");
+    String minDays = CarlosProperties.getInstance().getProperty("log.purge.minDays", String.valueOf(365 * 10));
+    String mysqldump = CarlosProperties.getInstance().getProperty("log.purge.mysqldump");
+    String outputDirectory = CarlosProperties.getInstance().getProperty("log.purge.outputdir");
+    String daysFromNowToRemove = CarlosProperties.getInstance().getProperty("log.purge.daysfromnowtopurge");
 
-    String user = OscarProperties.getInstance().getProperty("db_username");
-    String password = OscarProperties.getInstance().getProperty("db_password");
-    String dbName = OscarProperties.getInstance().getProperty("db_name").substring(0, OscarProperties.getInstance().getProperty("db_name").indexOf("?"));
+    String user = CarlosProperties.getInstance().getProperty("db_username");
+    String password = CarlosProperties.getInstance().getProperty("db_password");
+    String dbName = CarlosProperties.getInstance().getProperty("db_name").substring(0, CarlosProperties.getInstance().getProperty("db_name").indexOf("?"));
 
 
+    // FindSecBugs COMMAND_INJECTION: Runtime.exec receives an argv array from trusted config and server-formatted date.
+    // Do not add request-controlled command arguments under this suppression.
+    @SuppressFBWarnings(value = "COMMAND_INJECTION", justification = "Runtime.exec uses an argv array built from trusted deployment config and a server-formatted date; no shell expansion or request-controlled command")
     public int purgeAuditLog(LoggedInInfo loggedInInfo, Date endDateToPurge) throws Exception {
 
         if (outputDirectory == null || outputDirectory.isEmpty()) {
-            outputDirectory = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+            outputDirectory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         }
         if (mysqldump == null) {
             logger.warn("No mysqldump command has been defined. Please set log.purge.mysqldump in the properties file");
@@ -89,7 +95,9 @@ public class AuditLogManager {
 
         logger.info("Purge will be for all data BEFORE and INCLUDING " + endDateToPurge);
 
-        int numDays = Days.daysBetween(new LocalDate(endDateToPurge.getTime()), new LocalDate(new Date().getTime())).getDays();
+        int numDays = (int) ChronoUnit.DAYS.between(
+                endDateToPurge.toInstant().atZone(ZoneId.systemDefault()).toLocalDate(),
+                LocalDate.now());
         if (numDays < iMinDays) {
             logger.warn("purge aborted because specified date is within " + numDays);
             throw new Exception("purge aborted because specified date is within " + numDays);

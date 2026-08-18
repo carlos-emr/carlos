@@ -57,18 +57,20 @@ import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.data.EFormBase;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.messenger.data.MessengerSystemMessage;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import javax.persistence.PersistenceException;
+import jakarta.persistence.PersistenceException;
 import java.io.File;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -77,6 +79,8 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EFormUtil {
     private static final Logger logger = MiscUtils.getLogger();
@@ -93,20 +97,41 @@ public class EFormUtil {
     public static final String CURRENT = "current";
     public static final String ALL = "all";
 
-    private static final CaseManagementManager cmm = SpringUtils.getBean(CaseManagementManager.class);
-    private static final CaseManagementNoteLinkDAO cmDao = SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
-    private static final EFormDataDao eFormDataDao = SpringUtils.getBean(EFormDataDao.class);
-    private static final EFormValueDao eFormValueDao = SpringUtils.getBean(EFormValueDao.class);
-    private static final EFormGroupDao eFormGroupDao = SpringUtils.getBean(EFormGroupDao.class);
-    private static final ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-    private static final TicklerDao ticklerDao = SpringUtils.getBean(TicklerDao.class);
-    private static final PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
-    private static final ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
-    private static final ConsultationRequestDao consultationRequestDao = SpringUtils.getBean(ConsultationRequestDao.class);
-    private static final ProfessionalSpecialistDao professionalSpecialistDao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
-    private static final EFormDao eformDao = SpringUtils.getBean(EFormDao.class);
+    private static final Set<String> ALLOWED_SORT_COLUMNS = Set.of(NAME, SUBJECT, DATE, FILE_NAME, PROVIDER);
+
+    public static final String FORM_CREATOR_KEY = "formCreator";
+
+    // Collaborator beans are resolved lazily (per call) instead of in static-final field
+    // initializers. SpringUtils.getBean returns the cached singleton, so the per-call cost is a
+    // map lookup, but - critically - the Spring context is no longer touched when the class is
+    // merely loaded. Eager static-init getBean() calls ran at class-load time, which made any
+    // caller (including Mockito.mockStatic(EFormUtil.class) in a unit test) fail unless every one
+    // of these beans was already registered, producing order-dependent ExceptionInInitializerError.
+    private static CaseManagementManager cmm() { return SpringUtils.getBean(CaseManagementManager.class); }
+    private static CaseManagementNoteLinkDAO cmDao() { return SpringUtils.getBean(CaseManagementNoteLinkDAO.class); }
+    private static EFormDataDao eFormDataDao() { return SpringUtils.getBean(EFormDataDao.class); }
+    private static EFormValueDao eFormValueDao() { return SpringUtils.getBean(EFormValueDao.class); }
+    private static EFormGroupDao eFormGroupDao() { return SpringUtils.getBean(EFormGroupDao.class); }
+    private static ProviderDao providerDao() { return SpringUtils.getBean(ProviderDao.class); }
+    private static TicklerDao ticklerDao() { return SpringUtils.getBean(TicklerDao.class); }
+    private static PreventionManager preventionManager() { return SpringUtils.getBean(PreventionManager.class); }
+    private static ProgramManager2 programManager2() { return SpringUtils.getBean(ProgramManager2.class); }
+    private static ConsultationRequestDao consultationRequestDao() { return SpringUtils.getBean(ConsultationRequestDao.class); }
+    private static ProfessionalSpecialistDao professionalSpecialistDao() { return SpringUtils.getBean(ProfessionalSpecialistDao.class); }
+    private static EFormDao eformDao() { return SpringUtils.getBean(EFormDao.class); }
 
     private EFormUtil() {
+    }
+
+    /**
+     * Validates sortBy against the allowed sort column constants to prevent SQL injection.
+     * @throws IllegalArgumentException if sortBy is not an allowed value
+     */
+    private static String validateSortBy(String sortBy) {
+        if (sortBy == null || !ALLOWED_SORT_COLUMNS.contains(sortBy)) {
+            throw new IllegalArgumentException("Invalid sort column: " + LogSafe.sanitize(sortBy, 100));
+        }
+        return sortBy;
     }
 
     public static String saveEForm(EForm eForm) {
@@ -135,7 +160,7 @@ public class EFormUtil {
         eform.setPatientIndependent(patientIndependent);
         eform.setRoleType(roleType);
 
-        eformDao.persist(eform);
+        eformDao().persist(eform);
 
         return eform.getId().toString();
     }
@@ -160,7 +185,7 @@ public class EFormUtil {
         else if (FILE_NAME.equals(sortBy)) sortOrder = EFormSortOrder.FILE_NAME;
         else if (DATE.equals(sortBy)) sortOrder = EFormSortOrder.DATE;
 
-        eforms = eformDao.findByStatus(status, sortOrder);
+        eforms = eformDao().findByStatus(status, sortOrder);
 
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
         for (io.github.carlos_emr.carlos.commn.model.EForm eform : eforms) {
@@ -210,9 +235,15 @@ public class EFormUtil {
     }
 
     public static ArrayList<String> listImages() {
-        String imagePath = OscarProperties.getInstance().getEformImageDirectory();
+        String imagePath = CarlosProperties.getInstance().getEformImageDirectory();
         logger.debug("Img Path: " + imagePath);
-        File dir = new File(imagePath);
+        File dir;
+        try {
+            dir = PathValidationUtils.resolveConfiguredDirectory(imagePath, "eform image path");
+        } catch (SecurityException e) {
+            logger.warn("eForm image path is unavailable", e);
+            return new ArrayList<String>();
+        }
         String[] files = dir.list();
         ArrayList<String> fileList;
         if (files != null) {
@@ -226,19 +257,19 @@ public class EFormUtil {
     }
 
     public static List<EFormData> listPatientEformsCurrent(Integer demographicNo, Boolean current, int startIndex, int numToReturn) {
-        return eFormDataDao.findByDemographicIdCurrent(demographicNo, current, startIndex, numToReturn);
+        return eFormDataDao().findByDemographicIdCurrent(demographicNo, current, startIndex, numToReturn);
     }
 
     public static List<EFormData> listPatientEformsCurrent(Integer demographicNo, Boolean current) {
-        return eFormDataDao.findByDemographicIdCurrent(demographicNo, current);
+        return eFormDataDao().findByDemographicIdCurrent(demographicNo, current);
     }
 
     public static List<EFormData> listPatientEformsCurrentAttachedToConsult(String consultationId) {
-        return eFormDataDao.findByDemographicIdCurrentAttachedToConsult(consultationId);
+        return eFormDataDao().findByDemographicIdCurrentAttachedToConsult(consultationId);
     }
 
     public static List<EFormData> listPatientEformsCurrentAttachedToEForm(String fdid) {
-        return eFormDataDao.findByDemographicIdCurrentAttachedToEForm(fdid);
+        return eFormDataDao().findByDemographicIdCurrentAttachedToEForm(fdid);
     }
 
     public static ArrayList<HashMap<String, ? extends Object>> listPatientEForms(String sortBy, String deleted, String demographic_no, String userRoles, int offset, int itemsToReturn) {
@@ -247,7 +278,7 @@ public class EFormUtil {
         if (deleted.equals("deleted")) current = false;
         else if (deleted.equals("current")) current = true;
 
-        List<EFormData> allEformDatas = eFormDataDao.findByDemographicIdCurrent(Integer.parseInt(demographic_no), current, offset, itemsToReturn, sortBy);
+        List<EFormData> allEformDatas = eFormDataDao().findByDemographicIdCurrent(Integer.parseInt(demographic_no), current, offset, itemsToReturn, sortBy);
 
         //	if (NAME.equals(sortBy)) Collections.sort(allEformDatas, EFormData.FORM_NAME_COMPARATOR);
         //	else if (SUBJECT.equals(sortBy)) Collections.sort(allEformDatas, EFormData.FORM_SUBJECT_COMPARATOR);
@@ -292,7 +323,7 @@ public class EFormUtil {
         if (deleted.equals("deleted")) current = false;
         else if (deleted.equals("current")) current = true;
 
-        List<EFormData> allEformDatas = eFormDataDao.findByDemographicIdCurrent(Integer.parseInt(demographic_no), current);
+        List<EFormData> allEformDatas = eFormDataDao().findByDemographicIdCurrent(Integer.parseInt(demographic_no), current);
 
         if (NAME.equals(sortBy)) Collections.sort(allEformDatas, EFormData.FORM_NAME_COMPARATOR);
         else if (SUBJECT.equals(sortBy)) Collections.sort(allEformDatas, EFormData.FORM_SUBJECT_COMPARATOR);
@@ -336,7 +367,7 @@ public class EFormUtil {
         if (deleted.equals("deleted")) current = false;
         else if (deleted.equals("current")) current = true;
 
-        List<EFormData> allEformDatas = eFormDataDao.findPatientIndependent(current);
+        List<EFormData> allEformDatas = eFormDataDao().findPatientIndependent(current);
 
         if (NAME.equals(sortBy)) Collections.sort(allEformDatas, EFormData.FORM_NAME_COMPARATOR);
         else if (SUBJECT.equals(sortBy)) Collections.sort(allEformDatas, EFormData.FORM_SUBJECT_COMPARATOR);
@@ -368,7 +399,7 @@ public class EFormUtil {
 
         Boolean current = true;
 
-        List<Map<String, Object>> allEformDatas = eFormDataDao.findByDemographicIdCurrentNoData(Integer.parseInt(demographic_no), current);
+        List<Map<String, Object>> allEformDatas = eFormDataDao().findByDemographicIdCurrentNoData(Integer.parseInt(demographic_no), current);
 
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
         try {
@@ -404,7 +435,7 @@ public class EFormUtil {
 
     public static ArrayList<HashMap<String, ? extends Object>> loadEformsByFdis(List<Integer> ids) {
 
-        List<EFormData> allEformDatas = eFormDataDao.findByFdids(ids);
+        List<EFormData> allEformDatas = eFormDataDao().findByFdids(ids);
 
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
         try {
@@ -430,23 +461,23 @@ public class EFormUtil {
     public static HashMap<String, Object> loadEForm(String fid) {
 
         Integer id = Integer.valueOf(fid);
-        io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.find(id);
+        io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao().find(id);
         HashMap<String, Object> curht = new HashMap<String, Object>();
         if (eform == null) {
-            logger.error("Unable to find EForm with ID = " + fid);
+            logger.error("Unable to find EForm with ID = {}", LogSafe.sanitize(fid)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             curht.put("formName", "");
             curht.put("formHtml", "No Such Form in Database");
             return curht;
         }
 
         // must have FID and form_name otherwise throws null pointer on the hashtable
-        curht.put("fid", eform.getId());
+        curht.put("fid", eform.getId().toString());
         curht.put("formName", eform.getFormName());
         curht.put("formSubject", eform.getSubject());
         curht.put("formFileName", eform.getFileName());
         curht.put("formDate", eform.getFormDate().toString());
         curht.put("formTime", eform.getFormTime().toString());
-        curht.put("formCreator", eform.getCreator());
+        curht.put(FORM_CREATOR_KEY, eform.getCreator());
         curht.put("formHtml", eform.getFormHtml());
         curht.put("showLatestFormOnly", eform.isShowLatestFormOnly());
         curht.put("patientIndependent", eform.isPatientIndependent());
@@ -459,7 +490,7 @@ public class EFormUtil {
         // Updates the form - used by editForm
 
 
-        io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.find(Integer.parseInt(updatedForm.getFid()));
+        io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao().find(Integer.parseInt(updatedForm.getFid()));
         if (eform == null) {
             logger.error("Unable to find eform for update: " + updatedForm);
             return;
@@ -475,7 +506,7 @@ public class EFormUtil {
         eform.setPatientIndependent(updatedForm.isPatientIndependent());
         eform.setRoleType(updatedForm.getRoleType());
 
-        eformDao.merge(eform);
+        eformDao().merge(eform);
     }
 
     /*
@@ -494,9 +525,11 @@ public class EFormUtil {
      * +--------------+--------------+------+-----+---------+----------------+
      */
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String getEFormParameter(String fid, String fieldName) {
 
-        io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.find(ConversionUtils.fromIntString(fid));
+        io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao().find(ConversionUtils.fromIntString(fid));
         if (eform == null) {
             logger.error("Unable to find EForm for ID = " + fid);
             return "";
@@ -531,7 +564,7 @@ public class EFormUtil {
     public static String getEFormIdByName(String name) {
 
         logger.debug("EFORM NAME '" + name + "'");
-        Integer maxId = eformDao.findMaxIdForActiveForm(name);
+        Integer maxId = eformDao().findMaxIdForActiveForm(name);
 
         return (maxId == null ? null : maxId.toString());
     }
@@ -544,36 +577,147 @@ public class EFormUtil {
         setFormStatus(fid, true);
     }
 
-    @Deprecated
-    public static ArrayList<String> getValues(ArrayList<String> names, String sql) {
-        // gets the values for each column name in the sql (used by DatabaseAP)
-        ResultSet rs = getSQL(sql);
-        ArrayList<String> values = new ArrayList<String>();
+    /**
+     * @deprecated DatabaseAP SQL must be passed as {@link ParameterizedSql}.
+     */
+    @Deprecated(since = "2026-05-21", forRemoval = true)
+    public static ArrayList<String> getValues(List<String> names, String sql) {
+        return getValues(names, new ParameterizedSql(sql, List.of()));
+    }
+
+    /**
+     * Resolves AP column values, keeping "the query failed" distinguishable from "it matched no rows".
+     *
+     * <p>{@link #getValues(List, ParameterizedSql)} cannot express that difference: {@link #getSQL}
+     * logs and returns {@code null} for a blocked or failed statement, and {@code getValues} turns
+     * that into an empty list — the same value a healthy query over a patient with no matching data
+     * returns. Every AP caller then renders an empty clinical field, over HTTP 200, with nothing for
+     * the PDF completeness gate to report. A dropped database connection while resolving an allergy
+     * list therefore prints a blank allergy field on a faxed document.</p>
+     *
+     * <p>A column that cannot be read is also treated as failure here, rather than becoming the
+     * {@code <(name)NotFound>} placeholder {@code getValues} substitutes — that placeholder is
+     * otherwise spliced into the document and delivered to a clinician as if it were content.</p>
+     *
+     * @return the row's values; an <strong>empty</strong> list when the query ran and matched
+     *         nothing; {@code null} when the query could not be executed or read
+     */
+    public static ArrayList<String> getValuesOrNull(List<String> names, ParameterizedSql sql) {
+        ResultSet resultSet;
         try {
+            EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
+            resultSet = LegacyJdbcQuery.getPreparedResultSet(sql);
+        } catch (SecurityException | SQLException e) {
+            logger.error("eForm AP query could not be executed", e);
+            return null;
+        }
+        if (resultSet == null) {
+            return null;
+        }
+        ArrayList<String> values = new ArrayList<String>();
+        try (ResultSet rows = resultSet) {
+            while (rows.next()) {
+                values = new ArrayList<String>();
+                for (int i = 0; i < names.size(); i++) {
+                    try {
+                        values.add(Misc.getString(rows, names.get(i)));
+                    } catch (Exception columnError) {
+                        logger.error("eForm AP column could not be read: " + names.get(i), columnError);
+                        return null;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("eForm AP result set could not be read", e);
+            return null;
+        }
+        return values;
+    }
+
+    public static ArrayList<String> getValues(List<String> names, ParameterizedSql sql) {
+        // gets the values for each column name in the sql (used by DatabaseAP)
+        ArrayList<String> values = new ArrayList<String>();
+        try (ResultSet rs = getSQL(sql)) {
+            if (rs == null) {
+                return values;
+            }
             while (rs.next()) {
                 values = new ArrayList<String>();
                 for (int i = 0; i < names.size(); i++) {
                     try {
                         values.add(Misc.getString(rs, names.get(i)));
-                        logger.debug("VALUE ====" + rs.getObject(names.get(i)) + "|");
                     } catch (Exception sqe) {
                         values.add("<(" + names.get(i) + ")NotFound>");
                         logger.error("Error", sqe);
                     }
                 }
             }
-            rs.close();
         } catch (SQLException sqe) {
             logger.error("Error", sqe);
         }
         return (values);
     }
 
-    public static ArrayNode getJsonValues(ArrayList<String> names, String sql) {
-        // gets the values for each column name in the sql (used by DatabaseAP)
-        ResultSet rs = getSQL(sql);
-        ArrayNode values = objectMapper.createArrayNode();
+    /**
+     * @deprecated DatabaseAP SQL must be passed as {@link ParameterizedSql}.
+     */
+    @Deprecated(since = "2026-05-21", forRemoval = true)
+    public static ArrayNode getJsonValues(List<String> names, String sql) {
+        return getJsonValues(names, new ParameterizedSql(sql, List.of()));
+    }
+
+    /**
+     * JSON-output twin of {@link #getValuesOrNull}, with the same contract.
+     *
+     * <p>{@link #getJsonValues(List, ParameterizedSql)} has the defects that method exists to avoid:
+     * a blocked or failed query yields an empty array indistinguishable from "no rows", a mid-read
+     * {@code SQLException} yields whatever accumulated, and a column that cannot be read is written
+     * into the JSON as the literal {@code <(name)NotFound>} — which reaches the clinical field as
+     * that text rather than as an absence anything can detect.</p>
+     *
+     * @return the rows; an <strong>empty</strong> array when the query ran and matched nothing;
+     *         {@code null} when it could not be executed or read
+     */
+    public static ArrayNode getJsonValuesOrNull(List<String> names, ParameterizedSql sql) {
+        ResultSet resultSet;
         try {
+            EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
+            resultSet = LegacyJdbcQuery.getPreparedResultSet(sql);
+        } catch (SecurityException | SQLException e) {
+            logger.error("eForm AP JSON query could not be executed", e);
+            return null;
+        }
+        if (resultSet == null) {
+            return null;
+        }
+        ArrayNode values = objectMapper.createArrayNode();
+        try (ResultSet rows = resultSet) {
+            while (rows.next()) {
+                ObjectNode value = objectMapper.createObjectNode();
+                for (int i = 0; i < names.size(); i++) {
+                    try {
+                        value.put(names.get(i), Misc.getString(rows, names.get(i)));
+                    } catch (Exception columnError) {
+                        logger.error("eForm AP JSON column could not be read: " + names.get(i), columnError);
+                        return null;
+                    }
+                }
+                values.add(value);
+            }
+        } catch (SQLException e) {
+            logger.error("eForm AP JSON result set could not be read", e);
+            return null;
+        }
+        return values;
+    }
+
+    public static ArrayNode getJsonValues(List<String> names, ParameterizedSql sql) {
+        // gets the values for each column name in the sql (used by DatabaseAP)
+        ArrayNode values = objectMapper.createArrayNode();
+        try (ResultSet rs = getSQL(sql)) {
+            if (rs == null) {
+                return values;
+            }
             while (rs.next()) {
                 ObjectNode value = objectMapper.createObjectNode();
                 for (int i = 0; i < names.size(); i++) {
@@ -586,32 +730,10 @@ public class EFormUtil {
                 }
                 values.add(value);
             }
-            rs.close();
         } catch (SQLException sqe) {
             logger.error("Error", sqe);
         }
         return values;
-    }
-
-    // used by addEForm for escaping characters
-    public static String charEscape(String S, char a) {
-        if (null == S) {
-            return S;
-        }
-        int N = S.length();
-        StringBuilder sb = new StringBuilder(N);
-        for (int i = 0; i < N; i++) {
-            char c = S.charAt(i);
-            // escape the escape characters
-            if (c == '\\') {
-                sb.append("\\\\");
-            } else if (c == a) {
-                sb.append("\\" + a);
-            } else {
-                sb.append(c);
-            }
-        }
-        return sb.toString();
     }
 
     public static void addEFormValues(ArrayList<String> names, ArrayList<String> values, Integer fdid, Integer fid, Integer demographic_no) {
@@ -626,7 +748,7 @@ public class EFormUtil {
                 eFormValue.setVarName(names.get(i));
                 eFormValue.setVarValue(values.get(i));
 
-                eFormValueDao.persist(eFormValue);
+                eFormValueDao().persist(eFormValue);
             }
         } catch (PersistenceException ee) {
             logger.error("Unexpected Error", ee);
@@ -635,13 +757,13 @@ public class EFormUtil {
 
     public static boolean formExistsInDB(String eFormName) {
 
-        io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.findByName(eFormName);
+        io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao().findByName(eFormName);
         return eform != null;
     }
 
     public static int formExistsInDBn(String formName, String fid) {
 
-        Long result = eformDao.countFormsOtherThanSpecified(formName, ConversionUtils.fromIntString(fid));
+        Long result = eformDao().countFormsOtherThanSpecified(formName, ConversionUtils.fromIntString(fid));
         return result.intValue();
     }
 
@@ -650,10 +772,12 @@ public class EFormUtil {
         String sql;
         sql = "SELECT DISTINCT eform_groups.group_name, count(*)-1 AS 'count' FROM eform_groups "
                 + "LEFT JOIN eform ON eform.fid=eform_groups.fid WHERE eform.status=1 OR eform_groups.fid=0 "
-                + "GROUP BY eform_groups.group_name;";
+                + "GROUP BY eform_groups.group_name";
         ArrayList<HashMap<String, String>> al = new ArrayList<HashMap<String, String>>();
-        try {
-            ResultSet rs = getSQL(sql);
+        try (ResultSet rs = getSQL(new ParameterizedSql(sql, List.of()))) {
+            if (rs == null) {
+                return al;
+            }
             while (rs.next()) {
                 HashMap<String, String> curhash = new HashMap<String, String>();
                 curhash.put("groupName", Misc.getString(rs, "group_name"));
@@ -670,11 +794,18 @@ public class EFormUtil {
         String sql;
         sql = "SELECT eform_groups.group_name, count(*)-1 AS 'count' FROM eform_groups "
                 + "LEFT JOIN eform_data ON eform_data.fid=eform_groups.fid "
-                + "WHERE (eform_data.status=1 AND eform_data.demographic_no=" + demographic_no
+                + "WHERE (eform_data.status=1 AND eform_data.demographic_no=?"
                 + ") OR eform_groups.fid=0 " + "GROUP BY eform_groups.group_name";
         ArrayList<HashMap<String, String>> al = new ArrayList<HashMap<String, String>>();
+        int demographicNo;
         try {
-            ResultSet rs = getSQL(sql);
+            demographicNo = Integer.parseInt(demographic_no);
+        } catch (NumberFormatException nfe) {
+            logger.error("Invalid demographic_no: " + demographic_no, nfe);
+            return al;
+        }
+
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
             while (rs.next()) {
                 HashMap<String, String> curhash = new HashMap<String, String>();
                 curhash.put("groupName", Misc.getString(rs, "group_name"));
@@ -693,19 +824,22 @@ public class EFormUtil {
     }
 
     public static void addEFormToGroup(String groupName, String fid) {
+        ResultSet rs = null;
         try {
-
-            String sql1 = "SELECT eform_groups.fid FROM eform_groups, eform WHERE eform_groups.fid=" + fid
-                    + " AND eform_groups.fid=eform.fid AND eform.status=1 AND eform_groups.group_name='" + groupName + "'";
-            ResultSet rs = DBHandler.GetSQL(sql1);
+            String sql1 = "SELECT eform_groups.fid FROM eform_groups, eform WHERE eform_groups.fid=? AND eform_groups.fid=eform.fid AND eform.status=1 AND eform_groups.group_name=?";
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql1, ConversionUtils.fromIntString(fid), groupName);
             if (!rs.next()) {
                 EFormGroup eg = new EFormGroup();
                 eg.setFormId(Integer.parseInt(fid));
                 eg.setGroupName(groupName);
-                eFormGroupDao.persist(eg);
+                eFormGroupDao().persist(eg);
             }
         } catch (SQLException sqe) {
             logger.error("Error", sqe);
+        } finally {
+            if (rs != null) {
+                try { rs.close(); } catch (SQLException ignored) { }
+            }
         }
     }
 
@@ -716,17 +850,17 @@ public class EFormUtil {
 
     public static ArrayList<HashMap<String, ? extends Object>> listEForms(String sortBy, String deleted, String group, String userRoles) {
         // sends back a list of forms that were uploaded (those that can be added to the patient)
+        String validatedSort = validateSortBy(sortBy);
         String sql = "";
         if (deleted.equals("deleted")) {
-            sql = "SELECT * FROM eform, eform_groups where eform.status=0 AND eform.fid=eform_groups.fid AND eform_groups.group_name='" + group + "' ORDER BY " + sortBy;
+            sql = "SELECT * FROM eform, eform_groups where eform.status=0 AND eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         } else if (deleted.equals("current")) {
-            sql = "SELECT * FROM eform, eform_groups where eform.status=1 AND eform.fid=eform_groups.fid AND eform_groups.group_name='" + group + "' ORDER BY " + sortBy;
+            sql = "SELECT * FROM eform, eform_groups where eform.status=1 AND eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         } else if (deleted.equals("all")) {
-            sql = "SELECT * FROM eform AND eform.fid=eform_groups.fid AND eform_groups.group_name='" + group + "' ORDER BY " + sortBy;
+            sql = "SELECT * FROM eform, eform_groups where eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         }
-        ResultSet rs = getSQL(sql);
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
-        try {
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), group)) {
             while (rs.next()) {
                 HashMap<String, String> curht = new HashMap<String, String>();
                 curht.put("fid", rsGetString(rs, "fid"));
@@ -749,7 +883,6 @@ public class EFormUtil {
                 }
                 results.add(curht);
             }
-            rs.close();
         } catch (Exception sqe) {
             logger.error("Error", sqe);
         }
@@ -773,7 +906,7 @@ public class EFormUtil {
         }
 
 
-        List<EFormData> results1 = eFormDataDao.findInGroups(current, Integer.valueOf(demographic_no), groupName, sortBy, offset, numToReturn, privs);
+        List<EFormData> results1 = eFormDataDao().findInGroups(current, Integer.valueOf(demographic_no), groupName, sortBy, offset, numToReturn, privs);
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
 
         for (EFormData x : results1) {
@@ -794,17 +927,25 @@ public class EFormUtil {
     @Deprecated
     public static ArrayList<HashMap<String, ? extends Object>> listPatientEForms(String sortBy, String deleted, String demographic_no, String groupName, String userRoles) {
         // sends back a list of forms added to the patient
+        String validatedSort = validateSortBy(sortBy);
         String sql = "";
         if (deleted.equals("deleted")) {
-            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.status=0 AND eform_data.patient_independent=0 AND eform_data.demographic_no=" + demographic_no + " AND eform_data.fid=eform_groups.fid AND eform_groups.group_name='" + groupName + "' ORDER BY " + sortBy;
+            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.status=0 AND eform_data.patient_independent=0 AND eform_data.demographic_no=? AND eform_data.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         } else if (deleted.equals("current")) {
-            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.status=1 AND eform_data.patient_independent=0 AND eform_data.demographic_no=" + demographic_no + " AND eform_data.fid=eform_groups.fid AND eform_groups.group_name='" + groupName + "' ORDER BY " + sortBy;
+            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.status=1 AND eform_data.patient_independent=0 AND eform_data.demographic_no=? AND eform_data.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         } else if (deleted.equals("all")) {
-            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.patient_independent=0 AND eform_data.demographic_no=" + demographic_no + " AND eform_data.fid=eform_groups.fid AND eform_groups.group_name='" + groupName + "' ORDER BY " + sortBy;
+            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.patient_independent=0 AND eform_data.demographic_no=? AND eform_data.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         }
-        ResultSet rs = getSQL(sql);
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
+        int demographicNo;
         try {
+            demographicNo = Integer.parseInt(demographic_no);
+        } catch (NumberFormatException nfe) {
+            logger.error("Invalid demographic_no: " + demographic_no, nfe);
+            return results;
+        }
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql),
+                demographicNo, groupName)) {
             while (rs.next()) {
                 // filter eform by role type
                 if (rsGetString(rs, "roleType") != null && !rsGetString(rs, "roleType").equals("") && !rsGetString(rs, "roleType").equals("null")) {
@@ -826,13 +967,14 @@ public class EFormUtil {
                 curht.put("roleType", rsGetString(rs, "roleType"));
                 results.add(curht);
             }
-            rs.close();
         } catch (Exception sqe) {
             logger.error("Error", sqe);
         }
         return (results);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void writeEformTemplate(LoggedInInfo loggedInInfo, ArrayList<String> paramNames, ArrayList<String> paramValues, EForm eForm, String fdid, String programNo, String context_path) {
         String text = eForm != null ? eForm.getTemplate() : null;
         if (StringUtils.isBlank(text)) return;
@@ -915,7 +1057,7 @@ public class EFormUtil {
         for (String template : templates) {
             if (StringUtils.isBlank(template)) continue;
 
-            String preventionType = getEqualIgnoreCase(preventionManager.getPreventionTypeList(), getContent("type", template, null));
+            String preventionType = getEqualIgnoreCase(preventionManager().getPreventionTypeList(), getContent("type", template, null));
             if (preventionType == null) continue;
 
             String preventionProvider = getContent("providers", template, eForm.getProviderNo());
@@ -947,7 +1089,7 @@ public class EFormUtil {
                     extHash.put("result", extData);
                 }
             }
-            preventionManager.addPreventionWithExts(prevention, extHash);
+            preventionManager().addPreventionWithExts(prevention, extHash);
         }
 
         /* write to message
@@ -966,7 +1108,7 @@ public class EFormUtil {
             String subject = getContent("subject", template, eForm.getFormName());
             String[] sentList = getSentList(template);
             String userNo = eForm.getProviderNo();
-            String userName = providerDao.getProviderName(eForm.getProviderNo());
+            String userName = providerDao().getProviderName(eForm.getProviderNo());
             String message = getContent("content", template, "");
             message = putTemplateEformHtml(eForm.getFormHtml(), message);
 
@@ -995,7 +1137,7 @@ public class EFormUtil {
 
             String taskAssignedTo = getContent("taskAssignedTo", template, null);
             if (taskAssignedTo == null) continue; //no assignee
-            if (providerDao.getProvider(taskAssignedTo.trim()) == null) continue; //assignee providers no not exists
+            if (providerDao().getProvider(taskAssignedTo.trim()) == null) continue; //assignee providers no not exists
 
             String message = getContent("tickMsg", template, "");
             Tickler tickler = new Tickler();
@@ -1004,13 +1146,13 @@ public class EFormUtil {
             tickler.setDemographicNo(Integer.valueOf(eForm.getDemographicNo()));
             tickler.setCreator(eForm.getProviderNo());
 
-            ProgramProvider pp = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
+            ProgramProvider pp = programManager2().getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
 
             if (pp != null) {
                 tickler.setProgramId(pp.getProgramId().intValue());
             }
 
-            ticklerDao.persist(tickler);
+            ticklerDao().persist(tickler);
         }
 
         /* write to consult request
@@ -1070,7 +1212,7 @@ public class EFormUtil {
 
             ConsultationRequest consult = new ConsultationRequest();
 
-            ProfessionalSpecialist ps = professionalSpecialistDao.find(Integer.parseInt(referredToSpecialist));
+            ProfessionalSpecialist ps = professionalSpecialistDao().find(Integer.parseInt(referredToSpecialist));
             if (ps == null) continue;
             if (referredToService == null || referredBy == null) continue;
 
@@ -1110,16 +1252,18 @@ public class EFormUtil {
             consult.setLetterheadFax(letterheadFax != null ? letterheadFax : clinic.getClinicFax());
 
 
-            consultationRequestDao.persist(consult);
+            consultationRequestDao().persist(consult);
 
             consult.setProfessionalSpecialist(ps);
-            consultationRequestDao.merge(consult);
+            consultationRequestDao().merge(consult);
 
 
         }
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static int findIgnoreCase(String phrase, String text, int start) {
         if (StringUtils.isBlank(phrase) || StringUtils.isBlank(text)) return -1;
 
@@ -1200,9 +1344,15 @@ public class EFormUtil {
     }
 
     public static ArrayList<String> listRichTextLetterTemplates() {
-        String imagePath = OscarProperties.getInstance().getEformImageDirectory();
+        String imagePath = CarlosProperties.getInstance().getEformImageDirectory();
         MiscUtils.getLogger().debug("Img Path: " + imagePath);
-        File dir = new File(imagePath);
+        File dir;
+        try {
+            dir = PathValidationUtils.resolveConfiguredDirectory(imagePath, "eform image path");
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("eForm image path is unavailable", e);
+            return new ArrayList<String>();
+        }
         String[] files = getRichTextLetterTemplates(dir);
         ArrayList<String> fileList;
         if (files != null) fileList = new ArrayList<String>(Arrays.asList(files));
@@ -1231,7 +1381,7 @@ public class EFormUtil {
     }
 
     public static ArrayList<HashMap<String, ? extends Object>> getFormsSameFidSamePatient(String fdid, String sortBy, String userRoles) {
-        List<EFormData> allEformDatas = eFormDataDao.getFormsSameFidSamePatient(Integer.valueOf(fdid));
+        List<EFormData> allEformDatas = eFormDataDao().getFormsSameFidSamePatient(Integer.valueOf(fdid));
 
         if (SUBJECT.equals(sortBy)) Collections.sort(allEformDatas, EFormData.FORM_SUBJECT_COMPARATOR);
         else Collections.sort(allEformDatas, EFormData.FORM_DATE_COMPARATOR);
@@ -1274,7 +1424,7 @@ public class EFormUtil {
         //if eform is showLatestFormOnly, return only the latest one
 
         List<EFormData> list = new ArrayList<EFormData>();
-        List<EFormData> currentEForms = eFormDataDao.findByDemographicIdCurrent(NumberUtils.toInt(demographicNo), true);
+        List<EFormData> currentEForms = eFormDataDao().findByDemographicIdCurrent(NumberUtils.toInt(demographicNo), true);
         if (currentEForms == null) return list;
 
         for (EFormData eform : currentEForms) {
@@ -1290,16 +1440,16 @@ public class EFormUtil {
     }
 
     public static boolean isLatestShowLatestFormOnlyPatientForm(Integer fdid) {
-        return eFormDataDao.isLatestShowLatestFormOnlyPatientForm(fdid);
+        return eFormDataDao().isLatestShowLatestFormOnlyPatientForm(fdid);
     }
 
-
-    @Deprecated
-    private static ResultSet getSQL(String sql) {
+    private static ResultSet getSQL(ParameterizedSql sql) {
         ResultSet rs = null;
         try {
-
-            rs = DBHandler.GetSQL(sql);
+            EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql);
+        } catch (SecurityException secEx) {
+            logger.error("Blocked unsafe SQL execution in legacy eForm path", secEx);
         } catch (SQLException sqe) {
             logger.error("Error", sqe);
         }
@@ -1308,13 +1458,13 @@ public class EFormUtil {
 
     private static void setFormStatus(String fid, boolean status) {
 
-        io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.find(ConversionUtils.fromIntString(fid));
+        io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao().find(ConversionUtils.fromIntString(fid));
         if (eform == null) {
-            logger.error("Unable to find EForm for " + fid);
+            logger.error("Unable to find EForm for {}", LogSafe.sanitize(fid)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return;
         }
         eform.setCurrent(status);
-        eformDao.merge(eform);
+        eformDao().merge(eform);
     }
 
     private static String rsGetString(ResultSet rs, String column) throws SQLException {
@@ -1324,6 +1474,8 @@ public class EFormUtil {
         return thisStr;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static Matcher getAttributeMatcher(String key, String htmlTag, boolean startsWith) {
         Matcher m_return = null;
         if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return m_return;
@@ -1371,11 +1523,13 @@ public class EFormUtil {
         return nwTemplate;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String putTemplateEformValues(EForm eForm, String fdid, String path, String template) {
         if (eForm == null || StringUtils.isBlank(template)) return template;
 
         String[] efields = {"name", "subject", "patient", "providers", "link"};
-        String[] eValues = {eForm.getFormName(), eForm.getFormSubject(), eForm.getDemographicNo(), eForm.getProviderNo(), "<a href='" + path + "/eform/efmshowform_data.jsp?fdid=" + fdid + "' target='_blank'>" + eForm.getFormName() + "</a>"};
+        String[] eValues = {eForm.getFormName(), eForm.getFormSubject(), eForm.getDemographicNo(), eForm.getProviderNo(), "<a href='" + path + "/eform/efmshowform_data?fdid=" + fdid + "' target='_blank'>" + eForm.getFormName() + "</a>"};
 
         String tag = "$te{";
         String nwTemplate = "";
@@ -1454,9 +1608,9 @@ public class EFormUtil {
             Set<CaseManagementIssue> scmi = createCMIssue(eForm.getDemographicNo(), code);
             cNote.setIssues(scmi);
         }
-        cmm.saveNoteSimple(cNote);
+        cmm().saveNoteSimple(cNote);
         CaseManagementNoteLink cmLink = new CaseManagementNoteLink(CaseManagementNoteLink.EFORMDATA, Long.valueOf(fdid), cNote.getId());
-        cmDao.save(cmLink);
+        cmDao().save(cmLink);
     }
 
     private static CaseManagementNote createCMNote(String demographicNo, String providerNo, String programNo, String note) {
@@ -1482,14 +1636,14 @@ public class EFormUtil {
     }
 
     private static Set<CaseManagementIssue> createCMIssue(String demographicNo, String code) {
-        Issue isu = cmm.getIssueInfoByCode(code);
-        CaseManagementIssue cmIssu = cmm.getIssueById(demographicNo, isu.getId().toString());
+        Issue isu = cmm().getIssueInfoByCode(code);
+        CaseManagementIssue cmIssu = cmm().getIssueById(demographicNo, isu.getId().toString());
         if (cmIssu == null) {
             cmIssu = new CaseManagementIssue();
             cmIssu.setDemographic_no(Integer.valueOf(demographicNo));
             cmIssu.setIssue_id(isu.getId());
             cmIssu.setType(isu.getType());
-            cmm.saveCaseIssue(cmIssu);
+            cmm().saveCaseIssue(cmIssu);
         }
 
         Set<CaseManagementIssue> sCmIssu = new HashSet<CaseManagementIssue>();
@@ -1497,6 +1651,8 @@ public class EFormUtil {
         return sCmIssu;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static ArrayList<Integer> getFieldIndices(String fieldtag, String s) {
         ArrayList<Integer> fieldIndexList = new ArrayList<Integer>();
         if (StringUtils.isBlank(fieldtag) || StringUtils.isBlank(s)) return fieldIndexList;
@@ -1605,8 +1761,8 @@ public class EFormUtil {
 
             boolean swapped = false;
             for (int j = 0; j < i; j++) {
-                String providerName = providerDao.getProviderNameLastFirst(allEformDatas.get(j).getProviderNo());
-                String providerNamePlus = providerDao.getProviderNameLastFirst(allEformDatas.get(j + 1).getProviderNo());
+                String providerName = providerDao().getProviderNameLastFirst(allEformDatas.get(j).getProviderNo());
+                String providerNamePlus = providerDao().getProviderNameLastFirst(allEformDatas.get(j + 1).getProviderNo());
 
                 if (providerName.compareToIgnoreCase(providerNamePlus) > 0) {
                     EFormData tmp = allEformDatas.get(j);
@@ -1619,6 +1775,8 @@ public class EFormUtil {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String getEqualIgnoreCase(ArrayList<String> lst, String str) {
         if (lst == null || lst.isEmpty() || StringUtils.isBlank(str)) return null;
 
@@ -1656,7 +1814,7 @@ public class EFormUtil {
      * developed eForms that are imported from external sources.
      */
     public static void logError(int formId, String error) {
-        io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.findById(formId);
+        io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao().findById(formId);
 
         /*
          * DEFAULT is always stable = true
@@ -1691,6 +1849,6 @@ public class EFormUtil {
 //			eform.setErrorLog(jsonArray.toString());
 //		}
 
-        eformDao.merge(eform);
+        eformDao().merge(eform);
     }
 }

@@ -29,6 +29,7 @@ import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import net.sf.jasperreports.engine.export.JRCsvExporter;
 import net.sf.jasperreports.engine.export.ooxml.JRXlsxExporter;
 import net.sf.jasperreports.export.*;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import java.io.ByteArrayInputStream;
@@ -36,19 +37,21 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Document creator for generating reports in various formats using JasperReports.
- * 
+ *
  * <p>This class provides functionality to create and export reports in multiple formats:</p>
  * <ul>
  *   <li><strong>PDF</strong> - Portable Document Format with optional JavaScript</li>
  *   <li><strong>CSV</strong> - Comma-Separated Values for data export</li>
  *   <li><strong>Excel</strong> - Excel spreadsheet format (XLSX)</li>
  * </ul>
- * 
+ *
  * <p>Supports various data sources:</p>
  * <ul>
  *   <li>Java Collections (List of beans)</li>
@@ -57,25 +60,64 @@ import java.util.List;
  *   <li>Custom JRDataSource implementations</li>
  *   <li>Empty data source for parameter-only reports</li>
  * </ul>
- * 
+ *
  * <p>Example usage:</p>
  * <pre>
  * OscarDocumentCreator creator = new OscarDocumentCreator();
  * HashMap params = new HashMap();
  * params.put("title", "Monthly Report");
- * InputStream template = creator.getDocumentStream("reports/monthly.jrxml");
+ * InputStream template = creator.getDocumentStream("oscar/oscarBilling/ca/bc/reports/pdf_rep_invoice.jrxml");
  * creator.fillDocumentStream(params, outputStream, OscarDocumentCreator.PDF, template, dataList);
  * </pre>
  */
 public class OscarDocumentCreator {
     /** PDF document format constant */
     public static final String PDF = "pdf";
-    
+
     /** CSV document format constant */
     public static final String CSV = "csv";
-    
+
     /** Excel spreadsheet format constant */
     public static final String EXCEL = "excel";
+
+    /**
+     * Allowlist of all permitted classpath resource paths for JasperReport templates.
+     * Using a Map (key = caller-supplied path, value = hardcoded constant) ensures
+     * the value passed to {@code getResourceAsStream} is never derived from user input,
+     * which breaks the CodeQL taint chain for path injection analysis.
+     * Keys and values are intentionally identical; the Map lookup is what matters.
+     */
+    private static final Map<String, String> ALLOWED_REPORT_PATHS;
+    static {
+        Map<String, String> m = new HashMap<>();
+        // BC billing reports
+        String bc = "oscar/oscarBilling/ca/bc/reports/";
+        m.put(bc + "pdf_rep_invoice.jrxml",      bc + "pdf_rep_invoice.jrxml");
+        m.put(bc + "pdf_rep_payref.jrxml",       bc + "pdf_rep_payref.jrxml");
+        m.put(bc + "pdf_rep_payref_sum.jrxml",   bc + "pdf_rep_payref_sum.jrxml");
+        m.put(bc + "pdf_rep_account_rec.jrxml",  bc + "pdf_rep_account_rec.jrxml");
+        m.put(bc + "pdf_rep_rej.jrxml",          bc + "pdf_rep_rej.jrxml");
+        m.put(bc + "pdf_rep_wo.jrxml",           bc + "pdf_rep_wo.jrxml");
+        m.put(bc + "pdf_rep_msprem.jrxml",       bc + "pdf_rep_msprem.jrxml");
+        m.put(bc + "pdf_rep_mspremsum.jrxml",    bc + "pdf_rep_mspremsum.jrxml");
+        m.put(bc + "csv_rep_invoice.jrxml",      bc + "csv_rep_invoice.jrxml");
+        m.put(bc + "csv_rep_payref.jrxml",       bc + "csv_rep_payref.jrxml");
+        m.put(bc + "cvs_rep_payref_sum.jrxml",   bc + "cvs_rep_payref_sum.jrxml");
+        m.put(bc + "csv_rep_account_rec.jrxml",  bc + "csv_rep_account_rec.jrxml");
+        m.put(bc + "csv_rep_rej.jrxml",          bc + "csv_rep_rej.jrxml");
+        m.put(bc + "csv_rep_wo.jrxml",           bc + "csv_rep_wo.jrxml");
+        m.put(bc + "csv_rep_msprem.jrxml",       bc + "csv_rep_msprem.jrxml");
+        m.put(bc + "csv_rep_mspremsum.jrxml",    bc + "csv_rep_mspremsum.jrxml");
+        m.put(bc + "msppremsum.practsum.jrxml",  bc + "msppremsum.practsum.jrxml");
+        m.put(bc + "msppremsum.s23.jrxml",       bc + "msppremsum.s23.jrxml");
+        m.put(bc + "msppremsum.s23_orphan.jrxml", bc + "msppremsum.s23_orphan.jrxml");
+        m.put(bc + "broadcastmessages.jrxml",    bc + "broadcastmessages.jrxml");
+        // ON billing reports
+        String on = "/oscar/oscarBilling/ca/on/reports/";
+        m.put(on + "end_year_statement_report.jrxml",    on + "end_year_statement_report.jrxml");
+        m.put(on + "end_year_statement_subreport.jrxml", on + "end_year_statement_subreport.jrxml");
+        ALLOWED_REPORT_PATHS = Collections.unmodifiableMap(m);
+    }
 
     /**
      * Constructs a new OscarDocumentCreator instance.
@@ -86,14 +128,34 @@ public class OscarDocumentCreator {
 
     /**
      * Loads a report template from the classpath.
-     * 
+     *
+     * <p>The path must exactly match one of the known report template paths in
+     * {@link #ALLOWED_REPORT_PATHS}. Paths not on the allowlist are rejected and
+     * {@code null} is returned. This allowlist approach prevents path injection by
+     * ensuring the value passed to {@code getResourceAsStream} is always a compile-time
+     * constant from the Map, never derived from caller-supplied input.</p>
+     *
+     * <p>To add support for a new report template, add its classpath path to
+     * {@code ALLOWED_REPORT_PATHS} in the static initializer above.</p>
+     *
      * @param path the classpath path to the report template file
-     * @return InputStream for the report template, or null if not found
+     * @return InputStream for the report template, or null if not found or path is not allowlisted
      */
     public InputStream getDocumentStream(String path) {
-        InputStream reportInstream = null;
-        reportInstream = getClass().getClassLoader().getResourceAsStream(path);
-        return reportInstream;
+        if (path == null) {
+            MiscUtils.getLogger().error("Classpath resource path must not be null");
+            return null;
+        }
+        // Normalize backslashes before allowlist lookup
+        String normalizedPath = path.replace("\\", "/");
+        // Look up the path in the allowlist; the Map value (not the user-supplied key)
+        // is what gets passed to getResourceAsStream, breaking the CodeQL taint chain.
+        String safePath = ALLOWED_REPORT_PATHS.get(normalizedPath);
+        if (safePath == null) {
+            MiscUtils.getLogger().error("Classpath resource path not in allowlist: {}", Encode.forJava(path));
+            return null;
+        }
+        return getClass().getClassLoader().getResourceAsStream(safePath);
     }
 
     /**

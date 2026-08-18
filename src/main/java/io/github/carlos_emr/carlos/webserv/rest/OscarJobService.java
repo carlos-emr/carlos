@@ -32,27 +32,30 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MultivaluedMap;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.FormParam;
+import jakarta.ws.rs.core.MultivaluedMap;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.jobs.OscarJobExecutingManager;
 import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
 import io.github.carlos_emr.carlos.commn.model.OscarJob;
 import io.github.carlos_emr.carlos.commn.model.OscarJobType;
 import io.github.carlos_emr.carlos.managers.OscarJobManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.OscarJobResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.OscarJobTypeResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.OscarJobTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.OscarJobTypeTo1;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.support.CronTrigger;
@@ -69,11 +72,42 @@ public class OscarJobService extends AbstractServiceImpl {
     @Autowired
     OscarJobManager oscarJobManager;
 
+    @Autowired
+    SecurityInfoManager securityInfoManager;
+
+    /**
+     * Enforces the Administration security object on every job-scheduler endpoint.
+     *
+     * <p>These endpoints are reachable directly under {@code /ws/rs/jobs/**} and are only
+     * meant to be driven from the {@code _admin}-gated Administration job pages
+     * ({@code admin/ViewJobs}, {@code admin/ViewJobTypes}). The view-layer
+     * {@code <security:oscarSec objectName="_admin">} guard does not protect the REST
+     * endpoint itself, so any authenticated provider could otherwise create, edit, enable,
+     * disable, or schedule jobs — including supplying an arbitrary {@code OscarJobType}
+     * className that the scheduler instantiates and runs. This check restores the intended
+     * {@code _admin} trust boundary at the service layer (read for queries, write for
+     * mutations), mirroring the REST authorization pattern used in {@code RxWebService} (#3010).
+     *
+     * @param action {@code "r"} for read endpoints, {@code "w"} for mutating endpoints
+     * @throws AccessDeniedException if the logged-in provider lacks {@code _admin} at {@code action}
+     */
+    private void requireAdminPrivilege(String action) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_admin", action, null)) {
+            throw new AccessDeniedException("_admin", action);
+        }
+    }
+
 
     @GET
     @Path("/types/current")
     @Produces("application/json")
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public OscarJobTypeResponse getCurrentlyAvailableJobTypes() {
+        requireAdminPrivilege("r");
         List<OscarJobType> results = oscarJobManager.getCurrentlyAvaliableJobTypes();
 
         OscarJobTypeResponse response = new OscarJobTypeResponse();
@@ -88,7 +122,13 @@ public class OscarJobService extends AbstractServiceImpl {
     @GET
     @Path("/types/all")
     @Produces("application/json")
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public OscarJobTypeResponse getAllJobTypes() {
+        requireAdminPrivilege("r");
         List<OscarJobType> results = oscarJobManager.getAllJobTypes();
 
         OscarJobTypeResponse response = new OscarJobTypeResponse();
@@ -105,7 +145,13 @@ public class OscarJobService extends AbstractServiceImpl {
     @GET
     @Path("/all")
     @Produces("application/json")
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public OscarJobResponse getAllJobs() {
+        requireAdminPrivilege("r");
         List<OscarJob> results = oscarJobManager.getAllJobs(getLoggedInInfo());
 
         OscarJobResponse response = new OscarJobResponse();
@@ -132,7 +178,13 @@ public class OscarJobService extends AbstractServiceImpl {
     @GET
     @Path("/job/{jobId}")
     @Produces("application/json")
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public OscarJobResponse getJob(@PathParam("jobId") Integer jobId) {
+        requireAdminPrivilege("r");
         OscarJob result = oscarJobManager.getJob(getLoggedInInfo(), jobId);
 
         OscarJobResponse response = new OscarJobResponse();
@@ -152,6 +204,7 @@ public class OscarJobService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/x-www-form-urlencoded")
     public OscarJobResponse saveJob(MultivaluedMap<String, String> params) {
+        requireAdminPrivilege("w");
         OscarJob job = new OscarJob();
         job.setId(Integer.parseInt(params.getFirst("job.id")));
         job.setDescription(params.getFirst("job.description"));
@@ -191,14 +244,17 @@ public class OscarJobService extends AbstractServiceImpl {
         return getJob(result.getId());
     }
 
-    @GET
+    @POST
     @Path("/cancelJob")
     @Produces("application/json")
-    public OscarJobResponse cancelJob(@QueryParam(value = "jobId") Integer jobId) {
+    @Consumes("application/x-www-form-urlencoded")
+    public OscarJobResponse cancelJob(@FormParam(value = "jobId") Integer jobId) {
+        requireAdminPrivilege("w");
 
         ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(jobId);
         if (future != null) {
             future.cancel(true);
+            OscarJobExecutingManager.getFutures().remove(jobId);
         }
         return getJob(jobId);
     }
@@ -220,6 +276,7 @@ public class OscarJobService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/x-www-form-urlencoded")
     public OscarJobResponse saveCrontabExpression(MultivaluedMap<String, String> params) {
+        requireAdminPrivilege("w");
 
         Integer jobId = null;
         try {
@@ -288,7 +345,13 @@ public class OscarJobService extends AbstractServiceImpl {
     @GET
     @Path("/jobType/{jobTypeId}")
     @Produces("application/json")
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public OscarJobTypeResponse getJobType(@PathParam("jobTypeId") Integer jobTypeId) {
+        requireAdminPrivilege("r");
         OscarJobType result = oscarJobManager.getJobType(getLoggedInInfo(), jobTypeId);
 
         OscarJobTypeResponse response = new OscarJobTypeResponse();
@@ -305,6 +368,7 @@ public class OscarJobService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/x-www-form-urlencoded")
     public OscarJobTypeResponse saveJobType(MultivaluedMap<String, String> params) {
+        requireAdminPrivilege("w");
         OscarJobType job = new OscarJobType();
         job.setId(Integer.parseInt(params.getFirst("jobType.id")));
         job.setName(params.getFirst("jobType.name"));
@@ -334,10 +398,12 @@ public class OscarJobService extends AbstractServiceImpl {
         return getJobType(result.getId());
     }
 
-    @GET
+    @POST
     @Path("/enableJob")
     @Produces("application/json")
-    public OscarJobResponse enableJob(@QueryParam(value = "jobId") Integer jobId) {
+    @Consumes("application/x-www-form-urlencoded")
+    public OscarJobResponse enableJob(@FormParam(value = "jobId") Integer jobId) {
+        requireAdminPrivilege("w");
         OscarJob job = oscarJobManager.getJob(getLoggedInInfo(), jobId);
         if (job != null) {
             job.setEnabled(true);
@@ -351,10 +417,12 @@ public class OscarJobService extends AbstractServiceImpl {
         return getJob(jobId);
     }
 
-    @GET
+    @POST
     @Path("/disableJob")
     @Produces("application/json")
-    public OscarJobResponse disableJob(@QueryParam(value = "jobId") Integer jobId) {
+    @Consumes("application/x-www-form-urlencoded")
+    public OscarJobResponse disableJob(@FormParam(value = "jobId") Integer jobId) {
+        requireAdminPrivilege("w");
         OscarJob job = oscarJobManager.getJob(getLoggedInInfo(), jobId);
         if (job != null) {
             job.setEnabled(false);
@@ -364,6 +432,7 @@ public class OscarJobService extends AbstractServiceImpl {
         ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(job.getId());
         if (future != null) {
             future.cancel(false);
+            OscarJobExecutingManager.getFutures().remove(job.getId());
         }
 
 

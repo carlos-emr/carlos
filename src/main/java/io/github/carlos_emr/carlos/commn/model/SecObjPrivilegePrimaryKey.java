@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import java.io.Serializable;
 
-import javax.persistence.Embeddable;
+import jakarta.persistence.Embeddable;
 
 @Embeddable
 public class SecObjPrivilegePrimaryKey implements Serializable {
@@ -78,7 +78,7 @@ public class SecObjPrivilegePrimaryKey implements Serializable {
     public boolean equals(Object o) {
         try {
             SecObjPrivilegePrimaryKey o1 = (SecObjPrivilegePrimaryKey) o;
-            return ((roleUserGroup.equals(o1.roleUserGroup)) && (roleUserGroup.equals(o1.roleUserGroup)));
+            return ((roleUserGroup.equals(o1.roleUserGroup)) && (objectName.equals(o1.objectName)));
         } catch (RuntimeException e) {
             return (false);
         }

@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerCategory;
 import io.github.carlos_emr.carlos.commn.model.TicklerLink;
 import io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest;
+import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 
@@ -55,14 +56,26 @@ public interface TicklerManager {
     public static String SORT_ASC = "asc";
     public static String SORT_DESC = "desc";
 
+    /**
+     * Retrieves a list of active tickler categories for the given logged-in user.
+     */
     public List<TicklerCategory> getActiveTicklerCategories(LoggedInInfo loggedInInfo);
 
+    /**
+     * Validates the given tickler.
+     */
     public boolean validateTicklerIsValid(Tickler tickler);
 
+    /**
+     * Adds a tickler link for the specified logged-in user.
+     */
     public boolean addTicklerLink(LoggedInInfo loggedInInfo, TicklerLink ticklerLink);
 
     public boolean addTickler(LoggedInInfo loggedInInfo, Tickler tickler);
 
+    /**
+     * Updates the specified tickler for the given logged-in user.
+     */
     public boolean updateTickler(LoggedInInfo loggedInInfo, Tickler tickler);
 
     public List<Tickler> getTicklers(LoggedInInfo loggedInInfo, CustomFilter filter, String providerNo,
@@ -70,21 +83,55 @@ public interface TicklerManager {
 
     public List<Tickler> getTicklers(LoggedInInfo loggedInInfo, CustomFilter filter);
 
+    /**
+     * Retrieves a list of ticklers based on the provided parameters.
+     */
     public List<Tickler> getTicklers(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit);
+
+    /**
+     * Retrieves ticklers with optional relationship expansion for detached rendering/conversion paths.
+     *
+     * <p>{@code includeProvider} and {@code includeAssignee} fetch the creator and assignee
+     * relationships for JSP rendering. {@code includeComments} and {@code includeUpdates}
+     * initialize those collections before the entities leave the DAO transaction.</p>
+     */
+    public List<Tickler> getTicklers(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit,
+                                     boolean includeComments, boolean includeUpdates, boolean includeProvider,
+                                     boolean includeAssignee);
 
     public List<Tickler> getTicklerByLabId(LoggedInInfo loggedInInfo, int labId, Integer demoNo);
 
+    /**
+     * Retrieves a list of Tickler objects by lab ID for any provider.
+     */
     public List<Tickler> getTicklerByLabIdAnyProvider(LoggedInInfo loggedInInfo, int labId, Integer demoNo);
 
+    /**
+     * Filters ticklers based on the provided facility information.
+     */
     public List<Tickler> ticklerFacilityFiltering(LoggedInInfo loggedInInfo, List<Tickler> ticklers);
 
+    /**
+     * Filters ticklers based on access criteria.
+     */
     public List<Tickler> filterTicklersByAccess(List<Tickler> ticklers, String providerNo, String programNo);
 
+    /**
+     * Returns the count of active ticklers for the given provider.
+     */
     public int getActiveTicklerCount(LoggedInInfo loggedInInfo, String providerNo);
 
+    /**
+     * Retrieves the count of active ticklers based on the demographic number.
+     */
     public int getActiveTicklerByDemoCount(LoggedInInfo loggedInInfo, Integer demographicNo);
 
     public int getNumTicklers(LoggedInInfo loggedInInfo, CustomFilter filter);
+
+    /**
+     * Returns the count of ticklers matching the filter criteria.
+     */
+    public int getNumTicklersFiltered(LoggedInInfo loggedInInfo, CustomFilter filter);
 
     public Tickler getTickler(LoggedInInfo loggedInInfo, String tickler_no);
 
@@ -101,8 +148,6 @@ public interface TicklerManager {
     public void completeTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider);
 
     public void deleteTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider);
-
-    public void activateTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider);
 
     public void resolveTicklersBySubstring(LoggedInInfo loggedInInfo, String providerNo, List<String> demographicIds,
                                            String remString);
@@ -146,7 +191,25 @@ public interface TicklerManager {
 
     public List<TicklerTextSuggest> getActiveTextSuggestions(LoggedInInfo loggedInInfo);
 
-    public List<TicklerTextSuggest> getAllTextSuggestions(LoggedInInfo loggedInInfo, int offset, int itemsToReturn);
+    /**
+     * Returns paginated tickler data as lightweight DTOs for server-side DataTables.
+     *
+     * @param loggedInInfo LoggedInInfo the logged in user info
+     * @param filter CustomFilter the filter criteria
+     * @param offset int the starting position for pagination
+     * @param limit int the maximum number of results
+     * @return List of TicklerListDTO matching the filter criteria
+     * @since 2026-02-27
+     */
+    List<TicklerListDTO> getTicklerDTOs(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit);
 
-    public List<Tickler> sortTicklerList(Boolean isSortAscending, String sortColumn, List<Tickler> ticklers);
+    /**
+     * Returns all tickler data as lightweight DTOs, limited to MAX_LIST_RETURN_SIZE.
+     *
+     * @param loggedInInfo LoggedInInfo the logged in user info
+     * @param filter CustomFilter the filter criteria
+     * @return List of TicklerListDTO matching the filter criteria
+     * @since 2026-02-27
+     */
+    List<TicklerListDTO> getTicklerDTOs(LoggedInInfo loggedInInfo, CustomFilter filter);
 }

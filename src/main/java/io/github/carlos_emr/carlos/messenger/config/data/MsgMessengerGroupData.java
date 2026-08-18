@@ -34,7 +34,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
-import javax.servlet.jsp.JspWriter;
+import jakarta.servlet.jsp.JspWriter;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.GroupMembersDao;

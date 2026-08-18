@@ -31,14 +31,15 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import java.io.IOException;
 
-import javax.persistence.EntityManager;
-import javax.persistence.Query;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.struts2.ServletActionContext;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormsDao;
@@ -127,7 +128,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
             if (pd != null) {
                 bean.setUserName(pd.getFirstName() + " " + pd.getLastName());
             }
-            request.getSession().setAttribute("msgSessionBean", bean);
+            request.getSession().setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request -- session bean built from authenticated providerNo and DAO-loaded provider name
         }
 
         // Extract parameters for position-based navigation
@@ -138,17 +139,31 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
 
         MsgDisplayMessagesBean displayMsgBean = new MsgDisplayMessagesBean();
 
+        // Resolve the ORDER BY clause through the allowlist in MsgDisplayMessagesBean.
+        // The returned value is always a safe, hard-coded SQL fragment (never the raw user input).
+        String safeOrderBy = displayMsgBean.getOrderBy(orderBy);
+
+        // nosemgrep: formatted-sql-string -- safeOrderBy is resolved from an allowlist in MsgDisplayMessagesBean.getOrderBy(), never raw user input
         String sql = "select m.messageid "
                 + "from messagetbl m, msgDemoMap mapp where mapp.demographic_no = :demographic_no "
-                + "and m.messageid = mapp.messageID order by " + displayMsgBean.getOrderBy(orderBy);
+                + "and m.messageid = mapp.messageID order by " + safeOrderBy;
 
         FormsDao dao = SpringUtils.getBean(FormsDao.class);
         EntityManager em = dao.getEntityManager();
 
         try {
-            Query query = em.createNativeQuery(sql);
+            Query query = em.createNativeQuery(sql); // nosemgrep: jpa-sqli, formatted-sql-string // codeql[java/sql-injection] — demographic_no bound via setParameter; orderBy from MsgDisplayMessagesBean allowlist
             query.setParameter("demographic_no", this.demographic_no);
-            query.setFirstResult(Integer.parseInt(this.messagePosition));
+            int firstResult = 0;
+            try {
+                if (this.messagePosition != null) {
+                    firstResult = Integer.parseInt(this.messagePosition);
+                    if (firstResult < 0) firstResult = 0;
+                }
+            } catch (NumberFormatException ignored) {
+                // Invalid position value; default to first result
+            }
+            query.setFirstResult(firstResult);
             query.setMaxResults(1);
             Integer messageIdResult = (Integer) query.getSingleResult();
 
@@ -169,6 +184,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
         return messageID;
     }
 
+    @StrutsParameter
     public void setMessageID(String messageID) {
         this.messageID = messageID;
     }
@@ -177,6 +193,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
         return from;
     }
 
+    @StrutsParameter
     public void setFrom(String from) {
         this.from = from;
     }
@@ -185,6 +202,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
         return demographic_no;
     }
 
+    @StrutsParameter
     public void setDemographic_no(String demographic_no) {
         this.demographic_no = demographic_no;
     }
@@ -193,6 +211,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
         return messagePosition;
     }
 
+    @StrutsParameter
     public void setMessagePosition(String messagePosition) {
         this.messagePosition = messagePosition;
     }

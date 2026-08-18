@@ -31,28 +31,42 @@
 
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
+import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.hibernate.SessionFactory;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
+/**
+ * DAO for the secUserRole table.  Uses {@link Secuserrole} (the canonical JPA entity
+ * with auto-increment PK) internally and converts to/from the {@link SecUserRole} DTO
+ * that the interface exposes.
+ */
 @Transactional
-public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRoleDao {
+public class SecUserRoleDaoImpl extends AbstractJpaDao implements SecUserRoleDao {
 
     private static Logger log = MiscUtils.getLogger();
 
-    @Autowired
-    /**
-     * Sets the session factory override.
-     */
-    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        super.setSessionFactory(sessionFactory);
+    /** Convert a {@code Secuserrole} JPA entity to the DTO used by callers. */
+    private static SecUserRole toDTO(Secuserrole s) {
+        if (s == null) return null;
+        SecUserRole r = new SecUserRole(s.getRoleName(), s.getProviderNo());
+        r.setActive(s.getActiveyn() != null && s.getActiveyn() == 1);
+        r.setOrgCd(s.getOrgcd());
+        r.setLastUpdateDate(s.getLastUpdateDate());
+        return r;
+    }
+
+    private static List<SecUserRole> toDTOList(List<Secuserrole> entities) {
+        List<SecUserRole> out = new ArrayList<>(entities.size());
+        for (Secuserrole e : entities) out.add(toDTO(e));
+        return out;
     }
 
     @Override
@@ -61,33 +75,31 @@ public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRo
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from SecUserRole s where s.ProviderNo = ?0";
+        String sSQL = "from Secuserrole s where s.providerNo = ?1";
         @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) getHibernateTemplate().find(sSQL, providerNo);
+        List<Secuserrole> entities = (List<Secuserrole>) JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
 
         if (log.isDebugEnabled()) {
-            log.debug("getUserRoles: providerNo=" + providerNo + ",# of results=" + results.size());
+            log.debug("getUserRoles: providerNo=" + providerNo + ",# of results=" + entities.size());
         }
 
-        return results;
+        return toDTOList(entities);
     }
 
     @Override
     public List<SecUserRole> getSecUserRolesByRoleName(String roleName) {
-        String sSQL = "from SecUserRole s where s.RoleName = ?0";
+        String sSQL = "from Secuserrole s where s.roleName = ?1";
         @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) getHibernateTemplate().find(sSQL, roleName);
-
-        return results;
+        List<Secuserrole> entities = (List<Secuserrole>) JpqlQueryHelper.find(entityManager(), sSQL, roleName);
+        return toDTOList(entities);
     }
 
     @Override
     public List<SecUserRole> findByRoleNameAndProviderNo(String roleName, String providerNo) {
-        String sSQL = "from SecUserRole s where s.RoleName = ?0 and s.ProviderNo=?1";
+        String sSQL = "from Secuserrole s where s.roleName = ?1 and s.providerNo=?2";
         @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) getHibernateTemplate().find(sSQL, new Object[]{roleName, providerNo});
-
-        return results;
+        List<Secuserrole> entities = (List<Secuserrole>) JpqlQueryHelper.find(entityManager(), sSQL, roleName, providerNo);
+        return toDTOList(entities);
     }
 
     @Override
@@ -96,13 +108,11 @@ public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRo
             throw new IllegalArgumentException();
         }
 
-        boolean result = false;
-        String sSQL = "from SecUserRole s where s.ProviderNo = ?0 and s.RoleName = 'admin'";
+        // An inactive admin assignment (activeyn = 0 or legacy NULL) must not grant admin access.
+        String sSQL = "from Secuserrole s where s.providerNo = ?1 and s.roleName = 'admin' and s.activeyn = 1";
         @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) this.getHibernateTemplate().find(sSQL, providerNo);
-        if (!results.isEmpty()) {
-            result = true;
-        }
+        List<Secuserrole> entities = (List<Secuserrole>) JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
+        boolean result = !entities.isEmpty();
 
         if (log.isDebugEnabled()) {
             log.debug("hasAdminRole: providerNo=" + providerNo + ",result=" + result);
@@ -113,21 +123,38 @@ public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRo
 
     @Override
     public SecUserRole find(Long id) {
-        return this.getHibernateTemplate().get(SecUserRole.class, id);
+        if (id == null || id > Integer.MAX_VALUE || id < Integer.MIN_VALUE) {
+            throw new IllegalArgumentException("secUserRole id must fit the integer primary key range");
+        }
+        return toDTO(entityManager().find(Secuserrole.class, id.intValue()));
     }
 
     @Override
     public void save(SecUserRole sur) {
         sur.setLastUpdateDate(new Date());
-        this.getHibernateTemplate().save(sur);
+
+        String hql = "from Secuserrole s where s.roleName = ?1 and s.providerNo = ?2";
+        @SuppressWarnings("unchecked")
+        List<Secuserrole> existing = (List<Secuserrole>) JpqlQueryHelper.find(
+                entityManager(), hql, sur.getRoleName(), sur.getProviderNo());
+
+        Secuserrole entity = existing.isEmpty() ? new Secuserrole() : existing.get(0);
+        entity.setProviderNo(sur.getProviderNo());
+        entity.setRoleName(sur.getRoleName());
+        entity.setActiveyn(sur.getActive() ? 1 : 0);
+        entity.setOrgcd(sur.getOrgCd());
+        entity.setLastUpdateDate(sur.getLastUpdateDate());
+
+        if (existing.isEmpty()) {
+            entityManager().persist(entity);
+        }
     }
 
     @Override
     public List<String> getRecordsAddedAndUpdatedSinceTime(Date date) {
-        String sSQL = "select p.ProviderNo From SecUserRole p WHERE p.lastUpdateDate > ?0";
+        String sSQL = "select p.providerNo From Secuserrole p WHERE p.lastUpdateDate > ?1";
         @SuppressWarnings("unchecked")
-        List<String> records = (List<String>) getHibernateTemplate().find(sSQL, date);
-
+        List<String> records = (List<String>) JpqlQueryHelper.find(entityManager(), sSQL, date);
         return records;
     }
 

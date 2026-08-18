@@ -37,8 +37,8 @@ import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Properties;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -95,7 +95,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /*
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class FrmFormRHPrevention2Action extends ActionSupport {
@@ -148,14 +148,14 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
                 WorkFlowState wfs = new WorkFlowState();
 
                 wfs.updateWorkFlowState(workflowId, state, endDate);
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, "WF_" + workflowType, state, ip);
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, "WF_" + workflowType, state, ip);
             }
         } else {
             //if none are found open, offer to create a new one  (could be existing but closed)
             request.setAttribute("newWorkFlowNeeded", "true");
 
             workId = flow.addToWorkFlow(providerNo, demographicNo, endDate);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, "WF_" + workflowType, state, ip);
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, "WF_" + workflowType, state, ip);
 
         }
 
@@ -179,7 +179,7 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
 
             props.setProperty("provider_no", providerNo);
             newID = rec.saveFormRecord(props);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, request.getParameter("form_class"), "" + newID, ip);
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, request.getParameter("form_class"), "" + newID, ip);
         } catch (Exception factEx) {
             MiscUtils.getLogger().error("Error", factEx);
         }

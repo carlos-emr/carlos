@@ -40,7 +40,7 @@ import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.TreeMap;
 import java.util.Map.Entry;
-import javax.servlet.ServletRequest;
+import jakarta.servlet.ServletRequest;
 
 public final class LocaleUtils {
     private static Logger logger = MiscUtils.getLogger();

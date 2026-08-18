@@ -55,7 +55,7 @@ import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.commn.model.JointAdmission;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.springframework.beans.factory.annotation.Required;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -311,10 +311,6 @@ public class AdmissionManagerImpl implements AdmissionManager {
 
         Admission fullAdmission = getCurrentAdmission(String.valueOf(programId), demographicNo);
 
-        Program program = programDao.getProgram(programId);
-        Integer facilityId = null;
-        if (program != null) facilityId = (int) program.getFacilityId();
-
         if (fullAdmission == null) {
             throw new AdmissionException("Admission Record not found");
         }
@@ -345,10 +341,6 @@ public class AdmissionManagerImpl implements AdmissionManager {
     }
 
     public void processDischargeToCommunity(Integer communityProgramId, Integer demographicNo, String providerNo, String notes, String radioDischargeReason, List<Integer> dependents, Date dischargeDate) throws AdmissionException {
-        Program program = programDao.getProgram(communityProgramId);
-        Integer facilityId = null;
-        if (program != null) facilityId = (int) program.getFacilityId();
-
         Admission currentCommunityAdmission = getCurrentCommunityProgramAdmission(demographicNo);
 
         if (currentCommunityAdmission != null) {
@@ -376,33 +368,33 @@ public class AdmissionManagerImpl implements AdmissionManager {
         }
     }
 
-    @Required
+    @Autowired
     public void setAdmissionDao(AdmissionDao dao) {
         this.dao = dao;
     }
 
-    @Required
+    @Autowired
     public void setProgramDao(ProgramDao programDao) {
         this.programDao = programDao;
     }
 
-    @Required
+    @Autowired
     public void setProgramQueueDao(ProgramQueueDao dao) {
         this.programQueueDao = dao;
     }
 
-    @Required
+    @Autowired
     public void setClientReferralDAO(ClientReferralDAO dao) {
         this.clientReferralDAO = dao;
     }
 
 
-    @Required
+    @Autowired
     public void setProgramClientStatusDAO(ProgramClientStatusDAO programClientStatusDAO) {
         this.programClientStatusDAO = programClientStatusDAO;
     }
 
-    @Required
+    @Autowired
     public void setClientRestrictionManager(ClientRestrictionManager clientRestrictionManager) {
         this.clientRestrictionManager = clientRestrictionManager;
     }

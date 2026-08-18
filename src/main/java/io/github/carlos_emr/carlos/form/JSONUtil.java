@@ -30,10 +30,11 @@ package io.github.carlos_emr.carlos.form;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
@@ -44,22 +45,26 @@ public abstract class JSONUtil {
     private static final Logger logger = MiscUtils.getLogger();
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public static void jsonResponse(HttpServletResponse response, ObjectNode jsonObject) {
         try (PrintWriter out = response.getWriter()) {
             response.setContentType(CONTENT_TYPE);
             response.setCharacterEncoding(ENCODING);
-            out.print(jsonObject.toString());
+            out.print(jsonObject.toString()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
             out.flush();
         } catch (IOException e) {
             logger.error("Error while creating JSON response", e);
         }
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public static void jsonResponse(HttpServletResponse response, String jsonString) {
         try (PrintWriter out = response.getWriter()) {
             response.setContentType(CONTENT_TYPE);
             response.setCharacterEncoding(ENCODING);
-            out.print(jsonString);
+            out.print(jsonString); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
             out.flush();
         } catch (IOException e) {
             logger.error("Error while creating JSON response", e);

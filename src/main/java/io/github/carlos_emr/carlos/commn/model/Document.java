@@ -35,6 +35,8 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
@@ -42,26 +44,26 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import javax.persistence.Basic;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.Lob;
-import javax.persistence.NamedQueries;
-import javax.persistence.NamedQuery;
-import javax.persistence.OneToMany;
-import javax.persistence.PrePersist;
-import javax.persistence.PreUpdate;
-import javax.persistence.Table;
-import javax.persistence.Temporal;
-import javax.persistence.TemporalType;
-import javax.persistence.Transient;
+import jakarta.persistence.Basic;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.NamedQueries;
+import jakarta.persistence.NamedQuery;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
+import jakarta.persistence.Transient;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.commons.io.FileUtils;
 
 /**
@@ -163,7 +165,7 @@ public class Document extends AbstractModel<Integer> implements Serializable {
     private Integer appointmentNo;
     @Column(name = "abnormal", columnDefinition = "integer default 0")
     private boolean abnormal;
-    @OneToMany(fetch = FetchType.EAGER)
+    @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "document_no", insertable = false, updatable = false)
     private List<DocumentReview> reviews = new ArrayList<DocumentReview>();
 
@@ -427,12 +429,14 @@ public class Document extends AbstractModel<Integer> implements Serializable {
      * @returns a string representing the path of the file on disk, i.e. document_dir+'/'+filename
      */
     public String getDocumentFileFullPath() {
-        String docDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         return (docDir + '/' + docfilename);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public byte[] getDocumentFileContentsAsBytes() throws IOException {
-        return (FileUtils.readFileToByteArray(new File(getDocumentFileFullPath())));
+        return (FileUtils.readFileToByteArray(PathValidationUtils.resolveTrustedPath(new File(getDocumentFileFullPath()))));
     }
 
     @PreUpdate

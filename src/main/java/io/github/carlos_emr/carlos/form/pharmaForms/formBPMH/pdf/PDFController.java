@@ -45,13 +45,15 @@ import java.util.Map;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import com.itextpdf.text.DocumentException;
-import com.itextpdf.text.pdf.AcroFields;
-import com.itextpdf.text.pdf.AcroFields.Item;
-import com.itextpdf.text.pdf.PdfDictionary;
-import com.itextpdf.text.pdf.PdfName;
-import com.itextpdf.text.pdf.PdfReader;
-import com.itextpdf.text.pdf.PdfStamper;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.pdf.AcroFields;
+import org.openpdf.text.pdf.AcroFields.Item;
+import org.openpdf.text.pdf.PdfDictionary;
+import org.openpdf.text.pdf.PdfName;
+import org.openpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfStamper;
 
 /*
 FIELD_TYPE_CHECKBOX 	2
@@ -80,11 +82,30 @@ Verdana — 1.98
 Courier New — 1.60
  */
 
-/*
- * Author: Dennis Warren
- * Company: Colcamex Resources
- * Date: November 2014
- * For: UBC Pharmacy Clinic and McMaster Department of Family Medicine
+/**
+ * Controller for generating Best Possible Medication History (BPMH) PDF documents
+ * using AcroForm field filling.
+ *
+ * <p>This class reads AcroForm smart-tag field names from a PDF template, matches them
+ * to getter methods on a provided data POJO (via reflection), and fills the PDF fields
+ * with the corresponding values. It supports:
+ * <ul>
+ *   <li>Flat property access (e.g., {@code firstName})</li>
+ *   <li>Nested property access (e.g., {@code demographic.phoneNumber})</li>
+ *   <li>Indexed list access (e.g., {@code getMedications#0.drugName})</li>
+ *   <li>Auto-print via embedded PDF JavaScript</li>
+ *   <li>Form flattening to produce a read-only output PDF</li>
+ * </ul>
+ *
+ * <p>Uses OpenPDF's {@link PdfStamper} for AcroForm field manipulation and
+ * {@link PdfReader} for template loading. The {@link FileOutputStream} for the
+ * stamper output is wrapped in a try-catch to ensure cleanup on constructor failure.
+ *
+ * <p>Originally created November 2014 for UBC Pharmacy Clinic and McMaster
+ * Department of Family Medicine.
+ *
+ * @see io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean
+ * @since 2014-11 (UBC Pharmacy Clinic)
  */
 public class PDFController {
 
@@ -106,10 +127,15 @@ public class PDFController {
     private Map<String, Method> methodMap;
     private Object data;
 
+    /** Default constructor. Call {@link #setFilePath(File)} and {@link #_init()} before use. */
     public PDFController() {
-        // default constructor.
     }
 
+    /**
+     * Constructs a controller and initializes the PDF reader from the given template file.
+     *
+     * @param filePath File the PDF template file to read AcroForm fields from
+     */
     public PDFController(File filePath) {
         if (setFilePath(filePath)) {
             _init();
@@ -117,12 +143,20 @@ public class PDFController {
 
     }
 
+    /**
+     * Constructs a controller and initializes the PDF reader from the given template path.
+     *
+     * @param filePath String the absolute path to the PDF template file
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public PDFController(String filePath) {
         if (setFilePath(new File(filePath))) {
             _init();
         }
     }
 
+    /** Initializes the PdfReader from the current file path and extracts PDF metadata. */
     public void _init() {
         setReader(null);
         setPdfMetaData();
@@ -164,8 +198,9 @@ public class PDFController {
 
     private boolean setFilePath(File file) {
 
-        if (file.exists()) {
-            this.filePath = file;
+        File validatedFile = PathValidationUtils.resolveTrustedPath(file);
+        if (validatedFile.exists()) {
+            this.filePath = validatedFile;
             return Boolean.TRUE;
         }
 
@@ -174,6 +209,8 @@ public class PDFController {
         return Boolean.FALSE;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public boolean setFilePath(String filePath) {
         return setFilePath(new File(filePath));
     }
@@ -225,7 +262,7 @@ public class PDFController {
     @SuppressWarnings("rawtypes")
     private void setPdfMetaData() {
 
-        HashMap pdfInfoMap = getReader().getInfo();
+        Map pdfInfoMap = getReader().getInfo();
         Iterator pdfInfoIt = pdfInfoMap.entrySet().iterator();
 
         numberOfPages = getReader().getNumberOfPages();
@@ -251,7 +288,7 @@ public class PDFController {
     private void addDataToPDF() {
 
         AcroFields acroFields = getStamper().getAcroFields();
-        Map acroFieldsMap = acroFields.getFields();
+        Map acroFieldsMap = acroFields.getAllFields();
         Iterator<String> acroFieldsIt = acroFieldsMap.keySet().iterator();
         String replaceWith = "";
         String key = "";
@@ -348,6 +385,8 @@ public class PDFController {
      * @param outPath : outPut path for completed PDF.
      * @param pdfPath : the absolute path to an editable pdf template.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void writeDataToPDF(String pdfPath, String outPath, Object data, String[] pages, String fileId) {
 
         if (pages.length <= 0) {
@@ -374,20 +413,25 @@ public class PDFController {
 
             getReader().selectPages(arrayToString(pages, ","));
 
+            FileOutputStream fos = null;
             try {
 
-                if (!getOutputPath().endsWith("/")) {
-                    setOutputPath(getOutputPath() + "/");
-                }
-
-                setOutputPath(getOutputPath() + fileId + "_" + new Date().getTime() +
+                File outputDir = PathValidationUtils.resolveConfiguredDirectory(getOutputPath(), "BPMH output path");
+                String generatedName = PathValidationUtils.validateGeneratedFileName(fileId + "_" + new Date().getTime() +
                         "_" + getFilePath().getName());
+                File outputFile = PathValidationUtils.validateGeneratedChildPath(generatedName, outputDir);
+                setOutputPath(outputFile.getAbsolutePath());
 
-                setFileName(new File(getOutputPath()).getName());
+                setFileName(outputFile.getName());
 
                 if (getStamper() == null) {
-                    setStamper(new PdfStamper(getReader(),
-                            new FileOutputStream(getOutputPath())));
+                    fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(new File(getOutputPath())));
+                    try {
+                        setStamper(new PdfStamper(getReader(), fos));
+                    } catch (Exception e) {
+                        fos.close();
+                        throw e;
+                    }
                 }
 
                 addDataToPDF();
@@ -415,6 +459,13 @@ public class PDFController {
                         _Logger.log(Level.FATAL, e);
                     }
                 }
+                if (fos != null) {
+                    try {
+                        fos.close();
+                    } catch (IOException e) {
+                        _Logger.log(Level.FATAL, e);
+                    }
+                }
             }
 
         } else {
@@ -423,6 +474,12 @@ public class PDFController {
 
     }
 
+    /**
+     * Extracts getter methods from the data object via reflection and stores them
+     * in the method map for later AcroForm field value resolution.
+     *
+     * @param data Object the POJO containing form field values
+     */
     private void digestData(Object data) {
 
         Map<String, Method> getterMethods = getGetterMethods(data);
@@ -454,12 +511,23 @@ public class PDFController {
         return methods;
     }
 
+    /**
+     * Convenience overload that starts recursive getter extraction with an empty prefix.
+     */
     private synchronized static void fillGetterMethods(Object data, Map<String, Method> baseMap)
             throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
         fillGetterMethods(data, baseMap, "");
     }
 
-
+    /**
+     * Recursively extracts getter methods from a data object and its nested beans.
+     * For nested objects in allowed packages, recurses with the parent method name as prefix.
+     * For List-type returns, iterates elements and recurses with indexed notation (e.g., getItems#0).
+     *
+     * @param data Object the POJO to extract getters from
+     * @param baseMap Map to populate with method-name-to-Method mappings
+     * @param prepend String the prefix for nested property paths
+     */
     private synchronized static void fillGetterMethods(Object data, Map<String, Method> baseMap, String prepend)
             throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
 
@@ -551,12 +619,12 @@ public class PDFController {
     }
 
     /**
-     * String return values only.
-     * This method will return data 2 methods deep from the
-     * Method Map and POJO Object set in current Object state.
-     * ie: demographic.phoneNumber
+     * Invokes a getter method by name against the current data object and returns the
+     * result as a String. Supports dot-notation for nested properties
+     * (e.g., {@code demographic.phoneNumber}) up to two levels deep.
      *
-     * @return
+     * @param methodName String the property name matching an AcroForm field tag
+     * @return String the value from the data object, or empty string if not found
      */
     public String invokeValue(String methodName) {
         String value = "";
@@ -569,12 +637,15 @@ public class PDFController {
     }
 
     /**
-     * String return values only.
+     * Invokes a getter method from the provided method map against the given data object.
      *
-     * @param methodName
-     * @param methodMap
-     * @param data
-     * @returns generic Object, null on error.
+     * <p>Supports dot-notation for nested property access and hash-notation for indexed
+     * list access (e.g., {@code getMedications#2.drugName}).
+     *
+     * @param methodName String the property name (supports dot and hash notation)
+     * @param methodMap Map mapping property names to their getter Methods
+     * @param data Object the root data object to invoke methods against
+     * @return Object the invoked value, or {@code null} on error or if not found
      */
     protected static Object invokeValue(String methodName, Map<String, Method> methodMap, Object data) {
 
@@ -647,11 +718,12 @@ public class PDFController {
     }
 
     /**
-     * Cast select Objects into a String object.
-     * So far only Dates, Integers, and Strings are allowed through
+     * Casts supported object types to their String representation.
+     * Handles {@link String}, {@link Date} (formatted as MM-dd-yyyy), and {@link Integer}.
+     * Returns empty string for {@code null} or unsupported types.
      *
-     * @param object
-     * @return
+     * @param object Object the value to convert
+     * @return String the string representation, or empty string if unsupported
      */
     private static final String castToString(final Object object) {
         String string = "";
@@ -674,12 +746,12 @@ public class PDFController {
     }
 
     /**
-     * Converts a POJO method signature into the conventional camel-case
-     * format.
+     * Converts a POJO getter/setter method name to its camelCase property name
+     * by stripping the prefix and lowercasing the first character.
      *
-     * @param start      : starting point of the get or set prepend
-     * @param methodName : the method string being formatted.
-     * @return
+     * @param start int the length of the prefix to strip ("get"=3, "is"=2)
+     * @param methodName String the full method name (e.g., "getFirstName")
+     * @return String the camelCase property name (e.g., "firstName")
      */
     private static String toProperty(int start, String methodName) {
 
@@ -693,9 +765,11 @@ public class PDFController {
     }
 
     /**
-     * Converts a Java array into a comma delimited String
+     * Joins a String array into a single delimited String.
      *
-     * @return
+     * @param array String[] the array of strings to join
+     * @param delimiter String the delimiter to insert between elements
+     * @return String the joined result
      */
     private static final String arrayToString(final String[] array, final String delimiter) {
 
@@ -746,6 +820,14 @@ public class PDFController {
         return formattedDate;
     }
 
+    /**
+     * Checks whether a return type's package is in the allowed list for recursive
+     * getter extraction. Only beans in {@link #ALLOWED_BEAN_PACKAGES} are recursed into,
+     * preventing reflection into arbitrary JDK or third-party classes.
+     *
+     * @param packageType Package the return type's package to check
+     * @return Boolean TRUE if the package is allowed for recursion
+     */
     private static final Boolean isPackageAllowed(final Package packageType) {
 
         Boolean allowed = Boolean.FALSE;

@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
-import javax.persistence.Column;
+import jakarta.persistence.Column;
 
 // Generated Jul 1, 2010 12:29:33 PM by Hibernate Tools 3.2.1.GA
 

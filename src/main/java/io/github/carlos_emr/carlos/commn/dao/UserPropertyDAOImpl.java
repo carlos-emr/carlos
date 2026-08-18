@@ -36,7 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import org.springframework.stereotype.Repository;
@@ -105,7 +105,7 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
     }
 
     public List<UserProperty> getAllProperties(String name, List<String> list) {
-        Query query = entityManager.createQuery("select p from UserProperty p where p.name = ?1 and p.provider_no in ?2");
+        Query query = entityManager.createQuery("select p from UserProperty p where p.name = ?1 and p.providerNo in ?2");
         query.setParameter(1, name);
         query.setParameter(2, list);
 

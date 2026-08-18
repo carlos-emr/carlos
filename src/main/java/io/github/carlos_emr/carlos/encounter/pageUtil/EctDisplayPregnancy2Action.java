@@ -32,12 +32,10 @@ import io.github.carlos_emr.carlos.commn.dao.EpisodeDao;
 import io.github.carlos_emr.carlos.commn.model.Episode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
-import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -54,7 +52,6 @@ public class EctDisplayPregnancy2Action extends EctDisplayAction {
         Vector v = OscarRoleObjectPrivilege.getPrivilegeProp("_newCasemgmt.pregnancy");
         String roleName = (String) request.getSession().getAttribute("userrole") + "," + (String) request.getSession().getAttribute("user");
         a = OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (Vector) v.get(1));
-        a = true;
         if (!a) {
             return true;
         } else {
@@ -65,13 +62,13 @@ public class EctDisplayPregnancy2Action extends EctDisplayAction {
                 String winName = "pregnancy" + bean.demographicNo;
                 String pathview, pathedit;
 
-                pathview = request.getContextPath() + "/Pregnancy.do?method=list&demographicNo=" + bean.demographicNo;
-                pathedit = request.getContextPath() + "/Pregnancy.do?method=edit&demographicNo=" + bean.demographicNo;
+                pathview = request.getContextPath() + "/Pregnancy?method=list&demographicNo=" + bean.demographicNo;
+                pathedit = request.getContextPath() + "/Pregnancy?method=edit&demographicNo=" + bean.demographicNo;
 
 
-                String url = "popupPage(500,900,'" + winName + "','" + pathview + "')";
+                String url;
                 Dao.setLeftHeading(getText("global.pregnancy"));
-                Dao.setLeftURL(url);
+                Dao.setLeftPopup(500, 900, winName, pathview);
 
                 //we're going to display popup menu of 2 selections - row display and grid display
                 String menuId = "5";
@@ -80,28 +77,18 @@ public class EctDisplayPregnancy2Action extends EctDisplayAction {
                 Dao.setMenuHeader("Pregnancy Type");
 
                 winName = "AddPregnancy" + bean.demographicNo;
-                url = "popupPage(500,600,'" + winName + "','" + pathedit + "'); return false;";
 
-                Dao.addPopUpUrl("popupPage(700,1000,'" + winName + "', '" + request.getContextPath() + "/Pregnancy.do?method=create&code=72892002&codetype=SnomedCore&demographicNo=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "')");
+                Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/Pregnancy?method=create&code=72892002&codetype=SnomedCore&demographicNo=" + bean.demographicNo + "&appointment=" + bean.appointmentNo);
                 Dao.addPopUpText("Normal");
-                Dao.addPopUpUrl("popupPage(700,1000,'" + winName + "', '" + request.getContextPath() + "/Pregnancy.do?method=create&code=47200007&codetype=SnomedCore&demographicNo=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "')");
+                Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/Pregnancy?method=create&code=47200007&codetype=SnomedCore&demographicNo=" + bean.demographicNo + "&appointment=" + bean.appointmentNo);
                 Dao.addPopUpText("High Risk");
-                Dao.addPopUpUrl("popupPage(700,1000,'" + winName + "', '" + request.getContextPath() + "/Pregnancy.do?method=create&code=16356006&codetype=SnomedCore&demographicNo=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "')");
+                Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/Pregnancy?method=create&code=16356006&codetype=SnomedCore&demographicNo=" + bean.demographicNo + "&appointment=" + bean.appointmentNo);
                 Dao.addPopUpText("Multiple");
-                Dao.addPopUpUrl("popupPage(700,1000,'" + winName + "', '" + request.getContextPath() + "/Pregnancy.do?method=create&code=34801009&codetype=SnomedCore&demographicNo=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "')");
+                Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/Pregnancy?method=create&code=34801009&codetype=SnomedCore&demographicNo=" + bean.demographicNo + "&appointment=" + bean.appointmentNo);
                 Dao.addPopUpText("Ectopic");
 
-                //check to see if they have an onar2005 form
-                if (OscarProperties.getInstance().getProperty("billregion", "ON").equals("ON")) {
-                    EctFormData.PatientForm[] pforms = EctFormData.getPatientForms(bean.demographicNo, "formONAR");
-                    EctFormData.PatientForm[] eforms = EctFormData.getPatientForms(bean.demographicNo, "formONAREnhancedRecord");
-
-                    if (pforms.length > 0 && eforms.length == 0) {
-                        Dao.addPopUpUrl("popupPage(700,1000,'" + winName + "', '" + request.getContextPath() + "/Pregnancy.do?method=migrate&demographicNo=" + bean.demographicNo + "')");
-                        Dao.addPopUpText("Migration tool");
-
-                    }
-                }
+                // formONAR and formONAREnhancedRecord tables removed (deprecated 2026-03-25)
+                // Migration tool popup removed as legacy ONAR tables no longer exist
 
 
                 //check for an existing pregnancy
@@ -119,7 +106,7 @@ public class EctDisplayPregnancy2Action extends EctDisplayAction {
                     item.setTitle(itemHeader);
                     item.setDate(episode.getStartDate());
                     int hash = Math.abs(winName.hashCode());
-                    url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/Pregnancy.do?method=complete&episodeId=" + episode.getId() + "'); return false;";
+                    url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/Pregnancy?method=complete&episodeId=" + episode.getId() + "'); return false;";
                     item.setURL(url);
                     Dao.addItem(item);
                 }

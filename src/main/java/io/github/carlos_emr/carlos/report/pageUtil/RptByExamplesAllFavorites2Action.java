@@ -32,25 +32,36 @@ package io.github.carlos_emr.carlos.report.pageUtil;
 
 import java.io.IOException;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class RptByExamplesAllFavorites2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
     public String execute()
             throws ServletException, IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_admin or _report)");
+        }
 
-        String providerNo = (String) request.getSession().getAttribute("user");
+
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
         RptByExampleQueryBeanHandler hd = new RptByExampleQueryBeanHandler(providerNo);
         request.setAttribute("allFavorites", hd);
         return SUCCESS;

@@ -1,0 +1,95 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+%>
+
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<%
+    RxSessionBean bean2 = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+
+    Allergy[] allergies = RxPatientData.getPatient(LoggedInInfo.getLoggedInInfoFromSession(request), bean2.getDemographicNo()).getActiveAllergies();
+    String alle = "";
+    if (allergies.length > 0) {
+        alle = "Red";
+    }
+
+%>
+
+
+<div class="PropSheetMenu">
+
+    <security:oscarSec roleName="<%=roleName$%>" objectName="_allergy" rights="r" reverse="<%=false%>">
+
+        <p class="PropSheetLevel1CurrentItem<%=alle%>"><fmt:message key="oscarRx.sideLinks.msgAllergies"/></p>
+        <p class="PropSheetMenuItemLevel1">
+                    <%for (int j=0; j<allergies.length; j++){%>
+
+        <p class="PropSheetMenuItemLevel1"><a
+                title="<%= allergies[j].getDescription() %> - <%= allergies[j].getReaction() %>">
+            <%=allergies[j].getShortDesc(13, 8, "...")%>
+        </a></p>
+        <%}%>
+
+
+    </security:oscarSec>
+
+    <p class="PropSheetLevel1CurrentItem"><fmt:message key="oscarRx.sideLinks.msgFavorites"/></p>
+    <p class="PropSheetMenuItemLevel1">
+            <%
+        RxPrescriptionData.Favorite[] favorites = new RxPrescriptionData().getFavorites(bean2.getProviderNo());
+        for (int j=0; j<favorites.length; j++){ %>
+
+    <p class="PropSheetMenuItemLevel1"><a href="javascript:void(0);"
+                                          onclick="goSD3('<%= favorites[j].getFavoriteId() %>');"
+                                          title="<%= favorites[j].getFavoriteName() %>"><%if (favorites[j].getFavoriteName().length() > 13) { %>
+        <%= favorites[j].getFavoriteName().substring(0, 10) + "..." %> <%} else {%>
+        <%= favorites[j].getFavoriteName() %> <%}%></a></p>
+    <%}%>
+
+</div>
+
+<script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
+<script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+<script type="text/javascript">
+
+    function goSD3(favoriteId) {
+        location.href = "<%= request.getContextPath() %>/rx/searchDrug?usefav=true&favid=" + favoriteId;
+    }
+
+</script>

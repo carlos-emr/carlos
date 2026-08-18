@@ -29,14 +29,14 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import java.util.Date;
 
-import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.Temporal;
-import javax.persistence.TemporalType;
+import io.github.carlos_emr.carlos.commn.model.converter.ClientLinkTypeConverter;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
 
 @Entity
 public class ClientLink extends AbstractModel<Integer> {
@@ -56,7 +56,7 @@ public class ClientLink extends AbstractModel<Integer> {
     private Integer id = null;
     private Integer facilityId = null;
     private Integer clientId = null;
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = ClientLinkTypeConverter.class)
     private Type linkType = null;
     private Integer remoteLinkId = null;
     @Temporal(TemporalType.TIMESTAMP)

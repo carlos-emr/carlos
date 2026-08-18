@@ -17,8 +17,8 @@ package io.github.carlos_emr.carlos.hospitalReportManager;
 import java.util.Date;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.IncomingLabRulesDao;
 import io.github.carlos_emr.carlos.commn.model.IncomingLabRules;
@@ -37,8 +37,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class HRMModifyDocument2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -51,6 +52,8 @@ public class HRMModifyDocument2Action extends ActionSupport {
     HRMDocumentCommentDao hrmDocumentCommentDao = (HRMDocumentCommentDao) SpringUtils.getBean(HRMDocumentCommentDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
         String method = request.getParameter("method");
 

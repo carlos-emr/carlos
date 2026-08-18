@@ -35,8 +35,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.text.SimpleDateFormat;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Lab;
@@ -48,14 +48,20 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.CMLLabHL7Generator;
 import io.github.carlos_emr.carlos.lab.ca.all.util.GDMLLabHL7Generator;
 import io.github.carlos_emr.carlos.lab.ca.all.util.MDSLabHL7Generator;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
-import com.opensymphony.xwork2.ActionSupport;
+import io.github.carlos_emr.CarlosProperties;
+
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class SubmitLabByForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -84,6 +90,10 @@ public class SubmitLabByForm2Action extends ActionSupport {
      * @throws SecurityException if the current user lacks the required "_lab" write privilege
      * @throws Exception for parse, I/O, or handler invocation errors that are propagated to the caller
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use.
+    // FindSecBugs PREDICTABLE_RANDOM: Math.random only adds a local HL7 filename suffix.
+    // Do not use this suppression for secrets, tokens, authorization, or request-controlled random values.
+    @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "PREDICTABLE_RANDOM"}, justification = "PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use. PREDICTABLE_RANDOM: Math.random only creates a local HL7 filename suffix, not a secret, token, or authorization decision")
     public String saveManage() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -133,7 +143,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
         for (int x = 1; x <= maxTest; x++) {
             String id = request.getParameter("test_" + x + ".id");
             if (id != null) {
-                logger.info("test #" + x);
+                logger.info("test #{}", x);
                 String otherId = request.getParameter("test_" + x + ".id");
                 if (otherId.length() == 0 || otherId.equals("0")) {
                     continue;
@@ -175,37 +185,69 @@ public class SubmitLabByForm2Action extends ActionSupport {
 
         //generate the HL7 from the Lab object.
         String hl7 = generateHL7(lab);
-        logger.info(hl7);
+        // Log HL7 metadata at INFO (MSH segment contains system metadata, not PHI).
+        // Full HL7 content is NOT logged to avoid PHI exposure from PID/OBX segments.
+        if (hl7 != null) {
+            int firstSep = hl7.indexOf('\r');
+            if (firstSep <= 0) {
+                firstSep = hl7.indexOf('\n');
+            }
+            String mshSegment = firstSep > 0 ? hl7.substring(0, firstSep) : "[MSH extraction failed]";
+            logger.info("HL7 generated (length={}, MSH={})", hl7.length(), LogSafe.sanitize(mshSegment, 400)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+        } else {
+            logger.error("HL7 generation returned null for lab submission");
+            addActionError("Failed to generate lab result. Please verify all required fields and try again.");
+            return manage();
+        }
 
         //save file
         String filename = "Lab" + providerNo + ((int) (Math.random() * 1000)) + ".hl7";
         ByteArrayInputStream is = new ByteArrayInputStream(hl7.getBytes());
         String filePath = Utilities.saveFile(is, filename);
         is.close();
-        File file = new File(filePath);
+        File uploadDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        File file = PathValidationUtils.validateExistingPath(new File(filePath), uploadDir);
 
-        FileInputStream fis = new FileInputStream(filePath);
-        int checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), fis, providerNo);
-        fis.close();
-
-        String outcome = null;
-
-        if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-            logger.info("filePath" + filePath);
-            logger.info("Type :" + labName);
-            MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
-            if (msgHandler != null) {
-                logger.info("MESSAGE HANDLER " + msgHandler.getClass().getName());
-            }
-            if ((msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, ipAddr)) != null)
-                outcome = "success";
-
-        } else {
-            outcome = "uploaded previously";
+        int checkFileUploadedSuccessfully;
+        try (FileInputStream fis = new FileInputStream(file)) {
+            checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), fis, providerNo);
         }
 
-        logger.info("outcome=" + outcome);
+        if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
+            logger.info("filePath {}", LogSafe.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.info("Type :{}", LogSafe.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
+            if (msgHandler == null) {
+                logger.warn("outcome=error — no message handler found for lab type {}", LogSafe.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                addActionError(getText("oscarMDS.createLab.submitError"));
+                return manage();
+            }
+            logger.info("MESSAGE HANDLER {}", msgHandler.getClass().getName());
+            String parseResult = msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, ipAddr);
+            if (parseResult != null) {
+                logger.info("outcome=success");
+                Integer labNo = msgHandler.getLastLabNo();
+                if (labNo == null) {
+                    logger.error("Parsed lab is missing a lab number; skipping provider routing");
+                    addActionError(getText("oscarMDS.createLab.submitError"));
+                    return manage();
+                }
 
+                try {
+                    new ProviderLabRouting().routeMagic(labNo, providerNo, "HL7");
+                    addActionMessage(getText("oscarMDS.createLab.submitSuccess"));
+                } catch (RuntimeException e) {
+                    logger.error("Provider routing failed for lab {}", labNo, e);
+                    addActionError(getText("oscarMDS.createLab.submitError"));
+                }
+            } else {
+                logger.warn("outcome=null — lab handler returned null; lab may not have been saved");
+                addActionError(getText("oscarMDS.createLab.submitError"));
+            }
+        } else {
+            logger.info("outcome=uploaded previously");
+            addActionError(getText("oscarMDS.createLab.submitDuplicate"));
+        }
 
         return manage();
     }
@@ -218,11 +260,13 @@ public class SubmitLabByForm2Action extends ActionSupport {
 	 * @param lab the Lab model containing patient and test data to include in the message
 	 * @return the generated HL7 message as a String
 	 */
+	// FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+	@SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
 	private String generateHL7(Lab lab) {
 		// Generate appropriate HL7 format based on lab type
 		String labType = lab.getLabName();
 		labType = labType == null ? "" : labType.trim().toUpperCase();
-		logger.info("Generating HL7 for lab type: [" + labType + "]");
+		logger.info("Generating HL7 for lab type: [{}]", LogSafe.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
 		switch (labType) {
 			case "MDS":
@@ -232,7 +276,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
 			case "CML":
 				return CMLLabHL7Generator.generate(lab);
 			default:
-				logger.error("Unsupported lab type: [" + labType + "]; defaulting to CML.");
+				logger.error("Unsupported lab type: [{}]; defaulting to CML.", LogSafe.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 				return CMLLabHL7Generator.generate(lab);
 		}
 	}

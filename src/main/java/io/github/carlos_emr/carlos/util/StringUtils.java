@@ -33,13 +33,10 @@ package io.github.carlos_emr.carlos.util;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class StringUtils {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -81,57 +78,6 @@ public class StringUtils {
         return result;
     }
 
-    public static boolean existsStrInVector(String str, String delimiter, String arrayStr) {
-        Vector vector = splitString(arrayStr, delimiter);
-
-        for (int i = 0; i < vector.size(); i++) {
-            if (vector.get(i).equals(str)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    public static boolean validateRegEx(String regex, String value) {
-        try {
-            Pattern pattern = Pattern.compile(regex);
-            Matcher matcher = pattern.matcher(value);
-            boolean matchFound = matcher.matches();
-
-            return matchFound;
-        } catch (IllegalStateException e) {
-            MiscUtils.getLogger().error("Error", e);
-            logger.error("Erro ao validar expressao regular", e);
-
-            return false;
-        }
-    }
-
-    public static String getResourceLine(String resourceName, String resourceIten) {
-        InputStream is = logger.getClass().getResourceAsStream("/" + resourceName);
-        Properties props = new Properties();
-
-        try {
-            props.load(is);
-            logger.debug("carregou " + resourceName);
-
-            return props.getProperty(resourceIten);
-        } catch (Exception e) {
-            logger.error("Can't read the properties file. " + "Make sure " + resourceName + " is in the CLASSPATH", e);
-
-            return null;
-        }
-    }
-
-    public static String transformEmptyStringInNull(String value) {
-        if (value != null) {
-            return (value.equals("") ? "$null$" : value);
-        } else {
-            return value;
-        }
-    }
-
     public static String transformNullInEmptyString(String value) {
         return ((value == null) ? "" : value);
     }
@@ -170,6 +116,8 @@ public class StringUtils {
         return result;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isNullOrEmpty(String obj) {
         if (obj == null) {
             return true;
@@ -398,6 +346,11 @@ public class StringUtils {
         return text.contains(searchWord);
     }
 
+    /**
+     * Legacy blank scrubber. Prefer Apache Commons Lang's
+     * {@code defaultString}, {@code trimToEmpty}, or {@code isBlank} in new code
+     * when those narrower semantics are intended.
+     */
     static public String noNull(String maybeNullText) {
         return filled(maybeNullText) ? maybeNullText : "";
     }

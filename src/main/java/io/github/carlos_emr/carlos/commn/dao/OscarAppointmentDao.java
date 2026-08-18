@@ -34,14 +34,28 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
+
+import io.github.carlos_emr.carlos.appointment.dto.PatientAppointmentExportRow;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 
 public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public boolean checkForConflict(Appointment appt);
+
+    /**
+     * Loads an appointment while acquiring a database write lock. Callers must
+     * invoke this method inside the transaction that performs the corresponding
+     * mutation so the lock remains held through validation and commit.
+     *
+     * @param appointmentNo appointment primary key
+     * @return the locked appointment, or {@code null} when it does not exist
+     */
+    Appointment findForUpdate(Integer appointmentNo);
 
     public List<Appointment> getAppointmentHistory(Integer demographicNo, Integer offset, Integer limit);
 
@@ -92,14 +106,23 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public Appointment findDemoAppointmentToday(Integer demographicNo);
 
-    public List<Appointment> findByEverything(Date appointmentDate, String providerNo, Date startTime, Date endTime,
-                                              String name, String notes, String reason, Date createDateTime, String creator, int demographicNo);
-
     public List<Appointment> findByProviderAndDate(String providerNo, Date appointmentDate);
 
     public List<Object[]> findAppointments(Date sDate, Date eDate);
 
     public List<Object[]> findPatientAppointments(String providerNo, Date from, Date to);
+
+    /**
+     * Streams patient appointment rows through a transaction-scoped cursor so
+     * large report exports do not materialize the complete result set in memory.
+     *
+     * @param providerNo provider filter, or {@code null} for all providers
+     * @param from inclusive start date, or {@code null}
+     * @param to inclusive end date, or {@code null}
+     * @param rowConsumer invoked once for each projected export row
+     */
+    void streamPatientAppointments(String providerNo, Date from, Date to,
+                                   Consumer<PatientAppointmentExportRow> rowConsumer);
 
     public List<Appointment> search_unbill_history_daterange(String providerNo, Date startDate, Date endDate);
 
@@ -129,7 +152,7 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public Appointment findByDate(Date appointmentDate);
 
-    public List<Object[]> findAppointmentAndProviderByAppointmentNo(Integer apptNo);
+    public List<io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow> findAppointmentAndProviderByAppointmentNo(Integer apptNo);
 
     public List<Appointment> searchappointmentday(String providerNo, Date appointmentDate, Integer programId);
 
@@ -137,16 +160,6 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
                                                       String selectedSiteId);
 
     public List<Object[]> findAppointmentsByDemographicIds(Set<String> demoIds, Date from, Date to);
-
-    public List<Appointment> findPatientBilledAppointmentsByProviderAndAppointmentDate(
-            String providerNo,
-            Date startAppointmentDate,
-            Date endAppointmentDate);
-
-    public List<Appointment> findPatientUnbilledAppointmentsByProviderAndAppointmentDate(
-            String providerNo,
-            Date startAppointmentDate,
-            Date endAppointmentDate);
 
     public List<Appointment> findByProgramProviderDemographicDate(Integer programId, String providerNo,
                                                                   Integer demographicId, Date updatedAfterThisDateExclusive, int itemsToReturn);
@@ -161,8 +174,22 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public int updateApptStatus(String ids, String status);
 
+    public List<io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportUnbilledRow>
+    findBillingOnNewReportUnbilledRows(String providerNo, String startDate, String endDate);
+
     public List<Object[]> listAppointmentsByPeriodProvider(Date sDate, Date eDate, List<Integer> providerNos);
 
     public List<Object[]> listProviderAppointmentCounts(Date sDate, Date eDate);
 
+    /**
+     * Returns lightweight appointment DTOs for a provider on a given date, with
+     * pre-joined patient names from Demographic. Uses JPQL constructor expression
+     * projection (17 fields vs 37 on entity).
+     *
+     * @param date Date the appointment date
+     * @param providerNo String the provider number
+     * @return List of AppointmentListItemDTO for the provider's daily schedule
+     * @since 2026-04-11
+     */
+    public List<AppointmentListItemDTO> findDayAppointmentDTOs(Date date, String providerNo);
 }

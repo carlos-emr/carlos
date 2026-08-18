@@ -272,8 +272,8 @@ function saveCanvas() {
     if (_in_window) {
         jQuery.ajax({
             type: "POST",
-            url: contextPath + "/signature_pad/uploadSignature.jsp",
-            data: jQuery("#signatureForm").formSerialize(),
+            url: contextPath + "/signature_pad/SaveSignatureUpload",
+            data: jQuery("#signatureForm").serialize(),
             success: function (data) {
                 var savedId = jQuery(jQuery(data.trim())[0]).val();
                 OnSignEvent(true, false, savedId);

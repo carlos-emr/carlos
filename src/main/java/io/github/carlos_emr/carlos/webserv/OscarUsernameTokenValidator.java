@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.webserv;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.cxf.binding.soap.SoapMessage;
 import org.apache.cxf.transport.http.AbstractHTTPDestination;
@@ -61,7 +61,6 @@ public class OscarUsernameTokenValidator extends UsernameTokenValidator {
     @Override
     protected void verifyPlaintextPassword(UsernameToken usernameToken, RequestData data) throws WSSecurityException {
         logger.debug("userIdString=" + usernameToken.getName());
-        logger.debug("password=" + usernameToken.getPassword());
 
         try {
             Integer securityUserId = Integer.parseInt(usernameToken.getName());

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<beans xmlns="http://www.springframework.org/schema/beans" 
+<beans xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xmlns:context="http://www.springframework.org/schema/context"
        xmlns:aop="http://www.springframework.org/schema/aop"
@@ -65,7 +65,7 @@
                     <bean class="com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector"/>
                 </constructor-arg>
                 <constructor-arg>
-                    <bean class="com.fasterxml.jackson.module.jaxb.JaxbAnnotationIntrospector">
+                    <bean class="com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector">
                         <constructor-arg>
                             <bean class="com.fasterxml.jackson.databind.type.TypeFactory" factory-method="defaultInstance"/>
                         </constructor-arg>
@@ -87,7 +87,7 @@
     </bean>
 
     <!-- Jackson 2 JAX-RS provider -->
-    <bean id="jsonProvider" class="com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider">
+    <bean id="jsonProvider" class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider">
         <property name="mapper" ref="jacksonObjectMapper"/>
     </bean>
 
@@ -132,11 +132,9 @@
             <ref bean="jsonProvider"/>
             <!-- Optional: accept x-www-form-urlencoded bodies -->
             <bean class="org.apache.cxf.jaxrs.provider.FormEncodingProvider"/>
+            <!-- Render OAuth1Exception with its carried HTTP status instead of a 500 -->
+            <bean class="io.github.carlos_emr.carlos.webserv.oauth.OAuth1ExceptionMapper"/>
         </jaxrs:providers>
-
-        <jaxrs:features>
-            <cxf:logging/>
-        </jaxrs:features>
 
         <jaxrs:extensionMappings>
             <entry key="xml"  value="application/xml"/>
@@ -157,7 +155,6 @@
 
         <jaxrs:serviceBeans>
             <bean class="io.github.carlos_emr.carlos.webserv.oauth.OAuthStatusService" autowire="byName"/>
-            <bean class="io.github.carlos_emr.carlos.webserv.csrf.CsrfTokenService" autowire="byName"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.PharmacyService"  autowire="byName"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.DemographicService"  autowire="byName"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.ScheduleService"  autowire="byName"/>
@@ -173,7 +170,6 @@
             <bean class="io.github.carlos_emr.carlos.webserv.rest.FormsService"  autowire="byName"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.OscarJobService"  autowire="byName"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.NotesService" autowire="byName" />
-            <bean class="io.github.carlos_emr.carlos.webserv.rest.ProductDispensingService"  autowire="byName"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.RecordUxService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.ReportingService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.BillingService" autowire="byName" />
@@ -190,6 +186,8 @@
             <bean class="io.github.carlos_emr.carlos.webserv.rest.MeasurementService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.DocumentService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.ConsentService" autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.EFormService" autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.EFormsService" autowire="byName"/>
         </jaxrs:serviceBeans>
 
         <jaxrs:providers>

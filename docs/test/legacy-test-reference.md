@@ -19,7 +19,6 @@ src/test/
 │   │   │   ├── dao/              # DAO tests (largest collection)
 │   │   │   │   └── utils/        # Test utilities
 │   │   │   │       ├── EntityDataGenerator.java
-│   │   │   │       ├── SchemaUtils.java
 │   │   │   │       ├── DataUtils.java
 │   │   │   │       ├── AuthUtils.java
 │   │   │   │       └── ConfigUtils.java
@@ -83,7 +82,6 @@ public class SomeDaoTest extends DaoTestFixtures {
 Located at `io.github.carlos_emr.carlos.commn.dao.DaoTestFixtures`, this base class provides:
 - Database connection setup via `@BeforeClass` static initialization
 - Spring context initialization from `applicationContextTest.xml`
-- Database schema utilities through `SchemaUtils`
 - LoggedInInfo for authentication context
 - Note: Uses mix of JUnit 3 (junit.framework) and JUnit 4 (@BeforeClass) imports
 
@@ -92,7 +90,6 @@ Located at `io.github.carlos_emr.carlos.commn.dao.DaoTestFixtures`, this base cl
 Located in `io.github.carlos_emr.carlos.commn.dao.utils`:
 
 - **EntityDataGenerator**: Creates test entities with valid data
-- **SchemaUtils**: Database schema operations for tests (table creation, cleanup)
 - **DataUtils**: Common data manipulation utilities
 - **AuthUtils**: Authentication/authorization test helpers
 - **ConfigUtils**: Test configuration management (loads over_ride_config.properties)
@@ -177,10 +174,9 @@ Province-specific billing functionality:
 The following tests are excluded from regular Maven test runs via Surefire plugin configuration:
 
 - **HinValidatorTest** - Health Insurance Number validation
-- **MCEDT Tests** (`**/*EDTTest.java`) - Medical Certificate Electronic Data Transfer
+- **MCEDT Tests** (`**/*EDTTest.java`) - Medical Claims Electronic Data Transfer
 - **AR2005 Tests** (`**/AR2005*.java`) - Annual Report 2005 related
 - **OntarioMDSpec4DataTest** - Ontario MD specification tests
-- **ONAREnhancedBornConnectorTest** - BORN integration tests
 - **E2E Tests** (`org/oscarehr/e2e/**/*.java`) - End-to-end tests
 
 These tests are compiled but not executed during normal `mvn test` runs. They can be run explicitly when needed.
@@ -215,9 +211,9 @@ See `/workspace/docs/Testing_Exclusion_of_MCEDT_and_HinValidator_tests.md` for f
 | **Execution Speed** | 5-15 minutes | < 4 seconds |
 | **Assertions** | JUnit assert methods | AssertJ fluent |
 | **Organization** | Package/class hierarchy | @Nested classes + files |
-| **Naming** | testMethodName() | should_action_when_condition() |
+| **Naming** | testMethodName() | shouldAction_whenCondition() |
 | **Spring Context** | Full applicationContextTest.xml | Optimized test contexts |
-| **Base Classes** | DaoTestFixtures | OpenOTestBase family |
+| **Base Classes** | DaoTestFixtures | CarlosTestBase family |
 
 ## Test Execution in CI/CD
 

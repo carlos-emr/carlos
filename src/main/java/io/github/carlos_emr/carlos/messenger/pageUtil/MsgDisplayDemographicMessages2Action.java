@@ -32,19 +32,24 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import java.io.IOException;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import org.apache.logging.log4j.Logger;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.messenger.util.MsgDemoMap;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+
 
 /**
  * Struts2 action for displaying and managing messages associated with a specific patient demographic.
@@ -146,11 +151,22 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
             
             // Validate required parameters before proceeding
             if (providerNo == null || userName == null || demographicNo == null) {
-                MiscUtils.getLogger().error("Missing required parameters: " + 
-                                          "providerNo=" + providerNo + 
-                                          ", userName=" + userName + 
-                                          ", demographic_no=" + demographicNo);
+                MiscUtils.getLogger().error("Missing required parameters: providerNo={}, userName={}, demographic_no={}",
+                    providerNo != null ? "present" : "null",
+                    userName != null ? "present" : "null",
+                    demographicNo != null ? "present" : "null");
                 return "error"; 
+            }
+
+            // Validate demographicNo is numeric before storing in session bean
+            if (!demographicNo.matches("\\d+")) {
+                Logger logger = MiscUtils.getLogger();
+                if (logger.isErrorEnabled()) {
+                    logger.error("Invalid non-numeric demographic_no received; value omitted from log");
+                }
+                // Clear any stale session bean to prevent PHI leakage from a previous request
+                request.getSession().removeAttribute("msgSessionBean");
+                return "error";
             }
             
             // Initialize the session bean with demographic context
@@ -158,8 +174,13 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
             bean.setUserName(userName);
             bean.setDemographic_no(demographicNo);
 
-            request.getSession().setAttribute("msgSessionBean", bean);
-            MiscUtils.getLogger().debug("Created new MsgSessionBean for providers: " + providerNo);
+            // demographicNo validated as numeric; userName is unsanitized — JSPs must use OWASP encoding
+            request.getSession().setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            Logger logger = MiscUtils.getLogger();
+            if (logger.isDebugEnabled()) {
+                String safeProvider = LogSafe.sanitize(providerNo);
+                logger.debug("Created new MsgSessionBean for providers: {}", safeProvider);
+            }
         }
 
         // Process message unlinking if requested
@@ -205,6 +226,7 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
      *
      * @param mess String[] array of message IDs selected for unlinking
      */
+    @StrutsParameter
     public void setMessageNo(String[] mess) {
         this.messageNo = mess;
     }

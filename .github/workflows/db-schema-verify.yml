@@ -1,0 +1,375 @@
+# GitHub Workflow: Verify the CARLOS Flyway baseline applies cleanly
+#
+# The legacy script build (createdatabase_<prov>.sh + oscarinit*/oscardata*) has been retired:
+# the consolidated Flyway V1 baseline is now the single source of truth. There is no longer a
+# legacy schema to diff against, so this workflow proves the forward guarantee instead — that a
+# fresh `flyway migrate` (common + province) succeeds, validates, and yields a populated schema —
+# for both provinces. Reference-data/row-count parity against the old build was verified once at
+# cutover (PR #3150) and is preserved in git history.
+#
+# Triggered on schema, installer, validator, hook, and devcontainer changes that can affect DB setup.
+
+name: DB schema verify
+
+on:
+  pull_request:
+    paths:
+      - 'database/mysql/**'
+      - 'release/**'
+      - 'pom.xml'
+      - 'src/main/java/io/github/carlos_emr/carlos/db/FlywaySchemaValidator.java'
+      - 'src/main/resources/spring_jpa.xml'
+      - 'src/main/resources/carlos.properties'
+      - '.devcontainer/**'
+      - '.github/workflows/db-schema-verify.yml'
+      - '.claude/**'
+
+# Read-only job: it checks out the repo and talks to a local docker container.
+permissions:
+  contents: read
+
+jobs:
+  flyway-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        province: [on, bc]
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install MariaDB client and Flyway CLI
+        run: |
+          sudo apt-get update && sudo apt-get install -y mariadb-client
+          FLYWAY_VERSION=11.14.0
+          # Pinned SHA256 (same pin as release/make_CARLOS_deb.sh) — update together with the version.
+          FLYWAY_SHA256=310af67e104e128e93cfe7fa7a59570024f0bb2c03bfdc70137acbe03d5cf5d0
+          # The bundled linux CLI tarball is on Red Gate's mirror; Maven Central only has the jar.
+          curl -fsSL "https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
+            -o /tmp/flyway.tgz
+          echo "${FLYWAY_SHA256}  /tmp/flyway.tgz" | sha256sum -c -
+          tar xzf /tmp/flyway.tgz
+          echo "$PWD/flyway-${FLYWAY_VERSION}" >> "$GITHUB_PATH"
+
+      - name: Start MariaDB 11.8.8 with the CARLOS server config
+        env:
+          MYSQL_PWD: password
+        run: |
+          set -euo pipefail
+          # Run MariaDB with the SAME my.cnf the devcontainer/production use (not a stock service
+          # container) so the datadir initializes with innodb_page_size=32K. CARLOS requires 32K
+          # pages (a documented invariant): several wide legacy form tables — e.g. formBCAR (500+
+          # varchar columns) — exceed InnoDB's ~8126-byte leaf-row limit under the default 16K page
+          # size but fit under 32K. 11.8.8 matches the devcontainer/CI runtime and carlos-podman.
+          docker run -d --name carlos-db -p 3306:3306 \
+            -e MARIADB_ROOT_PASSWORD=password \
+            -v "$GITHUB_WORKSPACE/.devcontainer/development/config/shared/my.cnf:/etc/mysql/my.cnf:ro" \
+            mariadb:11.8.8
+          echo "Waiting for MariaDB to accept connections..."
+          for i in $(seq 1 60); do
+            if mariadb -h 127.0.0.1 -uroot -e "SELECT 1" >/dev/null 2>&1; then
+              echo "MariaDB ready (innodb_page_size=$(mariadb -N -h 127.0.0.1 -uroot -e 'SELECT @@innodb_page_size'))"
+              break
+            fi
+            [ "$i" = 60 ] && { echo "::error::MariaDB did not start"; docker logs carlos-db; exit 1; }
+            sleep 2
+          done
+          # ASSERT the 32K invariant this whole job depends on — a mis-mounted my.cnf would fall
+          # back to 16K pages and only fail indirectly (or not at all) on narrow tables.
+          PAGE_SIZE=$(mariadb -N -h 127.0.0.1 -uroot -e 'SELECT @@innodb_page_size')
+          if [ "${PAGE_SIZE}" != "32768" ]; then
+            echo "::error::innodb_page_size is ${PAGE_SIZE}, expected 32768 — the CARLOS my.cnf did not apply"
+            exit 1
+          fi
+
+      - name: Migrate the V1 baseline and smoke-check the result
+        env:
+          # DB password stays off the process argv: the mariadb client reads MYSQL_PWD and Flyway
+          # reads FLYWAY_PASSWORD, so neither the `-p...` nor `-password=` flag appears in `ps`.
+          # (These CI creds are a throwaway against an ephemeral local container, but this matches
+          # the off-argv hardening used in release/postinst and carlos_backup.sh.)
+          MYSQL_PWD: password
+          FLYWAY_PASSWORD: password
+          # Matrix value enters via env (not inline ${{ }} in the script body) — template-injection hygiene.
+          PROV: ${{ matrix.province }}
+        run: |
+          set -euo pipefail
+          cd database/mysql
+          MYSQL="mariadb -h 127.0.0.1 -uroot"
+          # jdbc:mariadb — the MariaDB driver bundled in the pinned Flyway CLI, matching the
+          # jdbc:mariadb URLs release/postinst and carlos-ctl use against the same server.
+          JDBC="jdbc:mariadb://127.0.0.1:3306/carlos_${PROV}?allowPublicKeyRetrieval=true&useSSL=false"
+
+          # Fresh install path: exactly what production runs via `carlos-ctl db migrate` and the
+          # .deb postinst — common + province locations, baselineOnMigrate for the empty schema.
+          $MYSQL -e "CREATE DATABASE carlos_${PROV};"
+          timeout 30m flyway -url="$JDBC" -user=root \
+            -locations="filesystem:migration/common,filesystem:migration/${PROV}" \
+            -baselineOnMigrate=true migrate
+
+          # validate confirms the applied history is consistent with the files. NOTE: on a fresh
+          # DB this is NOT an independent proof against a hand-edited baseline (migrate computed
+          # the checksums from these same files moments ago) — the explicit history + content
+          # assertions below carry that weight.
+          timeout 10m flyway -url="$JDBC" -user=root \
+            -locations="filesystem:migration/common,filesystem:migration/${PROV}" validate
+
+          # Every expected migration must actually have applied — catches a silently-empty or
+          # missing province location, which migrate+validate alone would not flag. Derive the
+          # expected version list from the shipped migration files (common + this province) so a
+          # newly added forward migration is asserted automatically instead of needing this list
+          # hand-updated (mirrors populate_db.sh's dynamic discovery).
+          EXPECTED=$(find migration/common migration/${PROV} -maxdepth 1 -name 'V*.sql' -printf '%f\n' \
+            | sed -n 's/^V\([0-9][0-9.]*\)__.*$/\1/p' | sort -u -V)
+          if [ -z "${EXPECTED}" ]; then
+            echo "::error::no V*.sql migrations found for ${PROV} — cannot verify applied history"
+            exit 1
+          fi
+          for v in ${EXPECTED}; do
+            ok=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM flyway_schema_history WHERE version='${v}' AND success=1")
+            if [ "${ok}" != "1" ]; then
+              echo "::error::migration version ${v} missing from flyway_schema_history for ${PROV}"
+              exit 1
+            fi
+          done
+
+          # Smoke checks: a real, populated schema (not an empty or half-applied DB).
+          TABLES=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='carlos_${PROV}' AND table_name<>'flyway_schema_history'")
+          echo "province ${PROV}: ${TABLES} tables"
+          if [ "${TABLES}" -lt 300 ]; then
+            echo "::error::Only ${TABLES} tables after migrate for ${PROV} — baseline did not apply fully"
+            exit 1
+          fi
+
+          # Required reference data must be present: the carlosdoc admin privilege seed and ICD codes.
+          ADMIN_GRANT=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup='admin' AND objectName='_admin'")
+          ICD=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM icd9")
+          if [ "${ADMIN_GRANT}" -lt 1 ]; then
+            echo "::error::carlosdoc admin privilege seed missing after migrate for ${PROV}"
+            exit 1
+          fi
+          if [ "${ICD:-0}" -lt 1 ]; then
+            echo "::error::diagnostic code table (icd9) empty after migrate for ${PROV}"
+            exit 1
+          fi
+          if [ "${PROV}" = "on" ]; then
+            OHIP_FILENAME_UQ=$($MYSQL -N carlos_on -e "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema='carlos_on' AND table_name='billing_on_diskname' AND index_name='billing_on_diskname_ohipfilename_uq' AND non_unique=0")
+            HTML_FILENAME_UQ=$($MYSQL -N carlos_on -e "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema='carlos_on' AND table_name='billing_on_filename' AND index_name='billing_on_filename_htmlfilename_uq' AND non_unique=0")
+            if [ "${OHIP_FILENAME_UQ}" != "1" ] || [ "${HTML_FILENAME_UQ}" != "1" ]; then
+              echo "::error::Ontario billing filename unique indexes are missing after migrate"
+              exit 1
+            fi
+          fi
+          PHCP_GROUPS=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM dxphcpgroup")
+          if [ "${PHCP_GROUPS:-0}" -lt 1 ]; then
+            echo "::error::PHCP diagnosis grouping reference data missing after migrate for ${PROV}"
+            exit 1
+          fi
+          if [ "${PROV}" = "bc" ]; then
+            BC_PRECISE_PHCP_GROUP=$($MYSQL -N carlos_bc -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='2740' AND level2='ICD-9 240-279'")
+            if [ "${BC_PRECISE_PHCP_GROUP:-0}" != "1" ]; then
+              echo "::error::BC four-digit diagnosis 2740 was not grouped by its 274 chapter prefix"
+              exit 1
+            fi
+            BC_PADDED_PHCP_GROUP=$($MYSQL -N carlos_bc -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='0320' AND level2='ICD-9 001-139'")
+            BC_CANONICAL_PHCP_GROUP=$($MYSQL -N carlos_bc -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='320' AND level2='ICD-9 320-389'")
+            if [ "${BC_PADDED_PHCP_GROUP:-0}" != "1" ]; then
+              echo "::error::BC zero-padded diagnosis 0320 was not kept distinct in its 032 chapter"
+              exit 1
+            fi
+            if [ "${BC_CANONICAL_PHCP_GROUP:-0}" != "1" ]; then
+              echo "::error::BC diagnosis 320 did not prefer its canonical non-zero-padded chapter"
+              exit 1
+            fi
+          fi
+
+          COMMON_RESTORED=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='carlos_${PROV}' AND table_name IN ('demographicstudy','study','studydata','form_hsfo2_visit','providerstudy')")
+          # Exercise the default-measurement seed against MariaDB, not only as SQL text.
+          DEFAULT_GROUPS=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroup WHERE (name,typeDisplayName) IN (('Vitals','BP'),('Vitals','Heart Rate'),('Vitals','RR'),('Vitals','Temp'),('Vitals','Oxygen Saturation'),('Anthropometrics','HT'),('Anthropometrics','WT'),('Anthropometrics','Body Mass Index'),('Anthropometrics','Waist'),('Anthropometrics','Head circumference'),('Diabetes Review','A1C'),('Diabetes Review','Blood Glucose'),('Diabetes Review','FBS'),('Diabetes Review','Alb creat ratio'),('Diabetes Review','EGFR'),('Diabetes Review','LDL'),('Diabetes Review','HDL'),('Diabetes Review','Triglycerides'),('Diabetes Review','TC/HDL'),('Respiratory Review','Oxygen Saturation'),('Respiratory Review','RR'),('Respiratory Review','PEFR value'),('Respiratory Review','Forced Expiratory Volume 1 Second'),('Respiratory Review','Spirometry'),('Respiratory Review','Smoking Status'),('Mental Health Scores','PHQ9 Score'),('Mental Health Scores','GAD7 Anxiety Score'))")
+          if [ "${DEFAULT_GROUPS}" != "27" ]; then
+            echo "::error::expected 27 default measurement-group mappings for ${PROV}, found ${DEFAULT_GROUPS}"
+            exit 1
+          fi
+          DUPLICATE_DEFAULTS=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM (SELECT name, typeDisplayName FROM measurementGroup WHERE (name,typeDisplayName) IN (('Vitals','BP'),('Vitals','Heart Rate'),('Vitals','RR'),('Vitals','Temp'),('Vitals','Oxygen Saturation'),('Anthropometrics','HT'),('Anthropometrics','WT'),('Anthropometrics','Body Mass Index'),('Anthropometrics','Waist'),('Anthropometrics','Head circumference'),('Diabetes Review','A1C'),('Diabetes Review','Blood Glucose'),('Diabetes Review','FBS'),('Diabetes Review','Alb creat ratio'),('Diabetes Review','EGFR'),('Diabetes Review','LDL'),('Diabetes Review','HDL'),('Diabetes Review','Triglycerides'),('Diabetes Review','TC/HDL'),('Respiratory Review','Oxygen Saturation'),('Respiratory Review','RR'),('Respiratory Review','PEFR value'),('Respiratory Review','Forced Expiratory Volume 1 Second'),('Respiratory Review','Spirometry'),('Respiratory Review','Smoking Status'),('Mental Health Scores','PHQ9 Score'),('Mental Health Scores','GAD7 Anxiety Score')) GROUP BY name, typeDisplayName HAVING COUNT(*) <> 1) duplicates")
+          if [ "${DUPLICATE_DEFAULTS}" != "0" ]; then
+            echo "::error::default measurement-group mappings contain duplicates for ${PROV}"
+            exit 1
+          fi
+          DEFAULT_STYLES=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName IN ('Vitals', 'Anthropometrics', 'Diabetes Review', 'Respiratory Review', 'Mental Health Scores') AND cssID=0")
+          if [ "${DEFAULT_STYLES}" != "5" ]; then
+            echo "::error::expected five default measurement-group styles for ${PROV}, found ${DEFAULT_STYLES}"
+            exit 1
+          fi
+          ORPHAN_TEST_STYLE=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroupStyle mgs LEFT JOIN measurementGroup mg ON mg.name=mgs.groupName WHERE mgs.groupName='Test' AND mg.id IS NULL")
+          if [ "${ORPHAN_TEST_STYLE}" != "0" ]; then
+            echo "::error::orphan Test measurement-group style survived migration for ${PROV}"
+            exit 1
+          fi
+
+          # Reapplying this data-only seed must be safe for interrupted/manual upgrade recovery.
+          $MYSQL carlos_${PROV} < migration/common/V1.0.10__seed_default_measurement_groups.sql
+          REAPPLIED_GROUPS=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroup WHERE (name,typeDisplayName) IN (('Vitals','BP'),('Vitals','Heart Rate'),('Vitals','RR'),('Vitals','Temp'),('Vitals','Oxygen Saturation'),('Anthropometrics','HT'),('Anthropometrics','WT'),('Anthropometrics','Body Mass Index'),('Anthropometrics','Waist'),('Anthropometrics','Head circumference'),('Diabetes Review','A1C'),('Diabetes Review','Blood Glucose'),('Diabetes Review','FBS'),('Diabetes Review','Alb creat ratio'),('Diabetes Review','EGFR'),('Diabetes Review','LDL'),('Diabetes Review','HDL'),('Diabetes Review','Triglycerides'),('Diabetes Review','TC/HDL'),('Respiratory Review','Oxygen Saturation'),('Respiratory Review','RR'),('Respiratory Review','PEFR value'),('Respiratory Review','Forced Expiratory Volume 1 Second'),('Respiratory Review','Spirometry'),('Respiratory Review','Smoking Status'),('Mental Health Scores','PHQ9 Score'),('Mental Health Scores','GAD7 Anxiety Score'))")
+          REAPPLIED_STYLES=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName IN ('Vitals', 'Anthropometrics', 'Diabetes Review', 'Respiratory Review', 'Mental Health Scores') AND cssID=0")
+          if [ "${REAPPLIED_GROUPS}" != "${DEFAULT_GROUPS}" ] || [ "${REAPPLIED_STYLES}" != "${DEFAULT_STYLES}" ]; then
+            echo "::error::reapplying the default measurement-group seed created duplicates for ${PROV}"
+            exit 1
+          fi
+
+          # A missing measurement type must be skipped, and a mapped Test style must be preserved.
+          $MYSQL carlos_${PROV} -e "DELETE FROM measurementGroupStyle WHERE groupName='Test'; DELETE FROM measurementGroup WHERE name='Test'; DELETE FROM measurementGroup WHERE name='Mental Health Scores' AND typeDisplayName='GAD7 Anxiety Score'; DELETE FROM measurementType WHERE typeDisplayName='GAD7 Anxiety Score'; INSERT INTO measurementGroup (name,typeDisplayName) VALUES ('Test','BP'); INSERT INTO measurementGroupStyle (groupName,cssID) VALUES ('Test',0);"
+          $MYSQL carlos_${PROV} < migration/common/V1.0.10__seed_default_measurement_groups.sql
+          UNAVAILABLE_MAPPING=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroup WHERE name='Mental Health Scores' AND typeDisplayName='GAD7 Anxiety Score'")
+          PRESERVED_TEST_STYLE=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName='Test'")
+          if [ "${UNAVAILABLE_MAPPING}" != "0" ]; then
+            echo "::error::seed created a mapping for an unavailable measurement type in ${PROV}"
+            exit 1
+          fi
+          if [ "${PRESERVED_TEST_STYLE}" != "1" ]; then
+            echo "::error::seed did not preserve a mapped Test style in ${PROV}"
+            exit 1
+          fi
+          if [ "${COMMON_RESTORED}" != "5" ]; then
+            echo "::error::restored common legacy tables missing for ${PROV} (found ${COMMON_RESTORED}/5)"
+            exit 1
+          fi
+          REPORTING_GRANT=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup='doctor' AND objectName='_admin.reporting'")
+          if [ "${REPORTING_GRANT}" -lt 1 ]; then
+            echo "::error::doctor reporting privilege missing after migrate for ${PROV}"
+            exit 1
+          fi
+          if [ "${PROV}" = "bc" ]; then
+            BC_RESTORED=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='carlos_bc' AND table_name IN ('billing_history','billing_private_transactions','teleplanS00','teleplanS21','wcb','formBCAR2020','hl7_message')")
+            if [ "${BC_RESTORED}" != "7" ]; then
+              echo "::error::restored BC legacy tables missing (found ${BC_RESTORED}/7)"
+              exit 1
+            fi
+            BC_REF=$($MYSQL -N carlos_bc -e "SELECT COUNT(*) FROM professionalSpecialists")
+            if [ "${BC_REF:-0}" -lt 1 ]; then
+              echo "::error::BC professionalSpecialists reference data missing"
+              exit 1
+            fi
+
+            # formBCNewBorn2008 is a 649-column legacy form. Its free-text fields must stay
+            # off-row-capable under utf8mb4 or MariaDB rejects the definition with error 1118.
+            BC_TABLE_OPTIONS=$($MYSQL -N -e "SELECT LOWER(CONCAT(engine, '|', row_format, '|', table_collation)) FROM information_schema.tables WHERE table_schema='carlos_bc' AND table_name='formBCNewBorn2008'")
+            if [ "${BC_TABLE_OPTIONS}" != "innodb|dynamic|utf8mb4_general_ci" ]; then
+              echo "::error::formBCNewBorn2008 has unexpected table options: ${BC_TABLE_OPTIONS}"
+              exit 1
+            fi
+
+            # Use the exact approved narrative families. A broad 'note' match would incorrectly
+            # include 18 DATE columns and the three ProblemListSeeNotes TINYINT flags.
+            BC_NARRATIVE_COLUMNS=$($MYSQL -N -e "SELECT COUNT(DISTINCT column_name) FROM information_schema.columns WHERE table_schema='carlos_bc' AND table_name='formBCNewBorn2008' AND (LOWER(column_name) LIKE '%comment%' OR LOWER(column_name) LIKE '%text%' OR LOWER(column_name) REGEXP '^section13note(2|3)?(pg2|pg3)?$' OR LOWER(column_name) REGEXP '^section14progressnotes[1-8](pg2|pg3)?$' OR LOWER(column_name) REGEXP '^problemsrequiringfollowup(pg2|pg3)?$')")
+            BC_NARRATIVE_TEXT=$($MYSQL -N -e "SELECT COUNT(DISTINCT column_name) FROM information_schema.columns WHERE table_schema='carlos_bc' AND table_name='formBCNewBorn2008' AND data_type='text' AND is_nullable='YES' AND (column_default IS NULL OR UPPER(column_default)='NULL') AND (LOWER(column_name) LIKE '%comment%' OR LOWER(column_name) LIKE '%text%' OR LOWER(column_name) REGEXP '^section13note(2|3)?(pg2|pg3)?$' OR LOWER(column_name) REGEXP '^section14progressnotes[1-8](pg2|pg3)?$' OR LOWER(column_name) REGEXP '^problemsrequiringfollowup(pg2|pg3)?$')")
+            if [ "${BC_NARRATIVE_COLUMNS}" != "111" ] || [ "${BC_NARRATIVE_TEXT}" != "111" ]; then
+              echo "::error::formBCNewBorn2008 narrative columns are not the expected 111 nullable TEXT fields (matched=${BC_NARRATIVE_COLUMNS}, text=${BC_NARRATIVE_TEXT})"
+              exit 1
+            fi
+
+            BC_NOTE_STRUCTURED=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='carlos_bc' AND table_name='formBCNewBorn2008' AND ((data_type='tinyint' AND LOWER(column_name) REGEXP '^problemlistseenotes(pg2|pg3)?$') OR (data_type='date' AND LOWER(column_name) REGEXP '^section13note[1-3]date(resolved)?(pg2|pg3)?$'))")
+            BC_STRUCTURED_FIELDS=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='carlos_bc' AND table_name='formBCNewBorn2008' AND ((column_name='demographic_no' AND data_type='int') OR (column_name IN ('MothersName','Section9Date','SIGNATURE') AND data_type='varchar' AND character_maximum_length=70) OR (column_name='pg1_formDate' AND data_type='varchar' AND character_maximum_length=12))")
+            if [ "${BC_NOTE_STRUCTURED}" != "21" ] || [ "${BC_STRUCTURED_FIELDS}" != "5" ]; then
+              echo "::error::formBCNewBorn2008 structured field types changed unexpectedly (note exceptions=${BC_NOTE_STRUCTURED}/21, representatives=${BC_STRUCTURED_FIELDS}/5)"
+              exit 1
+            fi
+
+            # Prove long four-byte Unicode narrative content survives insert, read, and update.
+            BC_FORM_ID=$($MYSQL -N carlos_bc -e "SET NAMES utf8mb4; INSERT INTO formBCNewBorn2008 (demographic_no, Section15GeneralComment, Section14ProgressNotes1Pg2, Section16TextPg3, ProblemsrequiringFollowup) VALUES (-2008, CONCAT('comment-', CONVERT(0xF09F9880 USING utf8mb4)), CONCAT(REPEAT('N', 300), '\\nprogress'), CONCAT(REPEAT('T', 300), CONVERT(0xF09F9880 USING utf8mb4)), CONCAT('follow-up-', CONVERT(0xF09F9880 USING utf8mb4))); SELECT LAST_INSERT_ID();")
+            if ! [[ "${BC_FORM_ID}" =~ ^[0-9]+$ ]]; then
+              echo "::error::failed to insert formBCNewBorn2008 utf8mb4 regression row"
+              exit 1
+            fi
+            BC_ROUNDTRIP=$($MYSQL -N carlos_bc -e "SET NAMES utf8mb4; SELECT COUNT(*) FROM formBCNewBorn2008 WHERE ID=${BC_FORM_ID} AND SHA2(Section15GeneralComment,256)=SHA2(CONCAT('comment-', CONVERT(0xF09F9880 USING utf8mb4)),256) AND SHA2(Section14ProgressNotes1Pg2,256)=SHA2(CONCAT(REPEAT('N',300), '\\nprogress'),256) AND CHAR_LENGTH(Section16TextPg3)=301 AND OCTET_LENGTH(Section16TextPg3)=304 AND SHA2(ProblemsrequiringFollowup,256)=SHA2(CONCAT('follow-up-', CONVERT(0xF09F9880 USING utf8mb4)),256)")
+            $MYSQL carlos_bc -e "SET NAMES utf8mb4; UPDATE formBCNewBorn2008 SET Section14ProgressNotes1Pg2=CONCAT(REPEAT('U',320), CONVERT(0xF09F9880 USING utf8mb4)) WHERE ID=${BC_FORM_ID}"
+            BC_UPDATE_ROUNDTRIP=$($MYSQL -N carlos_bc -e "SET NAMES utf8mb4; SELECT COUNT(*) FROM formBCNewBorn2008 WHERE ID=${BC_FORM_ID} AND CHAR_LENGTH(Section14ProgressNotes1Pg2)=321 AND OCTET_LENGTH(Section14ProgressNotes1Pg2)=324")
+            $MYSQL carlos_bc -e "DELETE FROM formBCNewBorn2008 WHERE ID=${BC_FORM_ID}"
+            if [ "${BC_ROUNDTRIP}" != "1" ] || [ "${BC_UPDATE_ROUNDTRIP}" != "1" ]; then
+              echo "::error::formBCNewBorn2008 long utf8mb4 narrative round-trip failed"
+              exit 1
+            fi
+          fi
+
+          # Existing install adoption path: load the genesis schema/data without Flyway history,
+          # baseline it at the operator-approved V1.0.2 cutover point, then migrate forward.
+          # This catches installer regressions that a fresh baselineOnMigrate-only check misses.
+          ADOPT_DB="carlos_${PROV}_adopt"
+          ADOPT_JDBC="jdbc:mariadb://127.0.0.1:3306/${ADOPT_DB}?allowPublicKeyRetrieval=true&useSSL=false"
+          $MYSQL -e "CREATE DATABASE ${ADOPT_DB};"
+          {
+            echo "SET FOREIGN_KEY_CHECKS=0;"
+            cat "migration/common/V1__baseline_schema.sql" \
+                "migration/${PROV}/V1.0.1__${PROV}_schema.sql" \
+                "migration/${PROV}/V1.0.2__${PROV}_data.sql"
+            echo "SET FOREIGN_KEY_CHECKS=1;"
+          } | $MYSQL "${ADOPT_DB}"
+
+          # Some live clinics already have the legacy PHCP lookup. Prove the forward migration
+          # adopts its old shape, preserves clinic-specific mappings, and seeds missing codes.
+          $MYSQL "${ADOPT_DB}" -e "CREATE TABLE dxphcpgroup (dxcode int NOT NULL, level1 varchar(100) NOT NULL, level2 varchar(100) NOT NULL, PRIMARY KEY (dxcode)) ENGINE=MyISAM DEFAULT CHARSET=latin1; INSERT INTO dxphcpgroup (dxcode, level1, level2) VALUES (2, 'Clinic padded sentinel', 'Custom padded grouping'), (250, 'Clinic PHCP sentinel', 'Custom diabetes grouping'), (320, 'Clinic collision sentinel', 'Custom collision grouping');"
+
+          # Real BC installs can already have this live legacy form even though the consolidated
+          # V1.0.1 fixture does not. Verify V1.0.6's IF NOT EXISTS contract preserves it verbatim.
+          if [ "${PROV}" = "bc" ]; then
+            $MYSQL "${ADOPT_DB}" -e "CREATE TABLE formBCNewBorn2008 (ID int NOT NULL AUTO_INCREMENT, demographic_no int NOT NULL DEFAULT 0, Section16Text varchar(255) DEFAULT NULL, PRIMARY KEY (ID)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4; INSERT INTO formBCNewBorn2008 (demographic_no, Section16Text) VALUES (-2008, 'legacy-sentinel');"
+          fi
+
+          timeout 10m flyway -url="$ADOPT_JDBC" -user=root \
+            -locations="filesystem:migration/common,filesystem:migration/${PROV}" \
+            -baselineVersion=1.0.2 \
+            -baselineDescription="CARLOS full genesis (V1 + province V1.0.1/V1.0.2)" baseline
+          BASELINE_OK=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM flyway_schema_history WHERE version='1.0.2' AND type='BASELINE' AND success=1")
+          if [ "${BASELINE_OK}" != "1" ]; then
+            echo "::error::adoption baseline V1.0.2 missing for ${PROV}"
+            exit 1
+          fi
+          timeout 30m flyway -url="$ADOPT_JDBC" -user=root \
+            -locations="filesystem:migration/common,filesystem:migration/${PROV}" migrate
+          timeout 10m flyway -url="$ADOPT_JDBC" -user=root \
+            -locations="filesystem:migration/common,filesystem:migration/${PROV}" validate
+
+          for v in ${EXPECTED}; do
+            case "${v}" in
+              1|1.0.1|1.0.2) continue ;;
+            esac
+            ok=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM flyway_schema_history WHERE version='${v}' AND success=1")
+            if [ "${ok}" != "1" ]; then
+              echo "::error::adopted migration version ${v} missing from flyway_schema_history for ${PROV}"
+              exit 1
+            fi
+          done
+
+          ADOPT_TABLES=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${ADOPT_DB}' AND table_name<>'flyway_schema_history'")
+          if [ "${ADOPT_TABLES}" -lt 300 ]; then
+            echo "::error::Only ${ADOPT_TABLES} tables after adopted migrate for ${PROV}"
+            exit 1
+          fi
+
+          ADOPT_PHCP_SENTINEL=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='250' AND level1='Clinic PHCP sentinel' AND level2='Custom diabetes grouping'")
+          ADOPT_PHCP_PADDED=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='002' AND level1='Clinic padded sentinel' AND level2='Custom padded grouping'")
+          ADOPT_PHCP_SEED=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='003' AND level2='ICD-9 001-139'")
+          ADOPT_PHCP_KEY_TYPE=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='${ADOPT_DB}' AND table_name='dxphcpgroup' AND column_name='dxcode' AND data_type='varchar' AND character_maximum_length=5")
+          ADOPT_PHCP_AUDIT=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='${ADOPT_DB}' AND table_name='dxphcpgroup' AND column_name IN ('lastUpdateUser','lastUpdateDate')")
+          if [ "${ADOPT_PHCP_SENTINEL}" != "1" ] || [ "${ADOPT_PHCP_PADDED}" != "1" ] || [ "${ADOPT_PHCP_SEED}" != "1" ] || [ "${ADOPT_PHCP_KEY_TYPE}" != "1" ] || [ "${ADOPT_PHCP_AUDIT}" != "2" ]; then
+            echo "::error::adopted PHCP lookup did not preserve clinic mappings, expand padded keys, seed code 003, or add audit columns for ${PROV}"
+            exit 1
+          fi
+
+          if [ "${PROV}" = "bc" ]; then
+            ADOPT_BC_PHCP_COLLISION=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode IN ('0320','320') AND level1='Clinic collision sentinel' AND level2='Custom collision grouping'")
+            if [ "${ADOPT_BC_PHCP_COLLISION}" != "2" ]; then
+              echo "::error::adopted BC PHCP lookup did not preserve the legacy 0320/320 collision mapping"
+              exit 1
+            fi
+            ADOPT_BC_TYPE=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='${ADOPT_DB}' AND table_name='formBCNewBorn2008' AND column_name='Section16Text' AND data_type='varchar' AND character_maximum_length=255")
+            ADOPT_BC_SENTINEL=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM formBCNewBorn2008 WHERE demographic_no=-2008 AND Section16Text='legacy-sentinel'")
+            if [ "${ADOPT_BC_TYPE}" != "1" ] || [ "${ADOPT_BC_SENTINEL}" != "1" ]; then
+              echo "::error::BC adopted formBCNewBorn2008 was altered or its sentinel data was lost"
+              exit 1
+            fi
+          fi
+
+          echo "Flyway baseline verified for province ${PROV}: ${TABLES} fresh tables, ${ADOPT_TABLES} adopted tables, reference data present"

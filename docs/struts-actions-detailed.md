@@ -4,10 +4,12 @@
 
 This document provides a comprehensive reference of all Struts actions in the CARLOS EMR system. These actions serve as the primary entry points for handling HTTP requests and coordinating business logic within the web application.
 
+**Configuration**: Actions are defined across 17 domain-specific XML files (`struts-*.xml`) included from the parent `struts.xml`. See `docs/struts-actions-summary.md` for the modular architecture and module-to-file mapping.
+
 ## Statistics
 
-- **Total Actions:** 507
-- **Modules:** 29
+- **Total Actions:** ~476
+- **Module Files:** 17 (domain-specific)
 - **Primary Functional Areas:**
   - Clinical workflows (encounters, measurements, prescriptions)
   - Administrative functions (billing, demographics, reporting)
@@ -25,19 +27,16 @@ Administrative functions for system configuration, user management, and maintena
 | admin/AuditLogPurge | io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action | Purges old audit log entries from the system |
 | admin/Flowsheet | io.github.carlos_emr.carlos.flowsheet.Flowsheet2Action | Manages flowsheet templates and configurations |
 | admin/ForwardingRules | io.github.carlos_emr.carlos.oscarLab.pageUtil.ForwardingRules2Action | Configures lab result forwarding rules |
-| admin/GenerateTraceabilityReportAction | io.github.carlos_emr.carlos.admin.traceability.GenerateTraceabilityReport2Action | Generates system traceability reports for compliance |
-| admin/GenerateTraceAction | io.github.carlos_emr.carlos.admin.traceability.GenerateTrace2Action | Creates audit trails for data changes |
 | admin/GroupPreference | io.github.carlos_emr.carlos.commn.web.GroupPreference2Action | Manages user group preferences and settings |
-| admin/GstControl | io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action | Controls GST/HST billing settings for Ontario |
+| admin/GstControl | io.github.carlos_emr.carlos.billings.ca.on.web.GstControl2Action | Controls GST/HST billing settings for Ontario |
 | admin/ManageBillingReferral | io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2Action | Manages billing referral configurations |
 | admin/ManageClinic | io.github.carlos_emr.carlos.commn.web.ClinicManage2Action | Administers clinic information and settings |
-| admin/manageCSSStyles | io.github.carlos_emr.carlos.billing.CA.ON.web.ManageCSS2Action | Manages custom CSS styles for billing forms |
+| admin/manageCSSStyles | io.github.carlos_emr.carlos.billings.ca.on.web.ManageCss2Action | Manages custom CSS styles for billing forms |
 | admin/ManageEmails | io.github.carlos_emr.carlos.email.admin.ManageEmails2Action | Configures email server settings and templates |
 | admin/ManageFaxes | io.github.carlos_emr.carlos.fax.admin.ManageFaxes2Action | Manages fax server configurations |
 | admin/ManageFax | io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action | Configures individual fax settings |
 | admin/ManageSites | io.github.carlos_emr.carlos.commn.web.SitesManage2Action | Manages multi-site configurations |
 | admin/MergeRecords | io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action | Merges duplicate demographic records |
-| admin/oncallClinic | io.github.carlos_emr.carlos.admin.reports.SaveOnCallClinic2Action | Manages on-call clinic schedules |
 | admin/oscarStatus | io.github.carlos_emr.carlos.util.OscarStatus2Action | Displays system status and health information |
 | admin/uploadEntryText | io.github.carlos_emr.carlos.login.UploadLoginText2Action | Uploads custom login page text |
 
@@ -100,19 +99,31 @@ Comprehensive billing management for various Canadian provinces.
 | billing/CA/BC/viewformwcb | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewWCB2Action | Views WCB forms |
 | billing/CA/BC/viewReceivePaymentAction | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewReceivePayment2Action | Views payment records |
 | billing/CA/ON/ApplyPractitionerPremium | io.github.carlos_emr.carlos.commn.web.ApplyPractitionerPremium2Action | Applies practitioner premiums for Ontario |
-| billing/CA/ON/BatchBill | io.github.carlos_emr.carlos.billing.CA.ON.web.BatchBill2Action | Processes batch billing for Ontario |
-| billing/CA/ON/benefitScheduleChange | io.github.carlos_emr.carlos.billings.ca.on.OHIP.ScheduleOfBenefitsUpdate2Action | Updates OHIP benefit schedules |
-| billing/CA/ON/benefitScheduleUpload | io.github.carlos_emr.carlos.billings.ca.on.OHIP.ScheduleOfBenefitsUpload2Action | Uploads OHIP benefit schedules |
-| billing/CA/ON/billingON3rdPayments | io.github.carlos_emr.carlos.billing.CA.ON.web.BillingONPayments2Action | Manages third-party payments for Ontario |
-| billing/CA/ON/BillingONCorrection | io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrection2Action | Handles billing corrections for Ontario |
-| billing/ca/on/DisplayInvoiceLogo | io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action | Displays invoice logos for Ontario |
-| billing/CA/ON/endYearStatement | io.github.carlos_emr.carlos.billings.ca.on.pageUtil.PatientEndYearStatement2Action | Generates end-of-year patient statements |
-| billing/CA/ON/managePaymentType | io.github.carlos_emr.carlos.billings.ca.on.pageUtil.PaymentType2Action | Manages payment types for Ontario |
-| billing/CA/ON/moveMOHFiles | io.github.carlos_emr.carlos.billing.CA.ON.web.ArchiveMOHFile2Action | Archives MOH billing files |
-| billing/CA/ON/moveMOHFiles | io.github.carlos_emr.carlos.billing.CA.ON.web.MoveMOHFiles2Action | Moves MOH billing files |
+| billing/CA/ON/BatchBill | io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action | Processes batch billing for Ontario |
+| billing/CA/ON/benefitScheduleChange | io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpdate2Action | Updates OHIP benefit schedules |
+| billing/CA/ON/benefitScheduleUpload | io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action | Uploads OHIP benefit schedules |
+| billing/CA/ON/billingON3rdPayments | io.github.carlos_emr.carlos.billings.ca.on.web.BillingOnPayments2Action | Manages third-party payments for Ontario |
+| billing/CA/ON/BillingONCorrection | io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrection2Action | Handles billing corrections for Ontario |
+| billing/CA/ON/DbManageBillingformAdd | io.github.carlos_emr.carlos.billings.ca.on.web.ManageBillingFormAdd2Action | Adds Ontario billing-form codes |
+| billing/CA/ON/DbManageBillingformBilltype | io.github.carlos_emr.carlos.billings.ca.on.web.ManageBillingFormBillTypeSave2Action | Saves Ontario billing-form bill-type associations |
+| billing/CA/ON/DbManageBillingformDelete | io.github.carlos_emr.carlos.billings.ca.on.web.ManageBillingFormDelete2Action | Deletes Ontario billing-form codes |
+| billing/CA/ON/DbManageBillingformDx | io.github.carlos_emr.carlos.billings.ca.on.web.ManageBillingFormDiag2Action | Saves Ontario billing-form diagnostic codes |
+| billing/CA/ON/DbManageBillingformPremium | io.github.carlos_emr.carlos.billings.ca.on.web.ManageBillingFormPremium2Action | Saves Ontario billing-form premium codes |
+| billing/CA/ON/DbManageBillingformPremiumDelete | io.github.carlos_emr.carlos.billings.ca.on.web.ManageBillingFormPremiumDelete2Action | Deletes Ontario billing-form premium codes |
+| billing/CA/ON/DbManageBillingformService | io.github.carlos_emr.carlos.billings.ca.on.web.ManageBillingFormService2Action | Saves Ontario billing-form service codes |
+| billing/ca/on/DisplayInvoiceLogo | io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action | Displays invoice logos for Ontario; legacy namespace holdout pending cross-province move |
+| billing/CA/ON/endYearStatement | io.github.carlos_emr.carlos.billings.ca.on.web.PatientEndYearStatement2Action | Generates end-of-year patient statements |
+| billing/CA/ON/endYearStatement/demosearch | io.github.carlos_emr.carlos.billings.ca.on.web.DemoSearchEndYearStatement2Action | Searches demographics for end-of-year statements |
+| billing/CA/ON/endYearStatement/pdf | io.github.carlos_emr.carlos.billings.ca.on.web.PrintEndYearStatementPdf2Action | Prints end-of-year statement PDFs |
+| billing/CA/ON/endYearStatement/search | io.github.carlos_emr.carlos.billings.ca.on.web.SearchEndYearStatement2Action | Searches end-of-year patient statements |
+| billing/CA/ON/managePaymentType | io.github.carlos_emr.carlos.billings.ca.on.web.PaymentType2Action | Manages payment types for Ontario |
+| billing/CA/ON/moveMOHFiles | io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action | Moves, unzips, and archives MOH billing files; legacy archive-only handling is folded into this route |
+| billing/CA/ON/ViewBenefitScheduleUpload | io.github.carlos_emr.carlos.billings.ca.on.web.ViewBenefitScheduleUpload2Action | Displays the OHIP benefit-schedule upload form |
+| billing/CA/ON/ViewBillingOB2 | io.github.carlos_emr.carlos.billings.ca.on.web.BillingOB2View2Action | Displays the Ontario obstetrics billing view |
+| billing/CA/ON/ViewBillingONReview | io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnReview2Action | Reviews Ontario billing submissions |
 | BillingInvoice | io.github.carlos_emr.carlos.commn.web.BillingInvoice2Action | Generates billing invoices |
-| BillingONReview | io.github.carlos_emr.carlos.commn.web.BillingONReview2Action | Reviews Ontario billing submissions |
-| billing | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.Billing2Action | Main billing interface |
+| billing | io.github.carlos_emr.carlos.billings.ca.pageUtil.Billing2Action | Cross-province billing entry router (BC → billing/CA/BC/billingSetup; ON → billing/CA/ON/billingView) |
+| billing/CA/BC/billingSetup | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBCSetup2Action | BC-only billing entry setup (BillingSessionBean + BillingGuidelines DS) |
 
 ## Case Management Module
 
@@ -157,14 +168,6 @@ Immunization setup and configuration.
 | DeleteImmunizationSets | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmDeleteImmunizationSet2Action | Deletes immunization sets |
 | ImmunizationSetDisplay | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmImmunizationSetDisplay2Action | Displays immunization set configurations |
 
-## CVC Module
-
-Clinical validation and connectivity testing.
-
-| Action Name | Class Name | Description |
-|-------------|------------|-------------|
-| cvc | io.github.carlos_emr.carlos.integration.born.CVCTester2Action | Tests BORN CVC integration connectivity |
-
 ## Default Module
 
 Default encounter configurations.
@@ -180,8 +183,6 @@ Patient demographic management and related functions.
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
 | demographic/AddRelation | io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action | Adds patient relationships |
-| demographic/cihiExportOMD4 | io.github.carlos_emr.carlos.demographic.pageUtil.CihiExport2Action | Exports CIHI OMD4 data |
-| demographic/cihiExportPHC_VRS | io.github.carlos_emr.carlos.demographic.pageUtil.CihiExportPHC_VRS2Action | Exports PHC VRS data to CIHI |
 | demographic/Contact | io.github.carlos_emr.carlos.commn.web.Contact2Action | Manages patient contact information |
 | demographic/DeleteRelation | io.github.carlos_emr.carlos.demographic.pageUtil.DeleteDemographicRelationship2Action | Deletes patient relationships |
 | demographic/DemographicExport | io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action | Exports demographic data |
@@ -268,7 +269,6 @@ Electronic forms management and processing.
 | eform/eFormAttachmentForm | io.github.carlos_emr.carlos.eform.upload.UploadEFormAttachment2Action | Uploads form attachments |
 | eform/FetchUpdatedData | io.github.carlos_emr.carlos.eform.actions.FetchUpdatedData2Action | Fetches updated form data |
 | eform/imageUpload | io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action | Uploads images to forms |
-| eform/IndivicaRichTextLetterSettings | io.github.carlos_emr.carlos.eform.actions.RTLSettings2Action | Configures rich text letter settings |
 | eform/logEformError | io.github.carlos_emr.carlos.eform.EformLogError2Action | Logs form errors |
 | eform/manageEForm | io.github.carlos_emr.carlos.eform.actions.ManageEForm2Action | Manages electronic forms |
 | eform/removeEForm | io.github.carlos_emr.carlos.eform.actions.RemEForm2Action | Removes forms |
@@ -329,7 +329,6 @@ Clinical forms and data import functionality.
 | form/AddRHWorkFlow | io.github.carlos_emr.carlos.form.pageUtil.FrmFormAddRHWorkFlow2Action | Adds reproductive health workflows |
 | form/BCAR2020 | io.github.carlos_emr.carlos.form.FrmBCAR20202Action | Processes BC AR 2020 forms |
 | formBPMH | io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action | Retrieves Best Possible Medication History forms |
-| formeCARES | io.github.carlos_emr.carlos.form.eCARES.EcaresForm2Action | Processes eCARES forms |
 | form/formname | io.github.carlos_emr.carlos.form.Frm2Action | Generic form processor |
 | form/forwardshortcutname | io.github.carlos_emr.carlos.form.pageUtil.FormForward2Action | Forwards form shortcuts |
 | form/importLogDownload | io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action | Downloads import logs |
@@ -412,7 +411,7 @@ Laboratory result management and integration.
 
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
-| lab/CA/ALL/createLabelTDIS | io.github.carlos_emr.carlos.lab.ca.all.pageUtil.CreateLabelTDIS2Action | Creates TDIS lab labels |
+| lab/CA/ALL/createLabLabel | io.github.carlos_emr.carlos.lab.ca.all.pageUtil.CreateLabLabel2Action | Creates lab labels for HL7 results |
 | lab/CA/ALL/Forward | io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action | Forwards lab reports to providers |
 | lab/CA/ALL/insideLabUpload | io.github.carlos_emr.carlos.lab.ca.all.pageUtil.InsideLabUpload2Action | Uploads inside lab results |
 | lab/CA/ALL/oruR01Upload | io.github.carlos_emr.carlos.lab.ca.all.pageUtil.OruR01Upload2Action | Uploads ORU R01 lab messages |
@@ -498,21 +497,13 @@ Ontario Laboratory Information System integration.
 | olis/Search | io.github.carlos_emr.carlos.olis.OLISSearch2Action | Searches OLIS database |
 | olis/UploadSimulationData | io.github.carlos_emr.carlos.olis.OLISUploadSimulationData2Action | Uploads OLIS simulation data |
 
-## OnCall Module
-
-On-call questionnaire functionality.
-
-| Action Name | Class Name | Description |
-|-------------|------------|-------------|
-| OnCallQuestionnaire | io.github.carlos_emr.carlos.casemgmt.web.OnCallQuestionnaire2Action | Manages on-call questionnaires |
-
 ## Oscar Billing Module
 
 OSCAR billing system functionality.
 
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
-| oscarBilling/DocumentErrorReportUpload | io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDocumentErrorReportUpload2Action | Uploads billing error reports |
+| oscarBilling/DocumentErrorReportUpload | io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action | Uploads billing error reports |
 
 ## Oscar Chart Module
 
@@ -536,111 +527,110 @@ Clinical encounter management and workflow.
 
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
-| oscarEncounter/AddDepartment | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddDepartment2Action | Adds consultation departments |
-| oscarEncounter/AddInstitution | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddInstitution2Action | Adds consultation institutions |
-| oscarEncounter/AddService | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddService2Action | Adds consultation services |
-| oscarEncounter/AddSpecialist | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddSpecialist2Action | Adds specialists |
-| oscarEncounter/decisionSupport/guidelineAction | io.github.carlos_emr.carlos.decisionSupport.web.DSGuideline2Action | Processes decision support guidelines |
-| oscarEncounter/DelService | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDeleteServices2Action | Deletes consultation services |
-| oscarEncounter/displayAllergy | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayAllergy2Action | Displays patient allergies in encounter |
-| oscarEncounter/displayAppointmentHistory | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayAppointmentHistory2Action | Displays appointment history |
-| oscarEncounter/displayBilling | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayBilling2Action | Displays billing information |
-| oscarEncounter/displayConReport | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayConReport2Action | Displays consultation reports |
-| oscarEncounter/displayConsultation | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayConsult2Action | Displays consultations |
-| oscarEncounter/displayContacts | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayContacts2Action | Displays patient contacts |
-| oscarEncounter/displayDecisionSupportAlerts | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDecisionSupportAlerts2Action | Displays decision support alerts |
-| oscarEncounter/displayDiagrams | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDiagram2Action | Displays clinical diagrams |
-| oscarEncounter/displayDisease | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDx2Action | Displays diagnoses |
-| oscarEncounter/displayDocuments | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDocs2Action | Displays encounter documents |
-| oscarEncounter/displayEconsultation | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEconsult2Action | Displays e-consultations |
-| oscarEncounter/displayEForms | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEForm2Action | Displays electronic forms |
-| oscarEncounter/displayEHR | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEHR2Action | Displays electronic health records |
-| oscarEncounter/displayEpisodes | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEpisode2Action | Displays clinical episodes |
-| oscarEncounter/displayExaminationHistory | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayExaminationHistory2Action | Displays examination history |
-| oscarEncounter/displayForms | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayForm2Action | Displays clinical forms |
-| oscarEncounter/displayHRM | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayHRM2Action | Displays hospital reports |
-| oscarEncounter/displayIssues | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayIssues2Action | Displays patient issues |
-| oscarEncounter/displayLabs | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayLabAction22Action | Displays lab results |
-| oscarEncounter/displayMacro | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayMacro2Action | Displays text macros |
-| oscarEncounter/displayMeasurements | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayMeasurements2Action | Displays clinical measurements |
-| oscarEncounter/displayMessages | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayMsg2Action | Displays messages |
-| oscarEncounter/displayOcularProcedure | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayOcularProcedure2Action | Displays ocular procedures |
-| oscarEncounter/displayPhotos | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayPhotos2Action | Displays patient photos |
-| oscarEncounter/displayPregnancies | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayPregnancy2Action | Displays pregnancy information |
-| oscarEncounter/displayPrevention | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayPrevention2Action | Displays prevention records |
-| oscarEncounter/displayResolvedIssues | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayResolvedIssues2Action | Displays resolved issues |
-| oscarEncounter/displayRx | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayRx2Action | Displays prescriptions |
-| oscarEncounter/displaySpecsHistory | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplaySpecsHistory2Action | Displays prescription history |
-| oscarEncounter/displayTickler | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayTickler2Action | Displays ticklers |
-| oscarEncounter/EditDepartments | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEditDepartments2Action | Edits consultation departments |
-| oscarEncounter/EditInstitutions | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEditInstitutions2Action | Edits consultation institutions |
-| oscarEncounter/EditSpecialists | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEditSpecialists2Action | Edits specialists |
-| oscarEncounter/EnableConRequestResponse | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEnableReqResp2Action | Enables consultation request responses |
-| oscarEncounter/eRefer | io.github.carlos_emr.carlos.oscarEncounter.oceanEReferal.pageUtil.ERefer2Action | Processes electronic referrals |
-| oscarEncounter/FormUpdate | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.FormUpdate2Action | Updates measurement forms |
-| oscarEncounter/GraphMeasurements | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementGraphAction22Action | Graphs clinical measurements |
-| oscarEncounter/immunization/config/CreateImmunizationSetConfig | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action | Creates immunization configurations |
-| oscarEncounter/immunization/config/CreateInitImmunization | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetInit2Action | Initializes immunization sets |
-| oscarEncounter/immunization/config/deleteImmunizationSet | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action | Deletes immunization sets |
-| oscarEncounter/immunization/config/DeleteImmunizationSets | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmDeleteImmunizationSet2Action | Deletes multiple immunization sets |
-| oscarEncounter/immunization/config/ImmunizationSetDisplay | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmImmunizationSetDisplay2Action | Displays immunization sets |
-| oscarEncounter/immunization/config/initConfig | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfig2Action | Initializes immunization config |
-| oscarEncounter/immunization/deleteSchedule | io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmDeleteImmSchedule2Action | Deletes immunization schedules |
-| oscarEncounter/immunization/initSchedule | io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmInitSchedule2Action | Initializes immunization schedules |
-| oscarEncounter/immunization/loadConfig | io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmLoadConfig2Action | Loads immunization configurations |
-| oscarEncounter/immunization/loadSchedule | io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmLoadSchedule2Action | Loads immunization schedules |
-| oscarEncounter/immunization/saveConfig | io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmSaveConfig2Action | Saves immunization configurations |
-| oscarEncounter/immunization/saveSchedule | io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmSaveSchedule2Action | Saves immunization schedules |
-| oscarEncounter/IncomingConsultation | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctIncomingConsultation2Action | Processes incoming consultations |
-| oscarEncounter/IncomingEncounter | io.github.carlos_emr.carlos.encounter.pageUtil.EctIncomingEncounter2Action | Processes incoming encounters |
-| oscarEncounter/InsertTemplate | io.github.carlos_emr.carlos.encounter.pageUtil.EctInsertTemplate2Action | Inserts encounter templates |
-| oscarEncounter/MeasurementData | io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action | Manages measurement data |
-| oscarEncounter/Measurements2 | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action | Manages encounter measurements |
-| oscarEncounter/Measurements | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action | Manages clinical measurements |
-| oscarEncounter/oscarConsultation/printAttached | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationPrintDocs2Action | Prints attached consultation documents |
-| oscarEncounter/oscarConsultationRequest/ConsultationFormFax | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action | Faxes consultation forms |
-| oscarEncounter/oscarConsultationRequest/printPdf2 | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestPrintAction22Action | Prints consultation PDFs |
-| oscarEncounter/oscarMeasurements/AddMeasurementGroup | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementGroup2Action | Adds measurement groups |
-| oscarEncounter/oscarMeasurements/AddMeasurementMap | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action | Adds measurement mappings |
-| oscarEncounter/oscarMeasurements/AddMeasurementStyleSheet | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action | Adds measurement stylesheets |
-| oscarEncounter/oscarMeasurements/AddMeasurementType | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementType2Action | Adds measurement types |
-| oscarEncounter/oscarMeasurements/AddMeasuringInstruction | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasuringInstruction2Action | Adds measuring instructions |
-| oscarEncounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction | io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action | Manages custom flowsheets |
-| oscarEncounter/oscarMeasurements/DefineNewMeasurementGroup | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDefineNewMeasurementGroup2Action | Defines new measurement groups |
-| oscarEncounter/oscarMeasurements/DeleteData2 | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action | Deletes measurement data |
-| oscarEncounter/oscarMeasurements/DeleteData | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action | Deletes measurement data |
-| oscarEncounter/oscarMeasurements/DeleteMeasurementStyleSheet | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementStyleSheet2Action | Deletes measurement stylesheets |
-| oscarEncounter/oscarMeasurements/DeleteMeasurementTypes | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementTypes2Action | Deletes measurement types |
-| oscarEncounter/oscarMeasurements/EditMeasurementGroup | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctEditMeasurementGroup2Action | Edits measurement groups |
-| oscarEncounter/oscarMeasurements/EditMeasurementStyle | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctEditMeasurementStyle2Action | Edits measurement styles |
-| oscarEncounter/oscarMeasurements/FlowSheetDrugAction | io.github.carlos_emr.carlos.commn.web.FlowSheetDrug2Action | Manages flowsheet drug information |
-| oscarEncounter/oscarMeasurements/NewMeasurementMap | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action | Creates new measurement maps |
-| oscarEncounter/oscarMeasurements/RemapMeasurementMap | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action | Remaps measurement mappings |
-| oscarEncounter/oscarMeasurements/RemoveMeasurementMap | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action | Removes measurement mappings |
-| oscarEncounter/oscarMeasurements/SelectMeasurementGroup | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSelectMeasurementGroup2Action | Selects measurement groups |
-| oscarEncounter/oscarMeasurements/SetupAddMeasurementGroup | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasurementGroup2Action | Sets up new measurement groups |
-| oscarEncounter/oscarMeasurements/SetupAddMeasurementType | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasurementType2Action | Sets up new measurement types |
-| oscarEncounter/oscarMeasurements/SetupAddMeasuringInstruction | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasuringInstruction2Action | Sets up measuring instructions |
-| oscarEncounter/oscarMeasurements/SetupDisplayHistory | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayHistory2Action | Sets up measurement history display |
-| oscarEncounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayMeasurementStyleSheet2Action | Sets up measurement stylesheet display |
-| oscarEncounter/oscarMeasurements/SetupDisplayMeasurementTypes | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayMeasurementTypes2Action | Sets up measurement types display |
-| oscarEncounter/oscarMeasurements/SetupEditMeasurementGroup | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupEditMeasurementGroup2Action | Sets up measurement group editing |
-| oscarEncounter/oscarMeasurements/SetupGroupList | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupGroupList2Action | Sets up measurement group lists |
-| oscarEncounter/oscarMeasurements/SetupHistoryIndex | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupHistoryIndex2Action | Sets up measurement history index |
-| oscarEncounter/oscarMeasurements/SetupMeasurements | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupMeasurements2Action | Sets up measurements interface |
-| oscarEncounter/oscarMeasurements/SetupStyleSheetList | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupStyleSheetList2Action | Sets up stylesheet list |
-| oscarEncounter/oscarMeasurements/TrackerSlimUpdate | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.FormUpdate2Action | Updates slim tracker forms |
-| oscarEncounter/oscarMeasurements/TrackerUpdate | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.FormUpdate2Action | Updates tracker forms |
-| oscarEncounter/RequestConsultation | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action | Requests consultations |
-| oscarEncounter/SaveEncounter2 | io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action | Saves clinical encounters |
-| oscarEncounter/SaveEncounter | io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action | Saves encounter data |
-| oscarEncounter/ShowAllInstitutions | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllInstitutions2Action | Shows all consultation institutions |
-| oscarEncounter/ShowAllServices | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllServices2Action | Shows all consultation services |
-| oscarEncounter/UpdateInstitutionDepartment | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayInstitution2Action | Updates institution departments |
-| oscarEncounter/UpdateServiceSpecialists | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayService2Action | Updates service specialists |
-| oscarEncounter/ViewAttachment | io.github.carlos_emr.carlos.encounter.pageUtil.EctViewAttachment2Action | Views encounter attachments |
-| oscarEncounter/ViewConsultation | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequests2Action | Views consultation requests |
-| oscarEncounter/ViewRequest | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewRequest2Action | Views consultation requests |
+| encounter/AddDepartment | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddDepartment2Action | Adds consultation departments |
+| encounter/AddInstitution | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddInstitution2Action | Adds consultation institutions |
+| encounter/AddService | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddService2Action | Adds consultation services |
+| encounter/AddSpecialist | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddSpecialist2Action | Adds specialists |
+| encounter/decisionSupport/guidelineAction | io.github.carlos_emr.carlos.decisionSupport.web.DSGuideline2Action | Processes decision support guidelines |
+| encounter/DelService | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDeleteServices2Action | Deletes consultation services |
+| encounter/displayAllergy | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayAllergy2Action | Displays patient allergies in encounter |
+| encounter/displayAppointmentHistory | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayAppointmentHistory2Action | Displays appointment history |
+| encounter/displayBilling | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayBilling2Action | Displays billing information |
+| encounter/displayConReport | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayConReport2Action | Displays consultation reports |
+| encounter/displayConsultation | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayConsult2Action | Displays consultations |
+| encounter/displayContacts | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayContacts2Action | Displays patient contacts |
+| encounter/displayDecisionSupportAlerts | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDecisionSupportAlerts2Action | Displays decision support alerts |
+| encounter/displayDiagrams | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDiagram2Action | Displays clinical diagrams |
+| encounter/displayDisease | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDx2Action | Displays diagnoses |
+| encounter/displayDocuments | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDocs2Action | Displays encounter documents |
+| encounter/displayEconsultation | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEconsult2Action | Displays e-consultations |
+| encounter/displayEForms | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEForm2Action | Displays electronic forms |
+| encounter/displayEHR | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEHR2Action | Displays electronic health records |
+| encounter/displayEpisodes | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEpisode2Action | Displays clinical episodes |
+| encounter/displayExaminationHistory | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayExaminationHistory2Action | Displays examination history |
+| encounter/displayForms | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayForm2Action | Displays clinical forms |
+| encounter/displayHRM | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayHRM2Action | Displays hospital reports |
+| encounter/displayIssues | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayIssues2Action | Displays patient issues |
+| encounter/displayLabs | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayLabAction22Action | Displays lab results |
+| encounter/displayMacro | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayMacro2Action | Displays text macros |
+| encounter/displayMeasurements | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayMeasurements2Action | Displays clinical measurements |
+| encounter/displayMessages | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayMsg2Action | Displays messages |
+| encounter/displayOcularProcedure | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayOcularProcedure2Action | Displays ocular procedures |
+| encounter/displayPhotos | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayPhotos2Action | Displays patient photos |
+| encounter/displayPregnancies | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayPregnancy2Action | Displays pregnancy information |
+| encounter/displayPrevention | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayPrevention2Action | Displays prevention records |
+| encounter/displayResolvedIssues | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayResolvedIssues2Action | Displays resolved issues |
+| encounter/displayRx | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayRx2Action | Displays prescriptions |
+| encounter/displaySpecsHistory | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplaySpecsHistory2Action | Displays prescription history |
+| encounter/displayTickler | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayTickler2Action | Displays ticklers |
+| encounter/EditDepartments | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEditDepartments2Action | Edits consultation departments |
+| encounter/EditInstitutions | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEditInstitutions2Action | Edits consultation institutions |
+| encounter/EditSpecialists | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEditSpecialists2Action | Edits specialists |
+| encounter/EnableConRequestResponse | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEnableReqResp2Action | Enables consultation request responses |
+| encounter/eRefer | io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action | Processes electronic referrals |
+| encounter/FormUpdate | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.FormUpdate2Action | Updates measurement forms |
+| encounter/GraphMeasurements | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementGraphAction22Action | Graphs clinical measurements |
+| encounter/immunization/config/CreateImmunizationSetConfig | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action | Creates immunization configurations |
+| encounter/immunization/config/CreateInitImmunization | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetInit2Action | Initializes immunization sets |
+| encounter/immunization/config/deleteImmunizationSet | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action | Deletes immunization sets |
+| encounter/immunization/config/DeleteImmunizationSets | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmDeleteImmunizationSet2Action | Deletes multiple immunization sets |
+| encounter/immunization/config/ImmunizationSetDisplay | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmImmunizationSetDisplay2Action | Displays immunization sets |
+| encounter/immunization/config/initConfig | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfig2Action | Initializes immunization config |
+| encounter/immunization/deleteSchedule | io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmDeleteImmSchedule2Action | Deletes immunization schedules |
+| encounter/immunization/initSchedule | io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmInitSchedule2Action | Initializes immunization schedules |
+| encounter/immunization/loadConfig | io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmLoadConfig2Action | Loads immunization configurations |
+| encounter/immunization/loadSchedule | io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmLoadSchedule2Action | Loads immunization schedules |
+| encounter/immunization/saveConfig | io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmSaveConfig2Action | Saves immunization configurations |
+| encounter/immunization/saveSchedule | io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmSaveSchedule2Action | Saves immunization schedules |
+| encounter/IncomingConsultation | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctIncomingConsultation2Action | Processes incoming consultations |
+| encounter/IncomingEncounter | io.github.carlos_emr.carlos.encounter.pageUtil.EctIncomingEncounter2Action | Processes incoming encounters |
+| encounter/InsertTemplate | io.github.carlos_emr.carlos.encounter.pageUtil.EctInsertTemplate2Action | Inserts encounter templates |
+| encounter/MeasurementData | io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action | Manages measurement data |
+| encounter/Measurements2 | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action | Manages encounter measurements |
+| encounter/Measurements | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action | Manages clinical measurements |
+| encounter/oscarConsultation/printAttached | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationPrintDocs2Action | Prints attached consultation documents |
+| encounter/oscarConsultationRequest/ConsultationFormFax | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action | Faxes consultation forms |
+| encounter/oscarConsultationRequest/printPdf2 | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestPrintAction22Action | Prints consultation PDFs |
+| encounter/oscarMeasurements/AddMeasurementGroup | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementGroup2Action | Adds measurement groups |
+| encounter/oscarMeasurements/AddMeasurementMap | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action | Adds measurement mappings |
+| encounter/oscarMeasurements/AddMeasurementStyleSheet | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action | Adds measurement stylesheets |
+| encounter/oscarMeasurements/AddMeasurementType | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementType2Action | Adds measurement types |
+| encounter/oscarMeasurements/AddMeasuringInstruction | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasuringInstruction2Action | Adds measuring instructions |
+| encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction | io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action | Manages custom flowsheets |
+| encounter/oscarMeasurements/DefineNewMeasurementGroup | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDefineNewMeasurementGroup2Action | Defines new measurement groups |
+| encounter/oscarMeasurements/DeleteData2 | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action | Deletes measurement data |
+| encounter/oscarMeasurements/DeleteData | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action | Deletes measurement data |
+| encounter/oscarMeasurements/DeleteMeasurementStyleSheet | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementStyleSheet2Action | Deletes measurement stylesheets |
+| encounter/oscarMeasurements/DeleteMeasurementTypes | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementTypes2Action | Deletes measurement types |
+| encounter/oscarMeasurements/EditMeasurementGroup | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctEditMeasurementGroup2Action | Edits measurement groups |
+| encounter/oscarMeasurements/EditMeasurementStyle | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctEditMeasurementStyle2Action | Edits measurement styles |
+| encounter/oscarMeasurements/FlowSheetDrugAction | io.github.carlos_emr.carlos.commn.web.FlowSheetDrug2Action | Manages flowsheet drug information |
+| encounter/oscarMeasurements/NewMeasurementMap | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action | Creates new measurement maps |
+| encounter/oscarMeasurements/RemapMeasurementMap | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action | Remaps measurement mappings |
+| encounter/oscarMeasurements/RemoveMeasurementMap | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action | Removes measurement mappings |
+| encounter/oscarMeasurements/SelectMeasurementGroup | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSelectMeasurementGroup2Action | Selects measurement groups |
+| encounter/oscarMeasurements/SetupAddMeasurementGroup | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasurementGroup2Action | Sets up new measurement groups |
+| encounter/oscarMeasurements/SetupAddMeasurementType | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasurementType2Action | Sets up new measurement types |
+| encounter/oscarMeasurements/SetupAddMeasuringInstruction | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasuringInstruction2Action | Sets up measuring instructions |
+| encounter/oscarMeasurements/SetupDisplayHistory | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayHistory2Action | Sets up measurement history display |
+| encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayMeasurementStyleSheet2Action | Sets up measurement stylesheet display |
+| encounter/oscarMeasurements/SetupDisplayMeasurementTypes | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayMeasurementTypes2Action | Sets up measurement types display |
+| encounter/oscarMeasurements/SetupEditMeasurementGroup | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupEditMeasurementGroup2Action | Sets up measurement group editing |
+| encounter/oscarMeasurements/SetupGroupList | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupGroupList2Action | Sets up measurement group lists |
+| encounter/oscarMeasurements/SetupHistoryIndex | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupHistoryIndex2Action | Sets up measurement history index |
+| encounter/oscarMeasurements/SetupMeasurements | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupMeasurements2Action | Sets up measurements interface |
+| encounter/oscarMeasurements/SetupStyleSheetList | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupStyleSheetList2Action | Sets up stylesheet list |
+| encounter/oscarMeasurements/TrackerSlimUpdate | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.FormUpdate2Action | Updates slim tracker forms |
+| encounter/oscarMeasurements/TrackerUpdate | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.FormUpdate2Action | Updates tracker forms |
+| encounter/RequestConsultation | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action | Requests consultations |
+| encounter/SaveEncounter2 | io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action | Saves clinical encounters |
+| encounter/ShowAllInstitutions | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllInstitutions2Action | Shows all consultation institutions |
+| encounter/ShowAllServices | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllServices2Action | Shows all consultation services |
+| encounter/UpdateInstitutionDepartment | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayInstitution2Action | Updates institution departments |
+| encounter/UpdateServiceSpecialists | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayService2Action | Updates service specialists |
+| encounter/ViewAttachment | io.github.carlos_emr.carlos.encounter.pageUtil.EctViewAttachment2Action | Views encounter attachments |
+| encounter/ViewConsultation | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequests2Action | Views consultation requests |
+| encounter/ViewRequest | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewRequest2Action | Views consultation requests |
 
 ## Oscar MDS Module
 
@@ -699,9 +689,9 @@ Preventive care management.
 
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
-| oscarPrevention/AddPrevention | io.github.carlos_emr.carlos.prevention.pageUtil.AddPrevention2Action | Adds prevention records |
-| oscarPrevention/PreventionReport | io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReport2Action | Generates prevention reports |
-| oscarPrevention/printPrevention | io.github.carlos_emr.carlos.prevention.pageUtil.PreventionPrint2Action | Prints prevention records |
+| prevention/AddPrevention | io.github.carlos_emr.carlos.prevention.pageUtil.AddPrevention2Action | Adds prevention records |
+| prevention/PreventionReport | io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReport2Action | Generates prevention reports |
+| prevention/printPrevention | io.github.carlos_emr.carlos.prevention.pageUtil.PreventionPrint2Action | Prints prevention records |
 
 ## Oscar Report Module
 
@@ -772,7 +762,6 @@ Prescription and medication management.
 | oscarRx/deleteFavorite2 | io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action | Deletes prescription favorites |
 | oscarRx/deleteFavorite | io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action | Deletes favorite prescriptions |
 | oscarRx/deleteRx | io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteRx2Action | Deletes prescriptions |
-| oscarRx/Dispense | io.github.carlos_emr.carlos.dispensary.rx.Dispensary2Action | Manages medication dispensing |
 | oscarRx/drugInfo | io.github.carlos_emr.carlos.prescript.pageUtil.RxDrugInfo2Action | Displays drug information |
 | oscarRx/GetmyDrugrefInfo | io.github.carlos_emr.carlos.prescript.pageUtil.RxMyDrugrefInfo2Action | Gets drug reference information |
 | oscarRx/GetRxPageSizeInfo | io.github.carlos_emr.carlos.prescript.pageUtil.RxRxPageSizeInfo2Action | Gets prescription page size info |
@@ -805,9 +794,9 @@ Patient waiting list management.
 
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
-| oscarWaitingList/SetupDisplayPatientWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action | Sets up patient waiting list display |
-| oscarWaitingList/SetupDisplayWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action | Sets up waiting list display |
-| oscarWaitingList/WLEditWaitingListNameAction | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action | Edits waiting list names |
+| waitinglist/SetupDisplayPatientWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action | Sets up patient waiting list display |
+| waitinglist/SetupDisplayWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action | Sets up waiting list display |
+| waitinglist/WLEditWaitingListNameAction | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action | Edits waiting list names |
 
 ## Page Monitoring Module
 

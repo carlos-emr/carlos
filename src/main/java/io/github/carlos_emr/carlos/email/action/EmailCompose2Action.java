@@ -3,25 +3,27 @@ package io.github.carlos_emr.carlos.email.action;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
-import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts2 action for composing and preparing email messages with patient-related attachments.
@@ -57,7 +59,7 @@ import org.apache.struts2.ServletActionContext;
  * Security Considerations:
  * <ul>
  *   <li>Validates fid parameter to ensure numeric format (prevents injection)</li>
- *   <li>Uses OWASP Encode.forJava() for sanitizing invalid fid values in logs</li>
+ *   <li>Uses log-safe sanitization for invalid fid values in logs</li>
  *   <li>Generates patient-specific PDF passwords based on demographic information</li>
  *   <li>Sanitizes attachment filenames through EmailComposeManager</li>
  *   <li>Session cleanup prevents information leakage across requests</li>
@@ -71,12 +73,16 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-01-24
  */
 public class EmailCompose2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final Logger logger = MiscUtils.getLogger();
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     private EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
+    private PdfPreviewCapabilityService pdfPreviewCapabilityService =
+            SpringUtils.getBean(PdfPreviewCapabilityService.class);
 
     private static final String[] EMAIL_SESSION_KEYS = {
         "attachEFormItSelf", "fdid", "demographicId",
@@ -102,6 +108,11 @@ public class EmailCompose2Action extends ActionSupport {
      * @see #prepareComposeEFormMailer()
      */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
+
         return prepareComposeEFormMailer();
     }
 
@@ -218,8 +229,10 @@ public class EmailCompose2Action extends ActionSupport {
 
         // Validate fid is numeric if provided
         if (fid != null && !fid.matches("\\d+")) {
-            String sanitizedFid = Encode.forJava(fid);
-            logger.warn("Invalid fid parameter received: {}", sanitizedFid);
+            if (logger.isWarnEnabled()) {
+                String sanitizedFid = LogSafe.sanitize(fid);
+                logger.warn("Invalid fid parameter received: {}", sanitizedFid);
+            }
             fid = null;
         }
 
@@ -245,11 +258,15 @@ public class EmailCompose2Action extends ActionSupport {
             emailAttachmentList.addAll(emailComposeManager.prepareLabAttachments(loggedInInfo, attachedLabs));
             emailAttachmentList.addAll(emailComposeManager.prepareHRMAttachments(loggedInInfo, attachedHRMDocuments));
             emailAttachmentList.addAll(emailComposeManager.prepareFormAttachments(request, response, attachedForms, Integer.parseInt(demographicId)));
-        } catch (PDFGenerationException e) {
+            emailComposeManager.sanitizeAttachments(emailAttachmentList);
+            for (EmailAttachment attachment : emailAttachmentList) {
+                attachment.setPreviewToken(pdfPreviewCapabilityService.issue(
+                        request, loggedInInfo, java.nio.file.Path.of(attachment.getFilePath())));
+            }
+        } catch (PDFGenerationException | RuntimeException e) {
             logger.error(e.getMessage(), e);
             return emailComposeError(request, "This eForm (and attachments, if applicable) could not be emailed. \\n\\n" + e.getMessage());
         }
-        emailComposeManager.sanitizeAttachments(emailAttachmentList);
 
         // Set request attributes for JSP (from session and computed values)
         request.setAttribute("transactionType", TransactionType.EFORM);
@@ -274,7 +291,7 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("isEmailEncrypted", session.getAttribute("isEmailEncrypted"));
         request.setAttribute("isEmailAttachmentEncrypted", session.getAttribute("isEmailAttachmentEncrypted"));
         request.setAttribute("isEmailAutoSend", session.getAttribute("isEmailAutoSend"));
-        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList);
+        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- emailAttachmentList built from manager-prepared attachments (eForm, eDoc, lab, HRM, form PDFs), then sanitized by emailComposeManager.sanitizeAttachments()
 
         cleanupEmailSessionAttributes(request);
 

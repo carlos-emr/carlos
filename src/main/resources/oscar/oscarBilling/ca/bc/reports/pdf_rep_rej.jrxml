@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Created with Jaspersoft Studio version 6.3.0.final using JasperReports Library version 4.1.1  -->
-<!-- 2016-09-09T20:55:11 -->
-<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="pdf_rep_rej" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20">
-	<property name="ireport.scriptlethandling" value="0"/>
-	<property name="ireport.encoding" value="UTF-8"/>
-	<import value="net.sf.jasperreports.engine.*"/>
-	<import value="java.util.*"/>
-	<import value="net.sf.jasperreports.engine.data.*"/>
+<jasperReport name="pdf_rep_rej" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20">
+	<property name="ireport.scriptlethandling" value="0" />
+	<property name="ireport.encoding" value="UTF-8" />
+	<import value="net.sf.jasperreports.engine.*" />
+	<import value="java.util.*" />
+	<import value="net.sf.jasperreports.engine.data.*" />
 	<parameter name="startDate" class="java.lang.String" isForPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
@@ -28,650 +26,508 @@
 	<parameter name="account" class="java.lang.String" isForPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<field name="providerFirstName" class="java.lang.String"/>
-	<field name="providerLastName" class="java.lang.String"/>
-	<field name="billingtype" class="java.lang.String"/>
-	<field name="serviceDate" class="java.lang.String"/>
-	<field name="billMasterNo" class="java.lang.String"/>
-	<field name="billing_no" class="java.lang.String"/>
-	<field name="demoName" class="java.lang.String"/>
-	<field name="demoNo" class="java.lang.String"/>
-	<field name="demoPhone" class="java.lang.String"/>
-	<field name="demoPhone2" class="java.lang.String"/>
-	<field name="demoSex" class="java.lang.String"/>
-	<field name="demoDOB" class="java.lang.String"/>
-	<field name="mvaCode" class="java.lang.String"/>
-	<field name="serviceLocation" class="java.lang.String"/>
-	<field name="billingUnit" class="java.lang.String"/>
-	<field name="code" class="java.lang.String"/>
-	<field name="amount" class="java.lang.String"/>
-	<field name="reason" class="java.lang.String"/>
-	<field name="serviceEndTime" class="java.lang.String"/>
-	<field name="serviceStartTime" class="java.lang.String"/>
-	<field name="serviceStartDate" class="java.lang.String"/>
-	<field name="hin" class="java.lang.String"/>
-	<field name="apptDate" class="java.lang.String"/>
-	<field name="apptDoctorNo" class="java.lang.String"/>
-	<field name="dx1" class="java.lang.String"/>
-	<field name="serviceToDate" class="java.lang.String"/>
-	<field name="expString" class="java.lang.String"/>
-	<field name="expSum" class="java.lang.String"/>
-	<field name="rejectionDate" class="java.lang.String"/>
+	<field name="providerFirstName" class="java.lang.String" />
+	<field name="providerLastName" class="java.lang.String" />
+	<field name="billingtype" class="java.lang.String" />
+	<field name="serviceDate" class="java.lang.String" />
+	<field name="billMasterNo" class="java.lang.String" />
+	<field name="billing_no" class="java.lang.String" />
+	<field name="demoName" class="java.lang.String" />
+	<field name="demoNo" class="java.lang.String" />
+	<field name="demoPhone" class="java.lang.String" />
+	<field name="demoPhone2" class="java.lang.String" />
+	<field name="demoSex" class="java.lang.String" />
+	<field name="demoDOB" class="java.lang.String" />
+	<field name="mvaCode" class="java.lang.String" />
+	<field name="serviceLocation" class="java.lang.String" />
+	<field name="billingUnit" class="java.lang.String" />
+	<field name="code" class="java.lang.String" />
+	<field name="amount" class="java.lang.String" />
+	<field name="reason" class="java.lang.String" />
+	<field name="serviceEndTime" class="java.lang.String" />
+	<field name="serviceStartTime" class="java.lang.String" />
+	<field name="serviceStartDate" class="java.lang.String" />
+	<field name="hin" class="java.lang.String" />
+	<field name="apptDate" class="java.lang.String" />
+	<field name="apptDoctorNo" class="java.lang.String" />
+	<field name="dx1" class="java.lang.String" />
+	<field name="serviceToDate" class="java.lang.String" />
+	<field name="expString" class="java.lang.String" />
+	<field name="expSum" class="java.lang.String" />
+	<field name="rejectionDate" class="java.lang.String" />
 	<variable name="invTotal" class="java.lang.Double" calculation="Sum">
 		<variableExpression><![CDATA[new Double($F{amount})]]></variableExpression>
 	</variable>
 	<group name="demoName">
 		<groupExpression><![CDATA[$F{demoName}]]></groupExpression>
 		<groupHeader>
-			<band splitType="Stretch"/>
+			<band />
 		</groupHeader>
 		<groupFooter>
-			<band splitType="Stretch"/>
+			<band />
 		</groupFooter>
 	</group>
-	<background>
-		<band splitType="Stretch"/>
-	</background>
-	<title>
-		<band splitType="Stretch"/>
-	</title>
-	<pageHeader>
-		<band height="44" splitType="Stretch">
-			<staticText>
-				<reportElement key="staticText" mode="Transparent" x="0" y="0" width="535" height="23" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Left" verticalAlignment="Middle" rotation="None">
-					<font size="14"/>
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<text><![CDATA[Rejection Report]]></text>
-			</staticText>
-			<line>
-				<reportElement key="line" mode="Opaque" x="0" y="41" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF"/>
-				<graphicElement fill="Solid">
-					<pen lineWidth="2.0" lineStyle="Solid"/>
-				</graphicElement>
-			</line>
-			<line>
-				<reportElement key="line" mode="Opaque" x="0" y="25" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF"/>
-				<graphicElement fill="Solid">
-					<pen lineWidth="2.0" lineStyle="Solid"/>
-				</graphicElement>
-			</line>
-			<textField isStretchWithOverflow="true" pattern="dd-MMM-yy &apos;at&apos; h:mm aaa" isBlankWhenNull="true">
-				<reportElement key="textField" mode="Transparent" x="0" y="27" width="88" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Left" verticalAlignment="Middle" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA[new Date()]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField-1" mode="Opaque" x="365" y="27" width="166" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA["Insurer:"+$P{insurers}]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField-2" mode="Opaque" x="246" y="27" width="118" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA["Account:"+$P{account}]]></textFieldExpression>
-			</textField>
-			<textField isStretchWithOverflow="true" pattern="" isBlankWhenNull="true">
-				<reportElement key="textField-3" mode="Transparent" x="88" y="27" width="157" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA["Date Range:" + $P{startDate} + " to " + $P{endDate}]]></textFieldExpression>
-			</textField>
-		</band>
+	<background splitType="Stretch">
+		</background>
+	<title splitType="Stretch">
+		</title>
+	<pageHeader height="44" splitType="Stretch">
+		<element kind="staticText" mode="Transparent" x="0" y="0" width="535" height="23" forecolor="#000000" backcolor="#FFFFFF" key="staticText" hTextAlign="Left" vTextAlign="Middle" fontSize="14.0" rotation="None">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<text><![CDATA[Rejection Report]]></text>
+		</element>
+		<element kind="line" mode="Opaque" x="0" y="41" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
+			<graphicElement fill="Solid">
+				<pen lineWidth="2.0" lineStyle="Solid" />
+			</graphicElement>
+		</element>
+		<element kind="line" mode="Opaque" x="0" y="25" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
+			<graphicElement fill="Solid">
+				<pen lineWidth="2.0" lineStyle="Solid" />
+			</graphicElement>
+		</element>
+		<element kind="textField" mode="Transparent" x="0" y="27" width="88" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="dd-MMM-yy 'at' h:mm aaa">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<expression><![CDATA[new Date()]]></expression>
+		</element>
+		<element kind="textField" mode="Opaque" x="365" y="27" width="166" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-1" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<expression><![CDATA["Insurer:"+$P{insurers}]]></expression>
+		</element>
+		<element kind="textField" mode="Opaque" x="246" y="27" width="118" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-2" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<expression><![CDATA["Account:"+$P{account}]]></expression>
+		</element>
+		<element kind="textField" mode="Transparent" x="88" y="27" width="157" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-3" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<expression><![CDATA["Date Range:" + $P{startDate} + " to " + $P{endDate}]]></expression>
+		</element>
 	</pageHeader>
-	<columnHeader>
-		<band height="13" splitType="Stretch">
-			<staticText>
-				<reportElement key="staticText-1" mode="Opaque" x="0" y="0" width="40" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Left" verticalAlignment="Middle" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<text><![CDATA[Patient]]></text>
-			</staticText>
-			<staticText>
-				<reportElement key="staticText-2" mode="Opaque" x="135" y="0" width="35" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Center" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<text><![CDATA[Invoice #]]></text>
-			</staticText>
-			<staticText>
-				<reportElement key="staticText-3" mode="Opaque" x="185" y="0" width="58" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<text><![CDATA[ServDate
+	<columnHeader height="13" splitType="Stretch">
+		<element kind="staticText" mode="Opaque" x="0" y="0" width="40" height="10" forecolor="#000000" backcolor="#FFFFFF" key="staticText-1" hTextAlign="Left" vTextAlign="Middle" rotation="None">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<text><![CDATA[Patient]]></text>
+		</element>
+		<element kind="staticText" mode="Opaque" x="135" y="0" width="35" height="10" forecolor="#000000" backcolor="#FFFFFF" key="staticText-2" hTextAlign="Center" vTextAlign="Top" rotation="None">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<text><![CDATA[Invoice #]]></text>
+		</element>
+		<element kind="staticText" mode="Opaque" x="185" y="0" width="58" height="10" forecolor="#000000" backcolor="#FFFFFF" key="staticText-3" hTextAlign="Left" vTextAlign="Top" rotation="None">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<text><![CDATA[ServDate
 ]]></text>
-			</staticText>
-			<staticText>
-				<reportElement key="staticText-4" mode="Opaque" x="246" y="0" width="53" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<text><![CDATA[RejDate
+		</element>
+		<element kind="staticText" mode="Opaque" x="246" y="0" width="53" height="10" forecolor="#000000" backcolor="#FFFFFF" key="staticText-4" hTextAlign="Left" vTextAlign="Top" rotation="None">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<text><![CDATA[RejDate
 ]]></text>
-			</staticText>
-			<staticText>
-				<reportElement key="staticText-5" mode="Opaque" x="312" y="0" width="24" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Center" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<text><![CDATA[ID#]]></text>
-			</staticText>
-			<staticText>
-				<reportElement key="staticText-6" mode="Opaque" x="340" y="0" width="19" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Center" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<text><![CDATA[Qty]]></text>
-			</staticText>
-			<staticText>
-				<reportElement key="staticText-7" mode="Opaque" x="364" y="0" width="24" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<text><![CDATA[Item
+		</element>
+		<element kind="staticText" mode="Opaque" x="312" y="0" width="24" height="10" forecolor="#000000" backcolor="#FFFFFF" key="staticText-5" hTextAlign="Center" vTextAlign="Top" rotation="None">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<text><![CDATA[ID#]]></text>
+		</element>
+		<element kind="staticText" mode="Opaque" x="340" y="0" width="19" height="10" forecolor="#000000" backcolor="#FFFFFF" key="staticText-6" hTextAlign="Center" vTextAlign="Top" rotation="None">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<text><![CDATA[Qty]]></text>
+		</element>
+		<element kind="staticText" mode="Opaque" x="364" y="0" width="24" height="10" forecolor="#000000" backcolor="#FFFFFF" key="staticText-7" hTextAlign="Left" vTextAlign="Top" rotation="None">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<text><![CDATA[Item
 ]]></text>
-			</staticText>
-			<staticText>
-				<reportElement key="staticText-8" mode="Opaque" x="388" y="0" width="24" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<text><![CDATA[Ins
+		</element>
+		<element kind="staticText" mode="Opaque" x="388" y="0" width="24" height="10" forecolor="#000000" backcolor="#FFFFFF" key="staticText-8" hTextAlign="Left" vTextAlign="Top" rotation="None">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<text><![CDATA[Ins
 ]]></text>
-			</staticText>
-			<staticText>
-				<reportElement key="staticText-9" mode="Opaque" x="421" y="0" width="19" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<text><![CDATA[DX]]></text>
-			</staticText>
-			<staticText>
-				<reportElement key="staticText-10" mode="Opaque" x="452" y="0" width="25" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<text><![CDATA[Ref
+		</element>
+		<element kind="staticText" mode="Opaque" x="421" y="0" width="19" height="10" forecolor="#000000" backcolor="#FFFFFF" key="staticText-9" hTextAlign="Left" vTextAlign="Top" rotation="None">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<text><![CDATA[DX]]></text>
+		</element>
+		<element kind="staticText" mode="Opaque" x="452" y="0" width="25" height="10" forecolor="#000000" backcolor="#FFFFFF" key="staticText-10" hTextAlign="Left" vTextAlign="Top" rotation="None">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<text><![CDATA[Ref
 ]]></text>
-			</staticText>
-			<staticText>
-				<reportElement key="staticText-11" mode="Opaque" x="490" y="0" width="45" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Right" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<text><![CDATA[Balance]]></text>
-			</staticText>
-			<line direction="BottomUp">
-				<reportElement key="line-1" mode="Opaque" x="0" y="12" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF"/>
-				<graphicElement fill="Solid">
-					<pen lineWidth="2.0" lineStyle="Solid"/>
-				</graphicElement>
-			</line>
-		</band>
+		</element>
+		<element kind="staticText" mode="Opaque" x="490" y="0" width="45" height="10" forecolor="#000000" backcolor="#FFFFFF" key="staticText-11" hTextAlign="Right" vTextAlign="Top" rotation="None">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<text><![CDATA[Balance]]></text>
+		</element>
+		<element kind="line" mode="Opaque" x="0" y="12" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line-1" direction="BottomUp">
+			<graphicElement fill="Solid">
+				<pen lineWidth="2.0" lineStyle="Solid" />
+			</graphicElement>
+		</element>
 	</columnHeader>
 	<detail>
 		<band height="101" splitType="Stretch">
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField" mode="Transparent" x="135" y="2" width="21" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+			<element kind="textField" mode="Transparent" x="135" y="2" width="21" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Center" vTextAlign="Middle" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Center" verticalAlignment="Middle" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$F{billing_no} + "-" + $F{billMasterNo}]]></textFieldExpression>
-			</textField>
-			<textField pattern="dd-MMM-yy" isBlankWhenNull="false">
-				<reportElement key="textField" mode="Transparent" x="246" y="2" width="55" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA[$F{billing_no} + "-" + $F{billMasterNo}]]></expression>
+			</element>
+			<element kind="textField" mode="Transparent" x="246" y="2" width="55" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="false" pattern="dd-MMM-yy">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Middle" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA[new SimpleDateFormat("yyyyMMdd").parse($F{rejectionDate})]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField" mode="Transparent" x="0" y="2" width="133" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA[new SimpleDateFormat("yyyyMMdd").parse($F{rejectionDate})]]></expression>
+			</element>
+			<element kind="textField" mode="Transparent" x="0" y="2" width="133" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Middle" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$F{demoName}+ "(" + $F{demoNo} + ")"]]></textFieldExpression>
-			</textField>
-			<textField pattern="dd-MMM-yy" isBlankWhenNull="false">
-				<reportElement key="textField" mode="Transparent" x="185" y="2" width="55" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA[$F{demoName}+ "(" + $F{demoNo} + ")"]]></expression>
+			</element>
+			<element kind="textField" mode="Transparent" x="185" y="2" width="55" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="false" pattern="dd-MMM-yy">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Middle" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA[new SimpleDateFormat("yyyyMMdd").parse($F{serviceDate})]]></textFieldExpression>
-			</textField>
-			<textField pattern="###0.00" isBlankWhenNull="false">
-				<reportElement key="textField" mode="Transparent" x="490" y="2" width="45" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA[new SimpleDateFormat("yyyyMMdd").parse($F{serviceDate})]]></expression>
+			</element>
+			<element kind="textField" mode="Transparent" x="490" y="2" width="45" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Middle" rotation="None" blankWhenNull="false" pattern="###0.00">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Right" verticalAlignment="Middle" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$F{amount}]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField" mode="Transparent" x="364" y="2" width="18" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA[$F{amount}]]></expression>
+			</element>
+			<element kind="textField" mode="Transparent" x="364" y="2" width="18" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Center" vTextAlign="Middle" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Center" verticalAlignment="Middle" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$F{code}]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField" mode="Transparent" x="340" y="2" width="24" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA[$F{code}]]></expression>
+			</element>
+			<element kind="textField" mode="Transparent" x="340" y="2" width="24" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Center" vTextAlign="Middle" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Center" verticalAlignment="Middle" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$F{billingUnit}]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField" mode="Transparent" x="312" y="2" width="28" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA[$F{billingUnit}]]></expression>
+			</element>
+			<element kind="textField" mode="Transparent" x="312" y="2" width="28" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Center" vTextAlign="Middle" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Center" verticalAlignment="Middle" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$F{hin}]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField" mode="Transparent" x="421" y="2" width="32" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA[$F{hin}]]></expression>
+			</element>
+			<element kind="textField" mode="Transparent" x="421" y="2" width="32" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Middle" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$F{dx1}]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField" mode="Transparent" x="0" y="27" width="217" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA[$F{dx1}]]></expression>
+			</element>
+			<element kind="textField" mode="Transparent" x="0" y="27" width="217" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Middle" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA["Family Doctor:" +$F{providerFirstName} + " " + $F{providerLastName}]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField" mode="Transparent" x="388" y="2" width="33" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA["Family Doctor:" +$F{providerFirstName} + " " + $F{providerLastName}]]></expression>
+			</element>
+			<element kind="textField" mode="Transparent" x="388" y="2" width="33" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Middle" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$F{billingtype}]]></textFieldExpression>
-			</textField>
-			<line>
-				<reportElement key="line" mode="Opaque" x="0" y="100" width="535" height="1" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA[$F{billingtype}]]></expression>
+			</element>
+			<element kind="line" mode="Opaque" x="0" y="100" width="535" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
 				<graphicElement fill="Solid">
-					<pen lineWidth="0.5" lineStyle="Solid"/>
+					<pen lineWidth="0.5" lineStyle="Solid" />
 				</graphicElement>
-			</line>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField-4" mode="Opaque" x="217" y="27" width="69" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+			</element>
+			<element kind="textField" mode="Opaque" x="217" y="27" width="69" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-4" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA["Location:" + $F{serviceLocation}]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField-5" mode="Opaque" x="470" y="14" width="65" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA["Location:" + $F{serviceLocation}]]></expression>
+			</element>
+			<element kind="textField" mode="Opaque" x="470" y="14" width="65" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-5" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA["MVA:" + $F{mvaCode}]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField-6" mode="Opaque" x="104" y="14" width="95" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA["MVA:" + $F{mvaCode}]]></expression>
+			</element>
+			<element kind="textField" mode="Opaque" x="104" y="14" width="95" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-6" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA["Phone 1:" + $F{demoPhone}]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField-7" mode="Opaque" x="199" y="14" width="95" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA["Phone 1:" + $F{demoPhone}]]></expression>
+			</element>
+			<element kind="textField" mode="Opaque" x="199" y="14" width="95" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-7" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA["Phone 2:" + $F{demoPhone2}]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField-8" mode="Opaque" x="68" y="14" width="34" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA["Phone 2:" + $F{demoPhone2}]]></expression>
+			</element>
+			<element kind="textField" mode="Opaque" x="68" y="14" width="34" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-8" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA["Sex:" + $F{demoSex}]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField-9" mode="Opaque" x="30" y="14" width="37" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA["Sex:" + $F{demoSex}]]></expression>
+			</element>
+			<element kind="textField" mode="Opaque" x="30" y="14" width="37" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-9" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA[new SimpleDateFormat("yyyyddmm").parse($F{demoDOB})]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="true">
-				<reportElement key="textField-10" mode="Transparent" x="453" y="2" width="36" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA[new SimpleDateFormat("yyyyddmm").parse($F{demoDOB})]]></expression>
+			</element>
+			<element kind="textField" mode="Transparent" x="453" y="2" width="36" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-10" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Middle" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$F{expString}]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField-11" mode="Opaque" x="370" y="14" width="50" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA[$F{expString}]]></expression>
+			</element>
+			<element kind="textField" mode="Opaque" x="370" y="14" width="50" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-11" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA["End:" + $F{serviceEndTime}]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField-12" mode="Opaque" x="320" y="14" width="50" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA["End:" + $F{serviceEndTime}]]></expression>
+			</element>
+			<element kind="textField" mode="Opaque" x="320" y="14" width="50" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-12" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA["Start:" + $F{serviceStartTime}]]></textFieldExpression>
-			</textField>
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField-13" mode="Opaque" x="420" y="14" width="50" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA["Start:" + $F{serviceStartTime}]]></expression>
+			</element>
+			<element kind="textField" mode="Opaque" x="420" y="14" width="50" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-13" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA["ToDate:" + $F{serviceToDate}]]></textFieldExpression>
-			</textField>
-			<textField isStretchWithOverflow="true" pattern="" isBlankWhenNull="true">
-				<reportElement key="textField-14" mode="Opaque" x="1" y="39" width="532" height="51" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA["ToDate:" + $F{serviceToDate}]]></expression>
+			</element>
+			<element kind="textField" mode="Opaque" x="1" y="39" width="532" height="51" forecolor="#000000" backcolor="#FFFFFF" key="textField-14" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$F{expSum}]]></textFieldExpression>
-			</textField>
-			<staticText>
-				<reportElement key="staticText-12" mode="Opaque" x="0" y="14" width="30" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<expression><![CDATA[$F{expSum}]]></expression>
+			</element>
+			<element kind="staticText" mode="Opaque" x="0" y="14" width="30" height="12" forecolor="#000000" backcolor="#FFFFFF" key="staticText-12" hTextAlign="Left" vTextAlign="Top" rotation="None">
+				<paragraph lineSpacing="Single" />
 				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
 				<text><![CDATA[DOB:]]></text>
-			</staticText>
+			</element>
 		</band>
 	</detail>
-	<columnFooter>
-		<band splitType="Stretch"/>
-	</columnFooter>
-	<pageFooter>
-		<band height="21" splitType="Stretch">
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField" mode="Transparent" x="325" y="1" width="174" height="19" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Right" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA["Page " + $V{PAGE_NUMBER} + " of "]]></textFieldExpression>
-			</textField>
-			<textField evaluationTime="Report" pattern="" isBlankWhenNull="false">
-				<reportElement key="textField" mode="Transparent" x="499" y="0" width="36" height="19" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF"/>
-				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA["" + $V{PAGE_NUMBER}]]></textFieldExpression>
-			</textField>
-		</band>
+	<columnFooter splitType="Stretch">
+		</columnFooter>
+	<pageFooter height="21" splitType="Stretch">
+		<element kind="textField" mode="Transparent" x="325" y="1" width="174" height="19" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of "]]></expression>
+		</element>
+		<element kind="textField" mode="Transparent" x="499" y="0" width="36" height="19" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="" evaluationTime="Report">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
+			</box>
+			<expression><![CDATA["" + $V{PAGE_NUMBER}]]></expression>
+		</element>
 	</pageFooter>
-	<summary>
-		<band height="20" splitType="Stretch">
-			<textField pattern="" isBlankWhenNull="false">
-				<reportElement key="textField-15" mode="Opaque" x="0" y="0" width="192" height="16" forecolor="#000000" backcolor="#FFFFFF"/>
-				<box>
-					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-				</box>
-				<textElement textAlignment="Left" verticalAlignment="Top" rotation="None">
-					<paragraph lineSpacing="Single"/>
-				</textElement>
-				<textFieldExpression><![CDATA["TOTAL: " + NumberFormat.getCurrencyInstance().format($V{invTotal})]]></textFieldExpression>
-			</textField>
-		</band>
+	<summary height="20" splitType="Stretch">
+		<element kind="textField" mode="Opaque" x="0" y="0" width="192" height="16" forecolor="#000000" backcolor="#FFFFFF" key="textField-15" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+			<paragraph lineSpacing="Single" />
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+			</box>
+			<expression><![CDATA["TOTAL: " + NumberFormat.getCurrencyInstance().format($V{invTotal})]]></expression>
+		</element>
 	</summary>
 </jasperReport>

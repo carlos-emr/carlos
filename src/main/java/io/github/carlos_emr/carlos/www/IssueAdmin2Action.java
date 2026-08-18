@@ -30,8 +30,8 @@ package io.github.carlos_emr.carlos.www;
 import java.util.Iterator;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.services.IssueAdminManager;
@@ -43,8 +43,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 // use your IDE to handle imports
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class IssueAdmin2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -168,10 +169,12 @@ public class IssueAdmin2Action extends ActionSupport {
 
     private Issue issueAdmin;
 
+    @StrutsParameter(depth = 1)
     public Issue getIssueAdmin() {
         return issueAdmin;
     }
 
+    @StrutsParameter
     public void setIssueAdmin(Issue issueAdmin) {
         this.issueAdmin = issueAdmin;
     }

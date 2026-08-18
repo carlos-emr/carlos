@@ -1,6 +1,9 @@
 package io.github.carlos_emr.carlos.commn.model;
 
-import javax.persistence.*;
+import io.github.carlos_emr.carlos.commn.model.converter.EmailLogChartDisplayOptionConverter;
+import io.github.carlos_emr.carlos.commn.model.converter.EmailLogStatusConverter;
+import io.github.carlos_emr.carlos.commn.model.converter.EmailLogTransactionTypeConverter;
+import jakarta.persistence.*;
 
 import java.nio.charset.StandardCharsets;
 
@@ -111,7 +114,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
     @Column(columnDefinition = "BLOB")
     private byte[] body;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = EmailLogStatusConverter.class)
     private EmailStatus status;
 
     private String errorMessage;
@@ -131,14 +134,14 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
 
     private boolean isAttachmentEncrypted;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = EmailLogChartDisplayOptionConverter.class)
     private ChartDisplayOption chartDisplayOption;
 
     @Lob
     @Column(columnDefinition = "BLOB")
     private byte[] internalComment;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = EmailLogTransactionTypeConverter.class)
     private TransactionType transactionType;
 
     private String additionalParams;

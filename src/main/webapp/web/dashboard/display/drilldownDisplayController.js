@@ -49,23 +49,79 @@ function paintErrorField(fieldobject) {
 
 //*--> MASTER AJAX METHOD <--*//
 function sendData(path, param, target) {
-    $.ajax({
-        url: ctx + path,
-        type: 'POST',
-        data: param,
-        dataType: 'html',
-        success: function (data) {
-            if (target == "close") {
-                $('#assignTickler').modal('toggle');
-            } else if (target == "modal") {
-                $('#assignTickler').modal('show').find('.modal-body').html(data);
-            } else {
-                document.open();
-                document.write(data);
-                document.close();
+    if (target == "close" || target == "modal") {
+        // AJAX for modal interactions — sanitize HTML before DOM insertion
+        $.ajax({
+            url: ctx + path,
+            type: 'POST',
+            data: param,
+            dataType: 'html',
+            success: function (data) {
+                if (target == "close") {
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).toggle();
+                } else if (target == "modal") {
+                    if (typeof DOMPurify !== 'undefined') {
+                        // DOMPurify sanitization with defaults plus form elements. Event handlers are stripped by DOMPurify defaults.
+                        try {
+                            $('#assignTickler').find('.modal-body').html(DOMPurify.sanitize(data, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected']}));
+                        } catch (e) {
+                            console.error('Error sanitizing modal content:', e);
+                            $('#assignTickler').find('.modal-body').html('<p style="color:red">Unable to display content safely.</p>');
+                        }
+                    } else {
+                        console.error('DOMPurify is required but not loaded. Modal content blocked to prevent XSS.');
+                        $('#assignTickler').find('.modal-body').html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
+                    }
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error('Drilldown request failed:', status, error);
+                if (target == "modal") {
+                    $('#assignTickler').find('.modal-body').html(
+                        '<p style="color:red">Request failed. Please reload the page.</p>');
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
+                }
             }
+        });
+    } else {
+        // Full-page navigation — use form submission so the browser handles
+        // the response natively (including scripts, stylesheets, etc.)
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = ctx + path;
+        if (typeof param === 'string') {
+            param.split('&').forEach(function(pair) {
+                var parts = pair.split('=', 2);
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = decodeURIComponent(parts[0]);
+                input.value = decodeURIComponent(parts[1] || '');
+                form.appendChild(input);
+            });
+        } else {
+            Object.keys(param).forEach(function(key) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = param[key];
+                form.appendChild(input);
+            });
         }
-    });
+        // Explicitly add CSRF token rather than relying on MutationObserver timing
+        var csrfTokenEl = document.querySelector('input[name="CSRF-TOKEN"]');
+        if (csrfTokenEl) {
+            var csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'CSRF-TOKEN';
+            csrfInput.value = csrfTokenEl.value;
+            form.appendChild(csrfInput);
+        } else {
+            console.warn('CSRF token not found on page; form submission may be rejected by server.');
+        }
+        document.body.appendChild(form);
+        form.submit();
+    }
 }
 
 //--> Datatable Filter
@@ -170,7 +226,7 @@ $(document).ready(function () {
     // --> Number the Drilldown rows with static numbers.
     drilldownTable.on('order.dt search.dt', function () {
         drilldownTable.column(0, {search: 'applied', order: 'applied'}).nodes().each(function (cell, i) {
-            cell.innerHTML = i + 1;
+            cell.textContent = String(i + 1);
         });
     }).draw();
 
@@ -186,11 +242,10 @@ $(document).ready(function () {
         $('#drilldownTable thead th').each(function () {
             var id = this.id;
             if (id > 1) {
-                select.append('<option value="'
-                    + id
-                    + '">'
-                    + $(this).html()
-                    + '</option>');
+                var option = document.createElement('option');
+                option.value = id;
+                option.textContent = $(this).text();
+                select.append(option);
             }
         });
 
@@ -244,14 +299,17 @@ $(document).ready(function () {
 
         // exclude the first column.
         if (i > 0) {
-            var select = $('<select class="form-control" ><option value="">All</option></select>')
+            var select = $('<select class="form-select" ><option value="">All</option></select>')
                 .appendTo($(this).empty())
                 .on('change', function () {
                     drilldownTable.column(columnId).search($(this).val()).draw();
                 });
 
             drilldownTable.column(columnId).data().unique().sort().each(function (d, j) {
-                select.append('<option value="' + d + '">' + d + '</option>')
+                var option = document.createElement('option');
+                option.value = d;
+                option.textContent = d;
+                select.append(option);
             });
         }
 
@@ -260,7 +318,7 @@ $(document).ready(function () {
     //--> Re-draw the dashboard.
     $(".backtoDashboardBtn").on('click', function (event) {
         event.preventDefault();
-        var url = "/web/dashboard/display/DashboardDisplay.do";
+        var url = "/web/dashboard/display/DashboardDisplay";
         var data = new Object();
         data.dashboardId = (this.id).split("_")[1];
         data.method = (this.id).split("_")[0];
@@ -310,7 +368,7 @@ $(document).ready(function () {
     $("#saveTicklerBtn").on('click', function (event) {
         event.preventDefault();
         if (checkFields()) {
-            sendData("/web/dashboard/display/AssignTickler.do", $("#ticklerAddForm").serialize(), "close")
+            sendData("/web/dashboard/display/AssignTickler", $("#ticklerAddForm").serialize(), "close")
         }
     });
 
@@ -331,7 +389,7 @@ $(document).ready(function () {
             url: url,
             dataType: "json",
             success: function (data) {
-                $("#modalConfirmAddToDiseaseRegistry").modal("show");
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmAddToDiseaseRegistry')).show();
                 $("#icd9code").text(data.icd9code);
                 $("#icd9description").text(data.description);
             }
@@ -352,10 +410,11 @@ $(document).ready(function () {
         var data = "patientIds=" + patientIds;
 
         $.ajax({
+            type: 'POST',
             url: url,
             data: data,
             success: function (data) {
-                $("#modalConfirmAddToDiseaseRegistry").modal("toggle");
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmAddToDiseaseRegistry')).toggle();
             }
         });
     });
@@ -370,7 +429,7 @@ $(document).ready(function () {
             return;
         }
 
-        $("#modalConfirmPatientExclusion").modal("show");
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmPatientExclusion')).show();
     });
 
     $("#confirmPatientExclusion").on('click', function (event) {
@@ -384,10 +443,11 @@ $(document).ready(function () {
         var data = "patientIds=" + patientIds;
 
         $.ajax({
+            type: 'POST',
             url: url,
             data: data,
             success: function (data) {
-                $("#modalConfirmPatientExclusion").modal("toggle");
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmPatientExclusion')).toggle();
             }
         });
     });
@@ -402,7 +462,7 @@ $(document).ready(function () {
             return;
         }
 
-        $("#modalConfirmPatientStatusUpdate").modal("show");
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmPatientStatusUpdate')).show();
 
     });
 
@@ -417,10 +477,11 @@ $(document).ready(function () {
         var data = "patientIds=" + patientIds;
 
         $.ajax({
+            type: 'POST',
             url: url,
             data: data,
             success: function (data) {
-                $("#modalConfirmPatientStatusUpdate").modal("toggle");
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmPatientStatusUpdate')).toggle();
             }
         });
     });

@@ -40,9 +40,9 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.TreeMap;
 
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
 
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
@@ -198,17 +198,13 @@ public class ScheduleManagerImpl implements ScheduleManager {
     }
 
     public List<ScheduleTemplateCode> getScheduleTemplateCodes() {
-        List<ScheduleTemplateCode> scheduleTemplateCodes = scheduleTemplateCodeDao.findAll();
-
         // This method will not log access as the codes are not private medical data.
-        return (scheduleTemplateCodes);
+        return scheduleTemplateCodeDao.findAll();
     }
 
     public List<AppointmentType> getAppointmentTypes() {
-        List<AppointmentType> appointmentTypes = appointmentTypeDao.listAll();
-
         // This method will not log access as the appointment types are not private medical data.
-        return (appointmentTypes);
+        return appointmentTypeDao.listAll();
     }
 
     public void addAppointment(LoggedInInfo loggedInInfo, Security security, Appointment appointment) {

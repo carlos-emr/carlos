@@ -32,44 +32,51 @@
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import org.hibernate.HibernateException;
-import org.hibernate.Query;
-import org.hibernate.Session;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.HibernateCallback;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
+@Transactional
+public class IssueDAOImpl extends AbstractJpaDao implements IssueDAO {
     private static Logger logger = MiscUtils.getLogger();
 
     @Override
     public Issue getIssue(Long id) {
-        return getHibernateTemplate().get(Issue.class, id);
+        return entityManager().find(Issue.class, id);
     }
 
     @Override
     public List<Issue> getIssues() {
-        return (List<Issue>) this.getHibernateTemplate().find("from Issue");
+        return (List<Issue>) JpqlQueryHelper.find(entityManager(), "from Issue");
     }
 
     @Override
     public List<Issue> findIssueByCode(String[] codes) {
-        String code = "'" + StringUtils.join(codes, "','") + "'";
-        return (List<Issue>) this.getHibernateTemplate().find("from Issue i where i.code in (" + code + ")");
+        if (codes == null || codes.length == 0) {
+            return new ArrayList<>();
+        }
+        String hql = "from Issue i where i.code in (:codes)";
+        Map<String, Object> params = new HashMap<>();
+        params.put("codes", Arrays.asList(codes));
+        return (List<Issue>) JpqlQueryHelper.find(entityManager(), hql, params);
     }
 
     @Override
     public Issue findIssueByCode(String code) {
-        List<Issue> list = (List<Issue>) this.getHibernateTemplate().find("from Issue i where i.code = ?0",
-                new Object[]{code});
+        List<Issue> list = (List<Issue>) JpqlQueryHelper.find(entityManager(), "from Issue i where i.code = ?1",
+                code);
         if (list.size() > 0)
             return list.get(0);
 
@@ -78,8 +85,8 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
 
     @Override
     public Issue findIssueByTypeAndCode(String type, String code) {
-        List<Issue> list = (List<Issue>) this.getHibernateTemplate().find("from Issue i where i.type=?0 and i.code = ?1",
-                new Object[]{type, code});
+        List<Issue> list = (List<Issue>) JpqlQueryHelper.find(entityManager(), "from Issue i where i.type=?1 and i.code = ?2",
+                type, code);
         if (list.size() > 0)
             return list.get(0);
 
@@ -88,13 +95,17 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
 
     @Override
     public void saveIssue(Issue issue) {
-        this.getHibernateTemplate().saveOrUpdate(issue);
+        if (issue.getId() == null) {
+            entityManager().persist(issue);
+        } else {
+            entityManager().merge(issue);
+        }
     }
 
     @Deprecated
     @Override
     public void delete(Long issueId) {
-        this.getHibernateTemplate().delete(getIssue(issueId));
+        entityManager().remove(getIssue(issueId));
     }
 
     @SuppressWarnings("unchecked")
@@ -102,8 +113,8 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
     public List<Issue> findIssueBySearch(String search) {
         search = "%" + search + "%";
         search = search.toLowerCase();
-        String sql = "from Issue i where lower(i.code) like ?0 or lower(i.description) like ?1";
-        return (List<Issue>) this.getHibernateTemplate().find(sql, new Object[]{search, search});
+        String sql = "from Issue i where lower(i.code) like ?1 or lower(i.description) like ?2";
+        return (List<Issue>) JpqlQueryHelper.find(entityManager(), sql, search, search);
     }
 
     @Override
@@ -112,18 +123,15 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
             return new ArrayList<Long>();
         }
 
-        StringBuilder buf = new StringBuilder();
-        for (int x = 0; x < roles.size(); x++) {
-            if (x != 0) {
-                buf.append(",");
-            }
-            buf.append("\'" + (roles.get(x).getName()) + "\'");
+        List<String> roleNames = new ArrayList<>();
+        for (Secrole role : roles) {
+            roleNames.add(role.getName());
         }
-        String roleList = buf.toString();
 
-        String sql = "select i.id from Issue i where i.role in (" + roleList + ") order by sortOrderId";
-        logger.debug(sql);
-        return (List<Long>) this.getHibernateTemplate().find(sql);
+        String sql = "select i.id from Issue i where i.role in (:roleNames) order by sortOrderId";
+        Map<String, Object> params = new HashMap<>();
+        params.put("roleNames", roleNames);
+        return (List<Long>) JpqlQueryHelper.find(entityManager(), sql, params);
     }
 
     @SuppressWarnings("unchecked")
@@ -133,32 +141,20 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
             return new ArrayList<Issue>();
         }
 
-        StringBuilder buf = new StringBuilder();
-        for (int x = 0; x < roles.size(); x++) {
-            if (x != 0) {
-                buf.append(",");
-            }
-            buf.append("\'" + (roles.get(x).getName()) + "\'");
+        List<String> roleNames = new ArrayList<>();
+        for (Secrole role : roles) {
+            roleNames.add(role.getName());
         }
-        final String roleList = buf.toString();
 
         search = "%" + search + "%";
         search = search.toLowerCase();
-        final String sql = "from Issue i where (lower(i.code) like ?1 or lower(i.description) like ?1  or lower(i.role) like ?2) and i.role in ("
-                + roleList + ") order by sortOrderId";
-        logger.debug(sql);
-        final String s = search;
-        return (List<Issue>) getHibernateTemplate().execute(new HibernateCallback<List<Issue>>() {
-            public List<Issue> doInHibernate(Session session) throws HibernateException {
-                Query q = session.createQuery(sql);
-                q.setMaxResults(Math.min(numToReturn, AbstractDaoImpl.MAX_LIST_RETURN_SIZE));
-                q.setFirstResult(startIndex);
-                q.setParameter(1, s);
-                q.setParameter(2, roleList);
-                return q.list();
-            }
-        });
-
+        String hql = "from Issue i where (lower(i.code) like :search or lower(i.description) like :search or lower(i.role) like :search) and i.role in (:roleNames) order by sortOrderId";
+        logger.debug(hql);
+        Map<String, Object> params = new HashMap<>();
+        params.put("search", search);
+        params.put("roleNames", roleNames);
+        return (List<Issue>) JpqlQueryHelper.findWithPagination(entityManager(), hql, startIndex,
+                Math.min(numToReturn, AbstractDaoImpl.MAX_LIST_RETURN_SIZE), params);
     }
 
     @SuppressWarnings("unchecked")
@@ -168,22 +164,20 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
             return 0;
         }
 
-        StringBuilder buf = new StringBuilder();
-        for (int x = 0; x < roles.size(); x++) {
-            if (x != 0) {
-                buf.append(",");
-            }
-            buf.append("\'" + (roles.get(x).getName()) + "\'");
+        List<String> roleNames = new ArrayList<String>();
+        for (Secrole role : roles) {
+            roleNames.add(role.getName());
         }
-        final String roleList = buf.toString();
 
         search = "%" + search + "%";
         search = search.toLowerCase();
-        final String sql = "select count(i) from Issue i where (lower(i.code) like ?0 or lower(i.description) like ?1  or lower(i.role) like ?2) and i.role in ("
-                + roleList + ") order by sortOrderId";
-        logger.debug(sql);
-        List<Long> result = (List<Long>) this.getHibernateTemplate().find(sql,
-                new Object[]{search, search, roleList});
+
+        String hql = "select count(i) from Issue i where (lower(i.code) like :search or lower(i.description) like :search or lower(i.role) like :search) and i.role in (:roleNames)";
+        logger.debug(hql);
+        Map<String, Object> params = new HashMap<>();
+        params.put("search", search);
+        params.put("roleNames", roleNames);
+        List<Long> result = (List<Long>) JpqlQueryHelper.find(entityManager(), hql, params);
 
         if (result.size() > 0) {
             return result.get(0).intValue();
@@ -196,18 +190,20 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
     public List searchNoRolesConcerned(String search) {
         search = "%" + search + "%";
         search = search.toLowerCase();
-        String sql = "from Issue i where (lower(i.code) like ?0 or lower(i.description) like ?1)";
+        String sql = "from Issue i where (lower(i.code) like ?1 or lower(i.description) like ?2)";
         logger.debug(sql);
-        return this.getHibernateTemplate().find(sql, new Object[]{search, search});
+        return JpqlQueryHelper.find(entityManager(), sql, search, search);
     }
 
     /**
      * Retrieves a list of Issue codes that have a type matching what is configured
-     * in oscar_mcmaster.properties as COMMUNITY_ISSUE_CODETYPE,
+     * in carlos.properties as COMMUNITY_ISSUE_CODETYPE,
      * or an empty list if this property is not found.
      *
      * @param type
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unchecked")
     @Override
     public List<String> getLocalCodesByCommunityType(String type) {
@@ -215,8 +211,8 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
         if (type == null || type.equals("")) {
             codes = new ArrayList<String>();
         } else {
-            codes = (List<String>) this.getHibernateTemplate().find("FROM Issue i WHERE i.type = ?0",
-                    new Object[]{type.toLowerCase()});
+            codes = (List<String>) JpqlQueryHelper.find(entityManager(), "SELECT i.code FROM Issue i WHERE i.type = ?1",
+                    type.toLowerCase());
         }
         return codes;
     }

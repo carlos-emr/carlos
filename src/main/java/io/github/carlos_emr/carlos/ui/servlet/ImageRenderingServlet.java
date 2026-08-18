@@ -29,30 +29,29 @@ package io.github.carlos_emr.carlos.ui.servlet;
 
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.utility.*;
-import io.github.carlos_emr.carlos.ws.Client;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
 import io.github.carlos_emr.carlos.casemgmt.dao.ClientImageDAO;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.*;
 import java.net.SocketException;
 import java.net.URL;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
- * This servlet requires a parameter called "source" which should signify where to get the image from. Examples include source=local_client, or source=hnr_client. Depending on the source, you may optionally need more parameters, as examples a local_client
- * may need a clientId=5 or a hnr_client may need linkingId=3. <br />
+ * This servlet requires a parameter called "source" which should signify where to get the image from. Examples include source=local_client. Depending on the source, you may optionally need more parameters, as an example a local_client
+ * may need a clientId=5. <br />
  * <br />
  * The structure of this class follows the structure of the Servlet class itself in the pattern of the service() -> (doPost/doGet/doDelete), from the doGet we fork to each specific source processor. <br />
  * <br />
@@ -66,7 +65,7 @@ public final class ImageRenderingServlet extends HttpServlet {
     private static ClientImageDAO clientImageDAO = (ClientImageDAO) SpringUtils.getBean(ClientImageDAO.class);
 
     public static enum Source {
-        local_client, hnr_client, integrator_client, signature_preview, signature_stored, clinic_logo
+        local_client, signature_preview, signature_stored, clinic_logo
     }
 
     @Override
@@ -80,10 +79,6 @@ public final class ImageRenderingServlet extends HttpServlet {
             // and a little processing logic.
             if (Source.local_client.name().equals(source)) {
                 renderLocalClient(request, response);
-            } else if (Source.hnr_client.name().equals(source)) {
-                renderHnrClient(request, response);
-            } else if (Source.integrator_client.name().equals(source)) {
-                renderIntegratorClient(request, response);
             } else if (Source.signature_preview.name().equals(source)) {
                 renderSignaturePreview(request, response);
             } else if (Source.signature_stored.name().equals(source)) {
@@ -97,8 +92,10 @@ public final class ImageRenderingServlet extends HttpServlet {
             if (e.getCause() instanceof SocketException) {
                 logger.warn("An error we can't handle that's expected infrequently. " + e.getMessage());
             } else {
-                logger.error("Unexpected error. qs=" + request.getQueryString(), e);
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                logger.error("Unexpected error. qs=" + LogSafe.sanitize(request.getQueryString()), e);
+                if (!response.isCommitted()) {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                }
             }
         }
     }
@@ -117,68 +114,32 @@ public final class ImageRenderingServlet extends HttpServlet {
             response.setContentLength(image.length);
         BufferedOutputStream bos = new BufferedOutputStream(response.getOutputStream());
         if (image != null)
-            bos.write(image);
+            bos.write(image); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary image stream
         bos.flush();
     }
 
-    private static final void renderIntegratorClient(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        // this expects integratorFacilityId and caisiClientId as a parameter
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        // sec check
-        HttpSession session = request.getSession();
-        Provider provider = (Provider) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER);
-        if (provider == null) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return;
+    /**
+     * Detects common signature image formats from magic bytes.
+     *
+     * <p>Recognizes PNG, JPEG, and GIF headers. Unknown or empty content falls back to {@code jpeg}
+     * for compatibility with legacy stored signatures that were historically served as JPEG.
+     */
+    static String detectImageType(byte[] image) {
+        if (image != null && image.length >= 8
+                && (image[0] & 0xff) == 0x89 && image[1] == 'P' && image[2] == 'N' && image[3] == 'G'
+                && image[4] == 0x0d && image[5] == 0x0a && image[6] == 0x1a && image[7] == 0x0a) {
+            return "png";
         }
-
-        try {
-            // get image
-            Integer integratorFacilityId = Integer.parseInt(request.getParameter("integratorFacilityId"));
-            Integer caisiClientId = Integer.parseInt(request.getParameter("caisiDemographicId"));
-            DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-            DemographicTransfer demographicTransfer = demographicWs.getDemographicByFacilityIdAndDemographicId(integratorFacilityId, caisiClientId);
-
-            if (demographicTransfer != null && demographicTransfer.getPhoto() != null) {
-                renderImage(response, demographicTransfer.getPhoto(), "jpeg");
-                return;
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error.", e);
+        if (image != null && image.length >= 3
+                && (image[0] & 0xff) == 0xff && (image[1] & 0xff) == 0xd8 && (image[2] & 0xff) == 0xff) {
+            return "jpeg";
         }
-
-        response.sendError(HttpServletResponse.SC_NOT_FOUND);
-    }
-
-    private static final void renderHnrClient(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        // this expects linkingId as a parameter
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        // sec check
-        HttpSession session = request.getSession();
-        Provider provider = (Provider) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER);
-        if (provider == null) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return;
+        if (image != null && image.length >= 6
+                && image[0] == 'G' && image[1] == 'I' && image[2] == 'F'
+                && image[3] == '8' && (image[4] == '7' || image[4] == '9') && image[5] == 'a') {
+            return "gif";
         }
-
-        try {
-            // get image
-            Integer linkingId = Integer.parseInt(request.getParameter("linkingId"));
-            Client hnrClient = CaisiIntegratorManager.getHnrClient(loggedInInfo, loggedInInfo.getCurrentFacility(), linkingId);
-
-            if (hnrClient != null && hnrClient.getImage() != null) {
-                renderImage(response, hnrClient.getImage(), "jpeg");
-                return;
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error.", e);
-        }
-
-        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        return "jpeg";
     }
 
     private static void renderLocalClient(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -196,11 +157,17 @@ public final class ImageRenderingServlet extends HttpServlet {
             try {
                 // get image
                 ClientImage clientImage = clientImageDAO.getClientImage(Integer.parseInt(clientId));
-                if (clientImage != null && "jpg".equalsIgnoreCase(clientImage.getImage_type())) {
-                    renderImage(response, clientImage.getImage_data(), "jpeg");
+                String imageType = getRenderableImageType(clientImage);
+                if (imageType != null) {
+                    renderImage(response, clientImage.getImage_data(), imageType);
                     return;
                 } else {
-                    renderImage(response, getDefaultImage(request), "jpeg");
+                    byte[] defaultImage = getDefaultImage(request);
+                    if (defaultImage == null) {
+                        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                        return;
+                    }
+                    renderImage(response, defaultImage, "jpeg");
                     return;
                 }
             } catch (Exception e) {
@@ -210,11 +177,35 @@ public final class ImageRenderingServlet extends HttpServlet {
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
     }
 
+    /**
+     * Determines whether a client image record has renderable binary data and a
+     * supported stored image type.
+     *
+     * @param clientImage ClientImage the stored client image record to inspect
+     * @return String the normalized renderable image subtype, or {@code null}
+     *         when the record is missing, empty, or unsupported
+     */
+    private static String getRenderableImageType(ClientImage clientImage) {
+        if (clientImage == null || clientImage.getImage_data() == null || clientImage.getImage_data().length == 0) {
+            return null;
+        }
+
+        String imageType = clientImage.getImage_type();
+        if (imageType == null) {
+            return null;
+        }
+        return ClientImage.getRenderableImageType(imageType);
+    }
+
     private static byte[] getDefaultImage(HttpServletRequest request) {
         String defaultClientImage = "/images/defaultG_img.jpg";
 
         try (ByteArrayOutputStream bais = new ByteArrayOutputStream();
              InputStream is = request.getSession().getServletContext().getResourceAsStream(defaultClientImage)) {
+            if (is == null) {
+                logger.warn("Default client image not found at {}. Ensure the web application image resources are deployed correctly.", defaultClientImage);
+                return null;
+            }
             byte[] byteChunk = new byte[1024];
             int n;
             while ((n = is.read(byteChunk)) > 0) {
@@ -227,6 +218,8 @@ public final class ImageRenderingServlet extends HttpServlet {
         return null;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void renderSignaturePreview(HttpServletRequest request, HttpServletResponse response) throws IOException {
         // this expects signatureRequestId as a parameter
 
@@ -240,7 +233,6 @@ public final class ImageRenderingServlet extends HttpServlet {
 
         try {
             // get image
-            FileInputStream fileInputStream = null;
             try {
                 String signatureRequestId = request.getParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY);
                 
@@ -252,7 +244,7 @@ public final class ImageRenderingServlet extends HttpServlet {
                 // Reject any path traversal attempts
                 if (signatureRequestId.contains("..") || signatureRequestId.contains("/") || 
                     signatureRequestId.contains("\\") || signatureRequestId.contains(File.separator)) {
-                    logger.warn("SECURITY WARNING: Path traversal attempt detected in signature request ID: {}", signatureRequestId);
+                    logger.warn("SECURITY WARNING: Path traversal attempt detected in signature request ID: {}", LogSafe.sanitize(signatureRequestId));
                     throw new IllegalArgumentException("Invalid signature request ID");
                 }
                 
@@ -261,28 +253,22 @@ public final class ImageRenderingServlet extends HttpServlet {
                 // Use PathValidationUtils to validate the temp file path
                 File targetFile = new File(tempFilePath);
                 if (!PathValidationUtils.isInAllowedTempDirectory(targetFile)) {
-                    logger.warn("SECURITY WARNING: Attempt to access file outside temp directory: {}", tempFilePath);
+                    logger.warn("SECURITY WARNING: Attempt to access file outside temp directory: {}", LogSafe.sanitize(tempFilePath));
                     throw new IllegalArgumentException("Invalid file path");
                 }
 
                 // Re-validate at point of use for static analysis visibility
                 File validatedTargetFile = PathValidationUtils.validateUpload(targetFile);
-                fileInputStream = new FileInputStream(validatedTargetFile);
-                byte[] imageBytes = new byte[1024 * 256];
-                fileInputStream.read(imageBytes);
-                renderImage(response, imageBytes, "jpeg");
+                byte[] imageBytes = FileUtils.readFileToByteArray(validatedTargetFile);
+                renderImage(response, imageBytes, detectImageType(imageBytes));
                 return;
             } catch (FileNotFoundException e) {
                 // no image, render a blank gif, yes this breaks the concept
                 // of the image already exists, but it's difficult to implement the preview otherwise
                 String tempFilePath = getServletContext().getRealPath("/images/1x1.gif");
-                fileInputStream = new FileInputStream(tempFilePath);
-                byte[] imageBytes = new byte[1024 * 32];
-                fileInputStream.read(imageBytes);
-                renderImage(response, imageBytes, "gif");
+                byte[] imageBytes = FileUtils.readFileToByteArray(PathValidationUtils.validateConfiguredFile(tempFilePath, "default preview image"));
+                renderImage(response, imageBytes, detectImageType(imageBytes));
                 return;
-            } finally {
-                IOUtils.closeQuietly(fileInputStream);
             }
         } catch (Exception e) {
             logger.error("Unexpected error.", e);
@@ -301,23 +287,78 @@ public final class ImageRenderingServlet extends HttpServlet {
             return;
         }
 
-        // this expects digitalSignatureId as a parameter
         String digitalSignatureId = request.getParameter("digitalSignatureId");
 
-        if (digitalSignatureId != null && !digitalSignatureId.isEmpty()) {
-            try {
-                // get image
-				DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
-				DigitalSignature digitalSignature = digitalSignatureManager.getDigitalSignature(Integer.parseInt(digitalSignatureId));
-                if (digitalSignature != null) {
-                    renderImage(response, digitalSignature.getSignatureImage(), "jpeg");
-                    return;
-                }
-            } catch (Exception e) {
-                logger.error("Digital signature id {} is non-numeric", digitalSignatureId, e);
-            }
+        if (digitalSignatureId == null || digitalSignatureId.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
         }
-        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+
+        int parsedDigitalSignatureId;
+        try {
+            parsedDigitalSignatureId = Integer.parseInt(digitalSignatureId);
+        } catch (NumberFormatException e) {
+            logger.warn("Digital signature id {} is non-numeric", LogSafe.sanitize(digitalSignatureId));
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
+        DigitalSignature signatureMetadata = digitalSignatureManager.getDigitalSignatureMetadata(parsedDigitalSignatureId);
+        if (signatureMetadata == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        if (!canRenderStoredSignature(session, signatureMetadata)) {
+            logger.warn("Denied stored signature render: provider={} moduleType={} demographicNo={}",
+                    provider.getProviderNo(), signatureMetadata.getModuleType(), signatureMetadata.getDemographicId());
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
+        DigitalSignature digitalSignature = digitalSignatureManager.getDigitalSignature(parsedDigitalSignatureId);
+        if (digitalSignature == null || digitalSignature.getSignatureImage() == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        byte[] imageBytes = digitalSignature.getSignatureImage();
+        renderImage(response, imageBytes, detectImageType(imageBytes));
+    }
+
+    private static boolean canRenderStoredSignature(HttpSession session, DigitalSignature digitalSignature) {
+        String securityObjectName = getStoredSignatureReadSecurityObject(digitalSignature.getModuleType());
+        if (securityObjectName == null) {
+            return false;
+        }
+
+        Integer demographicId = digitalSignature.getDemographicId();
+        if (demographicId == null) {
+            return false;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(session);
+        if (loggedInInfo == null) {
+            return false;
+        }
+
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        return securityInfoManager.hasPrivilege(
+                loggedInInfo, securityObjectName, SecurityInfoManager.READ, String.valueOf(demographicId));
+    }
+
+    private static String getStoredSignatureReadSecurityObject(ModuleType moduleType) {
+        if (moduleType == ModuleType.CONSULTATION) {
+            return "_con";
+        }
+        if (moduleType == ModuleType.PRESCRIPTION) {
+            return "_rx";
+        }
+        if (moduleType == ModuleType.E_FORM) {
+            return "_eform";
+        }
+        return null;
     }
 
     private static void renderClinicLogoStored(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -336,21 +377,16 @@ public final class ImageRenderingServlet extends HttpServlet {
 
         try {
             // Set the filename from properties or use the default logo
-            String filename = OscarProperties.getInstance().getProperty("CLINIC_LOGO_FILE", defaultClinicLogo);
+            String filename = CarlosProperties.getInstance().getProperty("CLINIC_LOGO_FILE", defaultClinicLogo);
             if (filename == null || filename.isEmpty()) {
                 filename = defaultClinicLogo;
             }
 
             if (filename != null) {
-                File f = new File(filename);
-                if (f != null && f.exists()) {
-                    byte[] data = FileUtils.readFileToByteArray(f);
-
-                    if (data != null) {
-                        renderImage(response, data, "jpeg");
-                        return;
-                    }
-                }
+                File f = PathValidationUtils.validateConfiguredFile(filename, "clinic logo file");
+                byte[] data = FileUtils.readFileToByteArray(f);
+                renderImage(response, data, "jpeg");
+                return;
             }
         } catch (Exception e) {
             logger.error("Unexpected error.", e);

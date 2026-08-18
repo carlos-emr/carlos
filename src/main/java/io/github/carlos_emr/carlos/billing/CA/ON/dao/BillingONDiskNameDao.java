@@ -31,7 +31,7 @@ package io.github.carlos_emr.carlos.billing.CA.ON.dao;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONDiskName;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
@@ -67,7 +67,7 @@ public class BillingONDiskNameDao extends AbstractDaoImpl<BillingONDiskName> {
     }
 
     public BillingONDiskName getPrevDiskCreateDate(Date date, String groupNo) {
-        String q = "SELECT b FROM BillingONDiskName b WHERE  b.createDateTime<?1 and groupno=?2 order by createdatetime DESC";
+        String q = "SELECT b FROM BillingONDiskName b WHERE  b.createDateTime<?1 and b.groupNo=?2 order by b.createDateTime DESC";
         Query query = entityManager.createQuery(q);
         query.setParameter(1, date);
         query.setParameter(2, groupNo);

@@ -48,8 +48,6 @@ public class DemographicSearchRequest {
 
     private boolean active;
 
-    private boolean integrator;
-
     private boolean outOfDomain;
 
     private SORTMODE sortMode;
@@ -79,14 +77,6 @@ public class DemographicSearchRequest {
 
     public void setActive(boolean active) {
         this.active = active;
-    }
-
-    public boolean isIntegrator() {
-        return integrator;
-    }
-
-    public void setIntegrator(boolean integrator) {
-        this.integrator = integrator;
     }
 
     public boolean isOutOfDomain() {

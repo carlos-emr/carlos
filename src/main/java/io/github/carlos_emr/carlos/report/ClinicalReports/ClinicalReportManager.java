@@ -30,8 +30,10 @@
 
 package io.github.carlos_emr.carlos.report.ClinicalReports;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Hashtable;
@@ -42,8 +44,11 @@ import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author jay
@@ -183,6 +188,8 @@ public class ClinicalReportManager {
     }
 
     @SuppressWarnings("unchecked")
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void loadReportsFromFile() {
 
         if (!loaded) {
@@ -196,7 +203,7 @@ public class ClinicalReportManager {
             String[] flowsheetsArray = {"oscar/oscarReport/ClinicalReports/ClinicalReports.xml"
             };
 
-            OscarProperties properties = OscarProperties.getInstance();
+            CarlosProperties properties = CarlosProperties.getInstance();
             String userConfigFilePath = (String) properties.get("CLINICAL_REPORT_CONFIG_FILE");
             boolean userConfigLoaded = false;
 
@@ -205,7 +212,7 @@ public class ClinicalReportManager {
 
                 if (userConfigFilePath != null && !userConfigLoaded) {
                     try {
-                        is = new FileInputStream(userConfigFilePath);
+                        is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(userConfigFilePath)));
                         userConfigLoaded = true;
                     } catch (FileNotFoundException ex) {
                         MiscUtils.getLogger().error("Error", ex);
@@ -218,7 +225,7 @@ public class ClinicalReportManager {
                 }
 
                 try {
-                    SAXBuilder parser = new SAXBuilder();
+                    SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
                     Document doc = parser.build(is);
                     Element root = doc.getRootElement();
 
@@ -353,6 +360,13 @@ public class ClinicalReportManager {
                     }
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Error", e);
+                } finally {
+                    if (is != null) {
+                        try {
+                            is.close();
+                        } catch (IOException ignored) {
+                        }
+                    }
                 }
                 loaded = true;
             }

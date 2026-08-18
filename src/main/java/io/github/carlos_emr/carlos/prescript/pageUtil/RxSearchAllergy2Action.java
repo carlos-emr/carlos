@@ -40,9 +40,9 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.Vector;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -50,12 +50,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.util.JsonUtil;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class RxSearchAllergy2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -133,17 +134,17 @@ public final class RxSearchAllergy2Action extends ActionSupport {
 
         boolean itemsFound = true;
 
-        String wildcardRightOnly = OscarProperties.getInstance().getProperty("allergies.search_right_wildcard_only", "false");
+        String wildcardRightOnly = CarlosProperties.getInstance().getProperty("allergies.search_right_wildcard_only", "false");
         
         vec = drugRef.list_search_element_select_categories(this.getSearchString(), catVec, Boolean.valueOf(wildcardRightOnly));
 
         //  'id':'0','category':'','name'
         Allergy[] arr = new Allergy[vec == null ? 0 : vec.size()];
 
-        String includeClassesStr = OscarProperties.getInstance().getProperty("allergies.include_ahfs_class_in_results", "true");
+        String includeClassesStr = CarlosProperties.getInstance().getProperty("allergies.include_ahfs_class_in_results", "true");
         boolean includeClasses = Boolean.valueOf(includeClassesStr);
 
-        boolean flatResults = Boolean.valueOf(OscarProperties.getInstance().getProperty("allergies.flat_results", "false"));
+        boolean flatResults = Boolean.valueOf(CarlosProperties.getInstance().getProperty("allergies.flat_results", "false"));
         TreeMap<String, Allergy> flatList = new TreeMap<String, Allergy>();
 
         //we want to categorize the search results.
@@ -245,6 +246,7 @@ public final class RxSearchAllergy2Action extends ActionSupport {
         return searchString;
     }
 
+    @StrutsParameter
     public void setSearchString(String searchString) {
         this.searchString = searchString;
     }
@@ -253,6 +255,7 @@ public final class RxSearchAllergy2Action extends ActionSupport {
         return type5;
     }
 
+    @StrutsParameter
     public void setType5(boolean type5) {
         this.type5 = type5;
     }
@@ -261,6 +264,7 @@ public final class RxSearchAllergy2Action extends ActionSupport {
         return type4;
     }
 
+    @StrutsParameter
     public void setType4(boolean type4) {
         this.type4 = type4;
     }
@@ -269,6 +273,7 @@ public final class RxSearchAllergy2Action extends ActionSupport {
         return type3;
     }
 
+    @StrutsParameter
     public void setType3(boolean type3) {
         this.type3 = type3;
     }
@@ -277,6 +282,7 @@ public final class RxSearchAllergy2Action extends ActionSupport {
         return type2;
     }
 
+    @StrutsParameter
     public void setType2(boolean type2) {
         this.type2 = type2;
     }
@@ -285,6 +291,7 @@ public final class RxSearchAllergy2Action extends ActionSupport {
         return type1;
     }
 
+    @StrutsParameter
     public void setType1(boolean type1) {
         this.type1 = type1;
     }

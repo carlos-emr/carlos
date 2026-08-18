@@ -32,17 +32,14 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Hashtable;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
-
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
-import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
-import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
-import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
@@ -50,13 +47,13 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class AddEditHtml2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -67,6 +64,8 @@ public class AddEditHtml2Action extends ActionSupport {
     /**
      * Creates a new instance of AddLinkAction
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -146,25 +145,6 @@ public class AddEditHtml2Action extends ActionSupport {
             }
 
             String docId = EDocUtil.addDocumentSQL(currentDoc);
-
-            /* Save annotation */
-            String attrib_name = request.getParameter("annotation_attrib");
-            HttpSession se = request.getSession();
-            WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(se.getServletContext());
-            CaseManagementManager cmm = (CaseManagementManager) ctx.getBean(CaseManagementManager.class);
-            if (attrib_name != null) {
-                CaseManagementNote cmn = (CaseManagementNote) se.getAttribute(attrib_name);
-                if (cmn != null) {
-                    cmm.saveNoteSimple(cmn);
-                    CaseManagementNoteLink cml = new CaseManagementNoteLink();
-                    cml.setTableName(CaseManagementNoteLink.DOCUMENT);
-                    cml.setTableId(Long.valueOf(docId));
-                    cml.setNoteId(cmn.getId());
-                    cmm.saveNoteLink(cml);
-
-                    se.removeAttribute(attrib_name);
-                }
-            }
         } else {
             currentDoc = new EDoc(this.getDocDesc(), this.getDocType(), "", this.getHtml(), this.getDocCreator(), this.getResponsibleId(), this.getSource(), 'H', this.getObservationDate(), reviewerId, reviewDateTime, this.getFunction(), this.getFunctionId());
             currentDoc.setDocId(this.getMode());
@@ -175,9 +155,11 @@ public class AddEditHtml2Action extends ActionSupport {
             EDocUtil.editDocumentSQL(currentDoc, this.getReviewDoc());
         }
         String contextPath = request.getContextPath();
-        StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/documentReport.jsp");
-        redirect.append("?function=").append(request.getParameter("function"));
-        redirect.append("&functionid=").append(request.getParameter("functionid"));
+        StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/ViewDocumentReport");
+        String functionParam = request.getParameter("function");
+        String functionIdParam = request.getParameter("functionid");
+        redirect.append("?function=").append(functionParam != null ? URLEncoder.encode(functionParam, StandardCharsets.UTF_8) : "");
+        redirect.append("&functionid=").append(functionIdParam != null ? URLEncoder.encode(functionIdParam, StandardCharsets.UTF_8) : "");
         try {
             response.sendRedirect(redirect.toString());
         } catch (IOException e) {
@@ -226,6 +208,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return function;
     }
 
+    @StrutsParameter
     public void setFunction(String function) {
         this.function = function;
     }
@@ -234,6 +217,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return functionId;
     }
 
+    @StrutsParameter
     public void setFunctionId(String functionId) {
         this.functionId = functionId;
     }
@@ -242,6 +226,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return docType;
     }
 
+    @StrutsParameter
     public void setDocType(String docType) {
         this.docType = docType;
     }
@@ -250,6 +235,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return docClass;
     }
 
+    @StrutsParameter
     public void setDocClass(String docClass) {
         this.docClass = docClass;
     }
@@ -258,6 +244,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return docSubClass;
     }
 
+    @StrutsParameter
     public void setDocSubClass(String docSubClass) {
         this.docSubClass = docSubClass;
     }
@@ -266,6 +253,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return docDesc;
     }
 
+    @StrutsParameter
     public void setDocDesc(String docDesc) {
         this.docDesc = docDesc;
     }
@@ -274,6 +262,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return docCreator;
     }
 
+    @StrutsParameter
     public void setDocCreator(String docCreator) {
         this.docCreator = docCreator;
     }
@@ -282,6 +271,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return responsibleId;
     }
 
+    @StrutsParameter
     public void setResponsibleId(String responsibleId) {
         this.responsibleId = responsibleId;
     }
@@ -290,6 +280,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return source;
     }
 
+    @StrutsParameter
     public void setSource(String source) {
         this.source = source;
     }
@@ -298,6 +289,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return sourceFacility;
     }
 
+    @StrutsParameter
     public void setSourceFacility(String sourceFacility) {
         this.sourceFacility = sourceFacility;
     }
@@ -306,6 +298,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return docFile;
     }
 
+    @StrutsParameter
     public void setDocFile(File docFile) {
         this.docFile = docFile;
     }
@@ -314,6 +307,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return mode;
     }
 
+    @StrutsParameter
     public void setMode(String mode) {
         this.mode = mode;
     }
@@ -322,6 +316,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return docPublic;
     }
 
+    @StrutsParameter
     public void setDocPublic(String docPublic) {
         this.docPublic = docPublic;
     }
@@ -330,6 +325,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return observationDate;
     }
 
+    @StrutsParameter
     public void setObservationDate(String observationDate) {
         this.observationDate = observationDate;
     }
@@ -338,6 +334,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return reviewerId;
     }
 
+    @StrutsParameter
     public void setReviewerId(String reviewerId) {
         this.reviewerId = reviewerId;
     }
@@ -346,6 +343,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return reviewDateTime;
     }
 
+    @StrutsParameter
     public void setReviewDateTime(String reviewDateTime) {
         this.reviewDateTime = reviewDateTime;
     }
@@ -354,6 +352,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return contentDateTime;
     }
 
+    @StrutsParameter
     public void setContentDateTime(String contentDateTime) {
         this.contentDateTime = contentDateTime;
     }
@@ -362,6 +361,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return reviewDoc;
     }
 
+    @StrutsParameter
     public void setReviewDoc(boolean reviewDoc) {
         this.reviewDoc = reviewDoc;
     }
@@ -370,6 +370,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return html;
     }
 
+    @StrutsParameter
     public void setHtml(String html) {
         this.html = html;
     }
@@ -378,6 +379,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return filedata;
     }
 
+    @StrutsParameter
     public void setFiledata(File Filedata) {
         this.filedata = Filedata;
     }
@@ -386,6 +388,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return appointmentNo;
     }
 
+    @StrutsParameter
     public void setAppointmentNo(String appointment) {
         this.appointmentNo = appointment;
     }
@@ -394,6 +397,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return restrictToProgram;
     }
 
+    @StrutsParameter
     public void setRestrictToProgram(boolean restrictToProgram) {
         this.restrictToProgram = restrictToProgram;
     }
@@ -402,6 +406,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return receivedDate;
     }
 
+    @StrutsParameter
     public void setReceivedDate(String receivedDate) {
         this.receivedDate = receivedDate;
     }
@@ -410,6 +415,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return abnormal;
     }
 
+    @StrutsParameter
     public void setAbnormal(String abnormal) {
         this.abnormal = abnormal;
     }
@@ -418,6 +424,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return extraReviewerId;
     }
 
+    @StrutsParameter
     public void setExtraReviewerId(String extraReviewerId) {
         this.extraReviewerId = extraReviewerId;
     }
@@ -426,6 +433,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return extraReviewDoc;
     }
 
+    @StrutsParameter
     public void setExtraReviewDoc(boolean extraReviewDoc) {
         this.extraReviewDoc = extraReviewDoc;
     }

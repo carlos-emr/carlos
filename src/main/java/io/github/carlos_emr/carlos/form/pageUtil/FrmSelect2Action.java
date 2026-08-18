@@ -33,9 +33,9 @@ package io.github.carlos_emr.carlos.form.pageUtil;
 import java.io.IOException;
 import java.util.List;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
@@ -45,8 +45,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class FrmSelect2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -56,8 +57,34 @@ public class FrmSelect2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Applies the requested Select Forms mutation and returns the setup route so Struts
+     * re-renders the panel markup for the administration AJAX shell.
+     *
+     * <p>This route is POST-only because every supported {@code forward} value mutates
+     * encounter form display order. The separate {@code form/setupSelect} action owns the
+     * read-only GET rendering path, so non-POST requests are rejected with HTTP 405 and
+     * {@code Allow: POST} before the privilege check to prevent CSRF-bypassing mutations.
+     *
+     * @return {@link #SUCCESS} after applying the requested mutation, or {@link #NONE}
+     *         after sending HTTP 405 for a non-POST request
+     * @throws ServletException if the servlet container rejects the error response
+     * @throws IOException if writing the HTTP 405 response fails
+     */
     @Override
     public String execute() throws ServletException, IOException {
+        // Every branch below mutates encounter form display order, and CSRFGuard only
+        // validates non-GET methods — so a crafted GET such as
+        // /form/select?forward=delete&selectedDeleteTypes=... would hide forms for any
+        // signed-in administrator without a token. Reject before the privilege check so
+        // no mutation can fire. Rendering the panel is the separate form/setupSelect route;
+        // the only caller here is the POST form in formselect.jsp.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "w", null)) {
             throw new SecurityException("missing required sec object (_form)");
         }
@@ -211,6 +238,7 @@ public class FrmSelect2Action extends ActionSupport {
         return selectedAddTypes;
     }
 
+    @StrutsParameter
     public void setSelectedAddTypes(String[] selectedAddTypes) {
         this.selectedAddTypes = selectedAddTypes;
     }
@@ -221,6 +249,7 @@ public class FrmSelect2Action extends ActionSupport {
         return selectedDeleteTypes;
     }
 
+    @StrutsParameter
     public void setSelectedDeleteTypes(String[] selectedDeleteTypes) {
         this.selectedDeleteTypes = selectedDeleteTypes;
     }
@@ -231,6 +260,7 @@ public class FrmSelect2Action extends ActionSupport {
         return forward;
     }
 
+    @StrutsParameter
     public void setForward(String forward) {
         this.forward = forward;
     }
@@ -241,6 +271,7 @@ public class FrmSelect2Action extends ActionSupport {
         return groupName;
     }
 
+    @StrutsParameter
     public void setGroupName(String groupName) {
         this.groupName = groupName;
     }

@@ -3,7 +3,7 @@ package io.github.carlos_emr.carlos.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import javax.servlet.ServletContext;
+import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
 

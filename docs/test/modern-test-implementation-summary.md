@@ -19,9 +19,9 @@ A parallel modern test framework using JUnit 5 (Jupiter) has been successfully a
 - Original test reports remain in `target/surefire-reports/`
 
 ### 3. Base Test Infrastructure
-- **OpenOTestBase**: Base class handling SpringUtils anti-pattern for integration tests
-- **OpenOUnitTestBase**: Base class for unit tests with MockedStatic support
-- **OpenODaoTestBase**: Specialized base for DAO integration tests
+- **CarlosTestBase**: Base class handling SpringUtils anti-pattern for integration tests
+- **CarlosUnitTestBase**: Base class for unit tests with MockedStatic support
+- **CarlosDaoTestBase**: Specialized base for DAO integration tests
 - **MockSecurityInfoManager**: Bypasses security checks in tests
 - Spring test contexts configured for H2 in-memory database
 - Mixed Hibernate XML and JPA entity support
@@ -92,6 +92,6 @@ mvn test
 ## How to Use
 
 1. **Write new tests** in `src/test-modern/` using JUnit 5
-2. **Use established base classes** - OpenOTestBase for integration, OpenOUnitTestBase for unit tests
+2. **Use established base classes** - CarlosTestBase for integration, CarlosUnitTestBase for unit tests
 3. **Follow the patterns** demonstrated in the Tickler test implementations
 4. **Run tests** with standard Maven commands - both suites run automatically

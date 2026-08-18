@@ -41,33 +41,66 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
-import com.itextpdf.text.DocumentException;
-import org.apache.commons.io.FileUtils;
+import io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO;
+import org.openpdf.text.DocumentException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ImagePDFCreator;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Spring-managed implementation of the {@link DocumentManager} interface for managing
+ * clinical documents in the CARLOS EMR document library.
+ *
+ * <p>Handles the complete document lifecycle including creation, retrieval, update,
+ * file system storage, queue assignment, and rendering (converting images to PDF using
+ * OpenPDF's {@link ImagePDFCreator} or resolving PDF document paths).
+ *
+ * <p>All document operations are protected by {@link SecurityInfoManager} privilege checks
+ * on the {@code _edoc} and {@code _newCasemgmt.documents} security objects. Patient consent
+ * is verified for provider-specific document access.
+ *
+ * <p>Documents are stored on the file system in the directory configured by the
+ * {@code DOCUMENT_DIR} property, with metadata persisted in the {@code document} and
+ * {@code ctl_document} database tables. PDF page counts are determined using Apache PDFBox.
+ *
+ * @see DocumentManager
+ * @see EDocUtil
+ * @since 2012 (McMaster University)
+ */
 @Service
 public class DocumentManagerImpl implements DocumentManager {
 
-    private static final String PARENT_DIR = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+    private static final String PARENT_DIR = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
     private final Logger logger = MiscUtils.getLogger();
+
+    /**
+     * Process-wide counter that makes server-generated document filenames unique even when two
+     * uploads land in the same clock-second with the same original name. See
+     * {@link #createUniqueDocumentFile}.
+     */
+    private static final AtomicLong DOCUMENT_FILE_SEQUENCE = new AtomicLong();
+    private static final int UNIQUE_FILENAME_MAX_ATTEMPTS = 5;
 
     @Autowired
     private DocumentDao documentDao;
@@ -155,20 +188,24 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
-        SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyyMMddHHmmss");
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-        Date today = new Date();
         // Generates filename and path data and saves the document data to the file system
-        String documentPath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
-        String fileName = dateTimeFormat.format(today) + "_" + document.getDocfilename();
-		fileName = MiscUtils.sanitizeFileName(fileName);
-        File file = new File(documentPath + File.separator + fileName);
-        FileUtils.writeByteArrayToFile(file, documentData);
+        String documentPath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String rawFileName = document.getDocfilename();
+        File file;
+        String fileName;
+        try {
+            String normalizedFileName = PathValidationUtils.validateFileName(rawFileName);
+            file = createUniqueDocumentFile(normalizedFileName, new File(documentPath), documentData);
+            fileName = file.getName();
+        } catch (SecurityException e) {
+            logger.error("Document filename failed path validation: {}", Encode.forJava(rawFileName));
+            throw new IOException("Document filename failed path validation", e);
+        }
 
         // Gets the number of pages for the document
         int numberOfPages = 1;
         if (fileName.toLowerCase().endsWith("pdf")) {
-			try (PDDocument pdDocument = PDDocument.load(file)) {
+			try (PDDocument pdDocument = Loader.loadPDF(file)) {
             numberOfPages = pdDocument.getNumberOfPages();
 			} catch (IOException e) {
 				numberOfPages = 0;
@@ -187,6 +224,49 @@ public class DocumentManagerImpl implements DocumentManager {
 		LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.createDocument()", "Document ID: " + document.getId().toString() + " Demographic: " + (demographicNo != null ? demographicNo.toString() : "N/A") + " FileName: " + document.getDocfilename());
 
         return document;
+    }
+
+    /**
+     * Writes {@code documentData} to a freshly created, collision-resistant file under
+     * {@code destinationDir} and returns the file that was written.
+     *
+     * <p>Security rationale: the previous scheme prefixed a one-second timestamp to the caller's
+     * original filename, so two uploads in the same clock-second with the same name resolved to a
+     * single path and the second silently overwrote the first. Because the {@code document} table
+     * has no unique constraint on {@code docfilename}, both DB rows survived — one of them then
+     * pointing at the other patient's bytes (cross-patient PHI exposure). The name is now
+     * server-generated as {@code yyyyMMddHHmmss_NNNNN_<name>} with an atomic sequence, and the
+     * write uses {@link StandardOpenOption#CREATE_NEW} so an existing file is never truncated; on
+     * the rare residual collision the name is regenerated and the write retried.
+     */
+    private File createUniqueDocumentFile(String normalizedFileName, File destinationDir, byte[] documentData) throws IOException {
+        IOException lastFailure = null;
+        for (int attempt = 0; attempt < UNIQUE_FILENAME_MAX_ATTEMPTS; attempt++) {
+            String candidateName = buildUniqueDocumentFilename(normalizedFileName);
+            File candidate = PathValidationUtils.validateUserFilePath(candidateName, destinationDir);
+            try {
+                Files.write(candidate.toPath(), documentData, StandardOpenOption.CREATE_NEW);
+                return candidate;
+            } catch (FileAlreadyExistsException e) {
+                lastFailure = e;
+                // Name collided (wrapped sequence within the same second, or a stale file already
+                // occupies the path). Regenerate with the next sequence value and retry.
+            }
+        }
+        throw new IOException("Unable to create a unique document file after " + UNIQUE_FILENAME_MAX_ATTEMPTS + " attempts", lastFailure);
+    }
+
+    /**
+     * Builds a collision-resistant document filename {@code yyyyMMddHHmmss_NNNNN_<validatedName>}.
+     * The atomic counter defeats same-second, same-original-name collisions across concurrent uploads.
+     * The leading 14-digit timestamp is preserved from the historical scheme; underscores are used as
+     * separators because {@link PathValidationUtils#validateUserFilePath} normalizes away other
+     * punctuation (dashes), and the counter is inserted between the timestamp and the original name.
+     */
+    private String buildUniqueDocumentFilename(String validatedFileName) {
+        String timestamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+        long sequence = DOCUMENT_FILE_SEQUENCE.incrementAndGet();
+        return String.format("%s_%05d_%s", timestamp, sequence, validatedFileName);
     }
 
     public List<Document> getDocumentsUpdateAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn) {
@@ -253,6 +333,15 @@ public class DocumentManagerImpl implements DocumentManager {
         return savedId;
     }
 
+    /**
+     * Persists a document and creates associated routing records (CtlDocument,
+     * PatientLabRouting, ProviderLabRouting). Uses demographicNo of -1 for
+     * unattached documents.
+     *
+     * @param document Document the document entity to persist
+     * @param demographicNo Integer the patient demographic number, or null/-1 for unattached
+     * @param providerNo String the provider number for inbox routing
+     */
     private void saveDocument(Document document, Integer demographicNo, String providerNo) {
 
         // Saves the document
@@ -281,6 +370,13 @@ public class DocumentManagerImpl implements DocumentManager {
         }
     }
 
+    /**
+     * Persists a new document and logs the action.
+     *
+     * @param loggedInInfo LoggedInInfo the current user session for audit logging
+     * @param document Document the document entity to persist
+     * @return Integer the generated document ID
+     */
     private Integer addDocument(LoggedInInfo loggedInInfo, Document document) {
 
         documentDao.persist(document);
@@ -288,6 +384,13 @@ public class DocumentManagerImpl implements DocumentManager {
         return document.getId();
     }
 
+    /**
+     * Merges an existing document and logs the action.
+     *
+     * @param loggedInInfo LoggedInInfo the current user session for audit logging
+     * @param document Document the document entity to merge
+     * @return Integer the document ID
+     */
     private Integer updateDocument(LoggedInInfo loggedInInfo, Document document) {
         documentDao.merge(document);
         LogAction.addLog(loggedInInfo, "DocumentManager.saveDocument", "Document updated ", "Document No." + document.getDocumentNo(), "", "");
@@ -304,7 +407,7 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Read and Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
-        // move the PDF from the temp location to Oscar's document directory.
+        // move the PDF from the temp location to CARLOS document directory.
         try {
             if (toPath == null) {
                 toPath = getParentDirectory();
@@ -321,10 +424,18 @@ public class DocumentManagerImpl implements DocumentManager {
         }
     }
 
+    /** @return String the configured parent document directory path */
     public static final String getParentDirectory() {
         return PARENT_DIR;
     }
 
+    /**
+     * Returns the full filesystem path to a document by ID, or null if not found.
+     *
+     * @param loggedInInfo LoggedInInfo the current user session
+     * @param documentId int the document ID
+     * @return String the absolute path, or null if the document doesn't exist
+     */
     public String getPathToDocument(LoggedInInfo loggedInInfo, int documentId) {
         Document document = this.getDocument(loggedInInfo, documentId);
         String path = null;
@@ -336,21 +447,41 @@ public class DocumentManagerImpl implements DocumentManager {
         return path;
     }
 
+    /**
+     * Resolves a document filename to its full filesystem path under DOCUMENT_DIR.
+     * Returns null if the file does not exist on disk.
+     *
+     * @param filename String the document filename
+     * @return String the absolute path, or null if the file doesn't exist
+     */
     public String getFullPathToDocument(String filename) {
 
-        String path = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
-
-        if (!path.endsWith(File.separator)) {
-            path += File.separator;
+        if (filename == null || filename.isEmpty()) {
+            return null;
         }
 
-        path += filename;
-
-        if (!FileSystems.getDefault().getPath(path).toFile().exists()) {
-            path = null;
+        // Reject filenames containing path separators. Stored filenames are plain basenames;
+        // silently stripping a subdirectory component could resolve to a different file.
+        if (filename.contains("/") || filename.contains("\\")) {
+            logger.error("Document filename contains path separator, rejected: {}", Encode.forJava(filename));
+            return null;
         }
 
-        return path;
+        String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+
+        File validatedFile;
+        try {
+            validatedFile = PathValidationUtils.validatePath(filename, new File(documentDir));
+        } catch (SecurityException e) {
+            logger.error("Invalid document filename rejected: {}", Encode.forJava(filename));
+            return null;
+        }
+
+        if (!validatedFile.exists()) {
+            return null;
+        }
+
+        return validatedFile.getAbsolutePath();
     }
 
     /**
@@ -378,7 +509,7 @@ public class DocumentManagerImpl implements DocumentManager {
     }
 
     /**
-     * Add a document to Oscar's document library.
+     * Add a document to the CARLOS document library.
      * <p>
      * This method actually saves the Document contents to the file system. The document resource
      * MUST contain valid Base64 encoded document binary data.
@@ -388,6 +519,8 @@ public class DocumentManagerImpl implements DocumentManager {
      * @return
      * @throws Exception
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Document addDocument(LoggedInInfo loggedInInfo, Document document, CtlDocument ctlDocument) throws Exception {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.documents", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("Access Denied");
@@ -407,7 +540,7 @@ public class DocumentManagerImpl implements DocumentManager {
 
             /*
              *  This ensures that all incoming documents contain the highly required default of 0.
-             *  A null here will break other parts of Oscar functionality.
+             *  A null here will break other parts of CARLOS functionality.
              */
             if (document.getNumberofpages() == null) {
                 document.setNumberofpages(0);
@@ -470,6 +603,8 @@ public class DocumentManagerImpl implements DocumentManager {
         return renderDocument(eDoc);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Path renderDocument(EDoc eDoc) throws PDFGenerationException {
         Path eDocPDFPath = null;
         String eDocPath = getFullPathToDocument(eDoc.getFileName());
@@ -504,4 +639,18 @@ public class DocumentManagerImpl implements DocumentManager {
 		}
 		return null;
 	}
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<DocumentListItemDTO> getDocumentDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+        List<DocumentListItemDTO> results = documentDao.findDocumentDTOsByDemographicNo(demographicNo);
+        LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDocumentDTOs",
+                "demographicNo=" + demographicNo);
+        return results;
+    }
 }

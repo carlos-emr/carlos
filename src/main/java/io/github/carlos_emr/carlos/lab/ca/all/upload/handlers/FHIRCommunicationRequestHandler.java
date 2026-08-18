@@ -29,7 +29,7 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 
-import com.itextpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfReader;
 
 import ca.uhn.fhir.context.FhirContext;
 
@@ -51,10 +51,11 @@ import org.hl7.fhir.dstu3.model.CommunicationRequest;
 
 import org.hl7.fhir.dstu3.model.Reference;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -65,7 +66,28 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Handles FHIR STU3 CommunicationRequest resources containing PDF document attachments.
+ *
+ * <p>This handler parses a JSON-encoded {@link CommunicationRequest} from an uploaded file,
+ * extracts the embedded PDF attachment, saves it to the document directory via
+ * {@link Utilities#savePdfFile}, and creates an EDoc record linked to the referenced
+ * patient demographic. The document is then routed to the recipient providers specified
+ * in the CommunicationRequest.
+ *
+ * <p>File path validation is performed using {@link PathValidationUtils} to prevent
+ * path traversal attacks. Page count is determined using OpenPDF's {@link PdfReader}
+ * on the decoded attachment byte data.
+ *
+ * <p>The document type is extracted from the CommunicationRequest category coding
+ * using the {@code http://oscarehr.org/documentType} system URI.
+ *
+ * @see MessageHandler
+ * @see org.hl7.fhir.dstu3.model.CommunicationRequest
+ * @since 2019 (McMaster University)
+ */
 public class FHIRCommunicationRequestHandler implements MessageHandler {
 
     protected static Logger logger = MiscUtils.getLogger();
@@ -74,6 +96,19 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
     private static SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 
 
+    /**
+     * Parses a FHIR CommunicationRequest JSON file and saves the embedded PDF attachment
+     * as an EDoc, routing it to the specified recipient providers.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session info
+     * @param serviceName String the service name (unused in this handler)
+     * @param fileName String the full path to the FHIR JSON file
+     * @param fileId int the file identifier (unused in this handler)
+     * @param ipAddr String the client IP address for audit logging
+     * @return String "success" if the document was saved, or {@code null} on error
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
         String providerNo = "-1";
@@ -83,7 +118,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
         try {
             // Validate and canonicalize the file path to prevent path traversal attacks
             // Get the base document directory from configuration
-            String baseDocDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+            String baseDocDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
             if (baseDocDir == null || baseDocDir.isEmpty()) {
                 logger.error("DOCUMENT_DIR not configured");
                 return null;
@@ -93,13 +128,13 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             File baseDir = new File(baseDocDir);
             File targetFile = new File(fileName);
             try {
-                PathValidationUtils.validateExistingPath(targetFile, baseDir);
+                targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
             } catch (SecurityException e) {
-                logger.error("Path traversal attempt detected: " + fileName);
+                logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: " + fileName);
+                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
             
@@ -144,9 +179,10 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
 
             newDoc.setDocPublic("0");
             newDoc.setContentType("application/pdf");
-            PdfReader reader = new PdfReader(document);
-            int numPages = reader.getNumberOfPages();
-            reader.close();
+            int numPages;
+            try (PdfReader reader = new PdfReader(document)) {
+                numPages = reader.getNumberOfPages();
+            }
             newDoc.setNumberOfPages(numPages);
 
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
@@ -158,7 +194,8 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             LogAction.addLog(providerNo, LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, ipAddr, "", "DocUpload.FHIRCommunicationRequest");
 
         } catch (Exception e) {
-            logger.error("error parsing Document Reference Document from :" + fileName, e);
+            logger.error("error parsing Document Reference Document", e);
+            return null;
         } finally {
             IOUtils.closeQuietly(in);
         }

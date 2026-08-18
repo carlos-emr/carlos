@@ -41,7 +41,7 @@ public interface CtlBillingServicePremiumDao extends AbstractDao<CtlBillingServi
 
     List<CtlBillingServicePremium> findByStatus(String status);
 
-    List<Object[]> search_ctlpremium(String status);
+    List<io.github.carlos_emr.carlos.billings.ca.on.dto.PremiumRow> search_ctlpremium(String status);
 
     List<CtlBillingServicePremium> findByServceCodes(List<String> serviceCodes);
 }

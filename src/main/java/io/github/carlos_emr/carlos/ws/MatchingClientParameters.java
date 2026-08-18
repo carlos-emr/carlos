@@ -1,13 +1,13 @@
 package io.github.carlos_emr.carlos.ws;
 
-import javax.xml.bind.annotation.XmlSchemaType;
+import jakarta.xml.bind.annotation.XmlSchemaType;
 import org.w3._2001.xmlschema.Adapter1;
-import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
-import javax.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+import jakarta.xml.bind.annotation.XmlElement;
 import java.util.Calendar;
-import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlType;
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
 @XmlAccessorType(XmlAccessType.FIELD)

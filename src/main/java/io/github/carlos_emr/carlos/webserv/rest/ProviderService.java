@@ -34,17 +34,17 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
 
 import io.github.carlos_emr.carlos.webserv.rest.to.OscarSearchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -66,11 +66,13 @@ import io.github.carlos_emr.carlos.web.PatientListApptBean;
 import io.github.carlos_emr.carlos.web.PatientListApptItemBean;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ProviderConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ProviderTo1;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.ProviderTransfer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 /**
@@ -139,7 +141,7 @@ public class ProviderService extends AbstractServiceImpl {
             
         } catch (Exception e) {
             logger.error("Error retrieving providers: {}", e.getMessage(), e);
-            throw new javax.ws.rs.WebApplicationException(javax.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR);
+            throw new jakarta.ws.rs.WebApplicationException(jakarta.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -168,7 +170,7 @@ public class ProviderService extends AbstractServiceImpl {
             
         } catch (Exception e) {
             logger.error("Error retrieving providers as JSON: {}", e.getMessage(), e);
-            throw new javax.ws.rs.WebApplicationException(javax.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR);
+            throw new jakarta.ws.rs.WebApplicationException(jakarta.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -182,15 +184,15 @@ public class ProviderService extends AbstractServiceImpl {
         @Path("/provider/{id}")
         @Produces({"application/xml", "application/json"})
         public ProviderTransfer getProvider(@PathParam("id") String id) {
-            logger.debug("Retrieving provider {}", id);
+            logger.debug("Retrieving provider {}", LogSafe.sanitize(id));
 
             Provider provider = providerDao.getProvider(id);
             if (provider == null) {
-                logger.warn("Provider not found: {}", id);
+                logger.warn("Provider not found: {}", LogSafe.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 throw new WebApplicationException(Response.Status.NOT_FOUND);
             }
 
-            logger.info("Successfully retrieved provider: {}", id);
+            logger.info("Successfully retrieved provider: {}", LogSafe.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return ProviderTransfer.toTransfer(provider);
         }
 
@@ -243,15 +245,15 @@ public class ProviderService extends AbstractServiceImpl {
     @Path("/providerjson/{id}")
     @Produces("application/json")
     public String getProviderAsJSON(@PathParam("id") String id) {
-        logger.debug("Retrieving provider {} as JSON", id);
+        logger.debug("Retrieving provider {} as JSON", LogSafe.sanitize(id));
 
         Provider provider = providerDao.getProvider(id);
         if (provider == null) {
-            logger.warn("Provider not found: {}", id);
+            logger.warn("Provider not found: {}", LogSafe.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
 
-        logger.info("Successfully retrieved provider {} as JSON", id);
+        logger.info("Successfully retrieved provider {} as JSON", LogSafe.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         return objectMapper.valueToTree(provider).toString();
     }
 
@@ -270,6 +272,8 @@ public class ProviderService extends AbstractServiceImpl {
      * @param itemsToReturn   Number of items to return
      * @return AbstractSearchResponse containing search results
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @POST
     @Path("/providers/search")
     @Produces("application/json")
@@ -405,19 +409,25 @@ public class ProviderService extends AbstractServiceImpl {
     @Path("/settings/{providerNo}/save")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse saveProviderSettings(ProviderSettings json, @PathParam("providerNo") String providerNo) {
-        GenericRESTResponse response = new GenericRESTResponse();
-
-        MiscUtils.getLogger().warn(json.toString());
-
+    public RestResponse<String> saveProviderSettings(ProviderSettings json, @PathParam("providerNo") String providerNo) {
+        // Prevent horizontal privilege escalation: a provider may only save their OWN settings. Without
+        // this check any authenticated provider could rewrite another provider's preferences by passing
+        // an arbitrary providerNo in the path. The GET sibling (/settings/get) is likewise scoped to the
+        // session provider; cross-provider editing, if ever needed, belongs behind an explicit admin
+        // endpoint. The full settings payload is no longer logged.
+        String sessionProviderNo = getLoggedInInfo().getLoggedInProviderNo();
+        if (providerNo == null || !providerNo.equals(sessionProviderNo)) {
+            throw new WebApplicationException("provider settings may only be saved for the authenticated provider",
+                    Response.Status.FORBIDDEN);
+        }
         providerManager.updateProviderSettings(getLoggedInInfo(), providerNo, json);
-        return response;
+        return RestResponse.successResponse(null);
     }
 
     @GET
     @Path("/suggestProviderNo")
     @Produces("application/json")
-    public GenericRESTResponse suggestProviderNo() {
+    public RestResponse<String> suggestProviderNo() {
 
         List<Provider> providers = providerManager.getProviders(getLoggedInInfo(), null);
         List<Integer> providerList = new ArrayList<Integer>();
@@ -438,7 +448,7 @@ public class ProviderService extends AbstractServiceImpl {
         }
 
 
-        return new GenericRESTResponse(true, suggestProviderNo);
+        return RestResponse.successResponse(suggestProviderNo);
     }
 
 }

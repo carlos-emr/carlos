@@ -30,19 +30,18 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
-import org.apache.commons.text.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.form.gate.FormViewRoutes;
 import io.github.carlos_emr.carlos.lab.LabRequestReportLink;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -50,6 +49,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EctDisplayForm2Action extends EctDisplayAction {
 
@@ -58,6 +58,8 @@ public class EctDisplayForm2Action extends EctDisplayAction {
     private String cmd = "forms";
     private String menuId = "1";
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -74,18 +76,16 @@ public class EctDisplayForm2Action extends EctDisplayAction {
             try {
 
                 String winName = "Forms" + bean.demographicNo;
-                StringBuilder url = new StringBuilder("popupPage(600, 700, '" + winName + "', '" + request.getContextPath() + "/oscarEncounter/formlist.jsp?demographic_no=" + bean.demographicNo + "')");
 
                 // set text for lefthand module title
-                Dao.setLeftHeading(getText("oscarEncounter.Index.msgForms"));
+                Dao.setLeftHeading(getText("encounter.Index.msgForms"));
                 // set link for lefthand module title
-                Dao.setLeftURL(url.toString());
+                Dao.setLeftPopup(600, 700, winName, request.getContextPath() + "/encounter/ViewFormlist?demographic_no=" + bean.demographicNo);
 
                 // we're going to display a pop up menu of forms so we set the menu title and id num of menu
                 Dao.setRightHeadingID(menuId);
-                Dao.setMenuHeader(getText("oscarEncounter.LeftNavBar.AddFrm"));
-                StringBuilder javascript = new StringBuilder("<script type=\"text/javascript\">");
-                String js = "";
+                Dao.setMenuHeader(getText("encounter.LeftNavBar.AddFrm"));
+                StringBuilder url;
                 String serviceDateStr;
                 StringBuilder strTitle;
                 String fullTitle;
@@ -99,16 +99,10 @@ public class EctDisplayForm2Action extends EctDisplayAction {
 
                 String BGCOLOUR = request.getParameter("hC");
                 for (EncounterForm encounterForm : encounterForms) {
-                    if (encounterForm.getFormName().equalsIgnoreCase("Discharge Summary")) {
-                        String caisiProperty = OscarProperties.getInstance().getProperty("caisi");
-                        if (caisiProperty != null && (caisiProperty.equalsIgnoreCase("yes")
-                                || caisiProperty.equalsIgnoreCase("true")
-                                || caisiProperty.equalsIgnoreCase("on"))) {
-
-                        } else {
-                            continue; //form out
-                        }
+                    if (EctFormData.isRemovedCaisiForm(encounterForm.getFormName())) {
+                        continue;
                     }
+
                     winName = encounterForm.getFormName() + bean.demographicNo;
 
                     String table = encounterForm.getFormTable();
@@ -152,19 +146,16 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                             url = new StringBuilder(
                                     "popupPage(700,960,'" + hash + "started', '" +
                                             request.getContextPath() +
-                                            "/form/forwardshortcutname.do?formname="
+                                            "/form/forwardshortcutname?formname="
                                             + encounterForm.getFormName() +
                                             "&demographic_no=" + bean.demographicNo +
-                                            (pfrm.getRemoteFacilityId() != null ? "&remoteFacilityId=" + pfrm.getRemoteFacilityId() : "") +
                                             (appointmentNo != null ? "&appointmentNo=" + appointmentNo : "")
                                             + "&formId=latest" + "');");
 
                             key = StringUtils.maxLenString(fullTitle, MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + "(" + serviceDateStr + ")";
-                            key = StringEscapeUtils.escapeEcmaScript(key);
 
                             // auto completion arrays and colour code are set
-                            js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompList.push('" + key + "'); autoCompleted['" + key + "'] = \"" + url + "\";";
-                            javascript.append(js);
+                            Dao.addAutoCompleteItem(key, url.toString(), BGCOLOUR);
 
                             // set item href text
                             item.setTitle(strTitle.toString());
@@ -175,42 +166,34 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                             item.setLinkTitle(fullTitle + " " + serviceDateStr);
 
 
-                            //sorry I have to do this, since the "hidden" field, doesn't mean hidden.
-                            //this is a fix so that when they've migrated to the enhanced form, the
-                            //regular one is hidden. It's still accessible from the list mode off
-                            //the tab header though, if they really need to get to it.
-                            boolean dontAdd = false;
-                            if (table.equals("formONAR")) {
-                                //check to see if we have an enhanced one
-                                EctFormData.PatientForm[] pf = EctFormData.getPatientFormsFromLocalAndRemote(loggedInInfo, bean.demographicNo, "formONAREnhancedRecord");
-                                if (pf.length > 0) {
-                                    dontAdd = true;
-                                }
-                            }
-                            if (!dontAdd)
-                                Dao.addItem(item);
+                            // formONAR and formONAREnhancedRecord tables removed (deprecated 2026-03-25)
+                            Dao.addItem(item);
                         }
                     }
 
                     // we add all unhidden forms to the pop up menu
                     if (!encounterForm.isHidden()) {
                         hash = Math.abs(winName.hashCode());
-                        url = new StringBuilder("popupPage(700,960,'" + hash + "new', '" + encounterForm.getFormValue() + bean.demographicNo + "&formId=0&provNo=" + bean.providerNo + "&parentAjaxId=" + cmd + ((appointmentNo != null) ? "&appointmentNo=" + appointmentNo : "") + "')");
-                        Dao.addPopUpUrl(url.toString());
+                        // Legacy form_value stores paths like "../form/formX.jsp?demographic_no=".
+                        // Form JSPs now live under /WEB-INF/jsp/form/ and are served by the
+                        // form/* Struts wildcard action, so translate the legacy path to the
+                        // new action route to avoid 404s. Fall back to the legacy value if
+                        // the form is not in the allow-list (e.g. custom/extension forms).
+                        String legacyFormValue = encounterForm.getFormValue();
+                        String resolvedActionPath = FormViewRoutes.resolveActionPath(legacyFormValue);
+                        String formUrlBase = (resolvedActionPath != null)
+                                ? request.getContextPath() + resolvedActionPath
+                                : legacyFormValue;
+                        String newFormPath = formUrlBase + bean.demographicNo + "&formId=0&provNo=" + bean.providerNo + "&parentAjaxId=" + cmd + ((appointmentNo != null) ? "&appointmentNo=" + appointmentNo : "");
+                        Dao.addPopUpMenu(700, 960, String.valueOf(hash) + "new", newFormPath);
                         key = StringUtils.maxLenString(encounterForm.getFormName(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + " (new)";
                         Dao.addPopUpText(encounterForm.getFormName());
-                        key = StringEscapeUtils.escapeEcmaScript(key);
 
                         // auto completion arrays and colour code are set
-                        js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompList.push('" + key + "'); autoCompleted['" + key + "'] = \"" + url + ";\";";
-                        javascript.append(js);
+                        Dao.addAutoCompleteItem(key, "popupPage(700,960,'" + hash + "new','" + newFormPath + "');", BGCOLOUR);
                     }
                 }
-                url = new StringBuilder("return !showMenu('" + menuId + "', event);");
-                Dao.setRightURL(url.toString());
-
-                javascript.append("</script>");
-                Dao.setJavaScript(javascript.toString());
+                Dao.setRightURL("return !showMenu('" + menuId + "', event);");
 
                 // sort module items, i.e. forms, from most recently started to more distant
                 Dao.sortItems(NavBarDisplayDAO.DATESORT_ASC);

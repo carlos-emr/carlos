@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.provider.web;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.entities.Provider;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -42,18 +42,22 @@ import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import java.util.*;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class UserPreference2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -72,7 +76,6 @@ public class UserPreference2Action extends ActionSupport {
         defaults.put("pref." + UserProperty.SCHEDULE_PERIOD, "15");
         defaults.put("pref." + UserProperty.NEW_CME, "Enabled");
         defaults.put("pref." + UserProperty.ENCOUNTER_FORM_LENGTH, "3");
-        defaults.put("pref." + UserProperty.RX_USE_RX3, "yes");
     }
 
     public String getParameter(HttpServletRequest request, String name) {
@@ -104,6 +107,11 @@ public class UserPreference2Action extends ActionSupport {
 
     @Override
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
+            throw new SecurityException("missing required sec object (_pref)");
+        }
+
         if ("saveGeneral".equals(request.getParameter("method"))) {
             return saveGeneral();
         }
@@ -256,10 +264,6 @@ public class UserPreference2Action extends ActionSupport {
                 options.add(new LabelValueBean(String.valueOf(x), String.valueOf(x)));
             }
         }
-        if (key.equals("pref." + UserProperty.RX_USE_RX3)) {
-            options.add(new LabelValueBean("Yes", "yes"));
-            options.add(new LabelValueBean("No", "no"));
-        }
         if (key.equals("pref." + UserProperty.RX_SHOW_QR_CODE)) {
             options.add(new LabelValueBean("Yes", "yes"));
             options.add(new LabelValueBean("No", "no"));
@@ -399,9 +403,11 @@ public class UserPreference2Action extends ActionSupport {
         ArrayList<LabelValueBean> results = new ArrayList<LabelValueBean>();
 
         CtlBillingServiceDao ctlBillingServiceDao = (CtlBillingServiceDao) SpringUtils.getBean(CtlBillingServiceDao.class);
-        List<Object[]> cbsList = ctlBillingServiceDao.getUniqueServiceTypes();
-        for (Object[] cbs : cbsList) {
-            results.add(new LabelValueBean((String) cbs[1], (String) cbs[0]));
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow> cbsList =
+                ctlBillingServiceDao.getUniqueServiceTypes();
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow cbs : cbsList) {
+            // Note: legacy mapping read serviceTypeName as label and serviceType as value (cbs[1], cbs[0]).
+            results.add(new LabelValueBean(cbs.serviceTypeName(), cbs.serviceType()));
         }
         return results;
     }
@@ -463,7 +469,10 @@ public class UserPreference2Action extends ActionSupport {
                     }
                 }
             }
-            sb.append("<input name=\"pref." + UserProperty.ENCOUNTER_FORM_NAME + "\" value=\"" + lvb.getValue() + "\" type=\"checkbox\" " + checked + "/>" + lvb.getLabel() + "\n");
+            sb.append("<input name=\"pref.").append(UserProperty.ENCOUNTER_FORM_NAME)
+                    .append("\" value=\"").append(SafeEncode.forHtmlAttribute(lvb.getValue()))
+                    .append("\" type=\"checkbox\" ").append(checked)
+                    .append("/>").append(SafeEncode.forHtmlContent(lvb.getLabel())).append("\n");
             sb.append("<br/>\n");
         }
         return sb.toString();
@@ -497,7 +506,10 @@ public class UserPreference2Action extends ActionSupport {
                     }
                 }
             }
-            sb.append("<input name=\"pref." + UserProperty.EFORM_NAME + "\" value=\"" + lvb.getValue() + "\" type=\"checkbox\" " + checked + "/>" + lvb.getLabel() + "\n");
+            sb.append("<input name=\"pref.").append(UserProperty.EFORM_NAME)
+                    .append("\" value=\"").append(SafeEncode.forHtmlAttribute(lvb.getValue()))
+                    .append("\" type=\"checkbox\" ").append(checked)
+                    .append("/>").append(SafeEncode.forHtmlContent(lvb.getLabel())).append("\n");
             sb.append("<br/>\n");
         }
         return sb.toString();

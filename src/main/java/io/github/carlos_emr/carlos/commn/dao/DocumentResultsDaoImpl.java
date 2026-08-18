@@ -36,7 +36,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements DocumentResultsDao {
 
@@ -57,12 +58,15 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
         super(Document.class);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean isSentToValidProvider(String docNo) {//check if document attached to any existing providers
         if (docNo != null) {
-            int dn = Integer.parseInt(docNo.trim());
-            String sql = "select p from ProviderInboxItem p where p.labType='DOC' and p.labNo=" + dn;
             try {
+                int dn = Integer.parseInt(docNo.trim());
+                String sql = "select p from ProviderInboxItem p where p.labType='DOC' and p.labNo=:labNo";
                 Query query = entityManager.createQuery(sql);
+                query.setParameter("labNo", dn);
                 @SuppressWarnings("unchecked")
                 List<ProviderInboxItem> r = query.getResultList();
                 if (r != null && r.size() > 0) {
@@ -89,11 +93,13 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
 
     public boolean isSentToProvider(String docNo, String providerNo) {
         if (docNo != null && providerNo != null) {
-            int dn = Integer.parseInt(docNo.trim());
-            providerNo = providerNo.trim();
-            String sql = "select p from ProviderInboxItem p where p.labType='DOC' and p.labNo=" + dn + " and p.providerNo='" + providerNo + "'";
             try {
+                int dn = Integer.parseInt(docNo.trim());
+                providerNo = providerNo.trim();
+                String sql = "select p from ProviderInboxItem p where p.labType='DOC' and p.labNo=:labNo and p.providerNo=:providerNo";
                 Query query = entityManager.createQuery(sql);
+                query.setParameter("labNo", dn);
+                query.setParameter("providerNo", providerNo);
                 @SuppressWarnings("unchecked")
                 List<ProviderInboxItem> r = query.getResultList();
                 if (r != null && r.size() > 0) {
@@ -109,6 +115,8 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ArrayList<LabResultData> populateDocumentResultsDataOfAllProviders(String providerNo, String demographicNo,
                                                                               String status) {
 
@@ -125,14 +133,14 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
         try {
             //
             if (demographicNo == null) {
-                sql = "select d from Document d, ProviderInboxItem p where d.documentNo=p.labNo and p.status like '%" + status + "%' " +
-                        " and p.labType='DOC' order by d.documentNo DESC";
+                sql = "select d from Document d, ProviderInboxItem p where d.documentNo=p.labNo and p.status like :status and p.labType='DOC' order by d.documentNo DESC";
             } else {
                 return labResults;
             }
 
             logger.debug(sql);
             Query query = entityManager.createQuery(sql);
+            query.setParameter("status", "%" + status + "%");
             @SuppressWarnings("unchecked")
             List<Document> result = query.getResultList();
             for (Document d : result) {
@@ -228,6 +236,8 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
     }
 
     //retrieve documents belonging to a providers
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ArrayList<LabResultData> populateDocumentResultsDataLinkToProvider(String providerNo, String demographicNo,
                                                                               String status) {
 
@@ -240,14 +250,15 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
         String sql = "";
         try {
             if (demographicNo == null || providerNo == null) {
-                sql = "select d from Document d, ProviderInboxItem p where d.documentNo=p.labNo and p.status like '%" + status + "%' and p.providerNo = '"
-                        + providerNo + "'" + " and p.labType='DOC' order by d.documentNo DESC";
+                sql = "select d from Document d, ProviderInboxItem p where d.documentNo=p.labNo and p.status like :status and p.providerNo = :providerNo and p.labType='DOC' order by d.documentNo DESC";
             } else {
                 return labResults;
             }
 
             logger.debug(sql);
             Query query = entityManager.createQuery(sql);
+            query.setParameter("status", "%" + status + "%");
+            query.setParameter("providerNo", providerNo);
             @SuppressWarnings("unchecked")
             List<Document> result = query.getResultList();
             for (Document d : result) {
@@ -335,6 +346,8 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
     }
 
     //retrieve all documents from database
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ArrayList<LabResultData> populateDocumentResultsData(String providerNo, String demographicNo, String status) {
 
         if (providerNo == null) {
@@ -350,16 +363,16 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
         try {
 
             if (demographicNo == null) {
-                sql = "select d from Document d, ProviderInboxItem p where d.documentNo=p.labNo and p.status like '%" + status + "%' and (p.providerNo like '" +
-                        (providerNo.equals("") ? "%" : providerNo) + "'" + " or p.providerNo='" + CommonLabResultData.NOT_ASSIGNED_PROVIDER_NO + "' ) " +
-                        " and p.labType='DOC' order by d.documentNo DESC";
-                        
+                sql = "select d from Document d, ProviderInboxItem p where d.documentNo=p.labNo and p.status like :status and (p.providerNo like :providerNo or p.providerNo=:unassigned) and p.labType='DOC' order by d.documentNo DESC";
             } else {
                 return labResults;
             }
 
             logger.debug(sql);
             Query query = entityManager.createQuery(sql);
+            query.setParameter("status", "%" + status + "%");
+            query.setParameter("providerNo", providerNo.equals("") ? "%" : providerNo);
+            query.setParameter("unassigned", CommonLabResultData.NOT_ASSIGNED_PROVIDER_NO);
             @SuppressWarnings("unchecked")
             List<Document> result = query.getResultList();
             for (Document d : result) {

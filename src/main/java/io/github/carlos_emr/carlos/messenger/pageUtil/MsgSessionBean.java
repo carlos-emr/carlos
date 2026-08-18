@@ -56,7 +56,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @version 1.0
  * @since 2002
  * @see MsgCreateMessage2Action
- * @see MsgSendMessage2Action
  */
 public class MsgSessionBean implements java.io.Serializable {
 
@@ -195,8 +194,7 @@ public class MsgSessionBean implements java.io.Serializable {
             currentAtt = this.getPDFAttachment();
         }
 
-        // Note: String comparison should use .equals(), not !=
-        if (binStr != "" && binStr != null) {
+        if (binStr != null && !binStr.isEmpty()) {
             this.setPDFAttachment(currentAtt + " " + getPDFStartTag() + getStatusTag("OK") + getPDFTitleTag(pdfTitle) + getContentTag(binStr) + getPDFEndTag());
         } else {
             this.setPDFAttachment(currentAtt + " " + getPDFStartTag() + getStatusTag("BAD") + getPDFTitleTag(pdfTitle + " (N/A)") + getContentTag(binStr) + getPDFEndTag());

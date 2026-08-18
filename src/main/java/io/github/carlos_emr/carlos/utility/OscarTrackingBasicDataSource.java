@@ -45,8 +45,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.WeakHashMap;
 import java.util.concurrent.Executor;
@@ -62,6 +64,8 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
     public static final Logger logger = MiscUtils.getLogger();
     public static final Map<Connection, StackTraceElement[]> debugMap = Collections.synchronizedMap(new WeakHashMap<Connection, StackTraceElement[]>());
     private static final ThreadLocal<HashSet<Connection>> connections = new ThreadLocal<HashSet<Connection>>();
+    private static final Set<HashSet<Connection>> trackedThreadConnectionSets = Collections.synchronizedSet(
+            Collections.newSetFromMap(new IdentityHashMap<HashSet<Connection>, Boolean>()));
 
     private static Connection trackConnection(Connection c) {
         c = new TrackingJdbcConnection(c);
@@ -72,6 +76,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         if (threadConnections == null) {
             threadConnections = new HashSet<Connection>();
             connections.set(threadConnections);
+            trackedThreadConnectionSets.add(threadConnections);
         }
 
         threadConnections.add(c);
@@ -87,27 +92,66 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
 
     public static void releaseThreadConnections() {
         HashSet<Connection> threadConnections = connections.get();
-        if (threadConnections != null && threadConnections.size() > 0) {
-
-            threadConnections = new HashSet<Connection>(threadConnections);
-            for (Connection c : threadConnections) {
-                try {
-                    if (!c.isClosed()) {
-                        c.close();
-                    }
-                } catch (SQLException e) {
-                    logger.error("Error closing jdbc connection.", e);
-                }
-            }
+        if (threadConnections != null) {
+            closeTrackedConnections(threadConnections, "Error closing jdbc connection.");
+            trackedThreadConnectionSets.remove(threadConnections);
         }
 
         connections.remove();
     }
 
+    private static void closeTrackedConnections(HashSet<Connection> threadConnections, String errorMessage) {
+        HashSet<Connection> connectionsToClose = new HashSet<Connection>(threadConnections);
+        threadConnections.clear();
+        for (Connection c : connectionsToClose) {
+            try {
+                if (!c.isClosed()) {
+                    c.close();
+                }
+            } catch (SQLException e) {
+                logger.error(errorMessage, e);
+            }
+        }
+    }
+
+    /**
+     * Releases current-thread JDBC tracking and clears diagnostic references during
+     * webapp shutdown to avoid retaining connections or class-loader-owned state.
+     */
+    static void clearTrackingState() {
+        releaseThreadConnections();
+        HashSet<Connection>[] trackedThreadSets;
+        synchronized (trackedThreadConnectionSets) {
+            trackedThreadSets = trackedThreadConnectionSets.toArray(new HashSet[0]);
+        }
+        for (HashSet<Connection> threadConnections : trackedThreadSets) {
+            closeTrackedConnections(threadConnections, "Error closing tracked thread jdbc connection during shutdown.");
+            trackedThreadConnectionSets.remove(threadConnections);
+        }
+
+        HashMap<Connection, StackTraceElement[]> trackedConnections;
+        synchronized (debugMap) {
+            trackedConnections = new HashMap<Connection, StackTraceElement[]>(debugMap);
+            debugMap.clear();
+        }
+        for (Connection c : trackedConnections.keySet()) {
+            try {
+                if (!c.isClosed()) {
+                    c.close();
+                }
+            } catch (SQLException e) {
+                logger.error("Error closing tracked jdbc connection during shutdown.", e);
+            }
+        }
+    }
+
     public static void logDebugMapToError() {
         String divider = "------------------------------";
 
-        HashMap<Connection, StackTraceElement[]> connectionMap = new HashMap<Connection, StackTraceElement[]>(debugMap);
+        HashMap<Connection, StackTraceElement[]> connectionMap;
+        synchronized (debugMap) {
+            connectionMap = new HashMap<Connection, StackTraceElement[]>(debugMap);
+        }
         for (Map.Entry<Connection, StackTraceElement[]> entry : connectionMap.entrySet()) {
             String key = entry.getKey().hashCode() + ":" + entry.getKey().toString();
             String value = (Arrays.toString(entry.getValue())).replace(",", "\n");
@@ -145,7 +189,13 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             String configuredTimezone = m.group(2);
             logger.warn("Configured timezone: " + configuredTimezone);
         } else {
-            url += (url.contains("?") ? "&" : "?") + "serverTimezone=" + TimeZone.getDefault().getID();
+            // Sanitize the timezone ID to only allow safe characters before appending it to
+            // the JDBC URL.  TimeZone.getDefault().getID() returns values like "America/Toronto"
+            // which contain only letters, digits, underscores, hyphens, and forward slashes.
+            // The replacement ensures that even an unusual JVM timezone setting cannot inject
+            // additional JDBC URL parameters.
+            String safeTimezoneId = TimeZone.getDefault().getID().replaceAll("[^a-zA-Z0-9/_.+-]", "");
+            url += (url.contains("?") ? "&" : "?") + "serverTimezone=" + safeTimezoneId;
         }
         super.setUrl(url);
     }
@@ -287,8 +337,9 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             return connection.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability);
         }
 
-        public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-            return connection.prepareStatement(sql, resultSetType, resultSetConcurrency);
+        @Override
+        public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException { // nosemgrep: hibernate-sqli -- JDBC connection wrapper delegates to underlying connection; not the source of SQL construction
+            return connection.prepareStatement(sql, resultSetType, resultSetConcurrency); // codeql[java/sql-injection] — JDBC connection pool wrapper; delegates to underlying connection
         }
 
         public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
@@ -303,8 +354,9 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             return connection.prepareStatement(sql, columnNames);
         }
 
-        public PreparedStatement prepareStatement(String sql) throws SQLException {
-            return connection.prepareStatement(sql);
+        @Override
+        public PreparedStatement prepareStatement(String sql) throws SQLException { // nosemgrep: hibernate-sqli -- JDBC connection wrapper delegates to underlying connection; not the source of SQL construction
+            return connection.prepareStatement(sql); // codeql[java/sql-injection] — JDBC connection pool wrapper; delegates to underlying connection
         }
 
         public void releaseSavepoint(Savepoint savepoint) throws SQLException {

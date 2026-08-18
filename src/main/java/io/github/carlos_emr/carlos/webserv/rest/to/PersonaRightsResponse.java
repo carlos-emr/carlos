@@ -32,8 +32,8 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.XmlSeeAlso;
+import jakarta.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlSeeAlso;
 
 import io.github.carlos_emr.carlos.webserv.rest.to.model.SecurityObjectTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.UserPrivilegeTo1;

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# OpenO EMR - Check Docusaurus Documentation Server Status
+# CARLOS EMR - Check Docusaurus Documentation Server Status
 # This script checks the status of the Docusaurus development server
 
 set -e
@@ -9,7 +9,7 @@ PID_FILE="/tmp/docusaurus.pid"
 LOG_FILE="/tmp/docusaurus.log"
 DOCS_PORT=3000
 
-echo "📊 OpenO EMR Documentation Server Status"
+echo "📊 CARLOS EMR Documentation Server Status"
 echo "========================================"
 
 # Check if PID file exists
@@ -52,7 +52,7 @@ fi
 if command -v ps >/dev/null 2>&1; then
     MEM_INFO=$(ps -o pid,ppid,rss,vsz,comm -p $DOCS_PID 2>/dev/null | tail -n +2)
     if [ ! -z "$MEM_INFO" ]; then
-        echo "Memory: $(echo $MEM_INFO | awk '{print $3}'} KB RSS, $(echo $MEM_INFO | awk '{print $4}'} KB VSZ"
+        echo "Memory: $(echo $MEM_INFO | awk '{print $3}') KB RSS, $(echo $MEM_INFO | awk '{print $4}') KB VSZ"
     fi
 fi
 
@@ -61,7 +61,7 @@ if [ -f "$LOG_FILE" ]; then
     LOG_SIZE=$(wc -l < "$LOG_FILE" 2>/dev/null || echo "0")
     LOG_MODIFIED=$(stat -c %y "$LOG_FILE" 2>/dev/null | cut -d. -f1 || echo "unknown")
     echo "Log: $LOG_FILE ($LOG_SIZE lines, modified: $LOG_MODIFIED)"
-    
+
     # Show last few log lines
     echo ""
     echo "📋 Recent log entries:"

@@ -29,7 +29,7 @@ src/main/resources/
 ├── /oscar/                               # Main application resources
 │   ├── /form/                           # Medical forms (140+ print configs, PDFs)
 │   ├── /oscarRx/                        # Prescription module and ODB formulary
-│   ├── /oscarEncounter/                 # Clinical encounters and flowsheets
+│   ├── /encounter/                 # Clinical encounters and flowsheets
 │   ├── /oscarBilling/                   # Billing reports and templates
 │   └── [other modules]                  # Module-specific resources
 ├── /com/quatro/model/                   # Hibernate mappings for security

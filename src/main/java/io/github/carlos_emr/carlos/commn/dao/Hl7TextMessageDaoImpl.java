@@ -35,7 +35,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import org.springframework.stereotype.Repository;
@@ -45,17 +45,6 @@ public class Hl7TextMessageDaoImpl extends AbstractDaoImpl<Hl7TextMessage> imple
 
     public Hl7TextMessageDaoImpl() {
         super(Hl7TextMessage.class);
-    }
-
-    @Override
-    public void updateIfFillerOrderNumberMatches(String base64EncodedeMessage, int fileUploadCheckId, Integer id) {
-        Query query = entityManager.createQuery("update " + modelClass.getName()
-                + " x set x.base64EncodedeMessage=?1, fileUploadCheckId=?2 where x.type='TDIS' and x.id=?3");
-        query.setParameter(1, base64EncodedeMessage);
-        query.setParameter(2, fileUploadCheckId);
-        query.setParameter(3, id);
-
-        query.executeUpdate();
     }
 
     @Override

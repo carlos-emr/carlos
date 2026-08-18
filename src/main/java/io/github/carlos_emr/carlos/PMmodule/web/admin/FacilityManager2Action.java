@@ -33,8 +33,8 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.Facility;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -59,8 +60,9 @@ import io.github.carlos_emr.carlos.services.LookupManager;
 /**
  *
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class FacilityManager2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -71,6 +73,7 @@ public class FacilityManager2Action extends ActionSupport {
     private DemographicDao demographicDao;
     private ProgramManager programManager;
     private LookupManager lookupManager;
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private FacilityDao facilityDao;
     private EFormDao eFormDao = (EFormDao) SpringUtils.getBean(EFormDao.class);
@@ -88,6 +91,31 @@ public class FacilityManager2Action extends ActionSupport {
     private static final String BEAN_ASSOCIATED_CLIENTS = "associatedClients";
     private static final String registrationIntakeName = "Registration Intake";
 
+    @Override
+    public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String method = request.getParameter("method");
+        boolean mutatingMethod = "delete".equals(method) || "save".equals(method);
+        String privilege = mutatingMethod ? "w" : "r";
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", privilege, null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
+        if ("view".equals(method)) {
+            return view();
+        } else if ("edit".equals(method)) {
+            return edit();
+        } else if ("delete".equals(method)) {
+            return delete();
+        } else if ("add".equals(method)) {
+            return add();
+        } else if ("save".equals(method)) {
+            return save();
+        }
+        return list();
+    }
+
     public String unspecified() {
         return list();
     }
@@ -97,10 +125,10 @@ public class FacilityManager2Action extends ActionSupport {
 
         request.setAttribute(BEAN_FACILITIES, facilities);
 
-        // get agency's organization list from caisi editor table
+        // get agency's organization list from the lookup table
         request.setAttribute("orgList", lookupManager.LoadCodeList("OGN", true, null, null));
 
-        // get agency's sector list from caisi editor table
+        // get agency's sector list from the lookup table
         request.setAttribute("sectorList", lookupManager.LoadCodeList("SEC", true, null, null));
 
         return FORWARD_LIST;
@@ -113,7 +141,9 @@ public class FacilityManager2Action extends ActionSupport {
 
 
         this.setFacility(facility);
+        request.setAttribute("facility", facility);
         this.setRegistrationIntakeForms(eFormDao.getEfromInGroupByGroupName(registrationIntakeName));
+        request.setAttribute("registrationIntakeForms", this.getRegistrationIntakeForms());
 
         List<FacilityDischargedClients> facilityClients = new ArrayList<FacilityDischargedClients>();
 
@@ -177,16 +207,19 @@ public class FacilityManager2Action extends ActionSupport {
         Facility facility = facilityDao.find(Integer.valueOf(id));
 
         this.setFacility(facility);
+        request.setAttribute("facility", facility);
         this.setRegistrationIntakeForms(eFormDao.getEfromInGroupByGroupName(registrationIntakeName));
+        request.setAttribute("registrationIntakeForms", this.getRegistrationIntakeForms());
 
         request.setAttribute("id", facility.getId());
         request.setAttribute("orgId", facility.getOrgId());
         request.setAttribute("sectorId", facility.getSectorId());
+        request.setAttribute("sectorID", facility.getSectorId());
 
-        // get agency's organization list from caisi editor table
+        // get agency's organization list from the lookup table
         request.setAttribute("orgList", lookupManager.LoadCodeList("OGN", true, null, null));
 
-        // get agency's sector list from caisi editor table
+        // get agency's sector list from the lookup table
         request.setAttribute("sectorList", lookupManager.LoadCodeList("SEC", true, null, null));
 
         return FORWARD_EDIT;
@@ -204,11 +237,14 @@ public class FacilityManager2Action extends ActionSupport {
     public String add() {
         Facility facility = new Facility("", "");
         this.setFacility(facility);
+        request.setAttribute("facility", facility);
+        this.setRegistrationIntakeForms(eFormDao.getEfromInGroupByGroupName(registrationIntakeName));
+        request.setAttribute("registrationIntakeForms", this.getRegistrationIntakeForms());
 
-        // get agency's organization list from caisi editor table
+        // get agency's organization list from the lookup table
         request.setAttribute("orgList", lookupManager.LoadCodeList("OGN", true, null, null));
 
-        // get agency's sector list from caisi editor table
+        // get agency's sector list from the lookup table
         request.setAttribute("sectorList", lookupManager.LoadCodeList("SEC", true, null, null));
 
         return FORWARD_EDIT;
@@ -221,16 +257,12 @@ public class FacilityManager2Action extends ActionSupport {
         if (request.getParameter("facility.hic") == null) facility.setHic(false);
 
         try {
-            facility.setIntegratorEnabled(WebUtils.isChecked(request, "facility.integratorEnabled"));
-            facility.setAllowSims(WebUtils.isChecked(request, "facility.allowSims"));
-            facility.setEnableIntegratedReferrals(WebUtils.isChecked(request, "facility.enableIntegratedReferrals"));
             facility.setEnableHealthNumberRegistry(WebUtils.isChecked(request, "facility.enableHealthNumberRegistry"));
             facility.setEnableDigitalSignatures(WebUtils.isChecked(request, "facility.enableDigitalSignatures"));
 
             facility.setEnableAnonymous(WebUtils.isChecked(request, "facility.enableAnonymous"));
             facility.setEnablePhoneEncounter(WebUtils.isChecked(request, "facility.enablePhoneEncounter"));
             facility.setEnableGroupNotes(WebUtils.isChecked(request, "facility.enableGroupNotes"));
-            facility.setEnableOcanForms(WebUtils.isChecked(request, "facility.enableOcanForms"));
             facility.setEnableEncounterTime(WebUtils.isChecked(request, "facility.enableEncounterTime"));
             facility.setEnableEncounterTransportationTime(WebUtils.isChecked(request, "facility.enableEncounterTransportationTime"));
             if (facility.getRegistrationIntake() != null && facility.getRegistrationIntake() < 0)
@@ -241,7 +273,8 @@ public class FacilityManager2Action extends ActionSupport {
 
             // if we just updated our current facility, refresh local cached data in the session / thread local variable
             if (loggedInInfo.getCurrentFacility().getId().intValue() == facility.getId().intValue()) {
-                request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
+                // nosemgrep: tainted-session-from-http-request -- facility fields from admin form, persisted/merged to DB above; admin-restricted via Struts URL mapping
+                request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): admin-persisted facility entity (DAO-sourced); _admin.facility hasPrivilege checked
                 loggedInInfo.setCurrentFacility(facility);
             }
 
@@ -277,10 +310,12 @@ public class FacilityManager2Action extends ActionSupport {
     private Facility facility;
     private List<EForm> registrationIntakeForms;
 
+    @StrutsParameter(depth = 1)
     public Facility getFacility() {
         return facility;
     }
 
+    @StrutsParameter
     public void setFacility(Facility facility) {
         this.facility = facility;
     }

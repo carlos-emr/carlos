@@ -39,7 +39,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -58,37 +58,35 @@ import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.eform.util.GraphicalCanvasToImage;
 import io.github.carlos_emr.carlos.eform.APExecute;
 
-import com.itextpdf.text.Chunk;
-import com.itextpdf.text.Document;
-import com.itextpdf.text.DocumentException;
-import com.itextpdf.text.Element;
-import com.itextpdf.text.Font;
-import com.itextpdf.text.Image;
-import com.itextpdf.text.PageSize;
-import com.itextpdf.text.Paragraph;
-import com.itextpdf.text.Phrase;
-import com.itextpdf.text.Rectangle;
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.PdfContentByte;
-import com.itextpdf.text.pdf.PdfPCell;
-import com.itextpdf.text.pdf.PdfPTable;
-import com.itextpdf.text.pdf.PdfPageEventHelper;
-import com.itextpdf.text.pdf.PdfWriter;
+import org.openpdf.text.Chunk;
+import org.openpdf.text.Document;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.Element;
+import org.openpdf.text.Font;
+import org.openpdf.text.Image;
+import org.openpdf.text.PageSize;
+import org.openpdf.text.Paragraph;
+import org.openpdf.text.Phrase;
+import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.PdfPCell;
+import org.openpdf.text.pdf.PdfPTable;
+import org.openpdf.text.pdf.PdfWriter;
 
 import net.sf.jasperreports.engine.JasperPrint;
 import net.sf.jasperreports.engine.JasperReport;
 import net.sf.jasperreports.engine.JRParameter;
 import net.sf.jasperreports.engine.JasperFillManager;
 import net.sf.jasperreports.engine.JasperCompileManager;
-import net.sf.jasperreports.engine.JRExporterParameter;
-import net.sf.jasperreports.engine.JRExporter;
-import net.sf.jasperreports.engine.export.JRPdfExporter;
+import net.sf.jasperreports.pdf.JRPdfExporter;
+import net.sf.jasperreports.export.SimpleExporterInput;
+import net.sf.jasperreports.export.SimpleOutputStreamExporterOutput;
 import net.sf.jasperreports.engine.JREmptyDataSource;
 
 import java.io.OutputStream;
@@ -97,7 +95,37 @@ import java.io.IOException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileInputStream;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Generic clinical record PDF printer for patient encounter summaries.
+ *
+ * <p>Generates multi-section PDF documents containing patient demographics, appointment details,
+ * prescriptions, allergies, clinical notes (CPP - Cumulative Patient Profile), photos, diagrams,
+ * and billing invoices. Used for printing encounter records and patient summaries.</p>
+ *
+ * <p>Key features:</p>
+ * <ul>
+ *   <li>Patient header with demographics, phone, visit date, signed provider, and referral</li>
+ *   <li>Prescriptions section with current/active medications and other meds from CPP</li>
+ *   <li>CPP sections: Social History, Other Meds, Medical History, Ongoing Concerns,
+ *       Reminders, Family History, Risk Factors</li>
+ *   <li>Allergies listing</li>
+ *   <li>Photo and diagram attachments with image scaling</li>
+ *   <li>Ontario billing invoice generation via JasperReports templates</li>
+ *   <li>Page footer with promotional text and page numbers</li>
+ * </ul>
+ *
+ * <p>Uses OpenPDF ({@code org.openpdf.*}) for PDF generation and JasperReports for
+ * billing invoice rendering. Footer rendering uses
+ * {@link io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory PdfWriterFactory},
+ * which installs {@link io.github.carlos_emr.carlos.casemgmt.service.PageNumberStamper PageNumberStamper}
+ * and {@link io.github.carlos_emr.carlos.casemgmt.service.PromoTextStamper PromoTextStamper}
+ * via the OpenPDF page event mechanism.</p>
+ *
+ * @see io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory
+ * @since 2011-02-24
+ */
 public class PdfRecordPrinter {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -131,6 +159,11 @@ public class PdfRecordPrinter {
     private ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
     private ClinicDAO clinicDao = (ClinicDAO) SpringUtils.getBean(ClinicDAO.class);
 
+    /**
+     * Creates a new PDF record printer that writes to the given output stream.
+     *
+     * @param os OutputStream to write the generated PDF to
+     */
     public PdfRecordPrinter(OutputStream os) {
         this.os = os;
         formatter = new SimpleDateFormat("dd-MMM-yyyy");
@@ -142,6 +175,15 @@ public class PdfRecordPrinter {
         boldFont = null;
     }
 
+    /**
+     * Initializes the PDF document, fonts, and writer. Must be called before any print methods.
+     *
+     * <p>Creates Helvetica fonts (normal and bold at 10pt), opens a US Letter-sized document,
+     * and configures strict image sequencing for proper photo/diagram ordering.</p>
+     *
+     * @throws DocumentException if the PDF writer cannot be initialized
+     * @throws IOException if the base font cannot be created
+     */
     public void start() throws DocumentException, IOException {
         //Create the font we are going to print to
         bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
@@ -151,46 +193,53 @@ public class PdfRecordPrinter {
         //Create the document we are going to write to
         document = new Document();
         writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_10PT);
-        // writer = PdfWriter.getInstance(document,os);
-        // writer.setPageEvent(new EndPage());
         writer.setStrictImageSequence(true);
 
         document.setPageSize(PageSize.LETTER);
         document.open();
     }
 
+    /** @return OutputStream the target output stream for PDF data */
     public OutputStream getOutputStream() {
         return os;
     }
 
+    /** @param demographic Demographic the patient whose records are being printed */
     public void setDemographic(Demographic demographic) {
         this.demographic = demographic;
     }
 
+    /** @param appointment Appointment the visit appointment associated with this record */
     public void setAppointment(Appointment appointment) {
         this.appointment = appointment;
     }
 
+    /** @return Font the normal-weight font used for body text */
     public Font getFont() {
         return font;
     }
 
+    /** @return SimpleDateFormat the date formatter (dd-MMM-yyyy) used throughout the document */
     public SimpleDateFormat getFormatter() {
         return formatter;
     }
 
+    /** @return Document the OpenPDF document being written to */
     public Document getDocument() {
         return document;
     }
 
+    /** @return boolean true if the next section should start on a new page */
     public boolean getNewPage() {
         return newPage;
     }
 
+    /** @param b boolean true to force the next section onto a new page */
     public void setNewPage(boolean b) {
         this.newPage = b;
     }
 
+    /** @return BaseFont the Helvetica base font used for PDF rendering */
     public BaseFont getBaseFont() {
         return bf;
     }
@@ -200,41 +249,25 @@ public class PdfRecordPrinter {
         return p;
     }
 
+    /** @return String the name of the provider who signed off on the encounter */
     public String getSigningProvider() {
         return signingProvider;
     }
 
+    /** @param signingProvider String the name of the provider who signed the encounter */
     public void setSigningProvider(String signingProvider) {
         this.signingProvider = signingProvider;
     }
 
-    public void footer() {
-        PdfContentByte cb = writer.getDirectContent();
-        cb.saveState();
-
-        Date now = new Date();
-        String promoTxt = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
-        if (promoTxt == null) {
-            promoTxt = new String();
-        }
-
-        String strFooter = promoTxt + " " + formatter.format(now);
-
-        float textBase = document.bottom();
-        cb.beginText();
-        cb.setFontAndSize(font.getBaseFont(), FONTSIZE);
-        Rectangle page = document.getPageSize();
-        float width = page.getWidth();
-
-        cb.showTextAligned(PdfContentByte.ALIGN_CENTER, strFooter, (width / 2.0f), textBase - 20, 0);
-
-        strFooter = "-" + writer.getPageNumber() + "-";
-        cb.showTextAligned(PdfContentByte.ALIGN_CENTER, strFooter, (width / 2.0f), textBase - 10, 0);
-
-        cb.endText();
-        cb.restoreState();
-    }
-
+    /**
+     * Prints the patient document header with demographics, contact info, visit date,
+     * signed provider, reason for referral, and referring physician.
+     *
+     * <p>Starts a new page if {@link #newPage} is set. Renders a two-row header table
+     * with patient info left-aligned and visit date right-aligned.</p>
+     *
+     * @throws DocumentException if PDF document operations fail
+     */
     public void printDocHeaderFooter() throws DocumentException {
 
         String headerTitle = demographic.getFormattedName() + " " + demographic.getAge() + " " + demographic.getSex() + " DOB:" + demographic.getFormattedDob();
@@ -289,8 +322,20 @@ public class PdfRecordPrinter {
         getDocument().add(table);
     }
 
+    /**
+     * Generates an Ontario billing invoice PDF using a JasperReports template.
+     *
+     * <p>Loads the billing template (custom or default), populates parameters from the
+     * billing header, and exports the rendered report to the output stream. Supports
+     * custom clinic logos, due dates, payee information, and bill-to extensions.</p>
+     *
+     * @param invoiceNo Integer the billing invoice number to render
+     * @param locale Locale for date formatting
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void printBillingInvoice(Integer invoiceNo, Locale locale) {
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         InputStream is = null;
         InputStream imageIS = null;
         try {
@@ -299,7 +344,7 @@ public class PdfRecordPrinter {
             if (templateFilepath.isEmpty())
                 is = this.getClass().getClassLoader().getResourceAsStream(BILLING_INVOICE_TEMPLATE_FILE);
             else
-                is = new FileInputStream(templateFilepath);
+                is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(templateFilepath)));
             //get Jasper Report
 
             JasperReport jasperReport = JasperCompileManager.compileReport(is);
@@ -326,7 +371,7 @@ public class PdfRecordPrinter {
                                 if (imagePath.isEmpty()) {
                                     //DO NOTHING imageIS = this.getClass().getClassLoader().getResourceAsStream(OSCAR_LOGO_FILE);
                                 } else {
-                                    imageIS = new FileInputStream(imagePath);
+                                    imageIS = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(imagePath)));
                                 }
                                 parameters.put(paramName, imageIS);
                             } else if (paramName.equals("billing_print_date")) {
@@ -382,9 +427,9 @@ public class PdfRecordPrinter {
                     JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, new JREmptyDataSource());
 
                     //Exports Jasper Report as PDF to output stream.
-                    JRExporter exporter = new JRPdfExporter();
-                    exporter.setParameter(JRExporterParameter.JASPER_PRINT, jasperPrint);
-                    exporter.setParameter(JRExporterParameter.OUTPUT_STREAM, os);
+                    JRPdfExporter exporter = new JRPdfExporter();
+                    exporter.setExporterInput(new SimpleExporterInput(jasperPrint));
+                    exporter.setExporterOutput(new SimpleOutputStreamExporterOutput(os));
 
                     exporter.exportReport();
                 }
@@ -404,10 +449,23 @@ public class PdfRecordPrinter {
         }
     }
 
+    /**
+     * Prints current active prescriptions for a patient.
+     *
+     * @param demoNo String the demographic number to look up prescriptions for
+     * @throws DocumentException if PDF document operations fail
+     */
     public void printRx(String demoNo) throws DocumentException {
         printRx(demoNo, null);
     }
 
+    /**
+     * Prints current active prescriptions for a patient, optionally including "Other Meds" from CPP.
+     *
+     * @param demoNo String the demographic number to look up prescriptions for
+     * @param cpp List of CaseManagementNote containing "Other Meds" CPP notes, or null to skip
+     * @throws DocumentException if PDF document operations fail
+     */
     public void printRx(String demoNo, List<CaseManagementNote> cpp) throws DocumentException {
         if (demoNo == null)
             return;
@@ -466,6 +524,13 @@ public class PdfRecordPrinter {
         }
     }
 
+    /**
+     * Prints a single CPP (Cumulative Patient Profile) section with a heading and associated notes.
+     *
+     * @param heading String the section heading (e.g., "Social History", "Medical History")
+     * @param notes Collection of CaseManagementNote the clinical notes for this CPP section
+     * @throws DocumentException if PDF document operations fail
+     */
     public void printCPPItem(String heading, Collection<CaseManagementNote> notes) throws DocumentException {
         if (newPage)
             document.newPage();
@@ -491,6 +556,13 @@ public class PdfRecordPrinter {
 
     }
 
+    /**
+     * Prints a single CPP section with a heading and a measurement value.
+     *
+     * @param heading String the section heading
+     * @param measurement Measurement the clinical measurement to display
+     * @throws DocumentException if PDF document operations fail
+     */
     public void printCPPItem(String heading, Measurement measurement) throws DocumentException {
         if (newPage)
             document.newPage();
@@ -521,10 +593,26 @@ public class PdfRecordPrinter {
 
     }
 
+    /**
+     * Adds a blank line to the PDF document.
+     *
+     * @throws DocumentException if PDF document operations fail
+     */
     public void printBlankLine() throws DocumentException {
         document.add(new Phrase("\n"));
     }
 
+    /**
+     * Prints the complete Cumulative Patient Profile (CPP) with all standard sections.
+     *
+     * <p>Iterates through Social History, Other Meds, Medical History, Ongoing Concerns,
+     * Reminders, Family History, and Risk Factors, printing each section's heading and
+     * associated clinical notes.</p>
+     *
+     * @param cpp HashMap mapping issue codes (e.g., "SocHistory", "MedHistory") to their
+     *            associated CaseManagementNote lists, or null to skip
+     * @throws DocumentException if PDF document operations fail
+     */
     public void printCPP(HashMap<String, List<CaseManagementNote>> cpp) throws DocumentException {
         if (cpp == null)
             return;
@@ -550,18 +638,6 @@ public class PdfRecordPrinter {
         String[] headings = {"Social History\n", "Other Meds\n", "Medical History\n", "Ongoing Concerns\n", "Reminders\n", "Family History\n", "Risk Factors\n"};
         String[] issueCodes = {"SocHistory", "OMeds", "MedHistory", "Concerns", "Reminders", "FamHistory", "RiskFactors"};
         //String[] content = {cpp.getSocialHistory(), cpp.getFamilyHistory(), cpp.getMedicalHistory(), cpp.getOngoingConcerns(), cpp.getReminders()};
-
-        //init column to left side of page
-        //ct.setSimpleColumn(document.left(), document.bottomMargin()+25f, document.right()/2f, lworkingYcoord);
-
-        //int column = 1;
-        //Chunk chunk;
-        //float bottom = document.bottomMargin()+25f;
-        //float middle;
-        //bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
-        //cb.beginText();
-        //String headerContd;
-        //while there are cpp headings to process
 
         for (int idx = 0; idx < headings.length; ++idx) {
             p = new Paragraph();
@@ -641,10 +717,24 @@ public class PdfRecordPrinter {
 //        cb.endText();
     }
 
+    /**
+     * Prints clinical notes with full formatting (heading per note with "Impression/Plan" label).
+     *
+     * @param notes Collection of CaseManagementNote to print
+     * @throws DocumentException if PDF document operations fail
+     */
     public void printNotes(Collection<CaseManagementNote> notes) throws DocumentException {
         printNotes(notes, false);
     }
 
+    /**
+     * Prints clinical notes with configurable formatting.
+     *
+     * @param notes Collection of CaseManagementNote to print
+     * @param compact boolean if true, uses compact format (date:note on one line);
+     *                if false, uses full format with "Impression/Plan" heading per note
+     * @throws DocumentException if PDF document operations fail
+     */
     public void printNotes(Collection<CaseManagementNote> notes, boolean compact) throws DocumentException {
 
         CaseManagementNote note;
@@ -682,49 +772,27 @@ public class PdfRecordPrinter {
         }
     }
 
-    public void finish() {
-        document.close();
-    }
-
-    /*
-     *Used to print footers on each page
+    /**
+     * Closes the PDF document and writer, flushing the output stream. Must be called after all sections are printed.
      */
-    class EndPage extends PdfPageEventHelper {
-        private Date now;
-        private String promoTxt;
-
-        public EndPage() {
-            now = new Date();
-            promoTxt = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
-            if (promoTxt == null) {
-                promoTxt = new String();
+    public void finish() {
+        try {
+            if (document != null) {
+                document.close();
+            }
+        } finally {
+            if (writer != null) {
+                writer.close();
             }
         }
-
-        public void onEndPage(PdfWriter writer, Document document) {
-            //Footer contains page numbers and date printed on all pages
-            PdfContentByte cb = writer.getDirectContent();
-            cb.saveState();
-
-            String strFooter = promoTxt + " " + formatter.format(now);
-
-            float textBase = document.bottom();
-            cb.beginText();
-            cb.setFontAndSize(font.getBaseFont(), FONTSIZE);
-            Rectangle page = document.getPageSize();
-            float width = page.getWidth();
-            cb.showTextAligned(PdfContentByte.ALIGN_CENTER, strFooter, (width / 2.0f), textBase - 20, 0);
-
-            strFooter = "-" + writer.getPageNumber() + "-";
-            cb.showTextAligned(PdfContentByte.ALIGN_CENTER, strFooter, (width / 2.0f), textBase - 10, 0);
-
-            cb.endText();
-            cb.restoreState();
-        }
     }
 
-
-
+    /**
+     * Prints the patient's allergy list with an "Allergies" heading.
+     *
+     * @param allergies List of Allergy the patient's allergies to print
+     * @throws DocumentException if PDF document operations fail
+     */
     public void printAllergies(List<Allergy> allergies) throws DocumentException {
         Font obsfont = new Font(getBaseFont(), FONTSIZE, Font.UNDERLINE);
 
@@ -750,6 +818,16 @@ public class PdfRecordPrinter {
 
 
 
+    /**
+     * Prints patient photo attachments, scaled to fit the page width.
+     *
+     * <p>Loads images from the DOCUMENT_DIR, scales them to fit within the page margins,
+     * and adds each with its document description.</p>
+     *
+     * @param contextPath String the web application context path (unused)
+     * @param photos List of Document the photo document records to include
+     * @throws DocumentException if PDF document operations fail
+     */
     public void printPhotos(String contextPath, List<io.github.carlos_emr.carlos.commn.model.Document> photos) throws DocumentException {
         writer.setStrictImageSequence(true);
 
@@ -767,7 +845,7 @@ public class PdfRecordPrinter {
         for (io.github.carlos_emr.carlos.commn.model.Document doc : photos) {
             Image img = null;
             try {
-                String location = OscarProperties.getInstance().getProperty("DOCUMENT_DIR").trim() + doc.getDocfilename();
+                String location = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR").trim() + doc.getDocfilename();
                 logger.info("adding image " + location);
                 img = Image.getInstance(location);
             } catch (IOException e) {
@@ -787,6 +865,16 @@ public class PdfRecordPrinter {
         }
     }
 
+    /**
+     * Prints e-form diagram attachments (graphical canvas drawings) as images.
+     *
+     * <p>For each diagram, loads the background image from the e-form image directory,
+     * overlays the drawing data using {@link GraphicalCanvasToImage}, renders to a
+     * temporary PNG file, and embeds it in the PDF with its subject label.</p>
+     *
+     * @param diagrams List of EFormValue the e-form diagram records to include
+     * @throws DocumentException if PDF document operations fail
+     */
     public void printDiagrams(List<EFormValue> diagrams) throws DocumentException {
         writer.setStrictImageSequence(true);
 
@@ -805,7 +893,7 @@ public class PdfRecordPrinter {
 
         for (EFormValue value : diagrams) {
             //this is a form from our group, and our appt
-            String imgPath = OscarProperties.getInstance().getEformImageDirectory();
+            String imgPath = CarlosProperties.getInstance().getEformImageDirectory();
             EFormValue imageName = eFormValueDao.findByFormDataIdAndKey(value.getFormDataId(), "image");
             EFormValue drawData = eFormValueDao.findByFormDataIdAndKey(value.getFormDataId(), "DrawData");
             EFormValue subject = eFormValueDao.findByFormDataIdAndKey(value.getFormDataId(), "subject");
@@ -816,11 +904,16 @@ public class PdfRecordPrinter {
             File tempFile = null;
             try {
                 tempFile = File.createTempFile("graphicImg", ".png");
-                FileOutputStream fos = new FileOutputStream(tempFile);
-                convert.convertToImage(image, drawData.getVarValue(), "PNG", fos);
+                // try-with-resources so the stream is closed even when convertToImage throws
+                // (e.g. SecurityException for a missing image), avoiding a FileOutputStream leak.
+                try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tempFile))) {
+                    convert.convertToImage(image, drawData.getVarValue(), "PNG", fos);
+                }
                 logger.debug("converted image is " + tempFile.getName());
-                fos.close();
-            } catch (IOException e) {
+            } catch (IOException | SecurityException e) {
+                // SecurityException is thrown by PathValidationUtils.validateConfiguredFile when the
+                // referenced eForm diagram image is missing/invalid. Skip that one diagram (as the
+                // legacy FileNotFoundException path did) rather than aborting the whole record PDF.
                 logger.error("Error", e);
                 if (tempFile != null) {
                     tempFile.delete();
@@ -847,6 +940,8 @@ public class PdfRecordPrinter {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getRefName(Demographic d) {
         String referral = d.getFamilyDoctor();
 

@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.Date;
 import java.util.List;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.CdsClientForm;
 import org.springframework.stereotype.Repository;
@@ -45,7 +45,7 @@ public class CdsClientFormDaoImpl extends AbstractDaoImpl<CdsClientForm> impleme
     }
 
     public CdsClientForm findLatestByFacilityClient(Integer facilityId, Integer clientId) {
-        String sqlCommand = "select * from CdsClientForm where facilityId=?1 and clientId=?2 order by created desc";
+        String sqlCommand = "select * from CdsClientForm where facilityId=?1 and clientId=?2 order by created desc, id desc";
         Query query = entityManager.createNativeQuery(sqlCommand, modelClass);
         query.setMaxResults(1);
         query.setParameter(1, facilityId);

@@ -32,11 +32,11 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import java.util.Comparator;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "scheduletemplatecode")
@@ -51,6 +51,23 @@ public class ScheduleTemplateCode extends AbstractModel<Integer> {
     private String color;
     private String confirm;
     private int bookinglimit;
+
+    public ScheduleTemplateCode() {
+    }
+
+    private ScheduleTemplateCode(ScheduleTemplateCode source) {
+        this.id = source.id;
+        this.code = source.code;
+        this.description = source.description;
+        this.duration = source.duration;
+        this.color = source.color;
+        this.confirm = source.confirm;
+        this.bookinglimit = source.bookinglimit;
+    }
+
+    public static ScheduleTemplateCode copyOf(ScheduleTemplateCode source) {
+        return source == null ? null : new ScheduleTemplateCode(source);
+    }
 
     @Override
     public Integer getId() {

@@ -1,0 +1,201 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%@ page import="io.github.carlos_emr.carlos.eform.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.util.LegacyMeasurementHistory" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.EmailComposeManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager"%>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.data.EForm" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%--
+	Addition of a floating global toolbar specifically for activation of the
+	Fax and eDocument functions.
+--%>
+
+<c:if test="${ not empty requestScope.page_errors }">
+    <script type='text/javascript'>
+        function hideDiv() {
+            if (document.getElementById) { // DOM3 = IE5, NS6
+                document.getElementById('hideshow').style.display = 'none';
+            } else {
+                if (document.layers) { // Netscape 4
+                    document.hideshow.display = 'none';
+                } else { // IE 4
+                    document.all.hideshow.style.display = 'none';
+                }
+            }
+        }
+    </script>
+
+    <div id="hideshow" style="position: relative; z-index: 999;">
+        <a href="javascript:hideDiv()">Hide Errors</a>
+        <span style="font-size: 10px; font-color: darkred;"> <%
+    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
+    if (actionErrors != null && !actionErrors.isEmpty()) {
+%>
+    <div class="action-errors">
+        <ul>
+            <% for (String error : actionErrors) { %>
+                <li><carlos:encode value='<%= error %>' context="html"/></li>
+            <% } %>
+        </ul>
+    </div>
+<% } %> </span>
+    </div>
+</c:if>
+
+<%!
+    public void addHiddenEmailProperties(LoggedInInfo loggedInInfo, EForm thisEForm, String demographicNo) {
+        EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
+        if (!emailComposeManager.hasEmailPrivilege(loggedInInfo, SecurityInfoManager.WRITE)) {
+            thisEForm.addHiddenInputElement("hasEmailPrivilege", Boolean.FALSE.toString());
+            return;
+        }
+
+        Boolean hasValidRecipient = emailComposeManager.hasValidRecipient(loggedInInfo, Integer.parseInt(demographicNo));
+        String[] emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, Integer.parseInt(demographicNo));
+
+        thisEForm.addHiddenInputElement("hasValidRecipient", Boolean.toString(hasValidRecipient));
+        thisEForm.addHiddenInputElement("emailConsentName", emailConsent[0]);
+        thisEForm.addHiddenInputElement("emailConsentStatus", emailConsent[1]);
+    }
+%>
+
+<%
+    /**
+     * TODO: Move all JSP scriptlet code from efmshowform_data and efmformadd_data to the ShowEFormAction.java (create if necessary) action file.
+     */
+    String provider_no = (String) session.getAttribute("user");
+    String demographic_no = request.getParameter("demographic_no");
+    String appointment_no = request.getParameter("appointment");
+    if (appointment_no != null && !appointment_no.matches("\\d+")) { appointment_no = null; } // validate numeric to prevent SQL injection
+    String fid = request.getParameter("fid");
+    String eform_link = request.getParameter("eform_link");
+    String source = request.getParameter("source");
+
+
+    EForm thisEForm = null;
+    if (fid == null || demographic_no == null) {
+        //if the info is in the request attribute
+        thisEForm = (EForm) request.getAttribute("curform");
+    } else {
+        //if the info is in the request parameter
+        thisEForm = new EForm(fid, demographic_no);
+        thisEForm.setProviderNo(provider_no);  //needs providers for the action
+    }
+
+    if (appointment_no != null) {
+        // appointment_no is validated numeric above and re-validated before binding into DatabaseAP SQL.
+        thisEForm.setAppointmentNo(appointment_no);
+    }
+
+    if (eform_link != null) {
+        thisEForm.setEformLink(eform_link);
+    }
+
+    thisEForm.setContextPath(request.getContextPath());
+    thisEForm.setImagePath(request.getContextPath());
+    thisEForm.setDatabaseAPs();
+    thisEForm.setOscarOPEN(request.getRequestURI());
+    thisEForm.setAction();
+    thisEForm.setSource(source);
+    // A NEW (unsaved) form has no saved-instance id, so substitute the ${fdid} marker with an empty
+    // value (same call the admin view makes). Left raw, corpus JS that builds fetch URLs from the
+    // marker (e.g. the Rich Text Letter's attached-files panel: displayAttachedFiles?requestId=${fdid})
+    // sends literal curly braces, which Tomcat's strict HTTP validation rejects with a raw 400 —
+    // surfacing as "Error loading attachments" on every new letter. An empty value instead reaches
+    // the JSP's graceful "No attachments" branch, and corpus marker-guard idioms treat it as unsaved.
+    // ORDER MATTERS: this string-level substitution must run with the other string-phase mutators
+    // (setContextPath/setSource/...), BEFORE any add*() call — those mutate the jsoup document, and
+    // getFormHtml() re-serializes that document at print, discarding later string-level edits.
+    thisEForm.setFdid("");
+
+    // Serve the measurement history to forms that still fetch it from the pre-migration route, the
+    // same way the PDF renderer does. Subject to the ORDER MATTERS rule stated just above: this is a
+    // string-phase edit and must run before the add*() calls below, whose jsoup document
+    // getFormHtml() would otherwise re-serialize over it.
+    // Measurement data reached through an eForm still requires measurement rights: the route this
+    // replaces enforces _measurement, while this page requires only _eform read. Without the check a
+    // user with eForm access alone received the patient's full dated HT/WT/HEAD series.
+    boolean measurementsPermitted = SpringUtils.getBean(SecurityInfoManager.class).hasPrivilege(
+            LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", thisEForm.getDemographicNo());
+    thisEForm.setFormHtml(LegacyMeasurementHistory.embed(
+            thisEForm.getFormHtml(), thisEForm, measurementsPermitted));
+
+    /*
+     * Modifying EForm by directly incorporating libraries and adding hidden fields.
+     * Ordering is very important.
+     * For Javascript: First is last.
+     */
+    thisEForm.addHeadJavascript(request.getContextPath()+"/js/jquery.are-you-sure.js");
+    thisEForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-ui-1.14.2.min.js");
+    thisEForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-3.7.1.min.js");
+    thisEForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-compat.js");
+    // editControl2.js's sanitize gate; see the matching note in efmshowform_data.jsp. Required on
+    // the add page too, because a template-seeded letter takes the same load path.
+    thisEForm.addHeadJavascript(request.getContextPath()+"/library/dompurify/purify.min.js");
+
+    thisEForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
+    thisEForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
+    thisEForm.addHeadJavascript(request.getContextPath()+"/eform/eform-runtime-compat.js");
+
+    thisEForm.addCSS(request.getContextPath()+"/css/oscar_alert.css", "all");
+    thisEForm.addCSS(request.getContextPath()+"/library/jquery/jquery-ui-1.14.2.min.css", "all");
+    thisEForm.addBodyJavascript(request.getContextPath()+"/eform/eformFloatingToolbar/eform_floating_toolbar.js");
+    thisEForm.addBodyJavascript(request.getContextPath()+"/js/oscar-alert.js");
+    thisEForm.addHiddenInputElement("context", request.getContextPath());
+    thisEForm.addHiddenInputElement("demographicNo", demographic_no);
+    thisEForm.addHiddenInputElement("fid", fid);
+    thisEForm.addHiddenInputElement("fdid", request.getParameter("fdid"));
+    thisEForm.addHiddenInputElement("newForm", "true");
+
+    // Add email consent properties
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    addHiddenEmailProperties(loggedInInfo, thisEForm, demographic_no);
+
+    // EForms are an intentional HTML rendering system — provider-authored templates are
+    // output unencoded and routinely contain inline <script> blocks and inline event
+    // handlers (onload=, onclick=, onchange=) that are essential to eform functionality
+    // (e.g. Xbox toggle scripts, signForm() autoload, etc.). 'unsafe-inline' is therefore
+    // required for script-src. As a result, CSP does not block inline script injection or
+    // inline event-handler XSS on these pages. Its remaining defense-in-depth benefit here
+    // is primarily restricting external script sources to 'self', blocking object/embed
+    // via object-src 'none', preventing <base> injection via base-uri 'none', and reducing
+    // clickjacking exposure via frame-ancestors 'self'.
+    // frame-src permits the blob: frames that carry attachment-preview PDFs (attachDocument.jsp).
+    response.setHeader("Content-Security-Policy", "script-src 'self' 'unsafe-inline'; object-src 'none'; frame-src 'self' blob:; base-uri 'none'; frame-ancestors 'self'");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    out.print(thisEForm.getFormHtml()); // CodeQL[java/xss] eform HTML is intentionally unencoded
+%>

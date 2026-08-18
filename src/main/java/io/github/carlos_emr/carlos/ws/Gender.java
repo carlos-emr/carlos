@@ -1,7 +1,7 @@
 package io.github.carlos_emr.carlos.ws;
 
-import javax.xml.bind.annotation.XmlEnum;
-import javax.xml.bind.annotation.XmlType;
+import jakarta.xml.bind.annotation.XmlEnum;
+import jakarta.xml.bind.annotation.XmlType;
 
 @XmlType(name = "gender")
 @XmlEnum

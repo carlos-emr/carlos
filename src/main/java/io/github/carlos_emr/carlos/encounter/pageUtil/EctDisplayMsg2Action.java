@@ -31,13 +31,12 @@
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.model.MessageTbl;
-import io.github.carlos_emr.carlos.commn.model.OscarMsgType;
 import io.github.carlos_emr.carlos.managers.MessagingManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -53,17 +52,15 @@ public class EctDisplayMsg2Action extends EctDisplayAction {
             return true; //Oscar message link won't show up on new CME screen.
         } else {
             //set text for lefthand module title
-            Dao.setLeftHeading(getText("oscarEncounter.LeftNavBar.Messages"));
+            Dao.setLeftHeading(getText("encounter.LeftNavBar.Messages"));
 
             //set link for lefthand module title
             String winName = "ViewMsg" + bean.demographicNo;
-            String url = "popupPage(600,900,'" + winName + "','" + request.getContextPath() + "/messenger/DisplayDemographicMessages.do?orderby=date&boxType=3&demographic_no=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&userName=" + bean.userName + "')";
-            Dao.setLeftURL(url);
+            Dao.setLeftPopup(600, 900, winName, request.getContextPath() + "/messenger/DisplayDemographicMessages?orderby=date&boxType=3&demographic_no=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&userName=" + bean.userName);
 
             //set the right hand heading link
             winName = "SendMsg" + bean.demographicNo;
-            url = "popupPage(700,960,'" + winName + "','" + request.getContextPath() + "/messenger/SendDemoMessage.do?demographic_no=" + bean.demographicNo + "'); return false;";
-            Dao.setRightURL(url);
+            Dao.setRightPopup(700, 960, winName, request.getContextPath() + "/messenger/SendDemoMessage?demographic_no=" + bean.demographicNo);
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 
             // set lefthand data link
@@ -71,13 +68,12 @@ public class EctDisplayMsg2Action extends EctDisplayAction {
             int msgId;
             String msgSubject;
             String msgDate;
+            String url;
             int hash;
-            int messageType;
 
             for (MessageTbl message : messageTblList) {
                 msgId = message.getId();
                 msgSubject = message.getSubject();
-                messageType = message.getType();
                 Date date = message.getDate();
                 NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
                 item.setDate(date);
@@ -86,13 +82,10 @@ public class EctDisplayMsg2Action extends EctDisplayAction {
 
                 msgDate = new SimpleDateFormat("dd-M-yyyy", request.getLocale()).format(date);
 
-                url = "popupPage(600,900,'" + hash + "','" + request.getContextPath() + "/messenger/ViewMessage.do?from=encounter&boxType=0&messageID=" + msgId + "'); return false;";
+                url = "popupPage(600,900,'" + hash + "','" + request.getContextPath() + "/messenger/ViewMessage?from=encounter&boxType=0&messageID=" + msgId + "'); return false;";
                 item.setURL(url);
                 item.setTitle(StringUtils.maxLenString(msgSubject, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES));
                 item.setLinkTitle(msgSubject + " " + msgDate);
-                if (messageType == OscarMsgType.INTEGRATOR_TYPE) {
-                    item.setBgColour("#FFCCCC");
-                }
                 Dao.addItem(item);
             }
 

@@ -42,8 +42,8 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Hashtable;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -61,8 +61,9 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
  * @author Jay Gallagher
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class PreventionReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -85,6 +86,21 @@ public class PreventionReport2Action extends ActionSupport {
         if (patientSet == null) patientSet = request.getParameter("patientSet");
         if (prevention == null) prevention = request.getParameter("prevention");
         if (asofDate == null) asofDate = request.getParameter("asofDate");
+
+        // This action is both the GET view for the Ontario prevention-report page and the
+        // report runner. The initial navigation has no selections, and the form uses "-1"
+        // for its two placeholder options. Do not send either case through the saved-query
+        // loader, which requires a numeric database id and otherwise turns the page load into
+        // the generic HTTP-200 "CARLOS Error: 0" response.
+        if (!hasValidPatientSet(patientSet) || prevention == null || "-1".equals(prevention)) {
+            return SUCCESS;
+        }
+
+        PreventionReport report = PreventionReportFactory.getPreventionReport(prevention);
+        if (report == null) {
+            return SUCCESS;
+        }
+
         Date asDate = UtilDateUtilities.getDateFromString(asofDate, "yyyy-MM-dd");
 
         RptDemographicReport2Form frm = new RptDemographicReport2Form();
@@ -94,7 +110,11 @@ public class PreventionReport2Action extends ActionSupport {
         frm.addDemoIfNotPresent();
         frm.setAsofDate(asofDate);
         RptDemographicQueryBuilder demoQ = new RptDemographicQueryBuilder();
-        ArrayList<ArrayList<String>> list = demoQ.buildQuery(loggedInInfo, frm, asofDate);
+        // Use the overload without asofRosterDate so results are based on the demographic query and
+        // asofDate only. The overload that accepts an asofRosterDate may additionally apply a post-query
+        // rostering filter (skipping non-rostered patients) when an as-of roster date is provided and at
+        // least one provider filter is specified.
+        ArrayList<ArrayList<String>> list = demoQ.buildQuery(loggedInInfo, frm);
 
         log.debug("set size " + list.size());
 
@@ -103,11 +123,6 @@ public class PreventionReport2Action extends ActionSupport {
             asDate = today.getTime();
         }
         request.setAttribute("asDate", asDate);
-
-        PreventionReport report = PreventionReportFactory.getPreventionReport(prevention);
-        if (report == null) {
-            return SUCCESS; // will stay on the same page if no report is found
-        }
 
         if ("ChildImmunizations".equals(prevention)) {
             request.setAttribute("ReportType", prevention);
@@ -132,6 +147,14 @@ public class PreventionReport2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    private static boolean hasValidPatientSet(String patientSet) {
+        try {
+            return Integer.parseInt(patientSet) > 0;
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
     private String patientSet;
     private String prevention;
     private String asofDate;
@@ -140,6 +163,7 @@ public class PreventionReport2Action extends ActionSupport {
         return patientSet;
     }
 
+    @StrutsParameter
     public void setPatientSet(String patientSet) {
         this.patientSet = patientSet;
     }
@@ -148,6 +172,7 @@ public class PreventionReport2Action extends ActionSupport {
         return prevention;
     }
 
+    @StrutsParameter
     public void setPrevention(String prevention) {
         this.prevention = prevention;
     }
@@ -156,6 +181,7 @@ public class PreventionReport2Action extends ActionSupport {
         return asofDate;
     }
 
+    @StrutsParameter
     public void setAsofDate(String asofDate) {
         this.asofDate = asofDate;
     }

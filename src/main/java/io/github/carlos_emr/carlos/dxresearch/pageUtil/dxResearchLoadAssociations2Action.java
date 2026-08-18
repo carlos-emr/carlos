@@ -34,11 +34,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
@@ -49,16 +46,21 @@ import io.github.carlos_emr.carlos.commn.dao.DxDao;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.model.DxAssociation;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.Ostermiller.util.ExcelCSVParser;
-import com.Ostermiller.util.ExcelCSVPrinter;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.csv.CSVRecord;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class dxResearchLoadAssociations2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -72,11 +74,28 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
     private static final String PRIVILEGE_UPDATE = "u";
     private static final String PRIVILEGE_WRITE = "w";
 
-    
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
         String method = request.getParameter("method");
+
+        if (method == null || method.isBlank()) {
+            checkPrivilege(request, PRIVILEGE_READ);
+            return SUCCESS;
+        }
+
+        // Mutation methods require POST: any path that writes to
+        // dx_associations (clear, add, uploadFile, autoPopulate) must not
+        // be triggerable by a GET request.
+        if ("clearAssociations".equals(method)
+                || "addAssociation".equals(method)
+                || "uploadFile".equals(method)
+                || "autoPopulateAssociations".equals(method)) {
+            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
+        }
 
         if ("getAllAssociations".equals(method)) {
             getAllAssociations();
@@ -106,9 +125,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
             assoc.setDescription(getDescription(assoc.getCodeType(), assoc.getCode()));
         }
 
-        //serialize and return
-        ArrayNode jsonArray = objectMapper.valueToTree(associations);
-        response.getWriter().print(jsonArray);
+        JsonResponseWriter.write(response, associations);
         return null;
     }
 
@@ -126,7 +143,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, Integer> map = new HashMap<String, Integer>();
         map.put("recordsUpdated", recordsUpdated);
-        response.getWriter().print(objectMapper.valueToTree(map));
+        JsonResponseWriter.write(response, map);
         return null;
     }
 
@@ -143,7 +160,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, String> map = new HashMap<String, String>();
         map.put("result", "success");
-        response.getWriter().print(objectMapper.valueToTree(map));
+        JsonResponseWriter.write(response, map);
         return null;
     }
 
@@ -155,11 +172,11 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         response.setContentType("application/octet-stream");
         response.setHeader("Content-Disposition", "attachment; filename=\"dx_associations.csv\"");
 
-        ExcelCSVPrinter printer = new ExcelCSVPrinter(response.getWriter());
+        CSVPrinter printer = new CSVPrinter(response.getWriter(), CSVFormat.EXCEL);
 
-        printer.writeln(new String[]{"Issue List Code Type", "Issue List Code", "Disease Registry Code Type", "Disease Registry Code"});
+        printer.printRecord("Issue List Code Type", "Issue List Code", "Disease Registry Code Type", "Disease Registry Code");
         for (DxAssociation dxa : associations) {
-            printer.writeln(new String[]{dxa.getCodeType(), dxa.getCode(), dxa.getDxCodeType(), dxa.getDxCode()});
+            printer.printRecord(dxa.getCodeType(), dxa.getCode(), dxa.getDxCodeType(), dxa.getDxCode());
         }
 
         printer.flush();
@@ -185,7 +202,20 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         // Re-validate at point of use for static analysis visibility
         File validatedFile = PathValidationUtils.validateUpload(file);
-        String[][] data = ExcelCSVParser.parse(new FileReader(validatedFile));
+        // Parse CSV using Apache Commons CSV with proper resource management
+        String[][] data;
+        try (FileReader reader = new FileReader(validatedFile);
+             CSVParser parser = new CSVParser(reader, CSVFormat.EXCEL)) {
+            List<CSVRecord> records = parser.getRecords();
+            data = new String[records.size()][];
+            for (int i = 0; i < records.size(); i++) {
+                CSVRecord record = records.get(i);
+                data[i] = new String[record.size()];
+                for (int j = 0; j < record.size(); j++) {
+                    data[i][j] = record.get(j);
+                }
+            }
+        }
 
         int rowsInserted = 0;
 
@@ -209,7 +239,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, Integer> map = new HashMap<String, Integer>();
         map.put("recordsAdded", rowsInserted);
-        response.getWriter().print(objectMapper.valueToTree(map));
+        JsonResponseWriter.write(response, map);
 
         return SUCCESS;
     }
@@ -243,7 +273,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, Integer> map = new HashMap<String, Integer>();
         map.put("recordsAdded", recordsAdded);
-        response.getWriter().print(objectMapper.valueToTree(map));
+        JsonResponseWriter.write(response, map);
 
         return null;
     }
@@ -251,7 +281,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
     private void checkPrivilege(HttpServletRequest request, String privilege) {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new SecurityException("missing required sec object (_dxresearch " + privilege + ")");
         }
     }
 
@@ -284,6 +314,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         return file;
     }
 
+    @StrutsParameter
     public void setFile(File file) {
         this.file = file;
     }
@@ -292,6 +323,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         return replace;
     }
 
+    @StrutsParameter
     public void setReplace(boolean replace) {
         this.replace = replace;
     }

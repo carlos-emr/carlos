@@ -30,14 +30,11 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
-import io.github.carlos_emr.OscarProperties;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.RemoteDrugAllergyHelper;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
-import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
-import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
@@ -47,16 +44,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ServletActionContext;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
+import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts 2 action for displaying and managing patient allergies.
@@ -66,11 +63,8 @@ import java.util.Collections;
  * <li>Displaying patient allergy information</li>
  * <li>Reordering allergies in the display list</li>
  * <li>Managing RxSessionBean for prescription context</li>
- * <li>Routing to appropriate JSP based on RX3 configuration</li>
+ * <li>Routing to ShowAllergies2.jsp</li>
  * </ul>
- * <p>
- * Supports both legacy (ShowAllergies.jsp) and RX3 (ShowAllergies2.jsp) interfaces
- * based on system and user preferences.
  *
  * @since 2006-04-20
  */
@@ -99,10 +93,26 @@ public final class RxShowAllergy2Action extends ActionSupport {
      * @return String NONE (redirect handled manually)
      * @throws RuntimeException if redirect fails
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String reorder() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
+            throw new RuntimeException("missing required sec object (_allergy)");
+        }
+
+        String demoNoParam = request.getParameter("demographicNo");
+        if (demoNoParam == null || !demoNoParam.matches("\\d{1,9}")) {
+            return "failure";
+        }
         reorder(request);
         try {
-            response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies.jsp?demographicNo=" + request.getParameter("demographicNo"));
+            RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demoNoParam);
+            if (patient != null) {
+                // demoNoParam validated as numeric at method entry
+                request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            }
+            response.sendRedirect(request.getContextPath() + "/rx/showAllergy?demographicNo=" + Encode.forUriComponent(demoNoParam));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -115,7 +125,6 @@ public final class RxShowAllergy2Action extends ActionSupport {
      * This method:
      * <ul>
      * <li>Checks security privileges for allergy access</li>
-     * <li>Determines RX3 interface preference (system-wide or user-specific)</li>
      * <li>Sets up or retrieves RxSessionBean for the session</li>
      * <li>Loads patient data including allergies</li>
      * <li>Redirects to appropriate allergies display JSP</li>
@@ -130,8 +139,10 @@ public final class RxShowAllergy2Action extends ActionSupport {
      * <li>method - String method name for routing (optional, "reorder" supported)</li>
      * </ul>
      *
-     * @return String "failure" if demographicNo is missing, null for redirect
-     * @throws IOException if redirect fails
+     * @return String "success" to forward to ShowAllergies2.jsp, "failure" if
+     *         demographicNo is missing or patient cannot be loaded, or null
+     *         for method-dispatch paths that write the response directly
+     * @throws IOException if servlet I/O fails
      * @throws ServletException if servlet processing fails
      */
     public String execute()
@@ -157,23 +168,14 @@ public final class RxShowAllergy2Action extends ActionSupport {
             return dispatchResult;
         }
 
-        boolean useRx3 = false;
-        String rx3 = OscarProperties.getInstance().getProperty("RX3");
-        if (rx3 != null && rx3.equalsIgnoreCase("yes")) {
-            useRx3 = true;
-        }
-        UserPropertyDAO userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
-        String provider = (String) request.getSession().getAttribute("user");
-        UserProperty propUseRx3 = userPropertyDAO.getProp(provider, UserProperty.RX_USE_RX3);
-        if (propUseRx3 != null && propUseRx3.getValue().equalsIgnoreCase("yes"))
-            useRx3 = true;
-
-
         String user_no = (String) request.getSession().getAttribute("user");
         String demo_no = request.getParameter("demographicNo");
         String view = request.getParameter("view");
 
         if (demo_no == null) {
+            return "failure";
+        }
+        if (!demo_no.matches("\\d{1,9}")) {
             return "failure";
         }
         // Setup bean
@@ -196,34 +198,25 @@ public final class RxShowAllergy2Action extends ActionSupport {
             bean.setView(view);
         }
 
-        request.getSession().setAttribute("RxSessionBean", bean);
-
-        if (request.getParameter("method") != null && request.getParameter("method").equals("reorder")) {
-            reorder(request);
-        }
+        // demographicNo validated via Integer.parseInt(); bean setters use validated values
+        request.getSession().setAttribute("RxSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo());
 
-        String forward = request.getContextPath() + "/oscarRx/ShowAllergies.jsp?demographicNo=" + demo_no;
-        if (useRx3) {
-            forward = request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + demo_no;
+        if (patient == null) {
+            return "failure";
         }
-        if (patient != null) {
-            request.getSession().setAttribute("Patient", patient);
-            response.sendRedirect(forward);
-        } else {//no records found
-            response.sendRedirect("error.html");
-        }
-        return null;
+        request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        return "success";
     }
 
     /**
-     * Retrieves and processes allergy data for a patient, including local and remote allergy information,
-     * and calculates allergy warnings based on severity. Outputs the resulting data in JSON format.
+     * Retrieves and processes allergy data for a patient and calculates allergy warnings
+     * based on severity. Outputs the resulting data in JSON format.
      *
-     * This method checks system preferences and handles merging allergy lists from local and remote
-     * data sources. It determines the highest severity allergy when the system preference for displaying
-     * the highest allergy warnings is enabled.
+     * This method checks system preferences and handles the allergy list. It determines
+     * the highest severity allergy when the system preference for displaying the highest
+     * allergy warnings is enabled.
      *
      * @param loggedInInfo LoggedInInfo object containing user session details and security information.
      */
@@ -232,24 +225,12 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
         String atcCode = request.getParameter("atcCode");
         String id = request.getParameter("id");
-        String disabled = io.github.carlos_emr.OscarProperties.getInstance().getProperty("rx3.disable_allergy_warnings", "false");
+        String disabled = CarlosProperties.getInstance().getProperty("rx.disable_allergy_warnings", "false");
         if (disabled.equals("false")) {
 
             ObjectMapper objectMapper = new ObjectMapper();
             RxSessionBean rxSessionBean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
             Allergy[] allergies = RxPatientData.getPatient(loggedInInfo, rxSessionBean.getDemographicNo()).getActiveAllergies();
-
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                try {
-                    ArrayList<Allergy> remoteAllergies = RemoteDrugAllergyHelper.getRemoteAllergiesAsAllergyItems(loggedInInfo, rxSessionBean.getDemographicNo());
-
-                    // now merge the 2 lists
-                    Collections.addAll(remoteAllergies, allergies);
-                    allergies = remoteAllergies.toArray(new Allergy[0]);
-                } catch (Exception e) {
-                    MiscUtils.getLogger().error("error getting remote allergies", e);
-                }
-            }
 
             Allergy[] allergyWarnings = null;
             RxDrugData drugData = new RxDrugData();
@@ -295,6 +276,15 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error in getAllergyData", e);
+                try {
+                    ObjectNode errorResult = objectMapper.createObjectNode();
+                    errorResult.put("id", id);
+                    errorResult.set("results", objectMapper.createArrayNode());
+                    response.setContentType("application/json");
+                    response.getOutputStream().write(objectMapper.writeValueAsBytes(errorResult));
+                } catch (IOException ioe) {
+                    MiscUtils.getLogger().error("Error writing empty allergy JSON response", ioe);
+                }
             }
         }
     }
@@ -320,10 +310,35 @@ public final class RxShowAllergy2Action extends ActionSupport {
      */
     private void reorder(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "u", null)) {
+            throw new SecurityException("missing required sec object (_allergy)");
+        }
 
         String direction = request.getParameter("direction");
+        if (direction == null || (!"up".equals(direction) && !"down".equals(direction))) {
+            MiscUtils.getLogger().warn("Invalid direction parameter for allergy reorder");
+            return;
+        }
         String demographicNo = request.getParameter("demographicNo");
-        int allergyId = Integer.parseInt(request.getParameter("allergyId"));
+        if (demographicNo == null || !demographicNo.matches("\\d{1,9}")) {
+            MiscUtils.getLogger().warn("Invalid demographicNo for allergy reorder");
+            return;
+        }
+        String allergyIdParam = request.getParameter("allergyId");
+        if (allergyIdParam == null || !allergyIdParam.matches("\\d{1,9}")) {
+            MiscUtils.getLogger().warn("Invalid allergyId for allergy reorder");
+            return;
+        }
+        int allergyId;
+        try {
+            long parsedAllergyId = Long.parseLong(allergyIdParam);
+            if (parsedAllergyId > Integer.MAX_VALUE) {
+                throw new IllegalArgumentException("Invalid allergyId");
+            }
+            allergyId = (int) parsedAllergyId;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid allergyId", e);
+        }
         try {
             Allergy[] allergies = RxPatientData.getPatient(loggedInInfo, demographicNo).getActiveAllergies();
             for (int x = 0; x < allergies.length; x++) {

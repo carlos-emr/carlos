@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.dao.LabReportInformationDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.LabReportInformation;
 import io.github.carlos_emr.carlos.utility.DateUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -98,8 +99,6 @@ public class LabResultData implements Comparable<LabResultData> {
 
     private Integer ackCount = null;
     private Integer multiplAckCount = null;
-    private Integer remoteFacilityId = null;
-
     private ArrayList<Integer> duplicateLabIds = new ArrayList<Integer>();
 
     public LabResultData() {
@@ -302,7 +301,10 @@ public class LabResultData implements Comparable<LabResultData> {
         //          this.isMatchedToPatient = prd.isLabLinkedWithPatient(this.segmentID);
         //       }
         CommonLabResultData commonLabResultData = new CommonLabResultData();
-        logger.debug("in ismatchedtopatient, " + this.segmentID + "--" + this.labType);
+        if (logger.isDebugEnabled()) {
+            logger.debug("in isMatchedToPatient, segmentID={}, labType={}",
+                    LogSafe.sanitize(this.segmentID), LogSafe.sanitize(this.labType));
+        }
         if (this.isMatchedToPatient == null) {
             if (this.labType.equals("DOC")) {
                 this.isMatchedToPatient = commonLabResultData.isDocLinkedWithPatient(this.segmentID, this.labType);
@@ -493,14 +495,6 @@ public class LabResultData implements Comparable<LabResultData> {
         this.multiplAckCount = multipleAckCount;
     }
 
-    public Integer getRemoteFacilityId() {
-        return (remoteFacilityId);
-    }
-
-    public void setRemoteFacilityId(Integer remoteFacilityId) {
-        this.remoteFacilityId = remoteFacilityId;
-    }
-
     public ArrayList<Integer> getDuplicateLabIds() {
         return (duplicateLabIds);
     }
@@ -513,7 +507,4 @@ public class LabResultData implements Comparable<LabResultData> {
         this.label = label;
     }
 
-    public boolean isRemoteLab() {
-        return getRemoteFacilityId() != null;
-    }
 }

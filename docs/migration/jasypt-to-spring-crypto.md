@@ -68,7 +68,7 @@ b64 = Base64.getEncoder().encodeToString(encrypted);
 
 ### New Property Required: `shared_outcomes_dashboard_salt`
 
-**IMPORTANT**: This migration adds a **required** new property to `oscar.properties`.
+**IMPORTANT**: This migration adds a **required** new property to `carlos.properties`.
 
 #### Generate Salt Value
 
@@ -80,7 +80,7 @@ openssl rand -hex 16
 
 Example output: `8f3c21ab56789def1234567890abcdef`
 
-#### Add to oscar.properties
+#### Add to carlos.properties
 
 ```properties
 # Shared Outcomes Dashboard Encryption
@@ -162,7 +162,7 @@ String json = new String(decrypted, StandardCharsets.UTF_8);
    openssl rand -hex 16
    ```
 
-2. **Update oscar.properties**:
+2. **Update carlos.properties**:
    ```properties
    shared_outcomes_dashboard_salt=<generated-salt-value>
    ```
@@ -183,7 +183,7 @@ String json = new String(decrypted, StandardCharsets.UTF_8);
 
 ### For New Deployments
 
-Include both properties in initial `oscar.properties` configuration:
+Include both properties in initial `carlos.properties` configuration:
 
 ```properties
 shared_outcomes_dashboard_url=https://dashboard.example.com
@@ -213,7 +213,7 @@ Tests verify:
 
 1. **Verify configuration**:
    ```bash
-   grep shared_outcomes_dashboard oscar.properties
+   grep shared_outcomes_dashboard carlos.properties
    ```
 
 2. **Generate shared dashboard URL**:
@@ -242,7 +242,7 @@ If the migration causes issues:
 
 3. **Remove salt property** (optional):
    ```bash
-   # Comment out or remove from oscar.properties
+   # Comment out or remove from carlos.properties
    # shared_outcomes_dashboard_salt=...
    ```
 

@@ -10,7 +10,7 @@ CARLOS EMR requires several directories to exist at runtime with proper read/wri
 
 ## Directory Properties
 
-All directory properties are configured in `oscar.properties`. Many have **fallback logic** - if not explicitly set, they derive from `BASE_DOCUMENT_DIR`.
+All directory properties are configured in `carlos.properties`. Many have **fallback logic** - if not explicitly set, they derive from `BASE_DOCUMENT_DIR`.
 
 ### Core Directories
 
@@ -114,7 +114,7 @@ This means you can often just set `BASE_DOCUMENT_DIR` and the application will c
 Check directory configuration:
 ```bash
 # View current properties
-grep -E "_DIR|_PATH" /path/to/oscar.properties
+grep -E "_DIR|_PATH" /path/to/carlos.properties
 
 # Verify directories exist
 ls -la /var/lib/OscarDocument/
@@ -126,7 +126,7 @@ sudo -u tomcat touch /var/lib/OscarDocument/test && rm /var/lib/OscarDocument/te
 ## DevContainer Configuration
 
 In the development environment, directories are pre-configured in:
-`.devcontainer/development/config/shared/volumes/oscar.properties`
+`.devcontainer/development/config/shared/volumes/carlos.properties`
 
 ```properties
 BASE_DOCUMENT_DIR=/var/lib/OscarDocument
@@ -149,4 +149,4 @@ Key files that use these directories:
 ## Related Documentation
 
 - [Resources Directory Overview](resources-directory.md) - Classpath resources (different from runtime directories)
-- [oscar_mcmaster.properties](../src/main/resources/oscar_mcmaster.properties) - Default property values with comments
+- [carlos.properties](../src/main/resources/carlos.properties) - Default property values with comments

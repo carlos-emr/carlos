@@ -39,7 +39,6 @@ public class PrescriptDrug {
     private Integer GCN_SEQNO;
     private String customName;
     private String regionalIdentifier = null;
-    private String remoteFacilityName = null;
     private Date createDate = null;
     private boolean longTerm = false;
     private boolean nonAuthoritative = false;
@@ -74,14 +73,6 @@ public class PrescriptDrug {
 
     public void setRegionalIdentifier(String regionalIdentifier) {
         this.regionalIdentifier = regionalIdentifier;
-    }
-
-    public String getRemoteFacilityName() {
-        return remoteFacilityName;
-    }
-
-    public void setRemoteFacilityName(String remoteFacilityName) {
-        this.remoteFacilityName = remoteFacilityName;
     }
 
     public Date getDate_prescribed() {

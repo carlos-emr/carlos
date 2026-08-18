@@ -1,34 +1,33 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
+ *
  * This software was written for the
  * Department of Family Medicine
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
-import java.math.BigInteger;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -38,19 +37,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.tools.ant.util.DateUtils;
+import io.github.carlos_emr.carlos.appointment.search.FilterDefinition;
+import io.github.carlos_emr.carlos.appointment.search.FilterRegistry;
+import io.github.carlos_emr.carlos.appointment.search.Provider;
 import io.github.carlos_emr.carlos.appointment.search.SearchConfig;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentSearchDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
@@ -66,6 +68,7 @@ import io.github.carlos_emr.carlos.managers.AppointmentManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
@@ -96,11 +99,14 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.SearchConfigTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
-
 @Path("/schedule")
 @Component("scheduleService")
 @Consumes(MediaType.APPLICATION_JSON)
 public class ScheduleService extends AbstractServiceImpl {
+
+    private static final String MISSING_FILTER_DEFINITION_SENTINEL = "<missing filterDefinition>";
+    private static final String MISSING_FILTER_KEY_SENTINEL = "<missing filterClassName>";
+    private static final String MISSING_PROVIDER_SENTINEL = "<missing provider>";
 
     Logger logger = MiscUtils.getLogger();
 
@@ -198,6 +204,10 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public SchedulingResponse addAppointment(NewAppointmentTo1 appointmentTo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+
         SchedulingResponse response = new SchedulingResponse();
 
         NewAppointmentConverter converter = new NewAppointmentConverter();
@@ -234,6 +244,9 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public Response deleteAppointment(AppointmentTo1 appointmentTo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "d", null)) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
 
         appointmentManager.deleteAppointment(getLoggedInInfo(), appointmentTo.getId());
 
@@ -245,10 +258,31 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public SchedulingResponse updateAppointment(AppointmentTo1 appointmentTo) {
-        SchedulingResponse response = new SchedulingResponse();
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
 
+        if (appointmentTo == null || appointmentTo.getId() == null) {
+            throw new WebApplicationException(Response.status(Status.BAD_REQUEST)
+                    .entity("Appointment id is required").build());
+        }
+
+        // Load the persisted appointment and apply only client-editable fields onto it, so the
+        // server-managed identity/audit fields (createDateTime, creator, creatorSecurityId,
+        // bookingSource) are preserved rather than overwritten by the request payload, and the
+        // updating provider is stamped server-side. A blind DTO->entity merge here would corrupt
+        // the creation audit trail and allow over-posting.
+        Appointment appt = appointmentManager.getAppointment(getLoggedInInfo(), appointmentTo.getId());
+        if (appt == null) {
+            throw new WebApplicationException(Response.status(Status.NOT_FOUND)
+                    .entity("Appointment not found").build());
+        }
+
+        SchedulingResponse response = new SchedulingResponse();
         AppointmentConverter converter = new AppointmentConverter();
-        Appointment appt = converter.getAsDomainObject(getLoggedInInfo(), appointmentTo);
+
+        converter.applyEditableProperties(appointmentTo, appt);
+        appt.setLastUpdateUser(getLoggedInInfo().getLoggedInProviderNo());
 
         scheduleManager.updateAppointment(getLoggedInInfo(), appt);
 
@@ -277,7 +311,11 @@ public class ScheduleService extends AbstractServiceImpl {
     }
 
     private Map<Integer, BillingDetailTo1> getAppointmentIdToBillingDetailMap(Integer demographicNo) {
-        List<BillingONCHeader1> billingHeaders = billingONCHeader1Dao.findByDemoNo(demographicNo, 0, OscarAppointmentDao.MAX_LIST_RETURN_SIZE);
+        // findByDemoNoWithItems eagerly fetches each header's billingItems —
+        // BillingDetailConverter copies the collection into the REST DTO,
+        // which would otherwise trip a LazyInitializationException now that
+        // BillingONCHeader1.billingItems is FetchType.LAZY.
+        List<BillingONCHeader1> billingHeaders = billingONCHeader1Dao.findByDemoNoWithItems(demographicNo, 0, OscarAppointmentDao.MAX_LIST_RETURN_SIZE);
         if (billingHeaders.size() == OscarAppointmentDao.MAX_LIST_RETURN_SIZE) {
             logger.warn("Billing history over MAX_LIST_RETURN_SIZE for demographic " + demographicNo);
         }
@@ -307,6 +345,10 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public SchedulingResponse updateAppointmentStatus(@PathParam("id") Integer id, AppointmentTo1 appt) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+
         SchedulingResponse response = new SchedulingResponse();
         AppointmentConverter converter = new AppointmentConverter();
         String status = appt.getStatus();
@@ -323,6 +365,10 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public SchedulingResponse updateAppointmentType(@PathParam("id") Integer id, AppointmentTo1 appt) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+
         SchedulingResponse response = new SchedulingResponse();
         AppointmentConverter converter = new AppointmentConverter();
         String type = appt.getType();
@@ -334,10 +380,22 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    @POST
     @Path("/appointment/{id}/updateUrgency")
     @Produces("application/json")
     @Consumes("application/json")
     public SchedulingResponse updateAppointmentUrgency(@PathParam("id") Integer id, AppointmentTo1 appt) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+
+        // This route was previously unrouted (missing @POST); now that it is reachable, guard a
+        // null/empty request body rather than NPE-ing on appt.getUrgency().
+        if (appt == null) {
+            throw new WebApplicationException(Response.status(Status.BAD_REQUEST)
+                    .entity("Appointment payload is required").build());
+        }
+
         SchedulingResponse response = new SchedulingResponse();
         AppointmentConverter converter = new AppointmentConverter();
         String urgency = appt.getUrgency();
@@ -470,13 +528,16 @@ public class ScheduleService extends AbstractServiceImpl {
                 for (Object[] obj : items) {
                     Integer appointmentNo = (Integer) obj[0];
                     String providerNo = (String) obj[1];
-                    Date appointmentDate = (Date) obj[2];
-                    Date startTime = (Date) obj[3];
+                    // This native query returns appointment_date (SQL DATE) and start_time
+                    // (SQL TIME) as java.time.LocalDate / LocalTime under the current JDBC
+                    // driver, and status (CHAR) as a String — convert rather than blind-cast.
+                    Date appointmentDate = toDate(obj[2]);
+                    Date startTime = toDate(obj[3]);
                     Integer demographicNo = (Integer) obj[4];
                     String notes = (String) obj[5];
                     String location = (String) obj[6];
                     String resources = (String) obj[7];
-                    Character status = (Character) obj[8];
+                    Character status = toCharacter(obj[8]);
                     String lastName = (String) obj[9];
                     String firstName = (String) obj[10];
                     String phone = (String) obj[11];
@@ -504,6 +565,55 @@ public class ScheduleService extends AbstractServiceImpl {
 
     }
 
+    /**
+     * Coerce a JDBC column value to {@link java.util.Date}. The native appointment query can
+     * hand back {@code java.util.Date} (and subclasses), or — under the current driver —
+     * {@code java.time.LocalDate} / {@code LocalTime} / {@code LocalDateTime} for SQL
+     * DATE/TIME/TIMESTAMP columns. A plain {@code (Date) cast} throws ClassCastException on
+     * the java.time types, which previously surfaced as a 500 from {@code fetchDays}.
+     */
+    private static Date toDate(Object value) {
+        if (value == null || value instanceof Date) {
+            return (Date) value;
+        }
+        if (value instanceof java.time.LocalDate localDate) {
+            return java.sql.Date.valueOf(localDate);
+        }
+        if (value instanceof java.time.LocalTime localTime) {
+            // Keep the epoch date (1970-01-01) so the smart date serializer emits "HH:mm:ss".
+            return java.sql.Time.valueOf(localTime);
+        }
+        if (value instanceof java.time.LocalDateTime localDateTime) {
+            return java.sql.Timestamp.valueOf(localDateTime);
+        }
+        throw new IllegalArgumentException("Unsupported date type: " + value.getClass().getName());
+    }
+
+    /**
+     * Coerce a JDBC status column value to {@link Character}. CHAR columns are commonly returned
+     * as {@code String} by the driver, so a {@code (Character) cast} would throw; treat
+     * empty/blank as {@code null}.
+     *
+     * <p>The {@code appointment.status} column is {@code char(2)} (a primary status code plus an
+     * optional sub-flag), but {@link AppointmentExtTo} carries status as a single
+     * {@code Character}. The leading character is the primary status code, so taking the first
+     * character is intentional: it preserves the value this list/calendar DTO is shaped to hold
+     * and keeps {@code fetchDays} working for two-character statuses rather than rejecting them.</p>
+     */
+    private static Character toCharacter(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Character character) {
+            return character;
+        }
+        if (value instanceof String s) {
+            String trimmed = s.trim();
+            return trimmed.isEmpty() ? null : trimmed.charAt(0);
+        }
+        throw new IllegalArgumentException("Unsupported status type: " + value.getClass().getName());
+    }
+
 
     /**
      * Lists appointment counts for all providers within a date range.
@@ -529,7 +639,7 @@ public class ScheduleService extends AbstractServiceImpl {
                     String providerNo = (String) obj[0];
                     String firstName = (String) obj[1];
                     String lastName = (String) obj[2];
-                    Long appointmentsCount = ((BigInteger) obj[3]).longValue();
+                    Long appointmentsCount = ((Number) obj[3]).longValue();
 
                     ProviderApptsCountTo to = new ProviderApptsCountTo(providerNo, lastName + ", " + firstName, appointmentsCount);
 
@@ -593,8 +703,15 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public Response saveSearchConfig(@PathParam("id") Integer id, SearchConfigTo1 searchConfigTo) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+
         if (id == null || id.intValue() == 0) {
-            return null;
+            return Response.status(Status.BAD_REQUEST)
+                    .entity("Invalid search configuration id")
+                    .build();
         }
 
 
@@ -613,6 +730,20 @@ public class ScheduleService extends AbstractServiceImpl {
             }
 
             SearchConfig searchConfig = SearchConfig.fromTransfer(searchConfigTo, oldConfig);
+
+            // Fail fast at the REST boundary on unknown filter references, rather than
+            // later with an opaque ClassNotFoundException during findAppointment. Do not
+            // echo the user-supplied value in the response body; the sanitized key is
+            // logged for operator diagnosis.
+            String unknownFilter = findUnknownFilter(searchConfig);
+            if (unknownFilter != null) {
+                logger.warn("Rejecting saveSearchConfig with unknown filter key: {}",
+                        LogSafe.sanitize(unknownFilter));
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("Unknown appointment filter")
+                        .build();
+            }
+
             Document d = SearchConfig.toDocument(searchConfig);
 
 
@@ -641,10 +772,58 @@ public class ScheduleService extends AbstractServiceImpl {
             logger.info("searchConfig\n" + XmlUtils.toString(d, true));
         } catch (Exception e) {
             logger.error("save Search Config Error ", e);
+            return Response.status(Status.INTERNAL_SERVER_ERROR)
+                    .entity("Failed to save search configuration")
+                    .build();
         }
 
-
         return Response.ok(forNewId).build();
+    }
+
+    /**
+     * Walk the top-level and per-provider filter lists on {@code searchConfig} and return
+     * the first {@code filterClassName} that is not accepted by {@link FilterRegistry},
+     * or {@code null} if every filter reference is known.
+     */
+    private String findUnknownFilter(SearchConfig searchConfig) {
+        if (searchConfig == null) {
+            return null;
+        }
+        String unknownFilter = findUnknownFilter(searchConfig.getFilters());
+        if (unknownFilter != null) {
+            return unknownFilter;
+        }
+        Map<String, Provider> providers = searchConfig.getProviders();
+        if (providers != null) {
+            for (Provider provider : providers.values()) {
+                if (provider == null) {
+                    return MISSING_PROVIDER_SENTINEL;
+                }
+                unknownFilter = findUnknownFilter(provider.getFilter());
+                if (unknownFilter != null) {
+                    return unknownFilter;
+                }
+            }
+        }
+        return null;
+    }
+
+    String findUnknownFilter(List<FilterDefinition> filters) {
+        if (filters == null) {
+            return null;
+        }
+        for (FilterDefinition fd : filters) {
+            if (fd == null) {
+                return MISSING_FILTER_DEFINITION_SENTINEL;
+            }
+            if (fd.getFilterClassName() == null) {
+                return MISSING_FILTER_KEY_SENTINEL;
+            }
+            if (!FilterRegistry.isKnown(fd.getFilterClassName())) {
+                return fd.getFilterClassName();
+            }
+        }
+        return null;
     }
 
     @GET

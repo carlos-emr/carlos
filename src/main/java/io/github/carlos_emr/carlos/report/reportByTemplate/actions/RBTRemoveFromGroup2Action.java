@@ -30,8 +30,8 @@
 
 package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 import io.github.carlos_emr.carlos.managers.RBTGroupManager;
@@ -39,10 +39,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class RBTRemoveFromGroup2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -50,8 +53,11 @@ public class RBTRemoveFromGroup2Action extends ActionSupport {
     private RBTGroupManager rbtGroupManager = SpringUtils.getBean(RBTGroupManager.class);
 
     public String execute() {
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
+            throw new SecurityException("missing required sec object (_report)");
+        }
+
 
         String tid = request.getParameter("tid");
         String groupName = request.getParameter("groupName");

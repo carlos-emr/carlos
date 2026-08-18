@@ -34,6 +34,8 @@ package io.github.carlos_emr.carlos.casemgmt.service;
 import io.github.carlos_emr.carlos.PMmodule.model.*;
 import io.github.carlos_emr.carlos.appt.ApptStatusData;
 import io.github.carlos_emr.carlos.casemgmt.dao.*;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -42,8 +44,6 @@ import io.github.carlos_emr.carlos.services.security.RolesManager;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramQueueDao;
@@ -51,9 +51,6 @@ import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.utility.ProgramAccessCache;
 import io.github.carlos_emr.carlos.PMmodule.utility.RoleCache;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicDrug;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicNote;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedFacility;
 import io.github.carlos_emr.carlos.casemgmt.common.EChartNoteEntry;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -62,19 +59,18 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
-import java.net.MalformedURLException;
 import java.nio.file.ProviderNotFoundException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Transactional
 public class CaseManagementManagerImpl implements CaseManagementManager {
@@ -114,7 +110,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Autowired
     private SecurityInfoManager securityInfoManager;
 
-    private boolean enabled;
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -284,9 +279,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                 hashAuditDao.persist(hashAudit);
             }
 
-            OscarProperties properties = OscarProperties.getInstance();
+            CarlosProperties properties = CarlosProperties.getInstance();
             if (properties == null) {
-                throw new NullPointerException("OscarProperties instance is null");
+                throw new NullPointerException("CarlosProperties instance is null");
             }
 
             if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
@@ -470,6 +465,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     /* return true if have the right to access issues */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public boolean inAccessRight(String right, String issueAccessType, List accessRight) {
         boolean rt = false;
@@ -485,6 +482,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     /* filter the issues by caisi role */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     private List<CaseManagementIssue> filterIssueList(List<CaseManagementIssue> allIssue, List accessRight) {
         List<String> role = secRoleDao.findAllNames();
         List<CaseManagementIssue> filteredIssue = new ArrayList<CaseManagementIssue>();
@@ -635,30 +634,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
-    public Integer getTableNameByDisplay(String disp) {
-        if (!filled(disp))
-            return null;
-        Integer tName = CaseManagementNoteLink.CASEMGMTNOTE;
-
-        if (disp.equals(CaseManagementNoteLink.DISP_ALLERGY))
-            tName = CaseManagementNoteLink.ALLERGIES;
-        else if (disp.equals(CaseManagementNoteLink.DISP_DOCUMENT))
-            tName = CaseManagementNoteLink.DOCUMENT;
-        else if (disp.equals(CaseManagementNoteLink.DISP_LABTEST))
-            tName = CaseManagementNoteLink.LABTEST;
-        else if (disp.equals(CaseManagementNoteLink.DISP_PRESCRIP))
-            tName = CaseManagementNoteLink.DRUGS;
-        else if (disp.equals(CaseManagementNoteLink.DISP_DEMO))
-            tName = CaseManagementNoteLink.DEMOGRAPHIC;
-        else if (disp.equals(CaseManagementNoteLink.DISP_PREV))
-            tName = CaseManagementNoteLink.PREVENTIONS;
-        else if (disp.equals(CaseManagementNoteLink.DISP_APPOINTMENT))
-            tName = CaseManagementNoteLink.APPOINTMENT;
-
-        return tName;
-    }
-
-    @Override
     public CaseManagementCPP getCPP(String demographic_no) {
         return this.caseManagementCPPDAO.getCPP(demographic_no);
     }
@@ -687,10 +662,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     /**
-     * This method gets all prescriptions including from integrated facilities. This
-     * method will also check to ensure the integrator is enabled for this facility
-     * before attemping to add remote drugs. If it's not enabled it will return only
-     * local drugs.
+     * Gets all prescriptions for the given demographic.
      */
     @Override
     public List<Drug> getPrescriptions(LoggedInInfo loggedInInfo, int demographicId, boolean all) {
@@ -698,86 +670,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         results = getPrescriptions(String.valueOf(demographicId), all);
 
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            addIntegratorDrugs(loggedInInfo, results, all, demographicId);
-        }
-
         return (results);
-    }
-
-    private void addIntegratorDrugs(LoggedInInfo loggedInInfo, List<Drug> prescriptions, boolean viewAll,
-                                    int demographicId) {
-
-        if (prescriptions == null) {
-            logger.warn(
-                    "prescriptions passed in is null, it should never be null, empty list should be used if no entries for drugs.");
-            return;
-        }
-
-        try {
-            List<CachedDemographicDrug> remoteDrugs = null;
-            try {
-                if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                    remoteDrugs = CaisiIntegratorManager
-                            .getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility())
-                            .getLinkedCachedDemographicDrugsByDemographicId(demographicId);
-                }
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Unexpected error.", e);
-                CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-            }
-
-            if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                remoteDrugs = IntegratorFallBackManager.getRemoteDrugs(loggedInInfo, demographicId);
-            }
-
-            for (CachedDemographicDrug cachedDrug : remoteDrugs) {
-                if (viewAll) {
-                    prescriptions.add(getPrescriptDrug(loggedInInfo, cachedDrug));
-                } else {
-                    // if it's not view all, we need to only add the drug if it's not already there,
-                    // or if it's a newer prescription
-                    Drug pd = containsPrescriptDrug(prescriptions, cachedDrug.getRegionalIdentifier());
-                    if (pd == null) {
-                        prescriptions.add(getPrescriptDrug(loggedInInfo, cachedDrug));
-                    } else {
-                        if (pd.getRxDate().before(DateUtils.toDate(cachedDrug.getRxDate()))
-                                || (pd.getRxDate().equals(cachedDrug.getRxDate())
-                                && pd.getCreateDate().before(DateUtils.toDate(cachedDrug.getCreateDate())))) {
-                            prescriptions.remove(pd);
-                            prescriptions.add(getPrescriptDrug(loggedInInfo, cachedDrug));
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error.", e);
-        }
-    }
-
-    private Drug getPrescriptDrug(LoggedInInfo loggedInInfo, CachedDemographicDrug cachedDrug)
-            throws MalformedURLException {
-        Drug pd = new Drug();
-
-        pd.setBrandName(cachedDrug.getBrandName());
-        pd.setCustomName(cachedDrug.getCustomName());
-        pd.setRxDate(DateUtils.toDate(cachedDrug.getRxDate()));
-        pd.setArchived(cachedDrug.isArchived());
-        pd.setSpecial(cachedDrug.getSpecial());
-        pd.setEndDate(DateUtils.toDate(cachedDrug.getEndDate()));
-        pd.setRegionalIdentifier(cachedDrug.getRegionalIdentifier());
-        pd.setCreateDate(DateUtils.toDate(cachedDrug.getCreateDate()));
-
-        pd.setId(cachedDrug.getFacilityIdIntegerCompositePk().getCaisiItemId());
-
-        int remoteFacilityId = cachedDrug.getFacilityIdIntegerCompositePk().getIntegratorFacilityId();
-        pd.setRemoteFacilityId(remoteFacilityId);
-
-        CachedFacility cachedFacility = CaisiIntegratorManager.getRemoteFacility(loggedInInfo,
-                loggedInInfo.getCurrentFacility(), remoteFacilityId);
-        pd.setRemoteFacilityName(cachedFacility.getName());
-
-        return (pd);
     }
 
     private static Drug containsPrescriptDrug(List<Drug> prescriptions, String regionalIdentifier) {
@@ -844,7 +737,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         // place to do this -- rwd
         caseManagementCPPDAO.saveCPP(cpp);
 
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
             eChartDao.saveCPPIntoEchart(cpp, providerNo);
         }
@@ -876,6 +769,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         issueDAO.saveIssue(issue);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public List<Issue> getIssueInfoBySearch(String providerNo, String search, List accessRight) {
         List<Issue> issList = issueDAO.findIssueBySearch(search);
@@ -917,7 +812,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         cpp.setOngoingConcerns(ongoing);
         caseManagementCPPDAO.saveCPP(cpp);
 
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
             eChartDao.updateEchartOngoing(cpp);
         }
@@ -952,7 +847,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             cpp.setOngoingConcerns(newOngoing);
             caseManagementCPPDAO.saveCPP(cpp);
 
-            OscarProperties properties = OscarProperties.getInstance();
+            CarlosProperties properties = CarlosProperties.getInstance();
             if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
                 eChartDao.updateEchartOngoing(cpp);
             }
@@ -983,7 +878,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             cpp.setOngoingConcerns(newOngoing);
             caseManagementCPPDAO.saveCPP(cpp);
 
-            OscarProperties properties = OscarProperties.getInstance();
+            CarlosProperties properties = CarlosProperties.getInstance();
             if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
                 eChartDao.updateEchartOngoing(cpp);
             }
@@ -1008,13 +903,15 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         cpp.setOngoingConcerns(ongoing);
         caseManagementCPPDAO.saveCPP(cpp);
 
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
             eChartDao.updateEchartOngoing(cpp);
         }
     }
 
     /* get the filtered Notes by caisi role */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public List<CaseManagementIssue> getFilteredNotes(String providerNo, String demographic_no) {
         List<CaseManagementNote> allNotes = caseManagementNoteDAO.getNotesByDemographic(demographic_no);
@@ -1079,6 +976,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         return false;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public boolean greaterEqualLevel(int level, String providerNo) {
         if (level < 1 || level > 4)
@@ -1185,6 +1084,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             rt.add(at);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public boolean hasAccessRight(String accessName, String accessType, String providerNo, String demoNo, String pId) {
         if (accessName == null || accessType == null || !filled(pId))
@@ -1200,6 +1101,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         return false;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String getRoleName(String providerNo, String program_id) {
         String rt = "";
@@ -1314,7 +1217,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Override
     public CaseManagementTmpSave getTmpSave(String providerNo, String demographicNo, String programId) {
         // If maxTmpSave is "true", "yes", "on", it is treated as active
-        if (OscarProperties.getInstance().isPropertyActive("maxTmpSave")) {
+        if (CarlosProperties.getInstance().isPropertyActive("maxTmpSave")) {
             Calendar cal = Calendar.getInstance();
             cal.add(Calendar.DAY_OF_MONTH, -14);
             Date twoWeeksAgo = cal.getTime();
@@ -1338,7 +1241,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
 
         // There is a temporary note, but does it have any content besides the tag?
-        if (obj != null && OscarProperties.getInstance().isPropertyActive("encounter.remove_empty_tmp_notes")
+        if (obj != null && CarlosProperties.getInstance().isPropertyActive("encounter.remove_empty_tmp_notes")
                 && !caseManagementTmpSaveDao.noteHasContent(obj.getId())) {
             logger.debug("Empty Tmp note found for providers: {}, demographic: {}, program: {}", providerNo, demographicNo, programId);
 
@@ -1458,7 +1361,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
 
         // filter notes based on facility
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             filteredNotes = notesFacilityFiltering(loggedInInfo, filteredNotes);
         }
 
@@ -1484,7 +1387,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         List ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo, Long.valueOf(programId));
         if (ppList == null || ppList.isEmpty()) {
             for (EChartNoteEntry note : notes) {
-                if (!note.getType().equals("local_note") && !note.getType().equals("remote_note"))
+                if (!note.getType().equals("local_note"))
                     filteredNotes.add(note);
             }
             return filteredNotes;
@@ -1497,20 +1400,15 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         // iterate through the issue list
         for (EChartNoteEntry cmNote : notes) {
-            if (!cmNote.getType().equals("local_note") && !cmNote.getType().equals("remote_note")) {
+            if (!cmNote.getType().equals("local_note")) {
                 filteredNotes.add(cmNote);
                 continue;
             }
 
             String noteRole;
             String noteRoleName;
-            if (cmNote.getType().equals("local_note")) {
-                noteRole = cmNote.getRole();
-                noteRoleName = safeGetRoleName(noteRole);
-            } else { // remote_note
-                noteRole = cmNote.getRole();
-                noteRoleName = cmNote.getRole();
-            }
+            noteRole = cmNote.getRole();
+            noteRoleName = safeGetRoleName(noteRole);
 
             ProgramAccess pa = null;
             boolean add = false;
@@ -1562,70 +1460,12 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
 
         // filter notes based on facility
-        // if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY",
+        // if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY",
         // "true")) {
         // filteredNotes = notesFacilityFiltering(filteredNotes);
         // }
 
         return filteredNotes;
-    }
-
-    @Override
-    public boolean hasRole(String providerNo, CachedDemographicNote cachedDemographicNote, String programId) {
-
-        // Get Role - if no ProgramProvider record found, show no issues.
-        @SuppressWarnings("unchecked")
-        List ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo, Long.valueOf(programId));
-        if (ppList == null || ppList.isEmpty()) {
-            return (false);
-        }
-
-        ProgramProvider pp = (ProgramProvider) ppList.get(0);
-        Secrole role = pp.getRole();
-
-        // Load up access list from program
-        @SuppressWarnings("unchecked")
-        List programAccessList = programAccessDAO.getAccessListByProgramId(Long.valueOf(programId));
-        @SuppressWarnings("unchecked")
-        Map programAccessMap = convertProgramAccessListToMap(programAccessList);
-
-        // iterate through the issue list
-        String noteRoleName = cachedDemographicNote.getRole();
-        if (noteRoleName != null)
-            noteRoleName = noteRoleName.toLowerCase();
-        ProgramAccess pa = null;
-        boolean add = false;
-
-        // write
-        pa = null;
-        // read
-        pa = (ProgramAccess) programAccessMap.get("read " + noteRoleName + " notes");
-        if (pa != null) {
-            if (pa.isAllRoles() || isRoleIncludedInAccess(pa, role)) {
-                // filteredIssues.add(cmIssue);
-                return (true);
-            }
-        } else {
-            if (noteRoleName.equals(role.getRoleName().toLowerCase())) {
-                // default
-                return (true);
-            }
-        }
-
-        // apply defaults
-        if (!add) {
-            if (noteRoleName.equals(role.getRoleName().toLowerCase())) {
-                return (true);
-            }
-        }
-
-        // global default role access
-        String accessName = "read " + noteRoleName + " notes";
-        if (roleProgramAccessDAO.hasAccess(accessName, role.getId())) {
-            return (true);
-        }
-
-        return (false);
     }
 
     @Override
@@ -1768,6 +1608,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     /**
      * Filters a list of CaseManagementIssue objects based on role.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public List<CaseManagementIssue> filterIssues(LoggedInInfo loggedInInfo, String providerNo,
                                                   List<CaseManagementIssue> issues, String programId) {
@@ -1852,7 +1694,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
 
         // filter issues based on facility
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             filteredIssues = issuesFacilityFiltering(loggedInInfo, filteredIssues);
         }
 
@@ -1903,7 +1745,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
     @Override
     public Long saveNoteSimpleReturnID(CaseManagementNote note) {
-        return (Long) this.caseManagementNoteDAO.saveAndReturn(note);
+        CaseManagementNote managed = (CaseManagementNote) this.caseManagementNoteDAO.saveAndReturn(note);
+        return managed.getId();
     }
 
     @Override
@@ -1986,17 +1829,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
-    public boolean unlockNote(int noteId, String password) {
-        CaseManagementNote note = this.caseManagementNoteDAO.getNote(Long.valueOf(noteId));
-        if (note != null) {
-            if (note.isLocked() && note.getPassword().equals(password)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    @Override
     public void updateIssue(String demographicNo, Long originalIssueId, Long newIssueId) {
         List<CaseManagementIssue> issues = this.caseManagementIssueDAO.getIssuesByDemographic(demographicNo);
         for (CaseManagementIssue issue : issues) {
@@ -2022,16 +1854,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
          * issue.setIssue_id(newIssueId.longValue()); } }
          * this.caseManagementNoteDAO.saveNote(note); }
          */
-    }
-
-    @Override
-    public boolean getEnabled() {
-        return enabled;
-    }
-
-    @Override
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
     }
 
     @Override
@@ -2177,8 +1999,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
      * to be i18n compliant). If nothing is found in the resource bundle the value
      * is added as a blank in the returned formatted string. This is the default
      * signing line.
-     * ECHART_SIGN_LINE=[${oscarEncounter.class.EctSaveEncounter2Action.msgSigned}
-     * ${DATE} ${oscarEncounter.class.EctSaveEncounter2Action.msgSigBy}
+     * ECHART_SIGN_LINE=[${encounter.class.EctSaveEncounter2Action.msgSigned}
+     * ${DATE} ${encounter.class.EctSaveEncounter2Action.msgSigBy}
      * ${USERSIGNATURE}]\n
      *
      * @param template string with template values used to create the String that is
@@ -2265,10 +2087,10 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
                 if (type == this.SIGNATURE_SIGNED) {
                     // TODO: In the future pull this from a USER/PROGRAM preference.
-                    signLine = OscarProperties.getInstance().getProperty("ECHART_SIGN_LINE");
+                    signLine = CarlosProperties.getInstance().getProperty("ECHART_SIGN_LINE");
                     signature = getTemplateSignature(signLine, resourceBundle, map);
                 } else if (type == this.SIGNATURE_VERIFY) {
-                    signLine = OscarProperties.getInstance().getProperty("ECHART_VERSIGN_LINE");
+                    signLine = CarlosProperties.getInstance().getProperty("ECHART_VERSIGN_LINE");
                     signature = getTemplateSignature(signLine, resourceBundle, map);
                 } else {
                     throw new IllegalArgumentException("No Signature type defined");
@@ -2306,18 +2128,16 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
     /**
      * Gets all the notes.
-     * If we have a key, and the note is locked, consider it.
      * Caisi - filter notes.
      * Grab the last one, where I am providers, and it's not signed.
      *
      * @param programId the program ID
      * @param demono the demographic number
      * @param providerNo the provider number
-     * @param unlockedNotesMap map of unlocked notes
      * @return the last saved case management note
      */
     @Override
-    public CaseManagementNote getLastSaved(String programId, String demono, String providerNo, Map unlockedNotesMap) {
+    public CaseManagementNote getLastSaved(String programId, String demono, String providerNo) {
         // CaseManagementNote note = null;
         List<EChartNoteEntry> entries = new ArrayList<EChartNoteEntry>();
 
@@ -2343,11 +2163,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         }
 
-        // UserProperty prop = caseManagementMgr.getUserProperty(providerNo,
-        // UserProperty.STALE_NOTEDATE);
-        // notes = caseManagementMgr.getNotes(demono);
-        // notes = manageLockedNotes(notes, false, this.getUnlockedNotesMap(request));
-
         if (programId == null || programId.length() == 0) {
             programId = "0";
         }
@@ -2358,9 +2173,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         for (EChartNoteEntry entry : entries) {
             CaseManagementNote n = getNote(String.valueOf(entry.getId()));
-            if (n.isLocked() && unlockedNotesMap.get(entry.getId()) != null) {
-                n.setLocked(false);
-            }
             if (n.getProviderNo().equals(providerNo)) {
                 return n;
             }
@@ -2376,7 +2188,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         note.setProviderNo(providerNo);
         note.setDemographic_no(demographicNo);
 
-        if (!OscarProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
+        if (!CarlosProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
             OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
             String encounterText = "";
             try {
@@ -2405,6 +2217,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     // Move this out of here.
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String updateApptStatus(String status, String type) {
         ApptStatusData as = new ApptStatusData();
         as.setApptStatus(status);
@@ -2459,14 +2273,14 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Override
     public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
                                                      List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
-                                                     Date now, CaseManagementNote annotationNote, String userName, String user, String remoteAddr,
+                                                     Date now, String userName, String user, String remoteAddr,
                                                      String lastSavedNoteString) throws Exception {
         ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
         AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
 
-        Long old_note_id = note.getId(); // saved for use with annotation
+        Long old_note_id = note.getId();
 
-        boolean inCaisi = OscarProperties.getInstance().isCaisiLoaded();
+        boolean inCaisi = CarlosProperties.getInstance().isCaisiLoaded();
 
         String role = null;
         String team = null;
@@ -2484,7 +2298,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             role = "0";
         }
         /*
-         * if (session.getAttribute("archiveView")!="true")
+         * if (!"true".equals(session.getAttribute("archiveView")))
          * note.setReporter_caisi_role(role); else note.setReporter_caisi_role("1");
          */
         note.setReporter_caisi_role(role);
@@ -2625,23 +2439,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             logger.warn("warn", e);
         }
 
-        if (annotationNote != null) {
-            // new annotation created and got it in session attribute
-
-            saveNoteSimple(annotationNote);
-            CaseManagementNoteLink cml = new CaseManagementNoteLink(CaseManagementNoteLink.CASEMGMTNOTE, note.getId(),
-                    annotationNote.getId());
-            saveNoteLink(cml);
-            LogAction.addLog(annotationNote.getDemographic_no(), LogConst.ANNOTATE, LogConst.CON_CME_NOTE,
-                    String.valueOf(annotationNote.getId()), remoteAddr, annotationNote.getDemographic_no(),
-                    annotationNote.getNote());
-
-        }
-
         if (old_note_id != null) {
-            // Not a new note, look for old annotation
-
-            CaseManagementNoteLink cml_anno = null;
+            // Not a new note, look for old CMS4 import dump link
             CaseManagementNoteLink cml_dump = null;
             List<CaseManagementNoteLink> cmll = getLinkByTableIdDesc(CaseManagementNoteLink.CASEMGMTNOTE, old_note_id);
             for (CaseManagementNoteLink link : cmll) {
@@ -2650,22 +2449,12 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                     continue;
 
                 if (cmmn.getNote().startsWith("imported.cms4.2011.06")) {
-                    if (cml_dump == null)
-                        cml_dump = link;
-                } else {
-                    if (cml_anno == null)
-                        cml_anno = link;
-                }
-                if (cml_anno != null && cml_dump != null)
+                    cml_dump = link;
                     break;
+                }
             }
 
-            if (cml_anno != null) {// old annotation exists - create new link
-                CaseManagementNoteLink cml_n = new CaseManagementNoteLink(CaseManagementNoteLink.CASEMGMTNOTE,
-                        note.getId(), cml_anno.getNoteId());
-                saveNoteLink(cml_n);
-            }
-            if (cml_dump != null) {// old dump exists - create new link
+            if (cml_dump != null) {
                 CaseManagementNoteLink cml_n = new CaseManagementNoteLink(CaseManagementNoteLink.CASEMGMTNOTE,
                         note.getId(), cml_dump.getNoteId());
                 saveNoteLink(cml_n);
@@ -2762,6 +2551,28 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             logger.warn("Invalid role format: '" + roleIdStr + "' - not a valid Long");
         }
         return "";
+    }
+
+    @Override
+    public List<CaseManagementIssueListDTO> getIssueDTOs(LoggedInInfo loggedInInfo, String demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        List<CaseManagementIssueListDTO> results = caseManagementIssueDAO.findIssueDTOsByDemographicNo(demographicNo);
+        LogAction.addLogSynchronous(loggedInInfo, "CaseManagementManager.getIssueDTOs",
+                "demographicNo=" + demographicNo);
+        return results;
+    }
+
+    @Override
+    public List<CaseManagementNoteListDTO> getNoteDTOs(LoggedInInfo loggedInInfo, String demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        List<CaseManagementNoteListDTO> results = caseManagementNoteDAO.findNoteDTOsByDemographicNo(demographicNo);
+        LogAction.addLogSynchronous(loggedInInfo, "CaseManagementManager.getNoteDTOs",
+                "demographicNo=" + demographicNo);
+        return results;
     }
 
 }

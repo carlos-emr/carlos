@@ -34,9 +34,9 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
-import javax.jws.WebParam;
-import javax.jws.WebService;
-import javax.xml.ws.WebServiceException;
+import jakarta.jws.WebParam;
+import jakarta.jws.WebService;
+import jakarta.xml.ws.WebServiceException;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.cxf.annotations.GZIP;

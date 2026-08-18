@@ -20,7 +20,7 @@
  * LeadLab
  * University of Victoria
  * Victoria, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -30,15 +30,41 @@ package io.github.carlos_emr.carlos.webserv.rest.to;
 
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
 
-import javax.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 
+/**
+ * REST response wrapper for single-drug endpoints.
+ *
+ * <p>Carries a {@link DrugTo1} payload alongside simple success/message fields
+ * for backward-compatible JSON serialization.</p>
+ *
+ * @since 2013
+ */
 @XmlRootElement
-public class DrugResponse extends GenericRESTResponse implements Serializable {
+public class DrugResponse implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    private boolean success;
+    private String message;
     private DrugTo1 drug;
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public void setSuccess(boolean success) {
+        this.success = success;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
 
     public DrugTo1 getDrug() {
         return this.drug;

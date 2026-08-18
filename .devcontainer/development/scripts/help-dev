@@ -34,6 +34,9 @@ MAIL MANAGEMENT:
 
 AI CODING ASSISTANTS:
   claude                  Claude Code CLI (Anthropic)
+  copilot                 GitHub Copilot CLI
+  codex                   OpenAI Codex CLI
+  gemini                  Google Gemini CLI
   aider                   AI pair programming assistant
   aider --model claude-3-5-sonnet-20241022
   aider --model gpt-4-turbo
@@ -41,7 +44,7 @@ AI CODING ASSISTANTS:
 
 DATABASE ACCESS:
   db-connect              Connect to MariaDB as root
-  mysql -h db -u root -ppassword oscar
+  mariadb -h db -u root -ppassword oscar
 
 MAVEN OPERATIONS:
   mvn clean compile       Build Java project
@@ -54,7 +57,7 @@ DEBUGGING:
   debug-off               Return to INFO logging level
 
 CONTAINER PORTS:
-  Main app:  http://localhost:8080
+  Main app:  http://localhost:8080/carlos
   Debug:     http://localhost:8000
   Database:  localhost:3306
   Docs:      http://localhost:3000

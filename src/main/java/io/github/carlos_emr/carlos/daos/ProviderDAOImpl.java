@@ -34,26 +34,29 @@ package io.github.carlos_emr.carlos.daos;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
+import org.springframework.transaction.annotation.Transactional;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 /**
- * This couldn't possibly work, it's not a spring managed bean according to the xml files.
- * But oh well, some one imports this class and tries to have it injected so I'll
- * leave the code here so it compiles. what ever...
+ * DAO implementation for provider data access.
  */
-public class ProviderDAOImpl extends HibernateDaoSupport implements ProviderDAO {
+@Transactional
+public class ProviderDAOImpl extends AbstractJpaDao implements ProviderDAO {
 
     @SuppressWarnings("unchecked")
     public List<Provider> getProviders() {
-        return (List<Provider>) getHibernateTemplate().find("from Provider p order by p.lastName");
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), "from Provider p order by p.lastName");
     }
 
     public Provider getProvider(String provider_no) {
-        return getHibernateTemplate().get(Provider.class, provider_no);
+        return entityManager().find(Provider.class, provider_no);
     }
 
+    @SuppressWarnings("unchecked")
     public Provider getProviderByName(String lastName, String firstName) {
-        return (Provider) getHibernateTemplate().find("from Provider p where p.first_name = ?0 and p.last_name = ?1", firstName, lastName).get(0);
+        List<Provider> results = (List<Provider>) JpqlQueryHelper.find(entityManager(), "from Provider p where p.firstName = ?1 and p.lastName = ?2", firstName, lastName);
+        return results.isEmpty() ? null : results.get(0);
     }
 
 }

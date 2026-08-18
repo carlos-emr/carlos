@@ -35,7 +35,7 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.form.model.BooleanValueForm;
 import io.github.carlos_emr.carlos.form.model.FormBooleanValue;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.util.HashMap;
 
 @Repository

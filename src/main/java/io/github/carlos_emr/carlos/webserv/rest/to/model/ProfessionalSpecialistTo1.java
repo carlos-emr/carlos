@@ -44,10 +44,6 @@ public class ProfessionalSpecialistTo1 implements Serializable {
     private String webSite;
     private String emailAddress;
     private String specialtyType;
-    private String eDataUrl;
-    private String eDataOscarKey;
-    private String eDataServiceKey;
-    private String eDataServiceName;
     private String annotation;
     private String referralNo;
     private Integer institutionId;
@@ -140,38 +136,6 @@ public class ProfessionalSpecialistTo1 implements Serializable {
 
     public void setSpecialtyType(String specialtyType) {
         this.specialtyType = specialtyType;
-    }
-
-    public String geteDataUrl() {
-        return eDataUrl;
-    }
-
-    public void seteDataUrl(String eDataUrl) {
-        this.eDataUrl = eDataUrl;
-    }
-
-    public String geteDataOscarKey() {
-        return eDataOscarKey;
-    }
-
-    public void seteDataOscarKey(String eDataOscarKey) {
-        this.eDataOscarKey = eDataOscarKey;
-    }
-
-    public String geteDataServiceKey() {
-        return eDataServiceKey;
-    }
-
-    public void seteDataServiceKey(String eDataServiceKey) {
-        this.eDataServiceKey = eDataServiceKey;
-    }
-
-    public String geteDataServiceName() {
-        return eDataServiceName;
-    }
-
-    public void seteDataServiceName(String eDataServiceName) {
-        this.eDataServiceName = eDataServiceName;
     }
 
     public String getAnnotation() {

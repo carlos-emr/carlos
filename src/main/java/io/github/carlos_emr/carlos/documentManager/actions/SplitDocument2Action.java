@@ -16,22 +16,24 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
-import org.apache.pdfbox.io.RandomAccessFile;
-import org.apache.pdfbox.pdfparser.PDFParser;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageTree;
@@ -49,7 +51,9 @@ import io.github.carlos_emr.carlos.commn.model.ProviderInboxItem;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -58,19 +62,27 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class SplitDocument2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
 
-    
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Set<PosixFilePermission> OWNER_RW_ONLY = PosixFilePermissions.fromString("rw-------");
 
     public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+
         String method = request.getParameter("method");
         if ("split".equals(method)) {
             return split();
@@ -84,6 +96,9 @@ public class SplitDocument2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "PATH_TRAVERSAL_IN"}, justification = "XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink. path validated for directory containment via PathValidationUtils before use")
     public String split() {
         String docNum = request.getParameter("document");
         String[] commands = request.getParameterValues("page");
@@ -101,7 +116,7 @@ public class SplitDocument2Action extends ActionSupport {
 
         Document doc = documentDao.getDocument(docNum);
 
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (!docdownload.endsWith(File.separator)) {
             docdownload = docdownload + File.separator;
         }
@@ -112,10 +127,9 @@ public class SplitDocument2Action extends ActionSupport {
         PDDocument newPdf = null;
 
         try {
-            File input = new File(docdownload + doc.getDocfilename());
-            PDFParser parser = new PDFParser(new RandomAccessFile(input, "rw"));
-            parser.parse();
-            pdf = parser.getPDDocument();
+            File docDir = new File(docdownload);
+            File input = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
+            pdf = Loader.loadPDF(input);
 
             newPdf = new PDDocument();
 
@@ -145,7 +159,21 @@ public class SplitDocument2Action extends ActionSupport {
 
                 String newDocNo = EDocUtil.addDocumentSQL(newDoc);
 
-                newPdf.save(docdownload + newDoc.getFileName());
+                // Validate the user-sourced filename component to prevent path traversal;
+                // docdownload (the base directory) comes from server-side configuration.
+                File safeFile = PathValidationUtils.validatePath(newDoc.getFileName(), docDir);
+                Path pdfPath = safeFile.toPath();
+                // Atomically create the file with owner-only permissions before writing content,
+                // eliminating the window where a new file exists with default world-readable permissions.
+                // On non-POSIX filesystems, falls back to creating without explicit permissions.
+                try {
+                    Files.createFile(pdfPath, PosixFilePermissions.asFileAttribute(OWNER_RW_ONLY));
+                } catch (UnsupportedOperationException e) {
+                    MiscUtils.getLogger().warn("POSIX file permissions not supported; creating PDF without "
+                            + "restricted permissions: " + pdfPath);
+                    Files.createFile(pdfPath);
+                }
+                newPdf.save(pdfPath.toString());
                 newPdf.close();
 
 
@@ -227,15 +255,15 @@ public class SplitDocument2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String rotate180() throws Exception {
         Document doc = documentDao.getDocument(request.getParameter("document"));
 
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
-        Path filePath = Paths.get(docdownload, doc.getDocfilename());
-        File input = filePath.toFile();
-        PDFParser parser = new PDFParser(new RandomAccessFile(input, "rw"));
-        parser.parse();
-        PDDocument pdf = parser.getPDDocument();
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        File docDir = new File(docdownload);
+        File input = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
+        PDDocument pdf = Loader.loadPDF(input);
         setFilePermissions(input);
         int x = 1;
         for (Object p : pdf.getDocumentCatalog().getPages()) {
@@ -252,16 +280,16 @@ public class SplitDocument2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String rotate90() throws Exception {
         Document doc = documentDao.getDocument(request.getParameter("document"));
 
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
-        Path filePath = Paths.get(docdownload, doc.getDocfilename());
-        File file = filePath.toFile();
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        File docDir = new File(docdownload);
+        File file = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
 
-        PDFParser parser = new PDFParser(new RandomAccessFile(file, "rw"));
-        parser.parse();
-        PDDocument pdf = parser.getPDDocument();
+        PDDocument pdf = Loader.loadPDF(file);
         int x = 1;
         for (Object p : pdf.getDocumentCatalog().getPages()) {
             PDPage pg = (PDPage) p;
@@ -277,16 +305,16 @@ public class SplitDocument2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String removeFirstPage() throws Exception {
         Document doc = documentDao.getDocument(request.getParameter("document"));
 
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
-        Path filePath = Paths.get(docdownload, doc.getDocfilename());
-        File file = filePath.toFile();
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        File docDir = new File(docdownload);
+        File file = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
 
-        PDFParser parser = new PDFParser(new RandomAccessFile(file, "rw"));
-        parser.parse();
-        PDDocument pdf = parser.getPDDocument();
+        PDDocument pdf = Loader.loadPDF(file);
 
         // Documents must have at least 2 pages, for the first page to be removed.
         if (pdf.getNumberOfPages() <= 1) {
@@ -340,13 +368,22 @@ public class SplitDocument2Action extends ActionSupport {
     }
 
     /**
-     * Sets file permissions for the file that is being modified.
+     * Sets file permissions for the file that is being modified, restricting
+     * access to the owner only (rw-------).
+     *
+     * <p>Requires a POSIX-compliant filesystem (Linux/macOS). On non-POSIX
+     * filesystems (e.g., Windows/FAT32) the call is a no-op with a warning logged.</p>
      *
      * @param file A file
      */
     private void setFilePermissions(File file) {
-        file.setWritable(true, false);
-        file.setExecutable(true, false);
-        file.setReadable(true, false);
+        try {
+            Files.setPosixFilePermissions(file.toPath(), OWNER_RW_ONLY);
+        } catch (UnsupportedOperationException e) {
+            MiscUtils.getLogger().warn("POSIX file permissions not supported on this filesystem; "
+                    + "file permissions could not be restricted: " + file.getAbsolutePath());
+        } catch (IOException e) {
+            MiscUtils.getLogger().error("Error setting file permissions on " + file.getAbsolutePath(), e);
+        }
     }
 }

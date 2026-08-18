@@ -32,19 +32,22 @@ package io.github.carlos_emr.carlos.form.pdfservlet;
 
 import java.io.*;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.List;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import com.itextpdf.text.*;
-import com.itextpdf.text.pdf.*;
+import org.openpdf.text.*;
+import org.openpdf.text.pdf.*;
 import org.apache.commons.io.FileUtils;
 
 import org.apache.logging.log4j.Logger;
@@ -58,17 +61,40 @@ import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean;
 
 import org.owasp.encoder.Encode;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.prescript.data.RxPharmacyData;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Servlet that generates customized prescription PDF documents with support for faxing.
+ *
+ * <p>This servlet handles two primary workflows:
+ * <ul>
+ *   <li><strong>PDF Generation</strong> -- Renders prescription content into a bordered PDF
+ *       with clinic/patient headers, prescriber signature, and optional QR codes using OpenPDF
+ *       direct content rendering.</li>
+ *   <li><strong>Fax Submission</strong> -- Persists the generated PDF and creates a
+ *       {@link FaxJob} record for asynchronous fax delivery to a pharmacy.</li>
+ * </ul>
+ *
+ * <p>PDF layout is constructed entirely through {@link PdfContentByte} direct drawing
+ * (lines, text, images) and {@link PdfPTable} cell placement, rather than template-based
+ * AcroForm filling. Page events are handled by the inner {@link EndPage} class which
+ * extends {@link PdfPageEventHelper}.
+ *
+ * @see FrmPDFServlet
+ * @see io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean
+ * @since 2001 (McMaster University)
+ */
 public class FrmCustomedPDFServlet extends HttpServlet {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -77,17 +103,31 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private static FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
+    /**
+     * Main entry point for prescription PDF generation and fax submission.
+     * Parses request parameters, generates the PDF, and either streams it directly
+     * to the response or persists it for asynchronous fax delivery.
+     *
+     * @param req HttpServletRequest containing prescription form parameters and fax details
+     * @param res HttpServletResponse to write the PDF or fax status HTML to
+     * @throws jakarta.servlet.ServletException if a servlet error occurs
+     * @throws java.io.IOException if an I/O error occurs during PDF generation
+     */
     @Override
-    public void service(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException, java.io.IOException {
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    // FindSecBugs XSS_SERVLET: fax branch writes fixed status HTML and encodes dynamic values; PDF branch writes binary content
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "PATH_TRAVERSAL_IN"}, justification = "XSS_SERVLET: fax branch writes fixed status HTML and encodes dynamic values; PDF branch writes binary content. PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use")
+    public void service(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException, java.io.IOException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
         boolean isFax = "oscarRxFax".equals(req.getParameter("__method"));
-        try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytes(req, this.getServletContext());
-             PrintWriter writer = res.getWriter()) {
+        boolean responseOutputStreamOpened = false;
+        try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytes(req, this.getServletContext())) {
 
             if (isFax) {
                 // this fax method shouldn't be here and will be removed in future edits.
                 res.setContentType("text/html");
+                PrintWriter writer = res.getWriter();
                 String faxNo = req.getParameter("pharmaFax");
                 if (faxNo != null) {
                     faxNo = faxNo.trim().replaceAll("\\D", "");
@@ -109,36 +149,12 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                         pdfid = pdfid.replaceAll("[^a-zA-Z0-9_-]", "");
                     }
                     String pdfFile = "prescription_" + pdfid + ".pdf";
-                    String document_dir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+                    String document_dir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
                     
-                    // Use PathValidationUtils for proper path validation
-                    File baseDirFile = new File(document_dir);
-                    File validatedPdfFile = PathValidationUtils.validatePath(pdfFile, baseDirFile);
-                    Path filepath = validatedPdfFile.toPath();
-
-                    if (!Files.exists(filepath)) {
-                        baosPDF.writeTo(Files.newOutputStream(filepath));
-                    }
-
-                    // write to temporary file
-                    String tempPath = OscarProperties.getInstance().getProperty("fax_file_location", System.getProperty("java.io.tmpdir"));
-                    File tempDirFile = new File(tempPath);
-                    File validatedTempPdf = PathValidationUtils.validatePath("prescription_" + pdfid + ".pdf", tempDirFile);
-                    Path tempPdf = validatedTempPdf.toPath();
-
-                    // Copying the fax pdf.
-                    if (Files.exists(filepath) && !Files.exists(tempPdf)) {
-                        FileUtils.copyFile(filepath.toFile(), tempPdf.toFile());
-                    }
-
-                    // tracking file
-                    File validatedTxtFile = PathValidationUtils.validatePath("prescription_" + pdfid + ".txt", tempDirFile);
-                    String txtFile = validatedTxtFile.toString();
-                    try (FileWriter fstream = new FileWriter(txtFile);
-                         BufferedWriter out = new BufferedWriter(fstream)) {
-                        if (faxNo != null) {
-                            out.write(faxNo);
-                        }
+                    Path filepath = prepareValidatedFaxFilesOrReportFailure(document_dir, pdfid, pdfFile, faxNo,
+                            baosPDF, res, writer);
+                    if (filepath == null) {
+                        return;
                     }
 
                     List<FaxConfig> faxConfigs = faxConfigDao.findAll(null, null);
@@ -150,7 +166,10 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
                         if (faxConfig.getFaxNumber().equals(faxNumber)) {
 
-                            PdfReader pdfReader = new PdfReader(filepath.toString());
+                            int numPages;
+                            try (PdfReader pdfReader = new PdfReader(filepath.toString())) {
+                                numPages = pdfReader.getNumberOfPages();
+                            }
 
                             faxJob = new FaxJob();
                             faxJob.setDestination(faxNo);
@@ -158,7 +177,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                             faxJob.setFile_name(pdfFile);
                             faxJob.setUser(faxConfig.getFaxUser());
                             faxJob.setRecipient(pharmaName);
-                            faxJob.setNumPages(pdfReader.getNumberOfPages());
+                            faxJob.setNumPages(numPages);
                             faxJob.setStamp(new Date());
                             faxJob.setStatus(FaxJob.STATUS.WAITING);
                             faxJob.setOscarUser(provider_no);
@@ -179,6 +198,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 						writer.println("<div id='fax-success' style='color:green;'><h3>Fax successfully generated</h3><p>" + Encode.forHtml(pharmaName) + " (" + Encode.forHtml(faxNo) + ")</p><br><p>This window will close in <b>3</b> seconds...</p></div><script>setTimeout(() => window.top.close(), 3000);</script>");
                     }
                 }
+                writer.flush();
             } else {
                 StringBuilder sbFilename = new StringBuilder();
                 sbFilename.append("filename_");
@@ -203,11 +223,15 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 res.setHeader("Content-disposition", sbContentDispValue.toString());
                 res.setContentLength(baosPDF.size());
                 ServletOutputStream sos = res.getOutputStream();
+                responseOutputStreamOpened = true;
                 baosPDF.writeTo(sos);
 
                 sos.flush();
             }
         } catch (DocumentException dex) {
+            if (responseOutputStreamOpened) {
+                throw new IOException("PDF response failed after output stream was opened", dex);
+            }
             // Log the detailed error for debugging
             logger.error("PDF generation error in FrmCustomedPDFServlet", dex);
             
@@ -219,6 +243,9 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             writer.println("<p>Please try again or contact support if the problem persists.</p>");
             writer.println("</body></html>");
         } catch (java.io.FileNotFoundException dex) {
+            if (responseOutputStreamOpened) {
+                throw dex;
+            }
             // Log the error
             logger.debug("Signature file not found", dex);
             
@@ -229,14 +256,81 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     }
 
+    private Path prepareValidatedFaxFilesOrReportFailure(String documentDir, String pdfid, String pdfFile,
+            String faxNo, ByteArrayOutputStream baosPDF, HttpServletResponse res, PrintWriter writer) {
+        try {
+            return prepareValidatedFaxFiles(documentDir, pdfid, pdfFile, faxNo, baosPDF);
+        } catch (SecurityException | IOException e) {
+            logger.warn("Prescription fax file preparation failed: type={}, message={}",
+                    e.getClass().getSimpleName(), LogSafe.sanitize(e.getMessage(), 1024), e);
+            res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            writer.println("<div id='fax-failure'><h3>Error: Unable to generate fax.</h3><p>Please try again or contact support if the problem persists.</p></div>");
+            writer.flush();
+            return null;
+        }
+    }
+
+    private Path prepareValidatedFaxFiles(String documentDir, String pdfid, String pdfFile, String faxNo,
+            ByteArrayOutputStream baosPDF) throws IOException {
+        // Use PathValidationUtils for proper path validation
+        File baseDirFile = PathValidationUtils.resolveConfiguredDirectory(documentDir, "DOCUMENT_DIR");
+        File validatedPdfFile = PathValidationUtils.validatePath(pdfFile, baseDirFile);
+        Path filepath = validatedPdfFile.toPath();
+
+        writePdfFileIfMissing(filepath, baosPDF);
+
+        // write to temporary file
+        String tempPath = CarlosProperties.getInstance().getProperty("fax_file_location", System.getProperty("java.io.tmpdir"));
+        File tempDirFile = PathValidationUtils.resolveConfiguredDirectory(tempPath, "fax_file_location");
+        File validatedTempPdf = PathValidationUtils.validatePath("prescription_" + pdfid + ".pdf", tempDirFile);
+        Path tempPdf = validatedTempPdf.toPath();
+
+        // Copying the fax pdf.
+        if (Files.exists(filepath) && !Files.exists(tempPdf)) {
+            FileUtils.copyFile(filepath.toFile(), tempPdf.toFile());
+        }
+
+        File validatedTxtFile = PathValidationUtils.validatePath("prescription_" + pdfid + ".txt", tempDirFile);
+        writeFaxTrackingFile(validatedTxtFile, faxNo);
+        return filepath;
+    }
+
+    private void writePdfFileIfMissing(Path filepath, ByteArrayOutputStream baosPDF) throws IOException {
+        try (java.io.OutputStream fileOut = Files.newOutputStream(filepath,
+                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            baosPDF.writeTo(fileOut); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- PDF bytes written to file, not HTTP response
+        } catch (FileAlreadyExistsException e) {
+            // Preserve the existing PDF if another request created it first.
+        }
+    }
+
+    private void writeFaxTrackingFile(File trackingFile, String faxNo) throws IOException {
+        try (BufferedWriter out = Files.newBufferedWriter(trackingFile.toPath(), StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+            if (faxNo != null) {
+                out.write(faxNo);
+            }
+        }
+    }
+
 
     /**
-     * the form txt file has lines in the form: For Checkboxes: ie. ohip : left, 76, 193, 0, BaseFont.ZAPFDINGBATS, 8, \u2713 requestParamName : alignment, Xcoord, Ycoord, 0, font, fontSize, textToPrint[if empty, prints the value of the request param]
-     * NOTE: the Xcoord and Ycoord refer to the bottom-left corner of the element For single-line text: ie. patientCity : left, 242, 261, 0, BaseFont.HELVETICA, 12 See checkbox explanation For multi-line text (textarea) ie. aci : left, 20, 308, 0,
-     * BaseFont.HELVETICA, 8, _, 238, 222, 10 requestParamName : alignment, bottomLeftXcoord, bottomLeftYcoord, 0, font, fontSize, _, topRightXcoord, topRightYcoord, spacingBtwnLines NOTE: When working on these forms in linux, it helps to load the PDF file
-     * into gimp, switch to pt. coordinate system and use the mouse to find the coordinates. Prepare to be bored!
+     * OpenPDF page event handler that renders the prescription page layout on each page end.
+     *
+     * <p>Draws the complete prescription frame including:
+     * <ul>
+     *   <li>Rx logo and prescriber information header</li>
+     *   <li>Pharmacy attention block (when a pharmacy is selected)</li>
+     *   <li>Patient demographics (name, DOB, address, HIN, chart number)</li>
+     *   <li>Black border around the prescription area</li>
+     *   <li>Signature line with optional signature image overlay</li>
+     *   <li>Reprint information and page numbers</li>
+     *   <li>Fax confidentiality disclaimer</li>
+     * </ul>
+     *
+     * <p>All coordinates use the OpenPDF coordinate system where (0,0) is the
+     * bottom-left corner of the page, measured in points (1/72 inch).
      */
-
     class EndPage extends PdfPageEventHelper {
 
         private String clinicName;
@@ -264,6 +358,10 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         public EndPage() {
         }
 
+        /**
+         * Constructs an EndPage event handler with prescription layout data including
+         * clinic info, patient demographics, prescriber signature, and pharmacy details.
+         */
         public EndPage(String clinicName, String clinicTel, String clinicFax, String patientPhone, String patientCityPostal, String patientAddress,
                        String patientName, String patientDOB, String sigDoctorName, String rxDate, String origPrintDate, String numPrint,
                        String imgPath, String patientHIN, String patientChartNo, String pracNo, Locale locale, String billingNumber, String pharmacyInfo) {
@@ -277,7 +375,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             this.patientDOB = patientDOB;
             this.sigDoctorName = sigDoctorName == null ? "" : sigDoctorName;
             this.rxDate = rxDate;
-            this.promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
+            this.promoText = CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT");
             this.origPrintDate = origPrintDate;
             this.numPrint = numPrint;
             if (promoText == null) {
@@ -321,6 +419,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             return LocaleUtils.getMessage(locale, tag);
         }
 
+        /**
+         * Renders the prescription page frame: prescriber info, patient demographics,
+         * border lines, signature block, and fax disclaimer. Draws all content using
+         * PdfContentByte direct positioning in PDF points from bottom-left origin.
+         */
         public void renderPage(PdfWriter writer, Document document) {
             Rectangle page = document.getPageSize();
             float height = page.getHeight();
@@ -333,10 +436,10 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 BaseFont bfBold = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
 
                 /*
-                 *  Create the special OSCAR Rx logo at the top
+                 *  Create the special CARLOS Rx logo at the top
                  *  left side of the prescription
                  */
-                writeDirectContent(cb, bf, 12, PdfContentByte.ALIGN_LEFT, "o s c a r", 21, height - 60, 90);
+                writeDirectContent(cb, bf, 12, PdfContentByte.ALIGN_LEFT, "c a r l o s", 21, height - 60, 90);
                 // draw R
                 writeDirectContent(cb, bf, 50, PdfContentByte.ALIGN_LEFT, "P", 24, height - 53, 0);
                 // draw X
@@ -531,7 +634,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 /*
                  * Add preferred fax cover page disclaimer comment to bottom of Faxed Rx
                  */
-                String confidentiality = OscarProperties.getInstance().getProperty("DEFAULT_FAX_COVERPAGE_COMMENT", "");
+                String confidentiality = CarlosProperties.getInstance().getProperty("DEFAULT_FAX_COVERPAGE_COMMENT", "");
                 ColumnText columnText = new ColumnText(cb);
                 columnText.addText(new Chunk(confidentiality, new Font(bf, 9)));
                 columnText.setSimpleColumn(0, 0, page.getWidth(), 60, 10, Element.ALIGN_CENTER | Element.ALIGN_TOP);
@@ -543,6 +646,15 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         }
     }
 
+    /**
+     * Parses a satellite clinic address from an HTML-formatted string.
+     *
+     * <p>Expects a format with bold name followed by {@code <br>}-delimited address lines
+     * containing clinic name (3 lines), telephone, and fax.
+     *
+     * @param s String the HTML-formatted satellite clinic address
+     * @return HashMap containing "clinicName", "clinicTel", and "clinicFax" entries
+     */
     private HashMap<String, String> parseSCAddress(String s) {
         HashMap<String, String> hm = new HashMap<String, String>();
         String[] ar = s.split("</b>");
@@ -554,9 +666,9 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         String fax = lst.get(4);
         fax = fax.replace("Fax: ", "");
         String clinicName = lst.get(0) + "\n" + lst.get(1) + "\n" + lst.get(2);
-        logger.debug(tel);
-        logger.debug(fax);
-        logger.debug(clinicName);
+        logger.debug("tel: {}", LogSafe.sanitize(tel));
+        logger.debug("fax: {}", LogSafe.sanitize(fax));
+        logger.debug("clinicName: {}", LogSafe.sanitize(clinicName));
         hm.put("clinicName", clinicName);
         hm.put("clinicTel", tel);
         hm.put("clinicFax", fax);
@@ -565,6 +677,23 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     }
 
+    /**
+     * Generates the prescription PDF document as a byte array output stream.
+     *
+     * <p>Extracts all prescription parameters from the HTTP request (clinic info, patient
+     * demographics, prescription text, signature image path, QR code settings), constructs
+     * an OpenPDF {@link Document} with the appropriate page size and margins, and writes
+     * prescription entries as paragraphs with an {@link EndPage} event handler for the
+     * page frame rendering.
+     *
+     * @param req HttpServletRequest containing all prescription form parameters
+     * @param ctx ServletContext for resource resolution
+     * @return ByteArrayOutputStream containing the generated PDF bytes
+     * @throws DocumentException if an OpenPDF document error occurs during PDF generation
+     * @throws IOException if an I/O error occurs during PDF generation
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx) throws DocumentException, IOException {
         logger.debug("***in generatePDFDocumentBytes2 FrmCustomedPDFServlet.java***");
 
@@ -578,16 +707,16 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             numPrint = req.getParameter("numPrints");
         }
 
-        logger.debug("method in generatePDFDocumentBytes " + method);
+        logger.debug("method in generatePDFDocumentBytes {}", LogSafe.sanitize(method));
         String clinicName;
         String clinicTel;
         String clinicFax;
         // check if satellite clinic is used
         String useSatelliteClinic = req.getParameter("useSC");
-        logger.debug(useSatelliteClinic);
+        logger.debug("useSatelliteClinic: {}", LogSafe.sanitize(useSatelliteClinic));
         if (useSatelliteClinic != null && useSatelliteClinic.equalsIgnoreCase("true")) {
             String scAddress = req.getParameter("scAddress");
-            logger.debug("clinic detail" + "=" + scAddress);
+            logger.debug("clinic detail={}", LogSafe.sanitize(scAddress));
             HashMap<String, String> hm = parseSCAddress(scAddress);
             clinicName = hm.get("clinicName");
             clinicTel = hm.get("clinicTel");
@@ -595,7 +724,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         } else {
             // parameters need to be passed to header and footer
             clinicName = req.getParameter("clinicName");
-            logger.debug("clinicName" + "=" + clinicName);
+            logger.debug("clinicName={}", LogSafe.sanitize(clinicName));
             clinicTel = req.getParameter("clinicPhone");
             clinicFax = req.getParameter("clinicFax");
         }
@@ -678,12 +807,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // document.setMargins(15, pageSize.getWidth() - 285f + 5f, 170, 60); // left, right, top, bottom
         document.setMargins(15, pageSize.getWidth() - 285f + 5f, 185, 60); // left, right, top, bottom
 
-        //writer = PdfWriter.getInstance(document, baosPDF);
         writer.setPageEvent(new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal, patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint, imgFile, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo));
         document.addTitle(title);
         document.addSubject("");
-        document.addKeywords("pdf, itext");
-        document.addCreator("OSCAR");
+        document.addKeywords("pdf");
+        document.addCreator("CARLOS EMR");
         document.addAuthor("");
         document.addHeader("Expires", "0");
 

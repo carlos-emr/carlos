@@ -38,6 +38,8 @@ import io.github.carlos_emr.carlos.commn.model.BatchBilling;
 public interface BatchBillingDAO extends AbstractDao<BatchBilling> {
     List<BatchBilling> find(Integer demographicNo, String service_code);
 
+    List<BatchBilling> findForUpdate(Integer demographicNo, String service_code);
+
     List<BatchBilling> findByProvider(String providerNo);
 
     List<BatchBilling> findByProvider(String providerNo, String service_code);

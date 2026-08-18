@@ -37,8 +37,11 @@ import java.util.Set;
 
 import io.github.carlos_emr.carlos.PMmodule.web.formbean.ClientSearchFormBean;
 import io.github.carlos_emr.carlos.commn.Gender;
+import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
@@ -393,6 +396,15 @@ public interface DemographicDao {
     public List<Demographic> getDemographicWithLastFirstDOBExact(String lastname, String firstname,
                                                                  String year_of_birth, String month_of_birth, String date_of_birth);
 
+    /**
+     * Checks whether a demographic record exists with the given first and last name.
+     *
+     * @param firstName String the patient's first name (exact match)
+     * @param lastName String the patient's last name (exact match)
+     * @return boolean true if at least one matching record exists, false otherwise
+     */
+    public boolean existsByFirstAndLastName(String firstName, String lastName);
+
     public List<Demographic> getDemographicsByHealthNum(String hin);
 
     public List<Integer> getActiveDemographicIds();
@@ -407,7 +419,29 @@ public interface DemographicDao {
 
     // public List<Demographic> findByCriterion(DemographicCriterion c);
 
-    public List<Object[]> findDemographicsForFluReport(String providerNo);
+    /**
+     * Patients eligible for an influenza (G590A/G591A) recall, for the Flu Billing Report.
+     *
+     * <p>The typed {@link FluReportDemographicRow} return dates from 2026-08-06;
+     * before that this returned positional {@code Object[]} rows. The method
+     * itself is considerably older.</p>
+     *
+     * <p>Selects demographics aged 65 or over whose {@code patient_status} is
+     * {@code AC} or {@code UHIP} and whose {@code roster_status} is one of
+     * {@code RO}, {@code NR}, {@code FS}, {@code RF}, or {@code PL}, ordered by
+     * last name. Age is computed in the database against the current date, so
+     * results shift as patients cross the age-65 boundary.</p>
+     *
+     * @param providerNo the demographic's assigned provider to filter on;
+     *                   {@code "-1"}, {@code null}, or blank means all providers.
+     *                   Surrounding whitespace is trimmed before matching.
+     * @return one row per eligible patient, never {@code null}. Every component
+     *         is a non-null String — a NULL column arrives as the empty string,
+     *         so callers render blanks rather than the literal text "null".
+     *         The projection carries no billing data; the claim date per patient
+     *         is resolved separately by the report layer.
+     */
+    public List<FluReportDemographicRow> findDemographicsForFluReport(String providerNo);
 
     public List<Integer> getActiveDemographicIdsOlderThan(int age);
 
@@ -437,4 +471,31 @@ public interface DemographicDao {
     public List<Demographic> findByPhone(String phone, String start, int numToReturn);
 
     public List<Demographic> findByHin(String hin, String start, int numToReturn);
+
+    // --- DTO projection methods ---
+
+    /**
+     * Returns a demographic header DTO with pre-joined provider name for
+     * encounter/chart page display. Uses JPQL constructor expression projection.
+     *
+     * @param demographicNo Integer the patient demographic number
+     * @return DemographicHeaderDTO the header data, or {@code null} if not found or demographicNo is null
+     * @since 2026-04-11
+     */
+    public DemographicHeaderDTO getDemographicHeader(Integer demographicNo);
+
+    /**
+     * Searches demographics by name and returns lightweight list item DTOs.
+     * Uses JPQL constructor expression projection to avoid loading full entities.
+     *
+     * @param searchString String the name search string in "lastName" or "lastName,firstName" format
+     * @param limit int maximum number of results
+     * @param offset int starting position
+     * @param providerNo String the logged-in provider number for domain filtering
+     * @param outOfDomain boolean whether to include out-of-domain patients
+     * @return List of DemographicListItemDTO matching the search criteria, ordered by last name then first name
+     * @since 2026-04-11
+     */
+    public List<DemographicListItemDTO> searchDemographicDTOByName(String searchString, int limit, int offset,
+                                                                    String providerNo, boolean outOfDomain);
 }

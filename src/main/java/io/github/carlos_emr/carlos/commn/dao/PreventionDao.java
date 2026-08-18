@@ -34,6 +34,7 @@ import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Prevention;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionListItemDTO;
 
 public interface PreventionDao extends AbstractDao<Prevention> {
     List<Prevention> findByDemographicId(Integer demographicId);
@@ -63,4 +64,14 @@ public interface PreventionDao extends AbstractDao<Prevention> {
     List<Prevention> findUniqueByDemographicId(Integer demographicId);
 
     List<Integer> findNewPreventionsSinceDemoKey(String keyName);
+
+    /**
+     * Returns lightweight prevention DTOs for a demographic, bypassing the EAGER
+     * PreventionExt collection load. Uses JPQL constructor expression projection.
+     *
+     * @param demographicId Integer the patient demographic number
+     * @return List of PreventionListItemDTO for the patient's immunizations
+     * @since 2026-04-11
+     */
+    List<PreventionListItemDTO> findPreventionDTOsByDemographicId(Integer demographicId);
 }

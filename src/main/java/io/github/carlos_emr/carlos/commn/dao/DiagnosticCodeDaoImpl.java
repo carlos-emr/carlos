@@ -33,7 +33,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.Collections;
 import java.util.List;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
@@ -124,9 +124,12 @@ public class DiagnosticCodeDaoImpl extends AbstractDaoImpl<DiagnosticCode> imple
     }
 
 
+    /**
+     * Retrieves a list of DiagnosticCode based on the specified bill region and service type.
+     */
     public List<DiagnosticCode> findByRegionAndType(String billRegion, String serviceType) {
-        Query query = entityManager.createQuery("FROM DiagnosticCode d, CtlDiagCode c " +
-                "WHERE d.id = c.diagnosticCode " +
+        Query query = entityManager.createQuery("SELECT d, c FROM DiagnosticCode d, CtlDiagCode c " +
+                "WHERE d.diagnosticCode = c.diagnosticCode " +
                 "AND d.region = ?1" +
                 "AND c.serviceType = ?2");
         query.setParameter(1, billRegion);
@@ -134,13 +137,10 @@ public class DiagnosticCodeDaoImpl extends AbstractDaoImpl<DiagnosticCode> imple
         return query.getResultList();
     }
 
-    public List<Object[]> findDiagnosictsAndCtlDiagCodesByServiceType(String serviceType) {
-        String sql = "FROM DiagnosticCode d, CtlDiagCode c " +
-                "WHERE c.diagnosticCode = d.diagnosticCode " +
-                "AND c.serviceType = ?1" +
-                "ORDER BY d.description";
-
-        Query query = entityManager.createQuery(sql);
+    public List<io.github.carlos_emr.carlos.commn.dao.projection.DiagnosticCodeRow> findDiagnosictsAndCtlDiagCodesByServiceType(String serviceType) {
+        String sql = "SELECT new io.github.carlos_emr.carlos.commn.dao.projection.DiagnosticCodeRow(d.diagnosticCode, d.description) FROM DiagnosticCode d, CtlDiagCode c WHERE c.diagnosticCode = d.diagnosticCode AND c.serviceType = ?1 ORDER BY d.description";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.commn.dao.projection.DiagnosticCodeRow> query =
+                entityManager.createQuery(sql, io.github.carlos_emr.carlos.commn.dao.projection.DiagnosticCodeRow.class);
         query.setParameter(1, serviceType);
         return query.getResultList();
     }

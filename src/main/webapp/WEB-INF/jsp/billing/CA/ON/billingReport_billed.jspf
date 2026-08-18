@@ -1,0 +1,72 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+--%>
+<%--
+  Fragment role: Provides the `billingReport_billed.jspf` include for the Ontario billing workflow.
+  The caller owns request setup; keep data access in Java assemblers/services
+  and use CARLOS encoding helpers for dynamic output rendered here.
+--%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+
+<table width="100%" border="2" valign="top">
+<c:choose>
+<c:when test="${empty billingReportFragmentModel.billedRows}">
+    <tr>
+        <td>No billed billing rows found.</td>
+    </tr>
+</c:when>
+<c:otherwise>
+    <tr bgcolor="#CCCCFF">
+        <TH align="center" width="20%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif">SERVICE DATE</font></b></TH>
+        <TH align="center" width="10%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif">TIME</font></b></TH>
+        <TH align="center" width="10%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif">PATIENT</font></b></TH>
+        <TH align="center" width="20%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif">DESCRIPTION</font></b></TH>
+        <TH align="center" width="10%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif">ACCOUNT</font></b></TH>
+    </tr>
+    <c:forEach var="row" items="${billingReportFragmentModel.billedRows}">
+    <tr bgcolor="<carlos:encode value='${row.rowBgColor}' context='htmlAttribute'/>">
+        <TD align="center" width="20%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.apptDate}" context="html"/></font></b></TD>
+        <TD align="center" width="10%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.apptTime}" context="html"/></font></b></TD>
+        <TD align="center" width="10%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.demoName}" context="html"/></font></b></TD>
+        <TD align="center" width="20%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.reasonText}" context="html"/>(<carlos:encode value="${row.note}" context="html"/>) </font></b></TD>
+        <TD align="center" width="10%"><b> <font size="2"
+            <%-- ViewBillingOB2 remains the drill-down endpoint for legacy report
+                 fragments; the assembler supplies a billing id that must round-trip
+                 through the historical query-string contract. --%>
+            face="Arial, Helvetica, sans-serif"><a href=#
+            onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOB2?billing_no=<carlos:encode value='${row.billingId}' context='uriComponent'/>&dboperation=search_bill&hotclick=0")'
+            title="<carlos:encode value='${row.reasonCode}' context='htmlAttribute'/>"> <carlos:encode value="${row.billingId}" context="html"/></a></font></b></TD>
+    </tr>
+    </c:forEach>
+</c:otherwise>
+</c:choose>
+</table>

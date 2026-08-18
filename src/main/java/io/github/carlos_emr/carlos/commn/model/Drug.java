@@ -34,17 +34,17 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Locale;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.PrePersist;
-import javax.persistence.PreUpdate;
-import javax.persistence.Table;
-import javax.persistence.Temporal;
-import javax.persistence.TemporalType;
-import javax.persistence.Transient;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
+import jakarta.persistence.Transient;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -52,6 +52,7 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Entity
 @Table(name = "drugs")
@@ -144,7 +145,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Column(name = "non_authoritative")
     private Boolean nonAuthoritative = false;
     @Column(name = "pickup_datetime")
-    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+    @Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
     private Date pickupDateTime;
     private String eTreatmentType = null;
     private String rxStatus = null;
@@ -172,12 +173,6 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
     @Column(name = "pharmacyId")
     private Integer pharmacyId;
-
-    // ///
-    @Transient
-    private String remoteFacilityName = null;
-    @Transient
-    private Integer remoteFacilityId = null;
 
     public static final String DELETED = "deleted";
     public static final String DOSE_CHANGE = "doseChange";
@@ -269,6 +264,8 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.id = i;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean isCustom() {
 		return this.customName != null && !"null".equalsIgnoreCase(this.customName);
     }
@@ -845,28 +842,6 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         // }
 
         return ret;
-    }
-
-    /**
-     * @return the remoteFacilityName
-     */
-    public String getRemoteFacilityName() {
-        return remoteFacilityName;
-    }
-
-    /**
-     * @param remoteFacilityName the remoteFacilityName to set
-     */
-    public void setRemoteFacilityName(String remoteFacilityName) {
-        this.remoteFacilityName = remoteFacilityName;
-    }
-
-    public Integer getRemoteFacilityId() {
-        return (remoteFacilityId);
-    }
-
-    public void setRemoteFacilityId(Integer remoteFacilityId) {
-        this.remoteFacilityId = remoteFacilityId;
     }
 
     public long daysToExpire() {

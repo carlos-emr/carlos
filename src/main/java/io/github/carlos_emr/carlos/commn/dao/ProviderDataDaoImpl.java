@@ -34,9 +34,13 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+import io.github.carlos_emr.carlos.config.CacheConfig;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -49,6 +53,127 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
     public ProviderDataDaoImpl() {
         super(ProviderData.class);
     }
+
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)
+    })
+    @Override
+    public void persist(AbstractModel<?> o) { super.persist(o); }
+
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)
+    })
+    @Override
+    public void merge(AbstractModel<?> o) { super.merge(o); }
+
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)
+    })
+    @Override
+    public void remove(AbstractModel<?> o) { super.remove(o); }
+
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)
+    })
+    @Override
+    public boolean remove(Object id) { return super.remove(id); }
+
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)
+    })
+    @Override
+    public ProviderData saveEntity(ProviderData entity) { return super.saveEntity(entity); }
+
+    // batch* methods use a separate EntityManager and invoke persist/remove on it directly,
+    // bypassing the Spring proxy — so @CacheEvict on persist/remove never fires through this
+    // path. Override both overloads to restore eviction at the proxied boundary.
+    //
+    // beforeInvocation = true: AbstractDaoImpl.batchPersist commits sub-batches inside its
+    // loop, so a later sub-batch failure leaves earlier sub-batches persisted to the DB.
+    // Default beforeInvocation = false would skip eviction on exception, pinning stale
+    // entries in the cache until TTL.
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)
+    })
+    @Override
+    public void batchPersist(List<ProviderData> oList) { super.batchPersist(oList); }
+
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)
+    })
+    @Override
+    public void batchPersist(List<ProviderData> oList, int batchSize) { super.batchPersist(oList, batchSize); }
+
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)
+    })
+    @Override
+    public void batchRemove(List<ProviderData> oList) { super.batchRemove(oList); }
+
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)
+    })
+    @Override
+    public void batchRemove(List<ProviderData> oList, int batchSize) { super.batchRemove(oList, batchSize); }
+
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)})
+    @Override public void batchPersistAtomically(List<ProviderData> list) { super.batchPersistAtomically(list); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)})
+    @Override public void batchPersistAtomically(List<ProviderData> list, int size) { super.batchPersistAtomically(list, size); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)})
+    @Override public void batchRemoveAtomically(List<ProviderData> list) { super.batchRemoveAtomically(list); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)})
+    @Override public void batchRemoveAtomically(List<ProviderData> list, int size) { super.batchRemoveAtomically(list, size); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)})
+    @Override public void batchPersistWithIndependentCommits(List<ProviderData> list) { super.batchPersistWithIndependentCommits(list); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)})
+    @Override public void batchPersistWithIndependentCommits(List<ProviderData> list, int size) { super.batchPersistWithIndependentCommits(list, size); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)})
+    @Override public void batchRemoveWithIndependentCommits(List<ProviderData> list) { super.batchRemoveWithIndependentCommits(list); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)})
+    @Override public void batchRemoveWithIndependentCommits(List<ProviderData> list, int size) { super.batchRemoveWithIndependentCommits(list, size); }
 
     @SuppressWarnings("unchecked")
     @Override
@@ -107,28 +232,29 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
     @Override
     public List<ProviderData> findByProviderName(String searchStr, String status, int limit, int offset) {
 
-        String queryString = "From ProviderData p where p.lastName like ?1 ";
+        String queryString = "From ProviderData p where p.lastName like :lastName ";
 
 
         String[] name = searchStr.split(",");
         if (name.length == 2)
-            queryString += " and p.firstName like ?2 ";
+            queryString += " and p.firstName like :firstName ";
 
         if (status != null)
-            queryString += " and p.status = ?3 ";
+            queryString += " and p.status = :status ";
 
         Query query = entityManager.createQuery(queryString);
         query.setFirstResult(offset);
         query.setMaxResults(limit);
 
-        query.setParameter(1, name[0].trim() + "%");
+        query.setParameter("lastName", name[0].trim() + "%");
         if (name.length == 2)
-            query.setParameter(2, name[1].trim() + "%");
+            query.setParameter("firstName", name[1].trim() + "%");
         if (status != null)
-            query.setParameter(3, status);
+            query.setParameter("status", status);
 
-        List list = query.getResultList();
-        return list;
+        @SuppressWarnings("unchecked")
+        List<ProviderData> results = query.getResultList();
+        return results;
     }
 
     @Override
@@ -147,8 +273,10 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
     @Override
     public List<ProviderData> findByProviderSite(String providerNo) {
 
-        String queryStr = "select * from provider p inner join providersite s on s.provider_no = p.provider_no "
-                + " where s.site_id in (select site_id from providersite where provider_no=?1)";
+        String queryStr = "select distinct p.* from provider p "
+                + " where exists (select 1 from providersite s "
+                + " join providersite current_provider_site on current_provider_site.site_id = s.site_id "
+                + " where s.provider_no = p.provider_no and current_provider_site.provider_no = ?1)";
 
 
         Query query = entityManager.createNativeQuery(queryStr, modelClass);

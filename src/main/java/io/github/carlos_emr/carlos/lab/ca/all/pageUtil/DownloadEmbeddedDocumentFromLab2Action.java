@@ -30,8 +30,8 @@ package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
 import java.io.OutputStream;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import org.apache.commons.codec.binary.Base64;
@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class DownloadEmbeddedDocumentFromLab2Action extends ActionSupport {
@@ -54,13 +54,17 @@ public class DownloadEmbeddedDocumentFromLab2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "r", null)) {
+            throw new SecurityException("missing required sec object (_lab)");
+        }
+
         String labNo = request.getParameter("labNo");
         String segment = request.getParameter("segment");
         String group = request.getParameter("group");
         String legacy = request.getParameter("legacy");
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "r", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
+        if (labNo == null || !labNo.matches("\\d+")) {
+            throw new IllegalArgumentException("Lab number must be a non-null numeric value");
         }
 
         //String hl7 = io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory.getHL7Body(labNo);
@@ -81,10 +85,10 @@ public class DownloadEmbeddedDocumentFromLab2Action extends ActionSupport {
 
         // Write file to response.
         OutputStream output = response.getOutputStream();
-        output.write(decodedData);
+        output.write(decodedData); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/pdf binary write
         output.close();
 
 
-        return null;
+        return NONE;
     }
 }

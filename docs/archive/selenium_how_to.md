@@ -33,7 +33,7 @@ Running tests
 	- module/area being tested (i.e. registration, messaging...etc)
 
 
-- In order to keep an AUA or Terms of Use test case in each suite, there is a test suite titled "OSCAR - MyOSCAR - setup" which should be run before any test suite.  This test suite initializes the admin account in MyOSCAR and the openodoc account in both OSCAR and MyOSCAR.
+- In order to keep an AUA or Terms of Use test case in each suite, there is a test suite titled "OSCAR - MyOSCAR - setup" which should be run before any test suite.  This test suite initializes the admin account in MyOSCAR and the carlosdoc account in both OSCAR and MyOSCAR.
 
 
 

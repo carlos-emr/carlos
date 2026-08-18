@@ -27,10 +27,11 @@
 
 package io.github.carlos_emr.carlos.caisi;
 
-import javax.servlet.jsp.JspException;
-import javax.servlet.jsp.tagext.TagSupport;
+import jakarta.servlet.jsp.JspException;
+import jakarta.servlet.jsp.tagext.TagSupport;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class IsModuleLoadTag extends TagSupport {
 
@@ -41,10 +42,12 @@ public class IsModuleLoadTag extends TagSupport {
         this.moduleName = moduleName;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public int doStartTag() throws JspException {
         try {
 
-            OscarProperties proper = OscarProperties.getInstance();
+            CarlosProperties proper = CarlosProperties.getInstance();
 
             if (proper.getProperty(moduleName, "").equalsIgnoreCase("yes") || proper.getProperty(moduleName, "").equalsIgnoreCase("true") || proper.getProperty(moduleName, "").equalsIgnoreCase("on"))
                 if (reverse)
@@ -62,6 +65,8 @@ public class IsModuleLoadTag extends TagSupport {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setReverse(String reverse) {
         this.reverse = "true".equalsIgnoreCase(reverse) || "yes".equalsIgnoreCase(reverse);
     }

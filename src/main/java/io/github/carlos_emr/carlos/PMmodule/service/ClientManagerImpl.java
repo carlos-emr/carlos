@@ -50,8 +50,9 @@ import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.JointAdmission;
-import org.springframework.beans.factory.annotation.Required;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Transactional
 public class ClientManagerImpl implements ClientManager {
@@ -121,6 +122,8 @@ public class ClientManagerImpl implements ClientManager {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void addClientReferralToProgramQueue(ClientReferral referral) {
         if (referral.getStatus().equalsIgnoreCase(ClientReferral.STATUS_ACTIVE)) {
             ProgramQueue queue = new ProgramQueue();
@@ -276,37 +279,37 @@ public class ClientManagerImpl implements ClientManager {
         this.jointAdmissionDao = jointAdmissionDao;
     }
 
-    @Required
+    @Autowired
     public void setDemographicDao(DemographicDao dao) {
         this.dao = dao;
     }
 
-    @Required
+    @Autowired
     public void setDemographicExtDao(DemographicExtDao dao) {
         this.demographicExtDao = dao;
     }
 
-    @Required
+    @Autowired
     public void setClientReferralDAO(ClientReferralDAO dao) {
         this.referralDAO = dao;
     }
 
-    @Required
+    @Autowired
     public void setProgramQueueManager(ProgramQueueManager mgr) {
         this.queueManager = mgr;
     }
 
-    @Required
+    @Autowired
     public void setAdmissionManager(AdmissionManager mgr) {
         this.admissionManager = mgr;
     }
 
-    @Required
+    @Autowired
     public void setClientRestrictionManager(ClientRestrictionManager clientRestrictionManager) {
         this.clientRestrictionManager = clientRestrictionManager;
     }
 
-    @Required
+    @Autowired
     public void setOutsideOfDomainEnabled(boolean outsideOfDomainEnabled) {
         this.outsideOfDomainEnabled = outsideOfDomainEnabled;
     }

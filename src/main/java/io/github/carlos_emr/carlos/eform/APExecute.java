@@ -31,10 +31,13 @@
 package io.github.carlos_emr.carlos.eform;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.eform.data.DatabaseAP;
@@ -50,30 +53,49 @@ public class APExecute {
     public APExecute() {
     }
 
-    
+
     private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static String requireDigitsOnly(String placeholderName, String value) {
+        if (value == null || value.isEmpty()) return value;
+        if (!value.matches("-?\\d+")) {
+            throw new IllegalArgumentException("Non-numeric value for placeholder: " + placeholderName);
+        }
+        return value;
+    }
 
     public String execute(String ap, String demographicNo) {
         EFormLoader.getInstance();
         DatabaseAP dap = EFormLoader.getAP(ap);
-        
+
         if (dap == null) {
             MiscUtils.getLogger().error("DatabaseAP not found for ap: " + ap);
             return "";
         }
-        
-        String sql = DatabaseAP.parserReplace("demographic", demographicNo, dap.getApSQL());
+
+        try {
+            requireDigitsOnly("demographic", demographicNo);
+        } catch (IllegalArgumentException e) {
+            MiscUtils.getLogger().error("Invalid demographic number for AP {}: {}", ap, e.getMessage());
+            return "";
+        }
+
+        Map<String, Object> replacements = new HashMap<>();
+        replacements.put("demographic", demographicNo);
+        ParameterizedSql query = DatabaseAP.parameterizeSql(dap.getApSQL(), replacements);
         String output = dap.getApOutput();
-        MiscUtils.getLogger().debug("SQL----" + sql);
         ArrayList<String> names = DatabaseAP.parserGetNames(output); //a list of ${apName} --> apName
-        sql = DatabaseAP.parserClean(sql);  //replaces all other ${apName} expressions with 'apName'
 
         if (dap.isJsonOutput()) {
-            ArrayNode values = EFormUtil.getJsonValues(names, sql);
+            ArrayNode values = EFormUtil.getJsonValues(names, query);
             output = values.toString(); //in case of JsonOutput, return the whole JSONArray and let the javascript deal with it
         } else {
-            ArrayList<String> values = EFormUtil.getValues(names, sql);
-            if (values.size() != names.size()) {
+            ArrayList<String> values = EFormUtil.getValuesOrNull(names, query);
+            if (values == null) {
+                logFailedQuery(ap);
+                output = "";
+            } else if (!names.isEmpty() && values.size() != names.size()) {
+                logUnusableResult(ap, names.size(), values.size());
                 output = "";
             } else {
                 for (int i = 0; i < names.size(); i++) {
@@ -82,6 +104,40 @@ public class APExecute {
             }
         }
         return output;
+    }
+
+    /**
+     * Records an AP query that could not be executed or read.
+     *
+     * <p>Separate from {@link #logUnusableResult}: this is the case {@code EFormUtil.getValues} used
+     * to erase, by reporting a failed query as an empty result — identical to a healthy query over a
+     * patient with no matching data. These batch callers still render blank (there is no user to
+     * prompt), but the condition now leaves a trace.</p>
+     */
+    private static void logFailedQuery(String ap) {
+        MiscUtils.getLogger().error(
+                "AP {} query could not be executed or read; the field will render blank", ap);
+    }
+
+    /**
+     * Records a result the AP cannot be rendered from.
+     *
+     * <p>Both callers return {@code ""} here, which reaches printed records and generated patient
+     * letters as a blank field indistinguishable from "this patient has no such data". That is a
+     * decision worth keeping — these are batch paths with no user to prompt — but it was previously
+     * taken with no log of any kind.</p>
+     *
+     * <p>A query that could not run is reported separately, by {@link #logFailedQuery}. This one
+     * covers a shape mismatch, which the {@code getValuesOrNull} contract currently makes
+     * unreachable; it is retained as the guard that a change to that contract must trip. An empty
+     * result is deliberately not reported at all — a query that legitimately matched no rows is
+     * data, not a defect.</p>
+     */
+    private static void logUnusableResult(String ap, int declaredNames, int returnedValues) {
+        MiscUtils.getLogger().error(
+                "AP {} returned an unusable result: output declares {} names but the query returned"
+                        + " {} values; the field will render blank",
+                ap, declaredNames, returnedValues);
     }
 
     public String execute(String ap, String demographicNo, Integer invoiceNo) {
@@ -94,17 +150,28 @@ public class APExecute {
         }
         
         MiscUtils.getLogger().debug("AP:" + ap);
-        String sql = DatabaseAP.parserReplace("invoiceNo", String.valueOf(invoiceNo), dap.getApSQL());
-        sql = DatabaseAP.parserReplace("demographic", demographicNo, sql);
+
+        try {
+            requireDigitsOnly("demographic", demographicNo);
+        } catch (IllegalArgumentException e) {
+            MiscUtils.getLogger().error("Invalid demographic number for AP {}: {}", ap, e.getMessage());
+            return "";
+        }
+
+        Map<String, Object> replacements = new HashMap<>();
+        replacements.put("invoiceNo", invoiceNo);
+        replacements.put("demographic", demographicNo);
+        ParameterizedSql query = DatabaseAP.parameterizeSql(dap.getApSQL(), replacements);
 
         String output = dap.getApOutput();
-        MiscUtils.getLogger().debug("SQL----" + sql);
-
         ArrayList<String> names = DatabaseAP.parserGetNames(output);
-        sql = DatabaseAP.parserClean(sql);
 
-        ArrayList<String> values = EFormUtil.getValues(names, sql);
-        if (values.size() != names.size()) {
+        ArrayList<String> values = EFormUtil.getValuesOrNull(names, query);
+        if (values == null) {
+            logFailedQuery(ap);
+            output = "";
+        } else if (!names.isEmpty() && values.size() != names.size()) {
+            logUnusableResult(ap, names.size(), values.size());
             output = "";
         } else {
             for (int i = 0; i < names.size(); i++) {

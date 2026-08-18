@@ -16,9 +16,9 @@ This document provides a step-by-step process for refactoring legacy JSP files i
 Before refactoring, understand these non-negotiable constraints:
 
 1. **Preserve ALL field names** - Form field `name` attributes must remain identical
-2. **Preserve form action URLs** - Do not change where forms submit to
+2. **Preserve canonical action URLs** - Keep the real workflow target, but do not introduce or retain public JSP targets or `.do` routes in migrated code
 3. **Preserve hidden fields** - Many forms have hidden state fields that must be maintained
-4. **Preserve CSRF tokens** - The project uses OWASP CSRF Guard; forms need the token
+4. **CSRF tokens are auto-injected** - CSRFGuard 4.5 auto-injects tokens via JavaScript (no manual handling needed)
 5. **Preserve window relationships** - Many pages are popups; don't break `window.opener`
 6. **Preserve copyright headers** - Keep the GPL license header at the top of each file
 7. **Test after EACH phase** - Make incremental changes, commit after each working phase
@@ -110,7 +110,7 @@ Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="w" reverse="<%=true%>">
     <% authed = false; %>
-    <% response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_appointment"); %>
+    <% response.sendRedirect(request.getContextPath() + "/securityError?type=_appointment"); %>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -274,36 +274,48 @@ If JSTL cannot handle the logic, document why:
 
 | Old Pattern (Scriptlet) | New Pattern (JSTL/EL) |
 |-------------------------|------------------|
-| `<%= variable %>` | `${variable}` (for system data) or `<c:out value="${variable}"/>` |
+| `<%= variable %>` | `${e:forHtml(variable)}` |
 | `<%= request.getParameter("x") %>` | `${param.x}` |
 | `<%= session.getAttribute("x") %>` | `${sessionScope.x}` |
 | `<%= obj.getProperty() %>` | `${obj.property}` |
 
-**SECURITY REQUIREMENT - OWASP Encoder for User Inputs:**
+**SECURITY REQUIREMENT - OWASP Encoder for All Output:**
 
-For user-provided data in JSPs, **continue using OWASP Encoder** as it provides context-aware encoding:
-
-| Context | REQUIRED Pattern | Purpose |
-|---------|-----------------|---------|
-| HTML body | `<%= Encode.forHtml(userInput) %>` | Prevents XSS in HTML content |
-| HTML attributes | `<%= Encode.forHtmlAttribute(userInput) %>` | Safe encoding for attribute values |
-| JavaScript | `<%= Encode.forJavaScript(userInput) %>` | Safe for JS string contexts |
-| CSS | `<%= Encode.forCssString(userInput) %>` | Safe for CSS values |
-| URLs | `<%= Encode.forUri(userInput) %>` | Safe for URL components |
-
-**When to use JSTL instead:**
-- `<c:out value="${x}"/>` is acceptable for **system-generated, non-user data**
-- `${fn:escapeXml(x)}` provides basic HTML escaping for **trusted data**
-
-**Example distinction:**
+**Taglib declaration** (add to taglib block at top of JSP):
 ```jsp
-<%-- User input - MUST use OWASP Encoder --%>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+```
+
+For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate encoding. The Jakarta EL functions are the preferred approach — they are cleaner than scriptlets and provide better encoding than `<c:out>`:
+
+| Context | EL Function (Preferred) | Scriptlet Alternative |
+|---------|------------------------|----------------------|
+| HTML body | `${e:forHtml(value)}` | `<%= Encode.forHtml(value) %>` |
+| HTML attributes | `${e:forHtmlAttribute(value)}` | `<%= Encode.forHtmlAttribute(value) %>` |
+| JavaScript | `${e:forJavaScript(value)}` | `<%= Encode.forJavaScript(value) %>` |
+| CSS | `${e:forCssString(value)}` | `<%= Encode.forCssString(value) %>` |
+| URLs | `${e:forUriComponent(value)}` | `<%= Encode.forUriComponent(value) %>` |
+
+> **Why `${e:forHtml()}` over `<c:out>`?**
+> - `<c:out>` and `fn:escapeXml()` only do basic XML entity escaping (`<>&"'`)
+> - `${e:forHtml()}` uses OWASP Encoder which handles additional edge cases
+> - OWASP Encoder provides context-specific variants (HTML, JS, CSS, URL) — `<c:out>` does not
+> - `${e:forHtml()}` is a **drop-in replacement**: `<c:out value="${name}"/>` → `${e:forHtml(name)}`
+> - **`<c:out>` is legacy** — still acceptable in existing code, but use `${e:forHtml()}` for all new code
+
+**Example — preferred EL approach:**
+```jsp
+<%-- All data — use OWASP Encoder EL functions --%>
+<div>${e:forHtml(userEnteredName)}</div>
+<input value="${e:forHtmlAttribute(userEnteredAddress)}">
+<span>${e:forHtml(systemGeneratedId)}</span>
+```
+
+**Example — scriptlet approach (when already in scriptlet-heavy JSP):**
+```jsp
+<%-- Scriptlet context — use Encode.* static methods --%>
 <div><%= Encode.forHtml(userEnteredName) %></div>
 <input value="<%= Encode.forHtmlAttribute(userEnteredAddress) %>">
-
-<%-- System data - JSTL is acceptable --%>
-<c:out value="${systemGeneratedId}"/>
-<div>${applicationVersion}</div>
 ```
 
 ### Step 2.2: Replace Conditional Logic
@@ -368,26 +380,29 @@ For user-provided data in JSPs, **continue using OWASP Encoder** as it provides 
 ```jsp
 <c:forEach items="${allStatuses}" var="status" varStatus="loop">
     <option value="${status.status}">
-        <c:out value="${status.description}"/>
+        ${e:forHtml(status.description)}
     </option>
 </c:forEach>
 ```
 
 ### Step 2.4: Handle HTML Attribute Encoding
 
-**For user input (REQUIRED - use OWASP Encoder):**
+**Preferred — OWASP Encoder EL functions (for all data):**
 ```jsp
-<%-- User-provided data - MUST use OWASP Encoder --%>
+<%-- OWASP Encoder EL — preferred for all attribute values --%>
+<input value="${e:forHtmlAttribute(userName)}">
+<div title="${e:forHtmlAttribute(userComment)}">
+<input value="${e:forHtmlAttribute(systemId)}">
+```
+
+**Scriptlet alternative (when in scriptlet-heavy JSP):**
+```jsp
+<%-- Scriptlet — use when already in scriptlet context --%>
 <input value="<%= Encode.forHtmlAttribute(userName) %>">
 <div title="<%= Encode.forHtmlAttribute(userComment) %>">
 ```
 
-**For system data (JSTL acceptable):**
-```jsp
-<%-- System-generated values - JSTL is acceptable --%>
-<input value="${fn:escapeXml(systemId)}">
-<input value="<c:out value='${applicationName}'/>">
-```
+> **Note**: `fn:escapeXml()` and `<c:out>` are legacy for attribute encoding. Prefer `${e:forHtmlAttribute()}` which provides proper HTML attribute encoding rather than basic XML escaping.
 
 ### Step 2.5: Set Context Path Variable
 
@@ -407,27 +422,128 @@ Then use in view:
 
 Alternative using `<c:url>` tag (preferred for URLs with parameters):
 ```jsp
-<a href="<c:url value='/appointment/view.do'><c:param name='id' value='${apptId}'/></c:url>">View</a>
+<a href="<c:url value='/appointment/view'><c:param name='id' value='${apptId}'/></c:url>">View</a>
 ```
 
 ### Step 2.6: Internationalization (i18n) Setup
 
-Always include the resource bundle declaration near the top of the view:
+> **Full i18n standards:** [docs/I18N-STANDARDS.md](I18N-STANDARDS.md)
+> **Per-file conversion checklist:** [docs/I18N-CONVERSION-CHECKLIST.md](I18N-CONVERSION-CHECKLIST.md)
+
+#### Bundle Declaration (single, pre-DOCTYPE)
+
+Place **one** `<fmt:setBundle>` declaration after all taglib declarations, immediately
+before `<!DOCTYPE html>`. Never repeat it inline before each `fmt:message`.
 
 ```jsp
+<%@ taglib uri="jakarta.tags.fmt"      prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core"     prefix="c"   %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e"   %>
+
+<%-- Single bundle declaration — place here, before DOCTYPE --%>
 <fmt:setBundle basename="oscarResources"/>
+
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
 ```
 
-Then use messages:
+#### HTML lang Attribute
+
+Always use the dynamic locale from the request — **never** hardcode `lang="en"`:
+
 ```jsp
-<label><fmt:message key="Appointment.formDate"/>:</label>
+<%-- CORRECT --%>
+<html lang="${pageContext.request.locale.language}">
+
+<%-- WRONG — breaks screen readers for non-English users --%>
+<html lang="en">
 ```
 
-For messages with parameters:
+#### Key Naming
+
+Keys follow `<domain>.<jspFilename>.<elementDescription>` (see [I18N-STANDARDS.md](I18N-STANDARDS.md)):
+
+```properties
+# appointment/addAppointment.jsp
+appointment.addAppointment.title=Add Appointment
+appointment.addAppointment.labelDate=Date
+appointment.addAppointment.btnAdd=Add Appointment
+```
+
+#### Using fmt:message in HTML
+
 ```jsp
+<title><fmt:message key="appointment.addAppointment.title"/></title>
+<label><fmt:message key="appointment.addAppointment.labelDate"/>:</label>
+```
+
+For attribute values, capture to a variable first:
+
+```jsp
+<fmt:message key="appointment.addAppointment.tooltipHelp" var="tooltipHelp"/>
+<button title="${e:forHtmlAttribute(tooltipHelp)}">?</button>
+```
+
+#### Parameterized Messages
+
+```jsp
+<%-- Properties: appointment.welcome=Welcome, {0}. You have {1} appointments today. --%>
 <fmt:message key="appointment.welcome">
-    <fmt:param value="${providerName}"/>
+    <fmt:param value="${e:forHtml(providerName)}"/>
+    <fmt:param value="${apptCount}"/>
 </fmt:message>
+```
+
+#### JavaScript i18n — Use ResourceBundle + Encode.forJavaScript
+
+**Never** put hardcoded English strings inside `<script>` blocks. Load translated
+strings server-side and encode them with `Encode.forJavaScript()`:
+
+```jsp
+<%@ page import="java.util.ResourceBundle" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+
+<%
+    java.util.ResourceBundle oscarResources =
+        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
+
+<script>
+    // Pre-computed i18n strings, safely encoded for JavaScript
+    var i18n = {
+        msgConfirmDelete: '<%= Encode.forJavaScript(oscarResources.getString("appointment.addAppointment.msgConfirmDelete")) %>',
+        msgSaveSuccess:   '<%= Encode.forJavaScript(oscarResources.getString("appointment.addAppointment.msgSaveSuccess")) %>',
+        btnCancel:        '<%= Encode.forJavaScript(oscarResources.getString("global.btnCancel")) %>'
+    };
+</script>
+```
+
+Then use in JavaScript:
+```javascript
+if (!confirm(i18n.msgConfirmDelete)) return;
+```
+
+> **Reference implementations:**
+> - `demographic/demographiceditdemographic.jsp` — full `var i18n = {}` object
+> - `tickler/ticklerAdd.jsp` — individual `const` pattern + `alert()` i18n
+
+#### UTF-8 Encoding
+
+Properties files must be saved as valid UTF-8 on Java 21. Direct non-ASCII characters
+are allowed, and existing `\uXXXX` escapes remain valid. See
+[I18N-STANDARDS.md — Encoding](I18N-STANDARDS.md#utf-8-encoding-requirements-java-21).
+
+#### Legacy Pattern to Avoid
+
+The inline `fmt:setBundle` + `fmt:message` on the same line is a legacy pattern that
+must be cleaned up during conversion:
+
+```jsp
+<%-- LEGACY (do not create, clean up when encountered) --%>
+<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addAppointment.title"/>
+
+<%-- CORRECT (single bundle at top, message inline) --%>
+<fmt:message key="appointment.addAppointment.title"/>
 ```
 
 ### Step 2.7: Encoding Values in JavaScript Context
@@ -439,16 +555,19 @@ When embedding server values in JavaScript, use OWASP Encoder:
     // WRONG - XSS vulnerability
     var patientName = "${patientName}";
 
-    // CORRECT - Use OWASP Encoder with proper variable retrieval
-    var patientName = "<%= Encode.forJavaScript((String) pageContext.getAttribute(\"patientName\")) %>";
+    // CORRECT (EL) - Use OWASP Encoder EL function
+    var patientName = "${e:forJavaScript(patientName)}";
+
+    // CORRECT (Scriptlet) - Use Encode.forJavaScript in scriptlet-heavy JSPs
+    var patientName = "<%= Encode.forJavaScript((String) pageContext.getAttribute("patientName")) %>";
 </script>
 ```
 
-**Better approach** - use data attributes (recommended):
+**Better approach** - use data attributes with OWASP encoding (recommended):
 ```jsp
 <div id="appointmentData"
-     data-provider-no="${fn:escapeXml(providerNo)}"
-     data-date="${fn:escapeXml(appointmentDate)}">
+     data-provider-no="${e:forHtmlAttribute(providerNo)}"
+     data-date="${e:forHtmlAttribute(appointmentDate)}">
 </div>
 
 <script>
@@ -544,19 +663,19 @@ Note: Use dynamic locale from request, not hardcoded "en".
 
 ### Step 3.5: Form Structure with CSRF Protection
 
-CARLOS EMR uses OWASP CSRF Guard (configured in `web.xml` and `Owasp.CsrfGuard.properties`). **All POST forms MUST include the CSRF token** to prevent Cross-Site Request Forgery attacks.
+CARLOS EMR uses OWASP CSRFGuard 4.5 (configured in `web.xml` and `Owasp.CsrfGuard.properties`). CSRF tokens are **automatically injected** into all POST forms by the client-side JavaScript — no manual token tags required.
 
-**CSRF Token Implementation:**
-The project uses `CSRFPreservingFilter` and `CsrfJavaScriptInjectionFilter` for automatic token handling.
+**CSRF Protection Architecture:**
+- `CarlosCsrfGuardFilter` — validates CSRF tokens on incoming requests
+- `CsrfGuardScriptInjectionFilter` — auto-injects `<script src="contextPath/csrfguard">` into HTML responses
+- The injected `csrfguard.js` handles form injection, XHR interception, and dynamic DOM node token injection
 
 ```jsp
-<%@ taglib uri="http://www.owasp.org/index.php/OWASP_CSRFGuard" prefix="csrf" %>
-<form id="appointmentForm" action="${ctx}/appointment/addappointment.do" method="post">
-    <%-- CSRF Token - REQUIRED for all POST forms
-         The <csrf:token/> tag automatically uses the configured token name
-         from Owasp.CsrfGuard.properties (typically OWASP_CSRFTOKEN)
-         Token is also available as ${sessionScope['OWASP_CSRFTOKEN']} --%>
-    <csrf:token/>
+<form id="appointmentForm" action="${ctx}/appointment/addappointment" method="post">
+    <%-- CSRF Token - AUTOMATICALLY INJECTED by csrfguard.js
+         No taglib or manual hidden input required. The CsrfGuardScriptInjectionFilter
+         injects the csrfguard script, which auto-adds the CSRF-TOKEN hidden field
+         to all forms and intercepts XHR requests. See docs/csrf-protection-architecture.md --%>
 
     <%-- Preserve all existing hidden fields --%>
     <input type="hidden" name="displaymode" value="">
@@ -584,11 +703,9 @@ The project uses `CSRFPreservingFilter` and `CsrfJavaScriptInjectionFilter` for 
 </form>
 ```
 
-**Alternative: Manual Token Inclusion**
-If you need to manually include the token (rare cases):
-```jsp
-<input type="hidden" name="OWASP_CSRFTOKEN" value="${sessionScope['OWASP_CSRFTOKEN']}">
-```
+**Manual token inclusion is NOT needed** — `csrfguard.js` automatically injects the
+`CSRF-TOKEN` hidden field into all `<form>` elements and intercepts `XMLHttpRequest` calls.
+See `docs/csrf-protection-architecture.md` for full architecture details.
 
 **For AJAX requests**, see Phase 5, Step 5.3 for CSRF token handling in fetch() calls.
 
@@ -735,13 +852,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
 ### Step 5.3: AJAX Modernization with CSRF Token
 
-**IMPORTANT**: All AJAX POST requests must include the CSRF token.
+CSRFGuard 4.5 **automatically intercepts `XMLHttpRequest`** calls via `csrfguard.js`
+(configured with `org.owasp.csrfguard.Ajax=true`). The script patches `XMLHttpRequest.prototype.open`
+and `send` to add the CSRF token as a custom header on every request.
 
-**Before (jQuery AJAX):**
+**This means**: If your AJAX code uses `XMLHttpRequest` (directly or via jQuery's `$.ajax`),
+the CSRF token is injected automatically. No manual token handling is needed.
+
+**Important**: CSRFGuard 4.5 does **NOT** auto-intercept the `fetch()` API. If you use
+`fetch()` for POST requests, you must include the token manually (see below).
+
+See `docs/csrf-protection-architecture.md` for full architecture details.
+
+**Before (jQuery AJAX — token auto-injected by csrfguard.js):**
 ```javascript
+// csrfguard.js patches XMLHttpRequest — no manual CSRF handling needed
 $.ajax({
     type: "POST",
-    url: contextPath + "/someAction.do",
+    url: contextPath + "/someAction",
     data: { param1: value1 },
     dataType: 'json',
     success: function(data) {
@@ -753,11 +881,12 @@ $.ajax({
 });
 ```
 
-**After (Fetch API with CSRF):**
+**After (Fetch API — requires manual CSRF token):**
 ```javascript
-// Get CSRF token from the page (set this in a data attribute or hidden field)
+// fetch() is NOT intercepted by csrfguard.js — must include token manually.
+// The token name (CSRF-TOKEN) and value are configured in Owasp.CsrfGuard.properties.
 function getCsrfToken() {
-    const tokenElement = document.querySelector('input[name="OWASP_CSRFTOKEN"]');
+    const tokenElement = document.querySelector('input[name="CSRF-TOKEN"]');
     return tokenElement ? tokenElement.value : '';
 }
 
@@ -765,10 +894,10 @@ async function submitData() {
     try {
         const params = new URLSearchParams({
             param1: value1,
-            'OWASP_CSRFTOKEN': getCsrfToken()  // Include CSRF token
+            'CSRF-TOKEN': getCsrfToken()
         });
 
-        const response = await fetch(contextPath + '/someAction.do', {
+        const response = await fetch(contextPath + '/someAction', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -792,8 +921,8 @@ async function submitData() {
 **Alternative: Use FormData for complex forms:**
 ```javascript
 async function submitForm(formElement) {
+    // csrfguard.js already injected CSRF-TOKEN as a hidden field in the form
     const formData = new FormData(formElement);
-    // CSRF token should already be in the form as a hidden field
 
     const response = await fetch(formElement.action, {
         method: 'POST',
@@ -872,7 +1001,7 @@ Legacy code often uses `document.forms['FORMNAME']`. When adding `id`, keep the 
 
 ```html
 <%-- Keep BOTH name and id for backward compatibility --%>
-<form id="appointmentForm" name="ADDAPPT" action="${ctx}/appointment/addappointment.do" method="post">
+<form id="appointmentForm" name="ADDAPPT" action="${ctx}/appointment/addappointment" method="post">
 ```
 
 This allows:
@@ -955,7 +1084,7 @@ value='<%=request.getParameter("start_time")%>'
 ${pageContext.request.contextPath}
 
 <%-- JSTL tag --%>
-<c:out value="${ reason.label }"/>
+${e:forHtml(reason.label)}
 ```
 
 #### 3. Table-Based Layout

@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.prop;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
 import java.util.Vector;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
@@ -38,12 +42,18 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasureme
  * @Company: iConcept Technologes Inc.
  * @Created on: October 31, 2004
  */
+@XmlRootElement(name = "formProp")
+@XmlAccessorType(XmlAccessType.NONE)
 public class EctFormProp {
     static EctFormProp fProp = new EctFormProp();
     static private Vector measurementTypes;
 
+    @XmlElement(name = "measurement")
+    private Vector<EctMeasurementTypesBean> measurements;
+
     public EctFormProp() {
         measurementTypes = new Vector();
+        measurements = new Vector<>();
     }
 
     /**
@@ -59,6 +69,18 @@ public class EctFormProp {
 
     static public Vector getMeasurementTypes() {
         return measurementTypes;
+    }
+
+    /**
+     * Called by JAXB after unmarshalling to populate the static measurementTypes vector.
+     */
+    @SuppressWarnings("unused")
+    private void afterUnmarshal(jakarta.xml.bind.Unmarshaller unmarshaller, Object parent) {
+        if (measurements != null) {
+            for (EctMeasurementTypesBean mt : measurements) {
+                measurementTypes.addElement(mt);
+            }
+        }
     }
 
 }

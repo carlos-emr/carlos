@@ -30,12 +30,13 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import net.sf.jasperreports.engine.JRException;
 import net.sf.jasperreports.engine.JasperCompileManager;
 import net.sf.jasperreports.engine.JasperReport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -43,8 +44,8 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.report.data.ManageLetters;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -114,7 +115,7 @@ public class ManagePatientLetters2Action extends ActionSupport {
             JasperReport jasperReport = JasperCompileManager.compileReport(new ByteArrayInputStream(fileData));
 
             ManageLetters manageLetters = new ManageLetters();
-            manageLetters.saveReport((String) request.getSession().getAttribute("user"), reportName, reportFile.getName(), fileData);
+            manageLetters.saveReport((String) request.getSession().getAttribute("user"), reportName, reportFile.getName(), fileData); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): reads authenticated provider from own session (set by Login2Action post-auth)
         } catch (FileNotFoundException ex) {
             MiscUtils.getLogger().error("Error", ex);
         } catch (IOException ex) {
@@ -139,6 +140,7 @@ public class ManagePatientLetters2Action extends ActionSupport {
         return reportFile;
     }
 
+    @StrutsParameter
     public void setReportFile(File reportFile) {
         this.reportFile = reportFile;
     }

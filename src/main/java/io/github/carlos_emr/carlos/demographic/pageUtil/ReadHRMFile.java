@@ -36,13 +36,15 @@
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBException;
-import javax.xml.bind.Unmarshaller;
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.JAXBException;
+import jakarta.xml.bind.Unmarshaller;
 import javax.xml.datatype.XMLGregorianCalendar;
+import javax.xml.transform.sax.SAXSource;
 
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.DateFullOrPartial;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.OmdCds;
@@ -55,7 +57,10 @@ import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportMedia;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportsReceived;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportsReceived.OBRContent;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.TransactionInformation;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 
 /**
@@ -71,25 +76,30 @@ public class ReadHRMFile {
  *
  */
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public ReadHRMFile(String hrmFile) {
         try {
             if (hrmFile == null) {
                 return;
             }
-            File hrm = new File(hrmFile);
+            File hrm = PathValidationUtils.resolveTrustedPath(new File(hrmFile));
             if (!hrm.exists()) {
                 return;
             }
             JAXBContext jc = JAXBContext.newInstance("io.github.carlos_emr.carlos.hospitalReportManager.xsd");
             Unmarshaller u = jc.createUnmarshaller();
-            OmdCds root = (OmdCds) u.unmarshal(hrm);
-
-            PatientRecord pr = root.getPatientRecord();
-            reportsReceived = pr.getReportsReceived();
-            transactionInformation = pr.getTransactionInformation();
-
+            try (FileInputStream fis = new FileInputStream(hrm)) {
+                SAXSource source = XmlUtils.createSecureJaxbSource(fis);
+                OmdCds root = (OmdCds) u.unmarshal(source);
+                PatientRecord pr = root.getPatientRecord();
+                reportsReceived = pr.getReportsReceived();
+                transactionInformation = pr.getTransactionInformation();
+            }
         } catch (JAXBException ex) {
-            MiscUtils.getLogger();
+            MiscUtils.getLogger().error("Failed to parse HRM file", ex);
+        } catch (Exception ex) {
+            MiscUtils.getLogger().error("Error reading HRM file", ex);
         }
     }
 

@@ -32,21 +32,32 @@ package io.github.carlos_emr.carlos.report.pageUtil;
 
 import java.io.IOException;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class RptShowConsult2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
     public String execute()
             throws ServletException, IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
+            throw new SecurityException("missing required sec object (_report)");
+        }
+
         // EctSessionBean bean = (EctSessionBean)request.getSession().getAttribute("EctSessionBean");
         // if(bean == null)
         //     return "eject";
@@ -62,6 +73,7 @@ public class RptShowConsult2Action extends ActionSupport {
         return requestId;
     }
 
+    @StrutsParameter
     public void setRequestId(String id) {
         this.requestId = id;
     }

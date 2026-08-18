@@ -6,23 +6,26 @@ import java.util.Date;
 import java.util.List;
 import java.util.HashMap;
 
-import javax.servlet.RequestDispatcher;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParser;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
+
+import org.apache.logging.log4j.Logger;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * HTTP servlet controller for managing private billing operations in British Columbia.
@@ -52,21 +55,28 @@ import io.github.carlos_emr.carlos.clinic.ClinicData;
  * @since 2026-01-23
  */
 public class PrivateBillingController extends HttpServlet {
+    private static final Logger log = MiscUtils.getLogger();
+
     private static String LIST_PRIVATE_BILLS = "billing/CA/BC/privateBilling/viewStatement.jsp";
     private static String PRINT_PREVIEW_BILLS = "billing/CA/BC/privateBilling/printPreview.jsp";
     private PrivateBillingDAO dao;
     private ProviderDao providerDao;
 
     /**
-     * Constructs a new PrivateBillingController instance.
+     * Initializes DAO dependencies from the Spring application context.
      * <p>
-     * Initializes the PrivateBillingDAO for database operations and retrieves the ProviderDao
-     * from the Spring application context for provider data access.
+     * Bean lookups are performed in {@code init()} rather than the constructor to
+     * guarantee that the Spring context is fully initialized before the beans are
+     * resolved — the servlet container may instantiate the servlet before the
+     * Spring context listener has finished.
      * </p>
+     *
+     * @throws ServletException if a required Spring bean cannot be resolved
      */
-    public PrivateBillingController() {
-        super();
-        dao = new PrivateBillingDAO();
+    @Override
+    public void init() throws ServletException {
+        super.init();
+        dao = SpringUtils.getBean(PrivateBillingDAO.class);
         providerDao = SpringUtils.getBean(ProviderDao.class);
     }
 
@@ -107,9 +117,9 @@ public class PrivateBillingController extends HttpServlet {
             RequestDispatcher view = request.getRequestDispatcher(forward);
             view.forward(request, response);
         } catch (ServletException e) {
-            e.printStackTrace();
+            log.error("Failed to forward to private bills list view", e);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("I/O error while listing private bills", e);
         }
     }
 
@@ -154,12 +164,12 @@ public class PrivateBillingController extends HttpServlet {
 
             String[] paramValues = request.getParameterValues("billIds");
             if (paramValues.length == 1) {
-                JsonArray jsonArr = new JsonParser().parse(paramValues[0]).getAsJsonArray();
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode jsonArr = mapper.readTree(paramValues[0]);
                 for (int i = 0; i < jsonArr.size(); i++) {
                     HashMap<String, Object> map = new HashMap<String, Object>();
-                    JsonElement jsonElem = jsonArr.get(i);
-                    JsonElement demographicNumber = jsonElem.getAsJsonObject().get("demographicNumber");
-                    String strDemographicNumber = demographicNumber.getAsString();
+                    JsonNode jsonElem = jsonArr.get(i);
+                    String strDemographicNumber = jsonElem.get("demographicNumber").asText();
                     Demographic patient = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), strDemographicNumber);
                     map.put("patientFirstName", patient.getFirstName());
                     map.put("patientLastName", patient.getLastName());
@@ -172,9 +182,8 @@ public class PrivateBillingController extends HttpServlet {
                     map.put("patientYearOfBirth", patient.getYearOfBirth());
 
                     // get recipient info (note: a null attribute means the recipient is the patient)
-                    JsonElement recipientId = jsonElem.getAsJsonObject().get("recipientId");
-                    String strRecipientId = recipientId.getAsString();
-                    if (strRecipientId.isEmpty() || strRecipientId == "") {
+                    String strRecipientId = jsonElem.path("recipientId").asText("");
+                    if (strRecipientId.isEmpty()) {
                         map.put("recipientName", patient.getFirstName() + " " + patient.getLastName());
                         map.put("recipientAddress", patient.getAddress());
                         map.put("recipientCity", patient.getCity());
@@ -200,7 +209,7 @@ public class PrivateBillingController extends HttpServlet {
                     map.put("clinicFax", clinic.getClinicFax());
 
                     // get patient invoice items
-                    String strRecipientName = (strRecipientId.isEmpty() || strRecipientId == "") ? "" : map.get("recipientName").toString();
+                    String strRecipientName = strRecipientId.isEmpty() ? "" : map.get("recipientName").toString();
                     List<HashMap<String, String>> invoiceItems = dao.listPrivateBillItems(strDemographicNumber, strRecipientName);
                     map.put("invoiceItems", invoiceItems);
 
@@ -221,9 +230,9 @@ public class PrivateBillingController extends HttpServlet {
             RequestDispatcher view = request.getRequestDispatcher(forward);
             view.forward(request, response);
         } catch (ServletException e) {
-            e.printStackTrace();
+            log.error("Failed to forward to print preview view", e);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("I/O error while generating print preview", e);
         }
     }
 
@@ -245,25 +254,35 @@ public class PrivateBillingController extends HttpServlet {
      * @param response HttpServletResponse the servlet response for forwarding to the appropriate view
      * @throws ServletException if request forwarding fails
      * @throws IOException if an I/O error occurs during request processing
-     * @throws NullPointerException if the action parameter is null (caught and handled internally)
      */
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException, NullPointerException {
-        String forward = "";
-        String action = request.getParameter("action");
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
+            String forward = "";
+            String action = request.getParameter("action");
+            if (action == null) {
+                // action is not provided, by default forward to LIST_PRIVATE_BILLS
+                listPrivateBills(request, response, forward);
+                return;
+            }
             if (action.equalsIgnoreCase("listPrivateBills")) {
                 listPrivateBills(request, response, forward);
             } else if (action.equalsIgnoreCase("printPreviewBills")) {
                 printPreviewBills(request, response, forward);
             } else {
-                // missing 'billIds' parameters, go back to default action 'LIST_PRIVATE_BILLS'
+                // unrecognized action value, fall back to default action 'LIST_PRIVATE_BILLS'
                 listPrivateBills(request, response, forward);
             }
-        } catch (NullPointerException e) {
-            // action is not provided, by default forward to LIST_PRIVATE_BILLS
-            listPrivateBills(request, response, forward);
-        } catch (ServletException e) {
-            e.printStackTrace();
+        } catch (ServletException | IOException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error in PrivateBillingController", e);
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
         }
     }
 

@@ -30,8 +30,8 @@ package io.github.carlos_emr.carlos.utility;
 import java.io.Serializable;
 import java.util.Locale;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Facility;
@@ -96,6 +96,7 @@ public final class LoggedInInfo implements Serializable {
      */
     public static void setLoggedInInfoIntoSession(HttpSession session, LoggedInInfo loggedInInfo) {
 
+        // nosemgrep: tainted-session-from-http-request -- loggedInInfo is an internally constructed LoggedInInfo object, not user input
         session.setAttribute(new LoggedInInfo().LOGGED_IN_INFO_KEY, loggedInInfo);
     }
 
@@ -129,13 +130,6 @@ public final class LoggedInInfo implements Serializable {
      */
     public static LoggedInInfo getLoggedInInfoFromRequest(HttpServletRequest request) {
         return ((LoggedInInfo) request.getAttribute(new LoggedInInfo().LOGGED_IN_INFO_KEY));
-    }
-
-    /**
-     * This is used for logout only, should not be used at the end of a request.
-     */
-    public static void removeLoggedInInfoFromSession(HttpSession session) {
-        session.removeAttribute(new LoggedInInfo().LOGGED_IN_INFO_KEY);
     }
 
     public Facility getCurrentFacility() {

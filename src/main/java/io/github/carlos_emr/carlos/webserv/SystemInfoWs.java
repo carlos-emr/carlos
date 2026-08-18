@@ -33,7 +33,7 @@ import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.TimeZone;
 
-import javax.jws.WebService;
+import jakarta.jws.WebService;
 
 import org.apache.cxf.annotations.GZIP;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;

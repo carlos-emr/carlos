@@ -36,7 +36,7 @@ import net.sf.jasperreports.engine.JasperCompileManager;
 import net.sf.jasperreports.engine.JasperFillManager;
 import net.sf.jasperreports.engine.JasperPrint;
 import net.sf.jasperreports.engine.JasperReport;
-import net.sf.jasperreports.engine.export.JRPdfExporter;
+import net.sf.jasperreports.pdf.JRPdfExporter;
 import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimpleOutputStreamExporterOutput;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
@@ -66,6 +66,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmRourke2017Record extends FrmRecord implements JasperReportPdfPrint {
     private final Logger logger = LoggerFactory.getLogger(FrmRourke2017Record.class);
@@ -170,6 +171,8 @@ public class FrmRourke2017Record extends FrmRecord implements JasperReportPdfPri
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean isFemale(LoggedInInfo loggedInInfo, int demoNo) {
         boolean retval = false;
         Demographic demo = demographicManager.getDemographic(loggedInInfo, demoNo);

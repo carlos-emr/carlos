@@ -31,95 +31,143 @@
 package io.github.carlos_emr.carlos.report.pageUtil;
 
 import java.io.IOException;
+import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.util.Collection;
 import java.util.Date;
-import java.util.List;
+import java.util.Locale;
 import java.util.Properties;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.report.data.RptByExampleData;
-import io.github.carlos_emr.carlos.services.security.SecurityManager;
-import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
-import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
+import io.github.carlos_emr.carlos.report.data.QueryByExampleValidationException;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportByExamples;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Struts2 action for the Query-by-Example report tool. Allows authorized report users
+ * to execute custom read-only SQL queries, persist successful searches, and display results.
+ *
+ * @since 2003-07-22
+ */
 public class RptByExample2Action extends ActionSupport {
+    public static final String ENABLED_PROPERTY = "QUERY_BY_EXAMPLE_ENABLED";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-
     private ReportByExamplesDao dao = SpringUtils.getBean(ReportByExamplesDao.class);
+    private final SecurityInfoManager securityInfoManager;
 
+    public RptByExample2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
 
+    RptByExample2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute()
             throws ServletException, IOException {
-        String roleName$ = request.getSession().getAttribute("userrole") + "," + (String) request.getSession().getAttribute("user");
-        if (!SecurityManager.hasPrivilege("_admin", roleName$) && !SecurityManager.hasPrivilege("_report", roleName$)) {
-            throw new SecurityException("Insufficient Privileges");
-        }
-
-        if (request.getSession().getAttribute("user") == null)
-            response.sendRedirect(request.getContextPath() + "/logout.htm");
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-        SecUserRoleDao secUserRoleDao = SpringUtils.getBean(SecUserRoleDao.class);
-
-        List<SecUserRole> userRoles = secUserRoleDao.findByRoleNameAndProviderNo("admin", providerNo);
-        if (userRoles.isEmpty()) {
-            MiscUtils.getLogger().warn("providers " + providerNo + " does not have admin privileges to run query by example");
-            return "/oscarReport/RptByExample.jsp";
+        if (loggedInInfo == null) {
+            response.sendRedirect(request.getContextPath() + "/logout.htm");
+            return NONE;
         }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_admin or _report)");
+        }
+
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         RptByExampleQueryBeanHandler hd = new RptByExampleQueryBeanHandler();
         Collection favorites = hd.getFavoriteCollection(providerNo);
         request.setAttribute("favorites", favorites);
 
+        sql = sql == null ? "" : sql;
+        request.setAttribute("submittedSql", sql);
 
-        //String sql = frm.getSql();
+        if (!"POST".equals(request.getMethod())) {
+            return SUCCESS;
+        }
 
+        Properties properties = CarlosProperties.getInstance();
+        if (!isEnabled(properties)) {
+            request.setAttribute("queryDisabled", true);
+            RptByExampleData.audit(providerNo, sql, 0, 0, "disabled");
+            return SUCCESS;
+        }
 
-        if (sql != null) {
+        if (sql.isBlank()) {
+            request.setAttribute("queryValidationError", true);
+            RptByExampleData.audit(providerNo, sql, 0, 0, "rejected");
+            return SUCCESS;
+        }
+
+        RptByExampleData.QueryResult result;
+        try {
+            result = new RptByExampleData().execute(sql, properties, providerNo);
+        } catch (QueryByExampleValidationException e) {
+            request.setAttribute("queryValidationError", true);
+            return SUCCESS;
+        } catch (SQLTimeoutException e) {
+            request.setAttribute("queryTimeout", true);
+            request.setAttribute("queryTimeoutSeconds", RptByExampleData.QUERY_TIMEOUT_SECONDS);
+            return SUCCESS;
+        } catch (SQLException | RuntimeException e) {
+            request.setAttribute("queryExecutionError", true);
+            return SUCCESS;
+        }
+
+        request.setAttribute("results", result.html());
+        request.setAttribute("resultRowCount", result.rowCount());
+        request.setAttribute("resultLimit", RptByExampleData.MAX_ROWS);
+        request.setAttribute("resultTruncated", result.truncated());
+        request.setAttribute("resultRowLimitReached", result.rowLimitReached());
+        request.setAttribute("resultCharacterLimit", RptByExampleData.MAX_OUTPUT_CHARACTERS);
+        try {
             write2Database(sql, providerNo);
-        } else
-            sql = "";
-
-        RptByExampleData exampleData = new RptByExampleData();
-        Properties proppies = OscarProperties.getInstance();
-
-        String results = exampleData.exampleReportGenerate(sql, proppies) == null ? null : exampleData.exampleReportGenerate(sql, proppies);
-        String resultText = exampleData.exampleTextGenerate(sql, proppies) == null ? null : exampleData.exampleTextGenerate(sql, proppies);
-
-        request.setAttribute("results", results);
-        request.setAttribute("resultText", resultText);
+        } catch (RuntimeException e) {
+            request.setAttribute("queryHistoryError", true);
+            RptByExampleData.audit(providerNo, sql, result.durationMillis(), result.rowCount(), "history_failed");
+        }
 
         return SUCCESS;
     }
 
+    @SuppressFBWarnings(
+            value = "IMPROPER_UNICODE",
+            justification = "Locale.ROOT normalization is safe for controlled ASCII feature-flag values")
+    static boolean isEnabled(Properties properties) {
+        String configured = properties.getProperty(ENABLED_PROPERTY);
+        if (configured == null || configured.isBlank()) {
+            return true;
+        }
+        String normalized = configured.trim().toLowerCase(Locale.ROOT);
+        return normalized.equals("true") || normalized.equals("yes") || normalized.equals("on");
+    }
+
     public void write2Database(String query, String providerNo) {
         if (query != null && query.compareTo("") != 0) {
-
-
-            // StringEscapeUtils strEscUtils = new StringEscapeUtils();
-
-            //query = exampleData.replaceSQLString (";","",query);
-            //query = exampleData.replaceSQLString("\"", "\'", query);
-
             ReportByExamples r = new ReportByExamples();
             r.setProviderNo(providerNo);
             r.setQuery(query);
@@ -138,6 +186,7 @@ public class RptByExample2Action extends ActionSupport {
         return sql;
     }
 
+    @StrutsParameter
     public void setSql(String sql) {
         this.sql = sql;
     }
@@ -146,6 +195,7 @@ public class RptByExample2Action extends ActionSupport {
         return selectedRecentSearch;
     }
 
+    @StrutsParameter
     public void setSelectedRecentSearch(String selectedRecentSearch) {
         this.selectedRecentSearch = selectedRecentSearch;
     }

@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.io.*;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.model.BillingONPremium;
 import org.springframework.stereotype.Repository;
 
@@ -41,13 +42,14 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.util.DateUtils;
 
 import java.util.Locale;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.util.Date;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -97,9 +99,11 @@ public class BillingONPremiumDaoImpl extends AbstractDaoImpl<BillingONPremium> i
         return results;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void parseAndSaveRAPremiums(LoggedInInfo loggedInInfo, Integer raHeaderNo, Locale locale) {
 
-        String filepath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR").trim();
+        String filepath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR").trim();
         RaHeaderDao raHeaderDao = (RaHeaderDao) SpringUtils.getBean(RaHeaderDao.class);
         RaHeader raHeader = raHeaderDao.find(raHeaderNo);
 
@@ -110,7 +114,7 @@ public class BillingONPremiumDaoImpl extends AbstractDaoImpl<BillingONPremium> i
         StringBuilder msgText = new StringBuilder();
 
         try {
-            file = new FileInputStream(filepath + filename);
+            file = new FileInputStream(PathValidationUtils.validateExistingPath(new File(filepath, filename), new File(filepath)));
             reader = new InputStreamReader(file);
             input = new BufferedReader(reader);
 

@@ -30,8 +30,8 @@ package io.github.carlos_emr.carlos.provider.web;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -43,11 +43,17 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DocumentDescriptionTemplate2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -56,8 +62,25 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         String method = request.getParameter("method");
+        if (isMutatingMethod(method) && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED,
+                        "GET requests are not allowed on this endpoint. Use POST.");
+            } catch (IOException e) {
+                throw new IllegalStateException("Unable to reject document-description mutation", e);
+            }
+            return NONE;
+        }
         if ("getDocumentDescriptionFromDocType".equals(method)) {
             return getDocumentDescriptionFromDocType();
         } else if ("getDocumentDescriptionFromId".equals(method)) {
@@ -72,6 +95,13 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
             return saveDocumentDescriptionTemplatePreference();
         } 
         return SUCCESS;
+    }
+
+    private static boolean isMutatingMethod(String method) {
+        return "addDocumentDescription".equals(method)
+                || "updateDocumentDescription".equals(method)
+                || "deleteDocumentDescription".equals(method)
+                || "saveDocumentDescriptionTemplatePreference".equals(method);
     }
 
     public String getDocumentDescriptionFromDocType() {
@@ -119,7 +149,8 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         documentDescriptionTemplate.setDocType(docType);
         documentDescriptionTemplate.setProviderNo(providerNo);
         this.documentDescriptionTemplateDao.persist(documentDescriptionTemplate);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, providerNo, request.getRemoteAddr(), null, "[" + docType + "] " + descriptionShortcut + " | " + description);
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LogAction.addLog(loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null, LogConst.ADD, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSafe.sanitize(providerNo), request.getRemoteAddr(), null, "[" + LogSafe.sanitize(docType) + "] " + LogSafe.sanitize(descriptionShortcut) + " | " + LogSafe.sanitize(description));
         return null;
     }
 
@@ -138,7 +169,8 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         documentDescriptionTemplate.setId(id);
         documentDescriptionTemplate.setProviderNo(providerNo);
         this.documentDescriptionTemplateDao.merge(documentDescriptionTemplate);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, providerNo, request.getRemoteAddr(), null, ids + " [" + docType + "] " + descriptionShortcut + " | " + description);
+        LoggedInInfo loggedInInfoUpdate = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LogAction.addLog(loggedInInfoUpdate != null ? loggedInInfoUpdate.getLoggedInProviderNo() : null, LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSafe.sanitize(providerNo), request.getRemoteAddr(), null, LogSafe.sanitize(ids) + " [" + LogSafe.sanitize(docType) + "] " + LogSafe.sanitize(descriptionShortcut) + " | " + LogSafe.sanitize(description));
         return null;
     }
 
@@ -146,7 +178,8 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         String ids = request.getParameter("id");
         Integer id = Integer.valueOf(ids);
         this.documentDescriptionTemplateDao.remove(id);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, ids, request.getRemoteAddr());
+        LoggedInInfo loggedInInfoDelete = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LogAction.addLog(loggedInInfoDelete != null ? loggedInInfoDelete.getLoggedInProviderNo() : null, LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSafe.sanitize(ids), request.getRemoteAddr());
         return null;
     }
 
@@ -157,7 +190,8 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         if (DocumentDescriptionShorcut == null || !DocumentDescriptionShorcut.equals(UserProperty.USER)) {
             DocumentDescriptionShorcut = UserProperty.CLINIC;
         }
-        String provider = (String) request.getSession().getAttribute("user");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String provider = loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null;
         UserProperty uProperty = userPropertyDAO.getProp(provider, UserProperty.DOCUMENT_DESCRIPTION_TEMPLATE);
         if (uProperty == null) {
             uProperty = new UserProperty();

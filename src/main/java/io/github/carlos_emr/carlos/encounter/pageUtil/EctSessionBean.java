@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarConsultation.data.EctConProviderData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
@@ -135,7 +135,7 @@ public class EctSessionBean implements java.io.Serializable {
     }
 
     /**
-     * sets up the encounter page as befits entrance into the oscarEncounter module from the oscar
+     * sets up the encounter page as befits entrance into the encounter module from the oscar
      * appointment scheduling screen
      */
     public void setUpEncounterPage(LoggedInInfo loggedInInfo) {
@@ -189,7 +189,7 @@ public class EctSessionBean implements java.io.Serializable {
             measurementGroupNames.add(mgs.getGroupName());
         }
 
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
             EChartDao ecDao = SpringUtils.getBean(EChartDao.class);
             List<EChart> ecs = ecDao.getChartsForDemographic(ConversionUtils.fromIntString(demographicNo));
@@ -236,7 +236,7 @@ public class EctSessionBean implements java.io.Serializable {
 
     /**
      * over loaded method sets up the encounter page as befits entrance from the select box of
-     * today's appointments on the oscarEncounter.Index.jsp page
+     * today's appointments on the encounter/Index.jsp page
      *
      * @param appointmentNo
      */
@@ -278,7 +278,7 @@ public class EctSessionBean implements java.io.Serializable {
             templateNames.add(ect.getEncounterTemplateName());
         }
 
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
             EChartDao ecDao = SpringUtils.getBean(EChartDao.class);
             List<EChart> ecs = ecDao.getChartsForDemographic(ConversionUtils.fromIntString(demographicNo));
@@ -348,7 +348,7 @@ public class EctSessionBean implements java.io.Serializable {
     public void setUpEncounterPage(LoggedInInfo loggedInInfo, String echartid, String demographicNo) {
         resetAll();
 
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
             EChartDao ecDao = SpringUtils.getBean(EChartDao.class);
             EChart ec = ecDao.find(ConversionUtils.fromIntString(echartid));
@@ -471,6 +471,106 @@ public class EctSessionBean implements java.io.Serializable {
 
     public String getPatientAge() {
         return patientAge;
+    }
+
+    public String getProviderNo() {
+        return providerNo;
+    }
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public String getAppointmentNo() {
+        return appointmentNo;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public String getReasonCode() {
+        return reasonCode;
+    }
+
+    public String getAppointmentDate() {
+        return appointmentDate;
+    }
+
+    public String getStartTime() {
+        return startTime;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public String getFamilyDoctorNo() {
+        return familyDoctorNo;
+    }
+
+    public String getYearOfBirth() {
+        return yearOfBirth;
+    }
+
+    public String getMonthOfBirth() {
+        return monthOfBirth;
+    }
+
+    public String getDateOfBirth() {
+        return dateOfBirth;
+    }
+
+    public String getSocialHistory() {
+        return socialHistory;
+    }
+
+    public String getFamilyHistory() {
+        return familyHistory;
+    }
+
+    public String getMedicalHistory() {
+        return medicalHistory;
+    }
+
+    public String getOngoingConcerns() {
+        return ongoingConcerns;
+    }
+
+    public String getReminders() {
+        return reminders;
+    }
+
+    public String getEncounter() {
+        return encounter;
+    }
+
+    public String getSubject() {
+        return subject;
+    }
+
+    public String getOscarMsg() {
+        return oscarMsg;
+    }
+
+    public List<String> getTemplateNames() {
+        return templateNames;
+    }
+
+    public Date getCurrentDate() {
+        return currentDate;
+    }
+
+    public Date getEChartTimeStamp() {
+        return eChartTimeStamp;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public String getEChartId() {
+        return eChartId;
     }
 
 }

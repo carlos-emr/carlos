@@ -35,19 +35,20 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpServletResponseWrapper;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
+import jakarta.servlet.http.HttpSession;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Filter class for handling confidentiality note printing. This class works by appending a confidentiality note
@@ -81,7 +82,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
     private Set<String> exclusions = Collections.synchronizedSet(new HashSet<String>());
 
     private String getPrivacyStatement() {
-        if (OscarProperties.getConfidentialityStatement() == null || OscarProperties.getConfidentialityStatement().trim().isEmpty()) {
+        if (CarlosProperties.getConfidentialityStatement() == null || CarlosProperties.getConfidentialityStatement().trim().isEmpty()) {
             return "";
         }
         return "<style type=\"text/css\"><!--\n" +
@@ -95,7 +96,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 "}\n" +
                 "--></style>" +
                 "<p class=\"yesprint\"><b>\n" +
-                OscarProperties.getConfidentialityStatement() +
+                CarlosProperties.getConfidentialityStatement() +
                 "</b><br/>" +
                 "<b>END OF PRINTED DOCUMENT</b>" +
                 "</p>";
@@ -113,11 +114,19 @@ public class PrivacyStatementAppendingFilter implements Filter {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         boolean isConfidentialityNotePrinted = false;
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
+
+        if (isExcluded(httpRequest)) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         try {
             // check if we are the first to print the request here
             isConfidentialityNotePrinted = isConfidentialtyNotePrinted(httpRequest);
@@ -125,26 +134,30 @@ public class PrivacyStatementAppendingFilter implements Filter {
             DelegatingServletResponse delegatingServletResponse = new DelegatingServletResponse(httpResponse);
             chain.doFilter(request, delegatingServletResponse);
 
-            if (isExcluded(httpRequest)) {
+            if (isConfidentialityNotePrinted) {
+                delegatingServletResponse.completeWithoutStatement();
                 return;
             }
 
-            if (isConfidentialityNotePrinted)
-                return;
-
             // ignore this stuff for non-html responses and AJAX queries
             String contentType = delegatingServletResponse.getContentType();
-            if (contentType == null)
+            if (contentType == null) {
+                delegatingServletResponse.completeWithoutStatement();
                 return;
+            }
             boolean isHtmlResponse = contentType.toLowerCase().startsWith("text/html");
-            if (!isHtmlResponse)
+            if (!isHtmlResponse) {
+                delegatingServletResponse.completeWithoutStatement();
                 return;
+            }
 
             // don't append for AJAX queries as well
             String requestedWithHeader = httpRequest.getHeader(HTTP_HEADER_NAME_AJAX_REQUESTED_WITH);
             boolean isAjaxRequest = requestedWithHeader != null && HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH.equalsIgnoreCase(requestedWithHeader);
-            if (isAjaxRequest)
+            if (isAjaxRequest) {
+                delegatingServletResponse.completeWithoutStatement();
                 return;
+            }
 
             printConfidentialityStatement(response, delegatingServletResponse);
         } finally {
@@ -154,21 +167,50 @@ public class PrivacyStatementAppendingFilter implements Filter {
     }
 
     private boolean isExcluded(HttpServletRequest request) {
-        String servletPath = request.getServletPath();
+        String servletPath = getContextRelativePath(request);
         if (servletPath == null) {
             return false;
         }
 
-        servletPath = servletPath.toLowerCase().trim();
+        servletPath = normalizeServletPath(servletPath);
 
         for (String ex : exclusions) {
-            if (servletPath.startsWith(ex)) {
+            if (matchesExcludedPath(servletPath, ex)) {
                 return true;
             }
         }
         return false;
     }
 
+    private String normalizeServletPath(String servletPath) {
+        return servletPath.toLowerCase().trim();
+    }
+
+    private String getContextRelativePath(HttpServletRequest request) {
+        String servletPath = request.getServletPath();
+        if (servletPath == null || servletPath.trim().isEmpty()) {
+            servletPath = request.getRequestURI();
+            String contextPath = request.getContextPath();
+            if (servletPath != null && contextPath != null && !contextPath.isEmpty()
+                    && servletPath.startsWith(contextPath)) {
+                servletPath = servletPath.substring(contextPath.length());
+            }
+        }
+        return servletPath;
+    }
+
+    private boolean matchesExcludedPath(String servletPath, String exclusion) {
+        if (servletPath.equals(exclusion)) {
+            return true;
+        }
+        if (exclusion.endsWith("/")) {
+            return servletPath.startsWith(exclusion);
+        }
+        return servletPath.startsWith(exclusion + "/");
+    }
+
+    // FindSecBugs XSS_SERVLET: writes fixed print-only privacy HTML from trusted system configuration.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "writes fixed print-only privacy HTML from trusted system configuration")
     private void printConfidentialityStatement(ServletResponse response, DelegatingServletResponse delegatingServletResponse) throws IOException {
         if (delegatingServletResponse.isResponseOutputStreamObtained()) {
             response.getOutputStream().write(getPrivacyStatement().getBytes());
@@ -201,6 +243,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         isConfidentialtyNotePrinted = session.getAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED) != null;
         if (!isConfidentialtyNotePrinted)
+            // nosemgrep: tainted-session-from-http-request -- value is hardcoded Boolean.TRUE constant, not user input
             session.setAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED, Boolean.TRUE);
         return isConfidentialtyNotePrinted;
     }
@@ -222,6 +265,10 @@ public class PrivacyStatementAppendingFilter implements Filter {
         @Override
         public void flush() {
             // avoid
+        }
+
+        private void flushDelegate() {
+            super.flush();
         }
 
         @Override
@@ -272,6 +319,12 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         public boolean isResponseOutputStreamObtained() {
             return responseOutputStreamObtained;
+        }
+
+        public void completeWithoutStatement() {
+            if (writer != null) {
+                writer.flushDelegate();
+            }
         }
 
         @Override

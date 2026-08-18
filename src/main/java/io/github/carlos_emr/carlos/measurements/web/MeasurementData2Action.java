@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.measurements.web;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -40,13 +41,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
@@ -57,8 +58,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action controller for measurement data operations in OpenO EMR.
@@ -95,6 +97,8 @@ import org.apache.struts2.ServletActionContext;
  * @see io.github.carlos_emr.carlos.managers.MeasurementManager
  */
 public class MeasurementData2Action extends ActionSupport {
+    private static final String JSON_CONTENT_TYPE = "application/json; charset=UTF-8";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -146,6 +150,9 @@ public class MeasurementData2Action extends ActionSupport {
 
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "IMPROPER_UNICODE"}, justification = "XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink. case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getLatestValues() throws IOException {
         String demographicNo = request.getParameter("demographicNo");
         String typeStr = request.getParameter("types");
@@ -196,7 +203,7 @@ public class MeasurementData2Action extends ActionSupport {
             Measurement value = measurementMap.get(key);
             if ((freshMap.get(key) == null) || (freshMap.get(key) != null && value.getAppointmentNo() == Integer.parseInt(appointmentNo))) {
                 //script.append("jQuery(\"[measurement='"+key+"']\").val(\""+value.getDataField().replace("\n", "\\n")+"\").attr({itemtime: \"" + value.getCreateDate().getTime() + "\", appointment_no: \"" + value.getAppointmentNo() + "\"});\n");
-                script.append("jQuery(\"[measurement='" + key + "']\").val(\"" + StringEscapeUtils.escapeEcmaScript(value.getDataField()) + "\").attr({itemtime: \"" + value.getCreateDate().getTime() + "\", appointment_no: \"" + value.getAppointmentNo() + "\"});\n");
+                script.append("jQuery(\"[measurement='" + key + "']\").val(\"" + Encode.forJavaScript(value.getDataField()) + "\").attr({itemtime: \"" + value.getCreateDate().getTime() + "\", appointment_no: \"" + value.getAppointmentNo() + "\"});\n");
                 if (apptNo > 0 && apptNo == value.getAppointmentNo()) {
                     script.append("jQuery(\"[measurement='" + key + "']\").addClass('examfieldwhite');\n");
                 }
@@ -244,10 +251,13 @@ public class MeasurementData2Action extends ActionSupport {
         if (nctTs != null)
             script.append("jQuery(\"#nct_ts\").html('" + sdf.format(nctTs) + "');\n");
 
+        response.setContentType("application/javascript; charset=UTF-8");
         response.getWriter().print(script);
         return null;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getMeasurementsGroupByDate() throws Exception {
         String demographicNo = request.getParameter("demographicNo");
         String[] types = (request.getParameter("types") != null ? request.getParameter("types") : "").split(",");
@@ -273,7 +283,7 @@ public class MeasurementData2Action extends ActionSupport {
 
         if (isJsonRequest) {
             String json = objectMapper.writeValueAsString(measurementsMap);
-            response.getOutputStream().write(json.getBytes());
+            writeJson(json);
         }
         return null;
     }
@@ -326,17 +336,19 @@ public class MeasurementData2Action extends ActionSupport {
 
             hashMap.put("success", true);
             String json = objectMapper.writeValueAsString(hashMap);
-            response.getOutputStream().write(json.getBytes());
+            writeJson(json);
         } else {
             hashMap.put("success", false);
             String json = objectMapper.writeValueAsString(hashMap);
-            response.getOutputStream().write(json.getBytes());
+            writeJson(json);
         }
 
         return null;
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveValues() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -381,7 +393,7 @@ public class MeasurementData2Action extends ActionSupport {
                 HashMap<String, Object> hashMap = new HashMap<String, Object>();
                 hashMap.put("success", true);
                 String json = objectMapper.writeValueAsString(hashMap);
-                response.getOutputStream().write(json.getBytes());
+                writeJson(json);
             }
 
         } catch (Exception e) {
@@ -389,7 +401,7 @@ public class MeasurementData2Action extends ActionSupport {
             hashMap.put("success", false);
             MiscUtils.getLogger().error("Couldn't save measurements", e);
             String json = objectMapper.writeValueAsString(hashMap);
-            response.getOutputStream().write(json.getBytes());
+            writeJson(json);
         }
 
         return null;
@@ -424,8 +436,7 @@ public class MeasurementData2Action extends ActionSupport {
             }
         }
 
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
+        response.setContentType(JSON_CONTENT_TYPE);
 
         objectMapper.writeValue(response.getWriter(), json);
         return null;
@@ -451,7 +462,12 @@ public class MeasurementData2Action extends ActionSupport {
             }
         }
 
-        response.getOutputStream().write(json.toString().getBytes());
+        writeJson(json.toString());
         return null;
+    }
+
+    private void writeJson(String json) throws IOException {
+        response.setContentType(JSON_CONTENT_TYPE);
+        response.getOutputStream().write(json.getBytes(StandardCharsets.UTF_8));
     }
 }

@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.integration.fhir.model;
 
 import java.io.UnsupportedEncodingException;
 
-import javax.xml.bind.DatatypeConverter;
+import jakarta.xml.bind.DatatypeConverter;
 
 import org.hl7.fhir.dstu3.model.Attachment;
 import org.hl7.fhir.dstu3.model.ClinicalImpression.ClinicalImpressionStatus;

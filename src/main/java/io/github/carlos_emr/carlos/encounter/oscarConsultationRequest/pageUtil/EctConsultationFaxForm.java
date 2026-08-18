@@ -35,7 +35,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashSet;
 import java.util.Set;
 

@@ -47,16 +47,17 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtConstants;
 import io.github.carlos_emr.carlos.integration.mcedt.ResourceForm;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import ca.ontario.health.edt.Detail;
 import ca.ontario.health.edt.DetailData;
@@ -66,6 +67,7 @@ import ca.ontario.health.edt.TypeListData;
 import ca.ontario.health.edt.TypeListResult;
 import ca.ontario.health.edt.UpdateRequest;
 import ca.ontario.health.edt.UploadData;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Defines utility methods for action classes.
@@ -79,7 +81,7 @@ public class ActionUtils {
     }
 
     static void setDetails(HttpServletRequest request, Detail detail) {
-        request.getSession().setAttribute(McedtConstants.SESSION_KEY_RESOURCE_LIST, detail);
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_RESOURCE_LIST, detail); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
     }
 
     static void removeDetails(HttpServletRequest request) {
@@ -92,7 +94,7 @@ public class ActionUtils {
     }
 
     static void setResourceList(HttpServletRequest request, List<DetailDataCustom> resourceList) {
-        request.getSession().setAttribute(McedtConstants.SESSION_KEY_CUSTOM_RESOURCE_LIST, resourceList);
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_CUSTOM_RESOURCE_LIST, resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
     }
 
     static void removeResourceList(HttpServletRequest request) {
@@ -132,7 +134,7 @@ public class ActionUtils {
         List<T> result = (List<T>) session.getAttribute(sessionKey);
         if (result == null) {
             result = new ArrayList<T>();
-            session.setAttribute(sessionKey, result);
+            session.setAttribute(sessionKey, result); // nosemgrep: tainted-session-from-http-request -- initialized empty list, not from user input
         }
         return result;
     }
@@ -160,7 +162,7 @@ public class ActionUtils {
     }
 
     static void setTypeList(HttpServletRequest request, TypeListResult result) {
-        request.getSession().setAttribute(McedtConstants.SESSION_KEY_TYPE_LIST, result);
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_TYPE_LIST, result); // nosemgrep: tainted-session-from-http-request -- MCEDT type list from EDT service response
     }
 
     static void removeTypeList(HttpServletRequest request) {
@@ -174,7 +176,7 @@ public class ActionUtils {
     }
 
     static void setUploadResourceId(HttpServletRequest request, BigInteger result) {
-        request.getSession().setAttribute(McedtConstants.SESSION_KEY_UPLOAD_RESOURCE_ID, result);
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_UPLOAD_RESOURCE_ID, result); // nosemgrep: tainted-session-from-http-request -- resource ID from EDT service response object
     }
 
     static void removeUploadResourceId(HttpServletRequest request) {
@@ -182,7 +184,7 @@ public class ActionUtils {
     }
 
     static void setUploadedFileName(HttpServletRequest request, String result) {
-        request.getSession().setAttribute(McedtConstants.SESSION_KEY_UPLOAD_FILENAME, result);
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_UPLOAD_FILENAME, result); // nosemgrep: tainted-session-from-http-request -- upload detail from validated MCEDT submission
     }
 
     static void removeUploadFileName(HttpServletRequest request) {
@@ -198,7 +200,7 @@ public class ActionUtils {
         List<File> files = ActionUtils.getSuccessfulUploads(request);
         if (files == null) files = new ArrayList<File>();
         files.add(result);
-        request.getSession().setAttribute(McedtConstants.SESSION_SUCCESSFUL_UPLOADS, files);
+        request.getSession().setAttribute(McedtConstants.SESSION_SUCCESSFUL_UPLOADS, files); // nosemgrep: tainted-session-from-http-request -- upload detail from validated MCEDT submission
     }
 
     static void removeSuccessfulUploads(HttpServletRequest request) {
@@ -214,7 +216,7 @@ public class ActionUtils {
         List<ResponseResult> results = ActionUtils.getUploadResponseResults(request);
         if (results == null) results = new ArrayList<ResponseResult>();
         results.add(result);
-        request.getSession().setAttribute(McedtConstants.SESSION_KEY_UPLOAD_RESPONSE_RESULT, results);
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_UPLOAD_RESPONSE_RESULT, results); // nosemgrep: tainted-session-from-http-request -- upload detail from validated MCEDT submission
     }
 
     static void removeUploadResponseResults(HttpServletRequest request) {
@@ -230,7 +232,7 @@ public class ActionUtils {
         List<ResponseResult> results = ActionUtils.getSubmitResponseResults(request);
         if (results == null) results = new ArrayList<ResponseResult>();
         results.add(result);
-        request.getSession().setAttribute(McedtConstants.SESSION_KEY_SUBMIT_RESPONSE_RESULT, results);
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_SUBMIT_RESPONSE_RESULT, results); // nosemgrep: tainted-session-from-http-request -- upload detail from validated MCEDT submission
     }
 
     static void removeSubmitResponseResults(HttpServletRequest request) {
@@ -239,22 +241,24 @@ public class ActionUtils {
 
     public static List<File> getUploadList() {
         List<File> edtUploadList = new ArrayList<File>();
-        OscarProperties props = OscarProperties.getInstance();
-        File outbox = new File(props.getProperty("ONEDT_OUTBOX", ""));
+        CarlosProperties props = CarlosProperties.getInstance();
+        String outboxPath = props.getProperty("ONEDT_OUTBOX", "");
+        if (outboxPath == null || outboxPath.trim().isEmpty()) {
+            logger.warn("ONEDT_OUTBOX is not configured; returning empty upload list");
+            return edtUploadList;
+        }
+        File outbox = PathValidationUtils.resolveConfiguredDirectory(outboxPath, "ONEDT_OUTBOX");
         FileFilter fileFilter = new FileFilter() {
             public boolean accept(File file) {
                 return file.isFile() && !file.isHidden();
             }
         };
         File[] toEdt = outbox.listFiles(fileFilter);
-        if (toEdt != null) {
-            Arrays.sort(toEdt, new Comparator<File>() {
-                public int compare(File f1, File f2) {
-                    return Long.valueOf(f1.lastModified()).compareTo(f2.lastModified());
-                }
-            });
-
+        if (toEdt == null) {
+            logger.warn("ONEDT_OUTBOX directory is missing or unreadable; returning empty upload list");
+            return edtUploadList;
         }
+        Arrays.sort(toEdt, Comparator.comparingLong(File::lastModified));
         for (File file : toEdt) {
             edtUploadList.add(file);
         }
@@ -270,6 +274,8 @@ public class ActionUtils {
         return false;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isOBECFile(String filename) {
         String suffix = filename.substring(filename.lastIndexOf(".") + 1);
         String prefix = "";
@@ -283,9 +289,9 @@ public class ActionUtils {
 
     public static void moveOhipToOutBox(Date startDate, Date endDate) {
         try {
-            OscarProperties props = OscarProperties.getInstance();
-            File generatedFiles = new File(props.getProperty("HOME_DIR", ""));
-            File outbox = new File(props.getProperty("ONEDT_OUTBOX", ""));
+            CarlosProperties props = CarlosProperties.getInstance();
+            File generatedFiles = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("HOME_DIR", ""), "HOME_DIR");
+            File outbox = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
             FileFilter fileFilter = new FileFilter() {
                 public boolean accept(File file) {
                     return (file.isFile() && !file.isHidden() && ActionUtils.isOHIPFile(file.getName()));
@@ -318,9 +324,9 @@ public class ActionUtils {
 	 */
     public static void moveObecToOutBox(Date startDate, Date endDate) {
         try {
-            OscarProperties props = OscarProperties.getInstance();
-            File generatedFiles = new File(props.getProperty("DOCUMENT_DIR", ""));
-            File outbox = new File(props.getProperty("ONEDT_OUTBOX", ""));
+            CarlosProperties props = CarlosProperties.getInstance();
+            File generatedFiles = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("DOCUMENT_DIR", ""), "DOCUMENT_DIR");
+            File outbox = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
             FileFilter fileFilter = new FileFilter() {
                 public boolean accept(File file) {
                     return (file.isFile() && !file.isHidden() && ActionUtils.isOBECFile(file.getName()));
@@ -345,8 +351,13 @@ public class ActionUtils {
     }
 
     public static void createOnEDTOutboxDir() {
-        OscarProperties props = OscarProperties.getInstance();
-        File dateDir = new File(props.getProperty("ONEDT_OUTBOX", ""));
+        CarlosProperties props = CarlosProperties.getInstance();
+        String outboxPath = props.getProperty("ONEDT_OUTBOX", "");
+        if (outboxPath == null || outboxPath.trim().isEmpty()) {
+            logger.warn("ONEDT_OUTBOX is not configured; skipping outbox directory creation");
+            return;
+        }
+        File dateDir = PathValidationUtils.resolveConfiguredDirectory(outboxPath, "ONEDT_OUTBOX");
         if (!dateDir.exists()) dateDir.mkdirs();
     }
 
@@ -354,11 +365,10 @@ public class ActionUtils {
         Date startDate = new Date();
         try {
             SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH:mm");
-            OscarProperties props = OscarProperties.getInstance();
-            //File dateFile = new File(props.getProperty("ONEDT_OUTBOX", "") + ".timestamp");
-            File dateDir = new File(props.getProperty("ONEDT_OUTBOX", ""));
+            CarlosProperties props = CarlosProperties.getInstance();
+            File dateDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
             if (!dateDir.exists()) dateDir.mkdirs();
-            File dateFile = new File(dateDir, ".timestamp");
+            File dateFile = PathValidationUtils.validateGeneratedChildPath(".timestamp", dateDir);
             if (!dateFile.exists()) dateFile.createNewFile();
             BufferedReader br = new BufferedReader(new FileReader(dateFile));
             String temp = br.readLine().trim();
@@ -375,8 +385,8 @@ public class ActionUtils {
     public static void setOutboxTimestamp(Date endDate) {
         try {
             SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH:mm");
-            OscarProperties props = OscarProperties.getInstance();
-            File dateFile = new File(props.getProperty("ONEDT_OUTBOX", "") + ".timestamp");
+            CarlosProperties props = CarlosProperties.getInstance();
+            File dateFile = PathValidationUtils.validateGeneratedSiblingPath(props.getProperty("ONEDT_OUTBOX", ""), ".timestamp", "ONEDT_OUTBOX timestamp");
             if (!dateFile.exists()) dateFile.createNewFile();
             BufferedWriter bw = new BufferedWriter(new FileWriter(dateFile));
             bw.write(formatter.format(endDate));
@@ -403,6 +413,8 @@ public class ActionUtils {
         return result;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static String getTypeDescription(ResourceForm form, String typeCode) {
 
         String typeDesc = "";
@@ -472,7 +484,7 @@ public class ActionUtils {
 
     public static void moveFileToDirectory(File srcFile, File destDir, boolean createDestDir, boolean override) throws IOException {
         if (override) {
-            File checkFile = new File(destDir.getAbsolutePath() + File.separator + srcFile.getName());
+            File checkFile = PathValidationUtils.validateGeneratedChildPath(srcFile.getName(), destDir);
             if (checkFile.exists()) FileUtils.forceDelete(checkFile);
         }
         FileUtils.moveFileToDirectory(srcFile, destDir, createDestDir);
@@ -480,7 +492,7 @@ public class ActionUtils {
 
     public static void copyFileToDirectory(File srcFile, File destDir, boolean createDestDir, boolean override) throws IOException {
         if (override) {
-            File checkFile = new File(destDir.getAbsolutePath() + File.separator + srcFile.getName());
+            File checkFile = PathValidationUtils.validateGeneratedChildPath(srcFile.getName(), destDir);
             if (checkFile.exists()) FileUtils.forceDelete(checkFile);
         }
         FileUtils.copyFileToDirectory(srcFile, destDir, createDestDir);
@@ -496,13 +508,13 @@ public class ActionUtils {
             }
             if (serviceId.length() == 6) return serviceId;
         }
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         serviceId = props.getProperty("mcedt.service.id");
         return serviceId;
     }
 
     public static List<String> getServiceIds() {
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String id = props.getProperty("mcedt.service.id");
         String ids = props.getProperty("mcedt.service.designated.ids");
         List<String> serviceIds = new ArrayList<String>();
@@ -513,7 +525,7 @@ public class ActionUtils {
     }
 
     public static String getDefaultServiceId() {
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String serviceId = props.getProperty("mcedt.service.id");
         return serviceId;
     }

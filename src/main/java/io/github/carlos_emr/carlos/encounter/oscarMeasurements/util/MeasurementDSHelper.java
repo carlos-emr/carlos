@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasureme
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author jay
@@ -139,6 +140,8 @@ public class MeasurementDSHelper {
         return problem;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean isMale() {
         boolean ismale = false;
         if (sex != null && sex.trim().equalsIgnoreCase("M")) {
@@ -147,6 +150,8 @@ public class MeasurementDSHelper {
         return ismale;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean isFemale() {
         boolean isfemale = false;
         if (sex != null && sex.trim().equalsIgnoreCase("F")) {
@@ -155,6 +160,8 @@ public class MeasurementDSHelper {
         return isfemale;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean isDataEqualTo(String str) {
         boolean equal = false;
         try {
@@ -204,9 +211,12 @@ public class MeasurementDSHelper {
 
     public double getNumberFromSplit(String delimiter, int number) {
         double ret = -1;
+        if (mdb == null) {
+            return ret;
+        }
         try {
             String data = mdb.getDataField();
-            log.debug("Trying to parse " + data);
+            log.debug("Parsing measurement field with delimiter='{}' index={}", delimiter, number);
             ret = Double.parseDouble(data.split(delimiter)[number]);
         } catch (Exception e) {
 
@@ -217,8 +227,12 @@ public class MeasurementDSHelper {
     }
 
     public void setIndicationColor(String c) {
-        log.debug("SETTING COLOUR TO " + c);
-        mdb.setIndicationColour(c);
+        log.debug("SETTING COLOUR TO {}", c);
+        if (mdb != null) {
+            mdb.setIndicationColour(c);
+        } else {
+            log.warn("setIndicationColor('{}') called but no measurement data is loaded (mdb is null); colour will be lost", c);
+        }
     }
 
     public boolean isInRange() {
@@ -230,10 +244,17 @@ public class MeasurementDSHelper {
     }
 
     public String getDateObserved() {
+        if (mdb == null) {
+            return null;
+        }
         return mdb.getDateObserved();
     }
 
     public int getLastDateRecordedInMths() {
+        if (mdb == null) {
+            throw new IllegalStateException(
+                    "No measurement data loaded; call setMeasurement() before getLastDateRecordedInMths()");
+        }
         int mths = 0;
 
         Date date = mdb.getDateObservedAsDate();

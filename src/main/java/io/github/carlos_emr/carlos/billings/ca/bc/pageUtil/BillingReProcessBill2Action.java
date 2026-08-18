@@ -37,21 +37,23 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPBillingNote;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
@@ -63,10 +65,13 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class BillingReProcessBill2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -78,9 +83,14 @@ public class BillingReProcessBill2Action extends ActionSupport {
     //Misc misc = new Misc();
     MSPReconcile msp = new MSPReconcile();
 
-    public String execute() throws IOException, ServletException {
-        if (request.getSession().getAttribute("user") == null) {
+    public String execute() throws IOException, ServletException {        if (request.getSession().getAttribute("user") == null) {
             return "Logout";
+        }
+
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
         }
 
         boolean massEdit = request.getParameter("billCheck") != null;
@@ -99,19 +109,19 @@ public class BillingReProcessBill2Action extends ActionSupport {
         }
 
         for (BillingReProcessBill2Form frm : billingReProcessBillFormList) {
-            String dataCenterId = OscarProperties.getInstance().getProperty("dataCenterId");
+            String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
             String billingmasterNo = frm.getBillingmasterNo();
             String demographicNo = frm.getDemoNo();
             DemographicData demoD = new DemographicData();
             Demographic demo = demoD.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
 
-            logger.debug("RETRIEVING Using " + billingmasterNo);
+            logger.debug("RETRIEVING Using {}", LogSafe.sanitize(billingmasterNo));
             Billingmaster billingmaster = billingmasterDAO.getBillingMasterByBillingMasterNo(billingmasterNo);
             Billing bill = billingmasterDAO.getBilling(billingmaster.getBillingNo());
 
 
             String billingType = bill.getBillingtype();
-            logger.debug("type " + billingType);
+            logger.debug("type {}", LogSafe.sanitize(billingType));
 
 
             BillingFormData billform = new BillingFormData();
@@ -192,7 +202,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
             String hcType = demo.getHcType(); //d
 
             String messageNotes = frm.getMessageNotes();
-            String billRegion = OscarProperties.getInstance().getProperty("billregion");
+            String billRegion = CarlosProperties.getInstance().getProperty("billregion");
             String submit = frm.getSubmit();
             String secondSQL = null;
 
@@ -235,11 +245,16 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 String seqNum = frm.getDebitRequestSeqNum();
                 String dateRecieved = frm.getDebitRequestDate();
                 try {
+                    if (dateRecieved == null || dateRecieved.trim().isEmpty()) {
+                        throw new NumberFormatException("missing debit request date");
+                    }
                     dateRecieved = dateRecieved.trim();
                     Integer.parseInt(dateRecieved);
-                } catch (Exception e) {
-                    MiscUtils.getLogger().error("Error", e);
-                    dateRecieved = "";
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(
+                            "BC debit request date is malformed ["
+                                    + LogSafe.sanitizeForDisplay(dateRecieved) + "]",
+                            e);
                 }
 
                 originalMSPNumber = constructOriginalMSPNumber(dataCenterId, seqNum, dateRecieved);
@@ -283,7 +298,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 //BillingCodeData bcd = new BillingCodeData();
                 //BillingService billingService = bcd.getBillingCodeByCode(billingServiceCode, new Date());
                 String codePrice = StringUtils.isNullOrEmpty(request.getParameter("billingAmount")) ? (StringUtils.isNullOrEmpty(frm.getBillingAmount()) ? "0.00" : frm.getBillingAmount()) : request.getParameter("billingAmount"); //billingService.getValue();
-                logger.debug("codePrice=" + codePrice + " amount on form " + request.getParameter("billingAmount"));
+                logger.debug("codePrice={} amount on form {}", LogSafe.sanitize(codePrice), LogSafe.sanitize(request.getParameter("billingAmount")));
 
                 if ("E".equals(payment_mode)) {
                     codePrice = "0.00";
@@ -296,7 +311,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 billingServicePrice = bdFee.toString();
             } catch (NumberFormatException e) {
                 MiscUtils.getLogger().error("Error", e);
-                throw new RuntimeException("BC BILLING - Exception when attempting to multiply Bill Amount by Unit ");
+                throw new RuntimeException("BC BILLING - Exception when attempting to multiply Bill Amount by Unit ", e);
             }
             bill.setProviderOhipNo(practitionerNo);
             bill.setBillingDate(MyDateFormat.getSysDate(serviceDate));
@@ -360,12 +375,12 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 MiscUtils.getLogger().warn("warning", e);
             }
             bill.setProviderNo(providerNo);
-            logger.debug("WHAT IS BILL <ASTER " + billingmaster.getBillingmasterNo());
+            logger.debug("WHAT IS BILL <ASTER {}", LogSafe.sanitize(String.valueOf(billingmaster.getBillingmasterNo())));
             billingmasterDAO.update(billingmaster);
             billingmasterDAO.update(bill);
 
-            logger.debug("type 2" + bill.getBillingtype());
-            logger.debug("WHAT IS BILL <ASTER2 " + billingmaster.getBillingmasterNo());
+            logger.debug("type 2 {}", LogSafe.sanitize(bill.getBillingtype()));
+            logger.debug("WHAT IS BILL <ASTER2 {}", LogSafe.sanitize(String.valueOf(billingmaster.getBillingmasterNo())));
 
 
             if (!StringUtils.isNullOrEmpty(billingStatus)) {  //What if billing status is null?? the status just doesn't get updated but everything else does??'
@@ -398,13 +413,13 @@ public class BillingReProcessBill2Action extends ActionSupport {
 
             if (correspondenceCode.equals("N") || correspondenceCode.equals("B")) {
                 MSPBillingNote n = new MSPBillingNote();
-                n.addNote(billingmasterNo, (String) request.getSession().getAttribute("user"), frm.getNotes());
+                n.addNote(billingmasterNo, LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), frm.getNotes());
             }
 
             if (messageNotes != null) {
                 BillingNote n = new BillingNote();
                 if (n.hasNote(billingmasterNo) || !messageNotes.trim().equals("")) {
-                    n.addNote(billingmasterNo, (String) request.getSession().getAttribute("user"), messageNotes);
+                    n.addNote(billingmasterNo, LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), messageNotes);
                 }
             }
 
@@ -421,7 +436,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
     private String[] getServiceCodePrice(String billingServiceCode, boolean usePrefix) {
         String prepend = usePrefix ? "A" : "";
         String[] privateCodeRecord = SqlUtils.getRow(
-                "select value from billingservice where service_code = '" + prepend + billingServiceCode + "'");
+                "select value from billingservice where service_code = ?", prepend + billingServiceCode);
         return privateCodeRecord;
     }
 
@@ -432,9 +447,8 @@ public class BillingReProcessBill2Action extends ActionSupport {
      * @return String
      */
     private String getPersistedBillType(String billingmasterNo) {
-        String qry = "select billingstatus from billingmaster where billingmaster.billingmaster_no = " +
-                billingmasterNo;
-        String row[] = SqlUtils.getRow(qry);
+        String qry = "select billingstatus from billingmaster where billingmaster.billingmaster_no = ?";
+        String row[] = SqlUtils.getRow(qry, billingmasterNo);
         String ret = null;
         if (row != null) {
             ret = row[0];
@@ -449,7 +463,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
      */
     public String convertDate8Char(String s) {
         String sdate = "00000000", syear = "", smonth = "", sday = "";
-        logger.debug("s=" + s);
+        logger.debug("s={}", LogSafe.sanitize(s));
         if (s != null) {
 
             if (s.indexOf("-") != -1) {
@@ -466,13 +480,13 @@ public class BillingReProcessBill2Action extends ActionSupport {
                     sday = "0" + sday;
                 }
 
-                logger.debug("Year" + syear + " Month" + smonth + " Day" + sday);
+                logger.debug("Year{} Month{} Day{}", LogSafe.sanitize(syear), LogSafe.sanitize(smonth), LogSafe.sanitize(sday));
                 sdate = syear + smonth + sday;
 
             } else {
                 sdate = s;
             }
-            logger.debug("sdate:" + sdate);
+            logger.debug("sdate:{}", LogSafe.sanitize(sdate));
         } else {
             sdate = "00000000";
 
@@ -708,6 +722,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return billingmasterNo;
     }
 
+    @StrutsParameter
     public void setBillingmasterNo(String billingmasterNo) {
         this.billingmasterNo = billingmasterNo;
     }
@@ -716,6 +731,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return insurerCode;
     }
 
+    @StrutsParameter
     public void setInsurerCode(String insurerCode) {
         this.insurerCode = insurerCode;
     }
@@ -724,6 +740,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return provider_no;
     }
 
+    @StrutsParameter
     public void setProvider_no(String provider_no) {
         this.provider_no = provider_no;
     }
@@ -732,6 +749,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return demoNo;
     }
 
+    @StrutsParameter
     public void setDemoNo(String demoNo) {
         this.demoNo = demoNo;
     }
@@ -740,6 +758,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return dependentNo;
     }
 
+    @StrutsParameter
     public void setDependentNo(String dependentNo) {
         this.dependentNo = dependentNo;
     }
@@ -748,6 +767,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return afterHours;
     }
 
+    @StrutsParameter
     public void setAfterHours(String afterHours) {
         this.afterHours = afterHours;
     }
@@ -756,6 +776,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return status;
     }
 
+    @StrutsParameter
     public void setStatus(String status) {
         this.status = status;
     }
@@ -764,6 +785,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return submit;
     }
 
+    @StrutsParameter
     public void setSubmit(String submit) {
         this.submit = submit;
     }
@@ -772,6 +794,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return billNumber;
     }
 
+    @StrutsParameter
     public void setBillNumber(String billNumber) {
         this.billNumber = billNumber;
     }
@@ -780,6 +803,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return locationVisit;
     }
 
+    @StrutsParameter
     public void setLocationVisit(String locationVisit) {
         this.locationVisit = locationVisit;
     }
@@ -788,6 +812,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return anatomicalArea;
     }
 
+    @StrutsParameter
     public void setAnatomicalArea(String anatomicalArea) {
         this.anatomicalArea = anatomicalArea;
     }
@@ -796,6 +821,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return newProgram;
     }
 
+    @StrutsParameter
     public void setNewProgram(String newProgram) {
         this.newProgram = newProgram;
     }
@@ -804,6 +830,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return service_code;
     }
 
+    @StrutsParameter
     public void setService_code(String service_code) {
         this.service_code = service_code;
     }
@@ -812,6 +839,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return billing_unit;
     }
 
+    @StrutsParameter
     public void setBilling_unit(String billing_unit) {
         this.billing_unit = billing_unit;
     }
@@ -820,6 +848,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return billing_amount;
     }
 
+    @StrutsParameter
     public void setBilling_amount(String billing_amount) {
         this.billing_amount = billing_amount;
     }
@@ -828,6 +857,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return billingUnit;
     }
 
+    @StrutsParameter
     public void setBillingUnit(String billingUnit) {
         this.billingUnit = billingUnit;
     }
@@ -836,6 +866,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return billingAmount;
     }
 
+    @StrutsParameter
     public void setBillingAmount(String billingAmount) {
         this.billingAmount = billingAmount;
     }
@@ -844,6 +875,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return dx1;
     }
 
+    @StrutsParameter
     public void setDx1(String dx1) {
         this.dx1 = dx1;
     }
@@ -852,6 +884,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return dx2;
     }
 
+    @StrutsParameter
     public void setDx2(String dx2) {
         this.dx2 = dx2;
     }
@@ -860,6 +893,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return dx3;
     }
 
+    @StrutsParameter
     public void setDx3(String dx3) {
         this.dx3 = dx3;
     }
@@ -868,6 +902,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return paymentMode;
     }
 
+    @StrutsParameter
     public void setPaymentMode(String paymentMode) {
         this.paymentMode = paymentMode;
     }
@@ -876,6 +911,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return submissionCode;
     }
 
+    @StrutsParameter
     public void setSubmissionCode(String submissionCode) {
         this.submissionCode = submissionCode;
     }
@@ -884,6 +920,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return serviceDate;
     }
 
+    @StrutsParameter
     public void setServiceDate(String serviceDate) {
         this.serviceDate = serviceDate;
     }
@@ -892,6 +929,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return serviceToDay;
     }
 
+    @StrutsParameter
     public void setServiceToDay(String serviceToDay) {
         this.serviceToDay = serviceToDay;
     }
@@ -900,6 +938,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return serviceLocation;
     }
 
+    @StrutsParameter
     public void setServiceLocation(String serviceLocation) {
         this.serviceLocation = serviceLocation;
     }
@@ -908,6 +947,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return referalPracCD1;
     }
 
+    @StrutsParameter
     public void setReferalPracCD1(String referalPracCD1) {
         this.referalPracCD1 = referalPracCD1;
     }
@@ -916,6 +956,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return referalPrac1;
     }
 
+    @StrutsParameter
     public void setReferalPrac1(String referalPrac1) {
         this.referalPrac1 = referalPrac1;
     }
@@ -924,6 +965,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return referalPracCD2;
     }
 
+    @StrutsParameter
     public void setReferalPracCD2(String referalPracCD2) {
         this.referalPracCD2 = referalPracCD2;
     }
@@ -932,6 +974,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return referalPrac2;
     }
 
+    @StrutsParameter
     public void setReferalPrac2(String referalPrac2) {
         this.referalPrac2 = referalPrac2;
     }
@@ -940,6 +983,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return timeCallRec;
     }
 
+    @StrutsParameter
     public void setTimeCallRec(String timeCallRec) {
         this.timeCallRec = timeCallRec;
     }
@@ -948,6 +992,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return startTime;
     }
 
+    @StrutsParameter
     public void setStartTime(String startTime) {
         this.startTime = startTime;
     }
@@ -956,6 +1001,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return finishTime;
     }
 
+    @StrutsParameter
     public void setFinishTime(String finishTime) {
         this.finishTime = finishTime;
     }
@@ -964,6 +1010,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return correspondenceCode;
     }
 
+    @StrutsParameter
     public void setCorrespondenceCode(String correspondenceCode) {
         this.correspondenceCode = correspondenceCode;
     }
@@ -972,6 +1019,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return mvaClaim;
     }
 
+    @StrutsParameter
     public void setMvaClaim(String mvaClaim) {
         this.mvaClaim = mvaClaim;
     }
@@ -980,6 +1028,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return shortComment;
     }
 
+    @StrutsParameter
     public void setShortComment(String shortComment) {
         this.shortComment = shortComment;
     }
@@ -988,6 +1037,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return icbcClaim;
     }
 
+    @StrutsParameter
     public void setIcbcClaim(String icbcClaim) {
         this.icbcClaim = icbcClaim;
     }
@@ -996,6 +1046,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return facilityNum;
     }
 
+    @StrutsParameter
     public void setFacilityNum(String facilityNum) {
         this.facilityNum = facilityNum;
     }
@@ -1004,6 +1055,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return facilitySubNum;
     }
 
+    @StrutsParameter
     public void setFacilitySubNum(String facilitySubNum) {
         this.facilitySubNum = facilitySubNum;
     }
@@ -1012,6 +1064,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return notes;
     }
 
+    @StrutsParameter
     public void setNotes(String notes) {
         this.notes = notes;
     }
@@ -1020,6 +1073,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return dependent;
     }
 
+    @StrutsParameter
     public void setDependent(String dependent) {
         this.dependent = dependent;
     }
@@ -1028,6 +1082,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return messageNotes;
     }
 
+    @StrutsParameter
     public void setMessageNotes(String messageNotes) {
         this.messageNotes = messageNotes;
     }
@@ -1036,6 +1091,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return debitRequestSeqNum;
     }
 
+    @StrutsParameter
     public void setDebitRequestSeqNum(String debitRequestSeqNum) {
         this.debitRequestSeqNum = debitRequestSeqNum;
     }
@@ -1044,6 +1100,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return debitRequestDate;
     }
 
+    @StrutsParameter
     public void setDebitRequestDate(String debitRequestDate) {
         this.debitRequestDate = debitRequestDate;
     }
@@ -1052,6 +1109,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return adjAmount;
     }
 
+    @StrutsParameter
     public void setAdjAmount(String adjAmount) {
         this.adjAmount = adjAmount;
     }
@@ -1060,16 +1118,19 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return adjType;
     }
 
+    @StrutsParameter
     public void setAdjType(String adjType) {
         this.adjType = adjType;
     }
 
     private BillingReProcessBill2Form form;
 
+    @StrutsParameter(depth = 1)
     public BillingReProcessBill2Form getForm() {
         return form;
     }
 
+    @StrutsParameter
     public void setForm(BillingReProcessBill2Form form) {
         this.form = form;
     }

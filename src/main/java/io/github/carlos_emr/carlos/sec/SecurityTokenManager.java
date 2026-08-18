@@ -32,34 +32,63 @@ package io.github.carlos_emr.carlos.sec;
 
 import java.io.IOException;
 
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.ReflectionConstants;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public abstract class SecurityTokenManager {
 
-    static SecurityTokenManager instance = null;
+    private static SecurityTokenManager instance = null;
 
-    public static SecurityTokenManager getInstance() {
+    /**
+     * Allowed package prefix for SecurityTokenManager implementation class loading.
+     *
+     * <p>The implementation class name is read from {@code sec.token.manager} in the
+     * server-side properties file. This prefix check is a defence-in-depth measure
+     * to prevent arbitrary class instantiation if the properties file is tampered with.</p>
+     *
+     * @see ReflectionConstants#CARLOS_PACKAGE_PREFIX
+     */
+    private static final String ALLOWED_PACKAGE_PREFIX = ReflectionConstants.CARLOS_PACKAGE_PREFIX;
+
+    public static synchronized SecurityTokenManager getInstance() {
         if (instance != null) {
             return instance;
         }
 
-        String managerName = OscarProperties.getInstance().getProperty("sec.token.manager");
+        String managerName = CarlosProperties.getInstance().getProperty("sec.token.manager");
         if (managerName != null) {
+            managerName = managerName.trim();
+            if (managerName.isEmpty()) {
+                return null;
+            }
+            if (!managerName.startsWith(ALLOWED_PACKAGE_PREFIX)) {
+                MiscUtils.getLogger().error("Rejected token manager class outside allowed package: {}",
+                        LogSafe.sanitize(managerName));
+                throw new IllegalStateException("Configured token manager is outside the allowed package");
+            }
             try {
-                instance = (SecurityTokenManager) Class.forName(managerName).newInstance();
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Unable to load token manager");
+                instance = (SecurityTokenManager) Class.forName(managerName) // nosemgrep: unsafe-reflection -- managerName is validated against ALLOWED_PACKAGE_PREFIX above
+                        .getDeclaredConstructor().newInstance();
+            } catch (ReflectiveOperationException | ClassCastException | LinkageError e) {
+                MiscUtils.getLogger().error("Unable to load token manager: {}",
+                        LogSafe.sanitize(managerName), e);
+                throw new IllegalStateException("Unable to load configured token manager", e);
             }
         }
 
         return instance;
+    }
+
+    static synchronized void resetForTesting() {
+        instance = null;
     }
 
     /**
@@ -71,7 +100,7 @@ public abstract class SecurityTokenManager {
      * @throws IOException
      * @throws ServletException
      */
-    public abstract void requestToken(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException;
+    public abstract void requestToken(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws IOException, ServletException;
 
     /**
      * Check token, do the login if successful.
@@ -82,6 +111,6 @@ public abstract class SecurityTokenManager {
      * @throws IOException
      * @throws ServletException
      */
-    public abstract boolean handleToken(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException;
+    public abstract boolean handleToken(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws IOException, ServletException;
 
 }

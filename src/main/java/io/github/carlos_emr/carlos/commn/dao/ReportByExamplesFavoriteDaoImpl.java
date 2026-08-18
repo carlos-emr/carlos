@@ -32,7 +32,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.ReportByExamplesFavorite;
 import org.springframework.stereotype.Repository;
@@ -46,15 +46,16 @@ public class ReportByExamplesFavoriteDaoImpl extends AbstractDaoImpl<ReportByExa
     }
 
     @Override
-    public List<ReportByExamplesFavorite> findByQuery(String query) {
-        Query q = createQuery("ex", "ex.query LIKE ?1");
-        q.setParameter(1, query);
-        return q.getResultList();
+    public List<ReportByExamplesFavorite> findByProviderAndQuery(String providerNo, String queryString) {
+        Query query = createQuery("ex", "ex.providerNo = ?1 AND ex.query = ?2");
+        query.setParameter(1, providerNo);
+        query.setParameter(2, queryString);
+        return query.getResultList();
     }
 
     @Override
     public List<ReportByExamplesFavorite> findByEverything(String providerNo, String favoriteName, String queryString) {
-        Query query = createQuery("ex", "ex.providerNo = ?1 AND ex.name LIKE ?2 OR ex.query LIKE ?3");
+        Query query = createQuery("ex", "ex.providerNo = ?1 AND ex.name = ?2 AND ex.query = ?3");
         query.setParameter(1, providerNo);
         query.setParameter(2, favoriteName);
         query.setParameter(3, queryString);

@@ -30,8 +30,9 @@
 
 package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.AbstractCodeSystemDao;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
@@ -43,12 +44,13 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Date;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class dxResearch2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -56,8 +58,15 @@ public class dxResearch2Action extends ActionSupport {
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute()
             throws ServletException, IOException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "w", null)) {
             throw new RuntimeException("missing required sec object (_dxresearch)");
         }
@@ -117,7 +126,7 @@ public class dxResearch2Action extends ActionSupport {
                     dao.save(r);
 
                     String ip = request.getRemoteAddr();
-                    LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, "DX", "" + r.getId(), ip, "");
+                    LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, "DX", "" + r.getId(), ip, "");
 
                 }
 
@@ -145,7 +154,7 @@ public class dxResearch2Action extends ActionSupport {
                         dao.persist(dr);
 
                         String ip = request.getRemoteAddr();
-                        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, "DX", "" + dr.getId(), ip, "");
+                        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, "DX", "" + dr.getId(), ip, "");
 
                     }
                 }
@@ -154,8 +163,8 @@ public class dxResearch2Action extends ActionSupport {
         }
 
         if (!valid) {
-            response.sendRedirect(request.getContextPath() + "/oscarResearch/oscarDxResearch/dxResearch.jsp");
-            return NONE;
+            request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+            return "failure";
         }
 
         String forwardTo = "success";
@@ -165,11 +174,11 @@ public class dxResearch2Action extends ActionSupport {
 
         StringBuilder actionforward = new StringBuilder();
         if ("success".equals(forwardTo)) {
-            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch.do");
+            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch");
         } else if ("codeSearch".equals(forwardTo)) {
-            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/dxcodeSearch.do");
+            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/dxcodeSearch");
         } else if ("codeList".equals(forwardTo)) {
-            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/oscarDxResearch/quickCodeList.jsp");
+            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/oscarDxResearch/ViewQuickCodeList");
         }
         actionforward.append("?demographicNo=").append(demographicNo);
         actionforward.append("&providerNo=").append(providerNo);
@@ -195,6 +204,7 @@ public class dxResearch2Action extends ActionSupport {
         return demographicNo;
     }
 
+    @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }
@@ -203,6 +213,7 @@ public class dxResearch2Action extends ActionSupport {
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
@@ -211,6 +222,7 @@ public class dxResearch2Action extends ActionSupport {
         return xml_research1;
     }
 
+    @StrutsParameter
     public void setXml_research1(String xml_research1) {
         this.xml_research1 = xml_research1;
     }
@@ -219,6 +231,7 @@ public class dxResearch2Action extends ActionSupport {
         return xml_research2;
     }
 
+    @StrutsParameter
     public void setXml_research2(String xml_research2) {
         this.xml_research2 = xml_research2;
     }
@@ -227,6 +240,7 @@ public class dxResearch2Action extends ActionSupport {
         return xml_research3;
     }
 
+    @StrutsParameter
     public void setXml_research3(String xml_research3) {
         this.xml_research3 = xml_research3;
     }
@@ -235,6 +249,7 @@ public class dxResearch2Action extends ActionSupport {
         return xml_research4;
     }
 
+    @StrutsParameter
     public void setXml_research4(String xml_research4) {
         this.xml_research4 = xml_research4;
     }
@@ -243,6 +258,7 @@ public class dxResearch2Action extends ActionSupport {
         return xml_research5;
     }
 
+    @StrutsParameter
     public void setXml_research5(String xml_research5) {
         this.xml_research5 = xml_research5;
     }
@@ -251,6 +267,7 @@ public class dxResearch2Action extends ActionSupport {
         return quickList;
     }
 
+    @StrutsParameter
     public void setQuickList(String quickList) {
         this.quickList = quickList;
     }
@@ -259,6 +276,7 @@ public class dxResearch2Action extends ActionSupport {
         return quickListItems;
     }
 
+    @StrutsParameter
     public void setQuickListItems(String[] quickListItems) {
         this.quickListItems = quickListItems;
     }
@@ -267,6 +285,7 @@ public class dxResearch2Action extends ActionSupport {
         return forward;
     }
 
+    @StrutsParameter
     public void setForward(String forward) {
         this.forward = forward;
     }
@@ -275,6 +294,7 @@ public class dxResearch2Action extends ActionSupport {
         return curCodingSystem;
     }
 
+    @StrutsParameter
     public void setSelectedCodingSystem(String cs) {
         curCodingSystem = cs;
     }

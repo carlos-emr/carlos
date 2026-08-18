@@ -31,17 +31,18 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DemographicMergedConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.OscarSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicMergedTo1;
@@ -60,6 +61,9 @@ public class DemographicMergeService extends AbstractServiceImpl {
     @Autowired
     private DemographicManager demographicManager;
 
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
     /**
      * Gets child records IDs for the specified parent record
      *
@@ -68,6 +72,9 @@ public class DemographicMergeService extends AbstractServiceImpl {
     @GET
     @Path("/{parentId}")
     public OscarSearchResponse<DemographicMergedTo1> getMergedDemographicIds(@PathParam("parentId") Integer parentId) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
         DemographicMergedConverter converter = new DemographicMergedConverter();
         List<DemographicMerged> children = demographicManager.getMergedDemographics(getLoggedInInfo(), parentId);
         OscarSearchResponse<DemographicMergedTo1> response = new OscarSearchResponse<DemographicMergedTo1>();
@@ -87,6 +94,9 @@ public class DemographicMergeService extends AbstractServiceImpl {
     @PUT
     @Path("/")
     public void mergeDemographic(@QueryParam("parentId") Integer parentId, @QueryParam("childId") Integer childId) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "w", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
         List<Integer> children = new ArrayList<Integer>();
         children.add(childId);
         demographicManager.mergeDemographics(getLoggedInInfo(), parentId, children);
@@ -102,6 +112,9 @@ public class DemographicMergeService extends AbstractServiceImpl {
     @DELETE
     @Path("/")
     public void unmergeDemographic(@QueryParam("parentId") Integer parentId, @QueryParam("childsId") Integer childId) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "w", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
         List<Integer> children = new ArrayList<Integer>();
         children.add(childId);
         demographicManager.unmergeDemographics(getLoggedInInfo(), parentId, children);

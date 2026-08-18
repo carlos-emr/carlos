@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.DrugReasonDao;
 import io.github.carlos_emr.carlos.commn.dao.Icd9Dao;
@@ -43,8 +43,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Date;
 import java.util.List;
 
@@ -133,7 +133,7 @@ public final class RxReason2Action extends ActionSupport {
         drugReasonDao.addNewDrugReason(dr);
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, dr.getAuditString());
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, dr.getAuditString());
 
         return "close";
     }
@@ -164,7 +164,7 @@ public final class RxReason2Action extends ActionSupport {
         request.setAttribute("demoNo", drugReason.getDemographicNo());
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ARCHIVE, LogConst.CON_DRUGREASON, "" + drugReason.getId(), ip, "" + drugReason.getDemographicNo(), drugReason.getAuditString());
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ARCHIVE, LogConst.CON_DRUGREASON, "" + drugReason.getId(), ip, "" + drugReason.getDemographicNo(), drugReason.getAuditString());
 
         request.setAttribute("message", getText("SelectReason.msg.archived"));
         return SUCCESS;

@@ -34,7 +34,7 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
 
-import javax.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
 
 @XmlRootElement
 public class ConsultationResponseTo1 implements Serializable {

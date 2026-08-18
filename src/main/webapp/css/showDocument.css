@@ -116,10 +116,12 @@ div.content fieldset table tr td ul li a {
     margin-left: 5px;
 }
 
-ul.ui-menu {
-    max-height: 400px;
-    max-width: 260px;
-    overflow-y: scroll;
-    overflow-wrap: anywhere;
-    overflow-x: hidden;
+/* Macros dropdown — hover to open */
+.macro-dropdown:hover > .dropdown-menu {
+    display: block;
+}
+.macro-dropdown .dropdown-item:hover,
+.macro-dropdown .dropdown-item:focus {
+    background-color: var(--carlos-primary, #337ab7) !important;
+    color: #fff !important;
 }

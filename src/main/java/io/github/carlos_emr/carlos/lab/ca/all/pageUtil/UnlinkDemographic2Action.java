@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.OscarAuditLogger;
@@ -45,8 +46,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.JSONUtil;
 import io.github.carlos_emr.carlos.log.LogConst;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Date;
 import java.util.List;
 
@@ -89,7 +90,10 @@ public class UnlinkDemographic2Action extends ActionSupport {
             plrDao.merge(patientLabRouting);
             if (patientLabRouting.getDemographicNo().equals(PatientLabRoutingDao.UNMATCHED)) {
                 success = true;
-                logger.debug("Unlinked lab with segmentID: " + labNo + " from eChart of Demographic " + demoNo);
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Unlinked lab segmentID={} from demographic={}",
+                            LogSafe.sanitizeObject(labNo), LogSafe.sanitizeObject(demoNo));
+                }
                 OscarAuditLogger.getInstance().log(loggedInInfo, LogConst.UNLINK, LogConst.CON_HL7_LAB, String.valueOf(labNo), request.getRemoteAddr(), demoNo, reason);
             } else {
                 break;

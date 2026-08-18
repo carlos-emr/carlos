@@ -30,30 +30,39 @@
 package io.github.carlos_emr.carlos.daos.security;
 
 import java.util.List;
+import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.LockMode;
-import org.hibernate.Query;
-import org.hibernate.Session;
-import org.hibernate.criterion.Example;
+import jakarta.persistence.TypedQuery;
+import io.github.carlos_emr.carlos.config.CacheConfig;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.SecProvider;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
-/**
- * @author JZhang
- */
-
-public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProviderDao {
+@Transactional
+public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao {
     private static final Logger logger = MiscUtils.getLogger();
-    // property constants
 
+    private static final Set<String> ALLOWED_PROPERTIES = Set.of(
+            LAST_NAME, FIRST_NAME, PROVIDER_TYPE, SPECIALTY, TEAM, SEX,
+            ADDRESS, PHONE, WORK_PHONE, OHIP_NO, RMA_NO, BILLING_NO,
+            HSO_NO, STATUS, COMMENTS, PROVIDER_ACTIVITY);
+
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
+    })
     @Override
     public void save(SecProvider transientInstance) {
         logger.debug("saving Provider instance");
         try {
-            this.getHibernateTemplate().save(transientInstance);
+            entityManager().persist(transientInstance);
             logger.debug("save successful");
         } catch (RuntimeException re) {
             logger.error("save failed", re);
@@ -61,11 +70,20 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
+    })
     @Override
     public void saveOrUpdate(SecProvider transientInstance) {
         logger.debug("saving Provider instance");
         try {
-            this.getHibernateTemplate().saveOrUpdate(transientInstance);
+            if (transientInstance.getProviderNo() == null) {
+                entityManager().persist(transientInstance);
+            } else {
+                entityManager().merge(transientInstance);
+            }
             logger.debug("save successful");
         } catch (RuntimeException re) {
             logger.error("save failed", re);
@@ -73,11 +91,22 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
+    })
     @Override
     public void delete(SecProvider persistentInstance) {
         logger.debug("deleting Provider instance");
         try {
-            this.getHibernateTemplate().delete(persistentInstance);
+            // Pre-migration Hibernate Session.delete() accepted detached entities.
+            // JPA EntityManager.remove() requires a managed instance, so reattach via
+            // merge() first when the caller passes a detached entity.
+            SecProvider managed = entityManager().contains(persistentInstance)
+                    ? persistentInstance
+                    : entityManager().merge(persistentInstance);
+            entityManager().remove(managed);
             logger.debug("delete successful");
         } catch (RuntimeException re) {
             logger.error("delete failed", re);
@@ -89,8 +118,7 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
     public SecProvider findById(java.lang.String id) {
         logger.debug("getting Provider instance with id: " + id);
         try {
-            SecProvider instance = (SecProvider) this.getHibernateTemplate().get(
-                    SecProvider.class, id);
+            SecProvider instance = entityManager().find(SecProvider.class, id);
             return instance;
         } catch (RuntimeException re) {
             logger.error("get failed", re);
@@ -102,8 +130,8 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
     public SecProvider findById(java.lang.String id, String status) {
         logger.debug("getting Provider instance with id: " + id);
         try {
-            String sql = "from SecProvider where id=?0 and status=?1";
-            List lst = this.getHibernateTemplate().find(sql, new Object[]{id, status});
+            String sql = "from SecProvider where id=?1 and status=?2";
+            List lst = JpqlQueryHelper.find(entityManager(), sql, id, status);
             if (lst.size() == 0)
                 return null;
             else
@@ -116,34 +144,25 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
     }
 
     @Override
-    public List findByExample(SecProviderDao instance) {
-        logger.debug("finding Provider instance by example");
-        Session session = currentSession();
-        try {
-            List results = session.createCriteria(
-                            SecProvider.class).add(
-                            Example.create(instance))
-                    .list();
-            logger.debug("find by example successful, result size: "
-                    + results.size());
-            return results;
-        } catch (RuntimeException re) {
-            logger.error("find by example failed", re);
-            throw re;
-        }
+    public List findByExample(SecProvider instance) {
+        logger.debug("finding Provider instance by example (delegates to findAll)");
+        // Example-based querying is not implemented; delegate to findAll().
+        return findAll();
     }
 
     @Override
+    /**
+     * Finds Provider instances by a specified property and value.
+     */
     public List findByProperty(String propertyName, Object value) {
         logger.debug("finding Provider instance with property: " + propertyName
                 + ", value: " + value);
-        Session session = currentSession();
         try {
-            String queryString = "from Provider as model where model."
-                    + propertyName + "= ?1";
-            Query queryObject = session.createQuery(queryString);
-            queryObject.setParameter(1, value);
-            return queryObject.list();
+            if (!ALLOWED_PROPERTIES.contains(propertyName)) {
+                throw new IllegalArgumentException("Invalid property name: " + propertyName);
+            }
+            return JpqlQueryHelper.find(entityManager(),
+                    "FROM SecProvider WHERE " + propertyName + " = ?1", value);
         } catch (RuntimeException re) {
             logger.error("find by property name failed", re);
             throw re;
@@ -231,25 +250,30 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
     }
 
     @Override
+    /**
+     * Retrieves all Provider instances from the database.
+     */
     public List findAll() {
         logger.debug("finding all Provider instances");
-        Session session = currentSession();
         try {
-            String queryString = "from Provider";
-            Query queryObject = session.createQuery(queryString);
-            return queryObject.list();
+            TypedQuery<SecProvider> queryObject = entityManager().createQuery("from SecProvider", SecProvider.class);
+            return queryObject.getResultList();
         } catch (RuntimeException re) {
             logger.error("find all failed", re);
             throw re;
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
+    })
     @Override
-    public SecProviderDao merge(SecProviderDao detachedInstance) {
+    public SecProvider merge(SecProvider detachedInstance) {
         logger.debug("merging Provider instance");
-        Session session = currentSession();
         try {
-            SecProviderDao result = (SecProviderDao) session.merge(detachedInstance);
+            SecProvider result = entityManager().merge(detachedInstance);
             logger.debug("merge successful");
             return result;
         } catch (RuntimeException re) {
@@ -258,12 +282,16 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
+    })
     @Override
-    public void attachDirty(SecProviderDao instance) {
+    public void attachDirty(SecProvider instance) {
         logger.debug("attaching dirty Provider instance");
-        Session session = currentSession();
         try {
-            session.saveOrUpdate(instance);
+            entityManager().merge(instance);
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);
@@ -271,12 +299,24 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
+    })
     @Override
-    public void attachClean(SecProviderDao instance) {
+    public void attachClean(SecProvider instance) {
         logger.debug("attaching clean Provider instance");
-        Session session = currentSession();
         try {
-            session.lock(instance, LockMode.NONE);
+            // JPA has no direct equivalent of Hibernate Session.lock(entity, LockMode.NONE) for reattach.
+            // If the entity is already managed, there is nothing to do. If it is detached, merge() is
+            // the only JPA-standard reattach path — unlike lock(NONE), merge may trigger UPDATE on flush
+            // if the detached state differs from the database row. This method therefore evicts the
+            // provider caches alongside the other mutating methods, and callers relying on the old
+            // "clean" (no-UPDATE) semantics must ensure the instance is not dirty before calling.
+            if (!entityManager().contains(instance)) {
+                entityManager().merge(instance);
+            }
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);

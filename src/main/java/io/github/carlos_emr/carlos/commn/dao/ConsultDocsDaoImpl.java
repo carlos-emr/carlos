@@ -34,7 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.Collections;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import org.springframework.stereotype.Repository;
@@ -81,13 +81,7 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
     }
 
     public List<Object[]> findLabs(Integer consultationId) {
-        String sql = "FROM ConsultDocs cd, PatientLabRouting plr " +
-                "WHERE plr.labNo = cd.documentNo " +
-                "AND cd.requestId = :consultationId " +
-                "AND cd.docType = :docType " +
-                "AND cd.deleted IS NULL " +
-                "ORDER BY cd.documentNo";
-        Query q = entityManager.createQuery(sql);
+        Query q = entityManager.createQuery("SELECT cd, plr FROM ConsultDocs cd, PatientLabRouting plr WHERE plr.labNo = cd.documentNo AND cd.requestId = :consultationId AND cd.docType = :docType AND cd.deleted IS NULL ORDER BY cd.documentNo");
         q.setParameter("consultationId", consultationId);
         q.setParameter("docType", ConsultDocs.DOCTYPE_LAB);
         return q.getResultList();

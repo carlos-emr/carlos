@@ -30,205 +30,116 @@
 
 package io.github.carlos_emr.carlos.db;
 
-import java.sql.CallableStatement;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 
 import io.github.carlos_emr.Misc;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * deprecated Use JPA instead, no new code should be written against this class.
+ * @deprecated Use JPA (for example, {@code EntityManager#createNativeQuery(...)}) instead;
+ * no new code should be written against this class. Scheduled for removal once
+ * remaining callers migrate.
  */
-@Deprecated
+@Deprecated(forRemoval = true)
 public final class DBPreparedHandler {
 
     ResultSet rs = null;
-    Statement stmt = null;
-    PreparedStatement preparedStmt = null;
-
-    synchronized public void procExecute(String procName, String[] param) throws SQLException {
-        String sql = "{call " + procName;
-        if (param != null && param.length > 0) {
-            String prms = "";
-            for (int i = 0; i < param.length; i++) {
-                prms += "?,";
-            }
-            if (!prms.equals("")) sql += "(" + prms.substring(0, prms.length() - 1) + ")";
-        }
-
-        sql += "}";
-        CallableStatement stmt = DbConnectionFilter.getThreadLocalDbConnection().prepareCall(sql);
-        if (param != null && param.length > 0) {
-            for (int i = 0; i < param.length; i++) {
-                stmt.setString((i + 1), param[i]);
-
-            }
-        }
-        stmt.execute();
+    public synchronized void procExecute(String procName, String[] param) throws SQLException {
+        LegacyJdbcQuery.procExecute(procName, param);
     }
 
-    synchronized public ResultSet queryResults(String preparedSQL, String[] param, int[] intparam) throws SQLException {
-        int i = 0;
-        preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
-        for (i = 0; i < param.length; i++) {
-            preparedStmt.setString((i + 1), param[i]);
-        }
-        for (i = 0; i < intparam.length; i++) {
-            preparedStmt.setInt((param.length + i + 1), intparam[i]);
-        }
-        rs = preparedStmt.executeQuery();
+    public synchronized ResultSet queryResults(String preparedSQL, String[] param, int[] intparam) throws SQLException {
+        rs = LegacyJdbcQuery.queryResults(preparedSQL, param, intparam);
         return rs;
     }
 
-    synchronized public ResultSet queryResults(String preparedSQL, int param) throws SQLException {
-        preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
-        preparedStmt.setInt(1, param);
-        rs = preparedStmt.executeQuery();
+    public synchronized ResultSet queryResults(String preparedSQL, int param) throws SQLException {
+        rs = LegacyJdbcQuery.queryResults(preparedSQL, param);
         return rs;
     }
 
-    synchronized public ResultSet queryResults(String preparedSQL, int[] param) throws SQLException {
-        preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
-        for (int i = 0; i < param.length; i++) {
-            preparedStmt.setInt((i + 1), param[i]);
-        }
-        return (preparedStmt.executeQuery());
+    public synchronized ResultSet queryResults(String preparedSQL, int[] param) throws SQLException {
+        return LegacyJdbcQuery.queryResults(preparedSQL, param);
     }
 
-    synchronized public ResultSet queryResults(String preparedSQL, String param) throws SQLException {
-        preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
-        preparedStmt.setString(1, param);
-        rs = preparedStmt.executeQuery();
+    public synchronized ResultSet queryResults(String preparedSQL, String param) throws SQLException {
+        rs = LegacyJdbcQuery.queryResults(preparedSQL, param);
         return rs;
     }
 
-    synchronized public ResultSet queryResults_paged(String preparedSQL, String param, int iOffSet) throws SQLException {
-        preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
-        preparedStmt.setString(1, param);
-        rs = preparedStmt.executeQuery();
-        for (int i = 1; i <= iOffSet; i++) {
-            if (rs.next() == false) break;
-        }
+    public synchronized ResultSet queryResults_paged(String preparedSQL, String param, int iOffSet) throws SQLException {
+        rs = LegacyJdbcQuery.queryResultsPaged(preparedSQL, param, iOffSet);
         return rs;
     }
 
-    synchronized public ResultSet queryResults(String preparedSQL, String[] param) throws SQLException {
-        preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
-        for (int i = 0; i < param.length; i++) {
-            preparedStmt.setString((i + 1), param[i]);
-        }
-        rs = preparedStmt.executeQuery();
+    public synchronized ResultSet queryResults(String preparedSQL, String[] param) throws SQLException {
+        rs = LegacyJdbcQuery.queryResults(preparedSQL, param);
         return (rs);
     }
 
-    synchronized public ResultSet queryResults_paged(String preparedSQL, String[] param, int iOffSet) throws SQLException {
-        preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
-        for (int i = 0; i < param.length; i++) {
-            preparedStmt.setString((i + 1), param[i]);
-        }
-        rs = preparedStmt.executeQuery();
-        for (int i = 1; i <= iOffSet; i++) {
-            if (rs.next() == false) break;
-        }
+    public synchronized ResultSet queryResults_paged(String preparedSQL, String[] param, int iOffSet) throws SQLException {
+        rs = LegacyJdbcQuery.queryResultsPaged(preparedSQL, param, iOffSet);
         return (rs);
     }
 
-    synchronized public ResultSet queryResults(String preparedSQL, DBPreparedHandlerParam[] param) throws SQLException {
-        preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
-        for (int i = 0; i < param.length; i++) {
-            if (param[i].getParamType().equals(DBPreparedHandlerParam.PARAM_STRING)) {
-                preparedStmt.setString((i + 1), param[i].getStringValue());
-            } else if (param[i].getParamType().equals(DBPreparedHandlerParam.PARAM_DATE)) {
-                preparedStmt.setDate((i + 1), param[i].getDateValue());
-            } else if (param[i].getParamType().equals(DBPreparedHandlerParam.PARAM_INT)) {
-                preparedStmt.setInt((i + 1), param[i].getIntValue());
-            }
-        }
-        rs = preparedStmt.executeQuery();
+    public synchronized ResultSet queryResults(String preparedSQL, DBPreparedHandlerParam[] param) throws SQLException { // nosemgrep: formatted-sql-string -- parameterized query infrastructure; params are bound via PreparedStatement
+        rs = LegacyJdbcQuery.queryResults(preparedSQL, param);
         return (rs);
     }
 
-    synchronized public ResultSet queryResults_paged(String preparedSQL, DBPreparedHandlerParam[] param, int iOffSet) throws SQLException {
-        preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
-        for (int i = 0; i < param.length; i++) {
-            if (param[i].getParamType().equals(DBPreparedHandlerParam.PARAM_STRING)) {
-                preparedStmt.setString((i + 1), param[i].getStringValue());
-            } else if (param[i].getParamType().equals(DBPreparedHandlerParam.PARAM_DATE)) {
-                preparedStmt.setDate((i + 1), param[i].getDateValue());
-            } else if (param[i].getParamType().equals(DBPreparedHandlerParam.PARAM_INT)) {
-                preparedStmt.setInt((i + 1), param[i].getIntValue());
-            }
-        }
-        rs = preparedStmt.executeQuery();
-        for (int i = 1; i <= iOffSet; i++) {
-            if (rs.next() == false) break;
-        }
+    public synchronized ResultSet queryResults_paged(String preparedSQL, DBPreparedHandlerParam[] param, int iOffSet) throws SQLException {
+        rs = LegacyJdbcQuery.queryResultsPaged(preparedSQL, param, iOffSet);
         return (rs);
     }
 
-    synchronized public Object[] queryResultsCaisi(String preparedSQL, int param) throws SQLException {
-        preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
-        preparedStmt.setInt(1, param);
-        rs = preparedStmt.executeQuery();
-        return new Object[]{rs, preparedStmt};
+    public synchronized LegacyJdbcQuery.CaisiResult queryResultsCaisi(String preparedSQL, int param) throws SQLException {
+        return LegacyJdbcQuery.queryResultsCaisi(preparedSQL, param);
     }
 
-    synchronized public Object[] queryResultsCaisi(String preparedSQL, String param) throws SQLException {
-        preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
-        preparedStmt.setString(1, param);
-        rs = preparedStmt.executeQuery();
-        return new Object[]{rs, preparedStmt};
+    public synchronized LegacyJdbcQuery.CaisiResult queryResultsCaisi(String preparedSQL, String param) throws SQLException {
+        return LegacyJdbcQuery.queryResultsCaisi(preparedSQL, param);
     }
 
-    synchronized public Object[] queryResultsCaisi(String preparedSQL, String[] param) throws SQLException {
-        preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
-        for (int i = 0; i < param.length; i++) {
-            preparedStmt.setString((i + 1), param[i]);
-        }
-        rs = preparedStmt.executeQuery();
-        return new Object[]{rs, preparedStmt};
+    public synchronized LegacyJdbcQuery.CaisiResult queryResultsCaisi(String preparedSQL, String[] param) throws SQLException {
+        return LegacyJdbcQuery.queryResultsCaisi(preparedSQL, param);
     }
 
-    synchronized public Object[] queryResultsCaisi(String preparedSQL) throws SQLException {
-        stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement();
-        rs = stmt.executeQuery(preparedSQL);
-        return new Object[]{rs, stmt};
+    // queryResultsCaisi(String) removed — all callers migrated to parameterized overloads.
+
+    /**
+     * @deprecated Direct SQL execution is intentionally disabled. Even
+     * SELECT-only SQL supplied at request time can bypass report-level
+     * authorization and expose PHI outside the intended workflow. Use one of the
+     * parameterized overloads, or a curated report template, instead.
+     */
+    @Deprecated(forRemoval = true)
+    public synchronized ResultSet queryResults(String preparedSQL) throws SQLException {
+        throw new SQLException("Direct SQL execution is disabled; use parameterized query overloads.");
     }
 
-    synchronized public ResultSet queryResults(String preparedSQL) throws SQLException {
-        stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement();
-        rs = stmt.executeQuery(preparedSQL);
-        return rs;
-    }
-
-    synchronized public ResultSet queryResults_paged(String preparedSQL, int iOffSet) throws SQLException {
-        stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement();
-        rs = stmt.executeQuery(preparedSQL);
-        for (int i = 1; i <= iOffSet; i++) {
-            if (rs.next() == false) break;
-        }
-        return rs;
-    }
+    // queryResults_paged(String, int) removed — all callers migrated to parameterized overloads.
 
     public synchronized String getNewProviderNo() {
         try {
-            String pno = Misc.getRandomNumber(6);
             String sql = "select count(*) from provider where provider_no= ?";
-            ResultSet rs = queryResults(sql, pno);
-            while (rs.next()) {
-                if (rs.getInt(1) > 0) {
-                    do {
-                        pno = Misc.getRandomNumber(6);
-                    } while (pno != null && pno.startsWith("0"));
-                    sql = "select count(*) from provider where provider_no= ?";
-                    rs = queryResults(sql, pno);
+            String pno;
+            boolean collision;
+
+            do {
+                collision = false;
+                do {
+                    pno = Misc.getRandomNumber(6);
+                } while (pno != null && pno.startsWith("0"));
+                try (ResultSet providerResultSet = queryResults(sql, pno)) {
+                    if (providerResultSet.next() && providerResultSet.getInt(1) > 0) {
+                        collision = true;
+                    }
                 }
-            }
+            } while (collision);
             return pno;
         } catch (Exception ex) {
+            MiscUtils.getLogger().error("Failed to generate new provider number", ex);
             return "";
         }
     }

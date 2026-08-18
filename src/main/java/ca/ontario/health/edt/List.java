@@ -1,9 +1,9 @@
 package ca.ontario.health.edt;
 
 import java.math.BigInteger;
-import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlType;
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
 
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "list", propOrder = { "resourceType", "status", "pageNo" })

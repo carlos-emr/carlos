@@ -30,19 +30,30 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlElement;
 import io.github.carlos_emr.carlos.commn.model.Validations;
 
-
+@XmlAccessorType(XmlAccessType.NONE)
 public class EctValidationsBean {
 
     int id;
+    @XmlElement(name = "name")
     String name;
+    @XmlElement(name = "regularExp")
     String regularExp = null;
+    @XmlElement(name = "maxValue")
     String maxValue = null;
+    @XmlElement(name = "minValue")
     String minValue = null;
+    @XmlElement(name = "maxLength")
     String maxLength = null;
+    @XmlElement(name = "minLength")
     String minLength = null;
+    @XmlElement(name = "isNumeric")
     String isNumeric = null;
+    @XmlElement(name = "isDate")
     String isDate = null;
 
     public EctValidationsBean() {

@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.commn.web;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.text.ParseException;
 import java.util.ArrayList;
@@ -35,8 +36,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.util.DateUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -48,10 +49,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class PageMonitoring2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -62,6 +66,11 @@ public class PageMonitoring2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws Exception{
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         if ("update".equals(request.getParameter("method"))) {
             return update();
         }
@@ -69,6 +78,8 @@ public class PageMonitoring2Action extends ActionSupport {
     }
 
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String update() throws IOException {
         String pageName = request.getParameter("page");
         String pageId = request.getParameter("pageId");
@@ -173,6 +184,8 @@ public class PageMonitoring2Action extends ActionSupport {
         } //end of synchronized block
 
         ArrayNode jsonArray = objectMapper.valueToTree(otherMonitors);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().print(jsonArray);
         return null;
     }

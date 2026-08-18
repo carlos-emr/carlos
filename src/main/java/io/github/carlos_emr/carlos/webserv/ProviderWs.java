@@ -31,7 +31,7 @@ package io.github.carlos_emr.carlos.webserv;
 
 import java.util.List;
 
-import javax.jws.WebService;
+import jakarta.jws.WebService;
 
 import org.apache.cxf.annotations.GZIP;
 import io.github.carlos_emr.carlos.commn.model.Property;

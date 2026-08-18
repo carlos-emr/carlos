@@ -29,16 +29,18 @@
 package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 public class User2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -49,13 +51,16 @@ public class User2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         if ("changePassword".equals(request.getParameter("method"))) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
             return changePassword();
         }
         if ("cancel".equals(request.getParameter("method"))) {
             return cancel();
         }
-        request.getSession().setAttribute("mcedtUsername", OscarProperties.getInstance().getProperty("mcedt.service.user"));
+        request.getSession().setAttribute("mcedtUsername", CarlosProperties.getInstance().getProperty("mcedt.service.user")); // nosemgrep: tainted-session-from-http-request -- value from application properties
 
         if (request.getSession().getAttribute("isPassChange") != null) {
             request.getSession().removeAttribute("isPassChange");
@@ -74,9 +79,9 @@ public class User2Action extends ActionSupport {
             }
             prop.setValue(this.getPassword());
             userPropertyDAO.saveProp(prop);
-            request.getSession().setAttribute("isPassChange", "true");
+            request.getSession().setAttribute("isPassChange", "true"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
         } catch (Exception e) {
-            request.getSession().setAttribute("isPassChange", "false");
+            request.getSession().setAttribute("isPassChange", "false"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
         }
 
         return SUCCESS;
@@ -105,6 +110,7 @@ public class User2Action extends ActionSupport {
         return username;
     }
 
+    @StrutsParameter
     public void setUsername(String username) {
         this.username = username;
     }
@@ -113,6 +119,7 @@ public class User2Action extends ActionSupport {
         return password;
     }
 
+    @StrutsParameter
     public void setPassword(String password) {
         this.password = password;
     }
@@ -121,6 +128,7 @@ public class User2Action extends ActionSupport {
         return pin;
     }
 
+    @StrutsParameter
     public void setPin(String pin) {
         this.pin = pin;
     }
@@ -129,6 +137,7 @@ public class User2Action extends ActionSupport {
         return propname;
     }
 
+    @StrutsParameter
     public void setPropname(String propname) {
         this.propname = propname;
     }
@@ -137,6 +146,7 @@ public class User2Action extends ActionSupport {
         return oldPassword;
     }
 
+    @StrutsParameter
     public void setOldPassword(String oldPassword) {
         this.oldPassword = oldPassword;
     }
@@ -145,6 +155,7 @@ public class User2Action extends ActionSupport {
         return newPassword;
     }
 
+    @StrutsParameter
     public void setNewPassword(String newPassword) {
         this.newPassword = newPassword;
     }
@@ -153,6 +164,7 @@ public class User2Action extends ActionSupport {
         return confirmPassword;
     }
 
+    @StrutsParameter
     public void setConfirmPassword(String confirmPassword) {
         this.confirmPassword = confirmPassword;
     }

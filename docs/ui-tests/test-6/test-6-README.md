@@ -36,9 +36,9 @@ Test 6 validates the clinical documentation workflow in CARLOS EMR, including th
 #### Provider Credentials
 | Field | Value |
 |-------|-------|
-| Username | openodoc |
-| Password | openo2025 |
-| PIN | 2025 |
+| Username | carlosdoc |
+| Password | carlos2026 |
+| PIN | 2026 |
 | Provider No | 999998 |
 
 #### Existing Test Patients (Must Exist)

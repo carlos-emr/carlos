@@ -24,9 +24,9 @@ allowed-tools:
   - Bash(ls /workspace/.playwright-mcp/*)
   - Bash(wc *)
   - Bash(curl * http://localhost:8080/*)
-  - Bash(mysql -h db -uroot -ppassword oscar *)
-  - Bash(mysql -h db -uroot -ppassword oscar -e *)
-  - Bash(mysql * oscar * 2>&1 | tail -1)
+  - Bash(mariadb -h db -uroot -ppassword oscar *)
+  - Bash(mariadb -h db -uroot -ppassword oscar -e *)
+  - Bash(mariadb * oscar * 2>&1 | tail -1)
   - Bash(date *)
   - Bash(TIMESTAMP=*)
   - Write(path:ui-test-runs/**)
@@ -55,9 +55,9 @@ Test 6 validates the core clinical documentation workflow:
 - Save encounter and view history
 - Print preview
 
-**Duration**: ~20-25 minutes
-**Steps**: 22
-**Screenshots**: 22
+**Duration**: ~22-28 minutes
+**Steps**: 26
+**Screenshots**: 26
 
 ## Pre-Flight Checks
 
@@ -66,7 +66,7 @@ Before starting, verify application and database are ready:
 1. **Application Check**: Run `curl -sI http://localhost:8080/oscar/index.jsp | head -1`
    - Expected: `HTTP/1.1 200`
 
-2. **Database Check**: Run `mysql -h db -uroot -ppassword oscar -e "SELECT demographic_no FROM demographic WHERE demographic_no = 1;"`
+2. **Database Check**: Run `mariadb -h db -uroot -ppassword oscar -e "SELECT demographic_no FROM demographic WHERE demographic_no = 1;"`
    - Expected: Patient ID 1 exists
 
 **If checks fail**: Run `server start` to start Tomcat, or check `server log` for errors.
@@ -77,7 +77,7 @@ Follow the 22-step workflow defined in `docs/ui-tests/test-6/test-6-EXECUTION.md
 
 ### Phase 1: Authentication & E-Chart Access (Steps 1-4)
 1. **Login Page** - Navigate to http://localhost:8080/oscar, screenshot
-2. **Provider Dashboard** - Login (openodoc/openo2025/2025), screenshot
+2. **Provider Dashboard** - Login (carlosdoc/carlos2026/2026), screenshot
 3. **Patient Search** - Search "FAKE-J", screenshot results
 4. **E-Chart Link** - Click E-Chart link for patient, screenshot
 
@@ -113,10 +113,21 @@ Follow the 22-step workflow defined in `docs/ui-tests/test-6/test-6-EXECUTION.md
 21. **Print Preview** - Print encounter note preview, screenshot
 22. **Encounter History** - View encounter history list, screenshot
 
+### Phase 9: Autosave Draft Survival Regression — #1873 (Steps 23-26)
+23. **Probe Typed & Autosaved** - Open fresh encounter, type `$PROBE` token, wait ≥7s, screenshot
+24. **Exit Without Save** - Click Exit, accept confirm dialog, assert tmpsave row still contains `$PROBE`, screenshot
+25. **Draft Restored** - Reopen encounter, accept restore-draft prompt, assert note textarea contains `$PROBE`, screenshot
+26. **Cancel Clears (Negative Control)** - Click explicit Cancel button, assert tmpsave rows matching `$PROBE` are deleted, screenshot
+
+Full per-step procedure — including the required DB assertion in step 24 that
+gates on `#1873` — is in `docs/ui-tests/test-6/test-6-EXECUTION.md` under
+"Phase 9: Autosave Draft Survival Regression".
+
 ## Key Requirements
 
 - Create unique timestamp: `TIMESTAMP=$(date +%Y%m%d-%H%M%S-%3N)`
-- Save screenshots to: `ui-test-runs/$TIMESTAMP/test-6/screenshots/test-6-{01-22}-*.png`
+- Save screenshots to: `ui-test-runs/$TIMESTAMP/test-6/screenshots/test-6-{01-26}-*.png`
+- Before Phase 9, clear stale tmpsave rows for the test patient+provider (see Phase 9 pre-requisite)
 - **IMPORTANT**: Press Enter after typing in search fields
 - E-Chart may open in new window/tab - handle appropriately
 - Capture browser console messages after test completes
@@ -132,12 +143,12 @@ Follow the 22-step workflow defined in `docs/ui-tests/test-6/test-6-EXECUTION.md
 
 **Correct URL Pattern:**
 ```
-/oscar/oscarEncounter/IncomingEncounter.do?providerNo={providerNo}&appointmentNo=&demographicNo={demographicNo}&curProviderNo=&reason=Tel-Progress+Note&encType=&curDate={YYYY-M-DD}&appointmentDate=&startTime=&status=
+/oscar/encounter/IncomingEncounter.do?providerNo={providerNo}&appointmentNo=&demographicNo={demographicNo}&curProviderNo=&reason=Tel-Progress+Note&encType=&curDate={YYYY-M-DD}&appointmentDate=&startTime=&status=
 ```
 
 **Example:**
 ```
-http://localhost:8080/oscar/oscarEncounter/IncomingEncounter.do?providerNo=999998&appointmentNo=&demographicNo=1373&curProviderNo=&reason=Tel-Progress+Note&encType=&curDate=2026-1-19&appointmentDate=&startTime=&status=
+http://localhost:8080/oscar/encounter/IncomingEncounter.do?providerNo=999998&appointmentNo=&demographicNo=1373&curProviderNo=&reason=Tel-Progress+Note&encType=&curDate=2026-1-19&appointmentDate=&startTime=&status=
 ```
 
 **How to get the correct URL:**
@@ -145,7 +156,7 @@ http://localhost:8080/oscar/oscarEncounter/IncomingEncounter.do?providerNo=99999
    ```javascript
    (element) => { return element.getAttribute('onclick'); }
    ```
-2. The onclick contains: `popupEChart(710,1024,'/oscar/oscarEncounter/IncomingEncounter.do?...')`
+2. The onclick contains: `popupEChart(710,1024,'/oscar/encounter/IncomingEncounter.do?...')`
 3. Extract the URL and navigate directly to it in the same tab
 
 ### E-Chart Tab Switching Issues
@@ -238,7 +249,7 @@ After completing all 22 steps:
 2. **Verify Count**: Confirm exactly 22 screenshots captured
 3. **Database Verification**:
    ```bash
-   mysql -h db -uroot -ppassword oscar -e "
+   mariadb -h db -uroot -ppassword oscar -e "
    SELECT id, observation_date FROM casemgmt_note
    WHERE demographic_no = 1 ORDER BY id DESC LIMIT 1;"
    ```
@@ -253,8 +264,8 @@ After completing all 22 steps:
 ## Success Criteria
 
 Test passes when:
-- All 22 steps complete
-- All 22 screenshots captured
+- All 26 steps complete
+- All 26 screenshots captured
 - E-Chart opens successfully
 - Encounter created and saved
 - Vital signs recorded
@@ -263,5 +274,7 @@ Test passes when:
 - All panels accessible
 - Print preview works
 - Only expected console warnings present
+- Phase 9: autosave probe row survives Exit-without-save (issue #1873 regression guard)
+- Phase 9: explicit Cancel button still deletes the tmpsave row (negative control)
 
 See full criteria in `docs/ui-tests/test-6/test-6-README.md`

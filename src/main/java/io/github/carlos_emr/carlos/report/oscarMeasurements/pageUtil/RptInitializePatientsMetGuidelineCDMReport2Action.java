@@ -29,8 +29,9 @@
 
 package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormsDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
@@ -43,11 +44,12 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctValid
 import io.github.carlos_emr.carlos.report.oscarMeasurements.data.RptMeasurementsData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -56,6 +58,8 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
@@ -71,7 +75,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
 
         if (!validate(request)) {
             MiscUtils.getLogger().debug("the form is invalid");
-            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/InitializePatientsMetGuidelineCDMReport.jsp");
+            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/ViewInitializePatientsMetGuidelineCDMReport");
             return NONE;
         }
 
@@ -367,6 +371,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return patientSeenCheckbox;
     }
 
+    @StrutsParameter
     public void setPatientSeenCheckbox(String[] patientSeenCheckbox) {
         this.patientSeenCheckbox = patientSeenCheckbox;
     }
@@ -377,6 +382,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return startDateA;
     }
 
+    @StrutsParameter
     public void setStartDateA(String startDateA) {
         this.startDateA = startDateA;
     }
@@ -387,6 +393,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return endDateA;
     }
 
+    @StrutsParameter
     public void setEndDateA(String endDateA) {
         this.endDateA = endDateA;
     }
@@ -397,6 +404,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return guidelineCheckbox;
     }
 
+    @StrutsParameter
     public void setGuidelineCheckbox(String[] guidelineCheckbox) {
         this.guidelineCheckbox = guidelineCheckbox;
     }
@@ -407,6 +415,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return startDateB;
     }
 
+    @StrutsParameter
     public void setStartDateB(String[] startDateB) {
         this.startDateB = startDateB;
     }
@@ -417,6 +426,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return endDateB;
     }
 
+    @StrutsParameter
     public void setEndDateB(String[] endDateB) {
         this.endDateB = endDateB;
     }
@@ -427,6 +437,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return idB;
     }
 
+    @StrutsParameter
     public void setIdB(String[] idB) {
         this.idB = idB;
     }
@@ -437,6 +448,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return guildlineB;
     }
 
+    @StrutsParameter
     public void setGuidelineB(String[] guildlineB) {
         this.guildlineB = guildlineB;
     }
@@ -447,6 +459,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return aboveBelow;
     }
 
+    @StrutsParameter
     public void setAboveBelow(String aboveBelow) {
         this.aboveBelow = aboveBelow;
     }

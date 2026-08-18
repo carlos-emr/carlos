@@ -31,40 +31,73 @@ package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import com.itextpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfReader;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * @author mweston4
+ * Handles uploaded PDF documents by saving them as EDoc records in the CARLOS document
+ * management system.
+ *
+ * <p>This handler validates the uploaded file path using {@link PathValidationUtils},
+ * counts pages using OpenPDF's {@link PdfReader}, persists the document metadata via
+ * {@link EDocUtil}, and routes the document to the configured provider inbox.
+ *
+ * <p>Provider routing is determined by either:
+ * <ul>
+ *   <li>The {@code batch_pdf_provider_no} system property (routes to a single provider
+ *       and default queue)</li>
+ *   <li>The {@code serviceName} parameter prefixed with "providerNo" (routes to one or
+ *       more space-separated provider numbers)</li>
+ * </ul>
+ *
+ * @see MessageHandler
+ * @see EDocUtil
+ * @since 2012 (McMaster University)
  */
 public class PDFHandler implements MessageHandler {
     protected static Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Parses an uploaded PDF file and saves it as an EDoc in the document management system.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session info
+     * @param serviceName String optional provider routing directive (e.g., "providerNo999001")
+     * @param fileName String the full path to the uploaded PDF file
+     * @param fileId int the file identifier (unused in this handler)
+     * @param ipAddr String the client IP address for audit logging
+     * @return String "success" if the document was saved, or {@code null} on error
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
 
         String providerNo = "-1";
         String filePath = fileName;
+        if (fileName == null || fileName.isBlank()) {
+            logger.error("Document filename is null or empty");
+            return null;
+        }
         if (!(fileName.endsWith(".pdf") || fileName.endsWith(".PDF"))) {
-            logger.error("Document " + fileName + "does not have pdf extension");
+            logger.error("Document {} does not have pdf extension", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         } else {
             int fileNameIdx = fileName.lastIndexOf("/");
@@ -74,7 +107,7 @@ public class PDFHandler implements MessageHandler {
         // Validate and canonicalize the file path to prevent path traversal attacks
         try {
             // Get the base document directory from configuration
-            String baseDocDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+            String baseDocDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
             if (baseDocDir == null || baseDocDir.isEmpty()) {
                 logger.error("DOCUMENT_DIR not configured");
                 return null;
@@ -83,11 +116,11 @@ public class PDFHandler implements MessageHandler {
             // Validate the file path using PathValidationUtils
             File baseDir = new File(baseDocDir);
             File targetFile = new File(filePath);
-            PathValidationUtils.validateExistingPath(targetFile, baseDir);
+            targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
 
             // Verify the file exists and is a regular file
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: " + filePath);
+                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 
@@ -95,13 +128,13 @@ public class PDFHandler implements MessageHandler {
             filePath = targetFile.getCanonicalPath();
 
         } catch (SecurityException e) {
-            logger.error("Path traversal attempt detected: " + filePath);
+            logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         } catch (IOException e) {
-            logger.error("Error validating file path: " + filePath, e);
+            logger.error("Error validating file path: {}", LogSafe.sanitize(filePath), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         } catch (Exception e) {
-            logger.error("Unexpected error validating file path: " + filePath, e);
+            logger.error("Unexpected error validating file path: {}", LogSafe.sanitize(filePath), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         }
 
@@ -110,16 +143,14 @@ public class PDFHandler implements MessageHandler {
 
         newDoc.setDocPublic("0");
 
-        InputStream fis = null;
-
         try {
-            fis = new FileInputStream(filePath);
             newDoc.setContentType("application/pdf");
 
             //Find the number of pages
-            PdfReader reader = new PdfReader(filePath);
-            int numPages = reader.getNumberOfPages();
-            reader.close();
+            int numPages;
+            try (PdfReader reader = new PdfReader(filePath)) {
+                numPages = reader.getNumberOfPages();
+            }
             newDoc.setNumberOfPages(numPages);
 
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
@@ -127,7 +158,7 @@ public class PDFHandler implements MessageHandler {
             LogAction.addLog(providerNo, LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, ipAddr, "", "DocUpload");
 
             //Get providers to route document to
-            String batchPDFProviderNo = OscarProperties.getInstance().getProperty("batch_pdf_provider_no");
+            String batchPDFProviderNo = CarlosProperties.getInstance().getProperty("batch_pdf_provider_no");
             if ((batchPDFProviderNo != null) && !batchPDFProviderNo.isEmpty()) {
 
                 ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) SpringUtils.getBean(ProviderInboxRoutingDao.class);
@@ -146,20 +177,11 @@ public class PDFHandler implements MessageHandler {
                 }
             }
         } catch (FileNotFoundException e) {
-            logger.info("An unexpected error has occurred:" + e.toString(), e);
+            logger.error("File not found: {}", LogSafe.sanitize(filePath), e);
             return null;
         } catch (Exception e) {
-            logger.info("An unexpected error has occurred:" + e.toString(), e);
+            logger.error("Error uploading PDF: {}", LogSafe.sanitize(filePath), e);
             return null;
-        } finally {
-            try {
-                if (fis != null) {
-                    fis.close();
-                }
-            } catch (IOException e1) {
-                logger.info("An unexpected error has occurred:" + e1.toString(), e1);
-                return null;
-            }
         }
 
         return "success";

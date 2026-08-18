@@ -30,8 +30,7 @@
 
 package io.github.carlos_emr.carlos.report.bean;
 
-import org.apache.commons.text.StringEscapeUtils;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.owasp.encoder.Encode;
 
 public class RptByExampleQueryBean {
 
@@ -51,8 +50,7 @@ public class RptByExampleQueryBean {
         this.id = id;
         this.query = query;
         this.queryName = queryName;
-        this.queryWithEscapeChar = StringEscapeUtils.escapeEcmaScript(query);
-        MiscUtils.getLogger().debug("query with javascript escape char: " + queryWithEscapeChar);
+        this.queryWithEscapeChar = Encode.forJavaScript(query);
     }
 
     public RptByExampleQueryBean(String providerLastName, String providerFirstName, String query, String date) {
@@ -60,7 +58,7 @@ public class RptByExampleQueryBean {
         this.providerFirstName = providerFirstName;
         this.query = query;
         this.date = date;
-        this.queryWithEscapeChar = StringEscapeUtils.escapeEcmaScript(query);
+        this.queryWithEscapeChar = Encode.forJavaScript(query);
     }
 
     public int getId() {

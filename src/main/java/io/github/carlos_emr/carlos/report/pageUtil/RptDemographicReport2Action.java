@@ -34,9 +34,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.report.data.DemographicSets;
 import io.github.carlos_emr.carlos.report.data.RptDemographicQuery2Builder;
@@ -45,12 +45,16 @@ import io.github.carlos_emr.carlos.report.data.RptDemographicQuery2Saver;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
-import com.opensymphony.xwork2.ModelDriven;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ModelDriven;
 
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class RptDemographicReport2Action extends ActionSupport implements ModelDriven<RptDemographicReport2Form> {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -63,6 +67,9 @@ public class RptDemographicReport2Action extends ActionSupport implements ModelD
 
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
+            throw new SecurityException("missing required sec object (_report)");
+        }
 
         String query = form.getQuery();
         String[] select = form.getSelect();

@@ -46,7 +46,6 @@ billregion=ON
 billcenter=G
 signature_tablet=no
 ENABLE_EDIT_APPT_STATUS=yes
-appt_intake_form=off
 new_flowsheet_enabled=true
 NEW_CONTACTS_UI=false
 enableFax=false
@@ -103,15 +102,15 @@ onare_labreqver=10
 born_env=T
 born_sftp_host=127.0.0.1
 born_sftp_port=22
-born_sftp_username=test
-born_sftp_password=test
+born_sftp_username="test"
+born_sftp_password="test"
 born_sftp_remote_dir=/
 born18m_env=T
 born18m_orgcode=mcmaster
 born18m_sftp_host=127.0.0.1
 born18m_sftp_port=22
-born18m_sftp_username=test
-born18m_sftp_password=test
+born18m_sftp_username="test"
+born18m_sftp_password="test"
 born18m_sftp_remote_dir=/
 born18m_eform_rourke="Rourke Baby Record"
 born18m_eform_ndds="Nipissing District Developmental Screen"
@@ -184,7 +183,7 @@ TOMCAT_TRUSTSTORE_FILE=/home/oscar/ihe/ihe.truststore.jks
 TOMCAT_TRUSTSTORE_PASSWORD=changeit
 mcedt_enabled=false
 mcedt_logging_skip=false
-mcedt_keystore_user=test
+mcedt_keystore_user="test"
 mcedt_keystore_pass=password
 mcedt_service_user=user
 mcedt_service_pass=servicepass
@@ -201,7 +200,7 @@ HL7TEXT_LABS=yes
 # Only cleanup the passwords on error because we may need the passwords
 # in the post install script. The post install must handle the cleanup
 # for all error conditions and successful exit.
-trap cleanupOnError HUP TERM ABRT KILL INT QUIT 
+trap cleanupOnError HUP TERM ABRT INT QUIT
 cleanupOnError()
 {
 	echo "Cleaning up sensitive data"
@@ -209,7 +208,7 @@ cleanupOnError()
 }
 
 # --- log the running of the script appending as necessary
-echo "#########" `date` "#########" 1>> $LOG_FILE
+echo "#########" $(date) "#########" 1>> $LOG_FILE
 echo Configuration of VERSION=${VERSION}-${REVISION}>>$LOG_FILE
 
 
@@ -328,9 +327,6 @@ echo "For a new install from console so probe for some settings" >>$LOG_FILE
 	db_reset oscar-emr/eyeform || true
 	db_set oscar-emr/eyeform false || true
 	eyeform=false
-	db_set oscar-emr/appt_intake_form true || true
-	appt_intake_form="on"
-
 	db_go || true
 
 	db_get oscar-emr/eyeform
@@ -412,6 +408,26 @@ if [ "${UPGRADE}" = "true" ] ; then
                 echo "# buttons are available in the form to manually populate Medications" >> ${C_HOME}${PROGRAM}.properties 
                 echo "CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true" >> ${C_HOME}${PROGRAM}.properties 
                 echo "" >> ${C_HOME}${PROGRAM}.properties 
+                echo "# Defaults to false. Set to true to allow CPP Past Medical History to" >> ${C_HOME}${PROGRAM}.properties
+                echo "# auto-populate into the Clinical Information field of a new consultation request." >> ${C_HOME}${PROGRAM}.properties
+                echo "CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY=false" >> ${C_HOME}${PROGRAM}.properties
+                echo "" >> ${C_HOME}${PROGRAM}.properties
+                echo "# Defaults to false. Set to true to allow CPP Social History to auto-populate into" >> ${C_HOME}${PROGRAM}.properties
+                echo "# the Clinical Information field of a new consultation request." >> ${C_HOME}${PROGRAM}.properties
+                echo "CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY=false" >> ${C_HOME}${PROGRAM}.properties
+                echo "" >> ${C_HOME}${PROGRAM}.properties
+                echo "# Defaults to false. Set to true to allow CPP Family History to auto-populate into" >> ${C_HOME}${PROGRAM}.properties
+                echo "# the Clinical Information field of a new consultation request." >> ${C_HOME}${PROGRAM}.properties
+                echo "CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY=false" >> ${C_HOME}${PROGRAM}.properties
+                echo "" >> ${C_HOME}${PROGRAM}.properties
+                echo "# Defaults to false. Set to true to allow CPP Ongoing Concerns to auto-populate into" >> ${C_HOME}${PROGRAM}.properties
+                echo "# the Clinical Information field of a new consultation request." >> ${C_HOME}${PROGRAM}.properties
+                echo "CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS=false" >> ${C_HOME}${PROGRAM}.properties
+                echo "" >> ${C_HOME}${PROGRAM}.properties
+                echo "# Defaults to false. Set to true to allow CPP Reminders to auto-populate into" >> ${C_HOME}${PROGRAM}.properties
+                echo "# the Clinical Information field of a new consultation request." >> ${C_HOME}${PROGRAM}.properties
+                echo "CONSULTATION_AUTO_INCLUDE_REMINDERS=false" >> ${C_HOME}${PROGRAM}.properties
+                echo "" >> ${C_HOME}${PROGRAM}.properties
             fi
 
             BILLING_REVIEW_AUTO_PAYMENT=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'BILLING_REVIEW_AUTO_PAYMENT'  | tail -n 1 | cut -d "=" -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
@@ -653,7 +669,6 @@ else
 	-e 's/\(^billcenter =\)/#\1/' \
 	-e 's/\(^SINGLE_PAGE_CHART\)/#\1/' \
 	-e 's/\(^signature_tablet\)/#\1/' \
-	-e 's/\(^appt_intake_form\)/#\1/' \
 	-e 's/\(^new_flowsheet_enabled\)/#\1/' \
 	-e 's/\(^enableFax\)/#\1/' \
 	-e 's/\(^DOCUMENT_DIR\)/#\1/' \
@@ -721,7 +736,7 @@ else
 
 	# probe for the local ip and set it
 	#login_local_ip=`ip -f inet addr show dev eth1 | sed -n 's/^ *inet *\([.0-9/]*\)\..*/\1/p'`;
-    login_local_ip=`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`;
+    login_local_ip=$(ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}');
 	echo login_local_ip=${login_local_ip}>> ${PROGRAM}.tmp 2>>$LOG_FILE
 
 	echo hibernate.dialect=org.oscarehr.util.persistence.OscarMySQL5Dialect>> ${PROGRAM}.tmp 2>>$LOG_FILE
@@ -736,7 +751,7 @@ else
 	# "HOME_DIR", "/billing/download/"
 	# "DOCUMENT_DIR", "/document/" 
 	# "eform_image", "/eform/images/" 
-	# "oscarMeasurement_css_upload_path", "/oscarEncounter/oscarMeasurements/styles/"
+	# "oscarMeasurement_css_upload_path", "/encounter/oscarMeasurements/styles/"
 	# "TMP_DIR", "/export/"
 	# "form_record_path", "/form/records/"
 	# "OMD_hrm","/hrm/"
@@ -789,7 +804,6 @@ if [ "${skip12}" = "false" ] ; then
 	echo "">> ${PROGRAM}.tmp 2>>$LOG_FILE
 	echo "## The following are new for Oscar 12">> ${PROGRAM}.tmp 2>>$LOG_FILE
 	echo signature_tablet=${signature_tablet}>> ${PROGRAM}.tmp 2>>$LOG_FILE
-	echo appt_intake_form=${appt_intake_form}>> ${PROGRAM}.tmp 2>>$LOG_FILE
 	echo new_flowsheet_enabled=${new_flowsheet_enabled}>> ${PROGRAM}.tmp 2>>$LOG_FILE
 	echo enableFax=${enableFax}>> ${PROGRAM}.tmp 2>>$LOG_FILE
 	#echo DOCUMENT_DIR=${DOCUMENT_DIR}>> ${PROGRAM}.tmp 2>>$LOG_FILE
@@ -1193,7 +1207,4 @@ fi
 echo "install new cron file" >>$LOG_FILE
 crontab c.temp 2>>$LOG_FILE
 rm c.temp 2>>$LOG_FILE
-
-
-
 

@@ -39,6 +39,7 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
@@ -66,13 +67,17 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
+import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
+import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Service
 public class TicklerManagerImpl implements TicklerManager {
@@ -172,6 +177,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public boolean updateTickler(LoggedInInfo loggedInInfo, Tickler tickler) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
@@ -203,7 +209,7 @@ public class TicklerManagerImpl implements TicklerManager {
 
         List<Tickler> results = ticklerDao.getTicklers(filter);
 
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             // filter based on facility
             results = ticklerFacilityFiltering(loggedInInfo, results);
 
@@ -228,21 +234,29 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    public List<Tickler> getTicklers(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit,
+                                     boolean includeComments, boolean includeUpdates, boolean includeProvider,
+                                     boolean includeAssignee) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+
+        return ticklerDao.getTicklers(filter, offset, limit, includeComments, includeUpdates, includeProvider,
+                includeAssignee);
+    }
+
+    @Override
     public List<Tickler> getTicklerByLabId(LoggedInInfo loggedInInfo, int labId, Integer demoNo) {
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         List<TicklerLink> links = ticklerLinkDao.getLinkByTableId("HL7", Long.valueOf(labId));
-
-        ArrayList<Tickler> results = new ArrayList<Tickler>();
-
+        ArrayList<Integer> ticklerNos = new ArrayList<Integer>(links.size());
         for (TicklerLink link : links) {
-            List<Tickler> ticklers = ticklerDao.findByTicklerNoAssignedTo(link.getTicklerNo(), providerNo, demoNo);
-            for (Tickler tickler : ticklers) {
-                results.add(tickler);
+            if (link.getTicklerNo() != null) {
+                ticklerNos.add(link.getTicklerNo());
             }
         }
 
+        ArrayList<Tickler> results = new ArrayList<Tickler>(ticklerDao.findByTicklerNosAssignedTo(ticklerNos, providerNo, demoNo));
         Collections.sort(results, Tickler.StatusAscComparator);
         return results;
     }
@@ -250,19 +264,15 @@ public class TicklerManagerImpl implements TicklerManager {
     @Override
     public List<Tickler> getTicklerByLabIdAnyProvider(LoggedInInfo loggedInInfo, int labId, Integer demoNo) {
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
         List<TicklerLink> links = ticklerLinkDao.getLinkByTableId("HL7", Long.valueOf(labId));
-
-        ArrayList<Tickler> results = new ArrayList<Tickler>();
-
+        ArrayList<Integer> ticklerNos = new ArrayList<Integer>(links.size());
         for (TicklerLink link : links) {
-            List<Tickler> ticklers = ticklerDao.findByTicklerNoDemo(link.getTicklerNo(), demoNo);
-            for (Tickler tickler : ticklers) {
-                results.add(tickler);
+            if (link.getTicklerNo() != null) {
+                ticklerNos.add(link.getTicklerNo());
             }
         }
 
+        ArrayList<Tickler> results = new ArrayList<Tickler>(ticklerDao.findByTicklerNosDemo(ticklerNos, demoNo));
         Collections.sort(results, Tickler.StatusAscComparator);
         return results;
     }
@@ -282,6 +292,8 @@ public class TicklerManagerImpl implements TicklerManager {
         return results;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public List<Tickler> filterTicklersByAccess(List<Tickler> ticklers, String providerNo, String programNo) {
         List<Tickler> filteredTicklers = new ArrayList<Tickler>();
@@ -352,7 +364,7 @@ public class TicklerManagerImpl implements TicklerManager {
             // if this providers wrote the tickler, they should see it..doesn't matter
             // about the role based access
             if (!add) {
-                if (t.getProvider().getProviderNo().equals(providerNo)) {
+                if (Objects.equals(t.getCreator(), providerNo)) {
                     add = true;
                 }
 
@@ -386,6 +398,12 @@ public class TicklerManagerImpl implements TicklerManager {
     @Override
     public int getNumTicklers(LoggedInInfo loggedInInfo, CustomFilter filter) {
         return ticklerDao.getNumTicklers(filter);
+    }
+
+    @Override
+    public int getNumTicklersFiltered(LoggedInInfo loggedInInfo, CustomFilter filter) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+        return ticklerDao.getNumFilteredTicklerDTOs(filter);
     }
 
     @Override
@@ -434,6 +452,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public void reassign(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String task_assigned_to) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
@@ -497,9 +516,9 @@ public class TicklerManagerImpl implements TicklerManager {
 //        }
 //
 //        boolean ticklerEditEnabled = Boolean
-//                .parseBoolean(OscarProperties.getInstance().getProperty("tickler_edit_enabled"));
+//                .parseBoolean(CarlosProperties.getInstance().getProperty("tickler_edit_enabled"));
 //        boolean ticklerEmailEnabled = Boolean
-//                .parseBoolean(OscarProperties.getInstance().getProperty("tickler_email_enabled"));
+//                .parseBoolean(CarlosProperties.getInstance().getProperty("tickler_email_enabled"));
 //
 //        if (ticklerEditEnabled & ticklerEmailEnabled) {
 //            String emailTo = t.getDemographic().getEmail();
@@ -507,8 +526,8 @@ public class TicklerManagerImpl implements TicklerManager {
 //
 //                InputStream is = TicklerManager.class.getResourceAsStream(TICKLER_EMAIL_TEMPLATE_FILE);
 //                String emailTemplate = IOUtils.toString(is);
-//                String emailSubject = OscarProperties.getInstance().getProperty("tickler_email_subject");
-//                String emailFrom = OscarProperties.getInstance().getProperty("tickler_email_from_address");
+//                String emailSubject = CarlosProperties.getInstance().getProperty("tickler_email_subject");
+//                String emailFrom = CarlosProperties.getInstance().getProperty("tickler_email_from_address");
 //
 //                ClinicDAO clinicDao = (ClinicDAO) SpringUtils.getBean(ClinicDAO.class);
 //                Clinic c = clinicDao.getClinic();
@@ -542,13 +561,6 @@ public class TicklerManagerImpl implements TicklerManager {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
         updateStatus(loggedInInfo, tickler_id, provider, Tickler.STATUS.D);
-    }
-
-    @Override
-    public void activateTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider) {
-        checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
-
-        updateStatus(loggedInInfo, tickler_id, provider, Tickler.STATUS.A);
     }
 
     @Override
@@ -730,45 +742,54 @@ public class TicklerManagerImpl implements TicklerManager {
         return this.ticklerTextSuggestDao.getActiveTicklerTextSuggests();
     }
 
+    /**
+     * Retrieves a paginated list of lightweight tickler DTOs optimized for
+     * server-side DataTables display. Uses JPQL projection to avoid eager loading
+     * of full entity graphs, then batch-loads comments and links.
+     *
+     * <p>Logs the access when filtering by a specific demographic number.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context for authorization
+     * @param filter CustomFilter the filter criteria (status, provider, assignee, dates, etc.)
+     * @param offset int the zero-based starting row index for pagination
+     * @param limit int the maximum number of ticklers to return
+     * @return List&lt;TicklerListDTO&gt; list of tickler DTOs with comments and links populated
+     * @throws RuntimeException if the user lacks read privilege on _tickler
+     * @since 2026-02-27
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
-    public List<TicklerTextSuggest> getAllTextSuggestions(LoggedInInfo loggedInInfo, int offset, int itemsToReturn) {
-        return this.ticklerTextSuggestDao.findAll(offset, itemsToReturn);
-    }
+    public List<TicklerListDTO> getTicklerDTOs(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
 
-    @Override
-    public List<Tickler> sortTicklerList(Boolean isSortAscending, String sortColumn, List<Tickler> ticklers) {
+        List<TicklerListDTO> result = ticklerDao.getTicklerDTOs(filter, offset, limit);
 
-        if (isSortAscending) {
-            if (sortColumn.equals(DEMOGRAPHIC_NAME)) {
-                Collections.sort(ticklers, Tickler.DemographicNameAscComparator);
-            } else if (sortColumn.equals(CREATOR)) {
-                Collections.sort(ticklers, Tickler.CreatorAscComparator);
-            } else if (sortColumn.equals(SERVICE_DATE)) {
-                Collections.sort(ticklers, Tickler.ServiceDateAscComparator);
-            } else if (sortColumn.equals(CREATION_DATE)) {
-                Collections.sort(ticklers, Tickler.CreationDateAscComparator);
-            } else if (sortColumn.equals(PRIORITY)) {
-                Collections.sort(ticklers, Tickler.PriorityAscComparator);
-            } else if (sortColumn.equals(TASK_ASSIGNED_TO)) {
-                Collections.sort(ticklers, Tickler.TaskAssignedToAscComparator);
-            }
-        } else {
-            if (sortColumn.equals(DEMOGRAPHIC_NAME)) {
-                Collections.sort(ticklers, Tickler.DemographicNameDescComparator);
-            } else if (sortColumn.equals(CREATOR)) {
-                Collections.sort(ticklers, Tickler.CreatorDescComparator);
-            } else if (sortColumn.equals(SERVICE_DATE)) {
-                Collections.sort(ticklers, Tickler.ServiceDateDescComparator);
-            } else if (sortColumn.equals(CREATION_DATE)) {
-                Collections.sort(ticklers, Tickler.CreationDateDescComparator);
-            } else if (sortColumn.equals(PRIORITY)) {
-                Collections.sort(ticklers, Tickler.PriorityDescComparator);
-            } else if (sortColumn.equals(TASK_ASSIGNED_TO)) {
-                Collections.sort(ticklers, Tickler.TaskAssignedToDescComparator);
-            }
+        if (filter.getDemographicNo() != null && !filter.getDemographicNo().isEmpty()
+                && !"All Clients".equalsIgnoreCase(filter.getDemographicNo())) {
+            LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.getTicklerDTOs",
+                    "demographicNo=" + Encode.forJava(filter.getDemographicNo()));
         }
 
-        return ticklers;
+        return result;
+    }
+
+    /**
+     * Retrieves all tickler DTOs matching the given filter without pagination.
+     * Uses JPQL projection to avoid eager loading, then batch-loads comments
+     * and links.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context for authorization
+     * @param filter CustomFilter the filter criteria (status, provider, assignee, dates, etc.)
+     * @return List&lt;TicklerListDTO&gt; list of all matching tickler DTOs with comments and links populated
+     * @throws RuntimeException if the user lacks read privilege on _tickler
+     * @since 2026-02-27
+     */
+    @Override
+    public List<TicklerListDTO> getTicklerDTOs(LoggedInInfo loggedInInfo, CustomFilter filter) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+
+        return ticklerDao.getTicklerDTOs(filter);
     }
 
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {

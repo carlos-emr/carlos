@@ -30,7 +30,6 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
@@ -39,14 +38,15 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.Hashtable;
@@ -61,6 +61,9 @@ public final class RxSearchDrug2Action extends ActionSupport {
 
     private RxDrugRef drugref;
     private static Logger logger = MiscUtils.getLogger();
+
+    /** Shared, thread-safe ObjectMapper (safe after configuration). */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public RxSearchDrug2Action() {
         this.drugref = new RxDrugRef();
@@ -81,12 +84,8 @@ public final class RxSearchDrug2Action extends ActionSupport {
             return searchBrandName();
         } else if ("searchGenericName".equals(method)) {
             return searchGenericName();
-        } else if ("searchActiveIngredient".equals(method)) {
-            return searchActiveIngredient();
         } else if ("searchNaturalRemedy".equals(method)) {
             return searchNaturalRemedy();
-        } else if ("jsonSearch".equals(method)) {
-            return jsonSearch();
         } else if ("inactiveDate".equals(method)) {
             return getInactiveDate();
         }
@@ -179,57 +178,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
     }
 
     @SuppressWarnings({"unused", "unchecked", "rawtypes"})
-    public String searchActiveIngredient() {
-        logger.debug("Calling searchActiveIngredient");
-        Parameter.setParameters(request.getParameterMap());
-
-        Vector catVec = new Vector();
-        catVec.add(RxDrugRef.CAT_ACTIVE_INGREDIENT);
-        Vector<Hashtable<String, Object>> results = drugref.list_search_element_select_categories(
-                Parameter.SEARCH_STRING,
-                catVec,
-                wildCardRight(Parameter.WILDCARD));
-        try {
-            jsonify(results, response);
-        } catch (IOException e) {
-            logger.error("Exception creating JSON Object for " + results, e);
-            return "error";
-        }
-
-        return null;
-    }
-
-    @SuppressWarnings({"unused", "unchecked", "rawtypes"})
     public String searchNaturalRemedy() {
-
-        return null;
-    }
-
-
-    @SuppressWarnings({"unchecked", "unused"})
-    public String jsonSearch() {
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
-        }
-
-        String searchStr = request.getParameter("query");
-        if (searchStr == null) {
-            searchStr = request.getParameter("name");
-        }
-        String wildcardRightOnly = OscarProperties.getInstance().getProperty("rx.search_right_wildcard_only", "false");
-        Vector<Hashtable<String, Object>> vec = null;
-
-        try {
-            vec = drugref.list_drug_element3(searchStr, wildCardRight(wildcardRightOnly));
-            jsonify(vec, response);
-        } catch (IOException e) {
-            logger.error("Exception while attempting to contact DrugRef", e);
-            return "error";
-        } catch (Exception e) {
-            logger.error("Unknown Error", e);
-            return "error";
-        }
 
         return null;
     }
@@ -247,12 +196,16 @@ public final class RxSearchDrug2Action extends ActionSupport {
 
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
+            try {
+                if (!response.isCommitted()) {
+                    response.resetBuffer();
+                    response.setContentType("application/json");
+                    response.getWriter().write("{}");
+                }
+            } catch (java.io.IOException ioe) {
+                MiscUtils.getLogger().error("Error writing empty inactive date JSON response", ioe);
+            }
         }
-//        Hashtable d = new Hashtable();
-//
-//        d.put("id", id);
-//        d.put("vec", vec);
-//        mapper.writeValueAsString(d);
         return null;
     }
 
@@ -272,9 +225,9 @@ public final class RxSearchDrug2Action extends ActionSupport {
 
         Hashtable<String, Vector<Hashtable<String, Object>>> d = new Hashtable<String, Vector<Hashtable<String, Object>>>();
         d.put("results", data);
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
 
-        ObjectMapper mapper = new ObjectMapper();
+        ObjectMapper mapper = OBJECT_MAPPER;
         ObjectNode jsonArray = (ObjectNode) mapper.valueToTree(d);
         Writer jsonWriter = response.getWriter();
         jsonWriter.write(jsonArray.toString());
@@ -337,6 +290,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
         return ahfsString;
     }
 
+    @StrutsParameter
     public void setAhfsSearch(String str) {
         ahfsString = str;
     }
@@ -348,6 +302,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
         return otcExcluded;
     }
 
+    @StrutsParameter
     public void setOtcExcluded(String str) {
         otcExcluded = str;
     }
@@ -357,6 +312,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
         return (this.demographicNo);
     }
 
+    @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }
@@ -365,6 +321,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
         return (this.searchString);
     }
 
+    @StrutsParameter
     public void setSearchString(String searchString) {
         this.searchString = searchString;
     }
@@ -373,6 +330,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
         return (this.searchRoute);
     }
 
+    @StrutsParameter
     public void setSearchRoute(String searchRoute) {
         this.searchRoute = searchRoute;
     }
@@ -381,6 +339,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
         return genericString;
     }
 
+    @StrutsParameter
     public void setGenericSearch(String str) {
         genericString = str;
     }

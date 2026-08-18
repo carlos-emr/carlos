@@ -33,43 +33,58 @@ package io.github.carlos_emr.carlos.commn.web;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import org.apache.commons.text.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO;
 import io.github.carlos_emr.carlos.utility.AppointmentUtil;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
-import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
-import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jaygallagher
+ * Struts 2 action providing JSON autocomplete results for demographic (patient) searches.
+ * Used by appointment booking and other patient-lookup flows.
+ *
+ * @since 2026-02-20
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class SearchDemographicAutoComplete2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "IMPROPER_UNICODE"}, justification = "XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink. case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
-        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         boolean outOfDomain = false;
         if (request.getParameter("outofdomain") != null && request.getParameter("outofdomain").equals("true")) {
@@ -94,19 +109,51 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         boolean activeOnly = false;
         activeOnly = request.getParameter("activeOnly") != null && request.getParameter("activeOnly").equalsIgnoreCase("true");
         boolean jqueryJSON = request.getParameter("jqueryJSON") != null && request.getParameter("jqueryJSON").equalsIgnoreCase("true");
-        RxProviderData rx = new RxProviderData();
 
+
+        if (searchStr == null || searchStr.trim().isEmpty()) {
+            response.setContentType("application/json");
+            response.getWriter().write("[]");
+            return null;
+        }
+
+        String searchType = request.getParameter("searchType");
+        if (searchType == null) {
+            searchType = "name";
+        }
+
+        // Parse inactive statuses once for activeOnly filtering across all search types
+        List<String> stati = null;
+        if (activeOnly) {
+            CarlosProperties props = CarlosProperties.getInstance();
+            String pstatus = props.getProperty("inactive_statuses", "IN, DE, IC, ID, MO, FI");
+            pstatus = pstatus.replaceAll("'", "").replaceAll("\\s", "");
+            stati = Arrays.asList(pstatus.split(","));
+        }
 
         List<Demographic> list = null;
 
         if (searchStr.length() == 8 && searchStr.matches("([0-9]*)")) {
             list = demographicDao.searchDemographicByDOB(searchStr.substring(0, 4) + "-" + searchStr.substring(4, 6) + "-" + searchStr.substring(6, 8), 100, 0, providerNo, outOfDomain);
+        } else if ("hin".equals(searchType)) {
+            if (activeOnly) {
+                list = demographicDao.searchDemographicByHINAndNotStatus(searchStr, stati, 20, 0, providerNo, outOfDomain);
+            } else {
+                list = demographicDao.searchDemographicByHIN(searchStr, 20, 0, providerNo, outOfDomain);
+            }
+        } else if ("phone".equals(searchType)) {
+            if (activeOnly) {
+                list = demographicDao.searchDemographicByPhoneAndNotStatus(searchStr, stati, 20, 0, providerNo, outOfDomain);
+            } else {
+                list = demographicDao.searchDemographicByPhone(searchStr, 20, 0, providerNo, outOfDomain);
+            }
+        } else if ("address".equals(searchType)) {
+            if (activeOnly) {
+                list = demographicDao.searchDemographicByAddressAndNotStatus(searchStr, stati, 20, 0, providerNo, outOfDomain);
+            } else {
+                list = demographicDao.searchDemographicByAddress(searchStr, 20, 0, providerNo, outOfDomain);
+            }
         } else if (activeOnly) {
-            OscarProperties props = OscarProperties.getInstance();
-            String pstatus = props.getProperty("inactive_statuses", "IN, DE, IC, ID, MO, FI");
-            pstatus = pstatus.replaceAll("'", "").replaceAll("\\s", "");
-            List<String> stati = Arrays.asList(pstatus.split(","));
-
             list = demographicDao.searchDemographicByNameAndNotStatus(searchStr, stati, 100, 0, providerNo, outOfDomain);
             if (list.size() == 100) {
                 MiscUtils.getLogger().warn("More results exists than returned");
@@ -119,57 +166,92 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         }
 
 
+        // Hoist DAO lookups outside loop to avoid N+1 bean resolution on every iteration
+        DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
+        ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+
+        // Batch-load all referenced provider numbers in a single query instead of N+1 RxProviderData lookups
+        Set<String> providerNos = new LinkedHashSet<>();
+        for (Demographic demo : list) {
+            if (demo.getProviderNo() != null && !demo.getProviderNo().isEmpty()) {
+                providerNos.add(demo.getProviderNo());
+            }
+        }
+        boolean workflowEnhance = CarlosProperties.getInstance().isPropertyActive("workflow_enhance");
+        // Pre-load all DemographicCust records to avoid N+1 queries in the render loop
+        Map<Integer, DemographicCust> dcMap = new HashMap<>();
+        for (Demographic demo : list) {
+            DemographicCust dc = demographicCustDao.find(demo.getDemographicNo());
+            dcMap.put(demo.getDemographicNo(), dc);
+            if (workflowEnhance && dc != null) {
+                String n = StringUtils.trimToNull(dc.getNurse());
+                String r = StringUtils.trimToNull(dc.getResident());
+                String m = StringUtils.trimToNull(dc.getMidwife());
+                if (n != null) providerNos.add(n);
+                if (r != null) providerNos.add(r);
+                if (m != null) providerNos.add(m);
+            }
+        }
+        Map<String, ProviderSummaryDTO> providerMap = providerNos.isEmpty()
+                ? new HashMap<>()
+                : providerDao.getProviderSummariesByIds(providerNos);
+
         List<HashMap<String, String>> secondList = new ArrayList<HashMap<String, String>>();
         for (Demographic demo : list) {
             HashMap<String, String> h = new HashMap<String, String>();
-            h.put("fomattedDob", demo.getFormattedDob());
-            h.put("formattedName", StringEscapeUtils.escapeJava(demo.getFormattedName().replaceAll("\"", "\\\"")));
+            h.put("formattedDob", demo.getFormattedDob());
+            h.put("fomattedDob", demo.getFormattedDob()); // backward compat: legacy misspelled key still used by 4+ JSPs
+            h.put("formattedName", demo.getFormattedName());
             h.put("demographicNo", String.valueOf(demo.getDemographicNo()));
-            h.put("status", demo.getPatientStatus());
+            h.put("status", demo.getPatientStatus() != null ? demo.getPatientStatus() : "");
+            h.put("rosterStatus", demo.getRosterStatus() != null ? demo.getRosterStatus() : "");
+            h.put("cellPhone", demo.getCellPhone() != null ? demo.getCellPhone() : "");
+            h.put("phone", demo.getPhone() != null ? demo.getPhone() : "");
+            h.put("email", demo.getEmail() != null ? demo.getEmail() : "");
+            h.put("hin", demo.getHin() != null ? demo.getHin() : "");
+            h.put("address", demo.getAddress() != null ? demo.getAddress() : "");
 
-
-            Provider p = rx.getProvider(demo.getProviderNo());
-            if (demo.getProviderNo() != null) {
+            if (demo.getProviderNo() != null && !demo.getProviderNo().isEmpty()) {
                 h.put("providerNo", demo.getProviderNo());
-            }
-            if (p.getSurname() != null && p.getFirstName() != null) {
-                h.put("providerName", p.getSurname() + ", " + p.getFirstName());
+                ProviderSummaryDTO prov = providerMap.get(demo.getProviderNo());
+                if (prov != null) {
+                    h.put("providerName", prov.getFormattedName());
+                }
             }
 
-            if (OscarProperties.getInstance().isPropertyActive("workflow_enhance")) {
+            // Reuse pre-loaded DemographicCust from the cache
+            DemographicCust demographicCust = dcMap.get(demo.getDemographicNo());
+
+            String alertText = (demographicCust != null && demographicCust.getAlert() != null) ? demographicCust.getAlert() : "";
+            h.put("alert", alertText);
+
+            if (workflowEnhance) {
                 h.put("nextAppointment", AppointmentUtil.getNextAppointment(demo.getDemographicNo() + ""));
-                DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
-                DemographicCust demographicCust = demographicCustDao.find(demo.getDemographicNo());
 
                 if (demographicCust != null) {
                     String cust1 = StringUtils.trimToNull(demographicCust.getNurse());
                     String cust2 = StringUtils.trimToNull(demographicCust.getResident());
                     String cust4 = StringUtils.trimToNull(demographicCust.getMidwife());
-                    if (cust1 != null) {
-                        h.put("cust1", cust1);
-                        p = rx.getProvider(cust1);
-                        h.put("cust1Name", p.getSurname() + ", " + p.getFirstName());
-                    }
-                    if (cust2 != null) {
-                        h.put("cust2", cust2);
-                        p = rx.getProvider(cust2);
-                        h.put("cust2Name", p.getSurname() + ", " + p.getFirstName());
-                    }
-                    if (cust4 != null) {
-                        h.put("cust4", cust4);
-                        p = rx.getProvider(cust4);
-                        h.put("cust4Name", p.getSurname() + ", " + p.getFirstName());
-                    }
+                    putCustProvider(h, "cust1", cust1, providerMap);
+                    putCustProvider(h, "cust2", cust2, providerMap);
+                    putCustProvider(h, "cust4", cust4, providerMap);
                 }
             }
 
 
+            // Derived fields required by jQuery autocomplete widget (label/value are the standard autocomplete contract)
+            String statusLabel = h.getOrDefault("status", "");
+            h.put("label", h.getOrDefault("formattedName", "") + " " + h.getOrDefault("formattedDob", "") + " (" + statusLabel + ")");
+            h.put("value", h.getOrDefault("demographicNo", ""));
+            // Alias fields to match the field names accessed by the JS select handler
+            h.put("provider", h.getOrDefault("providerName", ""));
+            h.put("nextAppt", h.getOrDefault("nextAppointment", ""));
             secondList.add(h);
         }
 
         HashMap<String, List<HashMap<String, String>>> d = new HashMap<String, List<HashMap<String, String>>>();
         d.put("results", secondList);
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         if (jqueryJSON) {
             response.getWriter().print(formatJSON(secondList));
             response.getWriter().flush();
@@ -181,24 +263,22 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
 
     }
 
+    private static void putCustProvider(HashMap<String, String> h, String key, String providerNo,
+                                           Map<String, ProviderSummaryDTO> providerMap) {
+        if (providerNo == null) return;
+        h.put(key, providerNo);
+        ProviderSummaryDTO prov = providerMap.get(providerNo);
+        if (prov != null) h.put(key + "Name", prov.getFormattedName());
+    }
+
     private String formatJSON(List<HashMap<String, String>> info) {
-        StringBuilder json = new StringBuilder("[");
-
-        HashMap<String, String> record;
-        int size = info.size();
-        for (int idx = 0; idx < size; ++idx) {
-            record = info.get(idx);
-            json.append("{\"label\":\"" + record.get("formattedName") + " " + record.get("fomattedDob") + " (" + record.get("status") + ")\",\"value\":\"" + record.get("demographicNo") + "\"");
-            json.append(",\"providerNo\":\"" + record.get("providerNo") + "\",\"provider\":\"" + record.get("providerName") + "\",\"nextAppt\":\"" + record.get("nextAppointment") + "\",");
-            json.append("\"formattedName\":\"" + record.get("formattedName") + "\"}");
-
-            if (idx < size - 1) {
-                json.append(",");
-            }
+        try {
+            // Use ObjectMapper for proper JSON escaping and null handling
+            return objectMapper.writeValueAsString(info);
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Error serializing autocomplete JSON", e);
+            return "[]";
         }
-        json.append("]");
-
-        return json.toString();
     }
 
 }

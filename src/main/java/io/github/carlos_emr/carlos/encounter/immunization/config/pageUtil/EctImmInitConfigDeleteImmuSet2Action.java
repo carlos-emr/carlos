@@ -32,9 +32,9 @@ package io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil;
 
 import java.io.IOException;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -42,8 +42,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.encounter.immunization.config.data.EctImmImmunizationSetData;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctImmInitConfigDeleteImmuSet2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -95,10 +96,12 @@ public class EctImmInitConfigDeleteImmuSet2Action extends ActionSupport {
     /**
      * @param action The action to set.
      */
+    @StrutsParameter
     public void setAction(String action) {
         this.action = action;
     }
 
+    @StrutsParameter
     public void setChkSetId(String[] str) {
         chkSetId = str;
     }

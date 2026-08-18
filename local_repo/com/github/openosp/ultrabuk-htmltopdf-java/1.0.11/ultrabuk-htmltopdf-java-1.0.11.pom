@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.github.openosp</groupId>
+  <artifactId>ultrabuk-htmltopdf-java</artifactId>
+  <version>1.0.11</version>
+  <name>openosp/ultrabuk-htmltopdf-java</name>
+  <url>https://github.com/openosp/ultrabuk-htmltopdf-java</url>
+  <inceptionYear>2024</inceptionYear>
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://api.github.com/licenses/mit</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>openosp</id>
+      <name></name>
+      <email></email>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git://github.com/openosp/ultrabuk-htmltopdf-java.git</connection>
+    <developerConnection>scm:git://github.com/openosp/ultrabuk-htmltopdf-java.git</developerConnection>
+    <url>git://github.com/openosp/ultrabuk-htmltopdf-java.git</url>
+  </scm>
+  <dependencies>
+    <dependency>
+      <groupId>net.java.dev.jna</groupId>
+      <artifactId>jna</artifactId>
+      <version>[5.12,)</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.12</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

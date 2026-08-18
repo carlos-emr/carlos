@@ -29,12 +29,13 @@
 package io.github.carlos_emr.carlos.casemgmt.service;
 
 
+import java.awt.Color;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
-import com.itextpdf.text.*;
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.ColumnText;
-import com.itextpdf.text.pdf.PdfContentByte;
-import com.itextpdf.text.pdf.PdfWriter;
+import org.openpdf.text.*;
+import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.ColumnText;
+import org.openpdf.text.pdf.PdfContentByte;
+import org.openpdf.text.pdf.PdfWriter;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -46,10 +47,10 @@ import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
@@ -59,7 +60,27 @@ import java.util.List;
 import java.util.ResourceBundle;
 
 /**
- * @author rjonasz
+ * PDF generation engine for the case management encounter print workflow. Renders
+ * a complete patient encounter summary including clinic header, patient demographics,
+ * Cumulative Patient Profile (CPP) sections, clinical notes, allergies, preventions,
+ * and prescription history.
+ *
+ * <p>Uses OpenPDF (forked from iText) for document composition. The engine maintains
+ * shared state (document, fonts, formatters) that pluggable
+ * {@link io.github.carlos_emr.carlos.casemgmt.util.ExtPrint} extensions
+ * can use to append additional content sections.
+ *
+ * <p>Typical usage:
+ * <pre>
+ *   CaseManagementPrintPdf engine = new CaseManagementPrintPdf(request, outputStream);
+ *   engine.printDocHeaderFooter();
+ *   engine.printNotes(notes);
+ *   engine.finish();
+ * </pre>
+ *
+ * @see io.github.carlos_emr.carlos.casemgmt.util.ExtPrint
+ * @see io.github.carlos_emr.carlos.casemgmt.print.OscarChartPrinter
+ * @since 2008-01-22
  */
 public class CaseManagementPrintPdf {
 
@@ -68,6 +89,7 @@ public class CaseManagementPrintPdf {
 
     private float upperYcoord;
     private Document document;
+    private PdfWriter writer;
     private PdfContentByte cb;
     private BaseFont bf;
     private Font font;
@@ -81,7 +103,10 @@ public class CaseManagementPrintPdf {
     public final int NUMCOLS = 2;
 
     /**
-     * Creates a new instance of CaseManagementPrintPdf
+     * Creates a new PDF print engine bound to the given request and output stream.
+     *
+     * @param request HttpServletRequest the HTTP request containing patient demographic attributes
+     * @param os      OutputStream the stream to write the generated PDF to
      */
     public CaseManagementPrintPdf(HttpServletRequest request, OutputStream os) {
         this.request = request;
@@ -121,12 +146,19 @@ public class CaseManagementPrintPdf {
         return bf;
     }
 
+    /**
+     * Initializes the PDF document and renders the first-page header containing
+     * clinic information (left column) and patient demographics (right column),
+     * separated by horizontal rules. Optionally uses current program info if
+     * configured via the {@code print.useCurrentProgramInfoInHeader} property.
+     *
+     * @throws IOException       if the base font cannot be created
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printDocHeaderFooter() throws IOException, DocumentException {
         //Create the document we are going to write to
         document = new Document();
-        PdfWriter writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_12PT);
-
-        // writer.setPageEvent(new EndPage());
+        writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_12PT);
         document.setPageSize(PageSize.LETTER);
         document.open();
 
@@ -137,15 +169,15 @@ public class CaseManagementPrintPdf {
 
         //set up document title and header
         ResourceBundle propResource = ResourceBundle.getBundle("oscarResources");
-        String title = propResource.getString("oscarEncounter.pdfPrint.title") + " " + (String) request.getAttribute("demoName") + "\n";
-        String gender = propResource.getString("oscarEncounter.pdfPrint.gender") + " " + (String) request.getAttribute("demoSex") + "\n";
-        String dob = propResource.getString("oscarEncounter.pdfPrint.dob") + " " + (String) request.getAttribute("demoDOB") + "\n";
-        String age = propResource.getString("oscarEncounter.pdfPrint.age") + " " + (String) request.getAttribute("demoAge") + "\n";
-        String mrp = propResource.getString("oscarEncounter.pdfPrint.mrp") + " " + (String) request.getAttribute("mrp") + "\n";
-        String phn = propResource.getString("oscarEncounter.pdfPrint.phn") + " " + (String) request.getAttribute("demoPhn") + "\n";
+        String title = propResource.getString("encounter.pdfPrint.title") + " " + (String) request.getAttribute("demoName") + "\n";
+        String gender = propResource.getString("encounter.pdfPrint.gender") + " " + (String) request.getAttribute("demoSex") + "\n";
+        String dob = propResource.getString("encounter.pdfPrint.dob") + " " + (String) request.getAttribute("demoDOB") + "\n";
+        String age = propResource.getString("encounter.pdfPrint.age") + " " + (String) request.getAttribute("demoAge") + "\n";
+        String mrp = propResource.getString("encounter.pdfPrint.mrp") + " " + (String) request.getAttribute("mrp") + "\n";
+        String phn = propResource.getString("encounter.pdfPrint.phn") + " " + (String) request.getAttribute("demoPhn") + "\n";
 
         String[] info;
-        if ("true".equals(OscarProperties.getInstance().getProperty("print.includeMRP", "true"))) {
+        if ("true".equals(CarlosProperties.getInstance().getProperty("print.includeMRP", "true"))) {
             info = new String[]{title, gender, dob, age, phn, mrp};
         } else {
             info = new String[]{title, gender, dob, age, phn};
@@ -157,7 +189,7 @@ public class CaseManagementPrintPdf {
                 clinicData.getClinicCity() + ", " + clinicData.getClinicProvince(),
                 clinicData.getClinicPostal(), "Phone: " + clinicData.getClinicPhone(), "Fax: " + clinicData.getClinicFax()};
 
-        if ("true".equals(OscarProperties.getInstance().getProperty("print.useCurrentProgramInfoInHeader", "false"))) {
+        if ("true".equals(CarlosProperties.getInstance().getProperty("print.useCurrentProgramInfoInHeader", "false"))) {
             ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             ProgramProvider pp = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
@@ -176,7 +208,7 @@ public class CaseManagementPrintPdf {
 
         //Write title with top and bottom borders on p1
         cb = writer.getDirectContent();
-        cb.setColorStroke(BaseColor.BLACK);
+        cb.setColorStroke(Color.BLACK);
         cb.setLineWidth(0.5f);
 
         cb.moveTo(document.left(), document.top());
@@ -233,6 +265,13 @@ public class CaseManagementPrintPdf {
 
     }
 
+    /**
+     * Renders the patient prevention (immunization) history section. Non-deleted
+     * preventions are listed with their date and type; refused preventions are annotated.
+     *
+     * @param preventions List of Prevention records, or {@code null} to skip this section
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printPreventions(List<Prevention> preventions) throws DocumentException {
         if (preventions == null) {
             return;
@@ -279,6 +318,13 @@ public class CaseManagementPrintPdf {
         }
     }
 
+    /**
+     * Renders the patient allergies section with details including description,
+     * start date, reaction, severity, onset, life stage, and age of onset.
+     *
+     * @param allergies List of Allergy records, or {@code null} to skip this section
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printAllergies(List<Allergy> allergies) throws DocumentException {
         if (allergies == null) {
             return;
@@ -376,10 +422,24 @@ public class CaseManagementPrintPdf {
         }
     }
 
+    /**
+     * Renders the patient prescription history section for all current, non-archived medications.
+     *
+     * @param demoNo String the demographic number of the patient
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printRx(String demoNo) throws DocumentException {
         printRx(demoNo, null);
     }
 
+    /**
+     * Renders the patient prescription history section, optionally followed by
+     * "Other Meds" CPP notes if provided.
+     *
+     * @param demoNo String the demographic number of the patient
+     * @param cpp    List of CaseManagementNote for other medications CPP, or {@code null} to omit
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printRx(String demoNo, List<CaseManagementNote> cpp) throws DocumentException {
         if (demoNo == null)
             return;
@@ -434,6 +494,15 @@ public class CaseManagementPrintPdf {
         }
     }
 
+    /**
+     * Renders the full Cumulative Patient Profile (CPP) with all standard sections:
+     * Social History, Other Meds, Medical History, Ongoing Concerns, Reminders,
+     * Family History, and Risk Factors.
+     *
+     * @param cpp HashMap mapping issue codes to their associated CaseManagementNote lists,
+     *            or {@code null} to skip this section
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printCPP(HashMap<String, List<CaseManagementNote>> cpp) throws DocumentException {
         if (cpp == null)
             return;
@@ -460,18 +529,6 @@ public class CaseManagementPrintPdf {
         String[] issueCodes = {"SocHistory", "OMeds", "MedHistory", "Concerns", "Reminders", "FamHistory", "RiskFactors"};
         //String[] content = {cpp.getSocialHistory(), cpp.getFamilyHistory(), cpp.getMedicalHistory(), cpp.getOngoingConcerns(), cpp.getReminders()};
 
-        //init column to left side of page
-        //ct.setSimpleColumn(document.left(), document.bottomMargin()+25f, document.right()/2f, lworkingYcoord);
-
-        //int column = 1;
-        //Chunk chunk;
-        //float bottom = document.bottomMargin()+25f;
-        //float middle;
-        //bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
-        //cb.beginText();
-        //String headerContd;
-        //while there are cpp headings to process
-
         for (int idx = 0; idx < headings.length; ++idx) {
             p = new Paragraph();
             p.setAlignment(Paragraph.ALIGN_LEFT);
@@ -483,6 +540,13 @@ public class CaseManagementPrintPdf {
         }
     }
 
+    /**
+     * Renders a list of case management notes, each with its observation date header
+     * and note text content.
+     *
+     * @param notes List of CaseManagementNote to render
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printNotes(List<CaseManagementNote> notes) throws DocumentException {
 
         CaseManagementNote note;
@@ -510,8 +574,17 @@ public class CaseManagementPrintPdf {
         }
     }
 
+    /**
+     * Closes the PDF document and flushes all content to the output stream.
+     */
     public void finish() {
-        document.close();
+        try {
+            document.close();
+        } finally {
+            if (writer != null) {
+                writer.close();
+            }
+        }
     }
 
     /*
@@ -523,7 +596,7 @@ public class CaseManagementPrintPdf {
 //
 //        public EndPage() {
 //            now = new Date();
-//            promoTxt = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
+//            promoTxt = CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT");
 //            if( promoTxt == null ) {
 //                promoTxt = "";
 //            }

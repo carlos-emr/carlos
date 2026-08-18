@@ -31,10 +31,10 @@ package io.github.carlos_emr.carlos.prevention;
 
 import java.util.Date;
 
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicPrevention;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author Jay Gallagher
@@ -47,6 +47,11 @@ public class PreventionItem {
     Date nextDate = null;
     String never = null;
     boolean refused;
+    // Raw refused status value (0=active, 1=refused, 2=ineligible, 3=completedExternally).
+    // For the "Smoking" type: 0=Yes (current), 1=No (non-smoker), 2=Previous (ex-smoker).
+    // Defaults to -1 (unknown/uninitialized) to avoid misclassifying items built via
+    // constructors that do not hydrate this field from a Prevention record.
+    private int refusedStatus = -1;
     private boolean inelligible = false;
     private boolean remoteEntry = false;
 
@@ -65,6 +70,8 @@ public class PreventionItem {
         this.nextDate = dNext;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public PreventionItem(String name, Date dPreformed, String never, Date dNext, String result) {
         this.name = name;
         this.datePreformed = dPreformed;
@@ -79,15 +86,8 @@ public class PreventionItem {
         this.never = ConversionUtils.toBoolString(pp.isNever());
         this.nextDate = pp.getNextDate();
         this.refused = pp.isRefused();
+        this.refusedStatus = pp.getRefusedRawValue();
         this.inelligible = pp.isIneligible();
-    }
-
-    public PreventionItem(CachedDemographicPrevention pp) {
-        this.name = pp.getPreventionType();
-        this.datePreformed = pp.getPreventionDate().getTime();
-        this.never = ConversionUtils.toBoolString(pp.isNever());
-        this.nextDate = pp.getNextDate() == null ? null : pp.getNextDate().getTime();
-        this.refused = pp.isRefused();
     }
 
     public boolean getNeverVal() {
@@ -96,6 +96,23 @@ public class PreventionItem {
             ret = true;
         }
         return ret;
+    }
+
+    /**
+     * Returns the raw refused status value from the underlying prevention record.
+     * <p>
+     * Standard semantics: {@code 0}=active/completed, {@code 1}=refused,
+     * {@code 2}=ineligible, {@code 3}=completed externally.
+     * <p>
+     * For the "Smoking" prevention type, this field is repurposed to encode
+     * smoking history: {@code 0}=Yes (current smoker), {@code 1}=No (non-smoker),
+     * {@code 2}=Previous (ex-smoker).
+     *
+     * @return int raw refused status value
+     * @since 2026-03-14
+     */
+    public int getRefusedStatus() {
+        return refusedStatus;
     }
 
     /**

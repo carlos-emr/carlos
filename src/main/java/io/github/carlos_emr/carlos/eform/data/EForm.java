@@ -41,30 +41,34 @@ import org.apache.logging.log4j.Logger;
 import org.jsoup.nodes.Element;
 import org.jsoup.parser.TokenQueue;
 import org.jsoup.select.Elements;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.eform.EFormLoader;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.util.StringBuilderUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EForm extends EFormBase {
-    private static EFormDataDao eFormDataDao = (EFormDataDao) SpringUtils.getBean(EFormDataDao.class);
+    // Lazy lookup keeps class loading independent of Spring bean initialization.
+    private static EFormDataDao eFormDataDao() { return SpringUtils.getBean(EFormDataDao.class); }
     private static Logger log = MiscUtils.getLogger();
 
     private String appointment_no = "-1";
@@ -74,6 +78,82 @@ public class EForm extends EFormBase {
     private HashMap<String, String> fieldValues = new HashMap<String, String>();
     private int needValueInForm = 0;
     private boolean setAP2nd = false;
+    private static final String SCRIPT_TAG = "script";
+    private static final String LEGACY_JQUERY_SOURCE = "jquery-1.12.0.min.js";
+    private static final String LEGACY_JQUERY_DISPLAY_PATH = "/eform/jquery-1.12.0.min.js";
+    /** A whole opening &lt;script ...&gt; tag, for the SRI strip in the CDN alias. */
+    private static final Pattern ALIASED_SCRIPT_TAG =
+            Pattern.compile("<script\\b[^>]*>", Pattern.CASE_INSENSITIVE);
+    /** An {@code integrity=} or {@code crossorigin=} attribute, either quoting style. */
+    private static final Pattern SRI_ATTRIBUTE = Pattern.compile(
+            "\\s+(?:integrity|crossorigin)\\s*=\\s*(?:\"[^\"]*\"|'[^']*')",
+            Pattern.CASE_INSENSITIVE);
+
+    /** jQuery build actually deployed under the webapp's library path. */
+    private static final String DEPLOYED_LIBRARY_JQUERY_PATH = "/library/jquery/jquery-3.7.1.min.js";
+    /**
+     * Webapp-relative jQuery paths clinic forms pin that this CARLOS no longer ships. Exact
+     * versions only: an unknown build must 404 visibly rather than be silently swapped.
+     */
+    private static final java.util.List<String> SUPERSEDED_LIBRARY_JQUERY_PATHS = java.util.List.of(
+            "/library/jquery/jquery-3.6.4.min.js");
+
+    /**
+     * Public CDN jQuery URLs observed in the shared-eForm corpus, aliased to the local bundle by
+     * {@link #rewriteLegacyRelativeJqueryReferences}. See that method for why this is an alias and
+     * not an egress allowance.
+     *
+     * <p>EXACT full URLs only — adding a host or a prefix pattern here would silently start
+     * redirecting scripts nobody has looked at. Both {@code http} and {@code https} spellings are
+     * listed because corpus forms use both. Extend only with a URL seen in a real form.</p>
+     */
+    private static final java.util.List<String> CDN_JQUERY_URLS = java.util.List.of(
+            "https://code.jquery.com/jquery-1.7.1.min.js",
+            "http://code.jquery.com/jquery-1.7.1.min.js",
+            "https://code.jquery.com/jquery-1.12.0.min.js",
+            "http://code.jquery.com/jquery-1.12.0.min.js",
+            "https://code.jquery.com/jquery-2.2.1.min.js",
+            "http://code.jquery.com/jquery-2.2.1.min.js",
+            "https://code.jquery.com/jquery-3.7.1.min.js",
+            "http://code.jquery.com/jquery-3.7.1.min.js",
+            "https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js",
+            "http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js",
+            "https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js",
+            "http://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js",
+            "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js",
+            "http://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js");
+    private static final String LOAD_SIG_CALL = "loadSig()";
+    // The guard preserves an existing loadSig implementation and supplies a no-op when absent.
+    private static final String LOAD_SIG_FALLBACK = "window.loadSig = window.loadSig || function loadSig() {};";
+    /**
+     * Element/attribute pairs that load a subresource during a render, paired for the viewer-relative
+     * re-anchoring in {@link #rewriteViewerRelativeAssetReferences(String)}. Navigation targets
+     * ({@code a[href]}, {@code form[action]}) are deliberately absent: they fetch nothing during a
+     * render, so rewriting them would mutate clinic-authored links for no rendering benefit.
+     */
+    private static final String[][] VIEWER_RELATIVE_ASSET_ATTRIBUTES = {
+            {"script[src]", "src"},
+            {"link[href]", "href"},
+            {"img[src]", "src"},
+            {"iframe[src]", "src"},
+            {"embed[src]", "src"},
+            {"source[src]", "src"},
+            {"track[src]", "src"},
+            {"video[src]", "src"},
+            {"audio[src]", "src"},
+            {"input[src]", "src"},
+            {"object[data]", "data"},
+    };
+
+    private String runtimeContextPath;
+    /**
+     * Limits jsoup DOM normalization to callers that explicitly prepare browser-render HTML.
+     */
+    private boolean renderNormalizationEnabled;
+    /** True once the DOM normalization pass has run for the current formHtml content. */
+    private boolean runtimeAssetsNormalized;
+    /** Caps normalization failure warnings to one per form HTML generation. */
+    private boolean normalizationFailureLogged;
 
     private static final String EFORM_DEMOGRAPHIC = "eform_demographic";
     private static final String VAR_NAME = "var_name";
@@ -94,14 +174,16 @@ public class EForm extends EFormBase {
     }
 
     public EForm(String fid, String demographicNo, String providerNo) {
-        // used to load an uploaded eform
+        // Loads an uploaded eForm for the selected provider.
         loadEForm(fid, demographicNo);
         this.providerNo = providerNo;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public EForm(String fdid) {
         if (!StringUtils.isBlank(fdid) && !"null".equalsIgnoreCase(fdid)) {
-            EFormData eFormData = eFormDataDao.find(Integer.valueOf(fdid));
+            EFormData eFormData = eFormDataDao().find(Integer.valueOf(fdid));
             if (eFormData != null) {
                 this.fdid = fdid;
                 this.fid = eFormData.getFormId().toString();
@@ -135,8 +217,11 @@ public class EForm extends EFormBase {
         this.formFileName = (String) loaded.get("formFileName");
         this.formCreator = (String) loaded.get("formCreator");
         this.demographicNo = demographicNo;
-        this.showLatestFormOnly = (Boolean) loaded.get("showLatestFormOnly");
-        this.patientIndependent = (Boolean) loaded.get("patientIndependent");
+        // Null-safe unboxing: Boolean.TRUE.equals() returns false for null,
+        // avoiding NPE when the eForm is not found and the HashMap is missing these keys.
+        // The false default is correct for both fields (show all forms, not patient-independent).
+        this.showLatestFormOnly = Boolean.TRUE.equals(loaded.get("showLatestFormOnly"));
+        this.patientIndependent = Boolean.TRUE.equals(loaded.get("patientIndependent"));
         this.roleType = (String) loaded.get("roleType");
     }
 
@@ -170,7 +255,7 @@ public class EForm extends EFormBase {
         StringBuilder html = new StringBuilder(this.formHtml);
         int index = StringBuilderUtils.indexOfIgnoreCase(html, "<form", 0);
         int endtag = html.indexOf(">", index + 1);
-        // --remove all previous actions, methods and names from the form tag
+        // Remove existing action, method, and name attributes from the form tag.
         if (index < 0) return;
 
         int pointer, pointer2;
@@ -197,8 +282,9 @@ public class EForm extends EFormBase {
             return;
         }
         index += 5;
-        StringBuilder action = new StringBuilder("action=\"../eform/addEForm.do?efmfid=" + this.fid + "&efmdemographic_no=" + this.demographicNo + "&efmprovider_no=" + this.providerNo + "&eform_link=" + this.eform_link);
-        if (this.parentAjaxId != null) action.append("&parentAjaxId=" + this.parentAjaxId);
+        StringBuilder action = new StringBuilder("action=\"../eform/addEForm?efmfid=" + Encode.forUriComponent(this.fid) + "&efmdemographic_no=" + Encode.forUriComponent(this.demographicNo) + "&efmprovider_no=" + Encode.forUriComponent(this.providerNo));
+        if (this.eform_link != null) action.append("&eform_link=" + Encode.forUriComponent(this.eform_link));
+        if (this.parentAjaxId != null) action.append("&parentAjaxId=" + Encode.forUriComponent(this.parentAjaxId));
 
         action.append("\"");
 
@@ -280,7 +366,7 @@ public class EForm extends EFormBase {
                 }
                 apName = EFormUtil.removeQuotes(apName);
 
-                log.debug("AP ==== " + apName);
+                log.debug("AP ==== {}", LogSafe.sanitize(apName));
                 if (setAP2nd && !apName.startsWith("e$")) continue; // ignore non-e$ oscarDB on 2nd run
 
                 int needing = needValueInForm;
@@ -294,7 +380,10 @@ public class EForm extends EFormBase {
                 // - input: directly inserts value="" attribute at this position
                 int attributeEndPos = EFormUtil.getAttributeEndPos(marker, fieldHeader);
                 if (attributeEndPos == -1) {
-                    log.error("Failed to find attribute end position for marker: " + marker + " in field: " + fieldHeader);
+                    // Log the marker and its field index only — never fieldHeader, which is the raw
+                    // eForm field HTML and can carry a PHI-bearing value attribute.
+                    log.error("Failed to find attribute end position for marker: {} at field index: {}",
+                            LogSafe.sanitize(marker), markerLoc);
                     continue;
                 }
                 int pointer = markerLoc + attributeEndPos;
@@ -310,56 +399,13 @@ public class EForm extends EFormBase {
                     if (needing > needValueInForm) html = putValuesFromAP(curAP, fieldType, pointer, html);
                 }
 
-                log.debug("Marker ==== " + markerLoc);
-                log.debug("FIELD TYPE ====" + fieldType);
+                log.debug("Marker ==== {}", markerLoc);
+                log.debug("FIELD TYPE ===={}", LogSafe.sanitize(fieldType));
                 log.debug("=================End Cycle==============");
             }
             formHtml = html.toString();
             if (needValueInForm > 0) setAP2nd = true;
             else i = 2;
-        }
-    }
-
-    // Gets all the fields that are "input" (i.e. write-to-database) fields.
-    public void setupInputFields() {
-        String marker = EFormLoader.getInputMarker();
-        StringBuilder html = new StringBuilder(this.formHtml);
-        int markerLoc;
-        int pointer = 0;
-        while ((markerLoc = StringBuilderUtils.indexOfIgnoreCase(html, marker, pointer)) >= 0) {
-            pointer = (markerLoc + marker.length());
-            updateFields.add(getFieldName(html, pointer));
-        }
-
-        generateInputCode();
-    }
-
-    private void generateInputCode() {
-        if (updateFields.size() > 0) {
-
-            StringBuilder html = new StringBuilder(this.formHtml);
-            int formEndLoc = StringBuilderUtils.indexOfIgnoreCase(html, "</form>", 0);
-            int scriptEndLoc = StringBuilderUtils.indexOfIgnoreCase(html, "</script>", 0);
-
-            if (formEndLoc < 0) formEndLoc = 1;
-
-            if (scriptEndLoc < 0) scriptEndLoc = 0;
-            else scriptEndLoc += 9;
-
-            String fieldValue = "";
-            for (String field : updateFields) {
-                fieldValue += field + "%";
-            }
-
-            html.insert(formEndLoc - 1, "<span id='_oscardodatabaseupdatespan' style='position: absolute;' class='DoNotPrint'><input type='checkbox' name='_oscardodatabaseupdate' onchange='_togglehighlight()' /> Update Fields in Database<br />" +
-                    "<input type='button' id='_oscarrefreshfieldsbtn' name='_oscarrefreshfieldsbtn' value='Refresh DB Fields' onclick='_refreshfields()' /></span> " +
-                    "<input type='hidden' id='_oscarupdatefields' name='_oscarupdatefields' value='" + fieldValue + "' />" +
-                    "<input type='hidden' id='_oscardemographicno' name='_oscardemographicno' value='" + this.demographicNo + "' />" +
-                    "<input type='hidden' id='_oscarproviderno' name='_oscarproviderno' value='" + this.providerNo + "' />" +
-                    "<input type='hidden' id='_oscarfid' name='_oscarfid' value='" + this.fid + "' />");
-
-            this.formHtml = html.insert(scriptEndLoc, "<script type='text/javascript' src='oscar/library/jquery/jquery-3.6.4.min.js'></script>" +
-                    "<script type='text/javascript' src='oscar/js/eform_highlight.js'></script>").toString();
         }
     }
 
@@ -378,7 +424,7 @@ public class EForm extends EFormBase {
             String fieldName = EFormUtil.removeQuotes(EFormUtil.getAttribute("name", fieldHeader));
             if (StringUtils.isBlank(fieldName)) continue;
 
-            log.debug("OPEN ==== " + efmName);
+            log.debug("OPEN ==== {}", LogSafe.sanitize(efmName));
             // sets up the pointer where to write the value
             String fdid = EFormUtil.removeQuotes(EFormUtil.getAttribute(OPENER_VALUE, fieldHeader));
             EFormLoader.getInstance();
@@ -396,7 +442,7 @@ public class EForm extends EFormBase {
                          */
                         html = putValue(onclick, type, fieldName, pointer, html);
 
-            log.debug("Opener ==== " + markerLoc);
+            log.debug("Opener ==== {}", markerLoc);
             log.debug("=================End Opener Cycle==============");
         }
         formHtml = html.toString();
@@ -407,22 +453,311 @@ public class EForm extends EFormBase {
         this.formDate = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
     }
 
+    /**
+     * Applies the active servlet context path to the runtime eForm HTML.
+     *
+     * <p>The supplied context path is a browser-facing servlet URL prefix (for example {@code /carlos}),
+     * not a filesystem path. This method rewrites the library marker, normalizes legacy relative jQuery
+     * asset references, and injects an idempotent {@code loadSig} fallback when needed. Stored
+     * JavaScript source is preserved.</p>
+     *
+     * <p><strong>Do not route this value through {@code PathValidationUtils}.</strong> Despite the
+     * project-wide rule that request-derived values feeding file operations must be path-validated,
+     * this one never reaches the filesystem: it is spliced into browser-facing asset URLs. Filesystem
+     * validation would inject OS separators into the URL and reject some valid context paths.</p>
+     *
+     * <p>A {@code null} context path (no servlet environment) is a no-op. An empty string ({@code ""})
+     * is a valid root-context (ROOT.war) deployment and is normalized like any other context path.
+     * Leading/trailing whitespace is stripped before use, so a whitespace-only value (never produced
+     * by {@code HttpServletRequest.getContextPath()}, which only returns {@code ""} or {@code "/path"},
+     * but defended against here regardless) collapses to {@code ""} and is treated as root context
+     * rather than being spliced raw into a browser-facing asset URL.</p>
+     *
+     * @param contextPath servlet context path used to build browser-facing runtime asset URLs;
+     *                     {@code ""} (or a whitespace-only value) for a root-context deployment,
+     *                     {@code null} to skip normalization
+     */
     public void setContextPath(String contextPath) {
-        if (StringUtils.isBlank(contextPath)) return;
-        Path oscarJs = Paths.get(contextPath, "library");
-        this.formHtml = this.formHtml.replace(jsMarker, oscarJs + "/");
+        if (contextPath == null) return;
+        String strippedContextPath = contextPath.strip();
+        String normalizedContextPath = strippedContextPath.endsWith("/")
+                ? strippedContextPath.substring(0, strippedContextPath.length() - 1)
+                : strippedContextPath;
+        this.runtimeContextPath = normalizedContextPath;
+        this.runtimeAssetsNormalized = false;
+        if (this.formHtml == null) {
+            // A numeric fdid with no saved row leaves formHtml null (see the EForm(String) constructor,
+            // which only substitutes the "No Such Form in Database" placeholder for a blank/"null" id).
+            // Callers detect that case deliberately -- EFormRenderPdfHtmlComposer.buildPdfHtml raises a
+            // descriptive IllegalStateException -- so return quietly instead of NPEing here first and
+            // burying the real cause. Reachable for a root-context ("") deployment in particular, which
+            // no longer short-circuits on the blank-contextPath check above.
+            return;
+        }
+        this.formHtml = this.formHtml.replace(jsMarker, normalizedContextPath + "/library/");
+        this.formHtml = rewriteLegacyRelativeJqueryReferences(this.formHtml, normalizedContextPath);
+        this.formHtml = injectLoadSigFallback(this.formHtml);
     }
+
+    /**
+     * Points known jQuery references at the locally deployed bundle.
+     *
+     * <p>Covers two families: the legacy relative spellings a clinic form uses when it expects
+     * jQuery beside itself in the eForm image directory, and the public CDN URLs that much of the
+     * shared-eForm corpus loads jQuery from.</p>
+     *
+     * <p>The CDN case is a <em>local alias, never an egress allowance</em>. The PDF render browser
+     * is deliberately unable to reach any off-origin host — a dead proxy plus a loopback-only bypass
+     * list, with CSP {@code script-src 'self'} on top — because it executes clinic-authored content
+     * while displaying PHI. Opening a hole for a CDN would mean loosening the proxy bypass (which is
+     * {@code host:port} scoped and so cannot be narrowed to a single file), the CSP, and the network
+     * gate, and would still leave a top-level-navigation exfiltration path that CSP has no directive
+     * to close. Serving our own copy gives these forms the same jQuery with none of that, works
+     * offline, and renders deterministically.</p>
+     *
+     * <p>Matching is EXACT and by full URL, never by host or prefix. An unrecognised third-party
+     * script stays untouched and fails visibly at the render gate — the correct outcome for a script
+     * nobody has vetted. Note the served bundle is jQuery 3.7.1 plus the compat shim (see
+     * {@code EFormAssetDeployer}) regardless of the version a form asked for: the same trade the
+     * legacy-filename aliasing already makes.</p>
+     */
+    private String rewriteLegacyRelativeJqueryReferences(String html, String contextPath) {
+        if (StringUtils.isBlank(html)) return html;
+
+        String assetUrl = contextPath + "/eform/displayImage?imagefile=jquery-1.12.0.min.js";
+        // Both quoting styles for every spelling: corpus forms use them interchangeably, and a
+        // single-quoted src='jquery-1.12.0.min.js' (observed in real packages) previously slipped
+        // through and 404'd.
+        String rewritten = html;
+        for (String legacy : java.util.List.of(LEGACY_JQUERY_SOURCE, LEGACY_JQUERY_DISPLAY_PATH)) {
+            rewritten = rewritten
+                    .replace(attributeReference(legacy), attributeReference(assetUrl))
+                    .replace(singleQuotedAttributeReference(legacy), singleQuotedAttributeReference(assetUrl));
+        }
+        // A webapp-relative reference to a jQuery build this CARLOS no longer ships. 28 of 199
+        // shared-corpus packages pin /library/jquery/jquery-3.6.4.min.js, which 404s and takes the
+        // form's scripts down with it. This is CARLOS's own library path, not a third-party host,
+        // so pointing it at the deployed build is a version alias rather than a redirect to
+        // unvetted code -- but it stays an exact-version match, so an unrecognised build still
+        // fails visibly instead of being silently upgraded.
+        for (String supersededPath : SUPERSEDED_LIBRARY_JQUERY_PATHS) {
+            rewritten = rewritten.replace(supersededPath, DEPLOYED_LIBRARY_JQUERY_PATH);
+        }
+        boolean aliasedFromCdn = false;
+        for (String cdnUrl : CDN_JQUERY_URLS) {
+            String before = rewritten;
+            rewritten = rewritten
+                    .replace(attributeReference(cdnUrl), attributeReference(assetUrl))
+                    .replace(singleQuotedAttributeReference(cdnUrl), singleQuotedAttributeReference(assetUrl));
+            aliasedFromCdn |= !before.equals(rewritten);
+        }
+        return aliasedFromCdn ? stripSubresourceIntegrity(rewritten, assetUrl) : rewritten;
+    }
+
+    /**
+     * Drops {@code integrity}/{@code crossorigin} from script tags whose src we just re-pointed at
+     * the local bundle.
+     *
+     * <p>Corpus forms pin their CDN jQuery with Subresource Integrity, e.g.
+     * {@code integrity="sha256-gvQgAFz…" crossorigin="anonymous"}. That hash describes the CDN's
+     * bytes, so once the src points at our own bundle the browser finds no valid digest and
+     * <em>refuses to execute the script at all</em> — leaving the form worse off than before the
+     * alias. The integrity guarantee is not lost, only relocated: the replacement is a local file
+     * we ship and serve ourselves, not something fetched over the network.</p>
+     *
+     * <p>Scoped to tags carrying the alias URL so a form's own SRI on any other resource is left
+     * intact.</p>
+     */
+    private static String stripSubresourceIntegrity(String html, String assetUrl) {
+        Matcher scriptTag = ALIASED_SCRIPT_TAG.matcher(html);
+        StringBuilder out = new StringBuilder();
+        while (scriptTag.find()) {
+            String tag = scriptTag.group();
+            if (!tag.contains(assetUrl)) {
+                scriptTag.appendReplacement(out, Matcher.quoteReplacement(tag));
+                continue;
+            }
+            String cleaned = SRI_ATTRIBUTE.matcher(tag).replaceAll("");
+            scriptTag.appendReplacement(out, Matcher.quoteReplacement(cleaned));
+        }
+        scriptTag.appendTail(out);
+        return out.toString();
+    }
+
+    /** {@code src="<url>"} — built via format so no value is concatenated between quote literals. */
+    private static String attributeReference(String url) {
+        return String.format("src=\"%s\"", url);
+    }
+
+    /** Single-quoted variant; corpus forms use both spellings. */
+    private static String singleQuotedAttributeReference(String url) {
+        return String.format("src=%1$s%2$s%1$s", "'", url);
+    }
+
+    private String injectLoadSigFallback(String html) {
+        if (StringUtils.isBlank(html)) return html;
+        if (!html.contains(LOAD_SIG_CALL)) return html;
+        String fallback = "<" + SCRIPT_TAG + ">" + LOAD_SIG_FALLBACK + "</" + SCRIPT_TAG + ">";
+        int bodyClose = StringUtils.lastIndexOfIgnoreCase(html, "</body>");
+        if (bodyClose >= 0) {
+            return html.substring(0, bodyClose) + fallback + html.substring(bodyClose);
+        }
+        return html + fallback;
+    }
+
+
+
+    /**
+     * Returns eForm HTML after optional render-only DOM normalization of legacy jQuery references
+     * and the {@code loadSig} fallback. Normalization failures retain the string-normalized HTML and
+     * emit one operator warning per content generation.
+     *
+     * @return the normalized eForm HTML, or {@code null} when the fdid is numeric but has no saved
+     *         row. The {@code "No Such Form in Database"} placeholder covers only a blank or literal
+     *         {@code "null"} fdid, so callers must still null-check -- {@code
+     *         EFormRenderPdfHtmlComposer.buildPdfHtml} depends on exactly that.
+     */
+    @Override
+    public String getFormHtml() {
+        if (renderNormalizationEnabled && runtimeContextPath != null && !runtimeAssetsNormalized) {
+            try {
+                normalizeLegacyRuntimeAssetsInDocument(runtimeContextPath);
+                runtimeAssetsNormalized = true;
+            } catch (RuntimeException | LinkageError e) {
+                if (!normalizationFailureLogged) {
+                    normalizationFailureLogged = true;
+                    log.warn("DOM-based eForm runtime normalization failed ({}); using string-level HTML fallback for this form",
+                            e.getClass().getSimpleName());
+                }
+                log.debug("Skipping DOM-based eForm runtime normalization; falling back to string-level HTML", e);
+            }
+        }
+        return super.getFormHtml();
+    }
+
+    @Override
+    public void setFormHtml(String formHtml) {
+        runtimeAssetsNormalized = false;
+        normalizationFailureLogged = false;
+        super.setFormHtml(formHtml);
+    }
+
+    /**
+     * Opts this EForm in to the lazy jsoup DOM normalization pass performed by {@link #getFormHtml()}.
+     *
+     * <p>Only the PDF render/compose path ({@code EFormRenderPdfHtmlComposer}) needs the DOM pass, so
+     * it calls this before reading the HTML. Every other caller (interactive display, ZIP export,
+     * save-time dedup) reads the string-level-normalized HTML from {@link #setContextPath} without the
+     * jsoup round-trip, which keeps jsoup's error-recovery restructuring off the live display paths.</p>
+     */
+    public void enableRenderNormalization() {
+        this.renderNormalizationEnabled = true;
+        this.runtimeAssetsNormalized = false; // force a fresh DOM pass on the next getFormHtml()
+    }
+
+    private void normalizeLegacyRuntimeAssetsInDocument(String contextPath) {
+        rewriteViewerRelativeAssetReferences(contextPath);
+
+        String assetUrl = contextPath + "/eform/displayImage?imagefile=jquery-1.12.0.min.js";
+        for (Element script : getDocument().select("script[src]")) {
+            String src = script.attr("src").trim();
+            if (LEGACY_JQUERY_SOURCE.equals(src) || LEGACY_JQUERY_DISPLAY_PATH.equals(src)) {
+                script.attr("src", assetUrl);
+            }
+        }
+
+        Element body = getDocument().body();
+        if (!body.attr("onload").contains(LOAD_SIG_CALL)) return;
+
+        body.appendElement(SCRIPT_TAG).append(LOAD_SIG_FALLBACK);
+    }
+
+    /**
+     * Re-anchors viewer-relative ({@code ../}) asset references to the webapp context.
+     *
+     * <p>Stored eForm HTML is authored against the interactive viewer URL
+     * ({@code /<context>/eform/efmshowform_data}), which sits two segments below the origin, so a
+     * clinic-authored {@code ../css/x.css} resolves to {@code /<context>/css/x.css}. The PDF render
+     * page is served one segment below the origin ({@code /<context>/EFormViewForPdfGenerationServlet}),
+     * where that same reference resolves to the origin ROOT ({@code /css/x.css}) and 404s. The render
+     * then reports missing content for an asset that is present and correctly referenced.</p>
+     *
+     * <p>This generalizes the per-asset {@code ../share/} and {@code ../eform/displayImage} rewrites the
+     * render composer already performs, but uses the viewer URL as the resolution base so every
+     * parent hop has normal browser semantics. It runs only on the render/compose path (see
+     * {@link #enableRenderNormalization()}), so clinic-authored HTML is never rewritten in the
+     * database — the interactive viewer keeps resolving the original relative reference itself.</p>
+     */
+    private void rewriteViewerRelativeAssetReferences(String contextPath) {
+        String base = contextPath == null ? "" : contextPath.trim();
+        for (String[] selectorAndAttribute : VIEWER_RELATIVE_ASSET_ATTRIBUTES) {
+            for (Element element : getDocument().select(selectorAndAttribute[0])) {
+                String attribute = selectorAndAttribute[1];
+                String rewritten = anchorViewerRelativePath(element.attr(attribute), base);
+                if (rewritten != null) {
+                    element.attr(attribute, rewritten);
+                }
+            }
+        }
+    }
+
+    /**
+     * Resolves one viewer-relative reference exactly as the interactive viewer does, or returns
+     * {@code null} when the value is not a safe {@code ../} reference and must be left untouched.
+     *
+     * @return the rewritten path, or {@code null} to leave the attribute as authored
+     */
+    static String anchorViewerRelativePath(String value, String contextPath) {
+        if (value == null) {
+            return null;
+        }
+        String relative = value.trim();
+        if (!relative.startsWith("../") || relative.indexOf('\\') >= 0) {
+            return null;
+        }
+        String base = contextPath == null ? "" : contextPath.trim();
+        if (!base.isEmpty() && (!base.startsWith("/") || base.indexOf('\\') >= 0)) {
+            return null;
+        }
+        try {
+            URI reference = new URI(relative);
+            if (reference.isAbsolute() || reference.getRawAuthority() != null) {
+                return null;
+            }
+            URI viewer = new URI("https", "renderer.invalid", base + "/eform/efmshowform_data", null);
+            URI resolved = viewer.resolve(reference).normalize();
+            if (!"https".equals(resolved.getScheme())
+                    || !"renderer.invalid".equals(resolved.getHost())) {
+                return null;
+            }
+            // RFC 3986 normalization preserves leading /../ segments, while the browser URL
+            // algorithm clamps traversal above the origin root. Match the actual viewer.
+            String rawPath = resolved.getRawPath();
+            while (rawPath.startsWith("/../")) {
+                rawPath = rawPath.substring(3);
+            }
+            if ("/..".equals(rawPath)) {
+                rawPath = "/";
+            }
+            return rawPath
+                    + (resolved.getRawQuery() == null ? "" : "?" + resolved.getRawQuery())
+                    + (resolved.getRawFragment() == null ? "" : "#" + resolved.getRawFragment());
+        } catch (URISyntaxException e) {
+            return null;
+        }
+    }
+
 
     public void setFdid(String fdid) {
         if (this.formHtml != null && this.fdidMarker != null && fdid != null) {
-            this.formHtml = this.formHtml.replace(fdidMarker, fdid);
+            this.formHtml = this.formHtml.replace(fdidMarker, Encode.forHtmlAttribute(fdid));
         }
     }
 
     public void setSource(String source) {
         if (StringUtils.isBlank(source)) source = "";
 
-        this.formHtml = this.formHtml.replace(sourceMarker, source);
+        this.formHtml = this.formHtml.replace(sourceMarker, Encode.forHtmlAttribute(source));
     }
 
 
@@ -470,6 +805,8 @@ public class EForm extends EFormBase {
 
     // ----------------------------------private
     // -----------------------------------------
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private DatabaseAP getAPExtra(String apName, String fieldHeader) {
         // --------------------------Process extra attributes for APs --------------------------------
         Pattern p = Pattern.compile("\\b[a-z]\\$[^ \\$#]+#[^\n]+");
@@ -619,6 +956,8 @@ public class EForm extends EFormBase {
 		return new StringBuilder(getFormHtml());
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private int nextIndex(StringBuilder text, String option1, String option2, int pointer) {
         // converts text content to lowercase
         text = new StringBuilder(text.toString().toLowerCase());
@@ -656,6 +995,8 @@ public class EForm extends EFormBase {
         return nextIndex(text, " ", ">", pointer);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getFieldType(String fieldHeader) {
         if (fieldHeader.substring(1, 9).equalsIgnoreCase("textarea")) return "textarea";
         if (fieldHeader.substring(1, 7).equalsIgnoreCase("select")) return "select";
@@ -675,13 +1016,13 @@ public class EForm extends EFormBase {
 		int open = html.substring(0, pointer).lastIndexOf("<");
 		int close = html.substring(pointer).indexOf(">") + pointer + 1;
 		String tag = html.substring(open, close);
-		log.debug("TAG ====" + tag);
+		log.debug("TAG ===={}", LogSafe.sanitize(tag));
 		int start; // <input type="^text".....
 		int end; // <input type="text^"....
 		if (tag.substring(1, 9).equalsIgnoreCase("textarea")) return "textarea";
 		if (tag.substring(1, 7).equalsIgnoreCase("select")) return "select";
 
-		log.debug("TAG PROCESS ====" + tag.substring(1, 9));
+		log.debug("TAG PROCESS ===={}", LogSafe.sanitize(tag.substring(1, 9)));
 		if ((start = tag.toLowerCase().indexOf(" type=")) >= 0) {
 			start += 6; // account for type=...
 			if (tag.charAt(start) == '\"') { // account for type="..."
@@ -707,15 +1048,20 @@ public class EForm extends EFormBase {
         String sql = ap.getApSQL();
         String output = ap.getApOutput();
         if (!StringUtils.isBlank(sql)) {
-            sql = replaceAllFields(sql);
-            log.debug("SQL----" + sql);
+            ParameterizedSql query;
+            try {
+                query = parameterizeAllFields(sql);
+            } catch (IllegalArgumentException e) {
+                log.error("Invalid placeholder value in eForm AP query, skipping: {}", e.getMessage());
+                return html;
+            }
+            log.debug("SQL---- [eform AP query executed]");
             ArrayList<String> names = DatabaseAP.parserGetNames(output); // a list of ${apName} --> apName
-            sql = DatabaseAP.parserClean(sql); // replaces all other ${apName} expressions with 'apName'
             if (ap.isJsonOutput()) {
-                ArrayNode values = EFormUtil.getJsonValues(names, sql);
+                ArrayNode values = EFormUtil.getJsonValues(names, query);
                 output = values.toString(); //in case of JsonOutput, return the whole JSONArray and let the javascript deal with it
             } else {
-                ArrayList<String> values = EFormUtil.getValues(names, sql);
+                ArrayList<String> values = EFormUtil.getValues(names, query);
                 if (values.size() != names.size()) {
                     output = "";
                 } else {
@@ -728,7 +1074,7 @@ public class EForm extends EFormBase {
         //put values into according controls
         if (type.equals("textarea")) {
             pointer = html.indexOf(">", pointer) + 1;
-            html.insert(pointer, output);
+            html.insert(pointer, SafeEncode.forHtml(output));
         } else if (type.equals("select")) {
             int selectEnd = StringBuilderUtils.indexOfIgnoreCase(html, "</select>", pointer);
             if (selectEnd >= 0) {
@@ -738,28 +1084,63 @@ public class EForm extends EFormBase {
                 html = html.insert(pointer, " selected");
             }
         } else { //type=input
-            output = output.replace("\"", "&quot;");
-            html.insert(pointer, " value=\"" + output + "\"");
+            html.insert(pointer, " value=\"" + SafeEncode.forHtmlAttribute(output) + "\"");
         }
         return (html);
     }
 
-    public String replaceAllFields(String sql) {
-        sql = DatabaseAP.parserReplace("demographic", demographicNo, sql);
-        sql = DatabaseAP.parserReplace("provider", providerNo, sql);
-        sql = DatabaseAP.parserReplace("providers", providerNo, sql);
-        sql = DatabaseAP.parserReplace("appt_no", appointment_no, sql);
+    /**
+     * Converts legacy DatabaseAP placeholders that can contain request or form
+     * state into JDBC bind parameters. This keeps the admin-authored SQL shape
+     * intact while preventing values from being concatenated into the query text.
+     */
+    public ParameterizedSql parameterizeAllFields(String sql) {
+        Map<String, Object> replacements = new LinkedHashMap<>();
+        replacements.put("demographic", requireDigitsOnly("demographic", demographicNo));
+        replacements.put("appt_no", requireDigitsOnly("appt_no", appointment_no));
+        String eformDemographic = getSqlParams(EFORM_DEMOGRAPHIC);
+        validateDigitsOrWildcard(EFORM_DEMOGRAPHIC, eformDemographic);
+        replacements.put(EFORM_DEMOGRAPHIC, eformDemographic);
+        replacements.put(REF_FID, requireDigitsOnly(REF_FID, getSqlParams(REF_FID)));
+        replacements.put(TABLE_ID, requireDigitsOnly(TABLE_ID, getSqlParams(TABLE_ID)));
+        replacements.put("provider", stringParam(providerNo));
+        replacements.put("providers", stringParam(providerNo));
+        replacements.put(VAR_NAME, stringParam(getSqlParams(VAR_NAME)));
+        replacements.put(VAR_VALUE, stringParam(getSqlParams(VAR_VALUE)));
+        replacements.put(REF_VAR_NAME, stringParam(getSqlParams(REF_VAR_NAME)));
+        replacements.put(REF_VAR_VALUE, stringParam(getSqlParams(REF_VAR_VALUE)));
+        replacements.put(TABLE_NAME, stringParam(getSqlParams(TABLE_NAME)));
+        replacements.put(OTHER_KEY, stringParam(getSqlParams(OTHER_KEY)));
+        return DatabaseAP.parameterizeSql(sql, replacements);
+    }
 
-        sql = DatabaseAP.parserReplace(EFORM_DEMOGRAPHIC, getSqlParams(EFORM_DEMOGRAPHIC), sql);
-        sql = DatabaseAP.parserReplace(REF_FID, getSqlParams(REF_FID), sql);
-        sql = DatabaseAP.parserReplace(VAR_NAME, getSqlParams(VAR_NAME), sql);
-        sql = DatabaseAP.parserReplace(VAR_VALUE, getSqlParams(VAR_VALUE), sql);
-        sql = DatabaseAP.parserReplace(REF_VAR_NAME, getSqlParams(REF_VAR_NAME), sql);
-        sql = DatabaseAP.parserReplace(REF_VAR_VALUE, getSqlParams(REF_VAR_VALUE), sql);
-        sql = DatabaseAP.parserReplace(TABLE_NAME, getSqlParams(TABLE_NAME), sql);
-        sql = DatabaseAP.parserReplace(TABLE_ID, getSqlParams(TABLE_ID), sql);
-        sql = DatabaseAP.parserReplace(OTHER_KEY, getSqlParams(OTHER_KEY), sql);
-        return sql;
+    /**
+     * Validates that a value intended for an unquoted numeric SQL placeholder
+     * contains only digits (with optional leading minus sign for negative IDs).
+     * Throws {@link IllegalArgumentException} if the value is non-numeric and non-empty,
+     * preventing injection in unquoted contexts like {@code WHERE id = ${placeholder}}.
+     *
+     * @param placeholderName the name of the placeholder (for error messages)
+     * @param value           the value to validate
+     * @return the original value if valid
+     * @throws IllegalArgumentException if the value contains non-numeric characters
+     */
+    private static String requireDigitsOnly(String placeholderName, String value) {
+        if (value == null || value.isEmpty()) return value;
+        if (!value.matches("-?\\d+")) {
+            throw new IllegalArgumentException("Non-numeric value for placeholder: " + placeholderName);
+        }
+        return value;
+    }
+
+    private static void validateDigitsOrWildcard(String placeholderName, String value) {
+        if (!"%".equals(value)) {
+            requireDigitsOnly(placeholderName, value);
+        }
+    }
+
+    private static String stringParam(String value) {
+        return value == null ? "" : value;
     }
 
     private String getSqlParams(String key) {
@@ -820,12 +1201,14 @@ public class EForm extends EFormBase {
 		*/
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getFieldName(StringBuilder html, int pointer) {
         //pointer can be any place in the tag - isolates tag and sends back field type
         int open = html.substring(0, pointer).lastIndexOf("<");
         int close = html.substring(pointer).indexOf(">") + pointer + 1;
         String tag = html.substring(open, close);
-        log.debug("TAG ====" + tag);
+        log.debug("TAG ===={}", LogSafe.sanitize(tag));
         int start;  //<input type="^text".....
         int end;    //<input type="text^"....
         if ((start = tag.toLowerCase().indexOf(" name=")) >= 0) {
@@ -875,6 +1258,8 @@ public class EForm extends EFormBase {
         return html.substring(fieldIndex, end);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void saveFieldValue(StringBuilder html, int fieldIndex) {
         String header = getFieldHeader(html, fieldIndex);
         if (StringUtils.isBlank(header)) return;
@@ -921,6 +1306,8 @@ public class EForm extends EFormBase {
         return refFid;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     public void setSignatureCode(String contextPath, String userAgent, String demographicNo, String providerId) {
         String signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(providerId);
         String imageUrl = contextPath + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + signatureRequestId;
@@ -939,16 +1326,25 @@ public class EForm extends EFormBase {
                 }
             }
 
-            String signatureCode = "<script type='text/javascript' src='oscar/library/jquery/jquery-3.6.4.min.js'></script>" +
+            // Encode dynamic values for safe embedding into JavaScript string literals
+            String jsSignatureRequestId = Encode.forJavaScript(signatureRequestId);
+            String jsImageUrl = Encode.forJavaScript(imageUrl);
+            String jsStoredImgUrl = Encode.forJavaScript(storedImgUrl);
+            String jsContextPath = Encode.forJavaScript(contextPath);
+            String jsSignatureRequestIdKey = Encode.forJavaScript(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY);
+            String jsBrowserType = Encode.forJavaScript(browserType);
+            String jsDemographicNo = Encode.forJavaScript(demographicNo);
+
+            String signatureCode = "<script type='text/javascript' src='oscar/library/jquery/jquery-3.7.1.min.js'></script>" +
                     "<script type='text/javascript' src='${oscar_javascript_path}signature.js'></script>" +
                     "<script type='text/javascript'>\n" +
-                    "var _signatureRequestId = '" + signatureRequestId + "';\n" +
-                    "var _imageUrl = '" + imageUrl + "';\n" +
-                    "var _storedImgUrl = '" + storedImgUrl + "';\n" +
-                    "var _contextPath = '" + contextPath + "';\n" +
-                    "var _digitalSignatureRequestIdKey = '" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "';\n" +
-                    "var _browserType = '" + browserType + "';\n" +
-                    "var _demographicNo = '" + demographicNo + "';\n" +
+                    "var _signatureRequestId = '" + jsSignatureRequestId + "';\n" +
+                    "var _imageUrl = '" + jsImageUrl + "';\n" +
+                    "var _storedImgUrl = '" + jsStoredImgUrl + "';\n" +
+                    "var _contextPath = '" + jsContextPath + "';\n" +
+                    "var _digitalSignatureRequestIdKey = '" + jsSignatureRequestIdKey + "';\n" +
+                    "var _browserType = '" + jsBrowserType + "';\n" +
+                    "var _demographicNo = '" + jsDemographicNo + "';\n" +
                     "</script>";
 
 
@@ -962,7 +1358,7 @@ public class EForm extends EFormBase {
      * Add path to Javascript resource in OSCAR source code.
      */
     public void addHeadJavascript(String javascriptPath) {
-        Element script = getDocument().createElement("script");
+        Element script = getDocument().createElement(SCRIPT_TAG);
         script.attr("type", "text/javascript");
         script.attr("src", javascriptPath);
         addHeadElement(script);
@@ -973,7 +1369,7 @@ public class EForm extends EFormBase {
      * Useful if there is a dependency on previous javascript in the window load
      */
     public void addBodyJavascript(String javascriptPath) {
-        Element script = getDocument().createElement("script");
+        Element script = getDocument().createElement(SCRIPT_TAG);
         script.attr("type", "text/javascript");
         script.attr("src", javascriptPath);
         addBodyElement(script);
@@ -1110,6 +1506,8 @@ public class EForm extends EFormBase {
      * Empty image src values are the result of using Javascript in the eForm to dynamically
      * set paths for images.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     public void addImagePathPlaceholders(String[] imagePathPlaceholders)
         throws JsonProcessingException, JsonMappingException {
         if (imagePathPlaceholders != null && imagePathPlaceholders.length > 0) {

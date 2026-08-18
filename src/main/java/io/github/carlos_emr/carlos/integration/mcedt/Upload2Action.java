@@ -32,8 +32,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -43,7 +43,7 @@ import ca.ontario.health.edt.EDTDelegate;
 import ca.ontario.health.edt.ResourceResult;
 import ca.ontario.health.edt.UploadData;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class Upload2Action extends ActionSupport {
@@ -55,7 +55,12 @@ public class Upload2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
+        if ("cancelUpload".equals(method) || "removeSelected".equals(method) || "uploadToMcedt".equals(method)) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
+        }
         if ("cancelUpload".equals(method)) {
             return cancelUpload();
         } else if ("addNew".equals(method)) {
@@ -64,7 +69,7 @@ public class Upload2Action extends ActionSupport {
             return removeSelected();
         } else if ("uploadToMcedt".equals(method)) {
             return uploadToMcedt();
-        } 
+        }
         return SUCCESS;
     }
 

@@ -1,0 +1,163 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+package io.github.carlos_emr.carlos.tickler.pageUtil;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+
+import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+/**
+ * Struts2 action that migrates the server-side logic from {@code tickler/dbTicklerMain.jsp}.
+ *
+ * <p>Handles bulk status updates for the provider-level tickler listing. When no
+ * checkboxes are submitted the action redirects to {@code ticklerMain.jsp} preserving
+ * the current {@code sort_column} and {@code sort_order} parameters (defaulting to
+ * {@link TicklerManager#SERVICE_DATE} and {@link TicklerManager#SORT_ASC} respectively).
+ *
+ * <p>When checkbox values are present the action loops over each selected tickler ID,
+ * determines the target {@link Tickler.STATUS} from the first character of
+ * {@code submit_form}, delegates to {@link TicklerManager#updateStatus}, and then
+ * redirects to {@code ticklerMain.jsp}.
+ *
+ * <p>Security: requires {@code _tickler} update privilege and POST method.
+ *
+ * @since 2026-04-05
+ */
+public final class DbTicklerMain2Action extends ActionSupport {
+
+    private static final long serialVersionUID = 1L;
+
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+    private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    /**
+     * Updates tickler statuses from the submitted checkboxes and redirects to the
+     * main tickler listing.
+     *
+     * @return {@link #NONE} after redirecting
+     * @throws SecurityException if the user lacks {@code _tickler} update privilege
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    @Override
+    public String execute() throws Exception {
+
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        // Security check — requires _tickler update privilege
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "u", null)) {
+            response.sendRedirect(request.getContextPath() + "/securityError?type=_tickler");
+            return NONE;
+        }
+
+        String[] checkboxes = request.getParameterValues("checkbox");
+        if (checkboxes == null) {
+            String sortColumn = request.getParameter("sort_column");
+            String sortOrder = request.getParameter("sort_order");
+
+            if (sortColumn == null) {
+                sortColumn = TicklerManager.SERVICE_DATE;
+            }
+            if (sortOrder == null) {
+                sortOrder = TicklerManager.SORT_ASC;
+            }
+
+            String redirect = request.getContextPath() + "/tickler/ViewTicklerMain?sort_column="
+                    + Encode.forUriComponent(sortColumn) + "&sort_order=" + Encode.forUriComponent(sortOrder);
+            response.sendRedirect(appendScheduleNav(redirect));
+            return NONE;
+        }
+
+        // Determine the requested status from the first character of submit_form
+        String submitForm = request.getParameter("submit_form");
+        Tickler.STATUS status = Tickler.STATUS.A;
+        if (submitForm != null && !submitForm.isEmpty()) {
+            char firstChar = submitForm.charAt(0);
+            if (firstChar == 'C' || firstChar == 'c') {
+                status = Tickler.STATUS.C;
+            } else if (firstChar == 'D' || firstChar == 'd' || firstChar == 'E' || firstChar == 'e') {
+                status = Tickler.STATUS.D;
+            }
+        }
+
+        int failCount = 0;
+        for (String ticklerIdStr : checkboxes) {
+            try {
+                Tickler t = ticklerManager.getTickler(loggedInInfo, Integer.parseInt(ticklerIdStr));
+                if (t != null) {
+                    ticklerManager.updateStatus(loggedInInfo, t.getId(),
+                            loggedInInfo.getLoggedInProviderNo(), status);
+                }
+            } catch (NumberFormatException e) {
+                MiscUtils.getLogger().error("Invalid tickler checkbox value: {}", LogSafe.sanitize(ticklerIdStr), e);
+                failCount++;
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Failed to update tickler status for ID: {}", LogSafe.sanitize(ticklerIdStr), e);
+                failCount++;
+            }
+        }
+
+        String redirect = appendScheduleNav(request.getContextPath() + "/tickler/ViewTicklerMain");
+        if (failCount > 0) {
+            redirect += (redirect.contains("?") ? "&" : "?") + "failCount=" + failCount;
+        }
+        response.sendRedirect(redirect);
+        return NONE;
+    }
+
+    private String appendScheduleNav(String redirect) {
+        if (!"1".equals(request.getParameter("scheduleNav"))) {
+            return redirect;
+        }
+        return redirect + (redirect.contains("?") ? "&" : "?") + "scheduleNav=1";
+    }
+}

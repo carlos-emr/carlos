@@ -29,7 +29,7 @@ package io.github.carlos_emr.carlos.encounter.data;
 
 import java.util.List;
 
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 import org.apache.commons.lang3.math.NumberUtils;

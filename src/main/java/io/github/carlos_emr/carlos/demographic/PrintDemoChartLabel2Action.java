@@ -29,13 +29,14 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -45,15 +46,18 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.OscarDocumentCreator;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for generating and printing patient demographic chart labels in PDF format.
@@ -137,13 +141,16 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
      * type "application/pdf" and inline disposition. If a default printer is configured,
      * embedded JavaScript in the PDF will trigger automatic printing on open.
      *
-     * @return String ActionSupport result constant, always returns SUCCESS
+     * @return String ActionSupport result constant, always returns NONE for direct PDF responses
      * @throws SecurityException if user lacks "_demographic" read privilege
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -185,8 +192,10 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
         }
 
         if (labelFile == null) {
-            logger.warn("requested invalid label : " + request.getParameter("labelName"));
-            return SUCCESS;
+            logger.warn("requested invalid label : {}", LogSafe.sanitize(request.getParameter("labelName"))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            // Mapping in struts-demographic.xml has no <result name="success">; return NONE
+            // to suppress result resolution rather than raising ConfigurationException.
+            return NONE;
         }
 
         //patient
@@ -214,7 +223,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
 
         try {
             try {
-                ins = new FileInputStream(System.getProperty("user.home") + File.separator + labelFile);
+                ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + File.separator + labelFile)));
             } catch (FileNotFoundException ex1) {
                 logger.warn(labelFile + " not found in user's home directory. Using default instead (classpath)", ex1);
             }
@@ -237,7 +246,9 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
             response.setHeader("Content-disposition", getHeader(response).toString());
             OscarDocumentCreator osc = new OscarDocumentCreator();
 
-            osc.fillDocumentStream(parameters, sos, "pdf", ins, DbConnectionFilter.getThreadLocalDbConnection(), exportPdfJavascript);
+            try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                osc.fillDocumentStream(parameters, sos, "pdf", ins, connection, exportPdfJavascript);
+            }
         } catch (SQLException e) {
             MiscUtils.getLogger().error("Error", e);
         } finally {
@@ -250,7 +261,12 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
             }
         }
 
-        return SUCCESS;
+        // Action writes PDF bytes directly to response.getOutputStream() above, so return
+        // NONE to suppress Struts2 result resolution. The mapping in struts-demographic.xml
+        // has no <result name="success">; returning SUCCESS would raise ConfigurationException
+        // and the global exception result would render errorpage.jsp on top of the PDF bytes
+        // already written to the response (visible as a stray "0" from errorData.statusCode).
+        return NONE;
     }
 
     /**

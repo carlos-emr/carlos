@@ -55,7 +55,7 @@
 
 // import java.util.List;
 
-// import javax.persistence.Query;
+// import jakarta.persistence.Query;
 
 // import org.springframework.stereotype.Repository;
 
@@ -91,4 +91,12 @@ public interface ServiceRequestTokenDao extends AbstractDao<ServiceRequestToken>
     List<ServiceRequestToken> findAll();
 
     ServiceRequestToken findByTokenId(String token);
+
+    /**
+     * Atomically deletes the request token with the given id and returns the number of rows removed
+     * (0 or 1). Used to consume an OAuth 1.0a request token exactly once: the DB row lock serializes
+     * concurrent {@code /token} exchanges, so only the caller whose delete removes the row (rowcount
+     * 1) may mint an access token — race-free regardless of the caller's transaction commit timing.
+     */
+    int deleteByTokenId(String token);
 }

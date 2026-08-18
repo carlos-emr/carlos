@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.commn.model;
 
-import javax.persistence.*;
+import io.github.carlos_emr.carlos.commn.model.converter.EmailAttachmentDocumentTypeConverter;
+import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
@@ -16,13 +17,16 @@ public class EmailAttachment extends AbstractModel<Integer> {
 
     private String filePath;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = EmailAttachmentDocumentTypeConverter.class)
     private DocumentType documentType;
 
     private int documentId;
 
     @Transient
     private long fileSize;
+
+    @Transient
+    private String previewToken;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "logId")
@@ -104,5 +108,13 @@ public class EmailAttachment extends AbstractModel<Integer> {
 
     public void setFileSize(long fileSize) {
         this.fileSize = fileSize;
+    }
+
+    public String getPreviewToken() {
+        return previewToken;
+    }
+
+    public void setPreviewToken(String previewToken) {
+        this.previewToken = previewToken;
     }
 }

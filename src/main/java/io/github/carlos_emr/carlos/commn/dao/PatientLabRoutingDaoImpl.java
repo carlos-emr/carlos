@@ -35,7 +35,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo;
 import io.github.carlos_emr.carlos.commn.model.LabTestResults;
@@ -149,11 +149,7 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findTests(Integer demoId, String labType) {
-        String sql = "FROM " + MdsOBX.class.getName() + " x, " + MdsMSH.class.getName() + " m, PatientLabRouting p " +
-                "WHERE p.demographicNo = ?1 " +
-                "AND m.id = p.labNo " +
-                "AND x.id = m.id " +
-                "AND p.labType = ?2";
+        String sql = "SELECT x, m, p FROM io.github.carlos_emr.carlos.commn.model.MdsOBX x, io.github.carlos_emr.carlos.commn.model.MdsMSH m, PatientLabRouting p WHERE p.demographicNo = ?1 AND m.id = p.labNo AND x.id = m.id AND p.labType = ?2";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demoId);
         query.setParameter(2, labType);
@@ -171,14 +167,7 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findUniqueTestNamesForPatientExcelleris(Integer demoNo, String labType) {
-        String sql = "SELECT DISTINCT p.labType, x.observationIdentifier " +
-                "FROM PatientLabRouting p, Hl7Msh m, Hl7Pid pi, Hl7Obr r, Hl7Obx x  " +
-                "WHERE p.demographicNo = ?1 " +
-                "AND p.labNo = m.messageId " +
-                "AND pi.messageId = m.messageId " +
-                "AND r.id = pi.id " +
-                "AND r.id = x.obrId " +
-                "AND p.labType = ?2";
+        String sql = "SELECT DISTINCT p.labType, x.observationIdentifier FROM PatientLabRouting p, Hl7Msh m, Hl7Pid pi, Hl7Obr r, Hl7Obx x WHERE p.demographicNo = ?1 AND p.labNo = m.messageId AND pi.messageId = m.messageId AND r.id = pi.id AND r.id = x.obrId AND p.labType = ?2";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demoNo);
         query.setParameter(2, labType);
@@ -212,14 +201,7 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findRoutingsAndTests(Integer demoNo, String labType, String testName) {
-        String sql = "FROM PatientLabRouting p, " + LabTestResults.class.getSimpleName() + " ltr, "
-                + LabPatientPhysicianInfo.class.getSimpleName() + " lpp WHERE " +
-                "p.labType = ?1 " +
-                "AND p.demographicNo = ?2 " +
-                "AND p.labNo = ltr.labPatientPhysicianInfoId " +
-                "AND ltr.testName = ?3 " +
-                "AND ltr.labPatientPhysicianInfoId = lpp.id " +
-                "ORDER BY lpp.collectionDate";
+        String sql = "SELECT p, ltr, lpp FROM PatientLabRouting p, LabTestResults ltr, LabPatientPhysicianInfo lpp WHERE p.labType = ?1 AND p.demographicNo = ?2 AND p.labNo = ltr.labPatientPhysicianInfoId AND ltr.testName = ?3 AND ltr.labPatientPhysicianInfoId = lpp.id ORDER BY lpp.collectionDate";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, labType);
         query.setParameter(2, demoNo);
@@ -238,13 +220,7 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findRoutingsAndTests(Integer demoNo, String labType) {
-        String sql = "FROM PatientLabRouting p, LabTestResults ltr, LabPatientPhysicianInfo lpp WHERE " +
-                "p.labType = ?1 " +
-                "AND p.demographicNo = ?2 " +
-                "AND p.labNo = ltr.labPatientPhysicianInfoId " +
-                "AND ltr.labPatientPhysicianInfoId = lpp.id " +
-                "AND ltr.testName <> '' " +
-                "ORDER BY lpp.collectionDate";
+        String sql = "SELECT p, ltr, lpp FROM PatientLabRouting p, LabTestResults ltr, LabPatientPhysicianInfo lpp WHERE p.labType = ?1 AND p.demographicNo = ?2 AND p.labNo = ltr.labPatientPhysicianInfoId AND ltr.labPatientPhysicianInfoId = lpp.id AND ltr.testName <> '' ORDER BY lpp.collectionDate";
 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, labType);
@@ -255,13 +231,7 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findMdsRoutings(Integer demoNo, String testName, String labType) {
-        String sql = "FROM MdsOBX x, MdsMSH m, PatientLabRouting p " +
-                "WHERE p.labType = ?1 " +
-                "AND p.demographicNo = ?2 " +
-                "AND x.observationIdentifier like ?3 " +
-                "AND x.id = m.id " +
-                "AND m.id = p.labNo " +
-                "ORDER BY m.dateTime";
+        String sql = "SELECT x, m, p FROM MdsOBX x, MdsMSH m, PatientLabRouting p WHERE p.labType = ?1 AND p.demographicNo = ?2 AND x.observationIdentifier like ?3 AND x.id = m.id AND m.id = p.labNo ORDER BY m.dateTime";
 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demoNo);
@@ -273,16 +243,7 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findHl7InfoForRoutingsAndTests(Integer demoNo, String labType, String testName) {
-        String sql = "FROM PatientLabRouting p, Hl7Msh m, Hl7Pid pi, Hl7Obr r, Hl7Obx x, Hl7Orc c " +
-                "WHERE p.labType = ?1 " +
-                "AND p.demographicNo = ?2 " +
-                "AND x.observationIdentifier like ?3 " +
-                "AND p.labNo = m.messageId " +
-                "AND pi.messageId = m.messageId " +
-                "AND r.pidId = pi.id " +
-                "AND c.pidId = pi.id " +
-                "AND r.id = x.id " +
-                "ORDER BY r.oberservationDateTime";
+        String sql = "SELECT p, m, pi, r, x, c FROM PatientLabRouting p, Hl7Msh m, Hl7Pid pi, Hl7Obr r, Hl7Obx x, Hl7Orc c WHERE p.labType = ?1 AND p.demographicNo = ?2 AND x.observationIdentifier like ?3 AND p.labNo = m.messageId AND pi.messageId = m.messageId AND r.pidId = pi.id AND c.pidId = pi.id AND r.id = x.id ORDER BY r.oberservationDateTime";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, labType);
         query.setParameter(2, demoNo);
@@ -293,12 +254,7 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findRoutingsAndConsultDocsByRequestId(Integer reqId, String docType) {
-        String sql = "FROM PatientLabRouting p, ConsultDocs c " +
-                "WHERE p.id = c.documentNo " +
-                "AND c.requestId = ?1 " +
-                "AND c.docType = ?2 " +
-                "AND c.deleted IS NULL";
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery("SELECT p, c FROM PatientLabRouting p, ConsultDocs c WHERE p.id = c.documentNo AND c.requestId = ?1 AND c.docType = ?2 AND c.deleted IS NULL");
         query.setParameter(1, reqId);
         query.setParameter(2, docType);
         return query.getResultList();
@@ -307,12 +263,7 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findResultsByDemographicAndLabType(Integer demographicNo, String labType) {
-        String sql = "FROM " +
-                "PatientLabRouting p, " + MdsMSH.class.getName() + " msh, " + MdsZRG.class.getName() + " zrg " +
-                "WHERE p.labNo = msh.id " +
-                "AND p.labNo = zrg.id " +
-                "AND p.labType = ?1 " +
-                "AND p.demographicNo = ?2";
+        String sql = "SELECT p, msh, zrg FROM PatientLabRouting p, " + MdsMSH.class.getName() + " msh, " + MdsZRG.class.getName() + " zrg WHERE p.labNo = msh.id AND p.labNo = zrg.id AND p.labType = ?1 AND p.demographicNo = ?2";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, labType);
         query.setParameter(2, demographicNo);
@@ -321,11 +272,7 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
 
     @Override
     public List<Object[]> findRoutingAndPhysicianInfoByTypeAndDemoNo(String labType, Integer demographicNo) {
-        String sql = "FROM PatientLabRouting p, LabPatientPhysicianInfo l " +
-                "WHERE p.labType = ?1 " +
-                "AND p.labNo = l.id " +
-                "AND p.demographicNo = ?2";
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery("SELECT p, l FROM PatientLabRouting p, LabPatientPhysicianInfo l WHERE p.labType = ?1 AND p.labNo = l.id AND p.demographicNo = ?2");
         query.setParameter(1, labType);
         query.setParameter(2, demographicNo);
         return query.getResultList();
@@ -333,11 +280,7 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
 
     @Override
     public List<Object[]> findRoutingsAndMdsMshByDemoNo(Integer demographicNo) {
-        String sql = "FROM PatientLabRouting p, MdsMSH m " +
-                "WHERE p.labType = 'MDS' " +
-                "AND p.labNo = m.id " +
-                "AND p.demographicNo = ?1";
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery("SELECT p, m FROM PatientLabRouting p, MdsMSH m WHERE p.labType = 'MDS' AND p.labNo = m.id AND p.demographicNo = ?1");
         query.setParameter(1, demographicNo);
         return query.getResultList();
     }

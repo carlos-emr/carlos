@@ -36,9 +36,9 @@ Test 7 validates the Ontario MOH billing workflow in CARLOS EMR, including creat
 #### Provider Credentials
 | Field | Value |
 |-------|-------|
-| Username | openodoc |
-| Password | openo2025 |
-| PIN | 2025 |
+| Username | carlosdoc |
+| Password | carlos2026 |
+| PIN | 2026 |
 | Provider No | 999998 |
 
 #### Existing Test Patients (Must Exist)
@@ -90,7 +90,7 @@ Test 7 validates the Ontario MOH billing workflow in CARLOS EMR, including creat
 Service Code: A003 (or similar OHIP code)
 Diagnostic Code: J06.9 (Upper respiratory infection)
 Service Date: Today's date
-Provider: openodoc
+Provider: carlosdoc
 Location: Clinic (default)
 ```
 

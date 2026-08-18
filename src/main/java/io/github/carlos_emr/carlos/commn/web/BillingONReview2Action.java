@@ -30,9 +30,10 @@
 package io.github.carlos_emr.carlos.commn.web;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
@@ -49,7 +50,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * @author mweston4
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class BillingONReview2Action extends ActionSupport {
@@ -85,14 +86,16 @@ public class BillingONReview2Action extends ActionSupport {
         Demographic demographic = demographicDao.getDemographic(demographicNo);
 
         String json = objectMapper.writeValueAsString(demographic);
-        response.getOutputStream().write(json.getBytes());
+        response.setContentType("application/json;charset=UTF-8");
+        response.getOutputStream().write(json.getBytes(StandardCharsets.UTF_8)); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
         return null;
     }
 
     public String getClinic() throws IOException {
         Clinic clinic = clinicDao.getClinic();
         String json = objectMapper.writeValueAsString(clinic);
-        response.getOutputStream().write(json.getBytes());
+        response.setContentType("application/json;charset=UTF-8");
+        response.getOutputStream().write(json.getBytes(StandardCharsets.UTF_8));
         return null;
     }
 }

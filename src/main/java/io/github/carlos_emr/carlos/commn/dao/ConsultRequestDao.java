@@ -33,16 +33,10 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
 
-import io.github.carlos_emr.carlos.commn.PaginationQuery;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
-import io.github.carlos_emr.carlos.consultations.ConsultationQuery;
 import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter;
 
 public interface ConsultRequestDao extends AbstractDao<ConsultationRequest> {
-
-    public int getConsultationCount(PaginationQuery paginationQuery);
-
-    public List<ConsultationRequest> listConsultationRequests(ConsultationQuery consultationQuery);
 
     public int getConsultationCount2(ConsultationRequestSearchFilter filter);
 

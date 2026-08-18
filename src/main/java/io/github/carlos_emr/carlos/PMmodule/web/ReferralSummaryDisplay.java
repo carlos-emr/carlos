@@ -18,7 +18,7 @@
  * This software was written for
  * Centre for Research on Inner City Health, St. Michael's Hospital,
  * Toronto, Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -30,20 +30,11 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.web;
 
-import java.net.MalformedURLException;
 import java.text.SimpleDateFormat;
 import java.util.Comparator;
 import java.util.Date;
 
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import io.github.carlos_emr.carlos.PMmodule.model.ClientReferral;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedFacility;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProgram;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdIntegerCompositePk;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdStringCompositePk;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.Referral;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.util.DateUtils;
 
@@ -73,30 +64,6 @@ public class ReferralSummaryDisplay {
         daysInQueue = DateUtils.calculateDayDifference(clientReferral.getReferralDate(), new Date());
         selectVacancy = clientReferral.getSelectVacancy();
         vacancyTemplateName = clientReferral.getVacancyTemplateName();
-    }
-
-    public ReferralSummaryDisplay(LoggedInInfo loggedInInfo, Referral referral) throws MalformedURLException {
-        CachedFacility cachedDestinationFacility = CaisiIntegratorManager.getRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility(), referral.getDestinationIntegratorFacilityId());
-
-        FacilityIdIntegerCompositePk remoteProgramPk = new FacilityIdIntegerCompositePk();
-        remoteProgramPk.setIntegratorFacilityId(referral.getDestinationIntegratorFacilityId());
-        remoteProgramPk.setCaisiItemId(referral.getDestinationCaisiProgramId());
-        CachedProgram cachedProgram = CaisiIntegratorManager.getRemoteProgram(loggedInInfo, loggedInInfo.getCurrentFacility(), remoteProgramPk);
-
-        programName = cachedDestinationFacility.getName() + " / " + cachedProgram.getName();
-        programType = cachedProgram.getType();
-
-        if (referral.getReferralDate() != null) {
-            referralDate = dateFormatter.format(referral.getReferralDate().getTime());
-        }
-        daysInQueue = DateUtils.calculateDayDifference(referral.getReferralDate(), new Date());
-
-        FacilityIdStringCompositePk remoteProviderPk = new FacilityIdStringCompositePk();
-        remoteProviderPk.setIntegratorFacilityId(referral.getSourceIntegratorFacilityId());
-        remoteProviderPk.setCaisiItemId(referral.getSourceCaisiProviderId());
-        CachedProvider cachedProvider = CaisiIntegratorManager.getProvider(loggedInInfo, loggedInInfo.getCurrentFacility(), remoteProviderPk);
-        CachedFacility cachedSourceFacility = CaisiIntegratorManager.getRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility(), referral.getSourceIntegratorFacilityId());
-        referringProvider = cachedProvider.getLastName() + ", " + cachedProvider.getFirstName() + " / " + cachedSourceFacility.getName();
     }
 
     public String getProgramName() {

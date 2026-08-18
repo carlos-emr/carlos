@@ -3,12 +3,12 @@ package ca.ontario.health.edt;
 import java.net.MalformedURLException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.xml.ws.WebServiceFeature;
-import javax.xml.ws.WebEndpoint;
+import jakarta.xml.ws.WebServiceFeature;
+import jakarta.xml.ws.WebEndpoint;
 import javax.xml.namespace.QName;
 import java.net.URL;
-import javax.xml.ws.WebServiceClient;
-import javax.xml.ws.Service;
+import jakarta.xml.ws.WebServiceClient;
+import jakarta.xml.ws.Service;
 
 /**
  * JAX-WS web service client for Ontario's Electronic Data Transfer (EDT) system.
@@ -33,7 +33,7 @@ import javax.xml.ws.Service;
  * appropriate authentication credentials as mandated by Ontario Health privacy regulations.</p>
  *
  * @see EDTDelegate
- * @see javax.xml.ws.Service
+ * @see jakarta.xml.ws.Service
  * @since 2026-01-24
  */
 @WebServiceClient(name = "EDTService", wsdlLocation = "file:/home/oscara/mcedt/edt-stubs/src/main/resources/from_ohip_web_site/EDTService.wsdl", targetNamespace = "http://edt.health.ontario.ca/")

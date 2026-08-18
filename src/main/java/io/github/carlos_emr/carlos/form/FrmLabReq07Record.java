@@ -30,8 +30,6 @@
 
 package io.github.carlos_emr.carlos.form;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
@@ -43,15 +41,6 @@ import java.util.Properties;
 import io.github.carlos_emr.Misc;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicForm;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProgram;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdIntegerCompositePk;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdStringCompositePk;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -61,8 +50,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmLabReq07Record extends FrmRecord {
@@ -82,9 +71,9 @@ public class FrmLabReq07Record extends FrmRecord {
                 props.setProperty("demographic_no", String.valueOf(demographic.getDemographicNo()));
                 props.setProperty("patientName", demographic.getLastName() + ", " + demographic.getFirstName());
 
-                String uhipStatus = OscarProperties.getInstance().getProperty("demo_uhip_status", "");
+                String uhipStatus = CarlosProperties.getInstance().getProperty("demo_uhip_status", "");
                 if (!uhipStatus.isEmpty() && demographic.getRosterStatus().equals(uhipStatus)) {
-                    props.setProperty("healthNumber", LocaleUtils.getMessage(Locale.getDefault(), "oscarEncounter.form.uhipLbl") + StringUtils.trimToEmpty(demographic.getChartNo()));
+                    props.setProperty("healthNumber", LocaleUtils.getMessage(Locale.getDefault(), "encounter.form.uhipLbl") + StringUtils.trimToEmpty(demographic.getChartNo()));
                     props.setProperty("version", "");
                 } else {
                     props.setProperty("healthNumber", StringUtils.trimToEmpty(demographic.getHin()));
@@ -121,20 +110,19 @@ public class FrmLabReq07Record extends FrmRecord {
             }
 
         } else {
-            String sql = "SELECT * FROM formLabReq07 WHERE demographic_no = " + demographicNo + " AND ID = "
-                    + existingID;
-            props = (new FrmRecordHelp()).getFormRecord(sql);
+            String sql = "SELECT * FROM formLabReq07 WHERE demographic_no = ? AND ID = ?";
+            props = (new FrmRecordHelp()).getFormRecord(sql, demographicNo, existingID);
             String chartNo = props.getProperty("patientChartNo");
-            String chartNoLbl = LocaleUtils.getMessage(Locale.getDefault(), "oscarEncounter.form.labreq.patientChartNo") + ":";
+            String chartNoLbl = LocaleUtils.getMessage(Locale.getDefault(), "encounter.form.labreq.patientChartNo") + ":";
             int beginIdx = chartNo.lastIndexOf(chartNoLbl);
             if (beginIdx >= 0) {
                 chartNo = chartNo.substring(beginIdx + chartNoLbl.length());
                 props.setProperty("patientChartNo", chartNo);
             }
 
-            OscarProperties oscarProps = OscarProperties.getInstance();
+            CarlosProperties oscarProps = CarlosProperties.getInstance();
             if (oscarProps.getBooleanProperty("use_lab_clientreference", "true")) {
-                String additionalInfo = LocaleUtils.getMessage(Locale.getDefault(), "oscarEncounter.form.labreq.clientreference") + ":" + String.valueOf(existingID);
+                String additionalInfo = LocaleUtils.getMessage(Locale.getDefault(), "encounter.form.labreq.clientreference") + ":" + String.valueOf(existingID);
                 props.setProperty("clientRefNo", additionalInfo);
             }
         }
@@ -147,70 +135,46 @@ public class FrmLabReq07Record extends FrmRecord {
         String xmlSpecialtyCode = "<xml_p_specialty_code>";
         String xmlSpecialtyCode2 = "</xml_p_specialty_code>";
 
-        ResultSet rs = null;
-        String sql = null;
-
-
         if (demoProvider.equals(provNo)) {
             // from provider table
-            sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments "
-                    + "FROM provider WHERE provider_no = '" + provNo + "'";
-            rs = DBHandler.GetSQL(sql);
-
-            if (rs.next()) {
-                String comments = Misc.getString(rs, "comments");
-                String strSpecialtyCode = "00";
-                if (comments.indexOf(xmlSpecialtyCode) != -1) {
-                    strSpecialtyCode = comments.substring(comments.indexOf(xmlSpecialtyCode) + xmlSpecialtyCode.length(), comments.indexOf(xmlSpecialtyCode2));
-                    strSpecialtyCode = strSpecialtyCode.trim();
-                    if (strSpecialtyCode.equals("")) {
-                        strSpecialtyCode = "00";
-                    }
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments "
+                    + "FROM provider WHERE provider_no = ?", provNo)) {
+                if (rs.next()) {
+                    String comments = Misc.getString(rs, "comments");
+                    String strSpecialtyCode = extractSpecialtyCode(comments, xmlSpecialtyCode, xmlSpecialtyCode2);
+                    String num = Misc.getString(rs, "ohip_no");
+                    props.setProperty("reqProvName", Misc.getString(rs, "provName"));
+                    props.setProperty("provName", Misc.getString(rs, "provName"));
+                    props.setProperty("practitionerNo", "0000-" + num + "-" + strSpecialtyCode);
                 }
-                String num = Misc.getString(rs, "ohip_no");
-                props.setProperty("reqProvName", Misc.getString(rs, "provName"));
-                props.setProperty("provName", Misc.getString(rs, "provName"));
-                props.setProperty("practitionerNo", "0000-" + num + "-" + strSpecialtyCode);
             }
-            rs.close();
         } else {
             // from provider table
-            sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments FROM provider WHERE provider_no = '"
-                    + provNo + "'";
-            rs = DBHandler.GetSQL(sql);
-
             String num = "";
-            if (rs.next()) {
-                String comments = Misc.getString(rs, "comments");
-                String strSpecialtyCode = "00";
-                if (comments.indexOf(xmlSpecialtyCode) != -1) {
-                    strSpecialtyCode = comments.substring(comments.indexOf(xmlSpecialtyCode) + xmlSpecialtyCode.length(), comments.indexOf(xmlSpecialtyCode2));
-                    strSpecialtyCode = strSpecialtyCode.trim();
-                    if (strSpecialtyCode.equals("")) {
-                        strSpecialtyCode = "00";
-                    }
-                }
-                num = Misc.getString(rs, "ohip_no");
-                props.setProperty("reqProvName", Misc.getString(rs, "provName"));
-                props.setProperty("practitionerNo", "0000-" + num + "-" + strSpecialtyCode);
-            }
-            rs.close();
-
-            if (!demoProvider.equals("")) {
-                // from provider table
-                sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no FROM provider WHERE provider_no = "
-                        + demoProvider;
-                rs = DBHandler.GetSQL(sql);
-
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments FROM provider WHERE provider_no = ?",
+                    provNo)) {
                 if (rs.next()) {
-                    if (num.equals("")) {
-                        num = Misc.getString(rs, "ohip_no");
-                        props.setProperty("practitionerNo", "0000-" + num + "-00");
-                    }
-                    props.setProperty("provName", Misc.getString(rs, "provName"));
-
+                    String comments = Misc.getString(rs, "comments");
+                    String strSpecialtyCode = extractSpecialtyCode(comments, xmlSpecialtyCode, xmlSpecialtyCode2);
+                    num = Misc.getString(rs, "ohip_no");
+                    props.setProperty("reqProvName", Misc.getString(rs, "provName"));
+                    props.setProperty("practitionerNo", "0000-" + num + "-" + strSpecialtyCode);
                 }
-                rs.close();
+            }
+
+            if (!demoProvider.isEmpty()) {
+                // from provider table
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no FROM provider WHERE provider_no = ?",
+                        demoProvider)) {
+                    if (rs.next()) {
+                        if (num.isEmpty()) {
+                            num = Misc.getString(rs, "ohip_no");
+                            props.setProperty("practitionerNo", "0000-" + num + "-00");
+                        }
+                        props.setProperty("provName", Misc.getString(rs, "provName"));
+
+                    }
+                }
             }
         }
 
@@ -225,7 +189,7 @@ public class FrmLabReq07Record extends FrmRecord {
         }
 
         //lab_req_override=true
-        OscarProperties oscarProps = OscarProperties.getInstance();
+        CarlosProperties oscarProps = CarlosProperties.getInstance();
         if (oscarProps.getProperty("lab_req_provider", "").length() > 0) {
             props.setProperty("reqProvName", oscarProps.getProperty("lab_req_provider"));
         }
@@ -233,70 +197,36 @@ public class FrmLabReq07Record extends FrmRecord {
             props.setProperty("practitionerNo", oscarProps.getProperty("lab_req_billing_no"));
         }
 
-        if (facility.isIntegratorEnabled()) {
-            //if patient was from integrator link up doc from other site
-            try {
-                Integer localDemographicId = Integer.parseInt(props.getProperty("demographic_no"));
-                DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, facility);
-                List<DemographicTransfer> directLinks = demographicWs.getDirectlyLinkedDemographicsByDemographicId(localDemographicId);
-
-                if (directLinks.size() > 0) {
-                    props.setProperty("copy2clinician", "checked");
-                    DemographicTransfer demographicTransfer = directLinks.get(0);
-
-                    FacilityIdStringCompositePk providerPk = new FacilityIdStringCompositePk();
-                    providerPk.setIntegratorFacilityId(demographicTransfer.getIntegratorFacilityId());
-                    providerPk.setCaisiItemId(demographicTransfer.getLastUpdateUser());
-                    CachedProvider p = CaisiIntegratorManager.getProvider(loggedInInfo, facility, providerPk);
-                    if (p != null) {
-                        props.setProperty("copyLname", p.getLastName());
-                        props.setProperty("copyFname", p.getFirstName());
-
-                        List<CachedProgram> cps = CaisiIntegratorManager.getAllPrograms(loggedInInfo, facility);
-                        for (CachedProgram cp : cps) {
-                            if (providerPk.getIntegratorFacilityId() == cp.getFacilityIdIntegerCompositePk().getIntegratorFacilityId() && "OSCAR".equals(cp.getName()) && cp.getAddress() != null) {
-                                props.setProperty("copyAddress", cp.getAddress());
-                            }
-                        }
-
-                    }
-                }
-
-            } catch (Exception e) {
-                logger.error("error", e);
-            }
-        }
-
         return props;
     }
 
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
-        String sql = "SELECT * FROM formLabReq07 WHERE demographic_no=" + demographic_no + " AND ID=0";
+        String sql = "SELECT * FROM formLabReq07 WHERE demographic_no=? AND ID=0";
 
-        return ((new FrmRecordHelp()).saveFormRecord(props, sql));
+        return ((new FrmRecordHelp()).saveFormRecord(props, sql, demographic_no));
     }
 
     public Properties getPrintRecord(int demographicNo, int existingID) throws SQLException {
-        String sql = "SELECT * FROM formLabReq07 WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
-        return ((new FrmRecordHelp()).getPrintRecord(sql));
+        String sql = "SELECT * FROM formLabReq07 WHERE demographic_no = ? AND ID = ?";
+        return ((new FrmRecordHelp()).getPrintRecord(sql, demographicNo, existingID));
     }
 
     public static List<Properties> getPrintRecords(int demographicNo) throws SQLException {
-        String sql = "SELECT * FROM formLabReq07 WHERE demographic_no = " + demographicNo;
-        return ((new FrmRecordHelp()).getPrintRecords(sql));
+        String sql = "SELECT * FROM formLabReq07 WHERE demographic_no = ?";
+        return ((new FrmRecordHelp()).getPrintRecords(sql, demographicNo));
     }
 
     public static List<Properties> getPrintRecordsSince(int demographicNo, Date lastUpdateDate) throws SQLException {
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        String sql = "SELECT * FROM formLabReq07 WHERE demographic_no = " + demographicNo + " and formEdited > '" + formatter.format(lastUpdateDate) + "'";
-        return ((new FrmRecordHelp()).getPrintRecords(sql));
+        String sql = "SELECT * FROM formLabReq07 WHERE demographic_no = ? and formEdited > ?";
+        return ((new FrmRecordHelp()).getPrintRecords(sql, demographicNo, formatter.format(lastUpdateDate)));
     }
 
     public static List<Integer> getDemogaphicIdsSince(Date lastUpdateDate) throws SQLException {
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        String sql = "SELECT demographic_no FROM formLabReq07 WHERE formEdited > '" + formatter.format(lastUpdateDate) + "'";
-        return ((new FrmRecordHelp()).getDemographicIds(sql));
+        String sql = "SELECT demographic_no FROM formLabReq07 WHERE formEdited > ?";
+        return ((new FrmRecordHelp()).getDemographicIds(sql, formatter.format(lastUpdateDate)));
     }
 
 
@@ -308,47 +238,24 @@ public class FrmLabReq07Record extends FrmRecord {
         return ((new FrmRecordHelp()).createActionURL(where, action, demoId, formId));
     }
 
-
-    public static Properties getRemoteRecordProperties(LoggedInInfo loggedInInfo, Integer remoteFacilityId, Integer formId, Integer demoNo) throws IOException {
-        FacilityIdIntegerCompositePk pk = new FacilityIdIntegerCompositePk();
-        pk.setIntegratorFacilityId(remoteFacilityId);
-        pk.setCaisiItemId(formId);
-
-        CachedDemographicForm form = null;
-        try {
-            if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-                form = demographicWs.getCachedDemographicForm(pk);
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error.", e);
-            CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
+    private String extractSpecialtyCode(String comments, String startTag, String endTag) {
+        if (comments == null) {
+            return "00";
         }
 
-
-        if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-            Integer demographicNo = 0;
-            List<CachedDemographicForm> forms = IntegratorFallBackManager.getRemoteForms(loggedInInfo, demoNo, "formLabReq07");
-            for (CachedDemographicForm f : forms) {
-                if (f.getFacilityIdIntegerCompositePk().getCaisiItemId() == pk.getCaisiItemId() && f.getFacilityIdIntegerCompositePk().getIntegratorFacilityId() == pk.getIntegratorFacilityId()) {
-                    form = f;
-                    break;
-                }
-            }
+        int start = comments.indexOf(startTag);
+        if (start < 0) {
+            return "00";
         }
 
-        ByteArrayInputStream bais = new ByteArrayInputStream(form.getFormData().getBytes());
+        int valueStart = start + startTag.length();
+        int end = comments.indexOf(endTag, valueStart);
+        if (end < valueStart) {
+            return "00";
+        }
 
-        Properties p = new Properties();
-        p.load(bais);
-
-        // missing
-        // props.setProperty("hcType", demographic.getHcType());
-        // props.setProperty("demoProvider", demographic.getProviderNo());
-        // props.setProperty("clinicProvince",oscar.Misc.getString(rs, "clinic_province"));
-
-        logger.debug("Remote properties : " + p);
-
-        return (p);
+        String specialtyCode = comments.substring(valueStart, end).trim();
+        return specialtyCode.isEmpty() ? "00" : specialtyCode;
     }
+
 }

@@ -29,8 +29,9 @@
 
 package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -41,14 +42,15 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctValid
 import io.github.carlos_emr.carlos.report.oscarMeasurements.data.RptMeasurementsData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -57,6 +59,8 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
@@ -72,7 +76,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         int nbPatient = 0;
 
         if (!validateForm()) {
-            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport.jsp");
+            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/ViewInitializeFrequencyOfRelevantTestsCDMReport");
             return NONE;
         }
 
@@ -241,6 +245,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return patientSeenCheckbox;
     }
 
+    @StrutsParameter
     public void setPatientSeenCheckbox(String[] patientSeenCheckbox) {
         this.patientSeenCheckbox = patientSeenCheckbox;
     }
@@ -251,6 +256,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return startDateA;
     }
 
+    @StrutsParameter
     public void setStartDateA(String startDateA) {
         this.startDateA = startDateA;
     }
@@ -261,6 +267,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return endDateA;
     }
 
+    @StrutsParameter
     public void setEndDateA(String endDateA) {
         this.endDateA = endDateA;
     }
@@ -275,6 +282,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return frequencyCheckbox;
     }
 
+    @StrutsParameter
     public void setFrequencyCheckbox(String[] frequencyCheckbox) {
         this.frequencyCheckbox = frequencyCheckbox;
     }
@@ -285,6 +293,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return startDateD;
     }
 
+    @StrutsParameter
     public void setStartDateD(String[] startDateD) {
         this.startDateD = startDateD;
     }
@@ -295,6 +304,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return endDateD;
     }
 
+    @StrutsParameter
     public void setEndDateD(String[] endDateD) {
         this.endDateD = endDateD;
     }
@@ -305,6 +315,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return exactly;
     }
 
+    @StrutsParameter
     public void setExactly(int[] exactly) {
         this.exactly = exactly;
     }
@@ -315,6 +326,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return moreThan;
     }
 
+    @StrutsParameter
     public void setMoreThan(int[] moreThan) {
         this.moreThan = moreThan;
     }

@@ -32,7 +32,7 @@ import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import io.github.carlos_emr.carlos.daos.security.UserAccessDao;
 import io.github.carlos_emr.carlos.model.security.UserAccessValue;
@@ -64,7 +64,7 @@ public class UserAccessManagerImpl implements UserAccessManager {
         }
         secManager.setUserFunctionAccessList(functionList);
         List orgs = _dao.GetUserOrgAccessList(providerNo, shelterId);
-        String orgRoot = OscarProperties.getInstance().getProperty("ORGROOT");
+        String orgRoot = CarlosProperties.getInstance().getProperty("ORGROOT");
         if (orgs.size() > 0 && orgRoot != null && orgRoot.equals(orgs.get(0))) {
             orgs.clear();
         }

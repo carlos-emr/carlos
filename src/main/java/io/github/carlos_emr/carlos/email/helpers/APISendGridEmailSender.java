@@ -1,28 +1,38 @@
 package io.github.carlos_emr.carlos.email.helpers;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.security.GeneralSecurityException;
 import java.util.List;
+import java.util.Objects;
 
 import javax.net.ssl.SSLContext;
 
 import org.apache.commons.codec.binary.Base64;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.ssl.SSLContexts;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.io.HttpClientConnectionManager;
+import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.HttpStatus;
+import org.apache.hc.core5.ssl.SSLContexts;
+import org.apache.hc.core5.util.Timeout;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.ValidatedHttpEndpoint;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,49 +41,24 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
- * SendGrid API-based email sender for OpenO EMR healthcare system.
+ * Sends privilege-gated email through a validated SendGrid HTTPS endpoint.
  *
- * This class provides functionality to send emails through the SendGrid Web API v3,
- * supporting healthcare-specific requirements including security privilege checks,
- * SSL/TLS encryption, and file attachments. All email operations are subject to
- * HIPAA/PIPEDA compliance requirements and require appropriate security permissions.
- *
- * The implementation uses Apache HttpClient with SSL context for secure communication
- * with SendGrid's API endpoint. Email content is serialized to JSON format according
- * to SendGrid's API specification, supporting multiple recipients, HTML/plain text
- * content, and Base64-encoded file attachments.
- *
- * Security considerations:
- * - Requires _email WRITE privilege for all send operations
- * - API keys are stored in EmailConfig and must be protected
- * - SSL client authentication is enabled for enhanced security
- * - PHI data in email content must be appropriately secured
- *
- * @see EmailConfig
- * @see EmailAttachment
- * @see SecurityInfoManager
- * @see io.github.carlos_emr.carlos.utility.EmailSendingException
- * @since 2026-01-24
+ * <p>The HTTP client pins the validated DNS result, rejects redirects, and applies bounded
+ * connection and response timeouts. Attachments are encoded into the SendGrid JSON request.</p>
  */
 public class APISendGridEmailSender {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    private LoggedInInfo loggedInInfo;
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final LoggedInInfo loggedInInfo;
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    private EmailConfig emailConfig;
-    private String[] recipients = new String[0];
-    private String subject;
-    private String body;
-    private String additionalParams;
-    private String DEFAULT_END_POINT = "https://api.sendgrid.com/v3/mail/send";
-    private List<EmailAttachment> attachments;
-
-    /**
-     * Private no-argument constructor to prevent instantiation without required parameters.
-     */
-    private APISendGridEmailSender() {
-    }
+    private final EmailConfig emailConfig;
+    private final String[] recipients;
+    private final String subject;
+    private final String body;
+    private final String additionalParams;
+    private static final String DEFAULT_END_POINT = "https://api.sendgrid.com/v3/mail/send";
+    private final List<EmailAttachment> attachments;
 
     /**
      * Constructs an APISendGridEmailSender with email parameters and attachments.
@@ -93,12 +78,7 @@ public class APISendGridEmailSender {
      *                    in the email, may be empty but not null
      */
     public APISendGridEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, String[] recipients, String subject, String body, List<EmailAttachment> attachments) {
-        this.loggedInInfo = loggedInInfo;
-        this.emailConfig = emailConfig;
-        this.recipients = recipients;
-        this.subject = subject;
-        this.body = body;
-        this.attachments = attachments;
+        this(loggedInInfo, emailConfig, recipients, subject, body, null, attachments);
     }
 
     /**
@@ -121,32 +101,21 @@ public class APISendGridEmailSender {
      *                    in the email, may be empty but not null
      */
     public APISendGridEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, String[] recipients, String subject, String body, String additionalParams, List<EmailAttachment> attachments) {
-        this.loggedInInfo = loggedInInfo;
-        this.emailConfig = emailConfig;
-        this.recipients = recipients;
-        this.subject = subject;
-        this.body = body;
+        this.loggedInInfo = Objects.requireNonNull(loggedInInfo, "loggedInInfo must not be null");
+        this.emailConfig = Objects.requireNonNull(emailConfig, "emailConfig must not be null");
+        this.recipients = Objects.requireNonNull(recipients, "recipients must not be null").clone();
+        this.subject = Objects.requireNonNull(subject, "subject must not be null");
+        this.body = Objects.requireNonNull(body, "body must not be null");
         this.additionalParams = additionalParams;
-        this.attachments = attachments;
+        this.attachments = List.copyOf(
+                Objects.requireNonNull(attachments, "attachments must not be null"));
     }
 
     /**
      * Sends the email through SendGrid's Web API v3 with security validation.
      *
-     * This method performs the following operations:
-     * 1. Validates that the logged-in user has _email WRITE privilege
-     * 2. Establishes an SSL/TLS connection to SendGrid's API endpoint
-     * 3. Constructs the email JSON payload according to SendGrid API specification
-     * 4. Transmits the email via HTTP POST request with Bearer token authentication
-     * 5. Validates the HTTP response status code
-     *
-     * The method uses Apache HttpClient with custom SSL context configuration that
-     * enables client authentication for enhanced security. All attachments are
-     * Base64-encoded before transmission.
-     *
-     * HIPAA/PIPEDA Compliance Note: Ensure that any Protected Health Information (PHI)
-     * included in email content is appropriately secured and that transmission is
-     * authorized under applicable privacy regulations.
+     * The request uses the validated, DNS-pinned HTTPS endpoint with redirects disabled and bounded
+     * timeouts. Attachments are Base64-encoded into the JSON payload.
      *
      * @throws EmailSendingException if the user lacks required security privileges,
      *                               if SSL context initialization fails, if the HTTP
@@ -160,25 +129,82 @@ public class APISendGridEmailSender {
         }
 
         try {
+            String endPoint = getEndPoint();
+            ValidatedHttpEndpoint validatedEndpoint = validateEndpoint(endPoint);
             SSLContext sslContext = SSLContexts.custom().build();
-            sslContext.getDefaultSSLParameters().setNeedClientAuth(true);
-            sslContext.getDefaultSSLParameters().setWantClientAuth(true);
-            SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(sslContext);
-            HttpClient httpClient = HttpClients.custom().setSSLSocketFactory(socketFactory).build();
 
-            HttpPost httpPost = new HttpPost(getEndPoint());
-            httpPost.setHeader("Content-Type", "application/json");
-            httpPost.setHeader("Authorization", "Bearer " + getAPIKey());
+            HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
+                    .setSSLSocketFactory(SSLConnectionSocketFactoryBuilder.create()
+                            .setSslContext(sslContext)
+                            .build())
+                    .setDnsResolver(validatedEndpoint.pinnedDnsResolver())
+                    .setDefaultConnectionConfig(ConnectionConfig.custom()
+                            .setConnectTimeout(Timeout.ofSeconds(30))
+                            .setSocketTimeout(Timeout.ofSeconds(60))
+                            .build())
+                    .build();
+            RequestConfig requestConfig = RequestConfig.custom()
+                    .setConnectionRequestTimeout(Timeout.ofSeconds(30))
+                    .setResponseTimeout(Timeout.ofSeconds(60))
+                    .build();
 
-            StringEntity entity = new StringEntity(createEmailJSON());
-            httpPost.setEntity(entity);
-            HttpResponse response = httpClient.execute(httpPost);
-            if (response.getStatusLine().getStatusCode() >= 400) {
-                throw new EmailSendingException(response.getStatusLine() + "\n" + EntityUtils.toString(response.getEntity()));
+            try (CloseableHttpClient httpClient = HttpClients.custom()
+                    .setConnectionManager(connectionManager)
+                    .setDefaultRequestConfig(requestConfig)
+                    .disableRedirectHandling()
+                    .build()) {
+                HttpPost httpPost = new HttpPost(validatedEndpoint.uri());
+                httpPost.setHeader("Content-Type", "application/json");
+                httpPost.setHeader("Authorization", "Bearer " + getAPIKey());
+
+                StringEntity entity = new StringEntity(createEmailJSON(), ContentType.APPLICATION_JSON);
+                httpPost.setEntity(entity);
+                try (var response = httpClient.execute(httpPost)) {
+                    assertAccepted(response.getCode());
+                }
             }
-        } catch (Exception e) {
+        } catch (EmailSendingException e) {
+            throw e;
+        } catch (IOException | GeneralSecurityException e) {
             throw new EmailSendingException(e.getMessage(), e);
         }
+    }
+
+    /**
+     * Accepts only SendGrid's {@code 202 Accepted}; every other status is a send failure.
+     *
+     * <p>Deliberately not a {@code < 400} test. Redirect handling is disabled on the client for SSRF
+     * containment, so a {@code 301}/{@code 302}/{@code 307} is returned here rather than followed —
+     * and a 3xx is not {@code >= 400}, so the old check passed it as success and the caller recorded
+     * a clinical notification that was never queued. A {@code 200} is likewise not an acceptance.
+     * Once you stop following redirects, "not an error" stops meaning "delivered".</p>
+     *
+     * <p>Extracted so this is reachable from a unit test: the status check previously sat inside the
+     * {@code try-with-resources} around a live {@code CloseableHttpClient}, which is why nothing
+     * covered it.</p>
+     *
+     * @param statusCode the HTTP status SendGrid returned
+     * @throws EmailSendingException naming the received status, for anything other than 202
+     */
+    static void assertAccepted(int statusCode) throws EmailSendingException {
+        if (statusCode != HttpStatus.SC_ACCEPTED) {
+            throw new EmailSendingException(
+                    "SendGrid did not accept the request: expected HTTP 202, got " + statusCode + ".");
+        }
+    }
+
+    static ValidatedHttpEndpoint validateEndpoint(String endpoint) throws EmailSendingException {
+        ValidatedHttpEndpoint validatedEndpoint;
+        try {
+            validatedEndpoint = ValidatedHttpEndpoint.resolve(
+                    endpoint, "carlos.email.sendgrid.allowedHosts");
+        } catch (ValidatedHttpEndpoint.ValidationException e) {
+            throw new EmailSendingException("Configured email endpoint was rejected: " + e.getMessage());
+        }
+        if (!validatedEndpoint.isHttps()) {
+            throw new EmailSendingException("Configured email endpoint must use HTTPS.");
+        }
+        return validatedEndpoint;
     }
 
     private String createEmailJSON() throws EmailSendingException {
@@ -189,7 +215,8 @@ public class APISendGridEmailSender {
         addBody(emailJson);
         addAttachments(emailJson);
         addAdditionalParams(emailJson);
-        addApiKey(emailJson);
+        // The API key is sent only via the Authorization: Bearer header (see the HTTP client setup).
+        // It is deliberately NOT duplicated into the JSON request body.
         return emailJson.toString();
     }
 
@@ -230,19 +257,26 @@ public class APISendGridEmailSender {
         emailJson.put("content", content);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void addAttachments(ObjectNode emailJson) throws EmailSendingException {
         ArrayNode jsonAttachments = objectMapper.createArrayNode();
         for (EmailAttachment emailAttachment : attachments) {
+            if (emailAttachment == null
+                    || emailAttachment.getFilePath() == null
+                    || emailAttachment.getFilePath().isBlank()) {
+                throw new EmailSendingException("An email attachment has no readable file path.");
+            }
             try {
                 ObjectNode jsonAttachment = objectMapper.createObjectNode();
-                Path path = Paths.get(emailAttachment.getFilePath());
+                Path path = PathValidationUtils.resolveTrustedPath(new File(emailAttachment.getFilePath())).toPath();
                 jsonAttachment.put("content", Base64.encodeBase64String(Files.readAllBytes(path)));
                 jsonAttachment.put("filename", emailAttachment.getFileName());
                 jsonAttachment.put("type", "application/pdf");
                 jsonAttachment.put("disposition", "attachment");
                 jsonAttachments.add(jsonAttachment);
-            } catch (Exception e) {
-                throw new EmailSendingException("Failed to attach " + emailAttachment.getFileName() + " while sending email using SendGrid.");
+            } catch (IOException | SecurityException e) {
+                throw new EmailSendingException("An email attachment could not be read.", e);
             }
         }
         emailJson.put("attachments", jsonAttachments);
@@ -250,10 +284,6 @@ public class APISendGridEmailSender {
 
     private void addAdditionalParams(ObjectNode emailJson) throws EmailSendingException {
         emailJson.put("additionalParams", additionalParams);
-    }
-
-    private void addApiKey(ObjectNode emailJson) throws EmailSendingException {
-        emailJson.put("apiKey", getAPIKey());
     }
 
     private String getAPIKey() throws EmailSendingException {
@@ -267,6 +297,7 @@ public class APISendGridEmailSender {
         }
         return apiKey;
     }
+
 
     private String getEndPoint() throws EmailSendingException {
         StringBuilder endPointBuilder = new StringBuilder();

@@ -46,7 +46,7 @@ public interface ProgramFunctionalUserDAO {
 
     public void deleteFunctionalUserType(Long id);
 
-    public List<FunctionalUserType> getFunctionalUsers(Long programId);
+    public List<ProgramFunctionalUser> getFunctionalUsers(Long programId);
 
     public ProgramFunctionalUser getFunctionalUser(Long id);
 

@@ -31,10 +31,10 @@ package io.github.carlos_emr.carlos.webserv.rest.to;
 import java.io.Serializable;
 import java.util.List;
 
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlElementWrapper;
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.XmlSeeAlso;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlElementWrapper;
+import jakarta.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlSeeAlso;
 
 import io.github.carlos_emr.carlos.webserv.rest.to.model.NavBarMenuTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ProgramProviderTo1;

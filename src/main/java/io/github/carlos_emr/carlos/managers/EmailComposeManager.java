@@ -8,13 +8,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.validator.EmailValidator;
 import org.apache.logging.log4j.Logger;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
@@ -203,7 +203,7 @@ public class EmailComposeManager {
      * @throws PDFGenerationException if PDF rendering fails for any hospital report
      */
     public List<EmailAttachment> prepareHRMAttachments(LoggedInInfo loggedInInfo, String[] attachedHRMDocuments) throws PDFGenerationException {
-        if (!OscarProperties.getInstance().isOntarioBillingRegion()) {
+        if (!CarlosProperties.getInstance().isOntarioBillingRegion()) {
             return new ArrayList<>();
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, null)) {

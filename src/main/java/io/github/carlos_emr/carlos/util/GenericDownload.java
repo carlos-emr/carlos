@@ -33,72 +33,109 @@ package io.github.carlos_emr.carlos.util;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
 
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 
-import io.github.carlos_emr.OscarProperties;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+
+import java.util.Set;
+
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * @author Jay Gallagher
  */
 public class GenericDownload extends HttpServlet {
 
+    private static final long serialVersionUID = 1L;
+    private static final Logger log = MiscUtils.getLogger();
+
+    /**
+     * Configured-directory property names this servlet is permitted to serve from. The caller names
+     * the directory via the {@code dir_property} request parameter; allowing an arbitrary property
+     * lets any authenticated request pick which configured directory is trusted (exports, backups,
+     * integration artifacts). No caller in the codebase uses this servlet, so the allowlist is
+     * intentionally empty — add a property key here deliberately, with its use case and an
+     * appropriate privilege, only when a real caller needs it.
+     *
+     * <p>While this set is empty the {@code /Download} mapping (web.xml) is effectively
+     * disabled-by-default and fail-closed: every {@code dir_property} request is rejected and no file
+     * is served, including for admins. This is intentional — the endpoint stays inert until a real
+     * caller and its property key are added here.</p>
+     */
+    private static final Set<String> ALLOWED_DIR_PROPERTIES = Set.of();
+
     public GenericDownload() {
     }
 
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
-        HttpSession session = req.getSession(true);
+        try {
+            HttpSession session = req.getSession(false);
+            if (session == null) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied");
+                return;
+            }
 
-        OscarProperties oscarProps = OscarProperties.getInstance();
+            CarlosProperties oscarProps = CarlosProperties.getInstance();
 
-        String filename = req.getParameter("filename");
-        String dir_property = req.getParameter("dir_property");
-        String contentType = req.getParameter("contentType");
-        String dir = oscarProps.getProperty(dir_property);
-        String user = (String) session.getAttribute("user");
+            String filename = req.getParameter("filename");
+            String dir_property = req.getParameter("dir_property");
+            String user = (String) session.getAttribute("user");
 
-        boolean bDo = false;
-        if (filename != null && dir_property != null && dir != null && user != null) {
-            bDo = true;
+            // Generic downloads require an administrator and a server-approved directory property.
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
+            SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+            boolean authorized = user != null
+                    && loggedInInfo != null
+                    && dir_property != null
+                    && ALLOWED_DIR_PROPERTIES.contains(dir_property)
+                    && securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null);
+
+            String dir = authorized ? oscarProps.getProperty(dir_property) : null;
+
+            boolean bDo = authorized && filename != null && dir != null;
+            download(bDo, res, dir, filename);
+        } catch (IOException e) {
+            throw e;
+        } catch (SecurityException e) {
+            log.warn("SecurityException in GenericDownload: {}", e.getMessage());
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied");
+            }
+        } catch (Exception e) {
+            log.error("Unexpected error in GenericDownload", e);
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
         }
-        download(bDo, res, dir, filename, contentType);
 
     }
 
-    public void download(boolean bDownload, HttpServletResponse res, String dir, String filename, String contentType)
+    public void download(boolean bDownload, HttpServletResponse res, String dir, String filename)
             throws IOException {
         if (bDownload) {
             ServletOutputStream stream = res.getOutputStream();
-            transferFile(res, stream, dir, filename, contentType);
-            stream.close();
+            transferFile(res, stream, dir, filename);
         } else {
-            res.setContentType("text/html");
-            PrintWriter out = res.getWriter();
-            out.println("<html>");
-            out.println("<head><body>You have no right to download the file(s).");
-            out.println("</body>");
-            out.println("</html>");
+            res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
         }
     }
 
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "PathValidationUtils validates filename containment under the canonical configured directory before opening the file")
     protected void transferFile(HttpServletResponse res, ServletOutputStream stream, String dir, String filename) throws IOException {
-        transferFile(res, stream, dir, filename, null);
-    }
-
-    protected void transferFile(HttpServletResponse res, ServletOutputStream stream, String dir, String filename,
-                                String contentType) throws IOException {
-        //faster than "transferFile" method - clocked at 1.1MB/s on a 10Mbps switch
-        int BUFFER_SIZE = 2048;
-        String setContentType = "application/octet-stream";
-        if (contentType != null) {
-            setContentType = contentType;
-        }
+        int bufferSizeBytes = 8192;
 
         // Use PathValidationUtils for security validation
         // This sanitizes the filename and validates directory containment
@@ -108,19 +145,17 @@ public class GenericDownload extends HttpServlet {
         // Sanitize filename for HTTP header (prevent response splitting)
         String sanitizedFilename = curfile.getName().replaceAll("[\r\n]", "").replaceAll("[\\p{Cntrl}]", "");
 
-        res.setContentType(setContentType);
+        res.setContentType("application/octet-stream");
+        res.setHeader("X-Content-Type-Options", "nosniff");
         res.setHeader("Content-Disposition", "attachment;filename=\"" + sanitizedFilename + "\"");
-        
-        FileInputStream fis = new FileInputStream(curfile);
-        int bufferSize;
-        byte[] buffer = new byte[BUFFER_SIZE];
+        res.setContentLengthLong(curfile.length());
 
-        while ((bufferSize = fis.read(buffer)) != -1) {
-            stream.write(buffer, 0, bufferSize);
-
+        byte[] buffer = new byte[bufferSizeBytes];
+        try (FileInputStream input = new FileInputStream(curfile)) {
+            int bytesRead;
+            while ((bytesRead = input.read(buffer)) != -1) {
+                stream.write(buffer, 0, bytesRead); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary response
+            }
         }
-        fis.close();
-        stream.flush();
-        stream.close();
     }
 }

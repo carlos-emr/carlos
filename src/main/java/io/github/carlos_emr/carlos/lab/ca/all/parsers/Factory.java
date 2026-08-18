@@ -39,6 +39,7 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 
+import java.io.File;
 import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
@@ -55,9 +56,12 @@ import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public final class Factory {
 
@@ -114,6 +118,8 @@ public final class Factory {
     /*
      * Create and return the message handler corresponding to the message type
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static MessageHandler getHandler(String type, String hl7Body) {
         Document doc = null;
         String msgType;
@@ -126,13 +132,31 @@ public final class Factory {
             logger.error("Could not default Message configuration file ", e2);
         }
 
-        String labTypesPathOverride = OscarProperties.getInstance().getProperty("LAB_TYPES");
+        String labTypesPathOverride = CarlosProperties.getInstance().getProperty("LAB_TYPES");
 
         if (labTypesPathOverride != null && !labTypesPathOverride.isEmpty()) {
-            labTypesPath = Paths.get(labTypesPathOverride);
+            try {
+                labTypesPath = PathValidationUtils.validateConfiguredFile(labTypesPathOverride, "LAB_TYPES").toPath();
+            } catch (SecurityException e) {
+                // Invalid/missing LAB_TYPES override: log and fall back to the bundled default
+                // configuration resolved above rather than failing lab message parsing outright.
+                logger.error("Configured LAB_TYPES override is invalid; using default message configuration instead", e);
+            }
         }
 
-        try (InputStream is = Files.newInputStream(labTypesPath)) {
+        if (labTypesPath == null) {
+            logger.error("Could not resolve Message configuration file. Using default message handler instead.");
+            try {
+                MessageHandler handler = new DefaultGenericHandler();
+                handler.init(hl7Body);
+                return handler;
+            } catch (Exception e) {
+                logger.error("Could not create default message handler", e);
+                return null;
+            }
+        }
+
+        try (InputStream is = Files.newInputStream(PathValidationUtils.validateConfiguredFile(labTypesPath.toString(), "message configuration file").toPath())) {
 
             // return default handler if the type is not specified
             if (type == null) {
@@ -143,7 +167,7 @@ public final class Factory {
                 type = type.trim();
             }
 
-            SAXBuilder parser = new SAXBuilder();
+            SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
             doc = parser.build(is);
 
             Element root = doc.getRootElement();
@@ -169,7 +193,7 @@ public final class Factory {
 
             // create and return the message handler
             if (msgHandler.equals("")) {
-                logger.debug("No message handler specified for type: " + type + "\nUsing default message handler instead");
+                logger.warn("No message handler specified for type: " + type + ". Using default message handler instead.");
                 MessageHandler mh = new DefaultGenericHandler();
                 mh.init(hl7Body);
                 return (mh);
@@ -182,12 +206,12 @@ public final class Factory {
                     mh.init(hl7Body);
                     return (mh);
                 } catch (ClassNotFoundException e) {
-                    logger.debug("Could not find message handler: " + msgHandler + "\nUsing default message handler instead");
+                    logger.warn("Could not find message handler: " + msgHandler + ". Using default message handler instead.");
                     MessageHandler mh = new DefaultGenericHandler();
                     mh.init(hl7Body);
                     return (mh);
                 } catch (Exception e1) {
-                    logger.debug("Could not create message handler: " + msgHandler + "\nUsing default message handler instead", e1);
+                    logger.error("Could not create message handler: " + msgHandler + ". Using default message handler instead.", e1);
                     MessageHandler mh = new DefaultGenericHandler();
                     mh.init(hl7Body);
                     return (mh);

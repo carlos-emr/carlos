@@ -29,37 +29,42 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterTemplate;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class EctInsertTemplate2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() throws Exception {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_newCasemgmt.templates", "r", null)) {
+            throw new SecurityException("missing required security object: _newCasemgmt.templates");
+        }
+
         String templateName = request.getParameter("templateName");
+        if (templateName == null || templateName.isBlank()) {
+            return SUCCESS;
+        }
 
         EncounterTemplateDao dao = SpringUtils.getBean(EncounterTemplateDao.class);
         EncounterTemplate t = dao.find(templateName);
 
         if (t != null) {
             String encounterTmpValue = t.getEncounterTemplateValue();
-
-            encounterTmpValue = encounterTmpValue.replaceAll("\\\\", "\\\\u005C"); // replace \ with unicode equiv.
-            encounterTmpValue = encounterTmpValue.replaceAll("\"", "\\\\u0022"); // replace " with unicode equiv.
-            encounterTmpValue = encounterTmpValue.replaceAll("'", "\\\\u0027"); // replace ' with unicode equiv.
-            encounterTmpValue = encounterTmpValue.replaceAll(">", "\\\\u003E");
-            encounterTmpValue = encounterTmpValue.replaceAll("<", "\\\\u003C");
-            encounterTmpValue = encounterTmpValue.replaceAll("\n", "\\\\u000A");
-            encounterTmpValue = encounterTmpValue.replaceAll("\r", "\\\\u000D");
+            if (encounterTmpValue == null) {
+                encounterTmpValue = "";
+            }
             request.setAttribute("templateValue", encounterTmpValue);
         }
 

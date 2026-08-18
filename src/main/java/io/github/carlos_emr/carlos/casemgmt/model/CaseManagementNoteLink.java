@@ -29,6 +29,9 @@
 package io.github.carlos_emr.carlos.casemgmt.model;
 
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "casemgmt_note_link")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class CaseManagementNoteLink {
 
     // Table Name constants
@@ -71,6 +74,14 @@ public class CaseManagementNoteLink {
         this.noteId = noteId;
     }
 
+    @jakarta.persistence.Id
+
+
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+
+
+    @jakarta.persistence.Column(name = "id")
+
 
     public Long getId() {
         return this.id;
@@ -79,6 +90,7 @@ public class CaseManagementNoteLink {
     public void setId(Long id) {
         this.id = id;
     }
+    @jakarta.persistence.Column(name = "table_name")
 
     public Integer getTableName() {
         return this.tableName;
@@ -87,6 +99,7 @@ public class CaseManagementNoteLink {
     public void setTableName(Integer tableName) {
         this.tableName = tableName;
     }
+    @jakarta.persistence.Column(name = "table_id")
 
     public Long getTableId() {
         return this.tableId;
@@ -95,6 +108,7 @@ public class CaseManagementNoteLink {
     public void setTableId(Long tableId) {
         this.tableId = tableId;
     }
+    @jakarta.persistence.Column(name = "note_id")
 
     public Long getNoteId() {
         return this.noteId;
@@ -107,6 +121,7 @@ public class CaseManagementNoteLink {
     public void setNoteId(Integer noteId) {
         setNoteId(noteId.longValue());
     }
+    @jakarta.persistence.Column(name = "other_id")
 
     public String getOtherId() {
         return otherId;

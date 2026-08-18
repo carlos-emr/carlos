@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 
@@ -52,23 +52,23 @@ public class FrmConsultantRecord extends FrmRecord {
         if (existingID <= 0) {
 
 
-            String sql = "SELECT demographic_no, CONCAT(last_name, ', ', first_name) AS pName, address, CONCAT(city, ', ', province, ' ', postal) AS address2, phone, year_of_birth, month_of_birth, date_of_birth, CONCAT(hin, ' ', ver) AS hic FROM demographic WHERE demographic_no = " + demographicNo;
+            String sql = "SELECT demographic_no, CONCAT(last_name, ', ', first_name) AS pName, address, CONCAT(city, ', ', province, ' ', postal) AS address2, phone, year_of_birth, month_of_birth, date_of_birth, CONCAT(hin, ' ', ver) AS hic FROM demographic WHERE demographic_no = ?";
 
-            ResultSet rs = DBHandler.GetSQL(sql);
-            if (rs.next()) {
-                java.util.Date date = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
-                props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
-                props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                props.setProperty("consultTime", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                props.setProperty("p_name", Misc.getString(rs, "pName"));
-                props.setProperty("p_address1", Misc.getString(rs, "address"));
-                props.setProperty("p_address2", Misc.getString(rs, "address2"));
-                props.setProperty("p_birthdate", UtilDateUtilities.DateToString(date, "yyyy/MM/dd"));
-                props.setProperty("p_phone", Misc.getString(rs, "phone"));
-                props.setProperty("p_healthcard", Misc.getString(rs, "hic"));
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                if (rs.next()) {
+                    java.util.Date date = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
+                    props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
+                    props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+                    props.setProperty("consultTime", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+                    props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+                    props.setProperty("p_name", Misc.getString(rs, "pName"));
+                    props.setProperty("p_address1", Misc.getString(rs, "address"));
+                    props.setProperty("p_address2", Misc.getString(rs, "address2"));
+                    props.setProperty("p_birthdate", UtilDateUtilities.DateToString(date, "yyyy/MM/dd"));
+                    props.setProperty("p_phone", Misc.getString(rs, "phone"));
+                    props.setProperty("p_healthcard", Misc.getString(rs, "hic"));
+                }
             }
-            rs.close();
 
             Clinic clinic = clinicDao.getClinic();
             if (clinic != null) {
@@ -80,8 +80,8 @@ public class FrmConsultantRecord extends FrmRecord {
             }
 
         } else {
-            String sql = "SELECT * FROM formConsult WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
-            props = (new FrmRecordHelp()).getFormRecord(sql);
+            String sql = "SELECT * FROM formConsult WHERE demographic_no = ? AND ID = ?";
+            props = (new FrmRecordHelp()).getFormRecord(sql, demographicNo, existingID);
 
         }
 
@@ -104,25 +104,26 @@ public class FrmConsultantRecord extends FrmRecord {
     public String getProvName(int provider_no) throws SQLException {
 
         Properties props = new Properties();
-        String sql = "SELECT CONCAT('Dr. ', first_name, ' ', last_name) AS doc_Name FROM provider WHERE provider_no = " + provider_no;
-        ResultSet rs = DBHandler.GetSQL(sql);
-        if (rs.next()) {
-            props.setProperty("doc_name", Misc.getString(rs, "doc_Name"));
+        String sql = "SELECT CONCAT('Dr. ', first_name, ' ', last_name) AS doc_Name FROM provider WHERE provider_no = ?";
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, provider_no)) {
+            if (rs.next()) {
+                props.setProperty("doc_name", Misc.getString(rs, "doc_Name"));
+            }
         }
-        rs.close();
         return props.getProperty("doc_name", "");
     }
 
     public Properties getInitRefDoc(Properties props, int demo_no) throws SQLException {
 
-        String sql = "SELECT family_doctor FROM demographic WHERE demographic_no = '" + demo_no + "';";
-        ResultSet rs = DBHandler.GetSQL(sql);
+        String sql = "SELECT family_doctor FROM demographic WHERE demographic_no = ?";
         String refdocno, docno;
-        if (rs.next()) {
-            docno = Misc.getString(rs, "family_doctor");
-            refdocno = docno.substring(8, docno.indexOf("</rdohip>"));
-            if (refdocno != "") {
-                props.setProperty("refdocno", refdocno);
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demo_no)) {
+            if (rs.next()) {
+                docno = Misc.getString(rs, "family_doctor");
+                refdocno = extractRdohip(docno);
+                if (!refdocno.isEmpty()) {
+                    props.setProperty("refdocno", refdocno);
+                }
             }
         }
 
@@ -131,13 +132,13 @@ public class FrmConsultantRecord extends FrmRecord {
 
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
-        String sql = "SELECT * FROM formConsult WHERE demographic_no=" + demographic_no + " AND ID=0";
-        return ((new FrmRecordHelp()).saveFormRecord(props, sql));
+        String sql = "SELECT * FROM formConsult WHERE demographic_no=? AND ID=0";
+        return ((new FrmRecordHelp()).saveFormRecord(props, sql, demographic_no));
     }
 
     public Properties getPrintRecord(int demographicNo, int existingID) throws SQLException {
-        String sql = "SELECT * FROM formConsult WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
-        return ((new FrmRecordHelp()).getPrintRecord(sql));
+        String sql = "SELECT * FROM formConsult WHERE demographic_no = ? AND ID = ?";
+        return ((new FrmRecordHelp()).getPrintRecord(sql, demographicNo, existingID));
     }
 
     public String findActionValue(String submit) throws SQLException {
@@ -148,6 +149,31 @@ public class FrmConsultantRecord extends FrmRecord {
         return ((new FrmRecordHelp()).createActionURL(where, action, demoId, formId));
     }
 
+    private String extractRdohip(String familyDoctor) {
+        if (familyDoctor == null) {
+            return "";
+        }
+
+        String startTag = "<rdohip>";
+        String endTag = "</rdohip>";
+        int start = familyDoctor.indexOf(startTag);
+        if (start < 0) {
+            return "";
+        }
+
+        int firstEnd = familyDoctor.indexOf(endTag);
+        if (firstEnd >= 0 && firstEnd < start) {
+            return "";
+        }
+
+        int valueStart = start + startTag.length();
+        int end = familyDoctor.indexOf(endTag, valueStart);
+        if (end < valueStart) {
+            return "";
+        }
+
+        return familyDoctor.substring(valueStart, end);
+    }
 
 
 }

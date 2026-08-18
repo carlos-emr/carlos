@@ -35,8 +35,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.hl7.fhir.dstu3.model.Bundle;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -65,8 +65,9 @@ import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
 /**
  * @author Jay Gallagher
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class AddPrevention2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -88,6 +89,8 @@ public class AddPrevention2Action extends ActionSupport {
     public AddPrevention2Action() {
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_prevention", "w", null)) {
@@ -97,6 +100,17 @@ public class AddPrevention2Action extends ActionSupport {
         String sessionUser = (String) request.getSession().getAttribute("user");
         if (sessionUser == null) {
             return "Logout";
+        }
+
+        // This mutating endpoint is POST-only. GET/HEAD form loads must target the
+        // dedicated view gate /prevention/ViewAddPreventionData, which preserves
+        // the historical _prevention w privilege but keeps the actual mutation path
+        // behind POST + CSRFGuard only.
+        String httpMethod = request.getMethod();
+        if (!"POST".equalsIgnoreCase(httpMethod)) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
         String preventionType = request.getParameter("prevention");
         String demographic_no = request.getParameter("demographic_no");
@@ -268,6 +282,7 @@ public class AddPrevention2Action extends ActionSupport {
                         bundles = new HashMap<String, Bundle>();
                     }
                     bundles.put(bundle.getId(), bundle);
+                    // nosemgrep: tainted-session-from-http-request -- bundles map contains DAO-sourced FHIR Bundle objects, not raw user input
                     request.getSession().setAttribute("bundles", bundles);
 
                     MiscUtils.getLogger().info(fbb.getMessageJson());

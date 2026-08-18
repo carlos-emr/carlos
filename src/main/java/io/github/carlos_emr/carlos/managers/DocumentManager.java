@@ -41,6 +41,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -116,4 +117,16 @@ public interface DocumentManager {
     public Path renderDocument(LoggedInInfo loggedInInfo, String documentId) throws PDFGenerationException;
 
      public Integer addDocumentToQueue(LoggedInInfo loggedInInfo, Integer documentId, Integer queueId);
+
+    /**
+     * Returns lightweight document DTOs for a demographic, bypassing the EAGER
+     * DocumentReview collection. Enforces read privilege check.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param demographicNo Integer the patient demographic number
+     * @return List of DocumentListItemDTO for the patient's documents
+     * @throws SecurityException if the caller lacks {@code _edoc} read privilege
+     * @since 2026-04-11
+     */
+    List<DocumentListItemDTO> getDocumentDTOs(LoggedInInfo loggedInInfo, Integer demographicNo);
 }

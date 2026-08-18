@@ -30,17 +30,22 @@
 
 package io.github.carlos_emr.carlos.commn.web;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ClinicManage2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -49,6 +54,11 @@ public class ClinicManage2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         if ("update".equals(request.getParameter("method"))) {
             return update();
         }
@@ -76,10 +86,12 @@ public class ClinicManage2Action extends ActionSupport {
 
     private Clinic clinic;
 
+    @StrutsParameter(depth = 1)
     public Clinic getClinic() {
         return clinic;
     }
 
+    @StrutsParameter
     public void setClinic(Clinic clinic) {
         this.clinic = clinic;
     }

@@ -27,30 +27,41 @@
 
 package io.github.carlos_emr.carlos.casemgmt.web;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ArchiveView2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     protected ProgramManager programManager = SpringUtils.getBean(ProgramManager.class);
 
     public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         if ("cmm".equals(request.getParameter("method"))) {
             return cmm();
         }
+        // nosemgrep: tainted-session-from-http-request -- value is hardcoded literal "true", not user input
         request.getSession(true).setAttribute("archiveView", "true");
         return "view";
     }
 
     public String cmm() {
+        // nosemgrep: tainted-session-from-http-request -- value is hardcoded literal "false", not user input
         request.getSession(true).setAttribute("archiveView", "false");
         return "view";
     }

@@ -32,7 +32,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 public class ParamAppender extends QueryAppender {
 

@@ -32,13 +32,13 @@ import io.github.carlos_emr.Misc;
 import java.io.Serializable;
 import java.util.Date;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.PreUpdate;
-import javax.persistence.Temporal;
-import javax.persistence.TemporalType;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
 
 @Entity
 public class Facility extends AbstractModel<Integer> implements Serializable {
@@ -55,18 +55,15 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
     private boolean disabled;
     private Integer orgId;
     private Integer sectorId;
-    private boolean integratorEnabled = false;
-    private String integratorUrl = null;
-    private String integratorUser = null;
-    private String integratorPassword = null;
-    private boolean enableIntegratedReferrals = true;
     private boolean enableHealthNumberRegistry = true;
-    private boolean allowSims = true;
     private boolean enableDigitalSignatures = false;
-    private boolean enableOcanForms = false;
-    private boolean enableCbiForm = false;
     private boolean enableAnonymous = false;
-    private String ocanServiceOrgNumber;
+
+    // OCAN columns remain in DB schema but feature is removed — mapped to satisfy NOT NULL constraints
+    @SuppressWarnings("unused")
+    private boolean enableOcanForms = false;
+    @SuppressWarnings("unused")
+    private int ocanServiceOrgNumber = 0;
     private boolean enableGroupNotes = false;
     private boolean enableEncounterTime = false;
     private boolean enableEncounterTransportationTime = false;
@@ -110,10 +107,6 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
     private Date lastUpdated = new Date();
 
 
-    public boolean isEnableIntegratedReferrals() {
-        return enableIntegratedReferrals;
-    }
-
     public boolean isEnableHealthNumberRegistry() {
         return enableHealthNumberRegistry;
     }
@@ -122,16 +115,51 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
         this.enableHealthNumberRegistry = enableHealthNumberRegistry;
     }
 
-    public void setEnableIntegratedReferrals(boolean enableIntegratedReferrals) {
-        this.enableIntegratedReferrals = enableIntegratedReferrals;
-    }
-
     public Facility() {
     }
 
     public Facility(String name, String description) {
         this.name = name;
         this.description = description;
+    }
+
+    private Facility(Facility source) {
+        this.id = source.id;
+        this.name = source.name;
+        this.description = source.description;
+        this.contactName = source.contactName;
+        this.contactEmail = source.contactEmail;
+        this.contactPhone = source.contactPhone;
+        this.hic = source.hic;
+        this.disabled = source.disabled;
+        this.orgId = source.orgId;
+        this.sectorId = source.sectorId;
+        this.enableHealthNumberRegistry = source.enableHealthNumberRegistry;
+        this.enableDigitalSignatures = source.enableDigitalSignatures;
+        this.enableAnonymous = source.enableAnonymous;
+        this.enableOcanForms = source.enableOcanForms;
+        this.ocanServiceOrgNumber = source.ocanServiceOrgNumber;
+        this.enableGroupNotes = source.enableGroupNotes;
+        this.enableEncounterTime = source.enableEncounterTime;
+        this.enableEncounterTransportationTime = source.enableEncounterTransportationTime;
+        this.rxInteractionWarningLevel = source.rxInteractionWarningLevel;
+        this.vacancyWithdrawnTicklerProvider = source.vacancyWithdrawnTicklerProvider;
+        this.vacancyWithdrawnTicklerDemographic = source.vacancyWithdrawnTicklerDemographic;
+        this.registrationIntake = source.registrationIntake;
+        this.displayAllVacancies = source.displayAllVacancies;
+        this.assignNewVacancyTicklerProvider = source.assignNewVacancyTicklerProvider;
+        this.assignNewVacancyTicklerDemographic = source.assignNewVacancyTicklerDemographic;
+        this.assignRejectedVacancyApplicant = source.assignRejectedVacancyApplicant;
+        this.enablePhoneEncounter = source.enablePhoneEncounter;
+        this.lastUpdated = copyDate(source.lastUpdated);
+    }
+
+    public static Facility copyOf(Facility source) {
+        return source == null ? null : new Facility(source);
+    }
+
+    private static Date copyDate(Date date) {
+        return date == null ? null : new Date(date.getTime());
     }
 
     @Override
@@ -219,46 +247,6 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
         this.sectorId = sectorId;
     }
 
-    public boolean isIntegratorEnabled() {
-        return integratorEnabled;
-    }
-
-    public void setIntegratorEnabled(boolean integratorEnabled) {
-        this.integratorEnabled = integratorEnabled;
-    }
-
-    public String getIntegratorUrl() {
-        return integratorUrl;
-    }
-
-    public void setIntegratorUrl(String integratorUrl) {
-        this.integratorUrl = integratorUrl;
-    }
-
-    public String getIntegratorUser() {
-        return integratorUser;
-    }
-
-    public void setIntegratorUser(String integratorUser) {
-        this.integratorUser = integratorUser;
-    }
-
-    public String getIntegratorPassword() {
-        return integratorPassword;
-    }
-
-    public void setIntegratorPassword(String integratorPassword) {
-        this.integratorPassword = integratorPassword;
-    }
-
-    public boolean isAllowSims() {
-        return allowSims;
-    }
-
-    public void setAllowSims(boolean allowSims) {
-        this.allowSims = allowSims;
-    }
-
     public boolean isEnableDigitalSignatures() {
         return enableDigitalSignatures;
     }
@@ -269,31 +257,6 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
 
     public Date getLastUpdated() {
         return lastUpdated;
-    }
-
-    public boolean isEnableOcanForms() {
-        return enableOcanForms;
-    }
-
-    public void setEnableOcanForms(boolean enableOcanForms) {
-        this.enableOcanForms = enableOcanForms;
-    }
-
-
-    public boolean isEnableCbiForm() {
-        return enableCbiForm;
-    }
-
-    public void setEnableCbiForm(boolean enableCbiForm) {
-        this.enableCbiForm = enableCbiForm;
-    }
-
-    public String getOcanServiceOrgNumber() {
-        return ocanServiceOrgNumber;
-    }
-
-    public void setOcanServiceOrgNumber(String ocanServiceOrgNumber) {
-        this.ocanServiceOrgNumber = ocanServiceOrgNumber;
     }
 
     @PreUpdate

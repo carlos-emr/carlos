@@ -29,11 +29,12 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.commons.text.StringEscapeUtils;
+import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.validator.GenericValidator;
 import org.apache.struts2.ServletActionContext;
@@ -48,7 +49,9 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -57,14 +60,15 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSh
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EctMeasurements2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -75,10 +79,27 @@ public class EctMeasurements2Action extends ActionSupport {
 
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Logger logger = MiscUtils.getLogger();
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink. case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            logger.warn("Rejected measurement submission request with method {} from {}",
+                    LogSafe.sanitize(String.valueOf(request.getMethod())),
+                    LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "w",
                 null)) {
+            logger.warn("Denied measurement submission request with method {} from {}",
+                    LogSafe.sanitize(String.valueOf(request.getMethod())),
+                    LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
             throw new SecurityException("missing required sec object (_measurement)");
         }
 
@@ -91,7 +112,6 @@ public class EctMeasurements2Action extends ActionSupport {
 
         String demographicNo = request.getParameter("demographicNo");
         String providerNo = (String) session.getAttribute("user");
-        String prog_no = new EctProgram(session).getProgram(providerNo);
 
         String template = request.getParameter("template");
         MeasurementFlowSheet mFlowsheet = null;
@@ -277,12 +297,6 @@ public class EctMeasurements2Action extends ActionSupport {
             // "**********************************************************************************\\n";
 
         } else {
-            String groupName = request.getParameter("groupName");
-            String css = request.getParameter("css");
-            request.setAttribute("groupName", groupName);
-            request.setAttribute("css", css);
-            request.setAttribute("demographicNo", demographicNo);
-
             if (ajax) {
                 ObjectNode obj = objectMapper.createObjectNode();
                 ArrayNode errorObj = objectMapper.createArrayNode();
@@ -295,15 +309,16 @@ public class EctMeasurements2Action extends ActionSupport {
                 response.setContentType("application/json");
                 response.setCharacterEncoding("UTF-8");
                 response.getWriter().write(obj.toString());
-                return null;
+                return NONE;
             }
 
-            response.sendRedirect(request.getContextPath() + "/oscarEncounter/oscarMeasurements/AddMeasurementData.jsp");
+            response.sendRedirect(request.getContextPath() + "/encounter/oscarMeasurements/ViewAddMeasurementData");
             return NONE;
         }
 
         if (valid && !skipCreateNote) {
             // create note
+            String prog_no = new EctProgram(session).getProgram(providerNo);
             CaseManagementManager cmm = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
 
             SecRoleDao secRoleDao = (SecRoleDao) SpringUtils.getBean(SecRoleDao.class);
@@ -327,7 +342,6 @@ public class EctMeasurements2Action extends ActionSupport {
             cmn.setReporter_caisi_role(reporter_caisi_role);
 
             cmn.setReporter_program_team("0");
-            cmn.setPassword("NULL");
             cmn.setLocked(false);
             cmn.setHistory(textOnEncounter + "-----hi story----");
             cmn.setPosition(0);
@@ -337,17 +351,19 @@ public class EctMeasurements2Action extends ActionSupport {
 
         } // create note
 
+        session.removeAttribute("textOnEncounter");
         if (ajax) {
             ObjectNode json = objectMapper.createObjectNode();
             json.put("encounterText", textOnEncounter);
+            json.put("demographicNo", demographicNo);
 
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
 
             objectMapper.writeValue(response.getWriter(), json);
-            return null;
+            return NONE;
         } else {
-            request.setAttribute("textOnEncounter", StringEscapeUtils.escapeEcmaScript(textOnEncounter));
+            request.setAttribute("textOnEncounter", Encode.forJavaScript(textOnEncounter));
             return SUCCESS;
         }
     }

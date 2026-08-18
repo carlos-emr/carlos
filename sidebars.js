@@ -62,7 +62,6 @@ const sidebars = {
       label: 'Legacy',
       items: [
         'MyDrugref',
-        'legacy-hapi-dynamic-loading',
       ],
     },
   ],
