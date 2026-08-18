@@ -52,6 +52,7 @@ from carlos_patient_portal.models import (
     PatientPortalInvite,
     PatientPortalUnlockSecret,
 )
+from carlos_patient_portal.runtime import MAX_DATABASE_ID
 from carlos_patient_portal.schemas import InviteCreateRequest
 from carlos_patient_portal.staff_identity import (
     CarlosServiceAuthenticationError,
@@ -471,7 +472,7 @@ def register_internal_invite_routes(
         responses=INTERNAL_CREATE_INVITE_RESPONSES,
     )
     def internal_create_invite(
-        demographic_no: Annotated[int, Path(gt=0)],
+        demographic_no: Annotated[int, Path(gt=0, le=MAX_DATABASE_ID)],
         payload: InviteCreateRequest,
         principal: Annotated[
             StaffPrincipal, Depends(deps.staff_principal_requiring(PERMISSION_INVITE_MANAGE))
@@ -506,7 +507,7 @@ def register_internal_invite_routes(
         responses=COMMON_INTERNAL_RESPONSES,
     )
     def internal_list_invites(
-        demographic_no: Annotated[int, Path(gt=0)],
+        demographic_no: Annotated[int, Path(gt=0, le=MAX_DATABASE_ID)],
         principal: Annotated[
             StaffPrincipal, Depends(deps.staff_principal_requiring(PERMISSION_INVITE_MANAGE))
         ],
@@ -539,7 +540,7 @@ def register_internal_invite_routes(
         responses=INTERNAL_CONFLICT_RESPONSES,
     )
     def internal_resend_invite(
-        invite_id: Annotated[int, Path(gt=0)],
+        invite_id: Annotated[int, Path(gt=0, le=MAX_DATABASE_ID)],
         principal: Annotated[
             StaffPrincipal, Depends(deps.staff_principal_requiring(PERMISSION_INVITE_MANAGE))
         ],
@@ -565,7 +566,7 @@ def register_internal_invite_routes(
         responses=INTERNAL_CONFLICT_RESPONSES,
     )
     def internal_revoke_invite(
-        invite_id: Annotated[int, Path(gt=0)],
+        invite_id: Annotated[int, Path(gt=0, le=MAX_DATABASE_ID)],
         principal: Annotated[
             StaffPrincipal, Depends(deps.staff_principal_requiring(PERMISSION_INVITE_MANAGE))
         ],
@@ -606,7 +607,7 @@ def register_internal_account_routes(
         responses=COMMON_INTERNAL_RESPONSES,
     )
     def internal_unlock_account(
-        demographic_no: Annotated[int, Path(gt=0)],
+        demographic_no: Annotated[int, Path(gt=0, le=MAX_DATABASE_ID)],
         principal: Annotated[
             StaffPrincipal, Depends(deps.staff_principal_requiring(PERMISSION_ACCOUNT_UNLOCK))
         ],
@@ -643,7 +644,7 @@ def register_internal_account_routes(
         responses=COMMON_INTERNAL_RESPONSES,
     )
     def internal_get_account_status(
-        demographic_no: Annotated[int, Path(gt=0)],
+        demographic_no: Annotated[int, Path(gt=0, le=MAX_DATABASE_ID)],
         principal: Annotated[
             StaffPrincipal, Depends(deps.staff_principal_requiring(PERMISSION_ACCOUNT_MANAGE))
         ],
@@ -674,7 +675,7 @@ def register_internal_account_routes(
         responses=COMMON_INTERNAL_RESPONSES,
     )
     def internal_set_account_access(
-        demographic_no: Annotated[int, Path(gt=0)],
+        demographic_no: Annotated[int, Path(gt=0, le=MAX_DATABASE_ID)],
         payload: InternalAccountAccessRequest,
         principal: Annotated[
             StaffPrincipal, Depends(deps.staff_principal_requiring(PERMISSION_ACCOUNT_MANAGE))
@@ -722,7 +723,7 @@ def register_internal_unlock_secret_routes(
         responses=INTERNAL_CONFLICT_RESPONSES,
     )
     def internal_create_unlock_secret(
-        demographic_no: Annotated[int, Path(gt=0)],
+        demographic_no: Annotated[int, Path(gt=0, le=MAX_DATABASE_ID)],
         payload: InternalUnlockSecretRequest,
         principal: Annotated[
             StaffPrincipal, Depends(deps.staff_principal_requiring(PERMISSION_SECRET_MANAGE))
@@ -807,7 +808,7 @@ def register_internal_unlock_secret_routes(
         responses=INTERNAL_CONFLICT_RESPONSES,
     )
     def internal_publish_unlock_secret(
-        unlock_secret_id: Annotated[int, Path(gt=0)],
+        unlock_secret_id: Annotated[int, Path(gt=0, le=MAX_DATABASE_ID)],
         principal: Annotated[
             StaffPrincipal, Depends(deps.staff_principal_requiring(PERMISSION_SECRET_MANAGE))
         ],
@@ -843,7 +844,7 @@ def register_internal_unlock_secret_routes(
         responses=COMMON_INTERNAL_RESPONSES,
     )
     def internal_revoke_unlock_secret(
-        unlock_secret_id: Annotated[int, Path(gt=0)],
+        unlock_secret_id: Annotated[int, Path(gt=0, le=MAX_DATABASE_ID)],
         payload: InternalUnlockSecretRevokeRequest,
         principal: Annotated[
             StaffPrincipal, Depends(deps.staff_principal_requiring(PERMISSION_SECRET_MANAGE))
@@ -930,7 +931,7 @@ def register_internal_contact_review_routes(
         responses=COMMON_INTERNAL_RESPONSES,
     )
     def internal_review_contact_update(
-        review_request_id: Annotated[int, Path(gt=0)],
+        review_request_id: Annotated[int, Path(gt=0, le=MAX_DATABASE_ID)],
         payload: InternalContactReviewDecision,
         principal: Annotated[
             StaffPrincipal, Depends(deps.staff_principal_requiring(PERMISSION_CONTACT_REVIEW))

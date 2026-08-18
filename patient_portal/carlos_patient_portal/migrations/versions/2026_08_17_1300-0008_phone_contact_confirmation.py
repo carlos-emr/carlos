@@ -20,6 +20,8 @@ globals().update(_ALEMBIC_REVISION_IDENTIFIERS)
 
 
 def upgrade() -> None:
+    if context.is_offline_mode():
+        raise RuntimeError("migration 0008 requires an online connection for data backfill")
     with op.batch_alter_table("patient_portal_email_change_requests") as batch_op:
         batch_op.add_column(sa.Column("email_confirmed_at", sa.DateTime(timezone=True)))
         batch_op.add_column(sa.Column("phone_code_hash", sa.String(length=64)))

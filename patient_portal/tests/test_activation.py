@@ -345,7 +345,7 @@ def test_patient_activation_rejects_weak_password() -> None:
         json=activation_request(create_response.json()["invite_token"], password="weak"),
     )
 
-    assert activation_response.status_code == 422
+    assert activation_response.status_code == 400
     assert "weak" not in activation_response.text
 
 
@@ -387,7 +387,7 @@ def test_patient_activation_validation_does_not_echo_health_card_number() -> Non
         json=activation_request("unused", health_card_number=invalid_health_card_number),
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 400
     assert invalid_health_card_number not in response.text
 
 
@@ -398,7 +398,29 @@ def test_patient_activation_rejects_too_short_health_card_number() -> None:
         json=activation_request("unused", health_card_number="A1"),
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 400
+
+
+def test_activation_schema_failures_consume_the_failure_budget() -> None:
+    app = migrated_development_app(
+        activation_max_failures_per_invite=2,
+        activation_max_failures_per_client=50,
+    )
+    client = TestClient(app)
+    malformed = activation_request("", health_card_number="A1")
+
+    responses = [client.post("/auth/activate", json=malformed) for _ in range(3)]
+
+    assert [response.status_code for response in responses] == [400, 400, 429]
+    with app.state.session_factory() as session:
+        outcomes = list(
+            session.scalars(
+                select(PatientPortalAuditEvent.outcome)
+                .where(PatientPortalAuditEvent.event_type == AUDIT_EVENT_ACTIVATION)
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        )
+    assert outcomes == [AUDIT_OUTCOME_FAILURE, AUDIT_OUTCOME_FAILURE, AUDIT_OUTCOME_THROTTLED]
 
 
 def test_patient_activation_rate_limits_failed_attempts() -> None:

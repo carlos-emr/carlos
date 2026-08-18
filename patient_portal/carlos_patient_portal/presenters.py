@@ -110,12 +110,17 @@ def assemble_email_password_row(
     *,
     text: dict[str, str],
     timezone_name: str = "UTC",
+    locale: str = DEFAULT_LOCALE,
 ) -> EmailPasswordRowViewModel:
     return EmailPasswordRowViewModel(
         id=unlock_secret.id,
         subject=unlock_secret.label or text["email_password"],
         provider=unlock_secret.created_by,
-        sent_at=format_portal_datetime(unlock_secret.created_at, timezone_name=timezone_name),
+        sent_at=format_portal_datetime(
+            unlock_secret.created_at,
+            timezone_name=timezone_name,
+            locale=locale,
+        ),
         source_reference=unlock_secret.source_reference,
         is_available=unlock_secret.status == UNLOCK_SECRET_STATUS_ACTIVE,
     )
@@ -202,7 +207,12 @@ def assemble_email_password_dashboard(
     )
     return EmailPasswordDashboardViewModel(
         rows=tuple(
-            assemble_email_password_row(record, text=text, timezone_name=timezone_name)
+            assemble_email_password_row(
+                record,
+                text=text,
+                timezone_name=timezone_name,
+                locale=locale,
+            )
             for record in records
         ),
         search=normalized_search or "",

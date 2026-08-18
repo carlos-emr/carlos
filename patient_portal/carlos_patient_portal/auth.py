@@ -1277,12 +1277,34 @@ def request_password_reset(
         )
         .with_for_update()
     )
-    if (
-        account is None
-        or account.email != normalized_email
-        or account.status != ACCOUNT_STATUS_ACTIVE
-        or account.locked_at is not None
-    ):
+    account_is_eligible = (
+        account is not None
+        and account.email == normalized_email
+        and account.status == ACCOUNT_STATUS_ACTIVE
+        and account.locked_at is None
+    )
+    existing_reset_tokens = list(
+        session.scalars(
+            select(PatientPortalPasswordResetToken)
+            .where(
+                PatientPortalPasswordResetToken.account_id == (
+                    account.id if account_is_eligible and account is not None else 0
+                ),
+                PatientPortalPasswordResetToken.status == PASSWORD_RESET_STATUS_PENDING,
+            )
+            .with_for_update()
+        )
+    )
+    # Generate and hash a candidate on both paths. Together with the identical locked lookup and
+    # pending-token query above, this keeps an unknown/wrong-email identity from returning before
+    # the database and cryptographic work performed for a matching identity.
+    reset_token_value = create_auth_token()
+    reset_token_hash = hash_auth_token(
+        reset_token_secret,
+        "password_reset",
+        reset_token_value,
+    )
+    if not account_is_eligible or account is None:
         record_audit_event(
             session,
             event_type=AUDIT_EVENT_PASSWORD_RESET_REQUEST,
@@ -1293,16 +1315,6 @@ def request_password_reset(
         )
         return PasswordResetRequestResult(reset_token=None, recipient=None)
 
-    existing_reset_tokens = list(
-        session.scalars(
-            select(PatientPortalPasswordResetToken)
-            .where(
-                PatientPortalPasswordResetToken.account_id == account.id,
-                PatientPortalPasswordResetToken.status == PASSWORD_RESET_STATUS_PENDING,
-            )
-            .with_for_update()
-        )
-    )
     if any(
         not is_past(
             reset_token.created_at + policy.password_reset_request_cooldown,
@@ -1325,10 +1337,9 @@ def request_password_reset(
     for reset_token in existing_reset_tokens:
         reset_token.status = PASSWORD_RESET_STATUS_REVOKED
 
-    reset_token_value = create_auth_token()
     reset_token = PatientPortalPasswordResetToken(
         account_id=account.id,
-        token_hash=hash_auth_token(reset_token_secret, "password_reset", reset_token_value),
+        token_hash=reset_token_hash,
         status=PASSWORD_RESET_STATUS_PENDING,
         created_at=now,
         expires_at=now + policy.password_reset_token_ttl,

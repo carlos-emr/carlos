@@ -27,6 +27,10 @@ document.addEventListener("click", (event) => {
     body: `csrf_token=${encodeURIComponent(csrfToken)}`,
   })
     .then((response) => {
+      if (response.status === 401) {
+        window.location.assign(response.headers.get("Location") || "/");
+        throw new Error("Portal session expired");
+      }
       if (!response.ok) {
         throw new Error("reveal failed");
       }

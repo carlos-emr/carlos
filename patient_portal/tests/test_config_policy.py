@@ -22,7 +22,7 @@ from carlos_patient_portal.config import (
 from carlos_patient_portal.database import (
     Base,
 )
-from carlos_patient_portal.identity import normalize_email
+from carlos_patient_portal.identity import normalize_email, normalize_health_card_number
 from carlos_patient_portal.models import (
     AUDIT_EVENT_ACCOUNT_MFA_UPDATE,
     AUDIT_OUTCOME_FAILURE,
@@ -435,6 +435,8 @@ def test_password_unicode_alphanumeric_does_not_satisfy_symbol_requirement() -> 
 def test_url_ports_and_unlock_key_ids_fail_during_settings_validation() -> None:
     with pytest.raises(ValidationError, match="valid port"):
         development_settings(public_base_url="http://portal.example.test:not-a-port")
+    with pytest.raises(ValidationError, match="PUBLIC_BASE_URL"):
+        development_settings(public_base_url="https://:443/patient")
     with pytest.raises(ValidationError, match="valid port"):
         development_settings(
             sms_webhook_url="http://sms.example.test:99999/messages",
@@ -458,6 +460,11 @@ def test_url_ports_and_unlock_key_ids_fail_during_settings_validation() -> None:
             ),
             unlock_secret_active_key_id="secondary",
         )
+
+
+def test_health_card_number_rejects_non_ascii_alphanumeric_characters() -> None:
+    with pytest.raises(ValueError, match="letters or numbers"):
+        normalize_health_card_number("ABCD１２３４")
 
 
 def test_probe_allowed_hosts_rejects_wildcards() -> None:

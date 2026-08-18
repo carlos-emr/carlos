@@ -47,6 +47,14 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def request_with_fresh_client(app, method: str, path: str, **kwargs):
+    client = TestClient(app)
+    try:
+        return client.request(method, path, **kwargs)
+    finally:
+        client.close()
+
+
 def test_postgresql_runtime_role_cannot_rewrite_or_delete_audit_events() -> None:
     """Exercise the deployment grant model against the real audit table."""
     assert POSTGRES_URL is not None
@@ -311,7 +319,9 @@ def test_postgresql_serializes_invite_and_login_security_updates() -> None:
     with ThreadPoolExecutor(max_workers=2) as executor:
         invite_responses = list(
             executor.map(
-                lambda _: client.post(
+                lambda _: request_with_fresh_client(
+                    app,
+                    "POST",
                     "/internal/carlos/patients/1234/invites",
                     headers=staff_headers(),
                     json=invite_payload,
@@ -341,7 +351,9 @@ def test_postgresql_serializes_invite_and_login_security_updates() -> None:
     with ThreadPoolExecutor(max_workers=6) as executor:
         login_responses = list(
             executor.map(
-                lambda _: client.post(
+                lambda _: request_with_fresh_client(
+                    app,
+                    "POST",
                     "/auth/login",
                     json={"username": "postgres.patient", "password": WRONG_PASSWORD},
                 ),
@@ -452,10 +464,10 @@ def test_postgresql_allows_concurrent_reads_for_one_patient_session() -> None:
             )
             session.commit()
 
-        client = TestClient(app)
-
         def read_session() -> int:
-            response = client.get(
+            response = request_with_fresh_client(
+                app,
+                "GET",
                 "/auth/session",
                 headers={"Authorization": f"Bearer {session_token}"},
             )
@@ -518,7 +530,12 @@ def test_postgresql_activation_limit_and_mfa_delivery_reservation_are_atomic() -
     with ThreadPoolExecutor(max_workers=6) as executor:
         responses = list(
             executor.map(
-                lambda _: client.post("/auth/activate", json=invalid_activation),
+                lambda _: request_with_fresh_client(
+                    app,
+                    "POST",
+                    "/auth/activate",
+                    json=invalid_activation,
+                ),
                 range(6),
             )
         )
@@ -583,7 +600,6 @@ def test_postgresql_unlock_idempotency_and_contact_review_replacement() -> None:
     )
     settings = postgres_settings()
     app = create_app(settings)
-    client = TestClient(app)
     secret_headers = {
         **staff_headers(),
         "X-CARLOS-Permissions": "portal.secret.manage",
@@ -595,7 +611,9 @@ def test_postgresql_unlock_idempotency_and_contact_review_replacement() -> None:
     with ThreadPoolExecutor(max_workers=2) as executor:
         secret_responses = list(
             executor.map(
-                lambda _: client.post(
+                lambda _: request_with_fresh_client(
+                    app,
+                    "POST",
                     "/internal/carlos/patients/4234/unlock-secrets",
                     headers=secret_headers,
                     json=payload,
@@ -800,14 +818,19 @@ def test_postgresql_staff_revocation_races_in_flight_patient_requests() -> None:
         def read_session(token: str) -> None:
             barrier.wait(timeout=10)
             statuses.append(
-                client.get(
-                    "/auth/session", headers={"Authorization": f"Bearer {token}"}
+                request_with_fresh_client(
+                    app,
+                    "GET",
+                    "/auth/session",
+                    headers={"Authorization": f"Bearer {token}"},
                 ).status_code
             )
 
         def revoke_access() -> None:
             barrier.wait(timeout=10)
-            client.post(
+            request_with_fresh_client(
+                app,
+                "POST",
                 "/internal/carlos/patients/7101/portal-account/access",
                 headers={**staff_headers(), "X-CARLOS-Permissions": "portal.account.manage"},
                 json={"enabled": False, "reason": "staff_action"},
@@ -852,14 +875,15 @@ def test_postgresql_concurrent_fresh_logins_leave_one_usable_mfa_challenge() -> 
     clean_postgresql_database()
     insert_postgres_account(username="mfa.race.patient", demographic_no=7102)
     app = create_app(postgres_settings())
-    client = TestClient(app)
     engine = create_portal_engine(POSTGRES_URL)
     barrier = Barrier(4)
     responses: list[tuple[int, dict]] = []
 
     def login(_: int) -> None:
         barrier.wait(timeout=10)
-        response = client.post(
+        response = request_with_fresh_client(
+            app,
+            "POST",
             "/auth/login",
             json={"username": "mfa.race.patient", "password": POSTGRES_PATIENT_PASSWORD},
         )

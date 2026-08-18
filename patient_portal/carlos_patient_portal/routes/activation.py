@@ -15,6 +15,7 @@ from carlos_patient_portal.accounts import (
     ActivationThrottledError,
     UsernameUnavailableError,
     activate_patient_account,
+    record_invalid_activation_request,
 )
 from carlos_patient_portal.audit import hash_sensitive_reference
 from carlos_patient_portal.i18n import portal_text
@@ -73,9 +74,53 @@ def register_activation_routes(
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> dict[str, str] | Response:
         is_browser_form = is_urlencoded_form_request(request)
+        client_reference_hash = hash_sensitive_reference(
+            audit_hash_secret,
+            "activation_client",
+            get_request_client_reference(request, settings),
+        )
+
+        def throttled_response(exc: ActivationThrottledError) -> Response:
+            if is_browser_form:
+                response = render_public_auth_template(
+                    request,
+                    settings=settings,
+                    csrf_secret=csrf_secret,
+                    template_name=ACTIVATION_TEMPLATE,
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    error_message=localized_activation_text(request)[
+                        "activation_rate_limited"
+                    ],
+                    sms_mfa_available=runtime.sms_sender is not None,
+                )
+                response.headers["Retry-After"] = str(exc.retry_after_seconds)
+                return response
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"detail": "too many activation attempts; try again later"},
+                headers={"Retry-After": str(exc.retry_after_seconds)},
+            )
+
+        async def charge_invalid_payload(invite_code: str | None) -> Response | None:
+            try:
+                await run_in_threadpool(
+                    record_invalid_activation_request,
+                    session,
+                    invite_code=invite_code,
+                    client_reference_hash=client_reference_hash,
+                    rate_limit=activation_rate_limit,
+                )
+            except ActivationThrottledError as exc:
+                return throttled_response(exc)
+            return None
+
         try:
             payload = await get_activation_request_from_request(request, csrf_secret)
-        except BrowserFormValidationError:
+        except BrowserFormValidationError as exc:
+            if response := await charge_invalid_payload(
+                exc.safe_form_values.get("invite_code")
+            ):
+                return response
             if not is_browser_form:
                 raise
             return render_public_auth_template(
@@ -87,23 +132,27 @@ def register_activation_routes(
                 error_message=localized_activation_text(request)["password_mismatch"],
                 sms_mfa_available=runtime.sms_sender is not None,
             )
-        except RequestValidationError:
-            if not is_browser_form:
-                raise
-            return render_public_auth_template(
-                request,
-                settings=settings,
-                csrf_secret=csrf_secret,
-                template_name=ACTIVATION_TEMPLATE,
+        except RequestValidationError as exc:
+            validation_body = exc.body if isinstance(exc.body, dict) else {}
+            invite_code = validation_body.get("invite_code")
+            if response := await charge_invalid_payload(
+                invite_code if isinstance(invite_code, str) else None
+            ):
+                return response
+            if is_browser_form:
+                return render_public_auth_template(
+                    request,
+                    settings=settings,
+                    csrf_secret=csrf_secret,
+                    template_name=ACTIVATION_TEMPLATE,
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    error_message=localized_activation_text(request)["activation_error"],
+                    sms_mfa_available=runtime.sms_sender is not None,
+                )
+            return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                error_message=localized_activation_text(request)["activation_error"],
-                sms_mfa_available=runtime.sms_sender is not None,
+                content={"detail": "activation details could not be verified"},
             )
-        client_reference_hash = hash_sensitive_reference(
-            audit_hash_secret,
-            "activation_client",
-            get_request_client_reference(request, settings),
-        )
         try:
             account = await run_in_threadpool(
                 activate_patient_account,
@@ -156,23 +205,7 @@ def register_activation_routes(
                 )
             return JSONResponse(status_code=409, content={"detail": "username unavailable"})
         except ActivationThrottledError as exc:
-            if is_browser_form:
-                response = render_public_auth_template(
-                    request,
-                    settings=settings,
-                    csrf_secret=csrf_secret,
-                    template_name=ACTIVATION_TEMPLATE,
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    error_message=localized_activation_text(request)["activation_rate_limited"],
-                    sms_mfa_available=runtime.sms_sender is not None,
-                )
-                response.headers["Retry-After"] = str(exc.retry_after_seconds)
-                return response
-            return JSONResponse(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                content={"detail": "too many activation attempts; try again later"},
-                headers={"Retry-After": str(exc.retry_after_seconds)},
-            )
+            return throttled_response(exc)
         except ActivationError:
             if is_browser_form:
                 return render_public_auth_template(

@@ -12,9 +12,28 @@ from carlos_patient_portal.config import Settings
 from carlos_patient_portal.database import Base, create_portal_engine
 from carlos_patient_portal.maintenance import (
     BackupUnavailableError,
+    BackupUnsupportedError,
     backup_sqlite_database,
     restore_sqlite_database,
+    sqlite_database_path,
 )
+
+
+def test_alembic_config_escapes_percent_interpolation(monkeypatch: pytest.MonkeyPatch) -> None:
+    settings = Settings(
+        environment="development",
+        database_url="sqlite+pysqlite:////tmp/portal%25.db",
+    )
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+
+    config = cli.build_alembic_config()
+
+    assert config.get_main_option("sqlalchemy.url") == settings.database_url
+
+
+def test_sqlite_backup_rejects_prefix_lookalike_backend() -> None:
+    with pytest.raises(BackupUnsupportedError):
+        sqlite_database_path("sqlitefake:////tmp/portal.db")
 
 
 def create_sqlite_database(path, value: str) -> None:
@@ -192,6 +211,25 @@ def test_audit_pruning_refuses_runtime_database_credentials(
         cli.maintenance(["prune-audit"])
 
     assert "PATIENT_PORTAL_MAINTENANCE_DATABASE_URL" in capsys.readouterr().err
+
+
+def test_audit_pruning_rejects_same_role_with_different_query_options(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'audit.db'}"
+    settings = Settings(
+        environment="development",
+        database_url=database_url,
+        maintenance_database_url=f"{database_url}?timeout=30",
+    )
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+
+    with pytest.raises(SystemExit):
+        cli.maintenance(["prune-audit"])
+
+    assert "separate roles" in capsys.readouterr().err
 
 
 def test_audit_export_cli_emits_ordered_jsonl(

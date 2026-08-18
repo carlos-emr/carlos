@@ -220,7 +220,7 @@ def cleanup_transient_auth_rows(
 
 def sqlite_database_path(database_url: str) -> Path:
     parsed_url = make_url(database_url)
-    if not parsed_url.drivername.startswith("sqlite"):
+    if parsed_url.get_backend_name() != "sqlite":
         raise BackupUnsupportedError(
             "built-in backup/restore supports SQLite only; use managed PostgreSQL backups "
             "or pg_dump/pg_restore for PostgreSQL deployments"

@@ -9,6 +9,7 @@ from time import monotonic, sleep
 from alembic import command
 from alembic.config import Config
 from argon2 import PasswordHasher
+from sqlalchemy.engine import make_url
 
 from carlos_patient_portal.config import get_settings
 from carlos_patient_portal.database import (
@@ -36,7 +37,7 @@ def build_alembic_config() -> Config:
     settings = get_settings()
     config = Config()
     config.set_main_option("script_location", "carlos_patient_portal:migrations")
-    config.set_main_option("sqlalchemy.url", settings.database_url)
+    config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
     return config
 
 
@@ -198,7 +199,16 @@ def maintenance(argv: Sequence[str] | None = None) -> None:
             parser.error(
                 "PATIENT_PORTAL_MAINTENANCE_DATABASE_URL is required for audit deletion"
             )
-        if settings.maintenance_database_url == settings.database_url:
+        runtime_url = make_url(settings.database_url)
+        maintenance_url = make_url(settings.maintenance_database_url)
+        same_database_and_role = (
+            runtime_url.get_backend_name() == maintenance_url.get_backend_name()
+            and runtime_url.host == maintenance_url.host
+            and runtime_url.port == maintenance_url.port
+            and runtime_url.database == maintenance_url.database
+            and runtime_url.username == maintenance_url.username
+        )
+        if same_database_and_role:
             parser.error("maintenance and runtime database URLs must use separate roles")
         database_url = settings.maintenance_database_url
     database_engine = create_portal_engine(

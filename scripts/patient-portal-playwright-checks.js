@@ -337,7 +337,7 @@ function screenshotPath(name) {
     await page.locator('input[name="username"]').fill(testUser);
     await page.locator('input[name="password"]').fill(testPassword);
     await Promise.all([
-      page.waitForURL(/\/auth\/login$/, { timeout: 30000 }),
+      page.waitForURL((url) => url.pathname === portalPathname('/auth/login'), { timeout: 30000 }),
       page.getByRole('button', { name: 'Sign in' }).click(),
     ]);
     await page.getByRole('heading', { name: 'Verification code' }).waitFor();
@@ -430,7 +430,7 @@ function screenshotPath(name) {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('link', { name: 'Account', exact: true }).click();
-    await page.waitForURL(/\/portal\/account$/);
+    await page.waitForURL((url) => url.pathname === portalPathname('/portal/account'));
     await page.getByRole('heading', { name: 'Account' }).waitFor();
     assert(
       await page.locator('input[name="new_password_confirmation"][required]').count() === 1,
@@ -509,6 +509,7 @@ function screenshotPath(name) {
     await passwordForm.locator('input[name="current_password"]').fill(testPassword);
     await passwordForm.locator('input[name="new_password"]').fill(changedPassword);
     await passwordForm.locator('input[name="new_password_confirmation"]').fill(changedPassword);
+    passwordChanged = true;
     await Promise.all([
       page.waitForURL((url) => (
         url.pathname === portalPathname('/portal/account')
@@ -516,14 +517,13 @@ function screenshotPath(name) {
       )),
       passwordForm.getByRole('button', { name: 'Update password' }).click(),
     ]);
-    passwordChanged = true;
     await page.getByRole('status').filter({ hasText: 'Password updated.' }).waitFor();
     await page.screenshot({
       path: screenshotPath('patient-portal-account-mobile'),
       fullPage: true,
     });
     await page.getByRole('link', { name: 'Help', exact: true }).click();
-    await page.waitForURL(/\/portal\/help$/);
+    await page.waitForURL((url) => url.pathname === portalPathname('/portal/help'));
     await page.getByRole('heading', { name: 'Help' }).waitFor();
     await page.screenshot({
       path: screenshotPath('patient-portal-help-mobile'),
@@ -531,7 +531,9 @@ function screenshotPath(name) {
     });
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.getByRole('link', { name: 'Email passwords', exact: true }).click();
-    await page.waitForURL(/\/portal\/email-passwords$/);
+    await page.waitForURL(
+      (url) => url.pathname === portalPathname('/portal/email-passwords')
+    );
     await page.getByRole('heading', { name: 'Email passwords' }).waitFor();
     assert(
       await page.locator('select[name="provider"]').count() === 1
@@ -614,7 +616,7 @@ function screenshotPath(name) {
       'Care search returned a non-matching email-password record'
     );
     await Promise.all([
-      page.waitForURL(/\/portal\/email-passwords$/),
+      page.waitForURL((url) => url.pathname === portalPathname('/portal/email-passwords')),
       page.getByRole('link', { name: 'Clear filters' }).click(),
     ]);
     await Promise.all([
@@ -627,7 +629,7 @@ function screenshotPath(name) {
       'second page should contain the final two seeded records'
     );
     await Promise.all([
-      page.waitForURL(/\/portal\/email-passwords$/),
+      page.waitForURL((url) => url.pathname === portalPathname('/portal/email-passwords')),
       page.getByRole('link', { name: 'Previous' }).click(),
     ]);
     await page.locator('input[name="q"]').fill('No such message');
@@ -637,7 +639,7 @@ function screenshotPath(name) {
     ]);
     await page.getByText('No matching email passwords', { exact: true }).waitFor();
     await Promise.all([
-      page.waitForURL(/\/portal\/email-passwords$/),
+      page.waitForURL((url) => url.pathname === portalPathname('/portal/email-passwords')),
       page.getByRole('link', { name: 'Clear filters' }).click(),
     ]);
 

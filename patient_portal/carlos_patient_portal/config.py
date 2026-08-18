@@ -426,6 +426,7 @@ class Settings(BaseSettings):
         if (
             parsed_url.scheme not in {"http", "https"}
             or not parsed_url.netloc
+            or parsed_url.hostname is None
             or parsed_url.username is not None
             or parsed_url.password is not None
             or parsed_url.query

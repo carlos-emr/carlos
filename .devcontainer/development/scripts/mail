@@ -3,7 +3,7 @@
 set -euo pipefail
 
 command=${1:-}
-mailbox=${PORTAL_MAILBOX_PATH:-/var/mail/root}
+mailbox=/var/mail/root
 
 case $command in
     start)

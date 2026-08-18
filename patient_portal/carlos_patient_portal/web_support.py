@@ -9,6 +9,7 @@ module that composes them, which would be circular. Nothing here registers a rou
 database session, or performs I/O beyond rendering a template.
 """
 
+import json
 import re
 from collections.abc import Callable
 from datetime import date, timedelta
@@ -936,11 +937,27 @@ async def get_csrf_urlencoded_form_values(
 
 
 async def get_activation_request(request: Request) -> ActivationRequest:
-    return await get_json_request_model(
-        request,
-        ActivationRequest,
-        "activation requires an application/json request body",
-    )
+    content_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
+    if content_type != "application/json":
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="activation requires an application/json request body",
+        )
+    body = await read_limited_request_body(request, MAX_JSON_BODY_BYTES)
+    invite_code = ""
+    try:
+        raw_payload = json.loads(body)
+        if isinstance(raw_payload, dict) and isinstance(raw_payload.get("invite_code"), str):
+            invite_code = raw_payload["invite_code"]
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        pass
+    try:
+        return ActivationRequest.model_validate_json(body)
+    except ValidationError as exc:
+        raise RequestValidationError(
+            exc.errors(),
+            body={"invite_code": invite_code},
+        ) from exc
 
 
 async def get_activation_request_from_request(
@@ -959,7 +976,12 @@ async def get_activation_request_from_request(
     )
     password = first_form_value_or_empty(form_values, "password")
     if password != first_form_value_or_empty(form_values, "password_confirmation"):
-        raise BrowserFormValidationError("password confirmation does not match")
+        raise BrowserFormValidationError(
+            "password confirmation does not match",
+            safe_form_values={
+                "invite_code": first_form_value_or_empty(form_values, "invite_code")
+            },
+        )
     try:
         return ActivationRequest.model_validate(
             {
@@ -978,7 +1000,10 @@ async def get_activation_request_from_request(
             }
         )
     except ValidationError as exc:
-        raise RequestValidationError(exc.errors()) from exc
+        raise RequestValidationError(
+            exc.errors(),
+            body={"invite_code": first_form_value_or_empty(form_values, "invite_code")},
+        ) from exc
 
 
 async def get_mfa_verify_request(request: Request) -> MfaVerifyRequest:

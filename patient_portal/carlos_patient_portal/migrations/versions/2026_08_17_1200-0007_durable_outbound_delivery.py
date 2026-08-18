@@ -8,7 +8,7 @@ Create Date: 2026-08-17 12:00:00+00:00
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
+from alembic import context, op
 
 _ALEMBIC_REVISION_IDENTIFIERS: dict[str, str | Sequence[str] | None] = {
     "revision": "0007_durable_outbound_delivery",
@@ -95,6 +95,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    if context.is_offline_mode():
+        raise RuntimeError("migration 0007 requires an online connection for downgrade preflight")
     connection = op.get_bind()
     undelivered_count = connection.execute(
         sa.text(

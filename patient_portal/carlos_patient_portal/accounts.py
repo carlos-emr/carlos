@@ -194,6 +194,36 @@ def _activation_advisory_lock_key(purpose: str, value: str) -> int:
     return int.from_bytes(digest[:8], byteorder="big", signed=True)
 
 
+def record_invalid_activation_request(
+    session: Session,
+    *,
+    invite_code: str | None,
+    client_reference_hash: str,
+    rate_limit: ActivationRateLimit,
+) -> None:
+    """Charge and audit a request rejected before the typed activation payload exists."""
+    invite_token_hash = hash_invite_token((invite_code or "").strip())
+    now = utc_now()
+    lock_activation_rate_limit_keys(
+        session,
+        invite_token_hash=invite_token_hash,
+        client_reference_hash=client_reference_hash,
+    )
+    enforce_activation_rate_limit(
+        session,
+        invite_token_hash=invite_token_hash,
+        client_reference_hash=client_reference_hash,
+        rate_limit=rate_limit,
+        now=now,
+    )
+    record_activation_failure(
+        session,
+        invite_token_hash=invite_token_hash,
+        client_reference_hash=client_reference_hash,
+        reason=ACTIVATION_REASON_INVALID_DETAILS,
+    )
+
+
 def activate_patient_account(
     session: Session,
     *,

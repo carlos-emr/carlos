@@ -63,6 +63,7 @@ def normalize_health_card_number(health_card_number: str) -> str:
     if (
         len(normalized_hcn) < MIN_HEALTH_CARD_NUMBER_LENGTH
         or len(normalized_hcn) > MAX_HEALTH_CARD_NUMBER_LENGTH
+        or not normalized_hcn.isascii()
         or not normalized_hcn.isalnum()
     ):
         raise ValueError("health_card_number must contain letters or numbers")

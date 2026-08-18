@@ -105,6 +105,7 @@ from carlos_patient_portal.web_support import (
     is_maintenance_exempt_path,
     is_portal_path,
     is_rate_limited_path,
+    is_urlencoded_form_request,
     is_valid_csrf_submission,
     portal_template_context,
     request_locale,
@@ -277,18 +278,40 @@ def build_lifespan(
     return lifespan
 
 
-def register_exception_handlers(app: FastAPI) -> None:
+def register_exception_handlers(app: FastAPI, runtime: PortalRuntime) -> None:
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(
         request: Request,
         exc: RequestValidationError,
-    ) -> JSONResponse:
+    ) -> Response:
         if request.url.path.startswith(FHIR_PATH_PREFIX):
             return fhir_operation_outcome_response(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 code="invalid",
                 diagnostics="request parameters are invalid",
             )
+        if request.url.path == "/auth/login" and is_urlencoded_form_request(request):
+            csrf_token = create_csrf_token(runtime.token_keys.csrf)
+            response = templates.TemplateResponse(
+                request=request,
+                name="index.jinja",
+                context=index_template_context(
+                    request,
+                    settings=runtime.settings,
+                    csrf_token=csrf_token,
+                    error_message=portal_text(request_locale(request))[
+                        "incorrect_username_or_password"
+                    ],
+                ),
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+            set_csrf_cookie(
+                response,
+                csrf_token,
+                settings=runtime.settings,
+                path=CSRF_COOKIE_PATH,
+            )
+            return response
         return JSONResponse(
             status_code=422,
             content={"detail": sanitized_validation_errors(exc)},
@@ -819,7 +842,7 @@ def create_app(
         StaticFiles(directory=str(PACKAGE_DIR / "static")),
         name="static",
     )
-    register_exception_handlers(app)
+    register_exception_handlers(app, runtime)
     register_security_middleware(app, runtime)
     register_app_routes(app, runtime)
     # Added last so it ends up outermost: Starlette prepends each middleware, so registering the
