@@ -501,7 +501,7 @@ HCV users are encouraged to contact colleagues, professional associations or oth
 health care providers regarding vendors and/or applications that support HCV.
 Real-Time Validation:
 Health Card Validation Web Service
-The HCV Web Service via the Electronic Business Service (EBS) is an Internet-enabled service that can be accessed from any computer using third party
+The HCV Web Service via the Electronic Business Service (EBS) is an Internet-enabled service that can be accessed from any computer using third-party
 software. The HCV Web Service provides a more secure service to validate the
 eligibility of a patient’s health card in real-time against ministry databases.
 The HCV Web Service offers two types of applications to validate the eligibility of

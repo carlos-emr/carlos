@@ -773,7 +773,7 @@ Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-ut
 <sp:Header Name="Timestamp"
 Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
 <sp:Header Name="UsernameToken"
-Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"/>
 <sp:Body/>
 </sp:SignedParts>
 </wsp:All>
@@ -803,7 +803,7 @@ Final March 2013 Version 3.0 Page 30 of 69
 <sp:Header Name="Timestamp"
 Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
 <sp:Header Name="UsernameToken"
-Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"/>
 <sp:Body/>
 </sp:SignedParts>
 </wsp:All>

@@ -813,7 +813,7 @@ Final February 2013 Version 4.0 Page 24 of 52
 <sp:Header Name="EBS" Namespace="http://ebs.health.ontario.ca/"/>
 <sp:Header Name="MSA" Namespace="http://msa.ebs.health.ontario.ca/"/>
 <sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
-<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"/>
 <sp:Body/>
 </sp:SignedParts>
 </wsp:All>
@@ -842,7 +842,7 @@ Final February 2013 Version 4.0 Page 25 of 52
 <sp:Header Name="IDP" Namespace="http://idp.ebs.health.ontario.ca/"/>
 <sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-
 wss-wssecurity-utility-1.0.xsd"/>
-<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"/>
 <sp:Body/>
 </sp:SignedParts>
 </wsp:All>
