@@ -37,7 +37,7 @@ public final class ViewZdemographicFullTitleSearch2Action extends ActionSupport 
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_search", "r", null)) {
             throw new SecurityException("missing required sec object (_search)");
