@@ -304,6 +304,8 @@ def register_portal_routes(
                 session,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+        # URLPath.path cannot contain the scheme or authority from the request.
+        # nosemgrep: python.fastapi.web.tainted-redirect-fastapi.tainted-redirect-fastapi
         response = RedirectResponse(
             f"{request.url_for('portal_account').path}?status=password-updated",
             status_code=status.HTTP_303_SEE_OTHER,
@@ -379,6 +381,8 @@ def register_portal_routes(
         )
 
     def redirect_to_account_status(request: Request, status_key: str) -> RedirectResponse:
+        # The route path is local and status_key is selected only by server code.
+        # nosemgrep: python.fastapi.web.tainted-redirect-fastapi.tainted-redirect-fastapi
         return RedirectResponse(
             f"{request.url_for('portal_account').path}?status={status_key}",
             status_code=status.HTTP_303_SEE_OTHER,
@@ -638,6 +642,8 @@ def register_portal_routes(
                 session,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+        # URLPath.path cannot contain the scheme or authority from the request.
+        # nosemgrep: python.fastapi.web.tainted-redirect-fastapi.tainted-redirect-fastapi
         return RedirectResponse(
             f"{request.url_for('portal_account').path}?status=mfa-updated",
             status_code=status.HTTP_303_SEE_OTHER,
@@ -810,6 +816,8 @@ def register_portal_routes(
         if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
             raise HTTPException(status_code=403, detail="logout could not be completed")
 
+        # URLPath.path cannot contain the scheme or authority from the request.
+        # nosemgrep: python.fastapi.web.tainted-redirect-fastapi.tainted-redirect-fastapi
         response = RedirectResponse(
             request.url_for("index").path,
             status_code=status.HTTP_303_SEE_OTHER,

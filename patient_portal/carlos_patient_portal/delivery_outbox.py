@@ -283,7 +283,11 @@ def _record_reset_delivery_outcome_best_effort(
     except PasswordResetTokenInvalidError:
         return False
     except SQLAlchemyError as exc:
-        logger.error("Password-reset delivery audit write failed: %s", type(exc).__name__)
+        # Only the exception class is logged; no credential or exception message is emitted.
+        logger.error(  # nosemgrep: python-logger-credential-disclosure
+            "Password-reset delivery audit write failed: %s",
+            type(exc).__name__,
+        )
     return True
 
 

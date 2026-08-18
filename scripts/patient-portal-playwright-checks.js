@@ -145,6 +145,8 @@ function screenshotPath(name) {
     }
     passwordRestoration = (async () => {
       try {
+        // portalUrl requires a root-relative path; validateBaseUrl defaults to local/private hosts.
+        // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
         await page.goto(portalUrl('/portal/account'), {
           waitUntil: 'networkidle',
           timeout: 30000,
