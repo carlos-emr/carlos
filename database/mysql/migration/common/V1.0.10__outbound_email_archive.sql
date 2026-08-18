@@ -98,11 +98,17 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveDeletion` (
     `deleteReason` VARCHAR(1000) NOT NULL,
     `lastUpdateUser` VARCHAR(6) NOT NULL,
     `lastUpdateDate` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- One tombstone per archive; the UNIQUE index, not a foreign key, is what
+    -- enforces that.
     UNIQUE INDEX `idx_outboundEmailArchiveDeletion_archiveId` (`archiveId`),
     INDEX `idx_outboundEmailArchiveDeletion_emailLogId` (`emailLogId`),
     INDEX `idx_outboundEmailArchiveDeletion_demographicNo` (`demographicNo`),
-    CONSTRAINT `fk_outboundEmailArchiveDeletion_archive`
-        FOREIGN KEY (`archiveId`) REFERENCES `outboundEmailArchive` (`id`),
+    -- Deliberately no foreign key on archiveId. The tombstone is the audit record
+    -- that has to survive any future reorganisation of archive rows, and an FK would
+    -- make the archive row a prerequisite for keeping the evidence of its deletion.
+    -- OutboundEmailArchiveDeletion declares ConstraintMode.NO_CONSTRAINT for the same
+    -- reason. emailLogId is different: it points at a live operational row, not an
+    -- audit target, so it stays constrained.
     CONSTRAINT `fk_outboundEmailArchiveDeletion_emailLog`
         FOREIGN KEY (`emailLogId`) REFERENCES `emailLog` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -127,7 +133,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveLegalHoldEvent` (
     INDEX `idx_outboundEmailArchiveLegalHoldEvent_archiveId` (`archiveId`, `eventAt`),
     INDEX `idx_outboundEmailArchiveLegalHoldEvent_providerNo` (`providerNo`)
     -- Deliberately no foreign key on archiveId, matching
-    -- outboundEmailArchiveDeletion: the event is an audit record that must
+    -- outboundEmailArchiveDeletion above: the event is an audit record that must
     -- outlive any future reorganisation of archive rows. The JPA mapping declares
     -- ConstraintMode.NO_CONSTRAINT so Hibernate agrees.
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
