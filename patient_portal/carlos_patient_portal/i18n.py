@@ -219,7 +219,6 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "new_password": "New password",
         "new_password_confirmation": "Confirm new password",
         "next": "Next",
-        "no_account_changes": "No account changes.",
         "no_email_passwords": "No email passwords",
         "no_matching_email_passwords": "No matching email passwords",
         "of": "of",
@@ -267,7 +266,6 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "revealing": "Revealing...",
         "reset_filters": "Clear filters",
         "search": "Search",
-        "send_code_by": "Send code by",
         "sent": "Sent",
         "session_locked_details": (
             "Clinic staff must unlock this account before another sign-in or password reset. "

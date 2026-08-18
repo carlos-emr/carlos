@@ -12,21 +12,15 @@ import logging
 from urllib.parse import quote
 
 from fastapi import Request
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal.auth import (
     MfaChallengeDelivery,
-    PasswordResetRequestResult,
-    PasswordResetTokenInvalidError,
     record_mfa_delivery_outcome,
-    record_password_reset_delivery_outcome,
 )
 from carlos_patient_portal.config import Settings
 from carlos_patient_portal.email_delivery import PortalEmailDeliveryError
 from carlos_patient_portal.models import (
-    AUDIT_OUTCOME_FAILURE,
-    AUDIT_OUTCOME_SUCCESS,
     MFA_DELIVERY_METHOD_EMAIL,
 )
 from carlos_patient_portal.runtime import PortalRuntime
@@ -94,44 +88,6 @@ def send_password_reset_email(
     )
 
 
-def deliver_password_reset(
-    runtime: PortalRuntime,
-    *,
-    result: PasswordResetRequestResult,
-    reset_url: str,
-) -> None:
-    outcome = AUDIT_OUTCOME_SUCCESS
-    try:
-        send_password_reset_email(
-            runtime,
-            recipient=result.recipient or "",
-            reset_url=reset_url,
-        )
-    except PortalEmailDeliveryError as exc:
-        outcome = AUDIT_OUTCOME_FAILURE
-        runtime.operational_metrics.record_failure("password_reset_delivery")
-        # Exception details can contain SMTP recipient data; log only the sanitized type. The
-        # message is a fixed literal and the sole interpolation is the exception class name, so
-        # the credential-disclosure rule below has nothing to disclose.
-        # nosemgrep: python-logger-credential-disclosure -- logs only type(exc).__name__
-        logger.error("Password reset email delivery failed: %s", type(exc).__name__)  # NOSONAR
-    try:
-        with runtime.session_factory() as session:
-            with session.begin():
-                record_password_reset_delivery_outcome(
-                    session,
-                    result=result,
-                    outcome=outcome,
-                )
-    except (PasswordResetTokenInvalidError, SQLAlchemyError) as exc:
-        # Exception details can contain database values; log only the sanitized type. The message
-        # is a fixed literal and the sole interpolation is the exception class name, so the
-        # credential-disclosure rule below has nothing to disclose.
-        # nosemgrep: python-logger-credential-disclosure -- logs only type(exc).__name__
-        logger.error(  # NOSONAR
-            "Password reset delivery outcome persistence failed: %s",
-            type(exc).__name__,
-        )
 
 
 def build_email_change_confirmation_url(

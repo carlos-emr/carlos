@@ -228,19 +228,19 @@ def update_account_contact(
         )
         return ContactUpdateResult(outcome=CONTACT_UPDATE_OUTCOME_NO_CHANGE)
 
-    now = utc_now()
-    if account.email != normalized_email or account.phone_number != normalized_phone_number:
-        return request_email_change(
-            session,
-            account,
-            new_email=normalized_email,
-            new_phone_number=normalized_phone_number,
-            token_secret=email_change_token_secret,
-            token_ttl=email_change_token_ttl,
-            phone_code_ttl=phone_change_code_ttl,
-            now=now,
-        )
-    raise AssertionError("contact change should have returned a pending confirmation")
+    # Every remaining case is a change to at least one destination: the equality check above
+    # returned for the no-change case. Both destinations now prove ownership before anything moves,
+    # so there is no immediate-apply path left to fall through to.
+    return request_email_change(
+        session,
+        account,
+        new_email=normalized_email,
+        new_phone_number=normalized_phone_number,
+        token_secret=email_change_token_secret,
+        token_ttl=email_change_token_ttl,
+        phone_code_ttl=phone_change_code_ttl,
+        now=utc_now(),
+    )
 
 
 def request_email_change(
