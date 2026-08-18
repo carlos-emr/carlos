@@ -6,18 +6,28 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchive` (
     `id` INT PRIMARY KEY AUTO_INCREMENT,
     `emailLogId` BIGINT NOT NULL,
     -- No foreign keys on demographicNo/providerNo, unlike emailLogId, configId and
-    -- documentNo below. The reason is engine/legacy scope, not decoupling: V1.0.9
-    -- guarantees InnoDB only for document, emailConfig and emailLog, and constraining
-    -- these two would widen that conversion to demographic and provider.
+    -- documentNo below. The reason is engine scope on the LEGACY UPGRADE PATH, not
+    -- decoupling. On a Flyway-built database this constraint could be added today:
+    -- V1__baseline_schema.sql creates demographic and provider as InnoDB already (there
+    -- is no MyISAM table left in that baseline). It is on an install upgraded in place
+    -- from an older OSCAR/OpenO schema that the engine is unknown, and V1.0.9 converts
+    -- only the three tables this feature strictly needs. Omitting the key keeps one
+    -- schema across both paths rather than diverging by install history.
     --
     -- Do NOT read this as "the archive survives a missing demographic". It does not.
-    -- OutboundEmailArchive maps both as @ManyToOne with nullable = false, so a dangling
-    -- value would throw EntityNotFoundException the moment any non-identifier property
-    -- is dereferenced. That is currently safe only because CARLOS has no hard-delete
-    -- path for demographics or providers -- merges go through demographic_merged and
-    -- keep both rows -- and because the service reads these two associations for their
-    -- identifier alone. A future reader that displays patient or provider names will be
-    -- the first caller to depend on the row actually being there.
+    -- OutboundEmailArchive maps demographic as @ManyToOne with nullable = false (provider
+    -- is optional, matching the nullable column below), so a dangling non-null value
+    -- would throw EntityNotFoundException the moment any non-identifier property is
+    -- dereferenced. That is currently safe because the service reads these two
+    -- associations for their identifier alone, and because nothing reachable hard-deletes
+    -- a demographic -- DemographicManagerImpl.deleteDemographic only sets patient_status,
+    -- and merges go through demographic_merged and keep both rows. Note the weaker
+    -- guarantee on provider: SecProviderDaoImpl.delete and the inherited
+    -- ProviderDataDao.remove ARE hard deletes, with no production caller today. If one
+    -- appears, providerNo here becomes dangling with no key to stop it.
+    --
+    -- A future reader that displays patient or provider names is the first caller to
+    -- depend on the row actually being there.
     `demographicNo` INT NOT NULL,
     `providerNo` VARCHAR(6),
     `configId` BIGINT,
@@ -50,9 +60,15 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchive` (
     `deleteReason` VARCHAR(1000),
     `lastUpdateUser` VARCHAR(6) NOT NULL,
     `lastUpdateDate` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX `idx_outboundEmailArchive_emailLogId` (`emailLogId`),
-    INDEX `idx_outboundEmailArchive_demographicNo` (`demographicNo`),
+    -- Composite, not bare foreign-key columns: both DAO lookups filter on the key and then
+    -- ORDER BY archivedAt DESC, so a single-column index leaves every patient and email-log
+    -- listing to filesort. Cheap to get right while this migration is unmerged; correcting it
+    -- afterwards costs a whole ALTER TABLE migration on live archive data.
+    INDEX `idx_outboundEmailArchive_emailLogId` (`emailLogId`, `archivedAt`),
+    INDEX `idx_outboundEmailArchive_demographicNo` (`demographicNo`, `archivedAt`),
     INDEX `idx_outboundEmailArchive_documentNo` (`documentNo`),
+    -- Not read by any current query. Retained because verifying a stored artifact against its
+    -- tombstone hash is the point of the table, and that lookup is by hash.
     INDEX `idx_outboundEmailArchive_sha256Hash` (`sha256Hash`),
     CONSTRAINT `fk_outboundEmailArchive_emailLog`
         FOREIGN KEY (`emailLogId`) REFERENCES `emailLog` (`id`),
@@ -137,7 +153,8 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveLegalHoldEvent` (
     `eventAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `lastUpdateUser` VARCHAR(6) NOT NULL,
     `lastUpdateDate` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    -- Composite index matches the DAO's ORDER BY eventAt DESC, id DESC.
+    -- Covers the DAO's archiveId filter and its eventAt ordering. The `id` tiebreak in
+    -- ORDER BY eventAt DESC, id DESC is resolved in the sort, not by this index.
     INDEX `idx_outboundEmailArchiveLegalHoldEvent_archiveId` (`archiveId`, `eventAt`),
     INDEX `idx_outboundEmailArchiveLegalHoldEvent_providerNo` (`providerNo`),
     -- Constrained for the same reason as outboundEmailArchiveDeletion above:
@@ -150,11 +167,18 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveLegalHoldEvent` (
 
 -- Seed the security object that guards archive deletion and legal hold release.
 --
--- REQUIRED, not cosmetic. `_admin.edocdelete` is created only by the FROZEN
--- legacy script database/mysql/updates/update-2008-10-20.sql and appears nowhere
--- else in the Flyway migration set. Without this insert a fresh CARLOS database
--- has no such row in secObjectName, hasPrivilege() returns false for every user,
--- and no one can ever release a legal hold or retire an archive.
+-- The row below is for the admin UI, which lists objects out of secObjectName.
+-- hasPrivilege() never reads this table: OscarRoleObjectPrivilege goes straight to
+-- SecObjPrivilegeDao.findByObjectNames, so it is the GRANT further down that opens the
+-- gate, not this name. Both are seeded because the object exists in neither table on a
+-- Flyway-built database.
+--
+-- `_admin.edocdelete` is created only by the FROZEN legacy script
+-- database/mysql/updates/update-2008-10-20.sql, which inserts the name and grants it to
+-- no role at all. So the gate has been permanently shut everywhere: on fresh installs
+-- (no row in either table) AND on legacy databases that DID run the 2008 patch (name
+-- present, still no grant). That is what the second INSERT fixes, and why it is required
+-- rather than belt-and-braces.
 --
 -- Idempotent: safe on fresh installs and on legacy databases that already ran
 -- the 2008 patch.
@@ -167,17 +191,21 @@ SELECT '_admin.edocdelete', 'Right to delete eDocs', 0
 
 -- Grant it to the admin role, and only to the admin role.
 --
--- CARLOS does not infer dotted-object privileges: `admin` holds `_admin` = 'x'
--- AND a separate explicit row for each of the 31 `_admin.*` objects it can use.
--- Nothing walks the hierarchy, so seeding the object name alone would leave
--- _admin.edocdelete granted to no one and the feature unreachable. This row is
--- what the other 31 grants look like -- privilege 'x' ("All rights", which
--- SecurityInfoManagerImpl accepts in place of the 'w' this service asks for).
+-- CARLOS does not infer dotted-object privileges. `admin` holds `_admin` = 'x' AND a
+-- separate explicit row per dotted object; OscarRoleObjectPrivilege.getVecObjectName
+-- only comma-splits the role list and never walks the '.' hierarchy, so `_admin` = 'x'
+-- confers nothing on `_admin.edocdelete`. Seeding the object name alone would leave it
+-- granted to no one and the feature unreachable.
 --
--- Deliberately NOT granted to `doctor`, which holds 14 other `_admin.*` objects.
--- Retiring an evidentiary communication archive is an administrative act; the
--- whole point of requiring _admin.edocdelete rather than _edoc is that the
--- deletion gate must be stricter than the archive gate.
+-- Privilege 'x' is "All rights": SecurityInfoManagerImpl short-circuits to true on an
+-- 'x' grant before it looks at the 'w' this service requests.
+--
+-- Deliberately NOT granted to `doctor`. Note that doctor's existing `_admin.*` rows are
+-- almost all privilege 'o' -- SecurityInfoManager.NORIGHTS, i.e. explicit no rights --
+-- so this is withholding a right doctor was never comparably given. Retiring an
+-- evidentiary communication archive is an administrative act; the whole point of
+-- requiring _admin.edocdelete rather than _edoc is that the deletion gate must be
+-- stricter than the archive gate.
 INSERT INTO `secObjPrivilege` (`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`)
 SELECT 'admin', '_admin.edocdelete', 'x', 0, NULL
   FROM DUAL

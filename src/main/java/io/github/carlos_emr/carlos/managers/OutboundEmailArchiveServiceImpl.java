@@ -64,7 +64,7 @@ import java.util.UUID;
 /**
  * Stores finalized outbound email artifacts in eDoc and records archive/deletion audit metadata.
  *
- * @since 2026-07-07
+ * @since 2026-08-14
  */
 @SuppressWarnings("java:S2143") // CARLOS Hibernate models still use java.util.Date for DATETIME fields.
 @Service
@@ -190,7 +190,14 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
                     providerNo,
                     artifactBytes);
         } catch (IOException | RuntimeException e) {
-            deleteArchivedDocumentFile(document.getDocfilename() != null ? document.getDocfilename() : fileName);
+            // Only the name DocumentManager assigned can be deleted here. Until it does, the
+            // server-generated on-disk name is unknown to this method, and falling back to the
+            // requested name produces a deleteIfExists that quietly matches nothing and hides the
+            // orphan; DocumentManagerImpl removes its own partial file in that window instead.
+            String storedFileName = document.getDocfilename();
+            if (storedFileName != null && !storedFileName.equals(fileName)) {
+                deleteArchivedDocumentFile(storedFileName);
+            }
             throw e;
         }
         registerRollbackCleanup(savedDocument);
@@ -239,11 +246,21 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         outboundEmailArchiveDao.merge(archive);
         outboundEmailArchiveDeletionDao.persist(deletion);
 
+        // Resolved before the synchronization is registered, not inside it: documentId()
+        // dereferences a lazy Document proxy, and Document maps its @Id on the field, so there is
+        // no identifier-getter shortcut and the read initializes the proxy. Deferred, that is a
+        // SELECT issued from afterCommit() once the transaction has already completed, which
+        // throws LazyInitializationException out of an otherwise successful call wherever the
+        // EntityManager closes first. Demographic maps its @Id on the getter, so demographicNo()
+        // is safe either way; both are hoisted so the pair cannot drift apart.
+        String auditContentId = "archiveId=" + archive.getId() + " documentNo=" + documentId(archive);
+        String auditDemographicNo = demographicNo(archive);
+
         registerAfterCommitLog(() -> LogAction.addLog(loggedInInfo,
                 "OutboundEmailArchiveService.recordControlledDeletion",
                 "Outbound email archive tombstone",
-                "archiveId=" + archive.getId() + " documentNo=" + documentId(archive),
-                demographicNo(archive),
+                auditContentId,
+                auditDemographicNo,
                 ""));
 
         return deletion;
@@ -300,11 +317,16 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         outboundEmailArchiveDao.merge(archive);
         outboundEmailArchiveLegalHoldEventDao.persist(event);
 
+        // Resolved eagerly for the same reason as in recordControlledDeletion: documentId()
+        // initializes a lazy Document proxy, which must not happen after the transaction closes.
+        String auditContentId = "archiveId=" + archive.getId() + " documentNo=" + documentId(archive);
+        String auditDemographicNo = demographicNo(archive);
+
         registerAfterCommitLog(() -> LogAction.addLog(loggedInInfo,
                 "OutboundEmailArchiveService.changeLegalHold",
                 "Outbound email archive legal hold " + action,
-                "archiveId=" + archive.getId() + " documentNo=" + documentId(archive),
-                demographicNo(archive),
+                auditContentId,
+                auditDemographicNo,
                 ""));
 
         return event;
@@ -723,8 +745,17 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCompletion(int status) {
-                if (status != STATUS_COMMITTED) {
+                if (status == STATUS_ROLLED_BACK) {
                     deleteArchivedDocumentFile(fileName);
+                } else if (status == STATUS_UNKNOWN) {
+                    // Heuristic or mixed completion: the archive row may well have committed, so
+                    // this is deliberately not treated as a rollback. An orphaned artifact is
+                    // reconcilable; an archive row whose bytes were unlinked can never be verified
+                    // against its tombstone hash again, which is the one failure this table exists
+                    // to make impossible.
+                    MiscUtils.getLogger().error(
+                            "Outbound email archive transaction completed with unknown status; artifact {} left in place for manual reconciliation",
+                            fileName);
                 }
             }
         });
@@ -755,7 +786,14 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             File archiveFile = PathValidationUtils.validateExistingPath(new File(documentDirectory, safeFileName), documentDirectory);
             Files.deleteIfExists(archiveFile.toPath());
         } catch (IOException | SecurityException e) {
-            MiscUtils.getLogger().warn("Failed to delete rolled back outbound email archive eDoc file: {}", e.getClass().getSimpleName());
+            // ERROR, not WARN: what survives is unreferenced PHI in DOCUMENT_DIR. The filename is
+            // server-generated (outbound-email-<id>-<uuid>) and carries no patient data, so it is
+            // logged deliberately -- it is the only handle an operator has for reconciliation, and
+            // omitting it made every one of these lines unactionable. This also catches a
+            // DOCUMENT_DIR misconfiguration, which fails every cleanup rather than just this one.
+            MiscUtils.getLogger().error(
+                    "Orphaned outbound email archive artifact left in DOCUMENT_DIR: file={} cause={}",
+                    fileName, e.toString(), e);
         }
     }
 

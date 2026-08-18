@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import org.hibernate.LazyInitializationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -67,6 +68,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -278,6 +280,62 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 props.remove("DOCUMENT_DIR");
             }
         }
+    }
+
+    @Test
+    @DisplayName("should delete the archived artifact when the transaction rolls back")
+    void shouldDeleteArchivedArtifact_whenTransactionRollsBack(@TempDir Path documentDir) throws Exception {
+        withDocumentDir(documentDir, () -> {
+            Path artifact = stageArchiveForCompletion(documentDir);
+
+            runAfterCompletionSynchronizations(TransactionSynchronization.STATUS_ROLLED_BACK);
+
+            assertThat(artifact).doesNotExist();
+        });
+    }
+
+    @Test
+    @DisplayName("should keep the archived artifact when the transaction completion status is unknown")
+    void shouldKeepArchivedArtifact_whenCompletionStatusIsUnknown(@TempDir Path documentDir) throws Exception {
+        withDocumentDir(documentDir, () -> {
+            Path artifact = stageArchiveForCompletion(documentDir);
+
+            // STATUS_UNKNOWN is heuristic or mixed completion: the archive row may well have
+            // committed. Unlinking here would leave a row asserting an email was sent whose bytes
+            // can never be verified against the tombstone hash again -- strictly worse than an
+            // orphaned file, which is reconcilable.
+            runAfterCompletionSynchronizations(TransactionSynchronization.STATUS_UNKNOWN);
+
+            assertThat(artifact).exists();
+        });
+    }
+
+    @Test
+    @DisplayName("should resolve controlled deletion audit content before the transaction completes")
+    void shouldResolveControlledDeletionAuditContent_beforeTransactionCompletes() {
+        TransactionSynchronizationManager.initSynchronization();
+        OutboundEmailArchive archive = archiveForDeletion();
+        // Document maps its @Id on the field, so getId() on a lazy proxy initializes it rather
+        // than reading the foreign key. Deferring that read into afterCommit would issue a SELECT
+        // after the transaction closed; this mock fails exactly the way a closed EntityManager
+        // would, so the test fails if the service resolves the audit content inside the lambda.
+        Document document = mock(Document.class);
+        when(document.getId()).thenReturn(321);
+        archive.setDocument(document);
+        stubArchiveLookup(archive);
+
+        service.recordControlledDeletion(loggedInInfo, 888, "Patient requested cleanup");
+
+        doThrow(new LazyInitializationException("could not initialize proxy - no Session"))
+                .when(document).getId();
+        runAfterCommitSynchronizations();
+
+        logActionMock.verify(() -> LogAction.addLog(loggedInInfo,
+                "OutboundEmailArchiveService.recordControlledDeletion",
+                "Outbound email archive tombstone",
+                "archiveId=888 documentNo=321",
+                "123",
+                ""));
     }
 
     @Test
@@ -550,6 +608,12 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         verify(outboundEmailArchiveDao).findForUpdate(888);
         verify(outboundEmailArchiveDao).merge(archive);
         verify(outboundEmailArchiveDeletionDao).persist(deletion);
+        // The concurrency guard the lock exists for: a plain find() anywhere before
+        // findForUpdate leaves the row managed, so the locked read hands back pre-lock
+        // legalHold/deleted and two concurrent callers can both succeed. Asserted on the
+        // success path, because that is where a "simplification" would actually land.
+        verify(outboundEmailArchiveDao, never()).find(any());
+
         assertThat(archive.isDeleted()).isTrue();
         assertThat(archive.getDeletedByProviderNo()).isEqualTo(PROVIDER_NO);
         assertThat(archive.getDeleteReason()).isEqualTo("Patient requested cleanup");
@@ -683,6 +747,8 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         assertThat(event.getReason()).isEqualTo("Counsel authorised release");
         assertThat(event.getArchive()).isSameAs(archive);
         assertThat(event.getLastUpdateUser()).isEqualTo(PROVIDER_NO);
+        // Same concurrency guard as the deletion path: no pre-lock find().
+        verify(outboundEmailArchiveDao, never()).find(any());
     }
 
     @Test
@@ -697,6 +763,32 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         assertThat(event.getAction()).isEqualTo(OutboundEmailArchiveLegalHoldEvent.ACTION_PLACED);
         assertThat(event.getProviderNo()).isEqualTo(PROVIDER_NO);
         verify(outboundEmailArchiveLegalHoldEventDao).persist(event);
+        // Same concurrency guard as the deletion path: no pre-lock find().
+        verify(outboundEmailArchiveDao, never()).find(any());
+    }
+
+    @Test
+    @DisplayName("should reject a deletion when the locked row belongs to a different patient than the one authorized")
+    void shouldRejectDeletion_whenLockedRowDemographicDiffersFromAuthorized() {
+        // The two reads in lockArchiveForAuthorizedCaller are separate statements, so the row can
+        // in principle change between the scalar demographic read the patient gate ran on and the
+        // FOR UPDATE read that actually gets mutated. Drive them apart deliberately: authorize
+        // patient 123, then hand back a locked row belonging to patient 456. Without the post-lock
+        // re-check the service would retire another patient's archive under an authorization that
+        // was never granted for it -- and no other test can tell, because stubArchiveLookup
+        // derives both values from the same object.
+        OutboundEmailArchive otherPatientsArchive = archiveForDeletion();
+        otherPatientsArchive.setDemographic(new Demographic(456));
+        when(outboundEmailArchiveDao.findDemographicNoById(888)).thenReturn(123);
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(otherPatientsArchive);
+
+        assertThatThrownBy(() -> service.recordControlledDeletion(loggedInInfo, 888, "cleanup"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("archive demographic");
+
+        assertThat(otherPatientsArchive.isDeleted()).isFalse();
+        verify(outboundEmailArchiveDao, never()).merge(any(OutboundEmailArchive.class));
+        verifyNoInteractions(outboundEmailArchiveDeletionDao);
     }
 
     @Test
@@ -787,6 +879,61 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         for (TransactionSynchronization synchronization : synchronizations) {
             synchronization.afterCommit();
         }
+    }
+
+    private void runAfterCompletionSynchronizations(int status) {
+        List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
+        assertThat(synchronizations).isNotEmpty();
+        for (TransactionSynchronization synchronization : synchronizations) {
+            synchronization.afterCompletion(status);
+        }
+    }
+
+    /**
+     * Drives a successful {@code archive()} under an active synchronization, with the artifact the
+     * eDoc store would have written already on disk.
+     *
+     * @return the staged artifact path, so completion handling can be asserted against it
+     */
+    private Path stageArchiveForCompletion(Path documentDir) throws Exception {
+        TransactionSynchronizationManager.initSynchronization();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog());
+        Document savedDocument = savedDocument();
+        Path artifact = documentDir.resolve(savedDocument.getDocfilename());
+        Files.write(artifact, RFC822_BYTES);
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                .thenReturn(savedDocument);
+
+        service.archive(loggedInInfo, request);
+
+        assertThat(artifact).exists();
+        return artifact;
+    }
+
+    /**
+     * Points DOCUMENT_DIR at {@code documentDir} for the duration of {@code body}, restoring the
+     * process-wide {@link CarlosProperties} singleton afterwards so the value cannot leak into
+     * another test running in the same JVM.
+     */
+    private void withDocumentDir(Path documentDir, ThrowingBody body) throws Exception {
+        CarlosProperties props = CarlosProperties.getInstance();
+        boolean hadDocumentDir = props.containsKey("DOCUMENT_DIR");
+        Object originalDocumentDir = props.get("DOCUMENT_DIR");
+        props.setProperty("DOCUMENT_DIR", documentDir.toString());
+        try {
+            body.run();
+        } finally {
+            if (hadDocumentDir) {
+                props.put("DOCUMENT_DIR", originalDocumentDir);
+            } else {
+                props.remove("DOCUMENT_DIR");
+            }
+        }
+    }
+
+    @FunctionalInterface
+    private interface ThrowingBody {
+        void run() throws Exception;
     }
 
     private void assertArchiveDocumentToCreate(Document documentToCreate) {

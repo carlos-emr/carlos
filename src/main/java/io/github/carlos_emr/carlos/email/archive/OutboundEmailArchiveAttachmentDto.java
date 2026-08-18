@@ -27,7 +27,7 @@ import io.github.carlos_emr.carlos.commn.model.Document;
 /**
  * Transfer data for an attachment included with an outbound email archive operation.
  *
- * @since 2026-07-07
+ * @since 2026-08-14
  */
 public class OutboundEmailArchiveAttachmentDto {
 

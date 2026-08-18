@@ -34,17 +34,24 @@ import java.io.IOException;
  * Archives exact outbound email artifacts into the patient file and records
  * controlled deletion tombstones for audit.
  *
- * @since 2026-07-07
+ * @since 2026-08-14
  */
 public interface OutboundEmailArchiveService {
 
     /**
      * Stores the finalized outbound artifact through eDoc and persists archive metadata.
      *
+     * <p>Requires {@code _edoc w} plus access to the email log's patient record. Unlike the
+     * three privileged operations below, this is the archive-creation gate, not the
+     * admin gate.</p>
+     *
      * @param loggedInInfo current user context for eDoc permissions and audit logging
      * @param request archive payload and transport metadata
      * @return persisted archive metadata linked to the patient file
-     * @throws IllegalArgumentException when the request is incomplete or attachment metadata is invalid
+     * @throws IllegalArgumentException when the request is incomplete, the referenced email log
+     *         does not exist, or attachment metadata is invalid
+     * @throws SecurityException when the caller lacks {@code _edoc w}, lacks access to the
+     *         patient record, or supplies an attachment document belonging to another patient
      * @throws IOException when eDoc storage fails
      */
     OutboundEmailArchive archive(LoggedInInfo loggedInInfo, OutboundEmailArchiveDto request) throws IOException;

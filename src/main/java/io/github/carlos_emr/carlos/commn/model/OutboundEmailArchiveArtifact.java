@@ -40,7 +40,7 @@ import java.util.Date;
 /**
  * Shared persisted fields for archived outbound email artifacts and their tombstones.
  *
- * @since 2026-07-07
+ * @since 2026-08-14
  */
 @MappedSuperclass
 @SuppressWarnings({"java:S2160", "java:S2143"}) // Equality is inherited from AbstractModel id; DATETIME mappings follow CARLOS Hibernate conventions.

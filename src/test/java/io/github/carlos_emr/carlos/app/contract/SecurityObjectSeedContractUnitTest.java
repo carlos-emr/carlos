@@ -48,10 +48,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * reachable in a freshly migrated database.
  *
  * <p><b>Why this exists.</b> {@code _admin.edocdelete} was created only by the
- * frozen legacy script {@code database/mysql/updates/update-2008-10-20.sql} and
- * appeared nowhere in the Flyway migration set. On a fresh install the row simply
- * did not exist, so {@code hasPrivilege(..., "_admin.edocdelete", "w", ...)}
- * returned false for every user forever. In {@code DocumentUndelete2Action} that
+ * frozen legacy script {@code database/mysql/updates/update-2008-10-20.sql}, which
+ * inserts the name into {@code secObjectName} and grants it to no role at all, and
+ * it appeared nowhere in the Flyway migration set. Because
+ * {@code hasPrivilege} resolves through {@code SecObjPrivilegeDao} and never reads
+ * {@code secObjectName}, the missing <em>grant</em> is what shut the gate — so it
+ * returned false for every user forever on fresh installs <em>and</em> on legacy
+ * databases that had run the 2008 patch. In {@code DocumentUndelete2Action} that
  * silently demoted administrators to the creator-only undelete branch, and it
  * would have made outbound email archives permanently unretirable.</p>
  *
@@ -159,6 +162,12 @@ class SecurityObjectSeedContractUnitTest {
         assertThat(granted)
                 .as("no secObjPrivilege grants parsed from the %s migration set", province)
                 .isNotEmpty();
+        // Name the two objects this contract was written for. A size floor alone would still
+        // pass if the parser stopped matching exactly these -- which is the regression that
+        // would let the _admin.edocdelete gap recur unnoticed.
+        assertThat(granted)
+                .as("grant scanner no longer sees the objects this contract exists to protect")
+                .contains("_admin.edocdelete", "_edoc");
 
         Set<String> unreachable = new TreeSet<>(referenced);
         unreachable.removeAll(granted);
@@ -187,13 +196,32 @@ class SecurityObjectSeedContractUnitTest {
                 .isEmpty();
     }
 
+    /**
+     * Removes {@code --} line comments so only executable SQL is scanned for object names.
+     * Deliberately naive: CARLOS migrations do not put {@code --} inside string literals, and
+     * over-stripping would only ever cause a false red, which is the safe direction here.
+     */
+    private String stripLineComments(String sql) {
+        StringBuilder stripped = new StringBuilder(sql.length());
+        for (String line : sql.split("\n", -1)) {
+            int comment = line.indexOf("--");
+            stripped.append(comment >= 0 ? line.substring(0, comment) : line).append('\n');
+        }
+        return stripped.toString();
+    }
+
     /** Objects granted to at least one role by the common + province migration set. */
     private Set<String> grantedObjects(String province) {
         Set<String> granted = new LinkedHashSet<>();
         for (Path file : migrationFiles(province)) {
-            // Split on statement terminators so a secObjPrivilege insert cannot absorb
+            // Strip line comments before anything else: object names are routinely discussed in
+            // the prose above a grant, and that prose sits inside the same statement chunk. Left
+            // in, a migration that merely *mentions* an object would register it as granted --
+            // a false green in the one test whose entire value is soundness.
+            //
+            // Then split on statement terminators so a secObjPrivilege insert cannot absorb
             // object names belonging to a neighbouring statement.
-            for (String statement : read(file).split(";")) {
+            for (String statement : stripLineComments(read(file)).split(";")) {
                 if (!statement.contains("secObjPrivilege") || !statement.contains("INSERT")) {
                     continue;
                 }

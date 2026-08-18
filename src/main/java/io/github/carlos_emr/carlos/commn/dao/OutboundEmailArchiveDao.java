@@ -37,7 +37,11 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
      * Finds archive rows for an email log, newest archive first.
      *
      * @param emailLogId persisted email log identifier
-     * @return archives linked to the email log ordered by archived date descending
+     * <p>Includes archives retired by {@code recordControlledDeletion} — retirement is a
+     * {@code deleted} flag plus a tombstone, not a row removal, and this query does not filter
+     * on it. A caller rendering archives to a user is responsible for suppressing them.</p>
+     *
+     * @return archives linked to the email log ordered by archived date descending, retired ones included
      */
     List<OutboundEmailArchive> findByEmailLogId(Integer emailLogId);
 
@@ -71,7 +75,9 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
      * Finds archive rows for a patient demographic, newest archive first.
      *
      * @param demographicNo patient demographic number
-     * @return archives linked to the demographic ordered by archived date descending
+     * <p>Includes retired archives, for the same reason as {@link #findByEmailLogId}.</p>
+     *
+     * @return archives linked to the demographic ordered by archived date descending, retired ones included
      */
     List<OutboundEmailArchive> findByDemographicNo(Integer demographicNo);
 }

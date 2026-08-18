@@ -37,7 +37,7 @@ import java.util.Date;
 /**
  * Metadata for an attachment that was included with an archived outbound email.
  *
- * @since 2026-07-07
+ * @since 2026-08-14
  */
 @Entity
 @Table(name = "outboundEmailArchiveAttachment")
@@ -51,6 +51,19 @@ public class OutboundEmailArchiveAttachment extends OutboundEmailArchiveArtifact
     @Column(length = 50)
     private String sourceDocumentType;
 
+    /**
+     * Caller-asserted provenance metadata. <b>MUST NOT be used as a fetch key.</b>
+     *
+     * <p>It sits next to {@link #getDocument()} and looks interchangeable with it. It is not.
+     * {@code documentNo} is demographic-checked when the archive is created and is backed by a
+     * foreign key; this value is neither. When no {@code Document} is supplied it describes an
+     * artifact living outside the eDoc store and is never verified against anything, so
+     * resolving it to a CARLOS document for display would reintroduce a cross-patient read.
+     * Any viewer must read through {@code documentNo} instead.</p>
+     *
+     * <p>When both are present the service rejects a pair that disagrees, so in that case the
+     * two are known to match — but that check is the only thing constraining this field.</p>
+     */
     private Integer sourceDocumentId;
 
     @Temporal(TemporalType.TIMESTAMP)

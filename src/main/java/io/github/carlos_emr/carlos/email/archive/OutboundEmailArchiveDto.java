@@ -31,7 +31,7 @@ import java.util.List;
 /**
  * Transfer data for storing an exact outbound email artifact in the patient file.
  *
- * @since 2026-07-07
+ * @since 2026-08-14
  */
 public class OutboundEmailArchiveDto {
 
