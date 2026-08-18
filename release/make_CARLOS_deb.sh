@@ -67,8 +67,18 @@ db_name=oscar_15
 ## tolerate fields without default values that are not named in the query
 db_switch=\'?characterEncoding=UTF-8\\\&zeroDateTimeBehavior=round\\\&useOldAliasMetadataBehavior=true\\\&jdbcCompliantTruncation=false\'
 
-# and the target of mvn 3 is
-TARGET=carlos-0-SNAPSHOT.war
+# Derive the WAR name from Maven so CalVer changes cannot break packaging.
+if ! MAVEN_FINAL_NAME=$(mvn -f "${REPO_ROOT}/pom.xml" \
+    help:evaluate -Dexpression=project.build.finalName \
+    -Dstyle.color=never -q -DforceStdout); then
+    echo "ERROR: Could not determine Maven project.build.finalName." >&2
+    exit 1
+fi
+if [[ ! "$MAVEN_FINAL_NAME" =~ ^[A-Za-z0-9._+-]+$ ]]; then
+    echo "ERROR: Unsafe Maven project.build.finalName: $MAVEN_FINAL_NAME" >&2
+    exit 1
+fi
+TARGET="${MAVEN_FINAL_NAME}.war"
 
 buildDateTime=$(date)
 SHA1=""
