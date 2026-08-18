@@ -422,23 +422,38 @@ jobs:
 
           delete_failure_comment() {
             local page=1
+            local comments=""
+            local comment_count=0
             local failure_id=""
 
             while true; do
-              comments=$(curl -fsSL \
+              if ! comments=$(curl -fsSL \
                 -H "Authorization: Bearer $GH_TOKEN" \
                 -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments?per_page=100&page=$page")
+                "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments?per_page=100&page=$page"); then
+                return 1
+              fi
 
-              if [ "$(jq 'length' <<< "$comments")" = "0" ]; then
+              if ! comment_count=$(jq -er \
+                'if type == "array" then length else error("comments response is not an array") end' \
+                <<< "$comments"); then
+                return 1
+              fi
+              if [ "$comment_count" -eq 0 ]; then
                 break
               fi
 
-              failure_id=$(jq -r '.[] | select((.body // "") | contains("<!-- dco-check-failed -->")) | .id' <<< "$comments" | head -n 1)
+              if ! failure_id=$(jq -r \
+                '[.[] | select((.body // "") | contains("<!-- dco-check-failed -->")) | .id][0] // ""' \
+                <<< "$comments"); then
+                return 1
+              fi
               if [ -n "$failure_id" ]; then
-                curl -fsS -X DELETE \
+                if ! curl -fsS -X DELETE \
                   -H "Authorization: Bearer $GH_TOKEN" \
-                  "https://api.github.com/repos/$REPO/issues/comments/$failure_id"
+                  "https://api.github.com/repos/$REPO/issues/comments/$failure_id"; then
+                  return 1
+                fi
                 break
               fi
 
