@@ -156,6 +156,14 @@ jobs:
             echo "::error::diagnostic code table (icd9) empty after migrate for ${PROV}"
             exit 1
           fi
+          if [ "${PROV}" = "on" ]; then
+            OHIP_FILENAME_UQ=$($MYSQL -N carlos_on -e "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema='carlos_on' AND table_name='billing_on_diskname' AND index_name='billing_on_diskname_ohipfilename_uq' AND non_unique=0")
+            HTML_FILENAME_UQ=$($MYSQL -N carlos_on -e "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema='carlos_on' AND table_name='billing_on_filename' AND index_name='billing_on_filename_htmlfilename_uq' AND non_unique=0")
+            if [ "${OHIP_FILENAME_UQ}" != "1" ] || [ "${HTML_FILENAME_UQ}" != "1" ]; then
+              echo "::error::Ontario billing filename unique indexes are missing after migrate"
+              exit 1
+            fi
+          fi
           PHCP_GROUPS=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM dxphcpgroup")
           if [ "${PHCP_GROUPS:-0}" -lt 1 ]; then
             echo "::error::PHCP diagnosis grouping reference data missing after migrate for ${PROV}"

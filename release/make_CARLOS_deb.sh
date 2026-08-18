@@ -425,9 +425,12 @@ rm -f "${FLYWAY_TARBALL}"
 chmod 755 ${SCHEMA_OUT}/flyway-${FLYWAY_VERSION}/flyway
 
 # Bundle incremental update scripts for CARLOS revision upgrades.
-# update-2026-02-14-facility-integrator-removal.sql is intentionally excluded because it
-# drops facility columns that are incompatible with OSCAR 19 installations and cannot be
-# safely applied during a package upgrade.  All other update scripts are included.
+# Two legacy update scripts are intentionally excluded:
+# - update-2026-02-14-facility-integrator-removal.sql drops facility columns that are
+#   incompatible with OSCAR 19 installations.
+# - update-2026-05-03-billing-disk-filename-unique.sql is Ontario-only and is now managed
+#   idempotently by Flyway migration on/V1.0.11__billing_filename_unique_indexes.sql.
+# All other update scripts are included.
 # The postinst script applies these after the WAR is deployed to bring the schema current.
 echo "bundling incremental database update scripts from database/mysql/updates/"
 _update_sql_count=0
@@ -435,8 +438,9 @@ mkdir -p "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
 # Loop through the SQL files in the specified directory
 for _upd_sql in ./database/mysql/updates/update-2026-*.sql; do
     if [ -f "${_upd_sql}" ]; then
-        # Skip the specific destructive SQL file for compatibility reasons.
-        if [[ "${_upd_sql}" == "./database/mysql/updates/update-2026-02-14-facility-integrator-removal.sql" ]]; then
+        # Skip scripts that are unsafe for the blanket, province-neutral legacy update loop.
+        if [[ "${_upd_sql}" == "./database/mysql/updates/update-2026-02-14-facility-integrator-removal.sql" ||
+              "${_upd_sql}" == "./database/mysql/updates/update-2026-05-03-billing-disk-filename-unique.sql" ]]; then
             continue
         fi
         cp "${_upd_sql}" "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
@@ -529,7 +533,6 @@ echo ""
 echo "the md5sum is"
 md5sum "${RELEASE_DIR}/${DEBNAME}.deb"
 echo "#########" `date` "#########"
-
 
 
 
