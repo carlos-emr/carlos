@@ -66,7 +66,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p><b>Two distinct failure modes,</b> both of which leave a gate permanently
  * shut: the object name is never inserted into {@code secObjectName}, or it is
  * inserted but no {@code secObjPrivilege} row ever grants it to a role. Checking
- * grants alone covers both, since an ungranted name is unreachable either way.</p>
+ * grants alone covers both, since an ungranted name is unreachable either way. It
+ * does not cover a third mode — granted, but at too low a privilege — which is
+ * described under the known limits below.</p>
  *
  * <p><b>When this test fails on code you just wrote:</b> seed the object name into
  * {@code secObjectName} and grant it to the appropriate role in the migration that
@@ -82,6 +84,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  * "every gate is reachable". Widening the scan is welcome; until then, do not read
  * a pass as clearance for a gate you added indirectly.</p>
  *
+ * <p><b>The scan compares object names, never privilege levels.</b> It records that
+ * some {@code secObjPrivilege} row mentions the object, not what that row grants or
+ * to whom. A grant of {@code 'r'} against a gate asking for {@code 'w'}, or a grant
+ * scoped to a single {@code provider_no}, still reads as "granted" here while
+ * {@code hasPrivilege} keeps returning false. So this contract would not catch a
+ * change that lowers an existing grant's privilege — only one that removes the grant
+ * outright. ({@code _admin.edocdelete} is granted {@code 'x'}, which
+ * {@code SecurityInfoManagerImpl} accepts wherever {@code 'w'} is asked for.)</p>
+ *
  * @since 2026-08-17
  */
 @DisplayName("Security object seed contract")
@@ -89,8 +100,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("security")
 class SecurityObjectSeedContractUnitTest {
 
-    private static final Path MIGRATIONS = Path.of("database/mysql/migration");
-    private static final Path MAIN_JAVA = Path.of("src/main/java");
+    /** Bounded so a run outside the repository fails fast instead of walking to /. */
+    private static final int MAX_PARENT_SEARCH_DEPTH = 4;
+
+    private static final Path MIGRATIONS = resolveProjectDirectory(Path.of("database/mysql/migration"));
+    private static final Path MAIN_JAVA = resolveProjectDirectory(Path.of("src/main/java"));
 
     /** Sec object literal appearing shortly after a hasPrivilege( call. */
     private static final Pattern PRIVILEGE_CALL =
@@ -221,6 +235,29 @@ class SecurityObjectSeedContractUnitTest {
             throw new UncheckedIOException("cannot scan the main source tree", e);
         }
         return referenced;
+    }
+
+    /**
+     * Resolves a repository-relative directory against the working directory, walking a
+     * bounded number of parents.
+     *
+     * <p>Surefire runs with {@code basedir} as the working directory, but IDE and forked
+     * runs do not always. Failing loudly here matters more than usual: this contract's
+     * whole value is the scan finding things, so a fixture root that silently resolved to
+     * nothing would be the one failure mode worse than a red build.</p>
+     */
+    private static Path resolveProjectDirectory(Path relativePath) {
+        Path current = Path.of(System.getProperty("basedir", System.getProperty("user.dir")))
+                .toAbsolutePath()
+                .normalize();
+        for (int depth = 0; depth <= MAX_PARENT_SEARCH_DEPTH && current != null; depth++) {
+            Path candidate = current.resolve(relativePath);
+            if (Files.isDirectory(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate project directory: " + relativePath);
     }
 
     /**
