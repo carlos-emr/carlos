@@ -156,8 +156,74 @@ jobs:
             echo "::error::diagnostic code table (icd9) empty after migrate for ${PROV}"
             exit 1
           fi
+          PHCP_GROUPS=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM dxphcpgroup")
+          if [ "${PHCP_GROUPS:-0}" -lt 1 ]; then
+            echo "::error::PHCP diagnosis grouping reference data missing after migrate for ${PROV}"
+            exit 1
+          fi
+          if [ "${PROV}" = "bc" ]; then
+            BC_PRECISE_PHCP_GROUP=$($MYSQL -N carlos_bc -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='2740' AND level2='ICD-9 240-279'")
+            if [ "${BC_PRECISE_PHCP_GROUP:-0}" != "1" ]; then
+              echo "::error::BC four-digit diagnosis 2740 was not grouped by its 274 chapter prefix"
+              exit 1
+            fi
+            BC_PADDED_PHCP_GROUP=$($MYSQL -N carlos_bc -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='0320' AND level2='ICD-9 001-139'")
+            BC_CANONICAL_PHCP_GROUP=$($MYSQL -N carlos_bc -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='320' AND level2='ICD-9 320-389'")
+            if [ "${BC_PADDED_PHCP_GROUP:-0}" != "1" ]; then
+              echo "::error::BC zero-padded diagnosis 0320 was not kept distinct in its 032 chapter"
+              exit 1
+            fi
+            if [ "${BC_CANONICAL_PHCP_GROUP:-0}" != "1" ]; then
+              echo "::error::BC diagnosis 320 did not prefer its canonical non-zero-padded chapter"
+              exit 1
+            fi
+          fi
 
           COMMON_RESTORED=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='carlos_${PROV}' AND table_name IN ('demographicstudy','study','studydata','form_hsfo2_visit','providerstudy')")
+          # Exercise the default-measurement seed against MariaDB, not only as SQL text.
+          DEFAULT_GROUPS=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroup WHERE (name,typeDisplayName) IN (('Vitals','BP'),('Vitals','Heart Rate'),('Vitals','RR'),('Vitals','Temp'),('Vitals','Oxygen Saturation'),('Anthropometrics','HT'),('Anthropometrics','WT'),('Anthropometrics','Body Mass Index'),('Anthropometrics','Waist'),('Anthropometrics','Head circumference'),('Diabetes Review','A1C'),('Diabetes Review','Blood Glucose'),('Diabetes Review','FBS'),('Diabetes Review','Alb creat ratio'),('Diabetes Review','EGFR'),('Diabetes Review','LDL'),('Diabetes Review','HDL'),('Diabetes Review','Triglycerides'),('Diabetes Review','TC/HDL'),('Respiratory Review','Oxygen Saturation'),('Respiratory Review','RR'),('Respiratory Review','PEFR value'),('Respiratory Review','Forced Expiratory Volume 1 Second'),('Respiratory Review','Spirometry'),('Respiratory Review','Smoking Status'),('Mental Health Scores','PHQ9 Score'),('Mental Health Scores','GAD7 Anxiety Score'))")
+          if [ "${DEFAULT_GROUPS}" != "27" ]; then
+            echo "::error::expected 27 default measurement-group mappings for ${PROV}, found ${DEFAULT_GROUPS}"
+            exit 1
+          fi
+          DUPLICATE_DEFAULTS=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM (SELECT name, typeDisplayName FROM measurementGroup WHERE (name,typeDisplayName) IN (('Vitals','BP'),('Vitals','Heart Rate'),('Vitals','RR'),('Vitals','Temp'),('Vitals','Oxygen Saturation'),('Anthropometrics','HT'),('Anthropometrics','WT'),('Anthropometrics','Body Mass Index'),('Anthropometrics','Waist'),('Anthropometrics','Head circumference'),('Diabetes Review','A1C'),('Diabetes Review','Blood Glucose'),('Diabetes Review','FBS'),('Diabetes Review','Alb creat ratio'),('Diabetes Review','EGFR'),('Diabetes Review','LDL'),('Diabetes Review','HDL'),('Diabetes Review','Triglycerides'),('Diabetes Review','TC/HDL'),('Respiratory Review','Oxygen Saturation'),('Respiratory Review','RR'),('Respiratory Review','PEFR value'),('Respiratory Review','Forced Expiratory Volume 1 Second'),('Respiratory Review','Spirometry'),('Respiratory Review','Smoking Status'),('Mental Health Scores','PHQ9 Score'),('Mental Health Scores','GAD7 Anxiety Score')) GROUP BY name, typeDisplayName HAVING COUNT(*) <> 1) duplicates")
+          if [ "${DUPLICATE_DEFAULTS}" != "0" ]; then
+            echo "::error::default measurement-group mappings contain duplicates for ${PROV}"
+            exit 1
+          fi
+          DEFAULT_STYLES=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName IN ('Vitals', 'Anthropometrics', 'Diabetes Review', 'Respiratory Review', 'Mental Health Scores') AND cssID=0")
+          if [ "${DEFAULT_STYLES}" != "5" ]; then
+            echo "::error::expected five default measurement-group styles for ${PROV}, found ${DEFAULT_STYLES}"
+            exit 1
+          fi
+          ORPHAN_TEST_STYLE=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroupStyle mgs LEFT JOIN measurementGroup mg ON mg.name=mgs.groupName WHERE mgs.groupName='Test' AND mg.id IS NULL")
+          if [ "${ORPHAN_TEST_STYLE}" != "0" ]; then
+            echo "::error::orphan Test measurement-group style survived migration for ${PROV}"
+            exit 1
+          fi
+
+          # Reapplying this data-only seed must be safe for interrupted/manual upgrade recovery.
+          $MYSQL carlos_${PROV} < migration/common/V1.0.10__seed_default_measurement_groups.sql
+          REAPPLIED_GROUPS=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroup WHERE (name,typeDisplayName) IN (('Vitals','BP'),('Vitals','Heart Rate'),('Vitals','RR'),('Vitals','Temp'),('Vitals','Oxygen Saturation'),('Anthropometrics','HT'),('Anthropometrics','WT'),('Anthropometrics','Body Mass Index'),('Anthropometrics','Waist'),('Anthropometrics','Head circumference'),('Diabetes Review','A1C'),('Diabetes Review','Blood Glucose'),('Diabetes Review','FBS'),('Diabetes Review','Alb creat ratio'),('Diabetes Review','EGFR'),('Diabetes Review','LDL'),('Diabetes Review','HDL'),('Diabetes Review','Triglycerides'),('Diabetes Review','TC/HDL'),('Respiratory Review','Oxygen Saturation'),('Respiratory Review','RR'),('Respiratory Review','PEFR value'),('Respiratory Review','Forced Expiratory Volume 1 Second'),('Respiratory Review','Spirometry'),('Respiratory Review','Smoking Status'),('Mental Health Scores','PHQ9 Score'),('Mental Health Scores','GAD7 Anxiety Score'))")
+          REAPPLIED_STYLES=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName IN ('Vitals', 'Anthropometrics', 'Diabetes Review', 'Respiratory Review', 'Mental Health Scores') AND cssID=0")
+          if [ "${REAPPLIED_GROUPS}" != "${DEFAULT_GROUPS}" ] || [ "${REAPPLIED_STYLES}" != "${DEFAULT_STYLES}" ]; then
+            echo "::error::reapplying the default measurement-group seed created duplicates for ${PROV}"
+            exit 1
+          fi
+
+          # A missing measurement type must be skipped, and a mapped Test style must be preserved.
+          $MYSQL carlos_${PROV} -e "DELETE FROM measurementGroupStyle WHERE groupName='Test'; DELETE FROM measurementGroup WHERE name='Test'; DELETE FROM measurementGroup WHERE name='Mental Health Scores' AND typeDisplayName='GAD7 Anxiety Score'; DELETE FROM measurementType WHERE typeDisplayName='GAD7 Anxiety Score'; INSERT INTO measurementGroup (name,typeDisplayName) VALUES ('Test','BP'); INSERT INTO measurementGroupStyle (groupName,cssID) VALUES ('Test',0);"
+          $MYSQL carlos_${PROV} < migration/common/V1.0.10__seed_default_measurement_groups.sql
+          UNAVAILABLE_MAPPING=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroup WHERE name='Mental Health Scores' AND typeDisplayName='GAD7 Anxiety Score'")
+          PRESERVED_TEST_STYLE=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName='Test'")
+          if [ "${UNAVAILABLE_MAPPING}" != "0" ]; then
+            echo "::error::seed created a mapping for an unavailable measurement type in ${PROV}"
+            exit 1
+          fi
+          if [ "${PRESERVED_TEST_STYLE}" != "1" ]; then
+            echo "::error::seed did not preserve a mapped Test style in ${PROV}"
+            exit 1
+          fi
           if [ "${COMMON_RESTORED}" != "5" ]; then
             echo "::error::restored common legacy tables missing for ${PROV} (found ${COMMON_RESTORED}/5)"
             exit 1
@@ -233,6 +299,10 @@ jobs:
             echo "SET FOREIGN_KEY_CHECKS=1;"
           } | $MYSQL "${ADOPT_DB}"
 
+          # Some live clinics already have the legacy PHCP lookup. Prove the forward migration
+          # adopts its old shape, preserves clinic-specific mappings, and seeds missing codes.
+          $MYSQL "${ADOPT_DB}" -e "CREATE TABLE dxphcpgroup (dxcode int NOT NULL, level1 varchar(100) NOT NULL, level2 varchar(100) NOT NULL, PRIMARY KEY (dxcode)) ENGINE=MyISAM DEFAULT CHARSET=latin1; INSERT INTO dxphcpgroup (dxcode, level1, level2) VALUES (2, 'Clinic padded sentinel', 'Custom padded grouping'), (250, 'Clinic PHCP sentinel', 'Custom diabetes grouping'), (320, 'Clinic collision sentinel', 'Custom collision grouping');"
+
           # Real BC installs can already have this live legacy form even though the consolidated
           # V1.0.1 fixture does not. Verify V1.0.6's IF NOT EXISTS contract preserves it verbatim.
           if [ "${PROV}" = "bc" ]; then
@@ -270,7 +340,22 @@ jobs:
             exit 1
           fi
 
+          ADOPT_PHCP_SENTINEL=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='250' AND level1='Clinic PHCP sentinel' AND level2='Custom diabetes grouping'")
+          ADOPT_PHCP_PADDED=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='002' AND level1='Clinic padded sentinel' AND level2='Custom padded grouping'")
+          ADOPT_PHCP_SEED=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode='003' AND level2='ICD-9 001-139'")
+          ADOPT_PHCP_KEY_TYPE=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='${ADOPT_DB}' AND table_name='dxphcpgroup' AND column_name='dxcode' AND data_type='varchar' AND character_maximum_length=5")
+          ADOPT_PHCP_AUDIT=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='${ADOPT_DB}' AND table_name='dxphcpgroup' AND column_name IN ('lastUpdateUser','lastUpdateDate')")
+          if [ "${ADOPT_PHCP_SENTINEL}" != "1" ] || [ "${ADOPT_PHCP_PADDED}" != "1" ] || [ "${ADOPT_PHCP_SEED}" != "1" ] || [ "${ADOPT_PHCP_KEY_TYPE}" != "1" ] || [ "${ADOPT_PHCP_AUDIT}" != "2" ]; then
+            echo "::error::adopted PHCP lookup did not preserve clinic mappings, expand padded keys, seed code 003, or add audit columns for ${PROV}"
+            exit 1
+          fi
+
           if [ "${PROV}" = "bc" ]; then
+            ADOPT_BC_PHCP_COLLISION=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode IN ('0320','320') AND level1='Clinic collision sentinel' AND level2='Custom collision grouping'")
+            if [ "${ADOPT_BC_PHCP_COLLISION}" != "2" ]; then
+              echo "::error::adopted BC PHCP lookup did not preserve the legacy 0320/320 collision mapping"
+              exit 1
+            fi
             ADOPT_BC_TYPE=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='${ADOPT_DB}' AND table_name='formBCNewBorn2008' AND column_name='Section16Text' AND data_type='varchar' AND character_maximum_length=255")
             ADOPT_BC_SENTINEL=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM formBCNewBorn2008 WHERE demographic_no=-2008 AND Section16Text='legacy-sentinel'")
             if [ "${ADOPT_BC_TYPE}" != "1" ] || [ "${ADOPT_BC_SENTINEL}" != "1" ]; then

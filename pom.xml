@@ -85,15 +85,15 @@
         <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
         <argLine/>
         <!-- Log4j Version -->
-        <log4j2.version>2.25.4</log4j2.version>
+        <log4j2.version>2.25.5</log4j2.version>
         <!-- Slf4j Version -->
         <slf4j.version>2.0.17</slf4j.version>
         <!-- Hapi Fhir Version -->
         <hapifhir.version>8.4.0</hapifhir.version>
         <!-- Apache CXF Version -->
-        <cxf.version>4.1.6</cxf.version>
+        <cxf.version>4.1.8</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
-        <netty.version>4.1.136.Final</netty.version>
+        <netty.version>4.1.137.Final</netty.version>
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
         <drools.version>10.1.0</drools.version>
         <!-- Spring -->
@@ -104,7 +104,7 @@
         <!-- Jackson -->
         <jackson.version>2.22.1</jackson.version>
         <!-- Apache HttpClient 5 -->
-        <httpclient5.version>5.6.1</httpclient5.version>
+        <httpclient5.version>5.6.3</httpclient5.version>
         <!-- Version of the provided-scope Tomcat artifacts we compile against. The servlet
              container actually deployed against is a deployment concern (see the Dockerfile
              base image); this property does not constrain the runtime. -->
@@ -129,6 +129,8 @@
         <owasp-encoder.version>1.4.0</owasp-encoder.version>
         <!-- OWASP CSRFGuard -->
         <csrfguard.version>4.5.0-jakarta</csrfguard.version>
+        <!-- Structural validation for authorized Query-by-Example SELECTs -->
+        <jsqlparser.version>5.3</jsqlparser.version>
         <!-- JNA: pin transitive ultrabuk-htmltopdf-java range [5.12,) to the locked version -->
         <jna.version>5.19.0</jna.version>
         <!-- HAPI HL7 v2 -->
@@ -319,13 +321,22 @@
                 <artifactId>opentelemetry-api</artifactId>
                 <version>1.62.0</version>
             </dependency>
-            <!-- Override transitive Artemis 2.50.0 from cxf-services-wsn-core.
-                 Security fix for missing authentication on critical functions (patched in 2.52.0);
-                 see the Dependabot alert for org.apache.artemis:artemis-server 2.50.0. -->
+            <!-- Pin the httpcore5 pair reached transitively through httpclient5 and through the
+                 older httpclient5-cache 5.3.1 that is also in the tree. 5.4.3 fixes CVE-2026-54399
+                 (unbounded HTTP/1 header parsing -> memory-exhaustion DoS) and CVE-2026-54428
+                 (HPackDecoder applies no header list size limit until the HTTP/2 SETTINGS frame is
+                 acknowledged). httpclient5 5.6.3 already resolves 5.4.3 on its own; this pin keeps
+                 that from silently regressing if dependency depth shifts and the older
+                 httpclient5-cache branch becomes the nearest one. -->
             <dependency>
-                <groupId>org.apache.artemis</groupId>
-                <artifactId>artemis-server</artifactId>
-                <version>2.52.0</version>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5</artifactId>
+                <version>5.4.3</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5-h2</artifactId>
+                <version>5.4.3</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -444,6 +455,20 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-csv</artifactId>
             <version>1.14.1</version>
+        </dependency>
+
+        <!-- SQL parsing used to fail closed before Query-by-Example reaches JDBC -->
+        <dependency>
+            <groupId>com.github.jsqlparser</groupId>
+            <artifactId>jsqlparser</artifactId>
+            <version>${jsqlparser.version}</version>
+            <exclusions>
+                <!-- Benchmarking support is not used by the parser at runtime. -->
+                <exclusion>
+                    <groupId>org.openjdk.jmh</groupId>
+                    <artifactId>jmh-core</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- ==================== HTTP Client ==================== -->
 
@@ -935,7 +960,7 @@
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
-            <version>1.22.1</version>
+            <version>1.23.1</version>
         </dependency>
 
         <dependency>
@@ -1446,6 +1471,13 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.14</version>
+                <configuration>
+                    <!-- JSqlParser's generated token-manager method exceeds the JVM method
+                         size after instrumentation; dependency code is outside our coverage scope. -->
+                    <excludes>
+                        <exclude>net.sf.jsqlparser.*</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>

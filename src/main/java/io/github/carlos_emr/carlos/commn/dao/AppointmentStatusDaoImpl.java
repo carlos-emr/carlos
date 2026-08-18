@@ -175,34 +175,29 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
     @Override public void batchRemoveWithIndependentCommits(List<AppointmentStatus> list, int size) { super.batchRemoveWithIndependentCommits(list, size); }
 
     /**
-     * I don't know about this one...but i'm just converting it to a JPA entity for
-     * now.
+     * Finds the first inactive status that still has associated appointments.
      *
-     * @param allStatus
-     * @return int
+     * @param allStatus statuses to check, in the order referenced by the returned index
+     * @return the index of the first inactive status in use, or {@code -1} when none are in use
      */
     @Override
     public int checkStatusUsuage(List<AppointmentStatus> allStatus) {
-        int iUsuage = 0;
-        AppointmentStatus apptStatus = null;
-        String sql = null;
         for (int i = 0; i < allStatus.size(); i++) {
-            apptStatus = allStatus.get(i);
-            if (apptStatus.getActive() == 1)
+            AppointmentStatus apptStatus = allStatus.get(i);
+            if (apptStatus.getActive() == 1) {
                 continue;
-            sql = "select count(*) as total from appointment a where a.status like ?1 ";
+            }
+            String sql = "select count(*) as total from appointment a where a.status like ?1 ";
             // sql = sql + "collate latin1_general_cs";
 
             Query q = entityManager.createNativeQuery(sql);
             q.setParameter(1, apptStatus.getStatus() + "%");
             Object result = q.getSingleResult();
 
-            iUsuage = ((Number) result).intValue();
-            if (iUsuage > 0) {
-                iUsuage = i;
-                break;
+            if (((Number) result).intValue() > 0) {
+                return i;
             }
         }
-        return iUsuage;
+        return -1;
     }
 }
