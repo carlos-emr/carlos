@@ -315,8 +315,10 @@ WHERE NOT EXISTS (
 -- Administration > Default Encounter Issue stores a comma-separated list of
 -- issue_id values in one row per provider, and the action only ever reads the
 -- latest row. Resolve the ids from `issue.code` so the fixture survives the
--- auto-increment ordering of whatever dump seeded that table. HAVING drops the
--- all-NULL aggregate row when the guard or the code filter matches nothing.
+-- auto-increment ordering of whatever dump seeded that table. HAVING requires all
+-- three codes to be present: it drops the all-NULL aggregate row when the guard
+-- or the code filter matches nothing, and also refuses to seed a partial list if
+-- a dump ships only some of the CPP codes.
 INSERT INTO default_issue (assigned_time, issue_ids, provider_no, update_time)
 SELECT
     NOW(),
@@ -328,7 +330,7 @@ WHERE i.code IN ('OMeds', 'SocHistory', 'MedHistory')
   AND NOT EXISTS (
       SELECT 1 FROM default_issue WHERE provider_no = '999998'
   )
-HAVING GROUP_CONCAT(i.issue_id) IS NOT NULL;
+HAVING COUNT(DISTINCT i.code) = 3;
 
 -- Report by Template --------------------------------------------------------
 -- `reportTemplates` is a different table from `report_template` (which the demo

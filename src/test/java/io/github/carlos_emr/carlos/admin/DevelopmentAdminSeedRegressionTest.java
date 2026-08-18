@@ -24,14 +24,23 @@ class DevelopmentAdminSeedRegressionTest {
 
     private static final Path ADMIN_SEED = Path.of(
             ".devcontainer", "db", "scripts", "admin_test_data.sql");
+    private static final Path DB_DOCKERFILE = Path.of(
+            ".devcontainer", "db", "Dockerfile");
+    private static final Path POPULATE_DB = Path.of(
+            ".devcontainer", "db", "scripts", "populate_db.sh");
+
+    /**
+     * Surefire and IDEs do not agree on the working directory, so source-tree
+     * fixtures are located by walking up from user.dir rather than assumed to sit
+     * under the repo root. Mirrors StrutsAdminConfigTest in this package.
+     */
+    private static final int MAX_PARENT_SEARCH_DEPTH = 8;
 
     @Test
     @DisplayName("should load admin fixtures after the eForm migrations")
     void shouldLoadAdminFixtures_afterEformMigrations() throws IOException {
-        String dockerfile = Files.readString(
-                Path.of(".devcontainer", "db", "Dockerfile"), StandardCharsets.UTF_8);
-        String populate = Files.readString(
-                Path.of(".devcontainer", "db", "scripts", "populate_db.sh"), StandardCharsets.UTF_8);
+        String dockerfile = readProjectFile(DB_DOCKERFILE);
+        String populate = readProjectFile(POPULATE_DB);
 
         assertThat(dockerfile)
                 .contains("COPY ./.devcontainer/db/scripts/admin_test_data.sql /scripts/admin_test_data.sql");
@@ -48,7 +57,7 @@ class DevelopmentAdminSeedRegressionTest {
     @Test
     @DisplayName("should cover the data-backed Administration screens that are empty in the base dump")
     void shouldCoverAdministrationScreens_whenBaseDumpIsEmpty() throws IOException {
-        String seed = Files.readString(ADMIN_SEED, StandardCharsets.UTF_8);
+        String seed = readProjectFile(ADMIN_SEED);
 
         assertThat(seed).contains(
                 "'locktest'",
@@ -69,7 +78,7 @@ class DevelopmentAdminSeedRegressionTest {
     @Test
     @DisplayName("should seed current and deleted patient-independent eForms")
     void shouldSeedPatientIndependentEforms_forBothAdministrationViews() throws IOException {
-        String seed = Files.readString(ADMIN_SEED, StandardCharsets.UTF_8);
+        String seed = readProjectFile(ADMIN_SEED);
 
         assertThat(seed).contains(
                 "'Local Test - Independent Checklist'",
@@ -94,7 +103,7 @@ class DevelopmentAdminSeedRegressionTest {
     @Test
     @DisplayName("should keep local admin fixtures repeatable and visibly synthetic")
     void shouldKeepFixtures_repeatableAndSynthetic() throws IOException {
-        String seed = Files.readString(ADMIN_SEED, StandardCharsets.UTF_8);
+        String seed = readProjectFile(ADMIN_SEED);
 
         assertThat(seed)
                 .contains("WHERE NOT EXISTS")
@@ -103,5 +112,25 @@ class DevelopmentAdminSeedRegressionTest {
                 .contains("LOCAL-COVID-2026-B")
                 .contains("LOCAL-DTAP-ARCHIVED")
                 .doesNotContain("INSERT INTO demographic ");
+    }
+
+    private static String readProjectFile(Path relativePath) throws IOException {
+        return Files.readString(resolveProjectPath(relativePath), StandardCharsets.UTF_8);
+    }
+
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        int checkedParents = 0;
+        while (current != null && checkedParents < MAX_PARENT_SEARCH_DEPTH) {
+            Path candidate = current.resolve(relativePath);
+            if (Files.isRegularFile(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+            checkedParents++;
+        }
+        throw new IllegalStateException("Unable to locate " + relativePath
+                + " within " + MAX_PARENT_SEARCH_DEPTH + " parent directories from "
+                + System.getProperty("user.dir"));
     }
 }
