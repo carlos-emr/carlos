@@ -345,6 +345,7 @@ def confirm_email_change(
     confirmation_token: str,
     token_secret: str,
     clinic_id: str,
+    token_ttl: timedelta,
 ) -> EmailChangeConfirmation:
     """Apply a confirmed contact change and open the CARLOS demographic-sync review.
 
@@ -395,6 +396,7 @@ def confirm_email_change(
     if (
         email_change_request is None
         or email_change_request.status != EMAIL_CHANGE_STATUS_PENDING
+        or is_past(email_change_request.created_at + token_ttl, now)
         or is_past(email_change_request.expires_at, now)
     ):
         if (
@@ -673,25 +675,19 @@ def review_contact_update(
     Suspected takeover is a separate security action: staff must disable portal access through the
     `portal.account.manage` endpoint, which immediately revokes sessions and recovery artifacts.
     """
-    review_locator = session.execute(
-        select(
-            PatientPortalContactReviewRequest.id,
-            PatientPortalContactReviewRequest.account_id,
-            PatientPortalContactReviewRequest.demographic_no,
-        )
+    review_account_id = (
+        select(PatientPortalContactReviewRequest.account_id)
         .where(
             PatientPortalContactReviewRequest.id == review_request_id,
             PatientPortalContactReviewRequest.clinic_id == clinic_id,
         )
-    ).one_or_none()
-    if review_locator is None:
-        raise ContactReviewNotFoundError()
+        .scalar_subquery()
+    )
     account = session.scalar(
         select(PatientPortalAccount)
         .where(
-            PatientPortalAccount.id == review_locator.account_id,
+            PatientPortalAccount.id == review_account_id,
             PatientPortalAccount.clinic_id == clinic_id,
-            PatientPortalAccount.demographic_no == review_locator.demographic_no,
         )
         .with_for_update()
     )
@@ -699,7 +695,12 @@ def review_contact_update(
         raise ContactReviewNotFoundError()
     review_request = session.scalar(
         select(PatientPortalContactReviewRequest)
-        .where(PatientPortalContactReviewRequest.id == review_locator.id)
+        .where(
+            PatientPortalContactReviewRequest.id == review_request_id,
+            PatientPortalContactReviewRequest.clinic_id == clinic_id,
+            PatientPortalContactReviewRequest.account_id == account.id,
+            PatientPortalContactReviewRequest.demographic_no == account.demographic_no,
+        )
         .with_for_update()
         .execution_options(populate_existing=True)
     )

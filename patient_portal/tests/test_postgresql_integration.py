@@ -733,6 +733,7 @@ def test_postgresql_concurrent_email_changes_leave_one_pending_confirmation() ->
                     confirmation_token=superseded_token,
                     token_secret=token_secret,
                     clinic_id="postgres-clinic",
+                    token_ttl=timedelta(days=1),
                 )
             session.rollback()
 
@@ -742,6 +743,7 @@ def test_postgresql_concurrent_email_changes_leave_one_pending_confirmation() ->
                 confirmation_token=live_token,
                 token_secret=token_secret,
                 clinic_id="postgres-clinic",
+                token_ttl=timedelta(days=1),
             )
             assert confirmation.review_request is not None
             session.commit()

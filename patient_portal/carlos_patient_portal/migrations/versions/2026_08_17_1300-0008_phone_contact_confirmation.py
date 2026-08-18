@@ -8,7 +8,7 @@ Create Date: 2026-08-17 13:00:00+00:00
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
+from alembic import context, op
 
 _ALEMBIC_REVISION_IDENTIFIERS: dict[str, str | Sequence[str] | None] = {
     "revision": "0008_phone_contact_confirmation",
@@ -62,6 +62,11 @@ def upgrade() -> None:
         ["expires_at", "id"],
     )
     op.create_index(
+        "ix_pp_email_change_expires",
+        "patient_portal_email_change_requests",
+        ["expires_at", "id"],
+    )
+    op.create_index(
         "ix_pp_invites_expires_status",
         "patient_portal_invites",
         ["expires_at", "status", "id"],
@@ -72,6 +77,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    if context.is_offline_mode():
+        raise RuntimeError("migration 0008 requires an online connection for downgrade preflight")
     connection = op.get_bind()
     pending_phone_count = connection.execute(
         sa.text(
@@ -88,6 +95,10 @@ def downgrade() -> None:
     op.drop_index("ix_pp_invites_expires_status", table_name="patient_portal_invites")
     op.drop_index(
         "ix_pp_reset_expires", table_name="patient_portal_password_reset_tokens"
+    )
+    op.drop_index(
+        "ix_pp_email_change_expires",
+        table_name="patient_portal_email_change_requests",
     )
     op.drop_index("ix_pp_mfa_expires", table_name="patient_portal_mfa_challenges")
     op.drop_index("ix_pp_sessions_revoked", table_name="patient_portal_sessions")

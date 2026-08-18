@@ -237,7 +237,7 @@
                 <input id="email-password-date-to" name="date_to" type="date" value="{{ email_passwords.date_to }}">
               </label>
               <button class="secondary-action" type="submit">{{ text.search }}</button>
-              {% if email_passwords.has_filters %}
+              {% if email_passwords.has_filters or email_passwords.filter_error %}
                 <a class="secondary-action" href="{{ url_for('portal_email_passwords') }}">{{ text.reset_filters }}</a>
               {% endif %}
             </form>

@@ -226,6 +226,14 @@ def test_patient_activation_rejects_sms_when_sender_is_unavailable() -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"] == "MFA delivery method is unavailable"
+    with app.state.session_factory() as session:
+        event = session.scalar(
+            select(PatientPortalAuditEvent)
+            .where(PatientPortalAuditEvent.event_type == AUDIT_EVENT_ACTIVATION)
+            .order_by(PatientPortalAuditEvent.id.desc())
+        )
+        assert event is not None
+        assert event.outcome == AUDIT_OUTCOME_FAILURE
 
 
 def test_patient_activation_rejects_identity_mismatch_without_account_leak() -> None:

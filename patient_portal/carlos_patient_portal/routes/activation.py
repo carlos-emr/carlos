@@ -10,6 +10,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.responses import Response
 
 from carlos_patient_portal.accounts import (
+    ActivationDeliveryUnavailableError,
     ActivationError,
     ActivationThrottledError,
     UsernameUnavailableError,
@@ -18,7 +19,6 @@ from carlos_patient_portal.accounts import (
 from carlos_patient_portal.audit import hash_sensitive_reference
 from carlos_patient_portal.i18n import portal_text
 from carlos_patient_portal.identity import IdentityProof
-from carlos_patient_portal.models import MFA_DELIVERY_METHOD_SMS
 from carlos_patient_portal.runtime import (
     PortalRuntime,
     RouteDependencies,
@@ -104,21 +104,6 @@ def register_activation_routes(
             "activation_client",
             get_request_client_reference(request, settings),
         )
-        if payload.mfa_delivery_method == MFA_DELIVERY_METHOD_SMS and runtime.sms_sender is None:
-            if is_browser_form:
-                return render_public_auth_template(
-                    request,
-                    settings=settings,
-                    csrf_secret=csrf_secret,
-                    template_name=ACTIVATION_TEMPLATE,
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    error_message=localized_activation_text(request)["mfa_delivery_unavailable"],
-                    sms_mfa_available=False,
-                )
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content={"detail": MFA_DELIVERY_UNAVAILABLE_DETAIL},
-            )
         try:
             account = await run_in_threadpool(
                 activate_patient_account,
@@ -133,10 +118,26 @@ def register_activation_routes(
                 password=payload.password,
                 preferred_mfa_method=payload.mfa_delivery_method,
                 phone_number=payload.phone_number,
+                sms_delivery_available=runtime.sms_sender is not None,
                 proof_secret=identity_proof_secret,
                 client_reference_hash=client_reference_hash,
                 rate_limit=activation_rate_limit,
                 expected_clinic_id=settings.clinic_id,
+            )
+        except ActivationDeliveryUnavailableError:
+            if is_browser_form:
+                return render_public_auth_template(
+                    request,
+                    settings=settings,
+                    csrf_secret=csrf_secret,
+                    template_name=ACTIVATION_TEMPLATE,
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    error_message=localized_activation_text(request)["mfa_delivery_unavailable"],
+                    sms_mfa_available=False,
+                )
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"detail": MFA_DELIVERY_UNAVAILABLE_DETAIL},
             )
         except UsernameUnavailableError:
             if is_browser_form:

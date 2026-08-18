@@ -282,3 +282,15 @@ document.addEventListener("keydown", (event) => {
     firstElement.focus();
   }
 });
+
+const activationMfaMethod = document.querySelector("[data-activation-mfa-method]");
+const activationPhone = document.querySelector("[data-activation-phone]");
+if (activationMfaMethod instanceof HTMLSelectElement && activationPhone instanceof HTMLInputElement) {
+  const syncActivationPhoneRequirement = () => {
+    const required = activationMfaMethod.value === "sms";
+    activationPhone.required = required;
+    activationPhone.setAttribute("aria-required", String(required));
+  };
+  activationMfaMethod.addEventListener("change", syncActivationPhoneRequirement);
+  syncActivationPhoneRequirement();
+}

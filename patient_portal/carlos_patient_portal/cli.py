@@ -239,6 +239,7 @@ def maintenance(argv: Sequence[str] | None = None) -> None:
                     f"{action}: sessions={cleanup_result.sessions} "
                     f"mfa_challenges={cleanup_result.mfa_challenges} "
                     f"reset_records={cleanup_result.reset_records} "
+                    f"email_change_requests={cleanup_result.email_change_requests} "
                     f"invites={cleanup_result.invites} total={cleanup_result.total}"
                 )
                 return

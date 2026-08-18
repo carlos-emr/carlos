@@ -142,15 +142,16 @@ def assemble_email_password_dashboard(
     invalid_date_range = date_from is not None and date_to is not None and date_from > date_to
     has_filter_error = filter_error is not None or invalid_date_range
     has_filters = any((normalized_search, normalized_provider, date_from, date_to))
-    created_from = (
-        datetime.combine(
+    if date_from is None:
+        created_from = None
+    elif date_from == date.min:
+        created_from = datetime.min.replace(tzinfo=UTC)
+    else:
+        created_from = datetime.combine(
             date_from,
             datetime_time.min,
             tzinfo=ZoneInfo(timezone_name),
         ).astimezone(UTC)
-        if date_from is not None
-        else None
-    )
     created_before = dashboard_created_before(date_to, timezone_name=timezone_name)
     # A rejected filter must not run a query whose bounds were never valid.
     total_records = (

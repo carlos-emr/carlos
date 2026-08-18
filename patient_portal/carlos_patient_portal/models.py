@@ -292,7 +292,8 @@ class PatientPortalContactReviewRequest(Base):
         CheckConstraint(
             (
                 "status = 'reviewed' or "
-                "(reviewed_at is null and reviewed_by is null and review_decision is null)"
+                "(reviewed_at is null and reviewed_by is null and reviewed_by_id is null and "
+                "review_decision is null)"
             ),
             name="ck_pp_contact_review_unreviewed_null",
         ),
@@ -301,7 +302,8 @@ class PatientPortalContactReviewRequest(Base):
                 "status != 'reviewed' or "
                 "(reviewed_at is not null and reviewed_by is not null and "
                 "review_decision is not null and "
-                "review_decision in ('approved', 'rejected', 'superseded', 'legacy'))"
+                "review_decision in ('approved', 'rejected', 'superseded', 'legacy') and "
+                "(review_decision = 'legacy' or reviewed_by_id is not null))"
             ),
             name="ck_pp_contact_review_reviewed_present",
         ),
@@ -596,6 +598,7 @@ class PatientPortalEmailChangeRequest(Base):
         ),
         Index("ux_pp_email_change_token_hash", "token_hash", unique=True),
         Index("ix_pp_email_change_account_status", "account_id", "status"),
+        Index("ix_pp_email_change_expires", "expires_at", "id"),
         Index(
             "ux_pp_email_change_pending_account",
             "account_id",
@@ -647,6 +650,11 @@ class PatientPortalOutboundDelivery(Base):
             name="ck_pp_outbound_delivery_kind",
         ),
         CheckConstraint(
+            "(kind = 'password_reset' and reset_token_id is not null) or "
+            "(kind = 'contact_change' and reset_token_id is null)",
+            name="ck_pp_outbound_delivery_reset_token_kind",
+        ),
+        CheckConstraint(
             "status in ('pending', 'processing', 'delivered', 'failed')",
             name="ck_pp_outbound_delivery_status",
         ),
@@ -685,7 +693,7 @@ class PatientPortalOutboundDelivery(Base):
         nullable=False,
     )
     reset_token_id: Mapped[int | None] = mapped_column(
-        ForeignKey("patient_portal_password_reset_tokens.id"),
+        ForeignKey("patient_portal_password_reset_tokens.id", ondelete="CASCADE"),
         nullable=True,
     )
     kind: Mapped[str] = mapped_column(String(32), nullable=False)

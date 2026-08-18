@@ -74,7 +74,8 @@ def upgrade() -> None:
             "ck_pp_contact_review_unreviewed_null",
             (
                 "status = 'reviewed' or "
-                "(reviewed_at is null and reviewed_by is null and review_decision is null)"
+                "(reviewed_at is null and reviewed_by is null and reviewed_by_id is null and "
+                "review_decision is null)"
             ),
         )
         batch_op.create_check_constraint(
@@ -83,7 +84,8 @@ def upgrade() -> None:
                 "status != 'reviewed' or "
                 "(reviewed_at is not null and reviewed_by is not null and "
                 "review_decision is not null and "
-                "review_decision in ('approved', 'rejected', 'legacy'))"
+                "review_decision in ('approved', 'rejected', 'legacy') and "
+                "(review_decision = 'legacy' or reviewed_by_id is not null))"
             ),
         )
     op.add_column(
@@ -151,6 +153,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    if context.is_offline_mode():
+        raise RuntimeError("migration 0002 requires an online connection for downgrade preflight")
     connection = op.get_bind()
     version_two_audit_count = connection.execute(
         sa.text(

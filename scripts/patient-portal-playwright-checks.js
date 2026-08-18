@@ -39,7 +39,7 @@ function validateBaseUrl(rawBaseUrl) {
   if (parsed.username || parsed.password) {
     throw new Error('PORTAL_BASE_URL must not contain embedded credentials');
   }
-  const host = parsed.hostname.toLowerCase();
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal']);
   const ipv4Parts = isIP(host) === 4 ? host.split('.').map(Number) : null;
   const privateIpv4 = ipv4Parts !== null && (
@@ -133,6 +133,58 @@ function screenshotPath(name) {
   });
   const page = await context.newPage();
   let passwordChanged = false;
+  let passwordRestoration = null;
+
+  async function restoreSeededPassword() {
+    if (!passwordChanged) {
+      return;
+    }
+    if (passwordRestoration !== null) {
+      await passwordRestoration;
+      return;
+    }
+    passwordRestoration = (async () => {
+      try {
+        await page.goto(portalUrl('/portal/account'), {
+          waitUntil: 'networkidle',
+          timeout: 30000,
+        });
+        const cleanupPasswordForm = page.locator('form', {
+          has: page.locator('input[name="new_password"]'),
+        });
+        await cleanupPasswordForm.locator('input[name="current_password"]').fill(changedPassword);
+        await cleanupPasswordForm.locator('input[name="new_password"]').fill(testPassword);
+        await cleanupPasswordForm.locator('input[name="new_password_confirmation"]').fill(testPassword);
+        await Promise.all([
+          page.waitForURL((url) => (
+            url.pathname === portalPathname('/portal/account')
+            && url.searchParams.get('status') === 'password-updated'
+          )),
+          cleanupPasswordForm.getByRole('button', { name: 'Update password' }).click(),
+        ]);
+        passwordChanged = false;
+      } catch (cleanupError) {
+        console.error(`Failed to restore seeded portal password: ${cleanupError.message}`);
+      }
+    })();
+    await passwordRestoration;
+  }
+
+  let signalHandled = false;
+  for (const [signal, exitCode] of [['SIGINT', 130], ['SIGTERM', 143]]) {
+    process.once(signal, () => {
+      if (signalHandled) {
+        return;
+      }
+      signalHandled = true;
+      void (async () => {
+        await restoreSeededPassword();
+        await context.close().catch(() => {});
+        await browser.close().catch(() => {});
+        process.exit(exitCode);
+      })();
+    });
+  }
 
   page.on('response', (response) => {
     const isExpectedMfaCooldown = response.status() === 429
@@ -187,17 +239,23 @@ function screenshotPath(name) {
     // opening a "language unavailable" modal, so these are no longer buttons.
     assert(await page.locator('.language-switch .text-tab').count() === 5, 'expected five languages');
     assert(
-      await page.locator('.language-switch a[href^="/locale/"]').count() === 4,
+      await page.locator(
+        `.language-switch a[href^="${portalPathname('/locale/')}"]`
+      ).count() === 4,
       'expected four selectable languages'
     );
-    await page.locator('.language-switch a[href^="/locale/fr"]').click();
+    await page.locator(
+      `.language-switch a[href^="${portalPathname('/locale/fr')}"]`
+    ).click();
     await page.getByRole('heading', { name: 'Sign in' }).waitFor();
     assert(
       await page.locator('.language-switch .text-tab.selected[lang="fr"]').count() === 1,
       'selecting a language did not persist'
     );
     // Back to English so the rest of the run reads the locale it asserts against.
-    await page.locator('.language-switch a[href^="/locale/en"]').click();
+    await page.locator(
+      `.language-switch a[href^="${portalPathname('/locale/en')}"]`
+    ).click();
     await page.getByRole('heading', { name: 'Sign in' }).waitFor();
     assert(
       await page.locator('.language-switch .text-tab.selected[lang="en"]').count() === 1,
@@ -605,21 +663,7 @@ function screenshotPath(name) {
     });
 
     // Leave the documented seeded account reusable for the next smoke-test run.
-    await page.getByRole('link', { name: 'Account', exact: true }).click();
-    const restorePasswordForm = page.locator('form', {
-      has: page.locator('input[name="new_password"]'),
-    });
-    await restorePasswordForm.locator('input[name="current_password"]').fill(changedPassword);
-    await restorePasswordForm.locator('input[name="new_password"]').fill(testPassword);
-    await restorePasswordForm.locator('input[name="new_password_confirmation"]').fill(testPassword);
-    await Promise.all([
-      page.waitForURL((url) => (
-        url.pathname === portalPathname('/portal/account')
-        && url.searchParams.get('status') === 'password-updated'
-      )),
-      restorePasswordForm.getByRole('button', { name: 'Update password' }).click(),
-    ]);
-    passwordChanged = false;
+    await restoreSeededPassword();
 
     await Promise.all([
       page.waitForURL((url) => url.pathname === portalPathname('/'), { timeout: 30000 }),
@@ -640,22 +684,7 @@ function screenshotPath(name) {
     console.log(`Help mobile screenshot: ${screenshotPath('patient-portal-help-mobile')}`);
     console.log(`Mobile screenshot: ${screenshotPath('patient-portal-live-mobile')}`);
   } finally {
-    if (passwordChanged) {
-      // Best-effort cleanup for failures after the password-change assertion but before the
-      // normal restoration above. Keeping the browser context open preserves the rotated session.
-      try {
-        await page.goto(portalUrl('/portal/account'), { waitUntil: 'networkidle', timeout: 30000 });
-        const cleanupPasswordForm = page.locator('form', {
-          has: page.locator('input[name="new_password"]'),
-        });
-        await cleanupPasswordForm.locator('input[name="current_password"]').fill(changedPassword);
-        await cleanupPasswordForm.locator('input[name="new_password"]').fill(testPassword);
-        await cleanupPasswordForm.locator('input[name="new_password_confirmation"]').fill(testPassword);
-        await cleanupPasswordForm.getByRole('button', { name: 'Update password' }).click();
-      } catch (cleanupError) {
-        console.error(`Failed to restore seeded portal password: ${cleanupError.message}`);
-      }
-    }
+    await restoreSeededPassword();
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
   }

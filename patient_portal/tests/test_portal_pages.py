@@ -217,6 +217,17 @@ def test_accept_language_selects_a_locale_when_none_was_chosen() -> None:
     assert f'lang="{DEFAULT_LOCALE}"' in unsupported.text
 
 
+@pytest.mark.parametrize("weight", ["2", "nan", "inf"])
+def test_accept_language_ignores_invalid_weights(weight: str) -> None:
+    app = main.create_app(development_settings())
+    response = TestClient(app).get(
+        "/",
+        headers={"Accept-Language": f"fr;q={weight},en;q=0.5"},
+    )
+
+    assert '<span class="text-tab selected" aria-current="true" lang="en"' in response.text
+
+
 def test_static_logo_asset_is_served() -> None:
     app = main.create_app(development_settings())
     response = TestClient(app).get("/static/carlos-logo.png")
@@ -1157,7 +1168,6 @@ def test_expired_email_change_confirmation_is_rejected() -> None:
         with session.begin():
             pending = session.scalar(select(PatientPortalEmailChangeRequest))
             assert pending is not None
-            pending.expires_at = pending.created_at + timedelta(seconds=1)
             pending.created_at = pending.created_at - timedelta(days=2)
             pending.expires_at = pending.created_at + timedelta(seconds=1)
 

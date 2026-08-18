@@ -747,6 +747,7 @@ def register_portal_routes(
                 session,
                 email_password_id,
                 clinic_id=account.clinic_id,
+                account_id=account.id,
                 demographic_no=account.demographic_no,
                 audit_account_id=account.id,
                 actor_type=AUDIT_ACTOR_TYPE_PATIENT,

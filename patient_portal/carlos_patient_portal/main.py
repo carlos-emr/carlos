@@ -45,7 +45,7 @@ from carlos_patient_portal.database import (
     create_session_factory,
 )
 from carlos_patient_portal.email_delivery import PortalEmailSender, build_portal_email_sender
-from carlos_patient_portal.i18n import DEFAULT_LOCALE, portal_text
+from carlos_patient_portal.i18n import portal_text
 from carlos_patient_portal.internal_routes import register_carlos_internal_routes
 from carlos_patient_portal.invites import normalize_staff_actor
 from carlos_patient_portal.models import (
@@ -757,7 +757,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
             session,
             active_module="account",
             status_code=status_code,
-            account_error=portal_text(DEFAULT_LOCALE)["account_change_error"],
+            account_error=portal_text(request_locale(request))["account_change_error"],
         )
 
     return RouteDependencies(

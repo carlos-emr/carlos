@@ -119,6 +119,7 @@ def test_reopening_confirmed_email_link_does_not_cancel_pending_phone_proof() ->
                 confirmation_token=email_token,
                 token_secret=CONTACT_TOKEN_SECRET,
                 clinic_id=account.clinic_id,
+                token_ttl=timedelta(days=1),
             )
             assert not confirmation.applied
 
@@ -129,6 +130,7 @@ def test_reopening_confirmed_email_link_does_not_cancel_pending_phone_proof() ->
                 confirmation_token=email_token,
                 token_secret=CONTACT_TOKEN_SECRET,
                 clinic_id="default",
+                token_ttl=timedelta(days=1),
             )
         session.commit()
 

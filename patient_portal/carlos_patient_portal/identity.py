@@ -132,9 +132,15 @@ def verify_identity_proof(
     ):
         return False
 
-    expected_hashes = build_identity_hashes(proof, secret, salt)
-    return (
-        compare_digest(expected_hashes["proof_email_hash"], email_hash or "")
-        and compare_digest(expected_hashes["proof_date_of_birth_hash"], date_of_birth_hash or "")
-        and compare_digest(expected_hashes["proof_health_card_hash"], health_card_hash or "")
+    try:
+        expected_hashes = build_identity_hashes(proof, secret, salt)
+    except ValueError:
+        return False
+    email_matches = compare_digest(expected_hashes["proof_email_hash"], email_hash or "")
+    date_of_birth_matches = compare_digest(
+        expected_hashes["proof_date_of_birth_hash"], date_of_birth_hash or ""
     )
+    health_card_matches = compare_digest(
+        expected_hashes["proof_health_card_hash"], health_card_hash or ""
+    )
+    return email_matches and date_of_birth_matches and health_card_matches

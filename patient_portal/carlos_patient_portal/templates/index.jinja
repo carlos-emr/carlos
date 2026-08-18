@@ -67,19 +67,7 @@
         </section>
       </div>
 
-      <div class="modal-backdrop" id="portal-message-modal" hidden>
-        <section
-          class="portal-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="portal-message-title"
-          aria-describedby="portal-message-body"
-        >
-          <h2 id="portal-message-title"></h2>
-          <p id="portal-message-body"></p>
-          <button class="primary-action" type="button" data-modal-close>{{ text.modal_close }}</button>
-        </section>
-      </div>
+      {% include "_public_modal.jinja" %}
     </section>
   </main>
 </body>

@@ -7,6 +7,7 @@ Error responses are deliberately uniform across both so a failure reason is not 
 
 import logging
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, status
@@ -251,7 +252,16 @@ def register_login_routes(
         ],
     ) -> dict[str, object] | Response:
         is_browser_form = is_urlencoded_form_request(request)
-        payload = await get_login_request_from_request(request, deps.csrf_secret)
+        try:
+            payload = await get_login_request_from_request(request, deps.csrf_secret)
+        except RequestValidationError:
+            if not is_browser_form:
+                raise
+            return deps.render_index_response(
+                request,
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_message=localized_auth_text(request)["incorrect_username_or_password"],
+            )
         client_reference_hash = hash_sensitive_reference(
             deps.audit_hash_secret,
             "login_client",
@@ -277,7 +287,7 @@ def register_login_routes(
                 request=request,
                 render_index_response=deps.render_index_response,
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                browser_message=portal_text()["incorrect_username_or_password"],
+                browser_message=localized_auth_text(request)["incorrect_username_or_password"],
                 json_content={"detail": "sign-in could not be completed"},
             )
         except AccountLockedError:
@@ -839,6 +849,7 @@ def register_email_change_routes(
                 confirmation_token=confirmation_token,
                 token_secret=runtime.token_keys.email_change,
                 clinic_id=deps.settings.clinic_id,
+                token_ttl=timedelta(seconds=deps.settings.email_change_token_ttl_seconds),
             )
         except (EmailChangeTokenInvalidError, ValueError):
             # Deliberately one generic outcome: an expired link, a superseded link, a link for a

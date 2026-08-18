@@ -8,6 +8,7 @@ key French has not defined. Adding a translation is then only a matter of adding
 renders rather than raising KeyError.
 """
 
+import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
@@ -232,6 +233,7 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "password_updated": "Password updated",
         "patient_dashboard": "Patient dashboard",
         "phone": "Phone",
+        "phone_required_for_sms": "Required when SMS is selected.",
         "phone_confirmation_code": "Phone confirmation code",
         "confirm_phone": "Confirm phone number",
         "resend_phone_confirmation": "Send another code",
@@ -287,9 +289,6 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
 for _locale in SUPPORTED_LOCALES:
     TEXT_CATALOG.setdefault(_locale.code, {})
 
-SUPPORTED_LOCALE_CODES = frozenset(locale.code for locale in SUPPORTED_LOCALES)
-
-
 def normalize_locale(value: str | None) -> str | None:
     """Match a requested locale to a supported one, case- and separator-insensitively.
 
@@ -334,6 +333,8 @@ def parse_accept_language(header_value: str | None) -> str | None:
                 try:
                     weight = float(raw_value)
                 except ValueError:
+                    weight = 0.0
+                if not math.isfinite(weight) or not 0 <= weight <= 1:
                     weight = 0.0
         if weight <= 0:
             continue

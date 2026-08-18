@@ -241,6 +241,12 @@ def test_clinic_id_must_not_be_blank() -> None:
         development_settings(clinic_id=" ")
 
 
+@pytest.mark.parametrize("clinic_id", ["clinic id", "clinic/one", "a" * 21])
+def test_clinic_id_must_fit_hl7_identifier_policy(clinic_id: str) -> None:
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_CLINIC_ID"):
+        development_settings(clinic_id=clinic_id)
+
+
 def test_trusted_client_ip_header_is_normalized() -> None:
     settings = development_settings(
         trusted_client_ip_header=" X-Forwarded-For ",
@@ -421,6 +427,11 @@ def test_password_whitespace_does_not_satisfy_symbol_requirement() -> None:
         credentials.validate_password("Password123 ")
 
 
+def test_password_unicode_alphanumeric_does_not_satisfy_symbol_requirement() -> None:
+    with pytest.raises(ValueError, match="symbol"):
+        credentials.validate_password("Password123é")
+
+
 def test_url_ports_and_unlock_key_ids_fail_during_settings_validation() -> None:
     with pytest.raises(ValidationError, match="valid port"):
         development_settings(public_base_url="http://portal.example.test:not-a-port")
@@ -435,6 +446,14 @@ def test_url_ports_and_unlock_key_ids_fail_during_settings_validation() -> None:
         development_settings(
             unlock_secret_encryption_keyring=(
                 '{" secondary ": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", '
+                '"secondary": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}'
+            ),
+            unlock_secret_active_key_id="secondary",
+        )
+    with pytest.raises(ValidationError, match="duplicate JSON member"):
+        development_settings(
+            unlock_secret_encryption_keyring=(
+                '{"secondary": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", '
                 '"secondary": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}'
             ),
             unlock_secret_active_key_id="secondary",
@@ -479,6 +498,17 @@ def test_probe_allowed_hosts_can_exclude_the_loopback_defaults() -> None:
     )
 
     assert settings.allowed_hosts == ("portal.example.test", "portal.internal")
+
+
+def test_exclusive_probe_hosts_without_aliases_do_not_restore_loopback_defaults() -> None:
+    with_public_host = development_settings(
+        public_base_url="https://portal.example.test",
+        probe_allowed_hosts_exclusive=True,
+    )
+    without_public_host = development_settings(probe_allowed_hosts_exclusive=True)
+
+    assert with_public_host.allowed_hosts == ("portal.example.test",)
+    assert without_public_host.allowed_hosts == ("testserver",)
 
 
 def test_default_settings_reject_missing_production_secrets() -> None:

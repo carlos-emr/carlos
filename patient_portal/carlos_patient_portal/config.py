@@ -1,4 +1,5 @@
 import json
+import re
 from email.utils import parseaddr
 from functools import lru_cache
 from ipaddress import ip_address, ip_network
@@ -31,6 +32,8 @@ DEFAULT_DATABASE_URL = "postgresql+psycopg://localhost:5432/carlos_portal"
 DEFAULT_DEVELOPMENT_SMTP_FROM_ADDRESS = "carlos-test@openo-dev.local"
 MIN_PRODUCTION_SECRET_LENGTH = 32
 MAX_CLINIC_ID_LENGTH = 64
+MAX_CONFIG_CLINIC_ID_LENGTH = 20
+CLINIC_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
 # A conservative day count guarantees at least 25 complete calendar years,
 # including every leap-day distribution, before an event becomes eligible.
 DEFAULT_AUDIT_RETENTION_DAYS = 25 * 366
@@ -50,8 +53,16 @@ ENVIRONMENT_ALIASES = {
 
 
 def parse_unlock_secret_keyring(encoded_keyring: str) -> dict[str, str]:
+    def reject_duplicate_members(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        parsed: dict[str, object] = {}
+        for key, value in pairs:
+            if key in parsed:
+                raise ValueError("unlock-secret keyring contains a duplicate JSON member")
+            parsed[key] = value
+        return parsed
+
     try:
-        parsed_keyring = json.loads(encoded_keyring)
+        parsed_keyring = json.loads(encoded_keyring, object_pairs_hook=reject_duplicate_members)
     except json.JSONDecodeError as exc:
         raise ValueError(
             "PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING must be a JSON object"
@@ -264,12 +275,12 @@ class Settings(BaseSettings):
         had working.
         """
         if self.probe_allowed_hosts is None:
-            return DEFAULT_PROBE_ALLOWED_HOSTS
+            return () if self.probe_allowed_hosts_exclusive else DEFAULT_PROBE_ALLOWED_HOSTS
         aliases = tuple(
             alias.strip() for alias in self.probe_allowed_hosts.split(",") if alias.strip()
         )
         if not aliases:
-            return DEFAULT_PROBE_ALLOWED_HOSTS
+            return () if self.probe_allowed_hosts_exclusive else DEFAULT_PROBE_ALLOWED_HOSTS
         if self.probe_allowed_hosts_exclusive:
             return aliases
         return aliases + tuple(
@@ -463,8 +474,15 @@ class Settings(BaseSettings):
     @classmethod
     def normalize_clinic_id(cls, value: str) -> str:
         clinic_id = value.strip()
-        if not clinic_id:
-            raise ValueError("PATIENT_PORTAL_CLINIC_ID must not be blank")
+        if not 1 <= len(clinic_id) <= MAX_CONFIG_CLINIC_ID_LENGTH:
+            raise ValueError(
+                "PATIENT_PORTAL_CLINIC_ID must contain 1 to 20 characters"
+            )
+        if CLINIC_ID_PATTERN.fullmatch(clinic_id) is None:
+            raise ValueError(
+                "PATIENT_PORTAL_CLINIC_ID may contain only letters, numbers, dots, "
+                "underscores, or hyphens"
+            )
         return clinic_id
 
     @field_validator("clinic_timezone")

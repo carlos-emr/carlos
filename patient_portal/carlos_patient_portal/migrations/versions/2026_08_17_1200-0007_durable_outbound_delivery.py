@@ -32,7 +32,7 @@ def upgrade() -> None:
         sa.Column(
             "reset_token_id",
             sa.Integer(),
-            sa.ForeignKey("patient_portal_password_reset_tokens.id"),
+            sa.ForeignKey("patient_portal_password_reset_tokens.id", ondelete="CASCADE"),
             nullable=True,
         ),
         sa.Column("kind", sa.String(length=32), nullable=False),
@@ -50,6 +50,11 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "kind in ('password_reset', 'contact_change')",
             name="ck_pp_outbound_delivery_kind",
+        ),
+        sa.CheckConstraint(
+            "(kind = 'password_reset' and reset_token_id is not null) or "
+            "(kind = 'contact_change' and reset_token_id is null)",
+            name="ck_pp_outbound_delivery_reset_token_kind",
         ),
         sa.CheckConstraint(
             "status in ('pending', 'processing', 'delivered', 'failed')",

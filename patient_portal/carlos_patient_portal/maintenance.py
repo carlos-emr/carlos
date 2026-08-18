@@ -17,6 +17,7 @@ from carlos_patient_portal.models import (
     INVITE_STATUS_REVOKED,
     INVITE_STATUS_SUPERSEDED,
     PatientPortalAuditEvent,
+    PatientPortalEmailChangeRequest,
     PatientPortalInvite,
     PatientPortalMfaChallenge,
     PatientPortalPasswordResetToken,
@@ -37,11 +38,18 @@ class TransientCleanupResult:
     sessions: int
     mfa_challenges: int
     reset_records: int
+    email_change_requests: int
     invites: int
 
     @property
     def total(self) -> int:
-        return self.sessions + self.mfa_challenges + self.reset_records + self.invites
+        return (
+            self.sessions
+            + self.mfa_challenges
+            + self.reset_records
+            + self.email_change_requests
+            + self.invites
+        )
 
 
 class MaintenanceError(Exception):
@@ -160,6 +168,7 @@ def cleanup_transient_auth_rows(
         ),
         (PatientPortalMfaChallenge, PatientPortalMfaChallenge.expires_at < before),
         (PatientPortalPasswordResetToken, PatientPortalPasswordResetToken.expires_at < before),
+        (PatientPortalEmailChangeRequest, PatientPortalEmailChangeRequest.expires_at < before),
         (
             PatientPortalInvite,
             and_(
@@ -179,7 +188,13 @@ def cleanup_transient_auth_rows(
     # able to silently relabel them.
     counts: dict[str, int] = {}
     for field_name, (model, predicate) in zip(
-        ("sessions", "mfa_challenges", "reset_records", "invites"),
+        (
+            "sessions",
+            "mfa_challenges",
+            "reset_records",
+            "email_change_requests",
+            "invites",
+        ),
         predicates,
         strict=True,
     ):

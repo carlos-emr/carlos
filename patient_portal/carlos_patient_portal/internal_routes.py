@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
+from starlette.concurrency import run_in_threadpool
 from starlette.responses import Response
 
 from carlos_patient_portal.account_settings import (
@@ -359,10 +360,14 @@ def register_internal_failure_audit(app: FastAPI, runtime: InternalRuntime) -> N
             response = await call_next(request)
         except Exception:
             if request.url.path.startswith("/internal/carlos/"):
-                record_failed_internal_action(request, 500)
+                await run_in_threadpool(record_failed_internal_action, request, 500)
             raise
         if request.url.path.startswith("/internal/carlos/") and response.status_code >= 400:
-            record_failed_internal_action(request, response.status_code)
+            await run_in_threadpool(
+                record_failed_internal_action,
+                request,
+                response.status_code,
+            )
         return response
 
 def build_internal_dependencies(runtime: InternalRuntime) -> InternalRouteDependencies:

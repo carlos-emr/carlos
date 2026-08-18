@@ -41,6 +41,10 @@ class ActivationError(Exception):
     """Raised when invite activation details do not match an activatable invite."""
 
 
+class ActivationDeliveryUnavailableError(ActivationError):
+    """Raised after auditing when the requested activation MFA channel is unavailable."""
+
+
 class UsernameUnavailableError(Exception):
     """Raised when the requested username is already in use."""
 
@@ -199,6 +203,7 @@ def activate_patient_account(
     password: str,
     preferred_mfa_method: str = MFA_DELIVERY_METHOD_EMAIL,
     phone_number: str | None = None,
+    sms_delivery_available: bool = True,
     proof_secret: str,
     client_reference_hash: str,
     rate_limit: ActivationRateLimit,
@@ -227,8 +232,18 @@ def activate_patient_account(
         normalized_email = normalize_email(identity_proof.email)
         normalized_mfa_method = normalize_mfa_delivery_method(preferred_mfa_method)
         normalized_phone_number = normalize_phone_number(phone_number)
+        if normalized_mfa_method == MFA_DELIVERY_METHOD_SMS and not sms_delivery_available:
+            raise ActivationDeliveryUnavailableError()
         if normalized_mfa_method == MFA_DELIVERY_METHOD_SMS and normalized_phone_number is None:
             raise ActivationError()
+    except ActivationDeliveryUnavailableError:
+        record_activation_failure(
+            session,
+            invite_token_hash=invite_token_hash,
+            client_reference_hash=client_reference_hash,
+            reason=ACTIVATION_REASON_INVALID_DETAILS,
+        )
+        raise
     except (ActivationError, ValueError) as exc:
         record_activation_failure(
             session,

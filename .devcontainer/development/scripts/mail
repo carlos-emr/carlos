@@ -27,42 +27,65 @@ case $command in
     clear)
       python3 - "$mailbox" <<'PY'
 import mailbox
+import fcntl
+import glob
 import os
 import sys
 
-messages = mailbox.mbox(sys.argv[1], create=True)
-os.chmod(sys.argv[1], 0o600)
-messages.lock()
+mailbox_path = sys.argv[1]
+lock_descriptor = os.open(f"{mailbox_path}.portal-lock", os.O_CREAT | os.O_RDWR, 0o600)
+fcntl.flock(lock_descriptor, fcntl.LOCK_EX)
 try:
-    messages.clear()
-    messages.flush()
+    messages = mailbox.mbox(mailbox_path, create=True)
+    os.chmod(mailbox_path, 0o600)
+    messages.lock()
+    try:
+        messages.clear()
+        messages.flush()
+    finally:
+        messages.unlock()
+        messages.close()
+    for stale_rewrite in glob.glob(f"{mailbox_path}.[0-9]*.*.*"):
+        try:
+            os.unlink(stale_rewrite)
+        except FileNotFoundError:
+            pass
 finally:
-    messages.unlock()
-    messages.close()
+    fcntl.flock(lock_descriptor, fcntl.LOCK_UN)
+    os.close(lock_descriptor)
 print("Mail capture cleared")
 PY
     ;;
     list)
       python3 - "$mailbox" <<'PY'
 import mailbox
+import fcntl
 import os
 import sys
 
-messages = mailbox.mbox(sys.argv[1], create=True)
-os.chmod(sys.argv[1], 0o600)
-messages.lock()
+mailbox_path = sys.argv[1]
+lock_descriptor = os.open(f"{mailbox_path}.portal-lock", os.O_CREAT | os.O_RDWR, 0o600)
+fcntl.flock(lock_descriptor, fcntl.LOCK_SH)
 try:
-    for index, message in enumerate(messages, start=1):
-        print(f"{index}\t{message.get('To', '')}\t{message.get('Subject', '')}")
+    messages = mailbox.mbox(mailbox_path, create=True)
+    os.chmod(mailbox_path, 0o600)
+    messages.lock()
+    try:
+        for index, message in enumerate(messages, start=1):
+            print(f"{index}\t{message.get('To', '')}\t{message.get('Subject', '')}")
+    finally:
+        messages.unlock()
+        messages.close()
 finally:
-    messages.unlock()
-    messages.close()
+    fcntl.flock(lock_descriptor, fcntl.LOCK_UN)
+    os.close(lock_descriptor)
 PY
     ;;
     read)
       selector=${2:-latest}
       python3 - "$mailbox" "$selector" <<'PY'
 import mailbox
+import fcntl
 import os
 import sys
 from email import policy
@@ -71,34 +94,41 @@ from email.parser import BytesParser
 def parse_message(stream):
     return BytesParser(policy=policy.default).parse(stream)
 
-mailbox_file = mailbox.mbox(sys.argv[1], factory=parse_message, create=True)
-os.chmod(sys.argv[1], 0o600)
-mailbox_file.lock()
+mailbox_path = sys.argv[1]
+lock_descriptor = os.open(f"{mailbox_path}.portal-lock", os.O_CREAT | os.O_RDWR, 0o600)
+fcntl.flock(lock_descriptor, fcntl.LOCK_SH)
 try:
-    messages = list(mailbox_file)
-    if not messages:
-        raise SystemExit("No captured mail")
-    selector = sys.argv[2]
-    if selector == "latest":
-        message = messages[-1]
-    else:
-        try:
-            position = int(selector)
-            if position < 1 or position > len(messages):
-                raise IndexError
-            message = messages[position - 1]
-        except (ValueError, IndexError):
-            raise SystemExit(
-                "Message selector must be 'latest' or a listed message number"
-            ) from None
-    body = message.get_body(preferencelist=("plain",))
-    print(f"Envelope-To: {message.get('To', '')}")
-    print(f"Subject: {message.get('Subject', '')}")
-    print()
-    print(body.get_content() if body is not None else message.get_payload())
+    mailbox_file = mailbox.mbox(mailbox_path, factory=parse_message, create=True)
+    os.chmod(mailbox_path, 0o600)
+    mailbox_file.lock()
+    try:
+        messages = list(mailbox_file)
+        if not messages:
+            raise SystemExit("No captured mail")
+        selector = sys.argv[2]
+        if selector == "latest":
+            message = messages[-1]
+        else:
+            try:
+                position = int(selector)
+                if position < 1 or position > len(messages):
+                    raise IndexError
+                message = messages[position - 1]
+            except (ValueError, IndexError):
+                raise SystemExit(
+                    "Message selector must be 'latest' or a listed message number"
+                ) from None
+        body = message.get_body(preferencelist=("plain",))
+        print(f"Envelope-To: {message.get('To', '')}")
+        print(f"Subject: {message.get('Subject', '')}")
+        print()
+        print(body.get_content() if body is not None else message.get_payload())
+    finally:
+        mailbox_file.unlock()
+        mailbox_file.close()
 finally:
-    mailbox_file.unlock()
-    mailbox_file.close()
+    fcntl.flock(lock_descriptor, fcntl.LOCK_UN)
+    os.close(lock_descriptor)
 PY
     ;;
     *)

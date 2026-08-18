@@ -73,6 +73,7 @@ def apply_contact_change(
         confirmation_token=contact_update.confirmation_token,
         token_secret=EMAIL_CHANGE_TOKEN_SECRET,
         clinic_id=clinic_id,
+        token_ttl=timedelta(days=1),
     )
     if contact_update.phone_confirmation_code is not None:
         confirmation = confirm_phone_change(

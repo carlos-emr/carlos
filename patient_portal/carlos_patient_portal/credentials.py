@@ -8,7 +8,6 @@ from carlos_patient_portal.models import MAX_USERNAME_LENGTH, MIN_USERNAME_LENGT
 MIN_PASSWORD_LENGTH = 12
 MAX_PASSWORD_LENGTH = 256
 USERNAME_PATTERN = re.compile(r"^[a-z0-9._-]+$")
-PASSWORD_SYMBOL_PATTERN = re.compile(r"[^A-Za-z0-9\s]")
 
 # Defaults sized for a small clinic VM. Peak hashing memory is roughly
 # max_concurrency * memory_cost — 4 * 64 MiB = 256 MiB here — so a deployment with a different
@@ -111,6 +110,8 @@ def validate_password(password: str) -> str:
         raise ValueError("password must contain a lowercase letter")
     if not any(character.isdigit() for character in password):
         raise ValueError("password must contain a number")
-    if PASSWORD_SYMBOL_PATTERN.search(password) is None:
+    if not any(
+        not character.isalnum() and not character.isspace() for character in password
+    ):
         raise ValueError("password must contain a symbol")
     return password

@@ -120,6 +120,21 @@ def test_login_rate_limit_runs_before_repeated_password_verification() -> None:
     assert [response.status_code for response in responses] == [401, 401, 429]
 
 
+def test_browser_login_validation_renders_sign_in_page() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    sign_in_page = client.get("/")
+
+    response = client.post(
+        "/auth/login",
+        data={"csrf_token": csrf_token_from_response(sign_in_page), "username": ""},
+    )
+
+    assert response.status_code == 400
+    assert "text/html" in response.headers["content-type"]
+    assert "Sign in" in response.text
+
+
 def test_login_mfa_session_and_logout_happy_path() -> None:
     app = migrated_development_app()
     client = TestClient(app)

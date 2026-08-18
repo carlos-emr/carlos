@@ -80,7 +80,8 @@ def upgrade() -> None:
             "status != 'reviewed' or "
             "(reviewed_at is not null and reviewed_by is not null and "
             "review_decision is not null and "
-            "review_decision in ('approved', 'rejected', 'superseded', 'legacy'))",
+            "review_decision in ('approved', 'rejected', 'superseded', 'legacy') and "
+            "(review_decision = 'legacy' or reviewed_by_id is not null))",
         )
     connection = op.get_bind()
     review_ids = connection.execute(
@@ -169,6 +170,9 @@ def downgrade() -> None:
             "where review_decision = 'superseded'"
         )
     ).scalar_one()
+    review_revision_count = connection.execute(
+        sa.text("select count(*) from patient_portal_contact_review_requests")
+    ).scalar_one()
     version_three_audit_count = connection.execute(
         sa.text(
             "select count(*) from patient_portal_audit_events "
@@ -182,10 +186,12 @@ def downgrade() -> None:
         or pending_secret_count
         or version_two_secret_count
         or superseded_review_count
+        or review_revision_count
         or version_three_audit_count
     ):
         raise RuntimeError(
-            "downgrade would discard lifecycle or encryption data; remove v3-only records "
+            "downgrade would discard lifecycle, review-revision, or encryption data; remove "
+            "v3-only records "
             "under an approved retention/migration procedure before retrying"
         )
 
@@ -238,7 +244,8 @@ def downgrade() -> None:
             "status != 'reviewed' or "
             "(reviewed_at is not null and reviewed_by is not null and "
             "review_decision is not null and "
-            "review_decision in ('approved', 'rejected', 'legacy'))",
+            "review_decision in ('approved', 'rejected', 'legacy') and "
+            "(review_decision = 'legacy' or reviewed_by_id is not null))",
         )
 
     with op.batch_alter_table("patient_portal_accounts") as batch_op:
