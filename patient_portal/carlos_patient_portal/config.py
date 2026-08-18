@@ -52,17 +52,34 @@ ENVIRONMENT_ALIASES = {
 }
 
 
-def parse_unlock_secret_keyring(encoded_keyring: str) -> dict[str, str]:
-    def reject_duplicate_members(pairs: list[tuple[str, object]]) -> dict[str, object]:
-        parsed: dict[str, object] = {}
-        for key, value in pairs:
-            if key in parsed:
-                raise ValueError("unlock-secret keyring contains a duplicate JSON member")
-            parsed[key] = value
-        return parsed
+def _reject_duplicate_keyring_members(
+    pairs: list[tuple[str, object]],
+) -> dict[str, object]:
+    parsed: dict[str, object] = {}
+    for key, value in pairs:
+        if key in parsed:
+            raise ValueError("unlock-secret keyring contains a duplicate JSON member")
+        parsed[key] = value
+    return parsed
 
+
+def _validate_distinct_secret_values(configured_secrets: dict[str, str | None]) -> None:
+    secret_domains: dict[str, str] = {}
+    for field_name, secret_value in configured_secrets.items():
+        if secret_value is None:
+            continue
+        reused_by = secret_domains.get(secret_value)
+        if reused_by is not None:
+            raise ValueError(f"{field_name} must not reuse the value configured for {reused_by}")
+        secret_domains[secret_value] = field_name
+
+
+def parse_unlock_secret_keyring(encoded_keyring: str) -> dict[str, str]:
     try:
-        parsed_keyring = json.loads(encoded_keyring, object_pairs_hook=reject_duplicate_members)
+        parsed_keyring = json.loads(
+            encoded_keyring,
+            object_pairs_hook=_reject_duplicate_keyring_members,
+        )
     except json.JSONDecodeError as exc:
         raise ValueError(
             "PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING must be a JSON object"
@@ -563,7 +580,7 @@ class Settings(BaseSettings):
                     f"{environment_name} must be at least "
                     f"{MIN_PRODUCTION_SECRET_LENGTH} characters when set"
                 )
-        _ = self.resolved_unlock_secret_keyring
+        resolved_unlock_secret_keyring = self.resolved_unlock_secret_keyring
 
         session_secret_value = self.secret_value("session_secret")
         if self.session_secret is not None and not session_secret_value:
@@ -580,7 +597,6 @@ class Settings(BaseSettings):
                 f"{MIN_PRODUCTION_SECRET_LENGTH} characters outside development"
             )
         if not self.is_development:
-            secret_domains: dict[str, str] = {}
             configured_secrets = {
                 "PATIENT_PORTAL_SESSION_SECRET": session_secret_value,
                 "PATIENT_PORTAL_IDENTITY_PROOF_SECRET": self.secret_value("identity_proof_secret"),
@@ -598,18 +614,10 @@ class Settings(BaseSettings):
             configured_secrets.update(
                 {
                     f"PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING[{key_id}]": value
-                    for key_id, value in self.resolved_unlock_secret_keyring.items()
+                    for key_id, value in resolved_unlock_secret_keyring.items()
                 }
             )
-            for field_name, secret_value in configured_secrets.items():
-                if secret_value is None:
-                    continue
-                reused_by = secret_domains.get(secret_value)
-                if reused_by is not None:
-                    raise ValueError(
-                        f"{field_name} must not reuse the value configured for {reused_by}"
-                    )
-                secret_domains[secret_value] = field_name
+            _validate_distinct_secret_values(configured_secrets)
 
     def validate_internal_api_rotation_policy(self) -> None:
         if self.internal_api_token_previous is None:

@@ -34,6 +34,9 @@ from carlos_patient_portal.sms_delivery import PortalSmsDeliveryError
 
 logger = logging.getLogger(__name__)
 
+EMAIL_CHANGE_DELIVERY_NOT_CONFIGURED = "email-change confirmation delivery is not configured"
+
+
 def send_mfa_challenge(runtime: PortalRuntime, delivery: MfaChallengeDelivery) -> None:
     if delivery.delivery_method == MFA_DELIVERY_METHOD_EMAIL:
         if runtime.email_sender is None:
@@ -147,7 +150,7 @@ def build_email_change_confirmation_url(
     elif settings.is_development:
         base_url = str(request.base_url).rstrip("/")
     else:
-        raise PortalEmailDeliveryError("email-change confirmation delivery is not configured")
+        raise PortalEmailDeliveryError(EMAIL_CHANGE_DELIVERY_NOT_CONFIGURED)
     return base_url + "/auth/email-change/confirm#token=" + quote(confirmation_token, safe="")
 
 
@@ -160,14 +163,14 @@ def send_email_change_confirmation(
     if runtime.email_sender is None:
         if runtime.settings.is_development:
             return
-        raise PortalEmailDeliveryError("email-change confirmation delivery is not configured")
+        raise PortalEmailDeliveryError(EMAIL_CHANGE_DELIVERY_NOT_CONFIGURED)
     # PortalEmailSender is a structural protocol, so a configured sender can be missing this
     # method. Unlike the advisory notices, this one is load-bearing — without it the patient can
     # never confirm — so a missing method fails the request in every environment rather than
     # leaving a pending change nothing can complete.
     sender = getattr(runtime.email_sender, "send_email_change_confirmation", None)
     if sender is None:
-        raise PortalEmailDeliveryError("email-change confirmation delivery is not configured")
+        raise PortalEmailDeliveryError(EMAIL_CHANGE_DELIVERY_NOT_CONFIGURED)
     sender(
         recipient=recipient,
         confirmation_url=confirmation_url,

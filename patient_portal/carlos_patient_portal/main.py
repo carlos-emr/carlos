@@ -256,7 +256,7 @@ def record_audit_retention_override(runtime: PortalRuntime) -> None:
                 )
     except SQLAlchemyError as exc:
         runtime.operational_metrics.record_failure("retention_policy_audit")
-        logger.error(
+        logger.error(  # NOSONAR - traceback details can contain patient/database values
             "Audit-retention override could not be recorded: %s",
             type(exc).__name__,
         )

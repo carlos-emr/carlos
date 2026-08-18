@@ -6,6 +6,7 @@ Error responses are deliberately uniform across both so a failure reason is not 
 """
 
 import logging
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Annotated
@@ -25,6 +26,7 @@ from carlos_patient_portal.audit import hash_sensitive_reference
 from carlos_patient_portal.auth import (
     AccountLockedError,
     AuthenticatedPortalSession,
+    AuthPolicy,
     InvalidCredentialsError,
     InvalidMfaCodeError,
     MfaChallengeDelivery,
@@ -43,6 +45,7 @@ from carlos_patient_portal.auth import (
     start_login,
     verify_mfa_challenge,
 )
+from carlos_patient_portal.config import Settings
 from carlos_patient_portal.delivery_outbox import (
     enqueue_contact_change_delivery,
     enqueue_password_reset_delivery,
@@ -124,17 +127,17 @@ class AuthRouteDependencies:
     state they genuinely share travels here rather than as implicit closure variables.
     """
 
-    settings: object
-    get_app_database_session: object
-    get_authenticated_portal_session: object
-    render_index_response: object
-    csrf_secret: object
-    audit_hash_secret: object
-    auth_policy: object
-    render_locked_page: object
-    render_password_reset_request: object
-    render_mfa_page: object
-    get_browser_mfa_delivery_state: object
+    settings: Settings
+    get_app_database_session: Callable[..., Generator[Session, None, None]]
+    get_authenticated_portal_session: Callable[..., AuthenticatedPortalSession]
+    render_index_response: Callable[..., Response]
+    csrf_secret: str
+    audit_hash_secret: str
+    auth_policy: AuthPolicy
+    render_locked_page: Callable[..., Response]
+    render_password_reset_request: Callable[..., Response]
+    render_mfa_page: Callable[..., Response]
+    get_browser_mfa_delivery_state: Callable[..., MfaChallengeDelivery | None]
 
 
 def build_auth_dependencies(
@@ -916,7 +919,6 @@ def register_email_change_routes(
 
 def register_session_routes(
     app: FastAPI,
-    runtime: PortalRuntime,
     deps: AuthRouteDependencies,
 ) -> None:
     """Reading the current authenticated session."""
@@ -949,7 +951,7 @@ def register_auth_routes(
     register_mfa_routes(app, runtime, deps)
     register_password_reset_routes(app, runtime, deps)
     register_email_change_routes(app, runtime, deps)
-    register_session_routes(app, runtime, deps)
+    register_session_routes(app, deps)
 
 
 def register_logout_route(

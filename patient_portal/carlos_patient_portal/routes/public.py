@@ -44,7 +44,10 @@ def register_public_routes(
     def index(request: Request) -> Response:
         return render_index_response(request)
 
-    @app.get("/locale/{locale_code}")
+    @app.get(
+        "/locale/{locale_code}",
+        responses={status.HTTP_404_NOT_FOUND: {"description": "Locale is not supported."}},
+    )
     def select_locale(request: Request, locale_code: str, next: str = "/") -> Response:
         """Persist a display-language choice and return the patient to where they were.
 

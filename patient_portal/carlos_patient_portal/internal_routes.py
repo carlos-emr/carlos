@@ -81,6 +81,7 @@ PERMISSION_CONTACT_REVIEW = "portal.contact.review"
 # Part of the CARLOS/Java boundary: one deliberately generic 404 shared by every account lookup so
 # the contract cannot drift branch by branch.
 INTERNAL_ACCOUNT_NOT_FOUND_DETAIL = "portal account not found"
+UNLOCK_SECRET_NOT_FOUND_DETAIL = "unlock secret not found"
 
 
 class InternalErrorResponse(BaseModel):
@@ -345,7 +346,7 @@ def register_internal_failure_audit(app: FastAPI, runtime: InternalRuntime) -> N
             runtime.operational_metrics.record_failure("internal_audit")
             # This middleware is the only record of failed staff actions; if it cannot write, the
             # security log stops while the API keeps serving, so it must be loud in the logs.
-            logger.error(
+            logger.error(  # NOSONAR - traceback details can contain patient/database values
                 "Internal staff-action audit write failed: %s reason=%s status=%s",
                 type(exc).__name__,
                 reason,
@@ -597,7 +598,6 @@ def register_internal_invite_routes(
 
 def register_internal_account_routes(
     app: FastAPI,
-    runtime: InternalRuntime,
     deps: InternalRouteDependencies,
 ) -> None:
     """Portal account state: unlock, status, and access."""
@@ -821,7 +821,7 @@ def register_internal_unlock_secret_routes(
             )
         )
         if demographic_no is None:
-            raise HTTPException(status_code=404, detail="unlock secret not found")
+            raise HTTPException(status_code=404, detail=UNLOCK_SECRET_NOT_FOUND_DETAIL)
         try:
             unlock_secret = publish_unlock_secret(
                 session,
@@ -862,7 +862,7 @@ def register_internal_unlock_secret_routes(
             )
         )
         if demographic_no is None:
-            raise HTTPException(status_code=404, detail="unlock secret not found")
+            raise HTTPException(status_code=404, detail=UNLOCK_SECRET_NOT_FOUND_DETAIL)
         try:
             unlock_secret = revoke_unlock_secret(
                 session,
@@ -874,13 +874,12 @@ def register_internal_unlock_secret_routes(
                 reason=payload.reason,
             )
         except (UnlockSecretNotFoundError, ValueError) as exc:
-            raise HTTPException(status_code=404, detail="unlock secret not found") from exc
+            raise HTTPException(status_code=404, detail=UNLOCK_SECRET_NOT_FOUND_DETAIL) from exc
         return {"id": unlock_secret.id, "status": unlock_secret.status}
 
 
 def register_internal_contact_review_routes(
     app: FastAPI,
-    runtime: InternalRuntime,
     deps: InternalRouteDependencies,
 ) -> None:
     """CARLOS-chart contact reviews: list and decide."""
@@ -966,6 +965,6 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     register_internal_failure_audit(app, runtime)
     deps = build_internal_dependencies(runtime)
     register_internal_invite_routes(app, runtime, deps)
-    register_internal_account_routes(app, runtime, deps)
+    register_internal_account_routes(app, deps)
     register_internal_unlock_secret_routes(app, runtime, deps)
-    register_internal_contact_review_routes(app, runtime, deps)
+    register_internal_contact_review_routes(app, deps)

@@ -37,14 +37,15 @@ DEFAULT_LOCALE = "en"
 # identity meaning, which is why the switch route can accept a GET without a CSRF token.
 LOCALE_COOKIE_NAME = "portal_locale"
 LOCALE_COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60
+DEFAULT_DATETIME_FORMAT = "%Y-%m-%d %H:%M %Z"
 DATETIME_FORMATS = {
-    DEFAULT_LOCALE: "%Y-%m-%d %H:%M %Z",
+    DEFAULT_LOCALE: DEFAULT_DATETIME_FORMAT,
     # Placeholders alongside the English catalog: ISO-style ordering is unambiguous in every one of
     # these locales, so it is a safe default until a translator sets the real convention.
-    "fr": "%Y-%m-%d %H:%M %Z",
-    "es": "%Y-%m-%d %H:%M %Z",
-    "pl": "%Y-%m-%d %H:%M %Z",
-    "pt-BR": "%Y-%m-%d %H:%M %Z",
+    "fr": DEFAULT_DATETIME_FORMAT,
+    "es": DEFAULT_DATETIME_FORMAT,
+    "pl": DEFAULT_DATETIME_FORMAT,
+    "pt-BR": DEFAULT_DATETIME_FORMAT,
 }
 SIGN_IN_LABEL = "Sign in"
 
@@ -332,6 +333,21 @@ def normalize_locale(value: str | None) -> str | None:
     return None
 
 
+def _accept_language_weight(parameters: str) -> float:
+    weight = 1.0
+    for parameter in parameters.split(";"):
+        name, _, raw_value = parameter.partition("=")
+        if name.strip().casefold() != "q":
+            continue
+        try:
+            weight = float(raw_value)
+        except ValueError:
+            weight = 0.0
+        if not math.isfinite(weight) or not 0 <= weight <= 1:
+            weight = 0.0
+    return weight
+
+
 def parse_accept_language(header_value: str | None) -> str | None:
     """Pick the highest-weighted supported locale from an Accept-Language header.
 
@@ -345,16 +361,7 @@ def parse_accept_language(header_value: str | None) -> str | None:
         tag, _, parameters = part.strip().partition(";")
         if not tag.strip() or tag.strip() == "*":
             continue
-        weight = 1.0
-        for parameter in parameters.split(";"):
-            name, _, raw_value = parameter.partition("=")
-            if name.strip().casefold() == "q":
-                try:
-                    weight = float(raw_value)
-                except ValueError:
-                    weight = 0.0
-                if not math.isfinite(weight) or not 0 <= weight <= 1:
-                    weight = 0.0
+        weight = _accept_language_weight(parameters)
         if weight <= 0:
             continue
         # Position breaks ties in header order, which is the order the browser expressed.

@@ -95,6 +95,7 @@ FHIR_PATH_PREFIX = "/fhir/"
 
 
 PORTAL_ROOT_PATH = "/portal"
+JSON_MEDIA_TYPE = "application/json"
 
 
 SERVICE_UNAVAILABLE_DETAIL = "service temporarily unavailable"
@@ -438,7 +439,8 @@ def clear_portal_session_cookie(response: Response, *, settings: Settings) -> No
 
 def deployment_cookie_path(settings: Settings, application_path: str) -> str:
     """Translate an application route path to the browser-visible deployment path."""
-    return f"{settings.root_path}{application_path}" or "/"
+    deployment_path = f"{settings.root_path}{application_path}"
+    return deployment_path or "/"
 
 
 def logout_browser_session_cookie_token(
@@ -490,7 +492,7 @@ def is_maintenance_exempt_path(path: str) -> bool:
 
 def is_json_request(request: Request) -> bool:
     return request.headers.get("content-type", "").partition(";")[0].strip().lower() == (
-        "application/json"
+        JSON_MEDIA_TYPE
     )
 
 
@@ -938,7 +940,7 @@ async def get_csrf_urlencoded_form_values(
 
 async def get_activation_request(request: Request) -> ActivationRequest:
     content_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
-    if content_type != "application/json":
+    if content_type != JSON_MEDIA_TYPE:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="activation requires an application/json request body",
@@ -1195,7 +1197,7 @@ async def get_json_request_model(  # NOSONAR
     unsupported_media_type_detail: str,
 ) -> RequestModel:
     content_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
-    if content_type != "application/json":
+    if content_type != JSON_MEDIA_TYPE:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail=unsupported_media_type_detail,

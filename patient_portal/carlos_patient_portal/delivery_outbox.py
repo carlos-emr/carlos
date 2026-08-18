@@ -114,7 +114,7 @@ def _decrypt_payload(
             ),
         )
         payload = json.loads(encoded)
-    except (InvalidTag, UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError):
+    except (InvalidTag, ValueError, TypeError):
         raise OutboxPayloadError("outbound delivery payload is invalid") from None
     if not isinstance(payload, dict):
         raise OutboxPayloadError("outbound delivery payload is invalid")
@@ -284,7 +284,8 @@ def _record_reset_delivery_outcome_best_effort(
         return False
     except SQLAlchemyError as exc:
         # Only the exception class is logged; no credential or exception message is emitted.
-        logger.error(  # nosemgrep: python-logger-credential-disclosure
+        # nosemgrep: python-logger-credential-disclosure -- logs only type(exc).__name__
+        logger.error(  # NOSONAR - traceback details can contain database values
             "Password-reset delivery audit write failed: %s",
             type(exc).__name__,
         )
@@ -361,6 +362,33 @@ def _renew_delivery_lease(
         return result.rowcount == 1
 
 
+def _renew_delivery_lease_until_stopped(
+    session_factory: sessionmaker[Session],
+    *,
+    stop: Event,
+    delivery_id: int,
+    expected_attempt_count: int,
+    lease_seconds: int,
+) -> None:
+    interval_seconds = max(0.1, lease_seconds / 3)
+    while not stop.wait(interval_seconds):
+        try:
+            if not _renew_delivery_lease(
+                session_factory,
+                delivery_id=delivery_id,
+                expected_attempt_count=expected_attempt_count,
+                lease_seconds=lease_seconds,
+            ):
+                return
+        except SQLAlchemyError as exc:
+            # Keep database statement and parameter values out of logs.
+            logger.error(  # NOSONAR - traceback details can contain database values
+                "Outbound delivery lease renewal failed: %s",
+                type(exc).__name__,
+            )
+            return
+
+
 @contextmanager
 def _delivery_lease_heartbeat(
     session_factory: sessionmaker[Session],
@@ -370,26 +398,17 @@ def _delivery_lease_heartbeat(
     lease_seconds: int,
 ) -> Iterator[None]:
     stop = Event()
-
-    def renew_until_stopped() -> None:
-        interval_seconds = max(0.1, lease_seconds / 3)
-        while not stop.wait(interval_seconds):
-            try:
-                if not _renew_delivery_lease(
-                    session_factory,
-                    delivery_id=delivery_id,
-                    expected_attempt_count=expected_attempt_count,
-                    lease_seconds=lease_seconds,
-                ):
-                    return
-            except SQLAlchemyError as exc:
-                logger.error("Outbound delivery lease renewal failed: %s", type(exc).__name__)
-                return
-
     heartbeat = Thread(
-        target=renew_until_stopped,
+        target=_renew_delivery_lease_until_stopped,
         name=f"portal-outbox-lease-{delivery_id}",
         daemon=True,
+        kwargs={
+            "session_factory": session_factory,
+            "stop": stop,
+            "delivery_id": delivery_id,
+            "expected_attempt_count": expected_attempt_count,
+            "lease_seconds": lease_seconds,
+        },
     )
     heartbeat.start()
     try:
