@@ -204,6 +204,13 @@ class Settings(BaseSettings):
     password_hash_parallelism: int = Field(default=DEFAULT_PASSWORD_HASH_PARALLELISM, ge=1, le=16)
     auth_max_failed_password_attempts: int = Field(default=10, ge=1, le=1000)
     mfa_max_failed_attempts: int = Field(default=10, ge=1, le=100)
+    # An automated lockout is time-boxed. Before this existed, reaching the failure budget set
+    # locked_at with nothing in the system able to clear it except clinic staff, so anyone who knew
+    # a username could permanently deny a patient access to their own chart with ten wrong
+    # passwords, and repeat it after every manual unlock. Staff-initiated locks are never
+    # time-boxed regardless of this value -- see auth.automation_lock_has_expired. 0 restores the
+    # previous indefinite behaviour for deployments that would rather gate recovery on staff.
+    auth_lockout_duration_seconds: int = Field(default=900, ge=0, le=86_400)
     session_ttl_seconds: int = Field(default=60 * 60, ge=300, le=30 * 24 * 60 * 60)
     session_idle_timeout_seconds: int = Field(default=10 * 60, ge=60, le=24 * 60 * 60)
     mfa_code_ttl_seconds: int = Field(default=10 * 60, ge=60, le=60 * 60)

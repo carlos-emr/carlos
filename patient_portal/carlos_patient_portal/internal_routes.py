@@ -20,7 +20,7 @@ from carlos_patient_portal.account_settings import (
     review_contact_update,
 )
 from carlos_patient_portal.accounts import find_account_id_for_patient
-from carlos_patient_portal.audit import record_audit_event
+from carlos_patient_portal.audit import hash_sensitive_reference, record_audit_event
 from carlos_patient_portal.auth import (
     AccountNotFoundError,
     set_patient_account_access,
@@ -70,6 +70,7 @@ from carlos_patient_portal.unlock_secrets import (
     read_unlock_secret,
     revoke_unlock_secret,
 )
+from carlos_patient_portal.web_support import get_request_client_reference
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +115,7 @@ class InternalRuntime(Protocol):
     settings: Settings
     session_factory: sessionmaker[Session]
     identity_proof_secret: str
+    audit_hash_secret: str
     unlock_secret_encryption_secret: str
     unlock_secret_encryption_keys: dict[str, str] | None
     unlock_secret_active_key_id: str
@@ -341,6 +343,15 @@ def register_internal_failure_audit(app: FastAPI, runtime: InternalRuntime) -> N
                         clinic_id=principal.clinic_id if principal is not None else None,
                         resource_type="internal_api",
                         reason=reason,
+                        # Without this every unauthenticated failure row is identical
+                        # ("carlos-service" / "authentication_failed"), so a flood cannot be told
+                        # apart from a single misconfigured caller. Patient-facing failure paths
+                        # already record the hashed client reference; this one did not.
+                        client_reference_hash=hash_sensitive_reference(
+                            runtime.audit_hash_secret,
+                            "portal_client",
+                            get_request_client_reference(request, runtime.settings),
+                        ),
                     )
         except SQLAlchemyError as exc:
             runtime.operational_metrics.record_failure("internal_audit")

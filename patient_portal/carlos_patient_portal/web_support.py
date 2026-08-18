@@ -478,7 +478,16 @@ def is_patient_runtime_path(path: str) -> bool:
 
 
 def is_rate_limited_path(path: str) -> bool:
-    return is_patient_runtime_path(path)
+    # /internal/carlos/** is throttled because every failed request there writes an audit row in its
+    # own session, so an unauthenticated caller can force unbounded inserts into a table with a
+    # 25-year retention floor and bury the real staff-action failures. The reference proxy restricts
+    # the prefix by source address, but the application must not depend on the edge being configured
+    # correctly for that.
+    #
+    # The probe endpoints (/internal/health/db, /internal/readiness, /internal/metrics) are
+    # deliberately excluded: they are polled on a fixed interval by orchestrators and throttling
+    # them would turn a healthy service into a failing liveness check.
+    return is_patient_runtime_path(path) or path.startswith("/internal/carlos/")
 
 
 def is_maintenance_exempt_path(path: str) -> bool:

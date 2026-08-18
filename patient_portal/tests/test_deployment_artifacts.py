@@ -29,6 +29,30 @@ def test_reference_proxy_omits_raw_request_target_and_limits_expensive_routes() 
     assert "proxy_pass http://carlos_patient_portal/;" in configuration
 
 
+def test_reference_proxy_restricts_every_internal_prefix_not_just_the_carlos_one() -> None:
+    """The source-address restriction must cover /internal/** and be unreachable via /patient/.
+
+    nginx matches prefix locations against the start of the URI, so `^~ /internal/carlos/` never
+    matched `/patient/internal/carlos/...` and its `deny all` did not apply there. The trailing
+    slash on the `/patient/` proxy_pass then stripped the prefix, handing the application the
+    internal route with no source check. Separately, the probe and telemetry endpoints matched only
+    `location /` and were served to the public internet.
+    """
+    configuration = (PACKAGE_ROOT / "deploy" / "nginx.conf").read_text()
+
+    assert "location ^~ /internal/ {" in configuration
+    assert "location ^~ /patient/internal/ {" in configuration
+    # Both /internal/ and /internal/carlos/ carry their own allow + deny pair.
+    # Directives only -- the surrounding comments mention the same words.
+    assert configuration.count("allow 127.0.0.1/32;") == 2
+    assert configuration.count("deny all;") == 2
+    # The patient deployment prefix must refuse the internal API outright rather than proxy it.
+    patient_internal_block = configuration.split("location ^~ /patient/internal/ {", 1)[1]
+    patient_internal_block = patient_internal_block.split("}", 1)[0]
+    assert "return 404;" in patient_internal_block
+    assert "proxy_pass" not in patient_internal_block
+
+
 def test_audit_role_policy_keeps_runtime_append_only_and_pruning_separate() -> None:
     policy = (PACKAGE_ROOT / "deploy" / "postgresql-audit-roles.sql").read_text()
 

@@ -27,6 +27,7 @@ from carlos_patient_portal.models import (
     ACCOUNT_STATUS_DISABLED,
     AUDIT_ACTOR_TYPE_PATIENT,
     AUDIT_ACTOR_TYPE_STAFF,
+    AUDIT_ACTOR_TYPE_SYSTEM,
     AUDIT_EVENT_ACCOUNT_DISABLE,
     AUDIT_EVENT_ACCOUNT_ENABLE,
     AUDIT_EVENT_ACCOUNT_LOCK,
@@ -73,6 +74,7 @@ AUTH_REASON_INVALID_CREDENTIALS = "invalid_credentials"
 AUTH_REASON_INVALID_RESET_TOKEN = "invalid_reset_token"
 AUTH_REASON_MFA_EXPIRED = "mfa_expired"
 AUTH_REASON_MFA_REQUIRED = "mfa_required"
+AUTH_REASON_LOCKOUT_EXPIRED = "lockout_expired"
 AUTH_REASON_PASSWORD_FAILURES = "password_failures"
 AUTH_REASON_PASSWORD_HASH_UNUSABLE = "password_hash_unusable"
 AUTH_REASON_MFA_FAILURES = "mfa_failures"
@@ -141,6 +143,9 @@ class AuthPolicy:
     password_reset_token_ttl: timedelta
     password_reset_request_cooldown: timedelta
     require_mfa: bool
+    # None means an automated lockout never expires on its own and only staff can clear it.
+    # Defaulted so existing AuthPolicy construction in tests keeps working unchanged.
+    lockout_duration: timedelta | None = None
 
 
 @dataclass(frozen=True)
@@ -242,9 +247,16 @@ def hash_mfa_code(secret: str, challenge_token: str, code: str) -> str:
     normalized_code = code.strip()
     if len(normalized_code) != MFA_CODE_DIGITS or not normalized_code.isdigit():
         raise ValueError("MFA code must be six digits")
+    # The challenge token has to be normalized exactly as hash_auth_token normalizes it. Stripping
+    # for the lookup hash but not for the code hash let a padded token ("abc123\n") resolve to a
+    # real challenge whose code_hash was then keyed on the padded form, so the correct code could
+    # never verify -- and every rejected attempt spent the MFA failure budget toward a lockout.
+    normalized_token = challenge_token.strip()
+    if not normalized_token:
+        raise ValueError("challenge token must not be blank")
     return new_hmac(
         secret.encode("utf-8"),
-        f"mfa_code:{challenge_token}:{normalized_code}".encode(),
+        f"mfa_code:{normalized_token}:{normalized_code}".encode(),
         sha256,
     ).hexdigest()
 
@@ -442,6 +454,65 @@ def revoke_pending_password_reset_tokens(
     )
     for reset_token in pending_tokens:
         reset_token.status = PASSWORD_RESET_STATUS_REVOKED
+
+
+def lock_is_staff_initiated(account: PatientPortalAccount) -> bool:
+    """Report whether a lock was applied by staff rather than by the failure-budget automation.
+
+    Automated lockouts stamp locked_by with AUTH_LOCKED_BY_AUTOMATION. Anything else is a deliberate
+    staff action, so neither the expiry below nor the self-service password-reset path may clear it.
+    There is no staff lock path today -- staff disable an account through `status` -- but keeping
+    the distinction here means adding one later cannot silently become self-recoverable.
+    """
+    return account.locked_at is not None and account.locked_by != AUTH_LOCKED_BY_AUTOMATION
+
+
+def automation_lock_has_expired(
+    account: PatientPortalAccount,
+    *,
+    policy: AuthPolicy,
+    now: datetime,
+) -> bool:
+    """Report whether a time-boxed automated lockout has served its term."""
+    if account.locked_at is None or policy.lockout_duration is None:
+        return False
+    if lock_is_staff_initiated(account):
+        return False
+    # Routed through is_past rather than compared directly: SQLite hands back naive datetimes for
+    # locked_at, so a direct comparison raises TypeError on the dev/test backend.
+    return is_past(account.locked_at + policy.lockout_duration, now)
+
+
+def clear_expired_automation_lock(
+    session: Session,
+    account: PatientPortalAccount,
+    *,
+    now: datetime,
+) -> None:
+    """Release an expired automated lockout and reset the counters that produced it.
+
+    force_password_reset is deliberately left set. The lockout was reached through failed attempts,
+    so the account has been under guessing pressure and requiring a credential refresh on the next
+    successful sign-in is the conservative read. That flow is recoverable in-band, unlike the lock
+    itself, so it restores access without discarding the signal.
+    """
+    account.locked_at = None
+    account.locked_by = None
+    account.locked_by_id = None
+    account.failed_login_count = 0
+    account.failed_mfa_count = 0
+    account.updated_at = now
+    record_audit_event(
+        session,
+        event_type=AUDIT_EVENT_ACCOUNT_UNLOCK,
+        outcome=AUDIT_OUTCOME_SUCCESS,
+        actor_type=AUDIT_ACTOR_TYPE_SYSTEM,
+        actor=AUTH_LOCKED_BY_AUTOMATION,
+        clinic_id=account.clinic_id,
+        demographic_no=account.demographic_no,
+        account_id=account.id,
+        reason=AUTH_REASON_LOCKOUT_EXPIRED,
+    )
 
 
 def lock_account(
@@ -652,6 +723,11 @@ def start_login(
             reason=AUTH_REASON_INVALID_CREDENTIALS,
         )
         raise InvalidCredentialsError()
+
+    # Checked under the row lock taken above, so two concurrent sign-ins cannot both observe the
+    # expired lock and race the clear.
+    if automation_lock_has_expired(account, policy=policy, now=now):
+        clear_expired_automation_lock(session, account, now=now)
 
     if account.locked_at is not None:
         password_is_valid = verify_account_password(
@@ -1277,11 +1353,16 @@ def request_password_reset(
         )
         .with_for_update()
     )
+    # An automated lockout must not block the reset path: it is the patient's only self-service
+    # route back in, and completing a reset already clears the lock, zeroes the failure counters and
+    # revokes every session. Requiring possession of the emailed token means this cannot help the
+    # attacker who caused the lockout. A staff-initiated lock still blocks, as does a disabled
+    # account via `status`.
     account_is_eligible = (
         account is not None
         and account.email == normalized_email
         and account.status == ACCOUNT_STATUS_ACTIVE
-        and account.locked_at is None
+        and not lock_is_staff_initiated(account)
     )
     existing_reset_tokens = list(
         session.scalars(
@@ -1478,7 +1559,9 @@ def complete_password_reset(
         account is None
         or reset_record.account_id != account.id
         or account.status != ACCOUNT_STATUS_ACTIVE
-        or account.locked_at is not None
+        # Mirrors the eligibility rule in request_password_reset: an automated lockout is cleared by
+        # the assignment below, a staff-initiated lock is not self-recoverable.
+        or lock_is_staff_initiated(account)
     ):
         reset_record.status = PASSWORD_RESET_STATUS_REVOKED
         record_audit_event(

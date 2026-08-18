@@ -133,6 +133,11 @@ def auth_policy_from_settings(settings: Settings) -> AuthPolicy:
             seconds=settings.password_reset_request_cooldown_seconds
         ),
         require_mfa=settings.require_mfa,
+        lockout_duration=(
+            timedelta(seconds=settings.auth_lockout_duration_seconds)
+            if settings.auth_lockout_duration_seconds > 0
+            else None
+        ),
     )
 
 

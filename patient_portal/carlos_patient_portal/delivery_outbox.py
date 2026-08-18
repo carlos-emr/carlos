@@ -18,6 +18,7 @@ from sqlalchemy import or_, select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
+from carlos_patient_portal.audit import record_audit_event
 from carlos_patient_portal.auth import (
     PasswordResetRequestResult,
     PasswordResetTokenInvalidError,
@@ -25,6 +26,8 @@ from carlos_patient_portal.auth import (
 )
 from carlos_patient_portal.email_delivery import PortalEmailDeliveryError, PortalEmailSender
 from carlos_patient_portal.models import (
+    AUDIT_ACTOR_TYPE_SYSTEM,
+    AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
     AUDIT_OUTCOME_FAILURE,
     AUDIT_OUTCOME_SUCCESS,
     OUTBOX_KIND_CONTACT_CHANGE,
@@ -48,6 +51,11 @@ KEY_DERIVATION_INFO = b"carlos-patient-portal:outbound-delivery:v1"
 ASSOCIATED_DATA_PREFIX = "carlos-patient-portal.outbound-delivery.v1"
 OUTBOX_KEY_ID = "primary"
 MAX_OUTBOX_PAYLOAD_BYTES = 4096
+# Kept local rather than imported from account_settings so the worker process does not pull the
+# interactive account-settings module in; the value must stay in step with
+# ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE there.
+OUTBOX_REASON_DELIVERY_UNAVAILABLE = "delivery_unavailable"
+OUTBOX_AUDIT_ACTOR = "portal-outbox"
 
 
 class OutboxPayloadError(Exception):
@@ -260,6 +268,35 @@ def _mark_terminal_reset_failure(session: Session, delivery: PatientPortalOutbou
     )
 
 
+def _mark_terminal_contact_change_failure(
+    session: Session,
+    delivery: PatientPortalOutboundDelivery,
+) -> None:
+    """Record that a contact-change security notice was never delivered.
+
+    The notice to the address a change moved away from is the only out-of-band alarm a patient gets,
+    so exhausting the retry budget has to leave evidence. Without this the audit trail showed a
+    successful contact update and nothing at all about the alarm that failed, which means a breach
+    review cannot enumerate the patients who were never warned. The interactive development path in
+    routes/portal.py already wrote this row; only the outbox-backed production path did not.
+    """
+    account = session.scalar(
+        select(PatientPortalAccount).where(PatientPortalAccount.id == delivery.account_id)
+    )
+    record_audit_event(
+        session,
+        event_type=AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+        outcome=AUDIT_OUTCOME_FAILURE,
+        actor_type=AUDIT_ACTOR_TYPE_SYSTEM,
+        actor=OUTBOX_AUDIT_ACTOR,
+        clinic_id=account.clinic_id if account is not None else None,
+        demographic_no=account.demographic_no if account is not None else None,
+        account_id=delivery.account_id,
+        reason=OUTBOX_REASON_DELIVERY_UNAVAILABLE,
+    )
+    session.flush()
+
+
 def _record_reset_delivery_outcome_best_effort(
     session: Session,
     delivery: PatientPortalOutboundDelivery,
@@ -335,6 +372,8 @@ def _finish_delivery(
         delivery.status = OUTBOX_STATUS_FAILED
         if delivery.kind == OUTBOX_KIND_PASSWORD_RESET:
             _mark_terminal_reset_failure(session, delivery)
+        elif delivery.kind == OUTBOX_KIND_CONTACT_CHANGE:
+            _mark_terminal_contact_change_failure(session, delivery)
         return delivery.status
     delivery.status = OUTBOX_STATUS_PENDING
     delay_seconds = min(15 * 60, 2 ** min(delivery.attempt_count, 10))
