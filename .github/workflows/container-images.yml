@@ -43,7 +43,6 @@ on:
       - staging/*
       - hotfix/*
       - release/*
-      - release/*
   pull_request:
     branches:
       - main
@@ -51,6 +50,7 @@ on:
       - experimental
       - staging/*
       - hotfix/*
+      - release/*
   workflow_dispatch:
     inputs:
       force_rebuild:
