@@ -666,12 +666,12 @@ def index_template_context(
     locale = request_locale(request)
     return {
         "request": request,
+        "locale": locale,
         "clinic_name": settings.clinic_name,
         "csrf_token": csrf_token,
         "error_message": error_message,
         "service_name": settings.service_name,
         "supported_locales": supported_locale_options(locale),
-        "locale": locale,
         "locale_switch_target": locale_switch_targets(request),
         "text": portal_text(locale),
     }
@@ -696,6 +696,7 @@ def public_auth_template_context(
     locale = request_locale(request)
     return {
         "request": request,
+        "locale": locale,
         "clinic_name": settings.clinic_name,
         "csrf_token": csrf_token,
         "error_message": error_message,
@@ -703,7 +704,6 @@ def public_auth_template_context(
         "notice_message": notice_message,
         "service_name": settings.service_name,
         "supported_locales": supported_locale_options(locale),
-        "locale": locale,
         "locale_switch_target": locale_switch_targets(request),
         "text": portal_text(locale),
         "sms_mfa_available": sms_mfa_available,
@@ -767,6 +767,7 @@ def mfa_template_context(
     text = portal_text(locale)
     return {
         "request": request,
+        "locale": locale,
         "clinic_name": settings.clinic_name,
         "csrf_token": csrf_token,
         "development_mfa_code": (
@@ -834,6 +835,7 @@ def portal_template_context(
     text = portal_text(locale)
     context: dict[str, object] = {
         "request": request,
+        "locale": locale,
         "service_name": settings.service_name,
         "clinic_name": settings.clinic_name,
         "account": account,

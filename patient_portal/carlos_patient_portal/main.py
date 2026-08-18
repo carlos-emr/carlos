@@ -107,6 +107,7 @@ from carlos_patient_portal.web_support import (
     is_rate_limited_path,
     is_valid_csrf_submission,
     portal_template_context,
+    request_locale,
     sanitized_validation_errors,
     service_notice_response,
     set_csrf_cookie,
@@ -688,6 +689,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 timezone_name=settings.clinic_timezone,
                 filter_error=email_password_filter_error,
                 base_path=request.url_for("portal_email_passwords").path,
+                locale=request_locale(request),
             )
         csrf_token = create_csrf_token(runtime.token_keys.csrf)
         response = templates.TemplateResponse(

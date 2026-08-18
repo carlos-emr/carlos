@@ -1055,6 +1055,17 @@ def record_mfa_delivery_outcome(
     if not compare_digest(challenge.code_hash, delivery.expected_code_hash):
         # A newer resend replaced this delivery's code while its provider call was in flight.
         # Its eventual result no longer owns either the challenge or the channel cooldown.
+        record_audit_event(
+            session,
+            event_type=AUDIT_EVENT_MFA_DELIVERY,
+            outcome=outcome,
+            actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+            actor=account.username,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            account_id=account.id,
+            reason=f"{delivery.delivery_method}:superseded",
+        )
         return
 
     if outcome == AUDIT_OUTCOME_SUCCESS:
@@ -1368,7 +1379,7 @@ def record_password_reset_delivery_outcome(
     )
     if reset_record is None or account is None or reset_record.account_id != account.id:
         raise PasswordResetTokenInvalidError()
-    if outcome == AUDIT_OUTCOME_FAILURE:
+    if outcome == AUDIT_OUTCOME_FAILURE and reset_record.status == PASSWORD_RESET_STATUS_PENDING:
         reset_record.status = PASSWORD_RESET_STATUS_REVOKED
 
     record_audit_event(

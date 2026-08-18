@@ -39,7 +39,7 @@ from carlos_patient_portal.delivery_outbox import (
     process_one_delivery,
 )
 from carlos_patient_portal.email_delivery import PortalEmailDeliveryError
-from carlos_patient_portal.i18n import DEFAULT_LOCALE, portal_text
+from carlos_patient_portal.i18n import portal_text
 from carlos_patient_portal.models import (
     AUDIT_ACTOR_TYPE_PATIENT,
     AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
@@ -103,6 +103,7 @@ from carlos_patient_portal.web_support import (
     is_valid_csrf_submission,
     logout_browser_session_cookie_token,
     parse_optional_email_password_date,
+    request_locale,
     set_portal_session_cookie,
 )
 
@@ -135,6 +136,7 @@ def register_patient_email_password_routes(
             session,
             clinic_id=account.clinic_id,
             demographic_no=account.demographic_no,
+            account_id=account.id,
             secret_type=UNLOCK_SECRET_TYPE_EMAIL,
             limit=limit,
             offset=offset,
@@ -173,6 +175,7 @@ def register_patient_email_password_routes(
                 session,
                 email_password_id,
                 clinic_id=account.clinic_id,
+                account_id=account.id,
                 demographic_no=account.demographic_no,
                 audit_account_id=account.id,
                 actor_type=AUDIT_ACTOR_TYPE_PATIENT,
@@ -249,7 +252,7 @@ def register_portal_routes(
             request,
             session,
             active_module="account",
-            account_notice=portal_text(DEFAULT_LOCALE).get(
+            account_notice=portal_text(request_locale(request)).get(
                 ACCOUNT_NOTICE_MESSAGE_KEYS.get(account_status or "", ""),
             ),
         )
@@ -660,7 +663,12 @@ def register_portal_routes(
         except ValueError:
             parsed_date_from = None
             parsed_date_to = None
-            filter_error = portal_text(DEFAULT_LOCALE)["date_format_error"]
+            filter_error = portal_text(request_locale(request))["date_format_error"]
+        try:
+            parsed_provider = normalize_email_password_dashboard_provider(provider)
+        except ValueError:
+            parsed_provider = None
+            filter_error = portal_text(request_locale(request))["filter_error"]
         invalid_date_range = (
             parsed_date_from is not None
             and parsed_date_to is not None
@@ -690,7 +698,7 @@ def register_portal_routes(
                 if any(
                     (
                         normalize_email_password_dashboard_search(q),
-                        normalize_email_password_dashboard_provider(provider),
+                        parsed_provider,
                         parsed_date_from,
                         parsed_date_to,
                     )
@@ -710,7 +718,7 @@ def register_portal_routes(
                 else status.HTTP_200_OK
             ),
             email_password_search=q,
-            email_password_provider=provider,
+            email_password_provider=parsed_provider,
             email_password_date_from=parsed_date_from,
             email_password_date_to=parsed_date_to,
             email_password_page=page,

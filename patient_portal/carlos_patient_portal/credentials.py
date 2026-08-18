@@ -8,7 +8,7 @@ from carlos_patient_portal.models import MAX_USERNAME_LENGTH, MIN_USERNAME_LENGT
 MIN_PASSWORD_LENGTH = 12
 MAX_PASSWORD_LENGTH = 256
 USERNAME_PATTERN = re.compile(r"^[a-z0-9._-]+$")
-PASSWORD_SYMBOL_PATTERN = re.compile(r"[^A-Za-z0-9]")
+PASSWORD_SYMBOL_PATTERN = re.compile(r"[^A-Za-z0-9\s]")
 
 # Defaults sized for a small clinic VM. Peak hashing memory is roughly
 # max_concurrency * memory_cost — 4 * 64 MiB = 256 MiB here — so a deployment with a different

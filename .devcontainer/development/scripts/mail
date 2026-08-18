@@ -3,7 +3,7 @@
 set -euo pipefail
 
 command=${1:-}
-mailbox=/var/mail/root
+mailbox=${PORTAL_MAILBOX_PATH:-/var/mail/root}
 
 case $command in
     start)
@@ -25,41 +25,80 @@ case $command in
       tail -f /var/log/mail.log
     ;;
     clear)
-      install -m 600 /dev/null "$mailbox"
-      echo "Mail capture cleared"
+      python3 - "$mailbox" <<'PY'
+import mailbox
+import os
+import sys
+
+messages = mailbox.mbox(sys.argv[1], create=True)
+os.chmod(sys.argv[1], 0o600)
+messages.lock()
+try:
+    messages.clear()
+    messages.flush()
+finally:
+    messages.unlock()
+    messages.close()
+print("Mail capture cleared")
+PY
     ;;
     list)
       python3 - "$mailbox" <<'PY'
 import mailbox
+import os
 import sys
 
-messages = list(mailbox.mbox(sys.argv[1], create=False))
-for index, message in enumerate(messages, start=1):
-    print(f"{index}\t{message.get('To', '')}\t{message.get('Subject', '')}")
+messages = mailbox.mbox(sys.argv[1], create=True)
+os.chmod(sys.argv[1], 0o600)
+messages.lock()
+try:
+    for index, message in enumerate(messages, start=1):
+        print(f"{index}\t{message.get('To', '')}\t{message.get('Subject', '')}")
+finally:
+    messages.unlock()
+    messages.close()
 PY
     ;;
     read)
       selector=${2:-latest}
       python3 - "$mailbox" "$selector" <<'PY'
 import mailbox
+import os
 import sys
+from email import policy
+from email.parser import BytesParser
 
-messages = list(mailbox.mbox(sys.argv[1], create=False))
-if not messages:
-    raise SystemExit("No captured mail")
-selector = sys.argv[2]
-if selector == "latest":
-    message = messages[-1]
-else:
-    try:
-        message = messages[int(selector) - 1]
-    except (ValueError, IndexError):
-        raise SystemExit("Message selector must be 'latest' or a listed message number") from None
-body = message.get_body(preferencelist=("plain",))
-print(f"Envelope-To: {message.get('To', '')}")
-print(f"Subject: {message.get('Subject', '')}")
-print()
-print(body.get_content() if body is not None else message.get_payload())
+def parse_message(stream):
+    return BytesParser(policy=policy.default).parse(stream)
+
+mailbox_file = mailbox.mbox(sys.argv[1], factory=parse_message, create=True)
+os.chmod(sys.argv[1], 0o600)
+mailbox_file.lock()
+try:
+    messages = list(mailbox_file)
+    if not messages:
+        raise SystemExit("No captured mail")
+    selector = sys.argv[2]
+    if selector == "latest":
+        message = messages[-1]
+    else:
+        try:
+            position = int(selector)
+            if position < 1 or position > len(messages):
+                raise IndexError
+            message = messages[position - 1]
+        except (ValueError, IndexError):
+            raise SystemExit(
+                "Message selector must be 'latest' or a listed message number"
+            ) from None
+    body = message.get_body(preferencelist=("plain",))
+    print(f"Envelope-To: {message.get('To', '')}")
+    print(f"Subject: {message.get('Subject', '')}")
+    print()
+    print(body.get_content() if body is not None else message.get_payload())
+finally:
+    mailbox_file.unlock()
+    mailbox_file.close()
 PY
     ;;
     *)

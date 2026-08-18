@@ -22,6 +22,7 @@ from carlos_patient_portal.config import (
 from carlos_patient_portal.database import (
     Base,
 )
+from carlos_patient_portal.identity import normalize_email
 from carlos_patient_portal.models import (
     AUDIT_EVENT_ACCOUNT_MFA_UPDATE,
     AUDIT_OUTCOME_FAILURE,
@@ -406,6 +407,40 @@ def test_root_mounted_deployment_keeps_unprefixed_urls() -> None:
     assert "/patient/static" not in response.text
 
 
+@pytest.mark.parametrize(
+    "email",
+    [".patient@example.com", "patient.@example.com", "pa..tient@example.com"],
+)
+def test_email_local_part_rejects_invalid_dot_placement(email: str) -> None:
+    with pytest.raises(ValueError, match="valid email"):
+        normalize_email(email)
+
+
+def test_password_whitespace_does_not_satisfy_symbol_requirement() -> None:
+    with pytest.raises(ValueError, match="symbol"):
+        credentials.validate_password("Password123 ")
+
+
+def test_url_ports_and_unlock_key_ids_fail_during_settings_validation() -> None:
+    with pytest.raises(ValidationError, match="valid port"):
+        development_settings(public_base_url="http://portal.example.test:not-a-port")
+    with pytest.raises(ValidationError, match="valid port"):
+        development_settings(
+            sms_webhook_url="http://sms.example.test:99999/messages",
+            sms_webhook_token="test-token",
+        )
+    with pytest.raises(ValidationError, match="must be primary"):
+        development_settings(unlock_secret_active_key_id="secondary")
+    with pytest.raises(ValidationError, match="unique after trimming"):
+        development_settings(
+            unlock_secret_encryption_keyring=(
+                '{" secondary ": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", '
+                '"secondary": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}'
+            ),
+            unlock_secret_active_key_id="secondary",
+        )
+
+
 def test_probe_allowed_hosts_rejects_wildcards() -> None:
     """A wildcard here silently disables canonical-Host enforcement in production.
 
@@ -540,6 +575,8 @@ def test_staging_fails_closed_without_delivery_services_or_internal_api_token() 
         staging_settings(sms_webhook_url=None, sms_webhook_token=None)
     with pytest.raises(ValidationError, match="PATIENT_PORTAL_INTERNAL_API_TOKEN"):
         staging_settings(internal_api_token=None)
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_OUTBOX_ENCRYPTION_SECRET"):
+        staging_settings(outbox_encryption_secret=None)
 
 
 def test_production_rejects_remote_postgresql_without_verified_tls() -> None:

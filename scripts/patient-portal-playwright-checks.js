@@ -23,6 +23,8 @@ const { chromium } = require('playwright');
 const baseUrl = validateBaseUrl(process.env.PORTAL_BASE_URL || 'http://127.0.0.1:8090');
 const testUser = process.env.PORTAL_TEST_USER || 'CarlosPatient';
 const testPassword = process.env.PORTAL_TEST_PASSWORD || ['Carlos', '2026', '!!'].join('');
+const expectedUser = process.env.PORTAL_EXPECTED_USER || testUser.toLowerCase();
+const expectedEmail = process.env.PORTAL_EXPECTED_EMAIL || 'example.patient@example.com';
 const changedPassword = ['Carlos', '2027', '!!'].join('');
 const mailCommand = process.env.PORTAL_MAIL_COMMAND || '/scripts/mail';
 const useDevelopmentMfaCode = process.env.PORTAL_USE_DEVELOPMENT_MFA_CODE === 'true';
@@ -138,7 +140,7 @@ function screenshotPath(name) {
     const responsePath = new URL(response.url()).pathname;
     const isExpectedRevealFailure = response.status() === 503
       && expectedRevealFailures > 0
-      && responsePath.startsWith('/portal/email-passwords/')
+      && responsePath.startsWith(portalPathname('/portal/email-passwords/'))
       && responsePath.endsWith('/reveal');
     if (isExpectedRevealFailure) {
       expectedRevealFailures -= 1;
@@ -319,7 +321,7 @@ function screenshotPath(name) {
     assert(capturedMail.code, 'MFA code was not available');
     if (!useDevelopmentMfaCode) {
       assert(
-        capturedMail.recipient === 'example.patient@example.com',
+        capturedMail.recipient === expectedEmail,
         `unexpected MFA recipient ${capturedMail.recipient}`
       );
       assert(
@@ -339,12 +341,12 @@ function screenshotPath(name) {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.locator('input[name="code"]').fill(capturedMail.code);
     await Promise.all([
-      page.waitForURL(/\/portal$/, { timeout: 30000 }),
+      page.waitForURL((url) => url.pathname === portalPathname('/portal'), { timeout: 30000 }),
       page.getByRole('button', { name: 'Verify' }).click(),
     ]);
 
     await page.getByRole('heading', { name: 'Patient portal' }).waitFor();
-    await page.locator('.signed-in-user').filter({ hasText: 'carlospatient' }).waitFor();
+    await page.locator('.signed-in-user').filter({ hasText: expectedUser }).waitFor();
     await page.screenshot({
       path: screenshotPath('patient-portal-live-desktop'),
       fullPage: true,

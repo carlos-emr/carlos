@@ -1,3 +1,4 @@
+import logging
 import os
 import sqlite3
 import stat
@@ -27,6 +28,8 @@ DEFAULT_AUDIT_PRUNE_BATCH_SIZE = 1000
 MIN_AUDIT_PRUNE_BATCH_SIZE = 1
 MAX_AUDIT_PRUNE_BATCH_SIZE = 10000
 DEFAULT_TRANSIENT_RETENTION_DAYS = 30
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -278,7 +281,13 @@ def atomic_sqlite_copy(source_path: Path, destination_path: Path) -> Path:
         os.chmod(temporary_path, stat.S_IRUSR | stat.S_IWUSR)
         fsync_path(temporary_path)
         os.replace(temporary_path, destination_path)
-        fsync_directory(destination_path.parent)
+        try:
+            fsync_directory(destination_path.parent)
+        except OSError as exc:
+            # The atomic rename has already completed. Some network/virtual filesystems do not
+            # support directory fsync; report the installed backup accurately and leave a
+            # diagnostic for operators rather than claiming the copy itself failed.
+            logger.debug("SQLite backup directory fsync unavailable: %s", type(exc).__name__)
         return destination_path
     except (OSError, sqlite3.DatabaseError) as exc:
         raise BackupUnavailableError("SQLite database copy failed") from exc

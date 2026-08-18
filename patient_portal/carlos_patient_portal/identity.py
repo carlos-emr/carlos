@@ -10,7 +10,8 @@ from carlos_patient_portal.models import HASH_LENGTH, MAX_EMAIL_LENGTH
 MAX_HEALTH_CARD_NUMBER_LENGTH = 64
 MIN_HEALTH_CARD_NUMBER_LENGTH = 4
 EMAIL_PATTERN = re.compile(
-    r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+    r"^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+"
+    r"(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@"
     r"(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+"
     r"[A-Za-z]{2,63}$"
 )

@@ -47,6 +47,28 @@ def upgrade() -> None:
         "update patient_portal_email_change_requests "
         "set phone_confirmed_at = created_at where status = 'pending'"
     )
+    op.create_index(
+        "ix_pp_sessions_expires", "patient_portal_sessions", ["expires_at", "id"]
+    )
+    op.create_index(
+        "ix_pp_sessions_revoked", "patient_portal_sessions", ["revoked_at", "id"]
+    )
+    op.create_index(
+        "ix_pp_mfa_expires", "patient_portal_mfa_challenges", ["expires_at", "id"]
+    )
+    op.create_index(
+        "ix_pp_reset_expires",
+        "patient_portal_password_reset_tokens",
+        ["expires_at", "id"],
+    )
+    op.create_index(
+        "ix_pp_invites_expires_status",
+        "patient_portal_invites",
+        ["expires_at", "status", "id"],
+    )
+    op.create_index(
+        "ix_pp_audit_created", "patient_portal_audit_events", ["created_at", "id"]
+    )
 
 
 def downgrade() -> None:
@@ -62,6 +84,14 @@ def downgrade() -> None:
             "downgrade would discard pending phone-ownership proofs; confirm or revoke them "
             "under an approved procedure before retrying"
         )
+    op.drop_index("ix_pp_audit_created", table_name="patient_portal_audit_events")
+    op.drop_index("ix_pp_invites_expires_status", table_name="patient_portal_invites")
+    op.drop_index(
+        "ix_pp_reset_expires", table_name="patient_portal_password_reset_tokens"
+    )
+    op.drop_index("ix_pp_mfa_expires", table_name="patient_portal_mfa_challenges")
+    op.drop_index("ix_pp_sessions_revoked", table_name="patient_portal_sessions")
+    op.drop_index("ix_pp_sessions_expires", table_name="patient_portal_sessions")
     with op.batch_alter_table("patient_portal_email_change_requests") as batch_op:
         batch_op.drop_constraint(
             "ck_pp_email_change_phone_attempts_non_negative", type_="check"

@@ -48,7 +48,7 @@ from carlos_patient_portal.delivery_outbox import (
     process_one_delivery,
 )
 from carlos_patient_portal.email_delivery import PortalEmailDeliveryError
-from carlos_patient_portal.i18n import DEFAULT_LOCALE, portal_text
+from carlos_patient_portal.i18n import portal_text
 from carlos_patient_portal.models import AUDIT_OUTCOME_FAILURE, AUDIT_OUTCOME_SUCCESS
 from carlos_patient_portal.notifications import (
     build_password_reset_url,
@@ -101,12 +101,17 @@ from carlos_patient_portal.web_support import (
     mfa_template_context,
     password_reset_request_response_payload,
     render_public_auth_template,
+    request_locale,
     set_csrf_cookie,
     set_portal_session_cookie,
     templates,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def localized_auth_text(request: Request) -> dict[str, str]:
+    return portal_text(request_locale(request))
 
 
 @dataclass(frozen=True)
@@ -125,7 +130,6 @@ class AuthRouteDependencies:
     csrf_secret: object
     audit_hash_secret: object
     auth_policy: object
-    text: object
     render_locked_page: object
     render_password_reset_request: object
     render_mfa_page: object
@@ -144,7 +148,6 @@ def build_auth_dependencies(
     csrf_secret = runtime.token_keys.csrf
     audit_hash_secret = runtime.audit_hash_secret
     auth_policy = runtime.auth_policy
-    text = portal_text(DEFAULT_LOCALE)
 
     def render_locked_page(request: Request) -> Response:
         return render_public_auth_template(
@@ -226,7 +229,6 @@ def build_auth_dependencies(
         csrf_secret=csrf_secret,
         audit_hash_secret=audit_hash_secret,
         auth_policy=auth_policy,
-        text=text,
         render_locked_page=render_locked_page,
         render_password_reset_request=render_password_reset_request,
         render_mfa_page=render_mfa_page,
@@ -286,7 +288,7 @@ def register_login_routes(
                 request=request,
                 render_index_response=deps.render_index_response,
                 status_code=status.HTTP_423_LOCKED,
-                browser_message=deps.text["session_locked_details"],
+                browser_message=localized_auth_text(request)["session_locked_details"],
                 json_content={"detail": ACCOUNT_LOCKED_DETAIL},
             )
         except PasswordResetRequiredError:
@@ -294,7 +296,7 @@ def register_login_routes(
                 return deps.render_password_reset_request(
                     request,
                     status_code=status.HTTP_403_FORBIDDEN,
-                    notice_message=deps.text["password_reset_forced"],
+                    notice_message=localized_auth_text(request)["password_reset_forced"],
                     form_values={"username": payload.username},
                 )
             return auth_error_response(
@@ -302,7 +304,7 @@ def register_login_routes(
                 request=request,
                 render_index_response=deps.render_index_response,
                 status_code=status.HTTP_403_FORBIDDEN,
-                browser_message=deps.text["password_reset_forced"],
+                browser_message=localized_auth_text(request)["password_reset_forced"],
                 json_content={"status": "password_reset_required"},
             )
         except MfaDeliveryUnavailableError:
@@ -311,7 +313,7 @@ def register_login_routes(
                 request=request,
                 render_index_response=deps.render_index_response,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                browser_message=deps.text["mfa_delivery_unavailable"],
+                browser_message=localized_auth_text(request)["mfa_delivery_unavailable"],
                 json_content={"detail": MFA_DELIVERY_UNAVAILABLE_DETAIL},
             )
         except MfaRateLimitedError as exc:
@@ -320,7 +322,7 @@ def register_login_routes(
                 request=request,
                 render_index_response=deps.render_index_response,
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                browser_message=deps.text["mfa_rate_limited"].format(
+                browser_message=localized_auth_text(request)["mfa_rate_limited"].format(
                     seconds=exc.retry_after_seconds,
                 ),
                 json_content={"detail": "MFA code was sent recently; try again later"},
@@ -342,7 +344,7 @@ def register_login_routes(
                     request=request,
                     render_index_response=deps.render_index_response,
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    browser_message=deps.text["verification_delivery_failed"],
+                    browser_message=localized_auth_text(request)["verification_delivery_failed"],
                     json_content={"detail": "verification code could not be sent"},
                 )
             record_mfa_delivery_and_commit(
@@ -406,7 +408,7 @@ def register_mfa_routes(
                         delivery_state,
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         error_message=(
-                            deps.text["mfa_rate_limited"].format(
+                            localized_auth_text(request)["mfa_rate_limited"].format(
                                 seconds=exc.retry_after_seconds,
                             )
                         ),
@@ -422,7 +424,7 @@ def register_mfa_routes(
                 return deps.render_index_response(
                     request,
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    error_message=deps.text["mfa_sign_in_again"],
+                    error_message=localized_auth_text(request)["mfa_sign_in_again"],
                 )
             return JSONResponse(
                 status_code=400,
@@ -440,7 +442,7 @@ def register_mfa_routes(
                 return deps.render_password_reset_request(
                     request,
                     status_code=status.HTTP_403_FORBIDDEN,
-                    notice_message=deps.text["password_reset_forced"],
+                    notice_message=localized_auth_text(request)["password_reset_forced"],
                 )
             return JSONResponse(
                 status_code=403,
@@ -454,7 +456,7 @@ def register_mfa_routes(
                         request,
                         delivery_state,
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        error_message=deps.text["mfa_delivery_unavailable"],
+                        error_message=localized_auth_text(request)["mfa_delivery_unavailable"],
                     )
             return JSONResponse(
                 status_code=400,
@@ -477,7 +479,7 @@ def register_mfa_routes(
                         request,
                         delivery_state,
                         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                        error_message=deps.text["verification_delivery_failed"],
+                        error_message=localized_auth_text(request)["verification_delivery_failed"],
                     )
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -492,7 +494,7 @@ def register_mfa_routes(
             return deps.render_mfa_page(
                 request,
                 delivery,
-                notice_message=deps.text["mfa_new_code_sent"].format(
+                notice_message=localized_auth_text(request)["mfa_new_code_sent"].format(
                     method=delivery.delivery_method.upper(),
                 ),
             )
@@ -527,14 +529,14 @@ def register_mfa_routes(
                         request,
                         delivery_state,
                         status_code=status.HTTP_401_UNAUTHORIZED,
-                        error_message=deps.text["incorrect_mfa_code"],
+                        error_message=localized_auth_text(request)["incorrect_mfa_code"],
                     )
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,
                 render_index_response=deps.render_index_response,
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                browser_message=deps.text["mfa_verification_failed"],
+                browser_message=localized_auth_text(request)["mfa_verification_failed"],
                 json_content={"detail": MFA_VERIFICATION_FAILED_DETAIL},
             )
         except (MfaChallengeNotFoundError, ValueError):
@@ -543,7 +545,7 @@ def register_mfa_routes(
                 request=request,
                 render_index_response=deps.render_index_response,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                browser_message=deps.text["mfa_verification_failed"],
+                browser_message=localized_auth_text(request)["mfa_verification_failed"],
                 json_content={"detail": MFA_VERIFICATION_FAILED_DETAIL},
             )
         except AccountLockedError:
@@ -554,7 +556,7 @@ def register_mfa_routes(
                 request=request,
                 render_index_response=deps.render_index_response,
                 status_code=status.HTTP_423_LOCKED,
-                browser_message=deps.text["session_locked_details"],
+                browser_message=localized_auth_text(request)["session_locked_details"],
                 json_content={"detail": ACCOUNT_LOCKED_DETAIL},
             )
         except PasswordResetRequiredError:
@@ -562,14 +564,14 @@ def register_mfa_routes(
                 return deps.render_password_reset_request(
                     request,
                     status_code=status.HTTP_403_FORBIDDEN,
-                    notice_message=deps.text["password_reset_forced"],
+                    notice_message=localized_auth_text(request)["password_reset_forced"],
                 )
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,
                 render_index_response=deps.render_index_response,
                 status_code=status.HTTP_403_FORBIDDEN,
-                browser_message=deps.text["password_reset_forced"],
+                browser_message=localized_auth_text(request)["password_reset_forced"],
                 json_content={"status": "password_reset_required"},
             )
         if is_browser_form:
@@ -627,7 +629,7 @@ def register_password_reset_routes(
             return deps.render_password_reset_request(
                 request,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                error_message=deps.text["password_reset_request_details"],
+                error_message=localized_auth_text(request)["password_reset_request_details"],
             )
         client_reference_hash = hash_sensitive_reference(
             deps.audit_hash_secret,
@@ -717,7 +719,7 @@ def register_password_reset_routes(
             return deps.render_password_reset_request(
                 request,
                 status_code=status.HTTP_202_ACCEPTED,
-                notice_message=deps.text["password_reset_link_sent"],
+                notice_message=localized_auth_text(request)["password_reset_link_sent"],
                 form_values={
                     "username": payload.username,
                     "email": payload.email,
@@ -753,7 +755,7 @@ def register_password_reset_routes(
                 csrf_secret=deps.csrf_secret,
                 template_name=PASSWORD_RESET_COMPLETE_TEMPLATE,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                error_message=deps.text[error_key],
+                error_message=localized_auth_text(request)[error_key],
                 reset_token=exc.safe_form_values.get("reset_token"),
             )
         try:
@@ -773,7 +775,7 @@ def register_password_reset_routes(
                     csrf_secret=deps.csrf_secret,
                     template_name=PASSWORD_RESET_COMPLETE_TEMPLATE,
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    error_message=deps.text["password_reset_complete_error"],
+                    error_message=localized_auth_text(request)["password_reset_complete_error"],
                 )
             return JSONResponse(
                 status_code=400,
@@ -785,8 +787,8 @@ def register_password_reset_routes(
                 settings=deps.settings,
                 csrf_secret=deps.csrf_secret,
                 template_name="auth_result.jinja",
-                result_heading=deps.text["password_reset_success_heading"],
-                result_message=deps.text["password_reset_success"],
+                result_heading=localized_auth_text(request)["password_reset_success_heading"],
+                result_message=localized_auth_text(request)["password_reset_success"],
             )
         return {"status": "password_reset", "username": account.username}
 
@@ -847,7 +849,7 @@ def register_email_change_routes(
                 csrf_secret=deps.csrf_secret,
                 template_name=EMAIL_CHANGE_TEMPLATE,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                error_message=deps.text["email_change_complete_error"],
+                error_message=localized_auth_text(request)["email_change_complete_error"],
             )
         if deps.settings.is_development:
             session.commit()
@@ -887,8 +889,8 @@ def register_email_change_routes(
             settings=deps.settings,
             csrf_secret=deps.csrf_secret,
             template_name="auth_result.jinja",
-            result_heading=deps.text["email_change_success_heading"],
-            result_message=deps.text[
+            result_heading=localized_auth_text(request)["email_change_success_heading"],
+            result_message=localized_auth_text(request)[
                 "email_change_success"
                 if confirmation.applied
                 else "email_change_phone_confirmation_pending"

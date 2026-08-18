@@ -70,7 +70,10 @@ def parse_unlock_secret_keyring(encoded_keyring: str) -> dict[str, str]:
                 "each unlock-secret encryption key must be at least "
                 f"{MIN_PRODUCTION_SECRET_LENGTH} characters"
             )
-        normalized_keyring[key_id.strip()] = secret.strip()
+        normalized_key_id = key_id.strip()
+        if normalized_key_id in normalized_keyring:
+            raise ValueError("unlock-secret key IDs must be unique after trimming whitespace")
+        normalized_keyring[normalized_key_id] = secret.strip()
     return normalized_keyring
 
 
@@ -276,7 +279,7 @@ class Settings(BaseSettings):
     @property
     def allowed_hosts(self) -> tuple[str, ...]:
         if self.public_base_url is None:
-            return ("127.0.0.1", "localhost", "testserver")
+            return tuple(dict.fromkeys((*self.probe_host_aliases, "testserver")))
         hostname = urlsplit(self.public_base_url).hostname
         if hostname is None:
             raise ValueError("PATIENT_PORTAL_PUBLIC_BASE_URL must contain a hostname")
@@ -405,6 +408,10 @@ class Settings(BaseSettings):
         if value is None:
             return None
         parsed_url = urlsplit(value)
+        try:
+            _ = parsed_url.port
+        except ValueError as exc:
+            raise ValueError("PATIENT_PORTAL_PUBLIC_BASE_URL must contain a valid port") from exc
         if (
             parsed_url.scheme not in {"http", "https"}
             or not parsed_url.netloc
@@ -434,6 +441,10 @@ class Settings(BaseSettings):
         if value is None:
             return None
         parsed_url = urlsplit(value)
+        try:
+            _ = parsed_url.port
+        except ValueError as exc:
+            raise ValueError("PATIENT_PORTAL_SMS_WEBHOOK_URL must contain a valid port") from exc
         if (
             parsed_url.scheme not in {"http", "https"}
             or not parsed_url.netloc
@@ -498,10 +509,10 @@ class Settings(BaseSettings):
         encoded_keyring = self.secret_value("unlock_secret_encryption_keyring")
         if encoded_keyring is None:
             legacy_secret = self.secret_value("unlock_secret_encryption_secret")
-            if legacy_secret is not None and self.unlock_secret_active_key_id != "primary":
+            if self.unlock_secret_active_key_id != "primary":
                 raise ValueError(
                     "PATIENT_PORTAL_UNLOCK_SECRET_ACTIVE_KEY_ID must be primary when "
-                    "using PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET"
+                    "no keyring is configured"
                 )
             return {"primary": legacy_secret} if legacy_secret is not None else {}
         if self.secret_value("unlock_secret_encryption_secret") is not None:
@@ -758,8 +769,10 @@ class Settings(BaseSettings):
             )
         if self.internal_api_token is None:
             raise ValueError("PATIENT_PORTAL_INTERNAL_API_TOKEN must be set outside development")
-        if self.is_production and self.outbox_encryption_secret is None:
-            raise ValueError("PATIENT_PORTAL_OUTBOX_ENCRYPTION_SECRET must be set in production")
+        if self.outbox_encryption_secret is None:
+            raise ValueError(
+                "PATIENT_PORTAL_OUTBOX_ENCRYPTION_SECRET must be set outside development"
+            )
 
     def validate_audit_retention_policy(self) -> None:
         """Require an explicit opt-in before retention drops below the regulatory default.

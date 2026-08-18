@@ -50,6 +50,8 @@ def normalize_email_password_dashboard_provider(provider: str | None) -> str | N
     if provider is None:
         return None
     normalized_provider = provider.strip()
+    if normalized_provider in {"id:", "name:"}:
+        raise ValueError("structured provider filter must include a value")
     return normalized_provider or None
 
 
@@ -131,9 +133,10 @@ def assemble_email_password_dashboard(
     timezone_name: str = "UTC",
     filter_error: str | None = None,
     base_path: str = PORTAL_EMAIL_PASSWORD_PATH,
+    locale: str = DEFAULT_LOCALE,
 ) -> EmailPasswordDashboardViewModel:
     """Build the email-password view state for `dashboard.jinja`."""
-    text = portal_text(DEFAULT_LOCALE)
+    text = portal_text(locale)
     normalized_search = normalize_email_password_dashboard_search(search)
     normalized_provider = normalize_email_password_dashboard_provider(provider)
     invalid_date_range = date_from is not None and date_to is not None and date_from > date_to
@@ -156,6 +159,7 @@ def assemble_email_password_dashboard(
         else count_unlock_secrets(
             session,
             clinic_id=account.clinic_id,
+            account_id=account.id,
             demographic_no=account.demographic_no,
             secret_type=UNLOCK_SECRET_TYPE_EMAIL,
             search=normalized_search,
@@ -177,6 +181,7 @@ def assemble_email_password_dashboard(
         else list_unlock_secrets(
             session,
             clinic_id=account.clinic_id,
+            account_id=account.id,
             demographic_no=account.demographic_no,
             secret_type=UNLOCK_SECRET_TYPE_EMAIL,
             search=normalized_search,
@@ -190,6 +195,7 @@ def assemble_email_password_dashboard(
     provider_options = list_unlock_secret_provider_options(
         session,
         clinic_id=account.clinic_id,
+        account_id=account.id,
         demographic_no=account.demographic_no,
         secret_type=UNLOCK_SECRET_TYPE_EMAIL,
     )

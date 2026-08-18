@@ -299,14 +299,8 @@ class InternalRouteDependencies:
 
 def register_internal_failure_audit(app: FastAPI, runtime: InternalRuntime) -> None:
     """Record every failed /internal/carlos/** request as a staff-action audit event."""
-    @app.middleware("http")
-    async def audit_failed_internal_action(
-        request: Request,
-        call_next: Callable[[Request], Awaitable[Response]],
-    ) -> Response:
-        response = await call_next(request)
-        if not request.url.path.startswith("/internal/carlos/") or response.status_code < 400:
-            return response
+
+    def record_failed_internal_action(request: Request, status_code: int) -> None:
         principal: StaffPrincipal | None = None
         try:
             principal = authenticate_carlos_staff(
@@ -329,7 +323,7 @@ def register_internal_failure_audit(app: FastAPI, runtime: InternalRuntime) -> N
                 409: "conflict",
                 422: "validation_failed",
                 429: "throttled",
-            }.get(response.status_code, "internal_failure")
+            }.get(status_code, "internal_failure")
         )
         try:
             with runtime.session_factory() as audit_session:
@@ -353,8 +347,22 @@ def register_internal_failure_audit(app: FastAPI, runtime: InternalRuntime) -> N
                 "Internal staff-action audit write failed: %s reason=%s status=%s",
                 type(exc).__name__,
                 reason,
-                response.status_code,
+                status_code,
             )
+
+    @app.middleware("http")
+    async def audit_failed_internal_action(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        try:
+            response = await call_next(request)
+        except Exception:
+            if request.url.path.startswith("/internal/carlos/"):
+                record_failed_internal_action(request, 500)
+            raise
+        if request.url.path.startswith("/internal/carlos/") and response.status_code >= 400:
+            record_failed_internal_action(request, response.status_code)
         return response
 
 def build_internal_dependencies(runtime: InternalRuntime) -> InternalRouteDependencies:

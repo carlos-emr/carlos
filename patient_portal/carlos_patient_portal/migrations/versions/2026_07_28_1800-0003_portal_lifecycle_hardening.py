@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from uuid import uuid4
 
 import sqlalchemy as sa
-from alembic import op
+from alembic import context, op
 
 _ALEMBIC_REVISION_IDENTIFIERS: dict[str, str | Sequence[str] | None] = {
     "revision": "0003_portal_lifecycle_hardening",
@@ -45,6 +45,8 @@ _AUDIT_EVENT_TYPE_CHECK_V2 = _AUDIT_EVENT_TYPE_CHECK_V3.replace(
 
 
 def upgrade() -> None:
+    if context.is_offline_mode():
+        raise RuntimeError("migration 0003 requires an online connection for revision backfill")
     with op.batch_alter_table("patient_portal_accounts") as batch_op:
         batch_op.drop_constraint("ck_patient_portal_accounts_status", type_="check")
         batch_op.add_column(
@@ -78,7 +80,7 @@ def upgrade() -> None:
             "status != 'reviewed' or "
             "(reviewed_at is not null and reviewed_by is not null and "
             "review_decision is not null and "
-            "review_decision in ('approved', 'rejected', 'superseded'))",
+            "review_decision in ('approved', 'rejected', 'superseded', 'legacy'))",
         )
     connection = op.get_bind()
     review_ids = connection.execute(
@@ -138,6 +140,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    if context.is_offline_mode():
+        raise RuntimeError("migration 0003 requires an online connection for downgrade preflight")
     connection = op.get_bind()
     disabled_count = connection.execute(
         sa.text(
@@ -234,7 +238,7 @@ def downgrade() -> None:
             "status != 'reviewed' or "
             "(reviewed_at is not null and reviewed_by is not null and "
             "review_decision is not null and "
-            "review_decision in ('approved', 'rejected'))",
+            "review_decision in ('approved', 'rejected', 'legacy'))",
         )
 
     with op.batch_alter_table("patient_portal_accounts") as batch_op:

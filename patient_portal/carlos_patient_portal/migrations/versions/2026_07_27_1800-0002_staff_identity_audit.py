@@ -8,7 +8,7 @@ Create Date: 2026-07-27 18:00:00+00:00
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
+from alembic import context, op
 
 _ALEMBIC_REVISION_IDENTIFIERS: dict[str, str | Sequence[str] | None] = {
     "revision": "0002_staff_identity_audit",
@@ -37,6 +37,21 @@ _AUDIT_EVENT_TYPE_CHECK_V1 = _AUDIT_EVENT_TYPE_CHECK_V2.replace(
 
 
 def upgrade() -> None:
+    if context.is_offline_mode():
+        raise RuntimeError("migration 0002 requires an online connection for data preflight")
+    connection = op.get_bind()
+    duplicate_source_references = connection.execute(
+        sa.text(
+            "select count(*) from (select 1 from patient_portal_unlock_secrets "
+            "where source_reference is not null group by clinic_id, secret_type, "
+            "source_reference having count(*) > 1) duplicates"
+        )
+    ).scalar_one()
+    if duplicate_source_references:
+        raise RuntimeError(
+            "cannot add unique unlock-secret source references; "
+            f"{duplicate_source_references} duplicate group(s) require reconciliation"
+        )
     op.add_column(
         "patient_portal_accounts",
         sa.Column("locked_by_id", sa.String(length=128), nullable=True),
@@ -46,22 +61,12 @@ def upgrade() -> None:
         batch_op.drop_constraint("ck_pp_contact_review_reviewed_present", type_="check")
         batch_op.add_column(sa.Column("reviewed_by_id", sa.String(length=128), nullable=True))
         batch_op.add_column(sa.Column("review_decision", sa.String(length=16), nullable=True))
-    connection = op.get_bind()
-    # v1 recorded only that a review happened. Recover the historical decision from whether the
-    # account still carries the reviewed after-values before making the new decision mandatory.
+    # v1 recorded only that a review happened, not its outcome. Preserve that uncertainty rather
+    # than inferring a historical decision from the account's current contact values.
     connection.execute(
         sa.text(
-            "update patient_portal_contact_review_requests set review_decision = case "
-            "when exists (select 1 from patient_portal_accounts "
-            "where patient_portal_accounts.id = "
-            "patient_portal_contact_review_requests.account_id "
-            "and patient_portal_accounts.email = "
-            "patient_portal_contact_review_requests.email_after "
-            "and (patient_portal_accounts.phone_number = "
-            "patient_portal_contact_review_requests.phone_number_after or "
-            "(patient_portal_accounts.phone_number is null and "
-            "patient_portal_contact_review_requests.phone_number_after is null))) "
-            "then 'approved' else 'rejected' end where status = 'reviewed'"
+            "update patient_portal_contact_review_requests set review_decision = 'legacy' "
+            "where status = 'reviewed'"
         )
     )
     with op.batch_alter_table("patient_portal_contact_review_requests") as batch_op:
@@ -78,7 +83,7 @@ def upgrade() -> None:
                 "status != 'reviewed' or "
                 "(reviewed_at is not null and reviewed_by is not null and "
                 "review_decision is not null and "
-                "review_decision in ('approved', 'rejected'))"
+                "review_decision in ('approved', 'rejected', 'legacy'))"
             ),
         )
     op.add_column(
@@ -169,7 +174,8 @@ def downgrade() -> None:
     contact_review_metadata_count = connection.execute(
         sa.text(
             "select count(*) from patient_portal_contact_review_requests "
-            "where reviewed_by_id is not null or review_decision is not null"
+            "where reviewed_by_id is not null or "
+            "(review_decision is not null and review_decision != 'legacy')"
         )
     ).scalar_one()
     unlock_secret_identity_count = connection.execute(

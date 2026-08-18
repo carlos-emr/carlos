@@ -36,6 +36,7 @@ from carlos_patient_portal.models import (
     OUTBOX_STATUS_PROCESSING,
     PASSWORD_RESET_STATUS_PENDING,
     PASSWORD_RESET_STATUS_REVOKED,
+    PatientPortalAccount,
     PatientPortalOutboundDelivery,
     PatientPortalPasswordResetToken,
     utc_now,
@@ -234,13 +235,24 @@ def _claim_delivery(
 def _mark_terminal_reset_failure(session: Session, delivery: PatientPortalOutboundDelivery) -> None:
     if delivery.reset_token_id is None:
         return
+    account = session.scalar(
+        select(PatientPortalAccount)
+        .where(PatientPortalAccount.id == delivery.account_id)
+        .with_for_update()
+    )
     reset_record = session.scalar(
         select(PatientPortalPasswordResetToken)
         .where(PatientPortalPasswordResetToken.id == delivery.reset_token_id)
         .with_for_update()
     )
-    if reset_record is not None and reset_record.status == PASSWORD_RESET_STATUS_PENDING:
+    if (
+        account is not None
+        and reset_record is not None
+        and reset_record.account_id == account.id
+        and reset_record.status == PASSWORD_RESET_STATUS_PENDING
+    ):
         reset_record.status = PASSWORD_RESET_STATUS_REVOKED
+        session.flush()
     _record_reset_delivery_outcome_best_effort(
         session,
         delivery,

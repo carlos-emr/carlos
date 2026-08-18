@@ -601,11 +601,13 @@ def update_account_mfa_method(
         raise AccountSettingsValidationError() from exc
 
     now = utc_now()
+    method_changed = account.preferred_mfa_method != normalized_method
     account.preferred_mfa_method = normalized_method
     account.updated_at = now
     # A patient switching away from a compromised mailbox/number expects the old channel to stop
     # authorizing sign-ins, so codes already delivered there are cancelled with the preference.
-    cancel_pending_mfa_challenges(session, account.id, now=now)
+    if method_changed:
+        cancel_pending_mfa_challenges(session, account.id, now=now)
     record_account_settings_audit_event(
         session,
         account,
@@ -671,13 +673,35 @@ def review_contact_update(
     Suspected takeover is a separate security action: staff must disable portal access through the
     `portal.account.manage` endpoint, which immediately revokes sessions and recovery artifacts.
     """
-    review_request = session.scalar(
-        select(PatientPortalContactReviewRequest)
+    review_locator = session.execute(
+        select(
+            PatientPortalContactReviewRequest.id,
+            PatientPortalContactReviewRequest.account_id,
+            PatientPortalContactReviewRequest.demographic_no,
+        )
         .where(
             PatientPortalContactReviewRequest.id == review_request_id,
             PatientPortalContactReviewRequest.clinic_id == clinic_id,
         )
+    ).one_or_none()
+    if review_locator is None:
+        raise ContactReviewNotFoundError()
+    account = session.scalar(
+        select(PatientPortalAccount)
+        .where(
+            PatientPortalAccount.id == review_locator.account_id,
+            PatientPortalAccount.clinic_id == clinic_id,
+            PatientPortalAccount.demographic_no == review_locator.demographic_no,
+        )
         .with_for_update()
+    )
+    if account is None:
+        raise ContactReviewNotFoundError()
+    review_request = session.scalar(
+        select(PatientPortalContactReviewRequest)
+        .where(PatientPortalContactReviewRequest.id == review_locator.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if review_request is None:
         raise ContactReviewNotFoundError()
@@ -688,18 +712,6 @@ def review_contact_update(
         if review_request.review_decision == decision:
             return review_request
         raise ContactReviewConflictError()
-    account = session.scalar(
-        select(PatientPortalAccount)
-        .where(
-            PatientPortalAccount.id == review_request.account_id,
-            PatientPortalAccount.clinic_id == clinic_id,
-            PatientPortalAccount.demographic_no == review_request.demographic_no,
-        )
-        .with_for_update()
-    )
-    if account is None:
-        raise ContactReviewNotFoundError()
-
     now = utc_now()
     review_request.status = CONTACT_REVIEW_STATUS_REVIEWED
     review_request.review_decision = decision

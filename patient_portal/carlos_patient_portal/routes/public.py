@@ -102,6 +102,7 @@ def register_public_routes(
         try:
             check_database(session)
         except SQLAlchemyError:
+            session.rollback()
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={
@@ -114,6 +115,7 @@ def register_public_routes(
         try:
             check_database_schema_current(session)
         except (DatabaseSchemaMismatchError, SQLAlchemyError):
+            session.rollback()
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={

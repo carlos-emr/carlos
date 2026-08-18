@@ -141,6 +141,7 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "dashboard_messages_description": "Secure messaging may be available in a future release.",
         "date_from": "From date",
         "date_format_error": "Enter valid from and to dates.",
+        "filter_error": "Enter valid filters.",
         "date_range_error": "The from date must not be later than the to date.",
         "date_of_birth": "Date of birth",
         "date_to": "To date",

@@ -906,6 +906,18 @@ def test_browser_email_password_index_records_a_sanitized_list_audit_event() -> 
         assert all("biopsy" not in (event.reason or "") for event in list_events)
 
 
+@pytest.mark.parametrize("provider", ["id:", "name:"])
+def test_empty_structured_provider_filter_returns_invalid_filter_page(provider: str) -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    browser_sign_in_seeded_patient(app, client)
+
+    response = client.get("/portal/email-passwords", params={"provider": provider})
+
+    assert response.status_code == 400
+    assert "Enter valid filters." in response.text
+
+
 def test_email_change_confirmation_delivery_failure_revokes_the_pending_request() -> None:
     """A pending change the patient can never confirm is worse than no change at all.
 

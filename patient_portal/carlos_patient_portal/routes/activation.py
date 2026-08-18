@@ -16,7 +16,7 @@ from carlos_patient_portal.accounts import (
     activate_patient_account,
 )
 from carlos_patient_portal.audit import hash_sensitive_reference
-from carlos_patient_portal.i18n import DEFAULT_LOCALE, portal_text
+from carlos_patient_portal.i18n import portal_text
 from carlos_patient_portal.identity import IdentityProof
 from carlos_patient_portal.models import MFA_DELIVERY_METHOD_SMS
 from carlos_patient_portal.runtime import (
@@ -33,7 +33,12 @@ from carlos_patient_portal.web_support import (
     get_request_client_reference,
     is_urlencoded_form_request,
     render_public_auth_template,
+    request_locale,
 )
+
+
+def localized_activation_text(request: Request) -> dict[str, str]:
+    return portal_text(request_locale(request))
 
 
 def register_activation_routes(
@@ -47,7 +52,6 @@ def register_activation_routes(
     audit_hash_secret = runtime.audit_hash_secret
     activation_rate_limit = runtime.activation_rate_limit
     csrf_secret = runtime.token_keys.csrf
-    text = portal_text(DEFAULT_LOCALE)
 
     @app.get("/auth/activate", name="activation_page")
     def activation_page(request: Request) -> Response:
@@ -80,7 +84,7 @@ def register_activation_routes(
                 csrf_secret=csrf_secret,
                 template_name=ACTIVATION_TEMPLATE,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                error_message=text["password_mismatch"],
+                error_message=localized_activation_text(request)["password_mismatch"],
                 sms_mfa_available=runtime.sms_sender is not None,
             )
         except RequestValidationError:
@@ -92,7 +96,7 @@ def register_activation_routes(
                 csrf_secret=csrf_secret,
                 template_name=ACTIVATION_TEMPLATE,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                error_message=text["activation_error"],
+                error_message=localized_activation_text(request)["activation_error"],
                 sms_mfa_available=runtime.sms_sender is not None,
             )
         client_reference_hash = hash_sensitive_reference(
@@ -108,7 +112,7 @@ def register_activation_routes(
                     csrf_secret=csrf_secret,
                     template_name=ACTIVATION_TEMPLATE,
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    error_message=text["mfa_delivery_unavailable"],
+                    error_message=localized_activation_text(request)["mfa_delivery_unavailable"],
                     sms_mfa_available=False,
                 )
             return JSONResponse(
@@ -142,7 +146,7 @@ def register_activation_routes(
                     csrf_secret=csrf_secret,
                     template_name=ACTIVATION_TEMPLATE,
                     status_code=status.HTTP_409_CONFLICT,
-                    error_message=text["username_unavailable"],
+                    error_message=localized_activation_text(request)["username_unavailable"],
                     form_values={
                         "email": payload.email,
                         "date_of_birth": payload.date_of_birth.isoformat(),
@@ -158,7 +162,7 @@ def register_activation_routes(
                     csrf_secret=csrf_secret,
                     template_name=ACTIVATION_TEMPLATE,
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    error_message=text["activation_rate_limited"],
+                    error_message=localized_activation_text(request)["activation_rate_limited"],
                     sms_mfa_available=runtime.sms_sender is not None,
                 )
                 response.headers["Retry-After"] = str(exc.retry_after_seconds)
@@ -176,7 +180,7 @@ def register_activation_routes(
                     csrf_secret=csrf_secret,
                     template_name=ACTIVATION_TEMPLATE,
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    error_message=text["activation_error"],
+                    error_message=localized_activation_text(request)["activation_error"],
                     sms_mfa_available=runtime.sms_sender is not None,
                 )
             return JSONResponse(
@@ -190,7 +194,7 @@ def register_activation_routes(
                 csrf_secret=csrf_secret,
                 template_name="auth_result.jinja",
                 status_code=status.HTTP_201_CREATED,
-                result_heading=text["activation_success_heading"],
-                result_message=text["activation_success"],
+                result_heading=localized_activation_text(request)["activation_success_heading"],
+                result_message=localized_activation_text(request)["activation_success"],
             )
         return {"status": "activated", "username": account.username}

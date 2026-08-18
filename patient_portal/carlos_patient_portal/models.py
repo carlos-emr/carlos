@@ -87,6 +87,7 @@ CONTACT_REVIEW_STATUS_REVIEWED = "reviewed"
 CONTACT_REVIEW_DECISION_APPROVED = "approved"
 CONTACT_REVIEW_DECISION_REJECTED = "rejected"
 CONTACT_REVIEW_DECISION_SUPERSEDED = "superseded"
+CONTACT_REVIEW_DECISION_LEGACY = "legacy"
 UNLOCK_SECRET_STATUS_PENDING = "pending"
 UNLOCK_SECRET_STATUS_AVAILABLE = "available"
 UNLOCK_SECRET_STATUS_ACTIVE = UNLOCK_SECRET_STATUS_AVAILABLE
@@ -300,7 +301,7 @@ class PatientPortalContactReviewRequest(Base):
                 "status != 'reviewed' or "
                 "(reviewed_at is not null and reviewed_by is not null and "
                 "review_decision is not null and "
-                "review_decision in ('approved', 'rejected', 'superseded'))"
+                "review_decision in ('approved', 'rejected', 'superseded', 'legacy'))"
             ),
             name="ck_pp_contact_review_reviewed_present",
         ),
@@ -378,6 +379,8 @@ class PatientPortalSession(Base):
         ),
         Index("ux_patient_portal_sessions_token_hash", "token_hash", unique=True),
         Index("ix_patient_portal_sessions_account_expires", "account_id", "expires_at"),
+        Index("ix_pp_sessions_expires", "expires_at", "id"),
+        Index("ix_pp_sessions_revoked", "revoked_at", "id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -440,6 +443,7 @@ class PatientPortalMfaChallenge(Base):
             unique=True,
         ),
         Index("ix_patient_portal_mfa_challenges_account_status", "account_id", "status"),
+        Index("ix_pp_mfa_expires", "expires_at", "id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -514,6 +518,7 @@ class PatientPortalPasswordResetToken(Base):
             "account_id",
             "status",
         ),
+        Index("ix_pp_reset_expires", "expires_at", "id"),
         Index(
             "ux_portal_reset_pending_account",
             "account_id",
@@ -654,6 +659,10 @@ class PatientPortalOutboundDelivery(Base):
             name="ck_pp_outbound_delivery_key_id_length",
         ),
         CheckConstraint(
+            f"length(encryption_nonce) = {OUTBOX_NONCE_LENGTH}",
+            name="ck_pp_outbound_delivery_nonce_length",
+        ),
+        CheckConstraint(
             "length(message_id) between 1 and 255",
             name="ck_pp_outbound_delivery_message_id_length",
         ),
@@ -783,6 +792,7 @@ class PatientPortalInvite(Base):
         ),
         Index("ix_patient_portal_invites_clinic_expires_at", "clinic_id", "expires_at"),
         Index("ix_patient_portal_invites_clinic_status", "clinic_id", "status"),
+        Index("ix_pp_invites_expires_status", "expires_at", "status", "id"),
         Index(
             "ix_patient_portal_invites_supersedes_invite_id",
             "supersedes_invite_id",
@@ -1107,6 +1117,7 @@ class PatientPortalAuditEvent(Base):
             "created_at",
         ),
         Index("ix_patient_portal_audit_events_clinic_created", "clinic_id", "created_at"),
+        Index("ix_pp_audit_created", "created_at", "id"),
         Index("ix_patient_portal_audit_events_actor_id_created", "actor_id", "created_at"),
         Index(
             "ix_patient_portal_audit_events_resource_created",

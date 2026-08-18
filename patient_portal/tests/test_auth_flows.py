@@ -1601,11 +1601,13 @@ def test_changing_mfa_method_cancels_codes_already_sent_to_the_old_channel() -> 
     with app.state.session_factory() as session:
         account = session.get(PatientPortalAccount, account_id)
         assert account is not None
+        account.phone_number = "+15550105555"
+        session.flush()
         update_account_mfa_method(
             session,
             account,
             current_password=STRONG_PASSWORD,
-            preferred_mfa_method="email",
+            preferred_mfa_method="sms",
             max_failed_password_attempts=5,
         )
         session.commit()
@@ -1621,6 +1623,37 @@ def test_changing_mfa_method_cancels_codes_already_sent_to_the_old_channel() -> 
     assert token
     # The cancelled challenge is no longer a usable credential.
     assert stale_verify.status_code == 400
+
+
+def test_saving_unchanged_mfa_method_preserves_live_challenge() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+    login = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": STRONG_PASSWORD},
+    )
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        assert account is not None
+        update_account_mfa_method(
+            session,
+            account,
+            current_password=STRONG_PASSWORD,
+            preferred_mfa_method="email",
+            max_failed_password_attempts=5,
+        )
+        session.commit()
+
+    verified = client.post(
+        "/auth/mfa/verify",
+        json={
+            "mfa_challenge_token": login.json()["mfa_challenge_token"],
+            "code": login.json()["development_mfa_code"],
+        },
+    )
+
+    assert verified.status_code == 200
     with app.state.session_factory() as session:
         statuses = list(
             session.scalars(

@@ -64,6 +64,10 @@ def upgrade() -> None:
             name="ck_pp_outbound_delivery_key_id_length",
         ),
         sa.CheckConstraint(
+            "length(encryption_nonce) = 12",
+            name="ck_pp_outbound_delivery_nonce_length",
+        ),
+        sa.CheckConstraint(
             "length(message_id) between 1 and 255",
             name="ck_pp_outbound_delivery_message_id_length",
         ),

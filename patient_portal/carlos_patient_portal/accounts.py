@@ -205,16 +205,6 @@ def activate_patient_account(
     expected_clinic_id: str,
 ) -> PatientPortalAccount:
     normalized_invite_code = invite_code.strip()
-    if not normalized_invite_code:
-        raise ActivationError()
-
-    normalized_username = validate_username(username)
-    validate_password(password)
-    normalized_email = normalize_email(identity_proof.email)
-    normalized_mfa_method = normalize_mfa_delivery_method(preferred_mfa_method)
-    normalized_phone_number = normalize_phone_number(phone_number)
-    if normalized_mfa_method == MFA_DELIVERY_METHOD_SMS and normalized_phone_number is None:
-        raise ActivationError()
     invite_token_hash = hash_invite_token(normalized_invite_code)
     now = utc_now()
     lock_activation_rate_limit_keys(
@@ -229,6 +219,24 @@ def activate_patient_account(
         rate_limit=rate_limit,
         now=now,
     )
+    try:
+        if not normalized_invite_code:
+            raise ActivationError()
+        normalized_username = validate_username(username)
+        validate_password(password)
+        normalized_email = normalize_email(identity_proof.email)
+        normalized_mfa_method = normalize_mfa_delivery_method(preferred_mfa_method)
+        normalized_phone_number = normalize_phone_number(phone_number)
+        if normalized_mfa_method == MFA_DELIVERY_METHOD_SMS and normalized_phone_number is None:
+            raise ActivationError()
+    except (ActivationError, ValueError) as exc:
+        record_activation_failure(
+            session,
+            invite_token_hash=invite_token_hash,
+            client_reference_hash=client_reference_hash,
+            reason=ACTIVATION_REASON_INVALID_DETAILS,
+        )
+        raise ActivationError() from exc
 
     # An invite is only redeemable through the clinic runtime that issued it: a shared database
     # must never let a Clinic A origin consume a Clinic B invite under Clinic A branding.
