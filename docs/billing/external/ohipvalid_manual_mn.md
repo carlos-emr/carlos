@@ -418,7 +418,7 @@ The HCV service is available 24 hours a day, seven days a week with scheduled
 downtime for maintenance every second Sunday of the month between 5:00 a.m. and
 8:00 a.m.
 The ministry does not charge for HCV access. However, there may be software set-up
-and ongoing costs depending on the vendor and access method chosen. Discuss setup and ongoing costs with your software vendor or solution provider.
+and ongoing costs depending on the vendor and access method chosen. Discuss set-up and ongoing costs with your software vendor or solution provider.
 Depending on the HCV type and corresponding communication protocol you choose,
 you will need associated software and hardware equipment. A software
 vendor/developer can provide you with information regarding any required equipment.
@@ -501,7 +501,7 @@ HCV users are encouraged to contact colleagues, professional associations or oth
 health care providers regarding vendors and/or applications that support HCV.
 Real-Time Validation:
 Health Card Validation Web Service
-The HCV Web Service via the Electronic Business Service (EBS) is an Internetenabled service that can be accessed from any computer using third party
+The HCV Web Service via the Electronic Business Service (EBS) is an Internet-enabled service that can be accessed from any computer using third party
 software. The HCV Web Service provides a more secure service to validate the
 eligibility of a patient’s health card in real-time against ministry databases.
 The HCV Web Service offers two types of applications to validate the eligibility of
@@ -601,7 +601,7 @@ HCV Full or HCV Basic in the event the chosen access method is
 unavailable.
 Interactive Voice Response
 The Interactive Voice Response (IVR) allows enrolled health care providers and
-organizations to validate health cards with the ministry in real-time using the tollfree telephone access.
+organizations to validate health cards with the ministry in real-time using the toll-free telephone access.
 IVR is best suited for low-volume users (less than 40 transactions per day) or
 remote locations/clinics.
 The following equipment and service are required to participate in IVR:
@@ -639,7 +639,7 @@ health care service to patients;
 code;
  Does not confirm that the health number and version code are
 correct/incorrect at time of service;
- Will assist providers to determine when their patient’s most recent oculovisual assessment, bone mineral density measurement, fertility service
+ Will assist providers to determine when their patient’s most recent oculo-visual assessment, bone mineral density measurement, fertility service
 or sleep study was performed according to claims which have been
 received and approved for payment by the ministry; and
  Must only be accessed by a touch-tone telephone.
@@ -730,7 +730,7 @@ ministry’s mainframe computer.
 Batches submitted for OBEC by 4:00 p.m. each day are processed overnight and a
 response file is returned to MC EDT by 7:00 a.m. the next business day. OBEC is
 available 24 hours a day, seven days a week.
-OBEC is well suited for health care providers to validate health card eligibility for prescheduled appointments for referred patients, for out-of-town patients or for a patient
+OBEC is well suited for health care providers to validate health card eligibility for pre-scheduled appointments for referred patients, for out-of-town patients or for a patient
 who has had claims rejected in the past. Pre-validating with OBEC allows for the
 discussion of any health number discrepancies with patients either before or during
 their office visit to identify where direct billing may be necessary.
