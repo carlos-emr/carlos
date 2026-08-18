@@ -9,8 +9,8 @@
 # all local_repo dependencies are available for the build.
 #
 # Usage:
-# - Triggered on pushes to the develop branch
-# - Triggered on pull requests targeting the develop branch
+# - Triggered on pushes to develop and release/* branches
+# - Triggered on pull requests targeting develop and release/*
 #
 # Requirements:
 # - SONAR_TOKEN secret must be configured in repository settings
@@ -30,10 +30,16 @@ on:
   push:
     branches:
       - develop
+      - release/*
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
       - develop
+      - release/*
+
+concurrency:
+  group: sonarcloud-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io

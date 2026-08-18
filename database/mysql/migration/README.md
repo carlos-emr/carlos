@@ -14,18 +14,23 @@ migration/
            V1.0.3__performance_indexes.sql  # forward delta: shared performance indexes
            V1.0.5__restore_live_legacy_common_tables.sql
            V1.0.7__restore_phcp_diagnosis_groups.sql
+           V1.0.8__expand_appointment_type_location.sql
+           V1.0.9__remove_carlosdoc_schedule_group_denial.sql
+           V1.0.10__seed_default_measurement_groups.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
            V1.0.6__restore_reporting_privilege.sql
+           V1.0.11__billing_filename_unique_indexes.sql
   bc/      V1.0.1__bc_schema.sql            # British Columbia-only tables (structure)
            V1.0.2__bc_data.sql              # British Columbia reference data (rows)
            V1.0.6__restore_live_legacy_bc_tables_and_reference_data.sql
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The **highest version currently shipped is `V1.0.7`**, so the
-next free number for a new migration is `V1.0.8` (the version line is global across `common` + the
+`V1.0.3` onward is a forward delta. The highest version currently shipped is `V1.0.11`. The next
+Ontario or shared migration is `V1.0.12`; the next BC-only migration is `V1.0.11` because Ontario
+and BC locations are mutually exclusive (the version line is global only across `common` + the
 selected province — see below).
 
 A database applies **`common` + exactly one province** location, selected by `flyway.locations`:

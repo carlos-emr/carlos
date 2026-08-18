@@ -67,8 +67,18 @@ db_name=oscar_15
 ## tolerate fields without default values that are not named in the query
 db_switch=\'?characterEncoding=UTF-8\\\&zeroDateTimeBehavior=round\\\&useOldAliasMetadataBehavior=true\\\&jdbcCompliantTruncation=false\'
 
-# and the target of mvn 3 is
-TARGET=carlos-0-SNAPSHOT.war
+# Derive the WAR name from Maven so CalVer changes cannot break packaging.
+if ! MAVEN_FINAL_NAME=$(mvn -f "${REPO_ROOT}/pom.xml" \
+    help:evaluate -Dexpression=project.build.finalName \
+    -Dstyle.color=never -q -DforceStdout); then
+    echo "ERROR: Could not determine Maven project.build.finalName." >&2
+    exit 1
+fi
+if [[ ! "$MAVEN_FINAL_NAME" =~ ^[A-Za-z0-9._+-]+$ ]]; then
+    echo "ERROR: Unsafe Maven project.build.finalName: $MAVEN_FINAL_NAME" >&2
+    exit 1
+fi
+TARGET="${MAVEN_FINAL_NAME}.war"
 
 buildDateTime=$(date)
 SHA1=""
@@ -425,9 +435,12 @@ rm -f "${FLYWAY_TARBALL}"
 chmod 755 ${SCHEMA_OUT}/flyway-${FLYWAY_VERSION}/flyway
 
 # Bundle incremental update scripts for CARLOS revision upgrades.
-# update-2026-02-14-facility-integrator-removal.sql is intentionally excluded because it
-# drops facility columns that are incompatible with OSCAR 19 installations and cannot be
-# safely applied during a package upgrade.  All other update scripts are included.
+# Two legacy update scripts are intentionally excluded:
+# - update-2026-02-14-facility-integrator-removal.sql drops facility columns that are
+#   incompatible with OSCAR 19 installations.
+# - update-2026-05-03-billing-disk-filename-unique.sql is Ontario-only and is now managed
+#   idempotently by Flyway migration on/V1.0.11__billing_filename_unique_indexes.sql.
+# All other update scripts are included.
 # The postinst script applies these after the WAR is deployed to bring the schema current.
 echo "bundling incremental database update scripts from database/mysql/updates/"
 _update_sql_count=0
@@ -435,8 +448,9 @@ mkdir -p "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
 # Loop through the SQL files in the specified directory
 for _upd_sql in ./database/mysql/updates/update-2026-*.sql; do
     if [ -f "${_upd_sql}" ]; then
-        # Skip the specific destructive SQL file for compatibility reasons.
-        if [[ "${_upd_sql}" == "./database/mysql/updates/update-2026-02-14-facility-integrator-removal.sql" ]]; then
+        # Skip scripts that are unsafe for the blanket, province-neutral legacy update loop.
+        if [[ "${_upd_sql}" == "./database/mysql/updates/update-2026-02-14-facility-integrator-removal.sql" ||
+              "${_upd_sql}" == "./database/mysql/updates/update-2026-05-03-billing-disk-filename-unique.sql" ]]; then
             continue
         fi
         cp "${_upd_sql}" "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
@@ -529,7 +543,6 @@ echo ""
 echo "the md5sum is"
 md5sum "${RELEASE_DIR}/${DEBNAME}.deb"
 echo "#########" `date` "#########"
-
 
 
 

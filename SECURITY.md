@@ -55,9 +55,15 @@ We are especially interested in vulnerabilities that could:
 
 ## Supported Versions
 
-Security fixes are applied to the `develop` branch and included in the next release.
-Critical vulnerabilities may receive expedited patches. We do not currently maintain
-multiple release branches.
+Security fixes for unreleased code are applied to `develop`. High-priority fixes for a
+supported release are applied to its `release/YYYY.MM` maintenance branch, published as
+a prerelease or patch as appropriate, and forward-merged into newer supported lines and
+`develop`. The active 2026.08 line is maintained on `release/2026.08` while development
+of 2026.09 continues on `develop`.
+
+See the [release process](docs/release-process.md) for the maintenance, tagging, and
+forward-merge policy. Supported maintenance lines may change as releases reach end of
+support; published tags and immutable releases remain available.
 
 ## Safe Harbor
 

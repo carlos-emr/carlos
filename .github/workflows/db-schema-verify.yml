@@ -100,6 +100,22 @@ jobs:
           set -euo pipefail
           cd database/mysql
           MYSQL="mariadb -h 127.0.0.1 -uroot"
+
+          unique_single_column_index_count() {
+            local schema_name=$1
+            local table_name=$2
+            local index_name=$3
+            local column_name=$4
+
+            $MYSQL -N -e "
+              SELECT COUNT(*) FROM (
+                SELECT index_name FROM information_schema.statistics
+                WHERE table_schema='${schema_name}' AND table_name='${table_name}' AND index_name='${index_name}'
+                GROUP BY index_name
+                HAVING COUNT(*)=1 AND MIN(column_name)='${column_name}' AND MIN(seq_in_index)=1 AND MIN(non_unique)=0
+              ) AS exact_index"
+          }
+
           # jdbc:mariadb — the MariaDB driver bundled in the pinned Flyway CLI, matching the
           # jdbc:mariadb URLs release/postinst and carlos-ctl use against the same server.
           JDBC="jdbc:mariadb://127.0.0.1:3306/carlos_${PROV}?allowPublicKeyRetrieval=true&useSSL=false"
@@ -155,6 +171,14 @@ jobs:
           if [ "${ICD:-0}" -lt 1 ]; then
             echo "::error::diagnostic code table (icd9) empty after migrate for ${PROV}"
             exit 1
+          fi
+          if [ "${PROV}" = "on" ]; then
+            OHIP_FILENAME_UQ=$(unique_single_column_index_count carlos_on billing_on_diskname billing_on_diskname_ohipfilename_uq ohipfilename)
+            HTML_FILENAME_UQ=$(unique_single_column_index_count carlos_on billing_on_filename billing_on_filename_htmlfilename_uq htmlfilename)
+            if [ "${OHIP_FILENAME_UQ}" != "1" ] || [ "${HTML_FILENAME_UQ}" != "1" ]; then
+              echo "::error::CARLOS EMR Ontario billing filename unique indexes are missing or malformed after migrate"
+              exit 1
+            fi
           fi
           PHCP_GROUPS=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM dxphcpgroup")
           if [ "${PHCP_GROUPS:-0}" -lt 1 ]; then
@@ -333,6 +357,15 @@ jobs:
               exit 1
             fi
           done
+
+          if [ "${PROV}" = "on" ]; then
+            ADOPT_OHIP_FILENAME_UQ=$(unique_single_column_index_count "${ADOPT_DB}" billing_on_diskname billing_on_diskname_ohipfilename_uq ohipfilename)
+            ADOPT_HTML_FILENAME_UQ=$(unique_single_column_index_count "${ADOPT_DB}" billing_on_filename billing_on_filename_htmlfilename_uq htmlfilename)
+            if [ "${ADOPT_OHIP_FILENAME_UQ}" != "1" ] || [ "${ADOPT_HTML_FILENAME_UQ}" != "1" ]; then
+              echo "::error::CARLOS EMR Ontario billing filename unique indexes are missing or malformed after adopted migrate"
+              exit 1
+            fi
+          fi
 
           ADOPT_TABLES=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${ADOPT_DB}' AND table_name<>'flyway_schema_history'")
           if [ "${ADOPT_TABLES}" -lt 300 ]; then

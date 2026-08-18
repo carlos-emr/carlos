@@ -263,10 +263,14 @@ make install --run-integration-tests  # Integration tests (requires database)
 
 ### Branch Strategy
 
-CARLOS uses `develop` as the default branch and the focus for all active development.
-Pull requests and merges target `develop`. Releases are promoted from staging branches
-to `main`. **Do not work directly on `develop`** — always create a feature branch for
-your changes.
+CARLOS uses `develop` as the default integration branch for the next release train.
+Normal feature and bug-fix pull requests target `develop`. High-priority fixes for a
+supported release target its `release/YYYY.MM` maintenance branch, and release-preparation
+pull requests promote exact versions to `main`. **Do not work directly on a protected
+branch** — always create a topic branch.
+
+The canonical [release process](docs/release-process.md) defines CalVer versions, supported
+release lines, forward merges, snapshots, tags, and release publication.
 
 ### Internal vs. External Contributors
 
@@ -280,11 +284,16 @@ you're there!), then clone your fork to your local machine. You'll make changes 
 branches to *your* fork, then open a pull request back to the CARLOS repository when your
 work is ready for review.
 
-Both workflows end the same way: **all changes go through a pull request** targeting the
-`develop` branch, reviewed and approved before merging. No one pushes directly to
+Both workflows end the same way: **all changes go through a reviewed pull request**.
+Use `develop` for normal work; maintainers will identify the applicable
+`release/YYYY.MM` branch for a supported-release fix. No one pushes directly to
 protected branches.
 
 ### External Contributor Workflow (Fork-Based)
+
+Choose the base branch before starting: use `develop` for normal work, or the
+applicable `release/YYYY.MM` branch for an approved supported-release fix. Use
+the same value as `BASE_BRANCH` in the commands and pull-request target below.
 
 1. **Fork** the CARLOS repository on GitHub and **clone your fork** locally
 2. **Add the upstream remote** so you can keep your fork up to date:
@@ -293,11 +302,12 @@ protected branches.
    ```
 3. **Sync your fork** before starting new work:
    ```bash
-   git checkout develop
-   git pull upstream develop
-   git push origin develop
+   BASE_BRANCH=develop  # or release/YYYY.MM for an approved maintenance fix
+   git checkout "$BASE_BRANCH"
+   git pull upstream "$BASE_BRANCH"
+   git push origin "$BASE_BRANCH"
    ```
-4. **Create a feature branch** from `develop` (never work directly on `develop`):
+4. **Create a topic branch** from the selected base (never work directly on a protected branch):
    ```bash
    git checkout -b your-feature-name
    ```
@@ -311,15 +321,16 @@ protected branches.
    ```bash
    git push origin your-feature-name
    ```
-9. **Open a pull request** on GitHub from your fork's branch to `carlos-emr/carlos:develop`
+9. **Open a pull request** from your fork's branch to the same CARLOS `BASE_BRANCH`
 
 ### Internal Contributor Workflow
 
 1. **Clone** the CARLOS repository directly
-2. **Create a feature branch** from `develop` (never work directly on `develop`):
+2. **Create a topic branch** from the selected base (never work directly on a protected branch):
    ```bash
-   git checkout develop
-   git pull origin develop
+   BASE_BRANCH=develop  # or release/YYYY.MM for an approved maintenance fix
+   git checkout "$BASE_BRANCH"
+   git pull origin "$BASE_BRANCH"
    git checkout -b feature/your-feature-name
    ```
 3. **Make and test your changes** following the [code standards](#code-standards) below
@@ -327,14 +338,15 @@ protected branches.
    ```bash
    git commit -s -m "fix: description of your change"
    ```
-5. **Push your branch** and **open a pull request** targeting `develop`
+5. **Push your branch** and **open a pull request** targeting the same `BASE_BRANCH`
 
 ### Pull Request Guidelines
 
 All changes — from internal and external contributors alike — must go through a pull
 request. Direct pushes to `develop`, `main`, and other protected branches are not allowed.
 
-- **Target `develop`**, never `main`
+- **Target `develop` for normal work**; use `release/YYYY.MM` only for an approved
+  supported-release fix, and `main` only for release preparation
 - **Reference related issues** (e.g., `fixes #123`)
 - **Include a clear description** of what changed and why
 - **Add tests** for new functionality
