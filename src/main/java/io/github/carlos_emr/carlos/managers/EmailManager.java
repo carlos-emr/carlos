@@ -263,9 +263,15 @@ public class EmailManager {
             // already exists, this call already passed the entry privilege check, and
             // recording what the system just did is not a new privileged action.
             try {
-                emailLogDao.updateEmailStatus(emailLog.getId(), EmailStatus.FAILED, persistedMessage, new Date());
+                // Mirror updateEmailStatus's contract exactly: it writes status, message and
+                // timestamp, then syncs all three onto the in-memory object so the EmailLog
+                // returned to the caller matches the persisted row. Setting only two of the
+                // three would hand back a log whose timestamp disagrees with the database.
+                Date fallbackTimestamp = new Date();
+                emailLogDao.updateEmailStatus(emailLog.getId(), EmailStatus.FAILED, persistedMessage, fallbackTimestamp);
                 emailLog.setStatus(EmailStatus.FAILED);
                 emailLog.setErrorMessage(persistedMessage);
+                emailLog.setTimestamp(fallbackTimestamp);
             } catch (RuntimeException daoFailure) {
                 failure.addSuppressed(statusFailure);
                 failure.addSuppressed(daoFailure);
