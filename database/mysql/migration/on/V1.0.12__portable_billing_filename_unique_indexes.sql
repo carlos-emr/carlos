@@ -4,7 +4,7 @@
 --
 -- MariaDB installations may already have these exact indexes from V1.0.11 or
 -- update-2026-05-03-billing-disk-filename-unique.sql. These guarded statements
--- are valid on both MySQL and MariaDB and create an index only when its exact
+-- are valid on both MySQL and MariaDB. They skip creation only when the exact
 -- name and single-column unique shape are already present. If duplicate
 -- non-NULL filenames exist and an index is absent, creation fails rather than
 -- silently discarding or rewriting billing data.
