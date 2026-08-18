@@ -199,7 +199,7 @@ jobs:
           sbom="target/carlos-$RELEASE_TAG-cyclonedx.json"
           test -f "$war"
           test -f "$sbom"
-          jar tf "$war" >/dev/null
+          unzip -t "$war" >/dev/null
 
           build_properties=$(unzip -p "$war" WEB-INF/classes/buildNumber.properties)
           if ! grep -qxF "git-sha-1=$TAG_COMMIT" <<< "$build_properties"; then
