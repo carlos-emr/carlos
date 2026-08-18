@@ -25,7 +25,7 @@ class DefaultMeasurementGroupSeedRegressionTest {
 
     private static final Path PROJECT_BASE = projectBaseDirectory();
     private static final Path MIGRATION = PROJECT_BASE.resolve(Path.of("database", "mysql", "migration", "common",
-            "V1.0.9__seed_default_measurement_groups.sql"));
+            "V1.0.10__seed_default_measurement_groups.sql"));
     private static final Path DEVELOPMENT_SEED =
             PROJECT_BASE.resolve(Path.of(".devcontainer", "db", "scripts", "development.sql"));
 
