@@ -80,6 +80,12 @@ class DevelopmentAdminSeedRegressionTest {
     void shouldSeedPatientIndependentEforms_forBothAdministrationViews() throws IOException {
         String seed = readProjectFile(ADMIN_SEED);
 
+        // EFormUtil.getEFormGroups() reports members as count(*)-1, so the group needs
+        // the same fid=0 marker row AddGroup2Action writes or it renders a count of 0.
+        assertThat(seed)
+                .as("eForm groups need the fid=0 marker row the Administration UI creates")
+                .contains("SELECT 0, 'Local Admin Tests'");
+
         assertThat(seed).contains(
                 "'Local Test - Independent Checklist'",
                 "'Local Test - Shared Operations Note'",
