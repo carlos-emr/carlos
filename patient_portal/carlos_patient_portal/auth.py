@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from carlos_patient_portal.audit import record_audit_event
 from carlos_patient_portal.credentials import (
     hash_password,
-    password_hasher,
+    password_needs_rehash,
     validate_password,
     validate_username,
     verify_password,
@@ -152,6 +152,7 @@ class MfaChallengeDelivery:
     destination: str
     available_delivery_methods: tuple[str, ...]
     expires_at: datetime
+    expected_code_hash: str
     previous_code_hash: str | None = None
     previous_delivery_method: str | None = None
     previous_expires_at: datetime | None = None
@@ -584,6 +585,7 @@ def create_mfa_challenge(
         destination=destination,
         available_delivery_methods=available_mfa_delivery_methods(account),
         expires_at=challenge.expires_at,
+        expected_code_hash=challenge.code_hash,
         previous_account_email_sent_at=previous_account_email_sent_at,
         previous_account_sms_sent_at=previous_account_sms_sent_at,
         reserved_cooldown=cooldown,
@@ -697,7 +699,7 @@ def start_login(
         )
         raise InvalidCredentialsError()
 
-    if password_hasher.check_needs_rehash(account.password_hash):
+    if password_needs_rehash(account.password_hash):
         account.password_hash = hash_password(password)
     account.failed_login_count = 0
     account.updated_at = now
@@ -877,6 +879,7 @@ def get_mfa_challenge_delivery_state(
         destination=destination,
         available_delivery_methods=available_methods,
         expires_at=challenge.expires_at,
+        expected_code_hash=challenge.code_hash,
     )
 
 
@@ -1013,6 +1016,7 @@ def resend_mfa_challenge(
         destination=destination,
         available_delivery_methods=available_mfa_delivery_methods(account),
         expires_at=challenge.expires_at,
+        expected_code_hash=challenge.code_hash,
         previous_code_hash=previous_code_hash,
         previous_delivery_method=previous_delivery_method,
         previous_expires_at=previous_expires_at,
@@ -1048,6 +1052,10 @@ def record_mfa_delivery_outcome(
     challenge = lock_mfa_challenge(session, challenge_locator.id)
     if challenge is None or challenge.account_id != account.id:
         raise MfaChallengeNotFoundError()
+    if not compare_digest(challenge.code_hash, delivery.expected_code_hash):
+        # A newer resend replaced this delivery's code while its provider call was in flight.
+        # Its eventual result no longer owns either the challenge or the channel cooldown.
+        return
 
     if outcome == AUDIT_OUTCOME_SUCCESS:
         delivered_at = utc_now()

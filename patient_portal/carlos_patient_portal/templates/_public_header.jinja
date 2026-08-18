@@ -17,7 +17,7 @@
       {% else %}
         <a
           class="text-tab"
-          href="/locale/{{ language.code }}?next={{ locale_switch_target | urlencode }}"
+          href="{{ url_for('select_locale', locale_code=language.code).path }}?next={{ locale_switch_target | urlencode }}"
           rel="nofollow"
           lang="{{ language.code }}"
           title="{{ language.label }}"

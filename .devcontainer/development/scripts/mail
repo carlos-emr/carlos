@@ -1,6 +1,9 @@
 #!/bin/bash
 
-command=$1
+set -euo pipefail
+
+command=${1:-}
+mailbox=/var/mail/root
 
 case $command in
     start)
@@ -21,8 +24,46 @@ case $command in
     log)
       tail -f /var/log/mail.log
     ;;
+    clear)
+      install -m 600 /dev/null "$mailbox"
+      echo "Mail capture cleared"
+    ;;
+    list)
+      python3 - "$mailbox" <<'PY'
+import mailbox
+import sys
+
+messages = list(mailbox.mbox(sys.argv[1], create=False))
+for index, message in enumerate(messages, start=1):
+    print(f"{index}\t{message.get('To', '')}\t{message.get('Subject', '')}")
+PY
+    ;;
+    read)
+      selector=${2:-latest}
+      python3 - "$mailbox" "$selector" <<'PY'
+import mailbox
+import sys
+
+messages = list(mailbox.mbox(sys.argv[1], create=False))
+if not messages:
+    raise SystemExit("No captured mail")
+selector = sys.argv[2]
+if selector == "latest":
+    message = messages[-1]
+else:
+    try:
+        message = messages[int(selector) - 1]
+    except (ValueError, IndexError):
+        raise SystemExit("Message selector must be 'latest' or a listed message number") from None
+body = message.get_body(preferencelist=("plain",))
+print(f"Envelope-To: {message.get('To', '')}")
+print(f"Subject: {message.get('Subject', '')}")
+print()
+print(body.get_content() if body is not None else message.get_payload())
+PY
+    ;;
     *)
-      echo "Usage: mail {start|stop|restart|status|log}"
+      echo "Usage: mail {start|stop|restart|status|log|clear|list|read latest|read NUMBER}"
       exit 1
     ;;
 esac

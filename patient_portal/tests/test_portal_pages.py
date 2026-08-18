@@ -954,6 +954,37 @@ def test_email_change_confirmation_delivery_failure_revokes_the_pending_request(
         ]
 
 
+def test_phone_removal_does_not_create_an_unsendable_confirmation_code() -> None:
+    email_sender = RecordingPortalEmailSender()
+    sms_sender = RecordingPortalSmsSender()
+    app = migrated_development_app(email_sender=email_sender, sms_sender=sms_sender)
+    client = TestClient(app)
+    account_id = browser_sign_in_seeded_patient(app, client)
+    with app.state.session_factory() as session, session.begin():
+        account = session.get(PatientPortalAccount, account_id)
+        assert account is not None
+        account.phone_number = "+15550105555"
+
+    response = submit_contact_change(
+        app,
+        client,
+        email=SEEDED_INVITE_EMAIL,
+        phone_number="",
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/portal/account?status=contact-updated"
+    assert sms_sender.messages == []
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        change = session.scalar(select(PatientPortalEmailChangeRequest))
+        assert account is not None
+        assert account.phone_number is None
+        assert change is not None
+        assert change.phone_code_hash is None
+        assert change.phone_confirmed_at is not None
+
+
 def test_contact_change_records_a_failure_when_the_security_notice_cannot_be_sent() -> None:
     """The old-address notice is the takeover alarm; its failure must be durable and visible."""
     app_holder: dict[str, object] = {}

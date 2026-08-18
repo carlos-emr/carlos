@@ -155,7 +155,8 @@ Production launchers must disable Uvicorn's raw request-target access log; the a
 its own route-template log:
 
 ```bash
-uvicorn carlos_patient_portal.main:create_app --factory --no-access-log
+uvicorn carlos_patient_portal.main:create_app --factory --no-access-log \
+  --proxy-headers --forwarded-allow-ips=127.0.0.1
 ```
 
 ## Configuration
@@ -228,6 +229,10 @@ URLs, static assets, and form actions all include it, because the path is passed
 `root_path`. The proxy contract is the standard ASGI one: **strip the prefix before forwarding**.
 The portal routes on `/auth/login` and generates `/patient/auth/login` back out. A proxy that
 forwards the prefix unstripped will 404, because the app is not mounted under it.
+The packaged Nginx reference includes a `/patient/` example location with a trailing-slash
+`proxy_pass`; rename that location when choosing a different prefix. It also forwards
+`X-Forwarded-Proto`, so the Uvicorn process must trust proxy headers only from the local Nginx
+address as shown in the production launch command.
 
 Setting it also makes that hostname the only `Host` header accepted for patient and FHIR traffic.
 Health and readiness probes normally arrive under a different name (loopback, a pod IP, or a

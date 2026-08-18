@@ -278,7 +278,7 @@
                               <button
                                 class="secondary-action reveal-action"
                                 type="button"
-                                data-reveal-url="/portal/email-passwords/{{ row.id }}/reveal"
+                                data-reveal-url="{{ url_for('reveal_portal_email_password', email_password_id=row.id).path }}"
                                 data-reveal-target="email-password-{{ row.id }}"
                                 data-csrf-token="{{ csrf_token }}"
                                 data-reveal-label="{{ text.reveal }}"

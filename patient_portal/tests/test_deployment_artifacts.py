@@ -17,9 +17,16 @@ def test_reference_proxy_omits_raw_request_target_and_limits_expensive_routes() 
         "/auth/mfa/",
     ):
         assert route in configuration
-    assert configuration.count("limit_req zone=") == 4
+    assert configuration.count("limit_req zone=") == 8
     assert "location ^~ /internal/carlos/" in configuration
+    assert "allow 10.0.0.0/8" not in configuration
+    assert "allow 127.0.0.1/32" in configuration
     assert "deny all" in configuration
+    assert "proxy_set_header X-Forwarded-Proto $scheme" in configuration
+    assert configuration.count('proxy_set_header X-CARLOS-Provider-ID ""') == 1
+    assert configuration.count("proxy_set_header Host $host") == 2
+    assert "location ^~ /patient/" in configuration
+    assert "proxy_pass http://carlos_patient_portal/;" in configuration
 
 
 def test_audit_role_policy_keeps_runtime_append_only_and_pruning_separate() -> None:

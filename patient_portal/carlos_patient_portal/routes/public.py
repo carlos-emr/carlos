@@ -59,7 +59,7 @@ def register_public_routes(
             raise HTTPException(status_code=404, detail=NOT_FOUND_DETAIL)
         # Only a local path is ever followed. An absolute URL, a scheme-relative "//evil.example",
         # or a backslash variant would turn a language link into an open redirect.
-        destination = next if is_safe_local_redirect(next) else "/"
+        destination = next if is_safe_local_redirect(next) else request.url_for("index").path
         response = RedirectResponse(url=destination, status_code=status.HTTP_303_SEE_OTHER)
         # HttpOnly even though this is only a display preference: nothing on the page reads it
         # from script, so withholding it from JavaScript costs nothing and keeps every cookie the

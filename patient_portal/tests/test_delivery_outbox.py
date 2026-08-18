@@ -1,9 +1,14 @@
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from threading import Event
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
+from carlos_patient_portal import delivery_outbox
 from carlos_patient_portal.auth import PasswordResetRequestResult
 from carlos_patient_portal.delivery_outbox import (
     enqueue_password_reset_delivery,
@@ -92,6 +97,86 @@ def test_outbox_encrypts_and_delivers_reset_with_stable_message_id() -> None:
                 PatientPortalAuditEvent.event_type == AUDIT_EVENT_PASSWORD_RESET_DELIVERY
             )
         ) is not None
+
+
+def test_successful_delivery_survives_audit_insert_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(
+        email_sender=sender,
+        outbox_encryption_secret=OUTBOX_ENCRYPTION_SECRET,
+    )
+    account_id = activate_seeded_patient_account(app, TestClient(app))
+    delivery_id, reset_id = queue_reset(app, account_id)
+
+    def fail_audit(*args: object, **kwargs: object) -> None:
+        raise SQLAlchemyError("audit unavailable")
+
+    monkeypatch.setattr(
+        delivery_outbox,
+        "record_password_reset_delivery_outcome",
+        fail_audit,
+    )
+    result = process_one_delivery(
+        app.state.session_factory,
+        email_sender=sender,
+        encryption_secret=OUTBOX_ENCRYPTION_SECRET,
+        max_attempts=3,
+        lease_seconds=60,
+    )
+
+    assert result is not None
+    assert result.status == OUTBOX_STATUS_DELIVERED
+    with app.state.session_factory() as session:
+        assert session.get(PatientPortalOutboundDelivery, delivery_id).status == (
+            OUTBOX_STATUS_DELIVERED
+        )
+        assert session.get(PatientPortalPasswordResetToken, reset_id).status == (
+            PASSWORD_RESET_STATUS_PENDING
+        )
+
+
+def test_active_delivery_renews_its_lease_during_a_slow_provider_call(tmp_path) -> None:
+    entered_provider = Event()
+    release_provider = Event()
+
+    class BlockingSender:
+        def send_password_reset(self, **kwargs: object) -> None:
+            entered_provider.set()
+            assert release_provider.wait(timeout=5)
+
+    app = migrated_development_app(
+        database_url=f"sqlite+pysqlite:///{tmp_path / 'outbox.db'}",
+        outbox_encryption_secret=OUTBOX_ENCRYPTION_SECRET,
+    )
+    account_id = activate_seeded_patient_account(app, TestClient(app))
+    queue_reset(app, account_id)
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        first_worker = executor.submit(
+            process_one_delivery,
+            app.state.session_factory,
+            email_sender=BlockingSender(),
+            encryption_secret=OUTBOX_ENCRYPTION_SECRET,
+            max_attempts=3,
+            lease_seconds=1,
+        )
+        assert entered_provider.wait(timeout=5)
+        time.sleep(1.2)
+        second_worker = process_one_delivery(
+            app.state.session_factory,
+            email_sender=RecordingPortalEmailSender(),
+            encryption_secret=OUTBOX_ENCRYPTION_SECRET,
+            max_attempts=3,
+            lease_seconds=1,
+        )
+        release_provider.set()
+        first_result = first_worker.result(timeout=5)
+
+    assert second_worker is None
+    assert first_result is not None
+    assert first_result.status == OUTBOX_STATUS_DELIVERED
 
 
 def test_terminal_delivery_failure_revokes_reset_token() -> None:

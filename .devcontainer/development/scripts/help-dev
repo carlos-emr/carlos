@@ -31,6 +31,9 @@ MAIL MANAGEMENT:
   mail status             Show Postfix server status
   mail restart            Restart Postfix mail server
   mail log                Tail Postfix logs (mail.log)
+  mail clear              Clear captured development mail
+  mail list               List captured development mail
+  mail read latest        Read the newest captured message
 
 AI CODING ASSISTANTS:
   claude                  Claude Code CLI (Anthropic)

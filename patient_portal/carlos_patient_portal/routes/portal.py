@@ -302,7 +302,7 @@ def register_portal_routes(
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         response = RedirectResponse(
-            "/portal/account?status=password-updated",
+            f"{request.url_for('portal_account').path}?status=password-updated",
             status_code=status.HTTP_303_SEE_OTHER,
         )
         set_portal_session_cookie(
@@ -356,7 +356,7 @@ def register_portal_routes(
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         if contact_update.outcome == CONTACT_UPDATE_OUTCOME_NO_CHANGE:
-            return redirect_to_account_status("no-change")
+            return redirect_to_account_status(request, "no-change")
         if contact_update.outcome == CONTACT_UPDATE_OUTCOME_CONFIRMATION_REQUIRED:
             session.commit()
             return await deliver_email_change_request(
@@ -366,6 +366,7 @@ def register_portal_routes(
                 contact_update=contact_update,
             )
         return await deliver_contact_change_notices(
+            request,
             session,
             authenticated_session.account,
             background_tasks=background_tasks,
@@ -374,13 +375,14 @@ def register_portal_routes(
             failure_status_key="contact-updated-notice-failed",
         )
 
-    def redirect_to_account_status(status_key: str) -> RedirectResponse:
+    def redirect_to_account_status(request: Request, status_key: str) -> RedirectResponse:
         return RedirectResponse(
-            f"/portal/account?status={status_key}",
+            f"{request.url_for('portal_account').path}?status={status_key}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
     async def deliver_contact_change_notices(
+        request: Request,
         session: Session,
         account: PatientPortalAccount,
         *,
@@ -416,7 +418,7 @@ def register_portal_routes(
                     lease_seconds=settings.outbox_lease_seconds,
                     delivery_id=delivery.id,
                 )
-            return redirect_to_account_status(success_status_key)
+            return redirect_to_account_status(request, success_status_key)
 
         session.commit()
         notices_delivered = True
@@ -432,7 +434,7 @@ def register_portal_routes(
                 runtime.operational_metrics.record_failure("contact_change_delivery")
                 logger.error("Contact-change notice delivery failed")
         if notices_delivered:
-            return redirect_to_account_status(success_status_key)
+            return redirect_to_account_status(request, success_status_key)
         record_account_settings_audit_event(
             session,
             account,
@@ -441,7 +443,7 @@ def register_portal_routes(
             reason=ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE,
         )
         session.commit()
-        return redirect_to_account_status(failure_status_key)
+        return redirect_to_account_status(request, failure_status_key)
 
     async def deliver_email_change_request(
         request: Request,
@@ -497,7 +499,7 @@ def register_portal_routes(
                 and contact_update.phone_confirmation_recipient is not None
                 else "email-confirmation-notice-failed"
             )
-            return redirect_to_account_status(failure_status)
+            return redirect_to_account_status(request, failure_status)
         # Best-effort: the current address is told a change was requested. Unlike the confirmation
         # itself, failing to send this must not cancel the request the patient just made.
         try:
@@ -513,10 +515,10 @@ def register_portal_routes(
             contact_update.confirmation_recipient is not None
             and contact_update.phone_confirmation_recipient is not None
         ):
-            return redirect_to_account_status("contact-confirmation-required")
+            return redirect_to_account_status(request, "contact-confirmation-required")
         if contact_update.phone_confirmation_recipient is not None:
-            return redirect_to_account_status("phone-confirmation-required")
-        return redirect_to_account_status("email-confirmation-required")
+            return redirect_to_account_status(request, "phone-confirmation-required")
+        return redirect_to_account_status(request, "email-confirmation-required")
 
     @app.post("/portal/account/contact/confirm-phone")
     async def portal_account_confirm_phone(
@@ -543,11 +545,12 @@ def register_portal_routes(
             )
         except (PhoneChangeCodeInvalidError, ValueError):
             session.commit()
-            return redirect_to_account_status("phone-confirmation-invalid")
+            return redirect_to_account_status(request, "phone-confirmation-invalid")
         if not confirmation.applied:
             session.commit()
-            return redirect_to_account_status("email-confirmation-required")
+            return redirect_to_account_status(request, "email-confirmation-required")
         return await deliver_contact_change_notices(
+            request,
             session,
             authenticated_session.account,
             background_tasks=background_tasks,
@@ -588,12 +591,12 @@ def register_portal_routes(
             session.commit()
         except PhoneChangeRateLimitedError:
             session.rollback()
-            return redirect_to_account_status("phone-confirmation-rate-limited")
+            return redirect_to_account_status(request, "phone-confirmation-rate-limited")
         except (PhoneChangeCodeInvalidError, PortalSmsDeliveryError, ValueError):
             # Preserve the last successfully delivered code when a resend fails.
             session.rollback()
-            return redirect_to_account_status("phone-confirmation-invalid")
-        return redirect_to_account_status("phone-confirmation-required")
+            return redirect_to_account_status(request, "phone-confirmation-invalid")
+        return redirect_to_account_status(request, "phone-confirmation-required")
 
     @app.post("/portal/account/mfa")
     async def portal_account_mfa(
@@ -633,7 +636,7 @@ def register_portal_routes(
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         return RedirectResponse(
-            "/portal/account?status=mfa-updated",
+            f"{request.url_for('portal_account').path}?status=mfa-updated",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -797,7 +800,10 @@ def register_portal_routes(
         if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
             raise HTTPException(status_code=403, detail="logout could not be completed")
 
-        response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+        response = RedirectResponse(
+            request.url_for("index").path,
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
         logout_browser_session_cookie_token(
             session,
             session_token=request.cookies.get(PORTAL_SESSION_COOKIE_NAME),

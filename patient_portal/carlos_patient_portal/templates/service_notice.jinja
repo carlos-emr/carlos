@@ -22,7 +22,7 @@
             data-modal-title="{{ text.clinic_help }}"
             data-modal-message="{{ text.clinic_help_message }}"
           >{{ text.clinic_help }}</button>
-          <a class="auth-back-link" href="/">{{ text.back_to_sign_in }}</a>
+          <a class="auth-back-link" href="{{ url_for('index').path }}">{{ text.back_to_sign_in }}</a>
         </section>
       </div>
       {% include "_public_modal.jinja" %}

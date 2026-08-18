@@ -67,6 +67,11 @@ def verify_password(password_hash: str, password: str) -> bool:
         return password_hasher.verify(password_hash, password)
 
 
+def password_needs_rehash(password_hash: str) -> bool:
+    """Check against the currently configured hasher rather than the import-time default."""
+    return password_hasher.check_needs_rehash(password_hash)
+
+
 def validate_username(username: str) -> str:
     normalized_username = username.strip().casefold()
     if not MIN_USERNAME_LENGTH <= len(normalized_username) <= MAX_USERNAME_LENGTH:

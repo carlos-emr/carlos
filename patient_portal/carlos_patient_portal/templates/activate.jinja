@@ -88,7 +88,7 @@
             <p class="clinic-help-line">{{ text.password_requirements }}</p>
             <button class="primary-action" type="submit">{{ text.activate_account }}</button>
           </form>
-          <a class="auth-back-link" href="/">{{ text.back_to_sign_in }}</a>
+          <a class="auth-back-link" href="{{ url_for('index').path }}">{{ text.back_to_sign_in }}</a>
         </section>
       </div>
       {% include "_public_modal.jinja" %}

@@ -82,6 +82,7 @@ def portal_email_password_page_href(
     date_from: date | None,
     date_to: date | None,
     page: int,
+    base_path: str = PORTAL_EMAIL_PASSWORD_PATH,
 ) -> str:
     query_params: dict[str, str] = {}
     normalized_search = normalize_email_password_dashboard_search(search)
@@ -98,8 +99,8 @@ def portal_email_password_page_href(
         query_params["page"] = str(page)
     query_string = urlencode(query_params)
     if not query_string:
-        return PORTAL_EMAIL_PASSWORD_PATH
-    return f"{PORTAL_EMAIL_PASSWORD_PATH}?{query_string}"
+        return base_path
+    return f"{base_path}?{query_string}"
 
 
 def assemble_email_password_row(
@@ -129,6 +130,7 @@ def assemble_email_password_dashboard(
     page: int,
     timezone_name: str = "UTC",
     filter_error: str | None = None,
+    base_path: str = PORTAL_EMAIL_PASSWORD_PATH,
 ) -> EmailPasswordDashboardViewModel:
     """Build the email-password view state for `dashboard.jinja`."""
     text = portal_text(DEFAULT_LOCALE)
@@ -220,6 +222,7 @@ def assemble_email_password_dashboard(
                 date_from=date_from,
                 date_to=date_to,
                 page=normalized_page - 1,
+                base_path=base_path,
             )
             if normalized_page > 1
             else None
@@ -231,6 +234,7 @@ def assemble_email_password_dashboard(
                 date_from=date_from,
                 date_to=date_to,
                 page=normalized_page + 1,
+                base_path=base_path,
             )
             if normalized_page < total_pages
             else None

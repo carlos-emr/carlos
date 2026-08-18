@@ -16,7 +16,7 @@
         <section class="auth-panel auth-result" aria-labelledby="auth-result-title">
           <h1 id="auth-result-title">{{ result_heading }}</h1>
           <p class="form-notice" role="status">{{ result_message }}</p>
-          <a class="primary-action" href="/">{{ text.sign_in_button }}</a>
+          <a class="primary-action" href="{{ url_for('index').path }}">{{ text.sign_in_button }}</a>
         </section>
       </div>
       {% include "_public_modal.jinja" %}

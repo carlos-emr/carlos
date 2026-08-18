@@ -89,7 +89,7 @@
               <p class="clinic-help-line" data-development-mfa-code="{{ development_mfa_code }}">{{ text.development_mfa_code }} {{ development_mfa_code }}</p>
             {% endif %}
           </form>
-          <a class="auth-back-link" href="/">{{ text.back_to_sign_in }}</a>
+          <a class="auth-back-link" href="{{ url_for('index').path }}">{{ text.back_to_sign_in }}</a>
         </section>
       </div>
 

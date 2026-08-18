@@ -106,9 +106,17 @@ def find_account_id_for_patient(
     )
 
 
-def find_account_id_for_username(session: Session, username: str) -> int | None:
+def find_account_id_for_username(
+    session: Session,
+    username: str,
+    *,
+    clinic_id: str,
+) -> int | None:
     return session.scalar(
-        select(PatientPortalAccount.id).where(PatientPortalAccount.username == username)
+        select(PatientPortalAccount.id).where(
+            PatientPortalAccount.clinic_id == clinic_id,
+            PatientPortalAccount.username == username,
+        )
     )
 
 
@@ -273,7 +281,11 @@ def activate_patient_account(
         )
         raise ActivationError()
 
-    existing_username = find_account_id_for_username(session, normalized_username)
+    existing_username = find_account_id_for_username(
+        session,
+        normalized_username,
+        clinic_id=invite.clinic_id,
+    )
     if existing_username is not None:
         record_activation_failure(
             session,
@@ -313,7 +325,14 @@ def activate_patient_account(
             session.flush()
     except IntegrityError as exc:
         reason = ACTIVATION_REASON_INTEGRITY_CONFLICT
-        if find_account_id_for_username(session, normalized_username) is not None:
+        if (
+            find_account_id_for_username(
+                session,
+                normalized_username,
+                clinic_id=invite.clinic_id,
+            )
+            is not None
+        ):
             reason = ACTIVATION_REASON_USERNAME_UNAVAILABLE
         record_activation_failure(
             session,

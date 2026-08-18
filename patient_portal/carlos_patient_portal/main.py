@@ -541,15 +541,34 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
             raise HTTPException(status_code=401, detail=AUTHENTICATION_REQUIRED_DETAIL)
         return supplied_token.strip()
 
+    def reject_portal_authentication(request: Request, session: Session) -> None:
+        record_audit_event(
+            session,
+            event_type=AUDIT_EVENT_LOGIN,
+            outcome=AUDIT_OUTCOME_FAILURE,
+            actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+            client_reference_hash=hash_sensitive_reference(
+                runtime.audit_hash_secret,
+                "portal_client",
+                get_request_client_reference(request, settings),
+            ),
+            reason="authentication_failed",
+        )
+        session.commit()
+
     def get_authenticated_portal_session(
         request: Request,
-        session_token: Annotated[str, Depends(get_authorization_bearer_token)],
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
+        authorization: Annotated[str | None, Header()] = None,
     ) -> AuthenticatedPortalSession:
+        scheme, _, supplied_token = (authorization or "").partition(" ")
+        if scheme.lower() != "bearer" or not supplied_token.strip():
+            reject_portal_authentication(request, session)
+            raise HTTPException(status_code=401, detail=AUTHENTICATION_REQUIRED_DETAIL)
         try:
             return authenticate_session_token(
                 session,
-                session_token=session_token,
+                session_token=supplied_token.strip(),
                 session_token_secret=runtime.token_keys.session,
                 idle_timeout=runtime.auth_policy.session_idle_timeout,
             )
@@ -558,22 +577,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
             # authentication must be equally visible to an investigator. The commit also persists
             # any revocation authenticate_session_token wrote (idle timeout, account disabled),
             # which the dependency teardown would otherwise roll back on this error path.
-            record_audit_event(
-                session,
-                # Reuses the existing `login` type (the FHIR dependency likewise reuses
-                # `fhir.search`) so no audit-constraint migration is needed; the
-                # `authentication_failed` reason keeps it distinct from a password failure.
-                event_type=AUDIT_EVENT_LOGIN,
-                outcome=AUDIT_OUTCOME_FAILURE,
-                actor_type=AUDIT_ACTOR_TYPE_PATIENT,
-                client_reference_hash=hash_sensitive_reference(
-                    runtime.audit_hash_secret,
-                    "portal_client",
-                    get_request_client_reference(request, settings),
-                ),
-                reason="authentication_failed",
-            )
-            session.commit()
+            reject_portal_authentication(request, session)
             raise HTTPException(status_code=401, detail=AUTHENTICATION_REQUIRED_DETAIL) from exc
 
     def get_authenticated_fhir_session(
@@ -664,7 +668,10 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
             try:
                 authenticated_session = get_authenticated_portal_cookie_session(request, session)
             except (PortalSessionInvalidError, ValueError):
-                response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+                response = RedirectResponse(
+                    request.url_for("index").path,
+                    status_code=status.HTTP_303_SEE_OTHER,
+                )
                 clear_portal_session_cookie(response, settings=settings)
                 return response
 
@@ -680,6 +687,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 page=email_password_page,
                 timezone_name=settings.clinic_timezone,
                 filter_error=email_password_filter_error,
+                base_path=request.url_for("portal_email_passwords").path,
             )
         csrf_token = create_csrf_token(runtime.token_keys.csrf)
         response = templates.TemplateResponse(
@@ -729,7 +737,10 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
         try:
             return get_authenticated_portal_cookie_session(request, session)
         except (PortalSessionInvalidError, ValueError):
-            response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+            response = RedirectResponse(
+                request.url_for("index").path,
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
             clear_portal_session_cookie(response, settings=settings)
             return response
 

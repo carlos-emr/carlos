@@ -26,6 +26,7 @@ on:
       # itself would not run the only job that executes it.
       - "scripts/patient-portal-playwright-checks.js"
       - "package.json"
+      - "package-lock.json"
 
 permissions:
   contents: read
@@ -100,7 +101,10 @@ jobs:
       - name: Run tests
         # SonarCloud owns the Python 3.12 coverage run for develop PRs. Keep the 3.11 compatibility
         # run here; for every other target, where Sonar does not run, retain both matrix legs.
-        if: matrix.python-version == '3.11' || github.base_ref != 'develop'
+        if: >-
+          matrix.python-version == '3.11' ||
+          github.base_ref != 'develop' ||
+          github.event.pull_request.head.repo.fork
         run: >-
           python -m pytest
           --cov=carlos_patient_portal

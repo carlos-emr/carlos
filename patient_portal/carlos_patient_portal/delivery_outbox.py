@@ -2,16 +2,20 @@
 
 import json
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import timedelta
 from secrets import token_bytes
+from threading import Event, Thread
 from uuid import uuid4
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from carlos_patient_portal.auth import (
@@ -237,21 +241,38 @@ def _mark_terminal_reset_failure(session: Session, delivery: PatientPortalOutbou
     )
     if reset_record is not None and reset_record.status == PASSWORD_RESET_STATUS_PENDING:
         reset_record.status = PASSWORD_RESET_STATUS_REVOKED
+    _record_reset_delivery_outcome_best_effort(
+        session,
+        delivery,
+        outcome=AUDIT_OUTCOME_FAILURE,
+    )
+
+
+def _record_reset_delivery_outcome_best_effort(
+    session: Session,
+    delivery: PatientPortalOutboundDelivery,
+    *,
+    outcome: str,
+) -> bool:
+    """Keep append-only audit failure from replacing the already-known delivery outcome."""
     try:
-        record_password_reset_delivery_outcome(
-            session,
-            result=PasswordResetRequestResult(
-                reset_token=None,
-                recipient=None,
-                reset_token_id=delivery.reset_token_id,
-                account_id=delivery.account_id,
-            ),
-            outcome=AUDIT_OUTCOME_FAILURE,
-        )
+        with session.begin_nested():
+            record_password_reset_delivery_outcome(
+                session,
+                result=PasswordResetRequestResult(
+                    reset_token=None,
+                    recipient=None,
+                    reset_token_id=delivery.reset_token_id,
+                    account_id=delivery.account_id,
+                ),
+                outcome=outcome,
+            )
+            session.flush()
     except PasswordResetTokenInvalidError:
-        # The token may already have been consumed or revoked concurrently. The
-        # delivery is terminal either way, so there is no outcome left to record.
-        pass
+        return False
+    except SQLAlchemyError as exc:
+        logger.error("Password-reset delivery audit write failed: %s", type(exc).__name__)
+    return True
 
 
 def _finish_delivery(
@@ -260,6 +281,7 @@ def _finish_delivery(
     delivery_id: int,
     succeeded: bool,
     max_attempts: int,
+    expected_attempt_count: int,
     failure_code: str | None = None,
 ) -> str:
     delivery = session.scalar(
@@ -269,6 +291,12 @@ def _finish_delivery(
     )
     if delivery is None:
         return OUTBOX_STATUS_FAILED
+    if (
+        delivery.status != OUTBOX_STATUS_PROCESSING
+        or delivery.attempt_count != expected_attempt_count
+    ):
+        # An expired lease was reclaimed. The newer worker exclusively owns completion now.
+        return delivery.status
     now = utc_now()
     delivery.lease_expires_at = None
     if succeeded:
@@ -276,18 +304,11 @@ def _finish_delivery(
         delivery.delivered_at = now
         delivery.last_failure_code = None
         if delivery.kind == OUTBOX_KIND_PASSWORD_RESET and delivery.reset_token_id is not None:
-            try:
-                record_password_reset_delivery_outcome(
-                    session,
-                    result=PasswordResetRequestResult(
-                        reset_token=None,
-                        recipient=None,
-                        reset_token_id=delivery.reset_token_id,
-                        account_id=delivery.account_id,
-                    ),
-                    outcome=AUDIT_OUTCOME_SUCCESS,
-                )
-            except PasswordResetTokenInvalidError:
+            if not _record_reset_delivery_outcome_best_effort(
+                session,
+                delivery,
+                outcome=AUDIT_OUTCOME_SUCCESS,
+            ):
                 delivery.status = OUTBOX_STATUS_FAILED
                 delivery.delivered_at = None
                 delivery.last_failure_code = "reset_token_invalid"
@@ -302,6 +323,64 @@ def _finish_delivery(
     delay_seconds = min(15 * 60, 2 ** min(delivery.attempt_count, 10))
     delivery.available_at = now + timedelta(seconds=delay_seconds)
     return delivery.status
+
+
+def _renew_delivery_lease(
+    session_factory: sessionmaker[Session],
+    *,
+    delivery_id: int,
+    expected_attempt_count: int,
+    lease_seconds: int,
+) -> bool:
+    with session_factory() as session, session.begin():
+        result = session.execute(
+            update(PatientPortalOutboundDelivery)
+            .where(
+                PatientPortalOutboundDelivery.id == delivery_id,
+                PatientPortalOutboundDelivery.status == OUTBOX_STATUS_PROCESSING,
+                PatientPortalOutboundDelivery.attempt_count == expected_attempt_count,
+            )
+            .values(lease_expires_at=utc_now() + timedelta(seconds=lease_seconds))
+        )
+        return result.rowcount == 1
+
+
+@contextmanager
+def _delivery_lease_heartbeat(
+    session_factory: sessionmaker[Session],
+    *,
+    delivery_id: int,
+    expected_attempt_count: int,
+    lease_seconds: int,
+) -> Iterator[None]:
+    stop = Event()
+
+    def renew_until_stopped() -> None:
+        interval_seconds = max(0.1, lease_seconds / 3)
+        while not stop.wait(interval_seconds):
+            try:
+                if not _renew_delivery_lease(
+                    session_factory,
+                    delivery_id=delivery_id,
+                    expected_attempt_count=expected_attempt_count,
+                    lease_seconds=lease_seconds,
+                ):
+                    return
+            except SQLAlchemyError as exc:
+                logger.error("Outbound delivery lease renewal failed: %s", type(exc).__name__)
+                return
+
+    heartbeat = Thread(
+        target=renew_until_stopped,
+        name=f"portal-outbox-lease-{delivery_id}",
+        daemon=True,
+    )
+    heartbeat.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        heartbeat.join(timeout=max(1.0, lease_seconds / 3 + 1))
 
 
 def process_one_delivery(
@@ -323,6 +402,7 @@ def process_one_delivery(
             if delivery is None:
                 return None
             claimed_id = delivery.id
+            claimed_attempt_count = delivery.attempt_count
             kind = delivery.kind
             reset_token_id = delivery.reset_token_id
             message_id = delivery.message_id
@@ -333,48 +413,55 @@ def process_one_delivery(
 
     failure_code: str | None = None
     succeeded = False
-    if payload is None:
-        failure_code = "payload_invalid"
-    elif email_sender is None:
-        failure_code = "email_unconfigured"
-    else:
-        try:
-            recipient = payload.get("recipient")
-            if not isinstance(recipient, str) or not recipient:
-                raise OutboxPayloadError("recipient is invalid")
-            if kind == OUTBOX_KIND_PASSWORD_RESET:
-                with session_factory() as validation_session:
-                    valid_reset = validation_session.scalar(
-                        select(PatientPortalPasswordResetToken.id).where(
-                            PatientPortalPasswordResetToken.id == reset_token_id,
-                            PatientPortalPasswordResetToken.status == PASSWORD_RESET_STATUS_PENDING,
-                            PatientPortalPasswordResetToken.expires_at > utc_now(),
-                        )
-                    )
-                reset_url = payload.get("reset_url")
-                expires_in_seconds = payload.get("expires_in_seconds")
-                if valid_reset is None:
-                    raise OutboxPayloadError("reset token is no longer deliverable")
-                if not isinstance(reset_url, str) or not isinstance(expires_in_seconds, int):
-                    raise OutboxPayloadError("reset payload is invalid")
-                email_sender.send_password_reset(
-                    recipient=recipient,
-                    reset_url=reset_url,
-                    expires_in_seconds=expires_in_seconds,
-                    message_id=message_id,
-                )
-            elif kind == OUTBOX_KIND_CONTACT_CHANGE:
-                email_sender.send_contact_change_notice(
-                    recipient=recipient,
-                    message_id=message_id,
-                )
-            else:
-                raise OutboxPayloadError("delivery kind is invalid")
-            succeeded = True
-        except PortalEmailDeliveryError as exc:
-            failure_code = type(exc).__name__
-        except OutboxPayloadError:
+    with _delivery_lease_heartbeat(
+        session_factory,
+        delivery_id=claimed_id,
+        expected_attempt_count=claimed_attempt_count,
+        lease_seconds=lease_seconds,
+    ):
+        if payload is None:
             failure_code = "payload_invalid"
+        elif email_sender is None:
+            failure_code = "email_unconfigured"
+        else:
+            try:
+                recipient = payload.get("recipient")
+                if not isinstance(recipient, str) or not recipient:
+                    raise OutboxPayloadError("recipient is invalid")
+                if kind == OUTBOX_KIND_PASSWORD_RESET:
+                    with session_factory() as validation_session:
+                        valid_reset = validation_session.scalar(
+                            select(PatientPortalPasswordResetToken.id).where(
+                                PatientPortalPasswordResetToken.id == reset_token_id,
+                                PatientPortalPasswordResetToken.status
+                                == PASSWORD_RESET_STATUS_PENDING,
+                                PatientPortalPasswordResetToken.expires_at > utc_now(),
+                            )
+                        )
+                    reset_url = payload.get("reset_url")
+                    expires_in_seconds = payload.get("expires_in_seconds")
+                    if valid_reset is None:
+                        raise OutboxPayloadError("reset token is no longer deliverable")
+                    if not isinstance(reset_url, str) or not isinstance(expires_in_seconds, int):
+                        raise OutboxPayloadError("reset payload is invalid")
+                    email_sender.send_password_reset(
+                        recipient=recipient,
+                        reset_url=reset_url,
+                        expires_in_seconds=expires_in_seconds,
+                        message_id=message_id,
+                    )
+                elif kind == OUTBOX_KIND_CONTACT_CHANGE:
+                    email_sender.send_contact_change_notice(
+                        recipient=recipient,
+                        message_id=message_id,
+                    )
+                else:
+                    raise OutboxPayloadError("delivery kind is invalid")
+                succeeded = True
+            except PortalEmailDeliveryError as exc:
+                failure_code = type(exc).__name__
+            except OutboxPayloadError:
+                failure_code = "payload_invalid"
 
     with session_factory() as session:
         with session.begin():
@@ -383,6 +470,7 @@ def process_one_delivery(
                 delivery_id=claimed_id,
                 succeeded=succeeded,
                 max_attempts=max_attempts,
+                expected_attempt_count=claimed_attempt_count,
                 failure_code=failure_code,
             )
     if not succeeded:

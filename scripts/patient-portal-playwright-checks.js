@@ -16,12 +16,14 @@
  */
 
 const { execFileSync } = require('node:child_process');
+const { isIP } = require('node:net');
 const path = require('node:path');
 const { chromium } = require('playwright');
 
 const baseUrl = validateBaseUrl(process.env.PORTAL_BASE_URL || 'http://127.0.0.1:8090');
 const testUser = process.env.PORTAL_TEST_USER || 'CarlosPatient';
 const testPassword = process.env.PORTAL_TEST_PASSWORD || ['Carlos', '2026', '!!'].join('');
+const changedPassword = ['Carlos', '2027', '!!'].join('');
 const mailCommand = process.env.PORTAL_MAIL_COMMAND || '/scripts/mail';
 const useDevelopmentMfaCode = process.env.PORTAL_USE_DEVELOPMENT_MFA_CODE === 'true';
 const screenshotDir = path.resolve(process.env.PORTAL_SCREENSHOT_DIR || '/tmp');
@@ -32,9 +34,17 @@ function validateBaseUrl(rawBaseUrl) {
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`PORTAL_BASE_URL must use HTTP or HTTPS, got ${parsed.protocol}`);
   }
+  if (parsed.username || parsed.password) {
+    throw new Error('PORTAL_BASE_URL must not contain embedded credentials');
+  }
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const ipv4Parts = isIP(host) === 4 ? host.split('.').map(Number) : null;
+  const privateIpv4 = ipv4Parts !== null && (
+    ipv4Parts[0] === 10
+    || (ipv4Parts[0] === 192 && ipv4Parts[1] === 168)
+    || (ipv4Parts[0] === 172 && ipv4Parts[1] >= 16 && ipv4Parts[1] <= 31)
+  );
   if (
     !localHosts.has(host)
     && !privateIpv4
@@ -52,7 +62,12 @@ function portalUrl(portalPath) {
   if (!portalPath.startsWith('/') || portalPath.startsWith('//')) {
     throw new Error(`Portal path must be root-relative, got ${portalPath}`);
   }
-  return new URL(portalPath, baseUrl).toString();
+  return new URL(portalPathname(portalPath), baseUrl.origin).toString();
+}
+
+function portalPathname(portalPath) {
+  const basePath = baseUrl.pathname === '/' ? '' : baseUrl.pathname.replace(/\/+$/, '');
+  return `${basePath}${portalPath}`;
 }
 
 function assert(condition, message) {
@@ -115,10 +130,11 @@ function screenshotPath(name) {
     permissions: ['clipboard-read', 'clipboard-write'],
   });
   const page = await context.newPage();
+  let passwordChanged = false;
 
   page.on('response', (response) => {
     const isExpectedMfaCooldown = response.status() === 429
-      && new URL(response.url()).pathname === '/auth/mfa/resend';
+      && new URL(response.url()).pathname === portalPathname('/auth/mfa/resend');
     const responsePath = new URL(response.url()).pathname;
     const isExpectedRevealFailure = response.status() === 503
       && expectedRevealFailures > 0
@@ -312,7 +328,7 @@ function screenshotPath(name) {
       );
     }
     const resendResponsePromise = page.waitForResponse(
-      (response) => new URL(response.url()).pathname === '/auth/mfa/resend'
+      (response) => new URL(response.url()).pathname === portalPathname('/auth/mfa/resend')
     );
     await page.getByRole('button', { name: 'Resend code' }).click();
     const resendResponse = await resendResponsePromise;
@@ -372,7 +388,7 @@ function screenshotPath(name) {
     await mfaSettingsForm.locator('input[name="current_password"]').fill(testPassword);
     await Promise.all([
       page.waitForURL((url) => (
-        url.pathname === '/portal/account'
+        url.pathname === portalPathname('/portal/account')
         && url.searchParams.get('status') === 'mfa-updated'
       )),
       mfaSettingsForm.getByRole('button', { name: 'Update MFA' }).click(),
@@ -394,7 +410,7 @@ function screenshotPath(name) {
     await contactForm.locator('input[name="current_password"]').fill(testPassword);
     await Promise.all([
       page.waitForURL((url) => (
-        url.pathname === '/portal/account'
+        url.pathname === portalPathname('/portal/account')
         && url.searchParams.get('status') === 'email-confirmation-required'
       )),
       contactForm.getByRole('button', { name: 'Update contact' }).click(),
@@ -414,7 +430,7 @@ function screenshotPath(name) {
     await contactForm.locator('input[name="current_password"]').fill(testPassword);
     await Promise.all([
       page.waitForURL((url) => (
-        url.pathname === '/portal/account'
+        url.pathname === portalPathname('/portal/account')
         && url.searchParams.get('status') === 'phone-confirmation-notice-failed'
       )),
       contactForm.getByRole('button', { name: 'Update contact' }).click(),
@@ -427,7 +443,6 @@ function screenshotPath(name) {
       'an unconfirmed phone change must not move the account phone number'
     );
 
-    const changedPassword = ['Carlos', '2027', '!!'].join('');
     const passwordForm = page.locator('form', {
       has: page.locator('input[name="new_password"]'),
     });
@@ -436,11 +451,12 @@ function screenshotPath(name) {
     await passwordForm.locator('input[name="new_password_confirmation"]').fill(changedPassword);
     await Promise.all([
       page.waitForURL((url) => (
-        url.pathname === '/portal/account'
+        url.pathname === portalPathname('/portal/account')
         && url.searchParams.get('status') === 'password-updated'
       )),
       passwordForm.getByRole('button', { name: 'Update password' }).click(),
     ]);
+    passwordChanged = true;
     await page.getByRole('status').filter({ hasText: 'Password updated.' }).waitFor();
     await page.screenshot({
       path: screenshotPath('patient-portal-account-mobile'),
@@ -523,7 +539,7 @@ function screenshotPath(name) {
     await page.locator('input[name="q"]').fill('Care');
     await Promise.all([
       page.waitForURL((url) => (
-        url.pathname === '/portal/email-passwords'
+        url.pathname === portalPathname('/portal/email-passwords')
         && url.searchParams.get('q') === 'Care'
       )),
       page.getByRole('button', { name: 'Search' }).click(),
@@ -586,8 +602,25 @@ function screenshotPath(name) {
       fullPage: true,
     });
 
+    // Leave the documented seeded account reusable for the next smoke-test run.
+    await page.getByRole('link', { name: 'Account', exact: true }).click();
+    const restorePasswordForm = page.locator('form', {
+      has: page.locator('input[name="new_password"]'),
+    });
+    await restorePasswordForm.locator('input[name="current_password"]').fill(changedPassword);
+    await restorePasswordForm.locator('input[name="new_password"]').fill(testPassword);
+    await restorePasswordForm.locator('input[name="new_password_confirmation"]').fill(testPassword);
     await Promise.all([
-      page.waitForURL((url) => url.pathname === '/', { timeout: 30000 }),
+      page.waitForURL((url) => (
+        url.pathname === portalPathname('/portal/account')
+        && url.searchParams.get('status') === 'password-updated'
+      )),
+      restorePasswordForm.getByRole('button', { name: 'Update password' }).click(),
+    ]);
+    passwordChanged = false;
+
+    await Promise.all([
+      page.waitForURL((url) => url.pathname === portalPathname('/'), { timeout: 30000 }),
       page.getByRole('button', { name: 'Logout' }).click(),
     ]);
     await page.getByRole('heading', { name: 'Sign in' }).waitFor();
@@ -605,6 +638,22 @@ function screenshotPath(name) {
     console.log(`Help mobile screenshot: ${screenshotPath('patient-portal-help-mobile')}`);
     console.log(`Mobile screenshot: ${screenshotPath('patient-portal-live-mobile')}`);
   } finally {
+    if (passwordChanged) {
+      // Best-effort cleanup for failures after the password-change assertion but before the
+      // normal restoration above. Keeping the browser context open preserves the rotated session.
+      try {
+        await page.goto(portalUrl('/portal/account'), { waitUntil: 'networkidle', timeout: 30000 });
+        const cleanupPasswordForm = page.locator('form', {
+          has: page.locator('input[name="new_password"]'),
+        });
+        await cleanupPasswordForm.locator('input[name="current_password"]').fill(changedPassword);
+        await cleanupPasswordForm.locator('input[name="new_password"]').fill(testPassword);
+        await cleanupPasswordForm.locator('input[name="new_password_confirmation"]').fill(testPassword);
+        await cleanupPasswordForm.getByRole('button', { name: 'Update password' }).click();
+      } catch (cleanupError) {
+        console.error(`Failed to restore seeded portal password: ${cleanupError.message}`);
+      }
+    }
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
   }

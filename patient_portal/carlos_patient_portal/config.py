@@ -647,8 +647,8 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "PATIENT_PORTAL_PUBLIC_BASE_URL must use HTTPS outside development"
                 )
-        if self.is_production and self.smtp_host is None:
-            raise ValueError("PATIENT_PORTAL_SMTP_HOST must be set in production")
+        if not self.is_development and self.smtp_host is None:
+            raise ValueError("PATIENT_PORTAL_SMTP_HOST must be set outside development")
 
     def validate_sms_policy(self) -> None:
         if (self.sms_webhook_url is None) != (self.sms_webhook_token is None):
@@ -662,8 +662,8 @@ class Settings(BaseSettings):
             and not self.sms_webhook_url.startswith("https://")
         ):
             raise ValueError("PATIENT_PORTAL_SMS_WEBHOOK_URL must use HTTPS outside development")
-        if self.is_production and self.sms_webhook_url is None:
-            raise ValueError("PATIENT_PORTAL_SMS_WEBHOOK_URL must be set in production")
+        if not self.is_development and self.sms_webhook_url is None:
+            raise ValueError("PATIENT_PORTAL_SMS_WEBHOOK_URL must be set outside development")
 
     def validate_proxy_policy(self) -> None:
         if (self.trusted_client_ip_header is None) != (self.trusted_proxy_cidrs is None):
@@ -756,8 +756,8 @@ class Settings(BaseSettings):
                 "PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING must be set "
                 "outside development"
             )
-        if self.is_production and self.internal_api_token is None:
-            raise ValueError("PATIENT_PORTAL_INTERNAL_API_TOKEN must be set in production")
+        if self.internal_api_token is None:
+            raise ValueError("PATIENT_PORTAL_INTERNAL_API_TOKEN must be set outside development")
         if self.is_production and self.outbox_encryption_secret is None:
             raise ValueError("PATIENT_PORTAL_OUTBOX_ENCRYPTION_SECRET must be set in production")
 

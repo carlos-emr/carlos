@@ -80,6 +80,22 @@ def test_backup_and_restore_files_are_private(tmp_path) -> None:
     assert read_sqlite_value(restored_path) == "private"
 
 
+@pytest.mark.parametrize("punctuation", ["?", "#"])
+def test_backup_and_restore_accept_sqlite_paths_with_uri_punctuation(
+    tmp_path,
+    punctuation: str,
+) -> None:
+    database_path = tmp_path / "live.db"
+    backup_path = tmp_path / f"backup{punctuation}portal.db"
+    restored_path = tmp_path / "restored.db"
+    create_sqlite_database(database_path, "punctuation-safe")
+
+    backup_sqlite_database(f"sqlite+pysqlite:///{database_path}", backup_path)
+    restore_sqlite_database(f"sqlite+pysqlite:///{restored_path}", backup_path)
+
+    assert read_sqlite_value(restored_path) == "punctuation-safe"
+
+
 def test_backup_rejects_symlink_destination(tmp_path) -> None:
     database_path = tmp_path / "live.db"
     target_path = tmp_path / "target.db"
@@ -121,6 +137,21 @@ def test_restore_rejects_live_wal_sidecars_instead_of_reporting_success(tmp_path
         assert connection.execute("SELECT value FROM sample").fetchone() == ("live-wal",)
     finally:
         connection.close()
+
+
+def test_restore_rejects_dangling_wal_sidecar_symlink(tmp_path) -> None:
+    database_path = tmp_path / "live.db"
+    backup_path = tmp_path / "backup.db"
+    create_sqlite_database(database_path, "live")
+    create_sqlite_database(backup_path, "backup")
+    (tmp_path / "live.db-wal").symlink_to(tmp_path / "missing-wal")
+
+    with pytest.raises(BackupUnavailableError, match="portal to be stopped"):
+        restore_sqlite_database(
+            f"sqlite+pysqlite:///{database_path}",
+            backup_path,
+            overwrite=True,
+        )
 
 
 def test_transient_cleanup_cli_reports_each_table_count(

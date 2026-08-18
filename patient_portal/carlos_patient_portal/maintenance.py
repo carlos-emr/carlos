@@ -5,6 +5,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from urllib.parse import quote
 
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.engine import make_url
@@ -225,7 +226,7 @@ def require_regular_file(path: Path, *, description: str) -> None:
 def validate_sqlite_database(path: Path) -> None:
     require_regular_file(path, description="SQLite database")
     try:
-        with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as connection:
+        with sqlite3.connect(sqlite_read_only_uri(path), uri=True) as connection:
             integrity_result = connection.execute("PRAGMA integrity_check").fetchone()
     except sqlite3.DatabaseError as exc:
         raise BackupUnavailableError(f"SQLite database is invalid: {path}") from exc
@@ -239,6 +240,11 @@ def fsync_path(path: Path) -> None:
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
+
+
+def sqlite_read_only_uri(path: Path) -> str:
+    """Build a SQLite URI without treating literal filename punctuation as URI syntax."""
+    return f"file:{quote(str(path.resolve()), safe='/')}?mode=ro"
 
 
 def fsync_directory(path: Path) -> None:
@@ -261,7 +267,7 @@ def atomic_sqlite_copy(source_path: Path, destination_path: Path) -> Path:
         os.fchmod(temporary_descriptor, stat.S_IRUSR | stat.S_IWUSR)
         os.close(temporary_descriptor)
         temporary_descriptor = -1
-        with sqlite3.connect(f"file:{source_path}?mode=ro", uri=True) as source_connection:
+        with sqlite3.connect(sqlite_read_only_uri(source_path), uri=True) as source_connection:
             with sqlite3.connect(temporary_path) as destination_connection:
                 source_connection.backup(destination_connection)
                 integrity_result = destination_connection.execute(
@@ -340,7 +346,7 @@ def restore_sqlite_database(
             Path(f"{destination_path}-wal"),
             Path(f"{destination_path}-shm"),
         )
-        if sidecar.exists()
+        if sidecar.exists() or sidecar.is_symlink()
     ]
     if active_sidecars:
         raise BackupUnavailableError(

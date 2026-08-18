@@ -77,6 +77,7 @@ def upgrade() -> None:
             "ck_pp_contact_review_reviewed_present",
             "status != 'reviewed' or "
             "(reviewed_at is not null and reviewed_by is not null and "
+            "review_decision is not null and "
             "review_decision in ('approved', 'rejected', 'superseded'))",
         )
     connection = op.get_bind()
@@ -139,7 +140,13 @@ def upgrade() -> None:
 def downgrade() -> None:
     connection = op.get_bind()
     disabled_count = connection.execute(
-        sa.text("select count(*) from patient_portal_accounts where status = 'disabled'")
+        sa.text(
+            "select count(*) from patient_portal_accounts where status = 'disabled' "
+            "or failed_mfa_count != 0 or last_mfa_email_sent_at is not null "
+            "or last_mfa_sms_sent_at is not null or disabled_at is not null "
+            "or disabled_by is not null or disabled_by_id is not null "
+            "or disabled_reason is not null"
+        )
     ).scalar_one()
     pending_secret_count = connection.execute(
         sa.text(
@@ -226,6 +233,7 @@ def downgrade() -> None:
             "ck_pp_contact_review_reviewed_present",
             "status != 'reviewed' or "
             "(reviewed_at is not null and reviewed_by is not null and "
+            "review_decision is not null and "
             "review_decision in ('approved', 'rejected'))",
         )
 

@@ -672,6 +672,11 @@ def test_hl7_profile_rejects_conflicting_field_repetitions() -> None:
         "1234^^^default^MR~9999^^^default^MR",
         1,
     )
+    duplicate_identifier = hl7_message.replace(
+        "1234^^^default^MR",
+        "1234^^^default^MR~1234^^^default^MR",
+        1,
+    )
     # A second, unvalidated contact address alongside the patient's own. Every component the
     # profile pins (NET, Internet) is identical, so only a cardinality check catches this.
     conflicting_contact = hl7_message.replace(
@@ -684,6 +689,8 @@ def test_hl7_profile_rejects_conflicting_field_repetitions() -> None:
     assert conflicting_contact != hl7_message
     with pytest.raises(Hl7ConformanceProfileError, match="PID-3"):
         validate_hl7_v251_patient_registration_profile(conflicting_identifier)
+    with pytest.raises(Hl7ConformanceProfileError, match="PID-3"):
+        validate_hl7_v251_patient_registration_profile(duplicate_identifier)
     with pytest.raises(Hl7ConformanceProfileError, match="PID-13"):
         validate_hl7_v251_patient_registration_profile(conflicting_contact)
 

@@ -196,14 +196,14 @@ PORTAL_SESSION_COOKIE_PATH = PORTAL_ROOT_PATH
 
 
 PORTAL_MODULES = (
-    {"slug": "dashboard", "label_key": "dashboard", "href": PORTAL_ROOT_PATH},
-    {"slug": "account", "label_key": "account", "href": "/portal/account"},
+    {"slug": "dashboard", "label_key": "dashboard", "route_name": "portal_dashboard"},
+    {"slug": "account", "label_key": "account", "route_name": "portal_account"},
     {
         "slug": "email-passwords",
         "label_key": "email_passwords",
-        "href": "/portal/email-passwords",
+        "route_name": "portal_email_passwords",
     },
-    {"slug": "help", "label_key": "help", "href": "/portal/help"},
+    {"slug": "help", "label_key": "help", "route_name": "portal_help"},
 )
 
 
@@ -325,7 +325,8 @@ def locale_switch_targets(request: Request) -> str:
     Query string included so a filtered dashboard survives a language change, but never the
     fragment — reset tokens live there and must not travel in a redirect target.
     """
-    destination = request.url.path
+    scope = getattr(request, "scope", {})
+    destination = f"{scope.get('root_path', '').rstrip('/')}{request.url.path}"
     if request.url.query:
         destination = f"{destination}?{request.url.query}"
     return destination if is_safe_local_redirect(destination) else "/"
@@ -399,7 +400,7 @@ def set_csrf_cookie(
         csrf_token,
         httponly=True,
         max_age=CSRF_TOKEN_TTL_SECONDS,
-        path=path,
+        path=deployment_cookie_path(settings, path),
         samesite="strict",
         secure=not settings.is_development,
     )
@@ -418,7 +419,7 @@ def set_portal_session_cookie(
         session_cookie_value,
         httponly=True,
         max_age=settings.session_ttl_seconds,
-        path=PORTAL_SESSION_COOKIE_PATH,
+        path=deployment_cookie_path(settings, PORTAL_SESSION_COOKIE_PATH),
         samesite="strict",
         secure=not settings.is_development,
     )
@@ -427,11 +428,16 @@ def set_portal_session_cookie(
 def clear_portal_session_cookie(response: Response, *, settings: Settings) -> None:
     response.delete_cookie(
         PORTAL_SESSION_COOKIE_NAME,
-        path=PORTAL_SESSION_COOKIE_PATH,
+        path=deployment_cookie_path(settings, PORTAL_SESSION_COOKIE_PATH),
         secure=not settings.is_development,
         httponly=True,
         samesite="strict",
     )
+
+
+def deployment_cookie_path(settings: Settings, application_path: str) -> str:
+    """Translate an application route path to the browser-visible deployment path."""
+    return f"{settings.root_path}{application_path}" or "/"
 
 
 def logout_browser_session_cookie_token(
@@ -796,12 +802,14 @@ def mask_mfa_destination(delivery: MfaChallengeDelivery) -> str:
 
 
 def portal_modules(
+    request: Request,
     active_module: str,
     text: dict[str, str],
 ) -> tuple[dict[str, object], ...]:
     return tuple(
         {
             **module,
+            "href": request.url_for(str(module["route_name"])).path,
             "label": text[module["label_key"]],
             "is_active": module["slug"] == active_module,
         }
@@ -831,7 +839,7 @@ def portal_template_context(
         "account": account,
         "password_updated_date": account.password_updated_at.date().isoformat(),
         "active_module": active_module,
-        "modules": portal_modules(active_module, text),
+        "modules": portal_modules(request, active_module, text),
         "csrf_token": csrf_token,
         "account_notice": account_notice,
         "account_error": account_error,

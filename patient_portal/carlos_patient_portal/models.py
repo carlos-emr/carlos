@@ -299,6 +299,7 @@ class PatientPortalContactReviewRequest(Base):
             (
                 "status != 'reviewed' or "
                 "(reviewed_at is not null and reviewed_by is not null and "
+                "review_decision is not null and "
                 "review_decision in ('approved', 'rejected', 'superseded'))"
             ),
             name="ck_pp_contact_review_reviewed_present",

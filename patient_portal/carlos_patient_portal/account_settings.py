@@ -66,6 +66,7 @@ ACCOUNT_SETTINGS_REASON_UPDATED = "updated"
 
 CONTACT_UPDATE_OUTCOME_NO_CHANGE = "no_change"
 CONTACT_UPDATE_OUTCOME_CONFIRMATION_REQUIRED = "confirmation_required"
+CONTACT_UPDATE_OUTCOME_UPDATED = "updated"
 ACCOUNT_SETTINGS_REASON_EMAIL_CONFIRMATION_REQUESTED = "email_confirmation_requested"
 ACCOUNT_SETTINGS_REASON_CONTACT_CONFIRMATION_REQUESTED = "contact_confirmation_requested"
 
@@ -274,8 +275,9 @@ def request_email_change(
 
     email_changed = account.email != new_email
     phone_changed = account.phone_number != new_phone_number
+    phone_confirmation_required = phone_changed and new_phone_number is not None
     confirmation_token = token_urlsafe(32)
-    phone_confirmation_code = create_mfa_code() if phone_changed else None
+    phone_confirmation_code = create_mfa_code() if phone_confirmation_required else None
     email_change_request = PatientPortalEmailChangeRequest(
         account_id=account.id,
         token_hash=hash_auth_token(token_secret, "email_change", confirmation_token),
@@ -290,8 +292,8 @@ def request_email_change(
             if phone_confirmation_code is not None
             else None
         ),
-        phone_confirmed_at=None if phone_changed else now,
-        phone_code_sent_at=now if phone_changed else None,
+        phone_confirmed_at=None if phone_confirmation_required else now,
+        phone_code_sent_at=now if phone_confirmation_required else None,
         phone_failed_attempts=0,
     )
     session.add(email_change_request)
@@ -307,13 +309,30 @@ def request_email_change(
             else ACCOUNT_SETTINGS_REASON_CONTACT_CONFIRMATION_REQUESTED
         ),
     )
+    if email_change_request.email_confirmed_at is not None and (
+        email_change_request.phone_confirmed_at is not None
+    ):
+        confirmation = apply_confirmed_contact_change(
+            session,
+            account,
+            email_change_request,
+            now=now,
+        )
+        return ContactUpdateResult(
+            outcome=CONTACT_UPDATE_OUTCOME_UPDATED,
+            review_request=confirmation.review_request,
+            email_change_request=email_change_request,
+            notice_recipients=confirmation.notice_recipients,
+        )
     return ContactUpdateResult(
         outcome=CONTACT_UPDATE_OUTCOME_CONFIRMATION_REQUIRED,
         email_change_request=email_change_request,
         confirmation_token=confirmation_token if email_changed else None,
         confirmation_recipient=new_email if email_changed else None,
         phone_confirmation_code=phone_confirmation_code,
-        phone_confirmation_recipient=new_phone_number if phone_changed else None,
+        phone_confirmation_recipient=(
+            new_phone_number if phone_confirmation_required else None
+        ),
         # Only the current address is notified. The proposed address gets the confirmation link
         # instead, and telling it "your contact details changed" would be untrue until it is used.
         notice_recipients=(account.email,),

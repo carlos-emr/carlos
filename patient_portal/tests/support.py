@@ -110,7 +110,23 @@ def development_settings(**overrides: object) -> Settings:
 
 def production_settings(**overrides: object) -> Settings:
     values = {
-        "environment": "production",
+        **non_development_settings_values("production"),
+        **overrides,
+    }
+    return Settings(**values)
+
+
+def staging_settings(**overrides: object) -> Settings:
+    values = {
+        **non_development_settings_values("staging"),
+        **overrides,
+    }
+    return Settings(**values)
+
+
+def non_development_settings_values(environment: str) -> dict[str, object]:
+    return {
+        "environment": environment,
         "clinic_id": TEST_CLINIC_ID,
         "clinic_name": TEST_CLINIC_NAME,
         "session_secret": NON_DEVELOPMENT_SESSION_SECRET,
@@ -126,9 +142,7 @@ def production_settings(**overrides: object) -> Settings:
         "public_base_url": "https://portal.example.test",
         "sms_webhook_url": "https://sms.example.test/messages",
         "sms_webhook_token": "sms-webhook-token-value-32-characters",
-        **overrides,
     }
-    return Settings(**values)
 
 
 def migrated_development_app(
@@ -535,6 +549,7 @@ def _sample_mfa_delivery() -> MfaChallengeDelivery:
         destination="patient@example.com",
         available_delivery_methods=("email",),
         expires_at=utc_now(),
+        expected_code_hash="c" * 64,
     )
 
 

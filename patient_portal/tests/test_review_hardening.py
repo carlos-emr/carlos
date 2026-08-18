@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from carlos_patient_portal import auth, main
 from carlos_patient_portal.config import MIN_PRODUCTION_SECRET_LENGTH, Settings
-from carlos_patient_portal.credentials import hash_password
+from carlos_patient_portal.credentials import hash_password, verify_password
 from carlos_patient_portal.database import Base, create_portal_engine
 from carlos_patient_portal.interop import (
     build_fhir_organization_id,
@@ -101,16 +101,10 @@ def test_mail_header_configuration_is_validated_at_startup() -> None:
 
 def test_canonical_host_is_enforced_without_rendering_credentials() -> None:
     settings = Settings(
-        environment="staging",
-        clinic_id="clinic-a",
-        clinic_name="Clinic A",
-        public_base_url="https://portal.example.test",
-        database_url="sqlite+pysqlite:///:memory:",
-        session_secret="s" * SECRET_LENGTH,
-        identity_proof_secret="i" * SECRET_LENGTH,
-        audit_hash_secret="a" * SECRET_LENGTH,
-        unlock_secret_encryption_secret="u" * SECRET_LENGTH,
-        internal_health_token="h" * SECRET_LENGTH,
+        **production_settings_values(
+            environment="staging",
+            database_url="sqlite+pysqlite:///:memory:",
+        )
     )
     app = main.create_app(settings)
     Base.metadata.create_all(app.state.database_engine)
@@ -325,7 +319,7 @@ def test_successful_login_rehashes_legacy_argon2_parameters() -> None:
 
     assert result.session_token is not None
     assert refreshed_hash != legacy_hash
-    assert auth.password_hasher.verify(refreshed_hash, TEST_PASSWORD)
+    assert verify_password(refreshed_hash, TEST_PASSWORD)
 
 
 def test_transient_cleanup_retains_accepted_invites_and_rechecks_status() -> None:

@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from hashlib import sha256
 from hmac import compare_digest
 from hmac import new as new_hmac
@@ -40,8 +40,16 @@ def normalize_date_of_birth(date_of_birth: date) -> str:
         normalized_date = date_of_birth.date()
     else:
         normalized_date = date_of_birth
-    if normalized_date > datetime.now(UTC).date():
-        raise ValueError("date_of_birth must not be in the future")
+    today = datetime.now(UTC).date()
+    try:
+        earliest = today.replace(year=today.year - 126)
+    except ValueError:
+        # February 29 has no direct counterpart in most years. Treat February 28 as the
+        # inclusive anniversary boundary rather than crashing during leap years.
+        earliest = date(today.year - 126, 2, 28)
+    latest = today + timedelta(days=1)
+    if normalized_date < earliest or normalized_date > latest:
+        raise ValueError("date_of_birth must be within the supported range")
     return normalized_date.isoformat()
 
 

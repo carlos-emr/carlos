@@ -41,8 +41,10 @@ from carlos_patient_portal.invites import (
 )
 from carlos_patient_portal.models import (
     AUDIT_ACTOR_TYPE_STAFF,
+    AUDIT_EVENT_INVITE_LIST,
     AUDIT_EVENT_STAFF_ACTION,
     AUDIT_OUTCOME_FAILURE,
+    AUDIT_OUTCOME_SUCCESS,
     UNLOCK_SECRET_STATUS_PENDING,
     UNLOCK_SECRET_STATUS_REVOKED,
     PatientPortalAccount,
@@ -497,14 +499,25 @@ def register_internal_invite_routes(
         ],
         session: Annotated[Session, deps.session_dependency],
     ) -> list[dict[str, object]]:
+        invites = list_invites(
+            session,
+            demographic_no=demographic_no,
+            clinic_id=principal.clinic_id,
+            limit=100,
+        )
+        record_audit_event(
+            session,
+            event_type=AUDIT_EVENT_INVITE_LIST,
+            outcome=AUDIT_OUTCOME_SUCCESS,
+            actor_type=AUDIT_ACTOR_TYPE_STAFF,
+            actor=principal.display_name,
+            actor_id=principal.provider_id,
+            clinic_id=principal.clinic_id,
+            demographic_no=demographic_no,
+        )
         return [
             invite_payload(invite)
-            for invite in list_invites(
-                session,
-                demographic_no=demographic_no,
-                clinic_id=principal.clinic_id,
-                limit=100,
-            )
+            for invite in invites
         ]
 
     @app.post(

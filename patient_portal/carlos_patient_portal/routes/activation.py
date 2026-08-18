@@ -81,6 +81,7 @@ def register_activation_routes(
                 template_name=ACTIVATION_TEMPLATE,
                 status_code=status.HTTP_400_BAD_REQUEST,
                 error_message=text["password_mismatch"],
+                sms_mfa_available=runtime.sms_sender is not None,
             )
         except RequestValidationError:
             if not is_browser_form:
@@ -92,6 +93,7 @@ def register_activation_routes(
                 template_name=ACTIVATION_TEMPLATE,
                 status_code=status.HTTP_400_BAD_REQUEST,
                 error_message=text["activation_error"],
+                sms_mfa_available=runtime.sms_sender is not None,
             )
         client_reference_hash = hash_sensitive_reference(
             audit_hash_secret,
@@ -145,6 +147,7 @@ def register_activation_routes(
                         "email": payload.email,
                         "date_of_birth": payload.date_of_birth.isoformat(),
                     },
+                    sms_mfa_available=runtime.sms_sender is not None,
                 )
             return JSONResponse(status_code=409, content={"detail": "username unavailable"})
         except ActivationThrottledError as exc:
@@ -156,6 +159,7 @@ def register_activation_routes(
                     template_name=ACTIVATION_TEMPLATE,
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     error_message=text["activation_rate_limited"],
+                    sms_mfa_available=runtime.sms_sender is not None,
                 )
                 response.headers["Retry-After"] = str(exc.retry_after_seconds)
                 return response
@@ -173,6 +177,7 @@ def register_activation_routes(
                     template_name=ACTIVATION_TEMPLATE,
                     status_code=status.HTTP_400_BAD_REQUEST,
                     error_message=text["activation_error"],
+                    sms_mfa_available=runtime.sms_sender is not None,
                 )
             return JSONResponse(
                 status_code=400,

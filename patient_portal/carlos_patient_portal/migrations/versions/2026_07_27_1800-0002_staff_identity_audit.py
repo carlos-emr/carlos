@@ -46,6 +46,25 @@ def upgrade() -> None:
         batch_op.drop_constraint("ck_pp_contact_review_reviewed_present", type_="check")
         batch_op.add_column(sa.Column("reviewed_by_id", sa.String(length=128), nullable=True))
         batch_op.add_column(sa.Column("review_decision", sa.String(length=16), nullable=True))
+    connection = op.get_bind()
+    # v1 recorded only that a review happened. Recover the historical decision from whether the
+    # account still carries the reviewed after-values before making the new decision mandatory.
+    connection.execute(
+        sa.text(
+            "update patient_portal_contact_review_requests set review_decision = case "
+            "when exists (select 1 from patient_portal_accounts "
+            "where patient_portal_accounts.id = "
+            "patient_portal_contact_review_requests.account_id "
+            "and patient_portal_accounts.email = "
+            "patient_portal_contact_review_requests.email_after "
+            "and (patient_portal_accounts.phone_number = "
+            "patient_portal_contact_review_requests.phone_number_after or "
+            "(patient_portal_accounts.phone_number is null and "
+            "patient_portal_contact_review_requests.phone_number_after is null))) "
+            "then 'approved' else 'rejected' end where status = 'reviewed'"
+        )
+    )
+    with op.batch_alter_table("patient_portal_contact_review_requests") as batch_op:
         batch_op.create_check_constraint(
             "ck_pp_contact_review_unreviewed_null",
             (
@@ -58,6 +77,7 @@ def upgrade() -> None:
             (
                 "status != 'reviewed' or "
                 "(reviewed_at is not null and reviewed_by is not null and "
+                "review_decision is not null and "
                 "review_decision in ('approved', 'rejected'))"
             ),
         )
@@ -137,10 +157,34 @@ def downgrade() -> None:
     invite_staff_identity_count = connection.execute(
         sa.text(
             "select count(*) from patient_portal_invites "
-            "where created_by_id is not null or last_sent_by_id is not null"
+            "where created_by_id is not null or last_sent_by_id is not null "
+            "or revoked_by_id is not null"
         )
     ).scalar_one()
-    if version_two_audit_count or invite_staff_identity_count:
+    account_staff_identity_count = connection.execute(
+        sa.text(
+            "select count(*) from patient_portal_accounts where locked_by_id is not null"
+        )
+    ).scalar_one()
+    contact_review_metadata_count = connection.execute(
+        sa.text(
+            "select count(*) from patient_portal_contact_review_requests "
+            "where reviewed_by_id is not null or review_decision is not null"
+        )
+    ).scalar_one()
+    unlock_secret_identity_count = connection.execute(
+        sa.text(
+            "select count(*) from patient_portal_unlock_secrets "
+            "where created_by_id is not null or revoked_by_id is not null"
+        )
+    ).scalar_one()
+    if (
+        version_two_audit_count
+        or invite_staff_identity_count
+        or account_staff_identity_count
+        or contact_review_metadata_count
+        or unlock_secret_identity_count
+    ):
         raise RuntimeError(
             "downgrade would discard staff identity or FHIR audit metadata; archive or "
             "remove those records under an approved retention procedure before retrying"

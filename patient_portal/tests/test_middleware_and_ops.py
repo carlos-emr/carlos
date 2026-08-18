@@ -18,7 +18,6 @@ from carlos_patient_portal import cli, main, web_support
 from carlos_patient_portal.audit import record_audit_event
 from carlos_patient_portal.config import (
     DEFAULT_DATABASE_URL,
-    Settings,
 )
 from carlos_patient_portal.database import (
     Base,
@@ -54,15 +53,9 @@ from carlos_patient_portal.models import (
 )
 from carlos_patient_portal.routes import fhir as fhir_routes
 from tests.support import (
-    AUDIT_HASH_SECRET,
     DEV_ADMIN_TOKEN,
-    IDENTITY_PROOF_SECRET,
     INTERNAL_HEALTH_TOKEN,
-    NON_DEVELOPMENT_SESSION_SECRET,
     SEEDED_INVITE_EMAIL,
-    TEST_CLINIC_ID,
-    TEST_CLINIC_NAME,
-    UNLOCK_SECRET_ENCRYPTION_SECRET,
     WRONG_INTERNAL_HEALTH_TOKEN,
     activate_seeded_patient_account,
     create_service_invite,
@@ -72,23 +65,13 @@ from tests.support import (
     production_settings,
     seeded_identity_proof,
     sign_in_patient_api_session,
+    staging_settings,
 )
 
 
 def test_health_endpoint_is_minimal() -> None:
-    app = main.create_app(
-        Settings(
-            environment="staging",
-            clinic_id=TEST_CLINIC_ID,
-            clinic_name=TEST_CLINIC_NAME,
-            session_secret=NON_DEVELOPMENT_SESSION_SECRET,
-            identity_proof_secret=IDENTITY_PROOF_SECRET,
-            audit_hash_secret=AUDIT_HASH_SECRET,
-            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
-            internal_health_token=INTERNAL_HEALTH_TOKEN,
-        )
-    )
-    response = TestClient(app).get("/health")
+    app = main.create_app(staging_settings())
+    response = TestClient(app, base_url="https://portal.example.test").get("/health")
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
@@ -179,19 +162,8 @@ def test_transient_auth_cleanup_is_batched_and_preserves_current_credentials() -
 
 
 def test_non_development_csrf_cookie_is_secure() -> None:
-    app = main.create_app(
-        Settings(
-            environment="staging",
-            clinic_id=TEST_CLINIC_ID,
-            clinic_name=TEST_CLINIC_NAME,
-            session_secret=NON_DEVELOPMENT_SESSION_SECRET,
-            identity_proof_secret=IDENTITY_PROOF_SECRET,
-            audit_hash_secret=AUDIT_HASH_SECRET,
-            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
-            internal_health_token=INTERNAL_HEALTH_TOKEN,
-        )
-    )
-    response = TestClient(app).get("/")
+    app = main.create_app(staging_settings())
+    response = TestClient(app, base_url="https://portal.example.test").get("/")
     set_cookie = response.headers["set-cookie"]
 
     assert f"{web_support.CSRF_COOKIE_NAME}=" in set_cookie
@@ -202,19 +174,8 @@ def test_non_development_csrf_cookie_is_secure() -> None:
 
 
 def test_non_development_sign_in_shows_generic_field_hints() -> None:
-    app = main.create_app(
-        Settings(
-            environment="staging",
-            clinic_id=TEST_CLINIC_ID,
-            clinic_name=TEST_CLINIC_NAME,
-            session_secret=NON_DEVELOPMENT_SESSION_SECRET,
-            identity_proof_secret=IDENTITY_PROOF_SECRET,
-            audit_hash_secret=AUDIT_HASH_SECRET,
-            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
-            internal_health_token=INTERNAL_HEALTH_TOKEN,
-        )
-    )
-    response = TestClient(app).get("/")
+    app = main.create_app(staging_settings())
+    response = TestClient(app, base_url="https://portal.example.test").get("/")
     text = portal_text(DEFAULT_LOCALE)
 
     assert response.status_code == 200
@@ -416,22 +377,12 @@ def test_api_docs_are_available_in_development() -> None:
 
 
 def test_api_docs_are_disabled_outside_development() -> None:
-    app = main.create_app(
-        Settings(
-            environment="staging",
-            clinic_id=TEST_CLINIC_ID,
-            clinic_name=TEST_CLINIC_NAME,
-            session_secret=NON_DEVELOPMENT_SESSION_SECRET,
-            identity_proof_secret=IDENTITY_PROOF_SECRET,
-            audit_hash_secret=AUDIT_HASH_SECRET,
-            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
-            internal_health_token=INTERNAL_HEALTH_TOKEN,
-        )
-    )
+    app = main.create_app(staging_settings())
 
-    assert TestClient(app).get("/api/openapi.json").status_code == 404
-    assert TestClient(app).get("/api/docs").status_code == 404
-    assert TestClient(app).get("/api/redoc").status_code == 404
+    client = TestClient(app, base_url="https://portal.example.test")
+    assert client.get("/api/openapi.json").status_code == 404
+    assert client.get("/api/docs").status_code == 404
+    assert client.get("/api/redoc").status_code == 404
 
 
 def test_api_docs_are_disabled_in_production() -> None:

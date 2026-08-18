@@ -614,12 +614,13 @@ def check_hl7_required_identifiers(
                 f"{field_path} requires {expected_identifier_type!r} identifier "
                 f"from {expected_assigning_authority!r}"
             )
-        elif len(set(matching_identifiers)) > 1:
+        elif len(matching_identifiers) != 1:
             # Two different identifiers of the same type from the same authority. A consumer that
             # takes the last repetition binds the record to a different patient than one taking
             # the first, so this cannot be certified as conformant either way.
             errors.append(
-                f"{field_path} has conflicting {expected_identifier_type!r} identifiers "
+                f"{field_path} has duplicate or conflicting "
+                f"{expected_identifier_type!r} identifiers "
                 f"from {expected_assigning_authority!r}"
             )
     return errors

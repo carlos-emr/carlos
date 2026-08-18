@@ -1886,6 +1886,47 @@ def test_idle_timeout_revocation_persists_on_every_bearer_surface() -> None:
         assert portal_session.revoked_reason == "idle_timeout"
 
 
+def test_idle_timeout_revocation_persists_when_logout_returns_unauthorized() -> None:
+    app = migrated_development_app(session_idle_timeout_seconds=60)
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    token = sign_in_patient_api_session(client)
+    with app.state.session_factory() as session:
+        portal_session = session.scalar(select(PatientPortalSession))
+        assert portal_session is not None
+        portal_session.last_seen_at = utc_now() - timedelta(minutes=30)
+        session.commit()
+
+    response = client.post("/auth/logout", headers=bearer_headers(token))
+
+    assert response.status_code == 401
+    with app.state.session_factory() as session:
+        portal_session = session.scalar(select(PatientPortalSession))
+        assert portal_session is not None
+        assert portal_session.revoked_reason == "idle_timeout"
+
+
+def test_malformed_bearer_authentication_is_audited() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+
+    response = client.get(
+        "/auth/session",
+        headers={"Authorization": "Basic malformed-credential"},
+    )
+
+    assert response.status_code == 401
+    with app.state.session_factory() as session:
+        event = session.scalar(
+            select(PatientPortalAuditEvent).where(
+                PatientPortalAuditEvent.event_type == AUDIT_EVENT_LOGIN,
+                PatientPortalAuditEvent.outcome == AUDIT_OUTCOME_FAILURE,
+            )
+        )
+        assert event is not None
+        assert event.reason == "authentication_failed"
+
+
 def test_password_reset_redemption_revokes_every_preexisting_session() -> None:
     """Reset is the takeover-recovery path: a stolen session must not survive it.
 

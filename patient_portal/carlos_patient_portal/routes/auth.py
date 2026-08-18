@@ -83,7 +83,6 @@ from carlos_patient_portal.web_support import (
     MFA_DELIVERY_UNAVAILABLE_DETAIL,
     MFA_VERIFICATION_FAILED_DETAIL,
     PASSWORD_RESET_COMPLETE_TEMPLATE,
-    PORTAL_ROOT_PATH,
     BrowserFormValidationError,
     auth_error_response,
     clear_portal_session_cookie,
@@ -355,7 +354,7 @@ def register_login_routes(
             return deps.render_mfa_page(request, result.mfa_challenge)
         if is_browser_form and result.session_token is not None:
             redirect_response = RedirectResponse(
-                PORTAL_ROOT_PATH,
+                request.url_for("portal_dashboard").path,
                 status_code=status.HTTP_303_SEE_OTHER,
             )
             set_portal_session_cookie(
@@ -575,7 +574,7 @@ def register_mfa_routes(
             )
         if is_browser_form:
             redirect_response = RedirectResponse(
-                PORTAL_ROOT_PATH,
+                request.url_for("portal_dashboard").path,
                 status_code=status.HTTP_303_SEE_OTHER,
             )
             set_portal_session_cookie(redirect_response, session_token, settings=deps.settings)
@@ -635,7 +634,8 @@ def register_password_reset_routes(
             "password_reset_client",
             get_request_client_reference(request, deps.settings),
         )
-        result = request_password_reset(
+        result = await run_in_threadpool(
+            request_password_reset,
             session,
             username=payload.username,
             email=payload.email,
@@ -962,6 +962,9 @@ def register_logout_route(
                 idle_timeout=runtime.auth_policy.session_idle_timeout,
             )
         except (PortalSessionInvalidError, ValueError) as exc:
+            # Idle-timeout authentication revokes the session before raising. Preserve that
+            # security transition instead of letting dependency teardown roll it back.
+            session.commit()
             raise HTTPException(status_code=401, detail=AUTHENTICATION_REQUIRED_DETAIL) from exc
         clear_portal_session_cookie(response, settings=settings)
         return {"status": "logged_out"}

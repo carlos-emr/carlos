@@ -45,6 +45,7 @@ from tests.support import (
     development_settings,
     migrated_development_app,
     production_settings,
+    staging_settings,
 )
 
 
@@ -388,6 +389,9 @@ def test_subpath_hosting_is_wired_through_to_url_generation() -> None:
     assert response.status_code == 200
     # Static assets and form actions carry the prefix, which is what a subpath deployment needs.
     assert "/patient/static/styles.css" in response.text
+    assert 'action="https://portal.example.test/patient/auth/login"' in response.text
+    assert 'href="/patient/locale/fr?next=/patient/"' in response.text
+    assert "Path=/patient/auth" in response.headers["set-cookie"]
 
 
 def test_root_mounted_deployment_keeps_unprefixed_urls() -> None:
@@ -527,6 +531,15 @@ def test_production_requires_configured_mfa_email_delivery() -> None:
 def test_production_requires_configured_mfa_sms_delivery() -> None:
     with pytest.raises(ValidationError, match="PATIENT_PORTAL_SMS_WEBHOOK_URL"):
         production_settings(sms_webhook_url=None, sms_webhook_token=None)
+
+
+def test_staging_fails_closed_without_delivery_services_or_internal_api_token() -> None:
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_SMTP_HOST"):
+        staging_settings(smtp_host=None, smtp_from_address=None)
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_SMS_WEBHOOK_URL"):
+        staging_settings(sms_webhook_url=None, sms_webhook_token=None)
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_INTERNAL_API_TOKEN"):
+        staging_settings(internal_api_token=None)
 
 
 def test_production_rejects_remote_postgresql_without_verified_tls() -> None:

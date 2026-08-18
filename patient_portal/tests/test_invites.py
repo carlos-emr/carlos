@@ -8,9 +8,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from carlos_patient_portal import main, web_support
-from carlos_patient_portal.config import (
-    Settings,
-)
 from carlos_patient_portal.invites import (
     DEFAULT_INVITE_TTL,
     InviteNotFoundError,
@@ -34,13 +31,7 @@ from carlos_patient_portal.models import (
     utc_now,
 )
 from tests.support import (
-    AUDIT_HASH_SECRET,
     IDENTITY_PROOF_SECRET,
-    INTERNAL_HEALTH_TOKEN,
-    NON_DEVELOPMENT_SESSION_SECRET,
-    TEST_CLINIC_ID,
-    TEST_CLINIC_NAME,
-    UNLOCK_SECRET_ENCRYPTION_SECRET,
     WRONG_DEV_ADMIN_TOKEN,
     activation_request,
     create_service_invite,
@@ -50,6 +41,7 @@ from tests.support import (
     parse_response_datetime,
     seeded_identity_proof,
     seeded_invite_request,
+    staging_settings,
 )
 
 
@@ -269,20 +261,8 @@ def test_accepted_invites_cannot_be_resent_or_revoked() -> None:
 
 
 def test_dev_admin_invites_are_hidden_outside_development() -> None:
-    app = main.create_app(
-        Settings(
-            environment="staging",
-            clinic_id=TEST_CLINIC_ID,
-            clinic_name=TEST_CLINIC_NAME,
-            enable_dev_admin=True,
-            session_secret=NON_DEVELOPMENT_SESSION_SECRET,
-            identity_proof_secret=IDENTITY_PROOF_SECRET,
-            audit_hash_secret=AUDIT_HASH_SECRET,
-            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
-            internal_health_token=INTERNAL_HEALTH_TOKEN,
-        )
-    )
-    response = TestClient(app).post(
+    app = main.create_app(staging_settings(enable_dev_admin=True))
+    response = TestClient(app, base_url="https://portal.example.test").post(
         "/dev/admin/invites",
         headers=dev_admin_headers(),
         json=seeded_invite_request(),
