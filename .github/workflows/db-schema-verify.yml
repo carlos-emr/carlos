@@ -203,7 +203,7 @@ jobs:
           fi
 
           # Reapplying this data-only seed must be safe for interrupted/manual upgrade recovery.
-          $MYSQL carlos_${PROV} < migration/common/V1.0.9__seed_default_measurement_groups.sql
+          $MYSQL carlos_${PROV} < migration/common/V1.0.10__seed_default_measurement_groups.sql
           REAPPLIED_GROUPS=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroup WHERE (name,typeDisplayName) IN (('Vitals','BP'),('Vitals','Heart Rate'),('Vitals','RR'),('Vitals','Temp'),('Vitals','Oxygen Saturation'),('Anthropometrics','HT'),('Anthropometrics','WT'),('Anthropometrics','Body Mass Index'),('Anthropometrics','Waist'),('Anthropometrics','Head circumference'),('Diabetes Review','A1C'),('Diabetes Review','Blood Glucose'),('Diabetes Review','FBS'),('Diabetes Review','Alb creat ratio'),('Diabetes Review','EGFR'),('Diabetes Review','LDL'),('Diabetes Review','HDL'),('Diabetes Review','Triglycerides'),('Diabetes Review','TC/HDL'),('Respiratory Review','Oxygen Saturation'),('Respiratory Review','RR'),('Respiratory Review','PEFR value'),('Respiratory Review','Forced Expiratory Volume 1 Second'),('Respiratory Review','Spirometry'),('Respiratory Review','Smoking Status'),('Mental Health Scores','PHQ9 Score'),('Mental Health Scores','GAD7 Anxiety Score'))")
           REAPPLIED_STYLES=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName IN ('Vitals', 'Anthropometrics', 'Diabetes Review', 'Respiratory Review', 'Mental Health Scores')")
           if [ "${REAPPLIED_GROUPS}" != "${DEFAULT_GROUPS}" ] || [ "${REAPPLIED_STYLES}" != "${DEFAULT_STYLES}" ]; then
@@ -213,7 +213,7 @@ jobs:
 
           # A missing measurement type must be skipped, and a mapped Test style must be preserved.
           $MYSQL carlos_${PROV} -e "DELETE FROM measurementGroupStyle WHERE groupName='Test'; DELETE FROM measurementGroup WHERE name='Test'; DELETE FROM measurementGroup WHERE name='Mental Health Scores' AND typeDisplayName='GAD7 Anxiety Score'; DELETE FROM measurementType WHERE typeDisplayName='GAD7 Anxiety Score'; INSERT INTO measurementGroup (name,typeDisplayName) VALUES ('Test','BP'); INSERT INTO measurementGroupStyle (groupName,cssID) VALUES ('Test',0);"
-          $MYSQL carlos_${PROV} < migration/common/V1.0.9__seed_default_measurement_groups.sql
+          $MYSQL carlos_${PROV} < migration/common/V1.0.10__seed_default_measurement_groups.sql
           UNAVAILABLE_MAPPING=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroup WHERE name='Mental Health Scores' AND typeDisplayName='GAD7 Anxiety Score'")
           PRESERVED_TEST_STYLE=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName='Test'")
           if [ "${UNAVAILABLE_MAPPING}" != "0" ]; then
