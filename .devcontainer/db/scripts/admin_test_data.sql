@@ -123,6 +123,19 @@ WHERE r.id IS NOT NULL
   );
 
 -- Forms / eForms ------------------------------------------------------------
+-- Administration > eForm Groups creates every group with a fid=0 marker row
+-- (AddGroup2Action passes fid "0"), and EFormUtil.getEFormGroups() reports the
+-- member count as count(*)-1 on the assumption that the marker is there.
+-- Seeding only the membership row would render the group with a count of 0.
+INSERT INTO eform_groups (fid, group_name)
+SELECT 0, 'Local Admin Tests'
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM eform_groups
+    WHERE fid = 0
+      AND group_name = 'Local Admin Tests'
+);
+
 INSERT INTO eform_groups (fid, group_name)
 SELECT e.fid, 'Local Admin Tests'
 FROM eform e
