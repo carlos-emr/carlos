@@ -98,17 +98,25 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveDeletion` (
     `deleteReason` VARCHAR(1000) NOT NULL,
     `lastUpdateUser` VARCHAR(6) NOT NULL,
     `lastUpdateDate` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    -- One tombstone per archive; the UNIQUE index, not a foreign key, is what
-    -- enforces that.
+    -- One tombstone per archive.
     UNIQUE INDEX `idx_outboundEmailArchiveDeletion_archiveId` (`archiveId`),
     INDEX `idx_outboundEmailArchiveDeletion_emailLogId` (`emailLogId`),
     INDEX `idx_outboundEmailArchiveDeletion_demographicNo` (`demographicNo`),
-    -- Deliberately no foreign key on archiveId. The tombstone is the audit record
-    -- that has to survive any future reorganisation of archive rows, and an FK would
-    -- make the archive row a prerequisite for keeping the evidence of its deletion.
-    -- OutboundEmailArchiveDeletion declares ConstraintMode.NO_CONSTRAINT for the same
-    -- reason. emailLogId is different: it points at a live operational row, not an
-    -- audit target, so it stays constrained.
+    -- archiveId IS constrained, and costs nothing to constrain: archives are never
+    -- hard-deleted, so RESTRICT can never block anything this design permits.
+    -- OutboundEmailArchive.preRemove() refuses removal outright and retirement is a
+    -- soft `deleted` flag plus this tombstone. The constraint is what makes an
+    -- orphaned tombstone impossible, which matters because OutboundEmailArchiveDeletion
+    -- maps archive as a navigable @ManyToOne: unconstrained, a stale archiveId would
+    -- surface as EntityNotFoundException on first dereference instead of being
+    -- rejected at insert.
+    --
+    -- If a retention or cold-storage job ever needs to remove archive rows, it must
+    -- drop this constraint deliberately in its own migration. That is the point --
+    -- discarding the evidence of a deletion should be an explicit schema decision,
+    -- not a silent side effect of a purge.
+    CONSTRAINT `fk_outboundEmailArchiveDeletion_archive`
+        FOREIGN KEY (`archiveId`) REFERENCES `outboundEmailArchive` (`id`),
     CONSTRAINT `fk_outboundEmailArchiveDeletion_emailLog`
         FOREIGN KEY (`emailLogId`) REFERENCES `emailLog` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -132,10 +140,14 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveLegalHoldEvent` (
     -- Composite index matches the DAO's ORDER BY eventAt DESC, id DESC.
     INDEX `idx_outboundEmailArchiveLegalHoldEvent_archiveId` (`archiveId`, `eventAt`),
     INDEX `idx_outboundEmailArchiveLegalHoldEvent_providerNo` (`providerNo`)
-    -- Deliberately no foreign key on archiveId, matching
-    -- outboundEmailArchiveDeletion above: the event is an audit record that must
-    -- outlive any future reorganisation of archive rows. The JPA mapping declares
-    -- ConstraintMode.NO_CONSTRAINT so Hibernate agrees.
+    -- Deliberately no foreign key on archiveId -- unlike
+    -- outboundEmailArchiveDeletion above, which does constrain it. The JPA mapping
+    -- declares ConstraintMode.NO_CONSTRAINT so Hibernate agrees.
+    --
+    -- The asymmetry is not principled and is worth revisiting: the argument for
+    -- constraining the tombstone (archives are never hard-deleted, so the constraint
+    -- costs nothing and blocks orphans) applies to this table equally. Left
+    -- unconstrained here only to keep the change that introduced it narrow.
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Seed the security object that guards archive deletion and legal hold release.

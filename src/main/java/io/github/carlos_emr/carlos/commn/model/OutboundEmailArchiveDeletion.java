@@ -23,10 +23,8 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.ConstraintMode;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.ForeignKey;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
@@ -48,8 +46,18 @@ import java.util.Date;
 @SuppressWarnings({"java:S2160", "java:S2143"}) // Equality is inherited from AbstractModel id; DATETIME mappings follow CARLOS Hibernate conventions.
 public class OutboundEmailArchiveDeletion extends OutboundEmailArchiveArtifact {
 
+    /**
+     * Constrained at the database level, unlike
+     * {@link OutboundEmailArchiveLegalHoldEvent}. Archives are never hard-deleted --
+     * {@link OutboundEmailArchive#preRemove} refuses removal and retirement is a soft
+     * flag plus this tombstone -- so the foreign key can never block anything the
+     * design permits, and it makes an orphaned tombstone impossible. That matters
+     * because this association is navigable: without the constraint a stale
+     * {@code archiveId} would surface as {@code EntityNotFoundException} on the first
+     * dereference rather than being rejected at insert.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "archiveId", nullable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @JoinColumn(name = "archiveId", nullable = false)
     private OutboundEmailArchive archive;
 
     @ManyToOne(fetch = FetchType.LAZY)
