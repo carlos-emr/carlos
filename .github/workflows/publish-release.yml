@@ -60,6 +60,17 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Set up JDK 21
+        if: steps.release-state.outputs.skip != 'true'
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Verify Maven toolchain
+        if: steps.release-state.outputs.skip != 'true'
+        run: mvn --version
+
       - name: Validate CalVer, annotation, source branch, and Maven metadata
         if: steps.release-state.outputs.skip != 'true'
         id: metadata
