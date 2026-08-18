@@ -422,23 +422,38 @@ jobs:
 
           delete_failure_comment() {
             local page=1
+            local comments=""
+            local comment_count=0
             local failure_id=""
 
             while true; do
-              comments=$(curl -fsSL \
+              if ! comments=$(curl -fsSL \
                 -H "Authorization: Bearer $GH_TOKEN" \
                 -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments?per_page=100&page=$page")
+                "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments?per_page=100&page=$page"); then
+                return 1
+              fi
 
-              if [ "$(jq 'length' <<< "$comments")" = "0" ]; then
+              if ! comment_count=$(jq -er \
+                'if type == "array" then length else error("comments response is not an array") end' \
+                <<< "$comments"); then
+                return 1
+              fi
+              if [ "$comment_count" -eq 0 ]; then
                 break
               fi
 
-              failure_id=$(jq -r '.[] | select((.body // "") | contains("<!-- dco-check-failed -->")) | .id' <<< "$comments" | head -n 1)
+              if ! failure_id=$(jq -r \
+                '[.[] | select((.body // "") | contains("<!-- dco-check-failed -->")) | .id][0] // ""' \
+                <<< "$comments"); then
+                return 1
+              fi
               if [ -n "$failure_id" ]; then
-                curl -fsS -X DELETE \
+                if ! curl -fsS -X DELETE \
                   -H "Authorization: Bearer $GH_TOKEN" \
-                  "https://api.github.com/repos/$REPO/issues/comments/$failure_id"
+                  "https://api.github.com/repos/$REPO/issues/comments/$failure_id"; then
+                  return 1
+                fi
                 break
               fi
 
@@ -450,7 +465,8 @@ jobs:
             echo "DCO check passed via manual confirmation from $CONFIRMING_USER ($CONFIRMING_ASSOCIATION) at $CONFIRMING_AT."
             # Keep pull_request_target statuses current when an existing fresh confirmation is reused.
             # Deleting an absent failure comment is a no-op; posting the same status again is safe.
-            delete_failure_comment
+            delete_failure_comment || \
+              echo "::warning::DCO passed, but the workflow could not remove its prior failure comment."
             set_dco_status success "DCO manually confirmed by $CONFIRMING_USER"
             if [ "$EVENT_NAME" = "issue_comment" ]; then
               {
@@ -460,7 +476,9 @@ jobs:
                 echo ""
                 echo "The DCO check has passed using manual PR sign-off. No commit changes are required."
               } > /tmp/dco_success_comment.md
-              post_comment /tmp/dco_success_comment.md
+              if ! post_comment /tmp/dco_success_comment.md; then
+                echo "::warning::DCO passed, but the workflow could not post its optional success comment."
+              fi
             fi
             exit 0
           fi

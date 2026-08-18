@@ -31,5 +31,5 @@
 - [ ] My commits follow [Conventional Commits](https://www.conventionalcommits.org/) format, or I've written clear commit messages and will use the format next time
 - [ ] I have not included any patient data (PHI) in this PR
 - [ ] I have added tests for new functionality, or this change doesn't need new tests
-- [ ] I have read the [contributing guide](CONTRIBUTING.md)
-- [ ] I selected the target branch according to the [release process](docs/release-process.md)
+- [ ] I have read the [contributing guide](https://github.com/carlos-emr/carlos/blob/develop/CONTRIBUTING.md)
+- [ ] I selected the target branch according to the [release process](https://github.com/carlos-emr/carlos/blob/develop/docs/release-process.md)

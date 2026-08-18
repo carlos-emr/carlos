@@ -26,9 +26,10 @@ For installation instructions, see [.devcontainer/README.md](.devcontainer/READM
 
 ## Releases
 
-Published source archives, versioned WAR files, checksums, SBOMs, and release
-attestations are available on the [GitHub Releases](https://github.com/carlos-emr/carlos/releases)
-page. Alpha, beta, and release-candidate builds are prereleases and should be
+Published source archives, versioned WAR files, checksums, and SBOMs are
+available on the [GitHub Releases](https://github.com/carlos-emr/carlos/releases)
+page. Signed provenance attestations are verifiable as described in the release
+process. Alpha, beta, and release-candidate builds are prereleases and should be
 evaluated before production deployment.
 
 CARLOS follows a CalVer maintenance-branch model. Maintainers and contributors

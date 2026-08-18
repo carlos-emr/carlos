@@ -71,8 +71,9 @@ snapshot. Keep `develop` on its newer snapshot during every forward merge.
    ```
 
 6. The tag workflow re-runs the full build and tests, creates a clean WAR and
-   CycloneDX SBOM, verifies their provenance, attaches checksums, and publishes
-   a draft as an immutable GitHub release.
+   CycloneDX SBOM, generates signed provenance attestations, attaches and
+   verifies checksums, then publishes the verified draft as an immutable GitHub
+   release.
 7. Confirm prerelease/latest classification and asset attestations, then unfreeze
    the source branch.
 8. Back-merge the tagged commit and advance the maintenance branch to the next
@@ -100,6 +101,7 @@ download before deployment:
 sha256sum --check carlos-VERSION.war.sha256
 sha256sum --check carlos-VERSION-cyclonedx.json.sha256
 gh attestation verify carlos-VERSION.war --repo carlos-emr/carlos
+gh attestation verify carlos-VERSION-cyclonedx.json --repo carlos-emr/carlos
 ```
 
 Alpha, beta, and release-candidate versions are GitHub prereleases. Only stable
