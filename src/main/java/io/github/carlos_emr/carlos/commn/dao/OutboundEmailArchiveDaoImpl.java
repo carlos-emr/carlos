@@ -64,6 +64,22 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
     }
 
     @Override
+    public Integer findDemographicNoById(Integer archiveId) {
+        if (archiveId == null) {
+            return null;
+        }
+        // Scalar projection on purpose. Dereferencing only the identifier of a @ManyToOne
+        // reads the FK column without a join, and selecting a scalar leaves the
+        // persistence context empty so findForUpdate still hydrates under its lock.
+        TypedQuery<Integer> query = entityManager.createQuery(
+                "SELECT archive.demographic.demographicNo FROM OutboundEmailArchive archive WHERE archive.id = :archiveId",
+                Integer.class);
+        query.setParameter("archiveId", archiveId);
+        List<Integer> rows = query.getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Override
     public List<OutboundEmailArchive> findByDemographicNo(Integer demographicNo) {
         TypedQuery<OutboundEmailArchive> query = entityManager.createQuery(
                 "SELECT archive FROM OutboundEmailArchive archive WHERE archive.demographic.demographicNo = :demographicNo ORDER BY archive.archivedAt DESC",

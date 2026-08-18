@@ -662,35 +662,39 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
      * Resolves and write-locks an archive for a privileged state change, refusing a
      * caller who may not see the archive's patient.
      *
-     * <p>The unlocked read comes first for the same reason
+     * <p>The patient check comes first for the same reason
      * {@link #requireArchiveAdminAuthority} precedes the lookup: {@code findForUpdate}
      * issues {@code SELECT ... FOR UPDATE}, and a caller holding
-     * {@code _admin.edocdelete} but no access to this patient must not be able to take
-     * a lock on that patient's row. Checking access only after the lock left exactly
-     * the side effect moving the authority gate up was meant to remove.</p>
+     * {@code _admin.edocdelete} but no access to this patient must not be able to take a
+     * lock on that patient's row.</p>
      *
-     * <p>The demographic is compared again after locking so the row that gets mutated
-     * is provably the row that was authorised, rather than trusting that the two reads
-     * described the same patient.</p>
+     * <p><b>The pre-lock read must stay a scalar projection.</b> A JPA query does not
+     * refresh an already-managed entity, so loading the archive here would make
+     * {@code findForUpdate} hand back this transaction's pre-lock copy: the lock would be
+     * held, but {@code legalHold} and {@code deleted} would be read from before it. Two
+     * concurrent releases would then both see {@code legalHold = true} and both succeed,
+     * which is exactly what the lock exists to prevent.
+     * {@code findDemographicNoById} reads the FK column without hydrating the entity.</p>
      *
      * @param loggedInInfo current user context
      * @param archiveId persisted archive identifier
-     * @return the write-locked archive
+     * @return the write-locked archive, hydrated under its lock
      * @throws IllegalArgumentException when no archive has that identifier
      * @throws SecurityException when the caller may not access the archive's patient
      */
     private OutboundEmailArchive lockArchiveForAuthorizedCaller(LoggedInInfo loggedInInfo, Integer archiveId) {
-        OutboundEmailArchive unlocked = outboundEmailArchiveDao.find(archiveId);
-        if (unlocked == null) {
+        Integer authorizedDemographicNo = outboundEmailArchiveDao.findDemographicNoById(archiveId);
+        if (authorizedDemographicNo == null) {
             throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
         }
-        Integer authorizedDemographicNo = requireArchiveDemographicNo(unlocked);
         requirePatientRecordAccess(loggedInInfo, authorizedDemographicNo);
 
         OutboundEmailArchive archive = outboundEmailArchiveDao.findForUpdate(archiveId);
         if (archive == null) {
             throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
         }
+        // The locked row is the one about to be mutated, so it is the one whose demographic
+        // has to match what was authorised above.
         if (!authorizedDemographicNo.equals(requireArchiveDemographicNo(archive))) {
             throw new SecurityException("not authorized for outbound email archive demographic");
         }

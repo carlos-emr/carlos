@@ -630,6 +630,9 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         // The patient-record gate runs on an unlocked read, so a caller who holds
         // _admin.edocdelete but not this patient never reaches SELECT ... FOR UPDATE.
         verify(outboundEmailArchiveDao, never()).findForUpdate(any());
+        // Also never loads the entity: doing so would poison the persistence context and
+        // make the later locked read return stale state.
+        verify(outboundEmailArchiveDao, never()).find(any());
         verify(outboundEmailArchiveDao, never()).merge(any(OutboundEmailArchive.class));
         verifyNoInteractions(outboundEmailArchiveDeletionDao);
     }
@@ -882,11 +885,14 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     /**
-     * Stubs both reads the service performs for a privileged archive change: the
-     * unlocked read that the patient-record gate runs on, then the locked row.
+     * Stubs both reads the service performs for a privileged archive change: the scalar
+     * demographic read that the patient-record gate runs on, then the locked row.
      */
     private void stubArchiveLookup(OutboundEmailArchive archive) {
-        when(outboundEmailArchiveDao.find((Object) 888)).thenReturn(archive);
+        // Deliberately findDemographicNoById, not find: the service must not hydrate the
+        // archive before findForUpdate, or the locked read returns pre-lock state.
+        when(outboundEmailArchiveDao.findDemographicNoById(888)).thenReturn(
+                archive.getDemographic() != null ? archive.getDemographic().getDemographicNo() : null);
         when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
     }
 

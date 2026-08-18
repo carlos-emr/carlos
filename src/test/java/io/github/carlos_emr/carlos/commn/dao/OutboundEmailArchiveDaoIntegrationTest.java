@@ -361,6 +361,65 @@ class OutboundEmailArchiveDaoIntegrationTest extends CarlosTestBase {
                     // accident -- it is the archive foreign key that must reject the row.
                     .hasMessageContaining("FOREIGN KEY");
         }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should not refresh an already-managed archive when locking it for update")
+        void shouldNotRefreshManagedArchive_whenLockedAfterAnEarlierRead() {
+            // Pins the trap that findForUpdate's Javadoc warns about. A JPA query does not
+            // refresh an entity that is already managed, so a plain find() earlier in the
+            // same transaction makes the locked read hand back the pre-lock copy. The row
+            // lock is still taken, but legalHold/deleted are read from before it -- which
+            // would let two concurrent releases both see legalHold = true and both succeed.
+            //
+            // This is why the service's pre-lock authorization check uses the scalar
+            // findDemographicNoById instead of loading the archive. If someone
+            // "simplifies" that back to find(), this test still passes but
+            // OutboundEmailArchiveServiceImpl silently loses its concurrency guard --
+            // hence the explicit warning on both Javadocs.
+            OutboundEmailArchive archive = newArchive();
+            outboundEmailArchiveDao.persist(archive);
+            entityManager.flush();
+            Integer id = archive.getId();
+            entityManager.clear();
+
+            OutboundEmailArchive managed = outboundEmailArchiveDao.find(id);
+            assertThat(managed.isLegalHold()).isTrue();
+
+            // Change the row underneath, bypassing the persistence context entirely.
+            entityManager.createNativeQuery(
+                            "UPDATE outboundEmailArchive SET legalHold = FALSE WHERE id = :id")
+                    .setParameter("id", id)
+                    .executeUpdate();
+
+            OutboundEmailArchive locked = outboundEmailArchiveDao.findForUpdate(id);
+
+            assertThat(locked).isSameAs(managed);
+            assertThat(locked.isLegalHold())
+                    .as("findForUpdate returned refreshed state; the stale-read trap this "
+                            + "test documents is gone and the scalar pre-lock read in "
+                            + "OutboundEmailArchiveServiceImpl may no longer be necessary")
+                    .isTrue();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should read an archive demographic without hydrating the archive")
+        void shouldReadDemographicNo_withoutHydratingTheArchive() {
+            OutboundEmailArchive archive = newArchive();
+            outboundEmailArchiveDao.persist(archive);
+            entityManager.flush();
+            Integer id = archive.getId();
+            entityManager.clear();
+
+            Integer demographicNo = outboundEmailArchiveDao.findDemographicNoById(id);
+
+            assertThat(demographicNo).isEqualTo(demographic.getDemographicNo());
+            // The point of the scalar projection: the archive stays out of the persistence
+            // context, so a following findForUpdate still hydrates under its lock.
+            assertThat(entityManager.contains(archive)).isFalse();
+            assertThat(outboundEmailArchiveDao.findDemographicNoById(999_999)).isNull();
+        }
     }
 
     @Nested
