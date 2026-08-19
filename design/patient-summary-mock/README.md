@@ -1,6 +1,6 @@
-# Patient 9 citation-backed patient overview mock
+# Abena Bonsu citation-backed patient overview mock
 
-Interactive, standalone mock of a split-screen general patient-overview reading experience. It uses the fabricated Patient 9 record (Brian William Morris) from the [NHS England Synthetic Clinical Notes dataset](https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes).
+Interactive, standalone mock of a split-screen general patient-overview reading experience. It uses the fabricated Abena Bonsu record from the [NHS England Synthetic Clinical Notes dataset](https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes).
 
 This is synthetic test data and a product-design concept—not a clinical system or a clinically validated summary.
 
@@ -11,8 +11,9 @@ Use the local preview server at `http://localhost:4173`. No build or package ins
 The mock demonstrates:
 
 - A compact CARLOS-style navigation, typography, and panel treatment
-- A clinical-briefing format with an orientation rail followed by a problem-oriented general overview synthesized from all 26 retrieved notes
-- An explicit warning that the available record covers only one orthopaedic episode and is not a complete longitudinal chart
+- A clinical-briefing format with an orientation rail followed by a problem-oriented general overview synthesized from all 45 notes in one admission
+- An explicit warning that the available record covers only one acute respiratory admission and is not a complete longitudinal chart
+- A persistent Allergies & safety view that keeps expected clinical categories visible and uses explicit record-limited empty states
 - Clickable summary sentences
 - Multiple sources attached to one sentence
 - Complete source-note viewing with automatic scrolling to highlighted evidence
@@ -25,5 +26,7 @@ The mock demonstrates:
 - A draggable, keyboard-accessible desktop divider for enlarging either the summary or source evidence pane
 
 ## Important data note
+
+The mock uses Abena Bonsu's admission `7b266c9e-fb25-4209-b856-95bda6915f12`. The dataset also contains a duplicate synthetic admission (`8ab5fb09-1638-4054-a031-03291ddf8d07`) with the same 45 notes; that duplicate is deliberately excluded from retrieval and counts.
 
 The evidence pane retrieves and displays the complete `clean_note_text` value for each selected synthetic note, or the complete structured CSV row for patient/admission records. Relevant phrases are highlighted in context and the pane scrolls to the first match. A production implementation should store immutable source-span offsets during extraction rather than rediscovering highlights through phrase matching in the browser.

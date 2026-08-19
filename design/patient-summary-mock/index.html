@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Patient 9 — Citation-backed patient overview mock</title>
+  <title>Abena Bonsu — Citation-backed patient overview mock</title>
   <style>
     :root {
       --ink: #142d38;
@@ -209,6 +209,12 @@
     .coverage-item { padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
     .coverage-item strong { display: block; }
     .coverage-item small { color: var(--muted); }
+    .safety-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
+    .safety-item { min-width: 0; padding: 16px 0; border-bottom: 1px solid var(--line); }
+    .safety-item h3 { margin: 0 0 7px; color: #17242b; font-size: 14px; }
+    .safety-item p { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .safety-item .claim { font-size: 14px; }
+    .safety-item .empty-value { color: #52616a; font-style: italic; }
 
     .evidence-panel .panel-top { padding-right: 12px; }
     .evidence-controls { display: flex; gap: 5px; }
@@ -500,6 +506,7 @@
       .full-source-note { padding: 17px 15px 36px; font-size: 14px; }
       .problem-row { grid-template-columns: 1fr; }
       .problem-status { justify-self: start; }
+      .safety-grid { grid-template-columns: 1fr; }
     }
 
     /* Readability/layout trial: larger small text and a closeable 75/25 evidence split. */
@@ -891,29 +898,29 @@
   <aside class="synthetic-banner" aria-label="Synthetic patient warning">
     <div>
       <strong><span aria-hidden="true">⚠</span> SYNTHETIC PATIENT — NOT A REAL PERSON — NOT FOR CLINICAL USE</strong>
-      <p>Patient 9 from the NHS England Synthetic Clinical Notes dataset. Names, identifiers, notes, clinicians, and events shown here are fabricated test data.</p>
+      <p>Abena Bonsu from the NHS England Synthetic Clinical Notes dataset. Names, identifiers, notes, clinicians, and events shown here are fabricated test data.</p>
     </div>
     <a href="https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes" target="_blank" rel="noreferrer">View dataset source ↗</a>
   </aside>
 
   <section class="patient-header">
     <div class="patient-main">
-      <div class="patient-avatar" aria-hidden="true">BM</div>
+      <div class="patient-avatar" aria-hidden="true">AB</div>
       <div>
-        <h1 class="patient-name"><button type="button" data-claim="demographics">Brian William Morris <span class="source-count">2 sources</span></button></h1>
+        <h1 class="patient-name"><button type="button" data-claim="demographics">Abena Bonsu <span class="source-count">2 sources</span></button></h1>
         <div class="patient-meta">
-          <span>Male</span>
-          <span>DOB 12 Apr 1947</span>
-          <span class="mismatch">⚠ Dataset age 76 · calculated age 78</span>
-          <span>Synthetic NHS no. 695 592 370</span>
-          <span>Available records 23 Dec 2025–09 Jan 2026</span>
+          <span>Female</span>
+          <span>DOB 17 Feb 1980</span>
+          <span class="mismatch">⚠ Dataset age 43 · calculated age 45</span>
+          <span>Synthetic NHS no. 395 107 142</span>
+          <span>Available records 3–10 Jan 2026</span>
         </div>
       </div>
     </div>
     <div class="header-status">
       <div class="status-line">
-        <span class="pill ok"><span class="dot"></span>26 of 26 notes retrieved</span>
-        <span class="pill"><span class="dot"></span>5 record differences noted</span>
+        <span class="pill ok"><span class="dot"></span>45 of 45 notes retrieved</span>
+        <span class="pill"><span class="dot"></span>3 documentation differences noted</span>
         <span class="pill">AI overview v0.2</span>
       </div>
       <small>Last generated 18 Aug 2026 · No production PHI</small>
@@ -925,6 +932,7 @@
       <div class="panel-top">
         <div class="tabs" role="tablist" aria-label="Patient overview views">
           <button class="tab" type="button" role="tab" aria-selected="true" data-tab="summary-view">Overview</button>
+          <button class="tab" type="button" role="tab" aria-selected="false" data-tab="safety">Allergies &amp; safety</button>
           <button class="tab" type="button" role="tab" aria-selected="false" data-tab="ledger">Fact ledger</button>
           <button class="tab" type="button" role="tab" aria-selected="false" data-tab="coverage">Coverage</button>
         </div>
@@ -941,95 +949,89 @@
                 <div class="quick-glance">
               <div class="quick-glance-title">Clinical snapshot</div>
               <div class="quick-grid">
-                <div class="quick-item"><strong>Who he is</strong><button class="claim" type="button" data-claim="baseline">Retired man living with his spouse in a bungalow; independent with daily activities before the recorded surgical episode.<span class="source-count">1 source</span></button></div>
-                <div class="quick-item"><strong>Active clinical picture</strong><button class="claim" type="button" data-claim="current_status">Recovering after right shoulder replacement on 6 Jan 2026; last notes describe manageable pain, clean wound, mild swelling, and independent home exercises.<span class="source-count">6 sources</span></button></div>
-                <div class="quick-item"><strong>Known history</strong><button class="claim" type="button" data-claim="background">Hypertension, hypercholesterolaemia, osteoarthritis, prior cataract surgery, mild anaemia, and a nut allergy are documented.<span class="source-count">4 sources</span></button></div>
-                <div class="quick-item"><strong>Record context</strong><button class="claim conflict" type="button" data-claim="safety_overview">Notes contain different medication plans and follow-up timings. Elevated CRP/WBC, age, discharge timing, histology, and repeat markers are described with the limits of the available record.<span class="source-count">9 sources</span></button></div>
+                <div class="quick-item"><strong>Who she is</strong><button class="claim" type="button" data-claim="baseline">School teacher living alone; independent with daily activities before admission, with her brother involved in discharge support.<span class="source-count">3 sources</span></button></div>
+                <div class="quick-item"><strong>Active clinical picture</strong><button class="claim" type="button" data-claim="current_status">Discharged 10 Jan after improvement from hypoxic exertional breathlessness. CTEPH with severe pulmonary hypertension and right-heart strain was documented; last SpO₂ was 94% on room air.<span class="source-count">3 sources</span></button></div>
+                <div class="quick-item"><strong>Known history</strong><button class="claim" type="button" data-claim="background">Hypertension, asthma, and nut allergy are documented. No pre-admission medicines were reported in the available episode notes.<span class="source-count">3 sources</span></button></div>
+                <div class="quick-item"><strong>Record context</strong><button class="claim conflict" type="button" data-claim="record_context">Anticoagulant plans change across the admission, renal values are absent, and the dataset age does not match the 2026 episode. These are reported as documentation context.<span class="source-count">6 sources</span></button></div>
               </div>
             </div>
-            <div class="record-limit"><strong>Record limitation:</strong> all 26 available notes are concentrated on one orthopaedic episode from 23 Dec 2025–9 Jan 2026. The absence of other diagnoses, medications, visits, or preventive history in this dataset must not be interpreted as evidence that none exist.</div>
+            <div class="record-limit"><strong>Record limitation:</strong> all 45 notes belong to one acute admission from 3–10 Jan 2026. A duplicate synthetic admission was excluded. The absence of broader diagnoses, medications, visits, or preventive history must not be interpreted as evidence that none exist.</div>
               </aside>
 
               <div class="briefing-body">
 
             <section class="summary-section">
-              <h3>Current status <span>9 Jan 2026</span></h3>
-              <p><button class="claim" type="button" data-claim="current_status">Alert and comfortable, with mild manageable right-shoulder discomfort. The wound was clean with mild expected swelling and no erythema or discharge; temperature 36.8°C, BP 132/80, HR 78, RR 16, and SpO₂ 97%. He demonstrated sling use and the home exercise programme.<span class="source-count">6 sources</span></button></p>
+              <h3>Last documented status <span>10 Jan 2026</span></h3>
+              <p><button class="claim" type="button" data-claim="current_status">Comfortable at rest with reduced breathlessness and good mobility. HR 84, BP 118/72, RR 16, temperature 36.8°C, and SpO₂ 94% on room air; chest and cardiovascular examination were documented as unremarkable, with no peripheral oedema. She completed breathing and mobility education before discharge.<span class="source-count">3 sources</span></button></p>
             </section>
 
             <section class="summary-section">
               <h3>Active problems and status</h3>
               <div class="problem-list">
-                <div class="problem-row"><div class="problem-name">Right shoulder OA · post replacement</div><button class="claim" type="button" data-claim="procedure">Cemented total right shoulder replacement on 6 Jan; no operative complication documented. Recovering with sling and rehabilitation plan.<span class="source-count">3 sources</span></button><span class="problem-status">Recovering</span></div>
-                <div class="problem-row"><div class="problem-name">Elevated inflammatory markers</div><button class="claim conflict" type="button" data-claim="labs">CRP 65 mg/L and WBC 11.5 ×10⁹/L. Repeat values are absent; clinical reviews remained afebrile with a clean wound.<span class="source-count">4 sources</span></button><span class="problem-status history">No repeat in record</span></div>
-                <div class="problem-row"><div class="problem-name">Hypertension</div><button class="claim" type="button" data-claim="hypertension">Described as controlled pre-operatively; available readings ranged from 132/78 to 152/88. The antihypertensive medicine is not named.<span class="source-count">5 sources</span></button><span class="problem-status history">Chronic</span></div>
-                <div class="problem-row"><div class="problem-name">Hypercholesterolaemia</div><button class="claim" type="button" data-claim="hyperlipidaemia">Repeated in pre-operative history; lipid-lowering therapy is referenced but not named.<span class="source-count">4 sources</span></button><span class="problem-status history">Chronic</span></div>
-                <div class="problem-row"><div class="problem-name">Mild anaemia</div><button class="claim" type="button" data-claim="anaemia">Hb 11.2 g/dL; ferrous sulfate 200 mg twice daily was started. Later Hb and post-episode iron status are not documented.<span class="source-count">4 sources</span></button><span class="problem-status history">No later result</span></div>
+                <div class="problem-row"><div class="problem-name">Chronic thromboembolic pulmonary hypertension</div><button class="claim" type="button" data-claim="cteph">CTPA confirmed chronic thromboembolic disease; echocardiography documented severe pulmonary hypertension with right-ventricular strain, and V/Q scanning showed mismatched perfusion defects.<span class="source-count">4 sources</span></button><span class="problem-status">Specialist referral</span></div>
+                <div class="problem-row"><div class="problem-name">Mild anaemia</div><button class="claim" type="button" data-claim="anaemia">Hb 110 g/L, previously 120 g/L, was attributed to chronic disease in the notes. Ferrous sulfate 200 mg twice daily was started and outpatient repeat Hb requested.<span class="source-count">3 sources</span></button><span class="problem-status history">Repeat planned</span></div>
+                <div class="problem-row"><div class="problem-name">Hypertension</div><button class="claim" type="button" data-claim="hypertension">Recorded in the admission history; no pre-admission antihypertensive was reported or named in this episode.<span class="source-count">2 sources</span></button><span class="problem-status history">History</span></div>
+                <div class="problem-row"><div class="problem-name">Asthma</div><button class="claim" type="button" data-claim="asthma">Recorded in the admission history. No wheeze or asthma exacerbation was documented, and no regular inhaler appears in the available notes.<span class="source-count">2 sources</span></button><span class="problem-status history">History</span></div>
+                <div class="problem-row"><div class="problem-name">Reduced exertional tolerance</div><button class="claim" type="button" data-claim="therapy">Improved with respiratory physiotherapy, pacing, mobility work, and energy-conservation education; a wheeled walker and home-safety adaptations were discussed.<span class="source-count">3 sources</span></button><span class="problem-status">Improved</span></div>
               </div>
             </section>
 
             <section class="summary-section">
               <h3>Medication and allergy picture</h3>
               <div class="medication-warning"><strong>Not a reconciled medication list:</strong> the dataset contains narrative plans but no authoritative medication order, administration record, or dispensing record.</div>
-              <p><button class="claim" type="button" data-claim="allergy">Nut allergy is consistently documented in the available notes.<span class="source-count">4 sources</span></button></p>
+              <p><button class="claim" type="button" data-claim="allergy">Nut allergy is repeatedly documented; reaction, severity, and verification status are not recorded.<span class="source-count">4 sources</span></button></p>
               <div class="documentation-note">
-                <div class="documentation-note-label">Documentation note · antibiotics</div>
-                <p><button class="claim" type="button" data-claim="antibiotic_5">On 8 Jan, co-amoxiclav 625 mg three times daily was documented for five days.<span class="source-count">2 sources</span></button> <button class="claim" type="button" data-claim="antibiotic_7">A 9 Jan note records the equivalent 500/125 mg strength for seven days.<span class="source-count">1 source</span></button> The completed course is not stated.</p>
+                <div class="documentation-note-label">Last medical discharge plan</div>
+                <p><button class="claim" type="button" data-claim="discharge_meds">The 10 Jan medical note lists rivaroxaban 15 mg twice daily for three weeks then 20 mg once daily, sildenafil 20 mg three times daily, and ferrous sulfate 200 mg twice daily.<span class="source-count">3 sources</span></button></p>
               </div>
               <div class="documentation-note">
-                <div class="documentation-note-label">Documentation note · analgesia</div>
-                <p><button class="claim" type="button" data-claim="analgesia_para">Paracetamol 1 g four times daily was advised.<span class="source-count">1 source</span></button> <button class="claim" type="button" data-claim="analgesia_combo">Later notes also list co-codamol 30/500 and separate codeine for breakthrough pain.<span class="source-count">3 sources</span></button> <button class="claim" type="button" data-claim="analgesia_ibuprofen">Ibuprofen was stopped in one note but remained listed in a later therapy note.<span class="source-count">2 sources</span></button> No authoritative final regimen appears in the available record.</p>
+                <div class="documentation-note-label">Documentation note · anticoagulation</div>
+                <p><button class="claim" type="button" data-claim="anticoag_initial">Therapeutic enoxaparin was started in ED.<span class="source-count">2 sources</span></button> <button class="claim" type="button" data-claim="anticoag_apixaban">The first consultant ward round records an apixaban plan,<span class="source-count">1 source</span></button> <button class="claim" type="button" data-claim="anticoag_rivaroxaban">while subsequent pharmacy and medical notes use rivaroxaban.<span class="source-count">3 sources</span></button> <button class="claim" type="button" data-claim="anticoag_enoxaparin">A later education note separately describes post-discharge enoxaparin injections.<span class="source-count">1 source</span></button> The final medical plan documents rivaroxaban.</p>
               </div>
               <ul class="fact-list">
-                <li><button class="claim" type="button" data-claim="dalteparin">Dalteparin 5,000 units SC each morning for 7 days appears in two final plans; fulfillment is not verifiable.<span class="source-count">2 sources</span></button></li>
-                <li><button class="claim conflict" type="button" data-claim="chronic_meds">Ferrous sulfate and omeprazole are referenced, but their status after the episode is unclear; antihypertensive and lipid-lowering therapies are not named.<span class="source-count">6 sources</span></button></li>
+                <li><button class="claim conflict" type="button" data-claim="furosemide">Furosemide 40 mg once daily was started for fluid retention and continued in early plans, but it is not mentioned in the final medical discharge plan.<span class="source-count">4 sources</span></button></li>
+                <li><button class="claim" type="button" data-claim="patient_education">Pulmonary-hypertension, anticoagulation, bleeding-risk, breathing-exercise, and symptom-escalation education were documented.<span class="source-count">3 sources</span></button></li>
               </ul>
             </section>
 
             <section class="summary-section">
-              <h3>Inflammatory-marker documentation · accounts in the record</h3>
-              <div class="documentation-note">
-                <div class="documentation-note-label">Documentation note · possible infection</div>
-                <p><button class="claim" type="button" data-claim="infection_later">Elevated CRP/WBC prompted documentation of possible early infection and co-amoxiclav treatment.<span class="source-count">3 sources</span></button> <button class="claim" type="button" data-claim="infection_clinical">Serial examinations recorded normal temperature, a clean wound, mild expected swelling, and no erythema or discharge.<span class="source-count">6 sources</span></button> <strong>The available chart does not confirm an infection or include a repeat result.</strong></p>
-              </div>
+              <h3>Key investigations</h3>
+              <p><button class="claim" type="button" data-claim="investigations">CTPA confirmed chronic thromboembolic disease; echo documented severe pulmonary hypertension and right-ventricular strain; V/Q scan showed mismatched perfusion defects. NT-proBNP was 4,500 pg/mL initially and remained elevated. A blood review documented no acute infection.<span class="source-count">4 sources</span></button></p>
             </section>
 
             <section class="summary-section">
               <h3>Relevant history and living situation</h3>
               <ul class="fact-list">
-                <li><button class="claim" type="button" data-claim="baseline">Retired teacher living with his spouse in a bungalow; independent with ADLs before surgery, non-smoker, approximately four alcohol units weekly, and no recreational drug use documented.<span class="source-count">1 source</span></button></li>
-                <li><button class="claim" type="button" data-claim="therapy">Progressed through passive and active-assisted shoulder movement, sling education, transfers, and independent exercises. OT recommended a raised toilet seat and bathroom grab bars.<span class="source-count">7 sources</span></button></li>
-                <li><button class="claim" type="button" data-claim="home_plan">Home instructions were exercises three times daily, sling use as taught, and no heavy lifting with the operated arm for six weeks.<span class="source-count">5 sources</span></button></li>
+                <li><button class="claim" type="button" data-claim="baseline">School teacher living alone and independent with ADLs before admission; non-smoker, rare or no alcohol use recorded, and no recreational drug use.<span class="source-count">3 sources</span></button></li>
+                <li><button class="claim" type="button" data-claim="therapy">Therapy addressed breathing, pacing, endurance, transfers, short-distance walking, and home safety. A wheeled walker, removal of trip hazards, and bathroom grab bars were discussed.<span class="source-count">3 sources</span></button></li>
+                <li><button class="claim" type="button" data-claim="support">Her brother was contacted to support transport and discharge arrangements; no broader formal home-care package is documented.<span class="source-count">1 source</span></button></li>
               </ul>
             </section>
 
             <section class="summary-section">
               <h3>Recent care timeline</h3>
               <ul class="timeline">
-                <li><time>23 Dec 2025</time><button class="claim" type="button" data-claim="preop">Pre-operative assessment and consent for severe symptomatic right shoulder OA; Hb 11.2 g/dL and iron started.<span class="source-count">4 sources</span></button></li>
-                <li><time>05 Jan 2026</time><button class="claim" type="button" data-claim="presentation">Elective orthopaedic admission; clinically stable and planned for GA.<span class="source-count">3 sources</span></button></li>
-                <li><time>06 Jan 2026</time><button class="claim" type="button" data-claim="procedure">Cemented total right shoulder replacement; minimal blood loss, no operative complications, tissue sent to histology.<span class="source-count">3 sources</span></button></li>
-                <li><time>07–08 Jan 2026</time><button class="claim" type="button" data-claim="labs">CRP 65/WBC 11.5 triggered antibiotic treatment and a plan to repeat markers; wound remained clinically clean.<span class="source-count">4 sources</span></button></li>
-                <li><time>09 Jan 2026</time><button class="claim" type="button" data-claim="current_status">Final available notes describe readiness for home rehabilitation and completion of discharge paperwork, with timing inconsistency noted below.<span class="source-count">6 sources</span></button></li>
+                <li><time>03 Jan 2026</time><button class="claim" type="button" data-claim="presentation">Presented with two weeks of progressive exertional breathlessness, tachycardia, borderline hypotension, and SpO₂ 89% on room air; admitted to respiratory HDU.<span class="source-count">3 sources</span></button></li>
+                <li><time>03–05 Jan</time><button class="claim" type="button" data-claim="cteph">CTPA and echo confirmed chronic thromboembolic disease with severe pulmonary hypertension and right-heart strain; anticoagulation and oxygen were started.<span class="source-count">4 sources</span></button></li>
+                <li><time>06–07 Jan</time><button class="claim" type="button" data-claim="followup">V/Q scanning showed mismatched defects and referral was sent to a tertiary pulmonary-hypertension centre for pulmonary endarterectomy assessment.<span class="source-count">3 sources</span></button></li>
+                <li><time>08–09 Jan</time><button class="claim" type="button" data-claim="anaemia">Mild anaemia was documented and iron started; oxygen was weaned to room air while mobility and discharge planning progressed.<span class="source-count">3 sources</span></button></li>
+                <li><time>10 Jan 2026</time><button class="claim" type="button" data-claim="current_status">Discharged clinically improved with a medical medication plan, home exercise programme, safety-net advice, and specialist follow-up.<span class="source-count">3 sources</span></button></li>
               </ul>
             </section>
 
             <section class="summary-section">
               <h3>Follow-up and pending actions</h3>
-              <div class="documentation-note">
-                <div class="documentation-note-label">Documentation note · follow-up</div>
-                <p><button class="claim" type="button" data-claim="followup_physio">Physiotherapy was scheduled for 16 Jan 2026.<span class="source-count">1 source</span></button> <button class="claim" type="button" data-claim="followup_2wk">Other notes mention outpatient follow-up two weeks after discharge,<span class="source-count">2 sources</span></button> <button class="claim" type="button" data-claim="followup_6wk">while fracture or outpatient clinic review is also documented at six weeks.<span class="source-count">2 sources</span></button> These may be separate appointments; their purpose is not consistently specified.</p>
-              </div>
-              <p><button class="claim conflict" type="button" data-claim="pending">Histology and repeat inflammatory-marker results were expected but do not appear in the available record.<span class="source-count">3 sources</span></button></p>
+              <ul class="fact-list">
+                <li><button class="claim" type="button" data-claim="followup">Referral to a tertiary pulmonary-hypertension centre was sent for management and pulmonary endarterectomy assessment; the final note specifies follow-up in four weeks.<span class="source-count">3 sources</span></button></li>
+                <li><button class="claim" type="button" data-claim="anaemia">Outpatient repeat haemoglobin was requested after starting ferrous sulfate.<span class="source-count">3 sources</span></button></li>
+                <li><button class="claim" type="button" data-claim="therapy">The final physiotherapy note documents a home exercise programme and outpatient physiotherapy follow-up, without an appointment date.<span class="source-count">3 sources</span></button></li>
+                <li><button class="claim" type="button" data-claim="gp_update">The GP was updated after CTPA confirmation.<span class="source-count">1 source</span></button></li>
+              </ul>
             </section>
 
             <section class="summary-section">
-              <h3>Other record differences</h3>
-              <p><button class="claim conflict" type="button" data-claim="demographics">The dataset states age 76, but DOB 12 Apr 1947 implies age 78 during the January 2026 episode.<span class="source-count">2 sources</span></button></p>
-              <div class="documentation-note">
-                <div class="documentation-note-label">Documentation note · end of episode</div>
-                <p><button class="claim" type="button" data-claim="discharge_tomorrow">At 08:00 on 9 Jan, a ward-round note says he was ready for discharge “tomorrow.”<span class="source-count">1 source</span></button> <button class="claim" type="button" data-claim="discharge_same_day">Later that morning, physiotherapy describes him as discharged and nursing records completed discharge paperwork.<span class="source-count">2 sources</span></button></p>
-              </div>
+              <h3>Other record context</h3>
+              <p><button class="claim conflict" type="button" data-claim="demographics">The dataset states age 43, while DOB 17 Feb 1980 implies age 45 during the January 2026 admission.<span class="source-count">2 sources</span></button></p>
             </section>
 
             <div class="footnote"><strong>Source context:</strong> select any statement with a source badge or record-difference marker to open its complete source note. Differences are reported as documented and do not require a decision in this overview. This is not a discharge summary or proof of a complete longitudinal history.</div>
@@ -1038,41 +1040,55 @@
           </div>
         </article>
 
+        <section class="coverage safety" id="safety">
+          <p class="coverage-intro">Expected safety categories remain visible even when this single synthetic admission contains no relevant entry. “Nothing relevant documented” describes the available record, not the patient.</p>
+          <div class="safety-grid">
+            <div class="safety-item"><h3>Allergies and adverse reactions</h3><button class="claim" type="button" data-claim="allergy">Nut allergy documented.<span class="source-count">4 sources</span></button><p>Reaction, severity, and verification status are not recorded.</p></div>
+            <div class="safety-item"><h3>Current medication source</h3><button class="claim conflict" type="button" data-claim="discharge_meds">A final medical plan is available, but no authoritative medication order, MAR, dispensing record, or reconciliation timestamp is present.<span class="source-count">3 sources</span></button></div>
+            <div class="safety-item"><h3>Renal function and weight</h3><button class="claim conflict" type="button" data-claim="renal_context">A pharmacist states rivaroxaban was adjusted for renal function and body weight; the underlying values are not present.<span class="source-count">1 source</span></button></div>
+            <div class="safety-item"><h3>Communication or accessibility needs</h3><p class="empty-value">Nothing relevant documented in the available records.</p></div>
+            <div class="safety-item"><h3>Cognition and capacity</h3><p class="empty-value">Nothing relevant documented in the available records. Notes describe her as alert; no formal capacity assessment is present.</p></div>
+            <div class="safety-item"><h3>Resuscitation or escalation plan</h3><p class="empty-value">Nothing relevant documented in the available records.</p></div>
+            <div class="safety-item"><h3>Safeguarding concerns</h3><p class="empty-value">Nothing relevant documented in the available records.</p></div>
+            <div class="safety-item"><h3>Pregnancy status</h3><p class="empty-value">Nothing relevant documented in the available records.</p></div>
+          </div>
+        </section>
+
         <section class="ledger" id="ledger">
           <p class="ledger-intro">Atomic facts are extracted before prose generation. Select a row to inspect the source mapping.</p>
           <table class="ledger-table">
             <thead><tr><th>Fact</th><th>Status</th><th>Sources</th><th>Evidence</th></tr></thead>
             <tbody>
-              <tr><td><button type="button" data-claim="background">HTN · hypercholesterolaemia · OA · prior cataract surgery · nut allergy</button></td><td><span class="state supported">Supported</span></td><td>4</td><td>Linked</td></tr>
-              <tr><td><button type="button" data-claim="baseline">Independent baseline · spouse · bungalow</button></td><td><span class="state supported">Supported</span></td><td>1</td><td>Linked</td></tr>
-              <tr><td><button type="button" data-claim="anaemia">Hb 11.2 g/dL · ferrous sulfate started · repeat Hb absent</button></td><td><span class="state pending">Not stated later</span></td><td>4</td><td>Linked</td></tr>
-              <tr><td><button type="button" data-claim="procedure">Cemented total right shoulder replacement · 06 Jan 2026</button></td><td><span class="state supported">Supported</span></td><td>3</td><td>Linked</td></tr>
-              <tr><td><button type="button" data-claim="recovery">Wound clean; mild swelling; no erythema/discharge</button></td><td><span class="state supported">Supported</span></td><td>7</td><td>Linked</td></tr>
-              <tr><td><button type="button" data-claim="labs">CRP 65 mg/L · WBC 11.5 ×10⁹/L · repeat result absent</button></td><td><span class="state pending">Not stated later</span></td><td>4</td><td>Linked</td></tr>
-              <tr><td><button type="button" data-claim="infection">Cefuroxime for 48 hours vs no antibiotics vs later co-amoxiclav</button></td><td><span class="state conflicted">Records vary</span></td><td>5</td><td>Linked</td></tr>
-              <tr><td><button type="button" data-claim="antibiotics">Co-amoxiclav documented course</button></td><td><span class="state conflicted">Records vary</span></td><td>4</td><td>Linked</td></tr>
-              <tr><td><button type="button" data-claim="analgesia">Analgesia plan</button></td><td><span class="state conflicted">Records vary</span></td><td>6</td><td>Linked</td></tr>
-              <tr><td><button type="button" data-claim="dalteparin">Dalteparin 5,000 units SC OM · seven days</button></td><td><span class="state pending">Order not present</span></td><td>2</td><td>Linked</td></tr>
-              <tr><td><button type="button" data-claim="therapy">PT/OT progression and home instructions</button></td><td><span class="state supported">Supported</span></td><td>7</td><td>Linked</td></tr>
-              <tr><td><button type="button" data-claim="followup">Follow-up appointments</button></td><td><span class="state conflicted">Multiple timings</span></td><td>5</td><td>Linked</td></tr>
-              <tr><td><button type="button" data-claim="pending">Histology and repeat inflammatory markers</button></td><td><span class="state pending">Not found</span></td><td>3</td><td>Linked</td></tr>
-              <tr><td><button type="button" data-claim="discharge">End-of-episode date</button></td><td><span class="state conflicted">Records vary</span></td><td>3</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="presentation">Progressive exertional breathlessness · hypoxia · HDU admission</button></td><td><span class="state supported">Supported</span></td><td>3</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="cteph">CTEPH · severe pulmonary hypertension · RV strain · mismatched V/Q defects</button></td><td><span class="state supported">Supported</span></td><td>4</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="allergy">Nut allergy · reaction and severity absent</button></td><td><span class="state pending">Detail absent</span></td><td>4</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="background">Hypertension · asthma · no pre-admission medicines reported</button></td><td><span class="state supported">Supported</span></td><td>3</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="investigations">CTPA · echo · V/Q · NT-proBNP</button></td><td><span class="state supported">Supported</span></td><td>4</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="anaemia">Hb 110 g/L · ferrous sulfate started · outpatient repeat planned</button></td><td><span class="state pending">Follow-up planned</span></td><td>3</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="anticoag_initial">Initial therapeutic enoxaparin</button></td><td><span class="state supported">Supported</span></td><td>2</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="anticoag_apixaban">Early apixaban plan</button></td><td><span class="state conflicted">Earlier plan</span></td><td>1</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="anticoag_rivaroxaban">Subsequent and final rivaroxaban plan</button></td><td><span class="state supported">Latest medical plan</span></td><td>3</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="anticoag_enoxaparin">Post-discharge enoxaparin education</button></td><td><span class="state conflicted">Different account</span></td><td>1</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="furosemide">Furosemide started and later omitted from final plan</button></td><td><span class="state pending">Final status absent</span></td><td>4</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="therapy">Mobility, home safety, breathing and exercise programme</button></td><td><span class="state supported">Supported</span></td><td>3</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="followup">Tertiary pulmonary-hypertension referral · four-week follow-up</button></td><td><span class="state supported">Referral sent</span></td><td>3</td><td>Linked</td></tr>
+              <tr><td><button type="button" data-claim="renal_context">Renal function and body weight used for dosing · values absent</button></td><td><span class="state pending">Values absent</span></td><td>1</td><td>Linked</td></tr>
             </tbody>
           </table>
         </section>
 
         <section class="coverage" id="coverage">
           <p class="coverage-intro">This manifest is produced from retrieval metadata, not model prose. “Retrieved” does not mean clinically complete.</p>
-          <div class="coverage-metric"><strong>Available patient-record retrieval</strong><span>26 / 26</span><p>All retrieved records belong to admission 4076c817… and are dated 23 Dec 2025–09 Jan 2026. No ingestion failures were detected in this mock; no broader longitudinal chart is available.</p></div>
+          <div class="coverage-metric"><strong>Available patient-record retrieval</strong><span>45 / 45</span><p>All retrieved records belong to admission 7b266c9e… and are dated 3–10 Jan 2026. The dataset's duplicate admission 8ab5fb09… was deliberately excluded. No broader longitudinal chart is available.</p></div>
           <div class="coverage-list">
-            <div class="coverage-item"><strong>Orthopaedic notes</strong><small>13 retrieved</small></div>
-            <div class="coverage-item"><strong>Physiotherapy</strong><small>7 retrieved</small></div>
-            <div class="coverage-item"><strong>Anaesthetic records</strong><small>2 retrieved</small></div>
-            <div class="coverage-item"><strong>Theatre record</strong><small>1 retrieved</small></div>
-            <div class="coverage-item"><strong>Consent/checklist</strong><small>2 retrieved</small></div>
-            <div class="coverage-item"><strong>Occupational therapy</strong><small>1 retrieved</small></div>
+            <div class="coverage-item"><strong>Medicine inpatient notes</strong><small>14 retrieved</small></div>
+            <div class="coverage-item"><strong>Physiotherapy</strong><small>12 retrieved</small></div>
+            <div class="coverage-item"><strong>Respiratory inpatient notes</strong><small>11 retrieved</small></div>
+            <div class="coverage-item"><strong>Emergency department</strong><small>5 retrieved</small></div>
+            <div class="coverage-item"><strong>Cardiology</strong><small>1 retrieved</small></div>
+            <div class="coverage-item"><strong>Occupational/general therapies</strong><small>2 retrieved</small></div>
             <div class="coverage-item"><strong>Medication orders/MAR</strong><small>Not present in dataset</small></div>
-            <div class="coverage-item"><strong>Histology result</strong><small>Not found</small></div>
+            <div class="coverage-item"><strong>Renal values and recorded weight</strong><small>Not found</small></div>
           </div>
         </section>
       </div>
@@ -1111,118 +1127,87 @@
     const rawAdmissionsUrl = "https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes/resolve/main/silver/admissions.csv";
 
     const claimHighlightTerms = {
-      demographics: ["12/04/1947", "76", "05/01/2026 12:35"],
-      current_status: ["mild discomfort", "Wound clean", "mild swelling", "home exercise", "Discharge paperwork"],
-      presentation: ["Right shoulder pain", "end-stage OA", "Severity: 8/10"],
-      background: ["Past Medical History", "Allergies", "Nuts"],
-      hypertension: ["Hypertension", "HTN", "BP"],
-      hyperlipidaemia: ["Hypercholesterolaemia", "lipid-lowering"],
-      allergy: ["Allergies", "Nuts", "allergy to nuts"],
-      chronic_meds: ["ferrous sulfate", "omeprazole", "antihypertensive", "lipid-lowering"],
-      baseline: ["Social History", "Lives with spouse", "Independent with ADLs"],
-      preop: ["On Examination", "Risks of anaesthesia discussed", "Formal written consent was obtained"],
-      anaemia: ["Hb 11.2", "ferrous sulfate 200 mg"],
-      preop_meds: ["ibuprofen", "enoxaparin 40 mg"],
-      procedure: ["Total right shoulder replacement", "Cemented shoulder prosthesis", "Complications"],
-      recovery: ["pain", "wound", "dressing", "mild swelling"],
-      labs: ["CRP 65 mg/L", "WBC 11.5", "Review inflammatory markers in 48 hours"],
-      therapy: ["exercises", "sling", "range of motion", "raised toilet seat", "grab bars"],
-      safety_overview: ["CRP 65 mg/L", "co-amoxiclav", "histology", "discharge"],
-      infection_48h: ["Cefuroxime 1.5g IV TDS for 48 hrs"],
-      infection_none: ["No antibiotics requiredd"],
-      infection_clinical: ["wound clean", "clean wound", "mild swelling", "no erythema", "no discharge", "Temp"],
-      infection_later: ["suspected early post-op infection", "co-amoxiclav 625 mg"],
-      infection: ["Cefuroxime 1.5g IV TDS for 48 hrs", "No antibiotics requiredd", "co-amoxiclav 625 mg"],
-      antibiotic_5: ["co-amoxiclav 625 mg TID for 5 days"],
-      antibiotic_7: ["co-amoxiclav 500/125 mg TID", "7-day course"],
-      antibiotics: ["co-amoxiclav 625 mg TID for 5 days", "co-amoxiclav 500/125 mg TID", "No antibiotics requiredd"],
-      analgesia_para: ["paracetamol 1g QDS"],
-      analgesia_combo: ["co-codamol 30/500", "codeine 30 mg"],
-      analgesia_ibuprofen: ["Discontinue ibuprofen", "paracetamol and ibuprofen"],
-      analgesia: ["paracetamol 1g QDS", "co-codamol 30/500", "codeine 30 mg", "ibuprofen"],
-      dalteparin: ["dalteparin 5,000 units", "7-day course of dalteparin"],
-      home_plan: ["exercises three times daily", "avoid lifting heavy objects", "raised toilet seat", "grab bars", "Lives with spouse"],
-      followup_physio: ["16/01/26"],
-      followup_2wk: ["two weeks post-discharge", "OP follow-up ij 2 weeks"],
-      followup_6wk: ["fracture clinic in 6 weeks", "OP follow-up clinic in 6 weeks"],
-      followup: ["16/01/26", "2 weeks", "6 weeks"],
-      pending: ["histology", "Review inflammatory markers in 48 hours"],
-      discharge_tomorrow: ["readiness for d/c tomorrow", "Discharge tomorrow"],
-      discharge_same_day: ["Patient discharged", "Discharge paperwork completed"],
-      discharge: ["d/c tomorrow", "Patient discharged", "Discharge paperwork completed"]
+      demographics: ["17/02/1980", "43", "03/01/2026 01:35"],
+      presentation: ["Progressive breathlessness", "SpO2 89% on room air", "Respiratory High Dependency Unit"],
+      baseline: ["Lives alone", "independent in ADLs", "school teacher", "Kwame Bonsu"],
+      current_status: ["Feelswell", "SpO2: 94% RA", "Mobilising well", "home exercise programme"],
+      background: ["Past Medical History", "HTN", "Asthma", "None reported"],
+      record_context: ["apixaban", "Rivaroxaban", "enoxaparin 40 mg OD", "renal function", "43"],
+      cteph: ["chronic thromboembolic", "Severe pulmonary hypertension", "right ventricular strain", "Mismatched perfusion defects"],
+      anaemia: ["Hb 110 g/L", "ferrous sulfate 200 mg BD", "repeat Hb check"],
+      hypertension: ["HTN", "No current medications reported"],
+      asthma: ["Asthma", "No wheeze"],
+      therapy: ["wheeled walker", "grab bars", "home exercise programme", "energy conservation"],
+      allergy: ["Allergy to nuts", "Allergies", "Nuts", "Nut allergy"],
+      discharge_meds: ["rivaroxaban 15 mg BD x 3 weeks", "sildenafil 20 mg TID", "ferrous sulfate 200 mg BD"],
+      anticoag_initial: ["therapeutic-dose enoxaparin", "enoxaparin 1.5 mg/kg daily"],
+      anticoag_apixaban: ["apixaban 10 mg BD x 7 days", "Continue LMWH"],
+      anticoag_rivaroxaban: ["Rivaroxaban adjusted to 15 mg BD", "Rivaroxaban 20 mg OD", "rivaroxaban 15 mg BD x 3 weeks"],
+      anticoag_enoxaparin: ["self-administering SC enoxaparin", "enoxaparin 40 mg OD post-discharge"],
+      furosemide: ["furosemide 40 mg OD", "Discharge today with rivaroxaban"],
+      patient_education: ["pulmonary HTN", "monitoring for bleeding", "severe SOB or chest pain"],
+      investigations: ["CT pulmonary angiogram confirming", "Severe pulmonary hypertension", "Mismatched perfusion defects", "No acute infxn", "NT-proBNP"],
+      support: ["Kwame Bonsu", "home support"],
+      followup: ["tertiary PH ctr referral", "FU at tertiary PH centre in 4 weeks", "outpatient follow-up plan"],
+      gp_update: ["GP", "CTEPH dx", "Anticoag plan"],
+      renal_context: ["based on renal function and body weight"]
     };
 
     const sources = {
-      patients: { title: "Patient demographics row", created: "Dataset snapshot", author: "NHS England synthetic dataset", type: "patients.csv", id: "person_id 9d8fd25d-c4fe-4343-8ff5-5da5dad4e740", relation: "direct", excerpt: "The demographics row reports Brian William Morris, male, DOB <mark>12/04/1947</mark>, dataset age <mark>76</mark>, and synthetic NHS number 695592370.", url: patientsUrl },
-      admission: { title: "Admission record", created: "05 Jan 2026 · 12:35", author: "Synthetic structured record", type: "admissions.csv", id: "4076c817-a26f-453e-b531-32ab221695ad", relation: "context", excerpt: "Booked admission to Trauma and Orthopaedics Ward 3B for Brian William Morris. The admission timestamp is <mark>05/01/2026 12:35</mark>.", url: admissionsUrl },
-      preop: { title: "Pre-op Assessment", created: "23 Dec 2025 · 10:00", author: "Dr Idris Dad · SpR", type: "Orthopaedics Outpatients", id: "67d3cb34-5f87-47ea-947b-af568ea0b448", relation: "context", excerpt: "Pre-clerking assessment records end-stage right shoulder osteoarthritis and the plan for <mark>total right shoulder replacement</mark>.", url: notesUrl },
-      anaestheticPre: { title: "Anaesthetic Pre-op Assessment", created: "23 Dec 2025 · 11:00", author: "Dr Idris Dad · Anaesthetic SpR", type: "Anaesthetic Documentation", id: "aeb70358-0376-4ce4-891f-4d8ec5ee658d", relation: "direct", excerpt: "The assessment documents controlled hypertension, hypercholesterolaemia, OA, nut allergy, Hb 11.2 g/dL, consent for GA, and planned admission enoxaparin.", url: notesUrl },
-      consent: { title: "Pre-op Consent for Right Shoulder Replacement", created: "23 Dec 2025 · 11:30", author: "Dr Promise Nkosi · Consultant", type: "Pre-op Consent", id: "905ad29a-00e5-4aa9-9d1d-9e76c7ebe46e", relation: "direct", excerpt: "Risks and benefits of shoulder replacement were discussed, written consent obtained, and <mark>ibuprofen was to stop from 30/12/25</mark>.", url: notesUrl },
-      checklist: { title: "Pre-op Checklist", created: "23 Dec 2025 · 12:00", author: "Nurse Kenneth Brian Lamb", type: "Pre-op Checklist", id: "ea2ed7ad-3e89-49f9-87e3-647ffda2b9c7", relation: "corroborates", excerpt: "The checklist repeats Hb 11.2 g/dL, ferrous sulfate, nut allergy, planned GA and enoxaparin, fasting advice, and the ibuprofen stop instruction.", url: notesUrl },
-      clerking: { title: "Surgical Clerking", created: "05 Jan 2026 · 12:35", author: "Dr Promise Nkosi · Consultant", type: "Orthopaedics Inpatients", id: "ccd27f8c-9387-4599-900f-4e44b98bea17", relation: "corroborates", excerpt: "Admission clerking records stable examination, Hb 11.2 g/dL, continued iron, stopped ibuprofen, enoxaparin from admission, and surgery on 06/01/26.", url: notesUrl },
-      theatre: { title: "Total Right Shoulder Replacement", created: "06 Jan 2026 · 08:30", author: "Dr Kiyomi Yamaguchi · Surgeon", type: "Theatre notes", id: "e4e8a7ff-cb6a-4270-8b2b-7ba9a29f003a", relation: "direct", excerpt: "The operative record documents a <mark>cemented total right shoulder replacement</mark> under GA, minimal estimated blood loss, no complications, and tissue sent to histology.", url: notesUrl },
-      pacu: { title: "Post-Anaesthesia Recovery", created: "06 Jan 2026 · 11:30", author: "Dr Idris Dad · SpR", type: "Anaesthetic Documentation", id: "4911395a-8c25-47f3-bdd7-ae83c4cbc6a4", relation: "direct", excerpt: "In PACU, vital signs were stable, pain was 4/10, and the <mark>dressing was clean, dry, and intact</mark>.", url: notesUrl },
-      pmwr6: { title: "Ortho PMWR", created: "06 Jan 2026 · 14:00", author: "Dr Idris Dad · SpR", type: "Orthopaedics Inpatients", id: "8b66678a-d15f-4cc0-8860-64ae87d70e5a", relation: "corroborates", excerpt: "Pain was described as controlled. Examination documented a clean wound without erythema, swelling, or discharge. The plan said <mark>no antibiotics required</mark>.", url: notesUrl },
-      amwr7: { title: "Ortho AMWR", created: "07 Jan 2026 · 09:00", author: "Dr Idris Dad · SpR", type: "Orthopaedics Inpatients", id: "79abaa8e-1cf9-421b-a4c9-400d8baf5155", relation: "corroborates", excerpt: "Moderate pain was tolerable. The surgical site was <mark>clean with mild swelling</mark> and no erythema or discharge.", url: notesUrl },
-      bloods: { title: "Post-op blood tests taken", created: "07 Jan 2026 · 12:00", author: "Dr Rebecca Penelope Lucas · Foundation Trainee", type: "Orthopaedics Inpatients", id: "dfab9742-6571-4e7a-ad58-14f643634866", relation: "context", excerpt: "Samples were taken for FBC, CRP, and electrolytes. The note says results were <mark>awaited</mark> to assess infection or electrolyte imbalance.", url: notesUrl },
-      pmwr7: { title: "PMWR Ortho Reg", created: "07 Jan 2026 · 17:00", author: "Dr Idris Dad · SpR", type: "Orthopaedics Inpatients", id: "62bfa013-65db-475e-af6e-a865b2e25278", relation: "direct", excerpt: "The note reports <mark>CRP 65 mg/L</mark>, <mark>WBC 11.5 ×10⁹/L</mark>, temperature 36.8°C, a clean dressing, mild swelling, and no erythema or discharge.", url: notesUrl },
-      amwr8: { title: "Ortho AMWR", created: "08 Jan 2026 · 08:45", author: "Dr Idris Dad · SpR", type: "Orthopaedics Inpatients", id: "bf6fc0f0-9b2a-49ef-b287-33c508f58994", relation: "direct", excerpt: "The plan specifies <mark>co-amoxiclav 625 mg TID for 5 days</mark> and repeat inflammatory markers in 48 hours.", url: notesUrl },
-      pmwr8: { title: "PMWR Ortho Reg", created: "08 Jan 2026 · 16:30", author: "Dr Idris Dad · SpR", type: "Orthopaedics Inpatients", id: "0eb945fb-0887-4d6f-9562-c85ef9f4ae3b", relation: "corroborates", excerpt: "The plan again specifies <mark>co-amoxiclav 625 mg TID for 5 days</mark>, stops ibuprofen, and requests fracture-clinic follow-up in six weeks.", url: notesUrl },
-      dischargeInfo: { title: "Discharge Information Provided", created: "08 Jan 2026 · 18:30", author: "Nurse Eric George Gordon", type: "Orthopaedics Inpatients", id: "d88acc9c-b83f-4707-b55b-998da6e1981c", relation: "context", excerpt: "Discharge education was provided. The patient was advised to use <mark>paracetamol 1 g QDS</mark> and attend outpatient follow-up two weeks after discharge.", url: notesUrl },
-      amwr9: { title: "Orth AMWR", created: "09 Jan 2026 · 08:00", author: "Dr Idris Dad · SpR", type: "Orthopaedics Inpatients", id: "27bf098b-618a-4b9d-9740-49b3454bca97", relation: "conflicts", excerpt: "This plan changes antibiotics to <mark>co-amoxiclav 500/125 mg TID for 7 days</mark>, adds co-codamol and dalteparin, and says discharge is tomorrow.", url: notesUrl },
-      ptPost: { title: "Post-operative Physiotherapy Session", created: "06 Jan 2026 · 15:30", author: "Georgina Sophie Holmes · Physical Therapist", type: "Physiotherapy Documentation", id: "9e4e2e3e-07da-48ce-9ced-eb2557d03533", relation: "direct", excerpt: "The first post-operative session covered passive-assisted shoulder movement, posture with the sling, and exercises three times daily under supervision.", url: notesUrl },
-      pt7: { title: "Active-assisted ROM session", created: "07 Jan 2026 · 10:30", author: "Georgina Sophie Holmes · Physical Therapist", type: "Physiotherapy Documentation", id: "30158eef-8952-4c9b-b561-69ae4ab1ad26", relation: "corroborates", excerpt: "Active-assisted right-shoulder movements were taught within a pain-free range, with continued exercises three times daily at home.", url: notesUrl },
-      ptMobility: { title: "Post-operative mobility session", created: "07 Jan 2026 · 14:00", author: "Georgina Sophie Holmes · Physical Therapist", type: "Physiotherapy Documentation", id: "f453b06f-fd1f-4493-adfa-1994d3402eac", relation: "corroborates", excerpt: "The patient practised sling use, bed and chair transfers, and gentle assisted right-arm movement; he performed tasks independently with guidance.", url: notesUrl },
-      pt8active: { title: "Physiotherapy Post-Operative Session", created: "08 Jan 2026 · 10:00", author: "Georgina Sophie Holmes · Physical Therapist", type: "Physiotherapy Documentation", id: "b7b8d44d-1ac2-437a-8076-ce1c9556ddc6", relation: "corroborates", excerpt: "Pendulum swings, assisted arm lifts, and external rotation were completed in pain-free limits; the home programme was reinforced.", url: notesUrl },
-      pt8: { title: "PT Discharge Plan", created: "08 Jan 2026 · 14:00", author: "Georgina Sophie Holmes · Physical Therapist", type: "Physiotherapy Documentation", id: "9fa6ea23-6cbe-4a59-992c-a05437b64d53", relation: "direct", excerpt: "Home exercises were advised three times daily, with no heavy lifting for six weeks. The analgesic list unexpectedly mentions <mark>paracetamol and ibuprofen</mark>.", url: notesUrl },
-      ot8: { title: "OT Home Assessment", created: "08 Jan 2026 · 11:30", author: "Andrew Anthony Lamb · Occupational Therapist", type: "Orthopaedics Inpatients", id: "65507b76-7ed8-458d-8529-c317948dd9c6", relation: "direct", excerpt: "The home assessment recommends a <mark>raised toilet seat and bathroom grab bars</mark> for post-discharge safety.", url: notesUrl },
-      finalPt: { title: "Final Physiotherapy Review", created: "09 Jan 2026 · 09:30", author: "Georgina Sophie Holmes · Physical Therapist", type: "Physiotherapy Documentation", id: "1610e7c7-2e03-43d7-9351-68926c1a58f4", relation: "direct", excerpt: "The patient demonstrated the exercise programme and sling use. Plans include exercises three times daily, dalteparin for seven days, and <mark>physio on 16/01/26</mark>.", url: notesUrl },
-      paperwork: { title: "Discharge paperwork provided", created: "09 Jan 2026 · 10:30", author: "Nurse Ifeoluwa Akinlosotu", type: "Orthopaedics Inpatients", id: "5312ace3-17b4-4a24-8586-3c956b755c7c", relation: "conflicts", excerpt: "The entry states discharge paperwork was completed and advises <mark>outpatient follow-up in six weeks</mark> plus continued home physiotherapy.", url: notesUrl }
+      patients: { title: "Patient demographics row", created: "Dataset snapshot", author: "NHS England synthetic dataset", type: "patients.csv", id: "person_id c6c45c39-cd73-49dd-818d-0a7865fe8a7f", relation: "direct", excerpt: "The row reports Abena Bonsu, female, DOB <mark>17/02/1980</mark>, dataset age <mark>43</mark>, and synthetic NHS number 395107142.", url: patientsUrl },
+      admission: { title: "Admission record", created: "03 Jan 2026 · 01:35", author: "Synthetic structured record", type: "admissions.csv", id: "7b266c9e-fb25-4209-b856-95bda6915f12", relation: "context", excerpt: "A&E admission to Respiratory HDU for Abena Bonsu at <mark>03/01/2026 01:35</mark>.", url: admissionsUrl },
+      triage: { title: "ED Triage Assessment", created: "03 Jan 2026 · 01:35", author: "Nurse Audrey Phyllis Gill", type: "ED", id: "f191854f-167f-48e6-8311-84081c6fdb76", relation: "direct", excerpt: "Progressive breathlessness with <mark>SpO2 89% on room air</mark>; HTN, asthma and nut allergy documented, with no current medicines reported.", url: notesUrl },
+      edDepart: { title: "ED Depart Summary", created: "03 Jan 2026 · 04:00", author: "Dr Brenda Veronica Miles · ED Consultant", type: "ED Depart Summary", id: "1891df2e-6957-485e-a785-e0b93a925ecc", relation: "direct", excerpt: "Two weeks of progressive exertional dyspnoea, hypoxia and right-heart strain prompted therapeutic enoxaparin, CTPA, echo and HDU admission.", url: notesUrl },
+      clerking: { title: "Medical Clerking", created: "03 Jan 2026 · 04:30", author: "Dr Sade Olowoyeye · SpR", type: "Respiratory Inpatients", id: "3db53382-b56a-455a-91ee-4dfa4d7cdac5", relation: "corroborates", excerpt: "HTN, asthma, nut allergy, independent ADLs and no reported medicines were documented; <mark>enoxaparin 1.5 mg/kg daily</mark> was planned.", url: notesUrl },
+      ptwr: { title: "Post-take ward round", created: "03 Jan 2026 · 09:00", author: "Dr Elizabeth Kathryn Singh · Consultant", type: "Respiratory Medicine Inpatients", id: "21ffe1bd-1749-4562-9325-50bf4ddf2954", relation: "conflicts", excerpt: "The initial consultant plan records <mark>apixaban 10 mg BD for 7 days, then 5 mg BD</mark>, with LMWH until initiation.", url: notesUrl },
+      gpCtp: { title: "GP update post-CTPA", created: "03 Jan 2026 · 13:00", author: "Dr Sade Olowoyeye · SpR", type: "Respiratory Inpatients", id: "920725d2-784f-4e2f-8497-a1889662cfc5", relation: "corroborates", excerpt: "The GP was updated regarding the <mark>CTEPH diagnosis</mark>, hospital plan and anticoagulation.", url: notesUrl },
+      bloodReview: { title: "Blood-results review", created: "03 Jan 2026 · 20:00", author: "Dr Ivy Elsie Baker · Foundation Trainee", type: "Respiratory Inpatients", id: "ab857782-f21a-4ad6-b2d2-d6c72f8958ac", relation: "direct", excerpt: "Bloods showed <mark>no acute infection</mark>; elevated NT-proBNP was attributed to ongoing right-heart strain.", url: notesUrl },
+      amwr4: { title: "Respiratory AMWR", created: "04 Jan 2026 · 08:30", author: "Dr Sade Olowoyeye · SpR", type: "Medicine Inpatients", id: "83f455b4-09f0-4b03-ba94-500abc6c7566", relation: "direct", excerpt: "Echo documented severe pulmonary hypertension and RV strain; <mark>furosemide 40 mg OD</mark> was started for fluid retention.", url: notesUrl },
+      anticoagPharm: { title: "Anticoagulation optimisation", created: "04 Jan 2026 · 12:00", author: "Dr Anne Marion Perkins · Pharmacist", type: "Respiratory Medicine Inpatients", id: "91cf55da-51a2-4489-8c47-d22174eef288", relation: "direct", excerpt: "<mark>Rivaroxaban was adjusted to 15 mg BD based on renal function and body weight</mark>, then planned at 20 mg once daily.", url: notesUrl },
+      amwr5: { title: "Respiratory AMWR", created: "05 Jan 2026 · 08:00", author: "Dr Sade Olowoyeye · SpR", type: "Medicine Inpatients", id: "eeb90c54-2c7c-49f9-81c5-d3ba6a48c739", relation: "corroborates", excerpt: "Rivaroxaban 15 mg BD and <mark>furosemide 40 mg OD</mark> were continued while tertiary referral was planned.", url: notesUrl },
+      cardio: { title: "Cardiology review: CTEPH", created: "05 Jan 2026 · 11:00", author: "Dr Sade Olowoyeye and Dr Seán Seán", type: "Cardiology Inpatients", id: "f80a55dd-5f93-4e9b-b340-9ccf6aa873a1", relation: "direct", excerpt: "CTPA confirmed chronic thromboembolic disease; echo showed <mark>severe pulmonary hypertension and right ventricular strain</mark>. Rivaroxaban, sildenafil and furosemide were listed.", url: notesUrl },
+      education: { title: "Pulmonary-hypertension education", created: "05 Jan 2026 · 16:00", author: "Dr Anne Marion Perkins", type: "Respiratory Inpatients", id: "baa7d03d-c17d-4e8f-a008-1ff96f4ffa68", relation: "direct", excerpt: "Education covered <mark>pulmonary hypertension, anticoagulation therapy, and prevention of complications</mark>.", url: notesUrl },
+      vq: { title: "V/Q scan review and referral", created: "06 Jan 2026 · 11:30", author: "Dr Sade Olowoyeye · SpR", type: "Respiratory Medicine Inpatients", id: "24c4c68a-4c66-41a1-91c8-44f3a3f51ede", relation: "direct", excerpt: "The V/Q scan showed <mark>mismatched perfusion defects</mark>; tertiary pulmonary-hypertension referral for PEA assessment was planned.", url: notesUrl },
+      homeSafety: { title: "Mobility and Home Safety Assessment", created: "06 Jan 2026 · 13:00", author: "Joan Winifred Shaw · Therapist", type: "Therapies Inpatients", id: "8ff54cf2-ad64-4046-950f-90319b5c35d3", relation: "direct", excerpt: "Training covered short-distance walking with a <mark>wheeled walker</mark>, trip-hazard removal and bathroom grab bars.", url: notesUrl },
+      phReferral: { title: "Pulmonary-hypertension referral", created: "07 Jan 2026 · 12:00", author: "Dr Sade Olowoyeye · SpR", type: "Respiratory Inpatients", id: "7d1549c7-328e-4dde-bfff-156a367055db", relation: "direct", excerpt: "<mark>Referral sent to tertiary PH centre</mark> for management and pulmonary endarterectomy consideration; feedback was awaited.", url: notesUrl },
+      amwr8: { title: "Respiratory AMWR", created: "08 Jan 2026 · 09:00", author: "Dr Sade Olowoyeye · SpR", type: "Medicine Inpatients", id: "02e77db9-897c-4003-a788-782963479696", relation: "direct", excerpt: "Hb was <mark>110 g/L</mark>; ferrous sulfate 200 mg BD and outpatient repeat haemoglobin were planned.", url: notesUrl },
+      selfInjection: { title: "Self-injection education", created: "08 Jan 2026 · 14:00", author: "Nurse Audrey Phyllis Gill", type: "Respiratory Medicine Inpatients", id: "cda05edc-45b1-453d-8056-6034d2097785", relation: "conflicts", excerpt: "The note describes <mark>post-discharge enoxaparin 40 mg OD</mark> self-administration and bleeding monitoring.", url: notesUrl },
+      amwr9: { title: "Respiratory AMWR", created: "09 Jan 2026 · 08:30", author: "Dr Sade Olowoyeye · SpR", type: "Medicine Inpatients", id: "7f5c81a3-1be6-4487-b979-4e1deee4cacf", relation: "corroborates", excerpt: "Clinically stable on room air; <mark>rivaroxaban 20 mg OD</mark> was prescribed and four-week tertiary follow-up planned.", url: notesUrl },
+      homeExercise: { title: "Home Exercise Plan", created: "09 Jan 2026 · 10:30", author: "Joan Winifred Shaw · Therapist", type: "Physiotherapy Documentation", id: "db5a27a8-fbb0-497d-a369-59c58f8b69d4", relation: "direct", excerpt: "A personalised <mark>home exercise plan</mark> covered breathing, light aerobic activity, overexertion precautions, and urgent help for severe breathlessness or chest pain.", url: notesUrl },
+      nok: { title: "Next of kin contacted for discharge", created: "09 Jan 2026 · 12:00", author: "Nurse Audrey Phyllis Gill", type: "Respiratory Medicine Inpatients", id: "ac51d4b2-ed93-47d9-b87f-abe352c6f204", relation: "direct", excerpt: "Her brother <mark>Kwame Bonsu</mark> was contacted to confirm transport and home support.", url: notesUrl },
+      finalAmwr: { title: "Final respiratory AMWR", created: "10 Jan 2026 · 08:00", author: "Dr Sade Olowoyeye · SpR", type: "Medicine Inpatients", id: "6758fabe-e6c4-4ad0-806f-7efa4566d435", relation: "direct", excerpt: "Comfortable, mobilising and SpO₂ 94% on room air. Discharge medicines were <mark>rivaroxaban, sildenafil and ferrous sulfate</mark>, with four-week tertiary follow-up and safety-netting.", url: notesUrl },
+      dischargeSummary: { title: "Discharge summary provided", created: "10 Jan 2026 · 09:30", author: "Nurse Audrey Phyllis Gill", type: "Respiratory Medicine Inpatients", id: "5205b118-03eb-46ff-8a3d-85a84f0fd0c8", relation: "corroborates", excerpt: "A detailed discharge summary and <mark>outpatient follow-up plan</mark> were provided, with pulmonary-hypertension support contacts.", url: notesUrl },
+      finalPhysio: { title: "Final breathing and mobility session", created: "10 Jan 2026 · 10:15", author: "Joan Winifred Shaw · Therapist", type: "Physiotherapy Documentation", id: "13847185-3fb7-4040-85e6-88bb14ac2394", relation: "corroborates", excerpt: "Final therapy reinforced breathing, light mobilisation, energy conservation and the <mark>home exercise programme</mark>, with outpatient physiotherapy follow-up.", url: notesUrl }
     };
 
     const claims = {
-      demographics: { title: "Patient identity and demographic inconsistency", description: "The source row reports age 76, while DOB 12 April 1947 makes the patient 78 on 5 January 2026. The calculated age is deterministic and the source inconsistency remains visible.", sources: ["patients", "admission"], summary: "2 linked records · 1 inconsistency", sourceRelations: { patients: "conflicts", admission: "context" } },
-      presentation: { title: "Why the patient was admitted", description: "The one-line indication combines symptoms from the detailed assessment with corroborating procedure and admission context.", sources: ["preop", "checklist", "clerking"], summary: "3 linked notes · symptoms and indication", sourceRelations: { preop: "direct" } },
-      background: { title: "Past history and allergy", description: "Four pre-operative records consistently repeat the key history. A production system should still prefer an authoritative structured allergy source when available.", sources: ["preop", "anaestheticPre", "checklist", "clerking"], summary: "4 linked notes · consistent" },
-      current_status: { title: "Last documented clinical status", description: "The final medical, nursing, and therapy notes are shown together so the reader can verify both the last bedside assessment and functional readiness documented at the end of the available record.", sources: ["amwr9", "finalPt", "paperwork", "pmwr8", "pt8active", "amwr8"], summary: "6 linked notes · latest clinical and functional status", sourceRelations: { amwr9: "direct", finalPt: "corroborates", paperwork: "corroborates", pmwr8: "context", pt8active: "context", amwr8: "context" } },
-      baseline: { title: "Home and functional baseline", description: "These social and functional details appear in one detailed pre-operative note, so the UI explicitly shows that they are single-source facts.", sources: ["preop"], summary: "1 linked note · single-source context", sourceRelations: { preop: "direct" } },
-      hypertension: { title: "Hypertension history and available readings", description: "Hypertension is repeated in pre-operative and inpatient documentation. Available observations provide episode context, but the chronic antihypertensive drug is not named and longitudinal control cannot be inferred from this short record.", sources: ["preop", "anaestheticPre", "clerking", "pmwr8", "amwr9"], summary: "5 linked notes · chronic drug unnamed", sourceRelations: { preop: "direct", anaestheticPre: "corroborates", clerking: "corroborates", pmwr8: "context", amwr9: "context" } },
-      hyperlipidaemia: { title: "Hypercholesterolaemia history", description: "Four pre-operative records repeat hypercholesterolaemia or lipid-lowering treatment, but none names the medicine in the available chart.", sources: ["preop", "anaestheticPre", "checklist", "clerking"], summary: "4 linked notes · medicine unnamed" },
-      allergy: { title: "Documented nut allergy", description: "The allergy is repeated across four pre-operative sources. A production workflow should compare this narrative evidence with the authoritative structured allergy list.", sources: ["preop", "anaestheticPre", "checklist", "pacu"], summary: "4 linked notes · consistent", sourceRelations: { preop: "direct", anaestheticPre: "corroborates", checklist: "corroborates", pacu: "corroborates" } },
-      chronic_meds: { title: "Incomplete chronic medication picture", description: "Ferrous sulfate and omeprazole appear in the episode notes, while antihypertensive and lipid-lowering therapy are referenced without drug names. The dataset has no authoritative longitudinal medication list, so current status is not established here.", sources: ["preop", "anaestheticPre", "checklist", "clerking", "pmwr8", "finalPt"], summary: "6 linked notes · status not established", sourceRelations: { preop: "direct", anaestheticPre: "corroborates", checklist: "corroborates", clerking: "corroborates", pmwr8: "context", finalPt: "context" } },
-      preop: { title: "Pre-operative clinical assessment and consent", description: "The evidence bundle includes medical, anaesthetic, consent, and checklist perspectives rather than treating one document as the complete pre-operative story.", sources: ["preop", "anaestheticPre", "consent", "checklist"], summary: "4 linked notes · multidisciplinary" },
-      anaemia: { title: "Mild anaemia and planned optimization", description: "Hb 11.2 g/dL and ferrous sulfate are repeated. No later haemoglobin value is visible in the retrieved encounter notes.", sources: ["preop", "anaestheticPre", "checklist", "clerking"], summary: "4 linked notes · repeat result absent" },
-      preop_meds: { title: "Pre-operative medication changes", description: "The notes consistently document stopping ibuprofen and starting admission thromboprophylaxis, but do not name the chronic antihypertensive or lipid-lowering agents.", sources: ["consent", "anaestheticPre", "checklist", "clerking"], summary: "4 linked notes · chronic medicines unnamed" },
-      procedure: { title: "Cemented total right shoulder replacement", description: "The operative note is the direct source; pre-operative and admission records provide indication and encounter context.", sources: ["theatre", "preop", "admission"], summary: "3 linked records · direct operative evidence", sourceRelations: { theatre: "direct", preop: "context", admission: "context" } },
-      recovery: { title: "Stable recovery with manageable pain and clean wound", description: "Serial reviews support the trajectory, but all remain inspectable because repeated wording may represent true reassessment or copied-forward documentation.", sources: ["pacu", "pmwr6", "amwr7", "pmwr7", "amwr8", "pmwr8", "amwr9"], summary: "7 linked notes · serial observations", sourceRelations: { amwr9: "corroborates" } },
-      labs: { title: "Inflammatory markers elevated; repeat results absent", description: "CRP and WBC are repeated in later notes. A plan to repeat testing does not prove that the repeat occurred or that a result was available.", sources: ["bloods", "pmwr7", "amwr8", "amwr9"], summary: "4 linked notes · result gap detected", sourceRelations: { amwr9: "corroborates" } },
-      therapy: { title: "Progressive PT/OT rehabilitation", description: "Different therapy notes support different stages: early passive movement, active-assisted range, mobility, equipment, and final independent home technique.", sources: ["ptPost", "pt7", "ptMobility", "pt8active", "pt8", "ot8", "finalPt"], summary: "7 linked therapy notes · staged progression" },
-      safety_overview: { title: "Record differences and limitations", description: "This overview links to a broad source bundle; detailed sections below present the documented accounts and the limits of the available record.", sources: ["pmwr7", "amwr8", "amwr9", "dischargeInfo", "finalPt", "pt8", "paperwork", "theatre", "bloods"], summary: "9 linked notes · contextual differences" },
-      infection_48h: { title: "Theatre antibiotic plan", description: "This view isolates the source documenting the immediate post-operative cefuroxime plan.", sources: ["theatre"], summary: "1 direct source · 48-hour plan", sourceRelations: { theatre: "direct" } },
-      infection_none: { title: "Same-day ward-round antibiotic plan", description: "This ward-round entry documents that no antibiotics were required on the day of surgery; the theatre plan remains available as separate context.", sources: ["pmwr6"], summary: "1 direct source · no-antibiotic plan", sourceRelations: { pmwr6: "direct" } },
-      infection_clinical: { title: "Serial clinical wound examinations", description: "Six ward-round notes repeatedly document normal temperature and a clean wound without erythema or discharge. This clinical evidence does not exclude infection, but the available chart does not establish a confirmed diagnosis.", sources: ["pmwr6", "amwr7", "pmwr7", "amwr8", "pmwr8", "amwr9"], summary: "6 linked notes · serial examinations", sourceRelations: { pmwr6: "direct", amwr7: "corroborates", pmwr7: "corroborates", amwr8: "corroborates", pmwr8: "corroborates", amwr9: "corroborates" } },
-      infection_later: { title: "Later suspected-infection documentation", description: "These notes respond to elevated inflammatory markers while continuing to document a clean wound and normal temperature.", sources: ["pmwr7", "amwr8", "pmwr8"], summary: "3 linked notes · later documentation" },
-      infection: { title: "Combined change in antibiotic position", description: "Aggregate fact-ledger view of the theatre prophylaxis plan, the later same-day no-antibiotic position, and subsequent co-amoxiclav treatment after elevated markers.", sources: ["theatre", "pmwr6", "pmwr7", "amwr8", "pmwr8"], summary: "5 linked notes · three positions", sourceRelations: { theatre: "direct", pmwr6: "conflicts", pmwr7: "conflicts", amwr8: "conflicts", pmwr8: "conflicts" } },
-      antibiotic_5: { title: "8 Jan co-amoxiclav documentation · five days", description: "Two notes on 8 January document this duration.", sources: ["amwr8", "pmwr8"], summary: "2 linked notes · five-day plan" },
-      antibiotic_7: { title: "9 Jan co-amoxiclav documentation · seven days", description: "A later 9 January ward-round note documents seven days. The strength notation is equivalent to 625 mg, but duration differs.", sources: ["amwr9"], summary: "1 direct source · seven-day plan", sourceRelations: { amwr9: "direct" } },
-      antibiotics: { title: "Co-amoxiclav accounts in the record", description: "Aggregate fact-ledger view of both documented durations plus the earlier no-antibiotic position.", sources: ["amwr8", "pmwr8", "amwr9", "pmwr6"], summary: "4 linked notes · different documented plans" },
-      analgesia_para: { title: "Paracetamol discharge documentation", description: "This discharge-education note documents scheduled paracetamol at home.", sources: ["dischargeInfo"], summary: "1 direct source · paracetamol plan", sourceRelations: { dischargeInfo: "direct" } },
-      analgesia_combo: { title: "Co-codamol and codeine documentation", description: "These later notes list co-codamol and separate codeine, which could duplicate paracetamol and codeine exposure if interpreted as simultaneous instructions.", sources: ["amwr9", "finalPt", "amwr7"], summary: "3 linked notes · overlapping medicines", sourceRelations: { amwr9: "direct", finalPt: "corroborates", amwr7: "conflicts" } },
-      analgesia_ibuprofen: { title: "Ibuprofen discontinuation versus later stale reference", description: "One medical plan stops ibuprofen; a later PT note nevertheless lists it as current analgesia.", sources: ["pmwr8", "pt8"], summary: "2 linked notes · direct contradiction", sourceRelations: { pmwr8: "direct", pt8: "conflicts" } },
-      analgesia: { title: "Discharge analgesia accounts", description: "Aggregate fact-ledger view of paracetamol, co-codamol, separate codeine, and ibuprofen documentation.", sources: ["dischargeInfo", "amwr9", "finalPt", "amwr7", "pt8", "pmwr8"], summary: "6 linked notes · different documented plans" },
-      dalteparin: { title: "Dalteparin in final discharge plans", description: "Two notes support 5,000 units SC each morning for seven days, but this synthetic dataset has no medication order or dispensing record to verify fulfillment.", sources: ["amwr9", "finalPt"], summary: "2 linked notes · prescription unavailable", sourceRelations: { amwr9: "direct" } },
-      home_plan: { title: "Home rehabilitation and support plan", description: "The evidence bundle combines functional baseline, PT instructions, OT equipment recommendations, and discharge documentation.", sources: ["preop", "pt8", "ot8", "finalPt", "paperwork"], summary: "5 linked notes · home plan" },
-      followup_physio: { title: "Physiotherapy on 16 January", description: "This appointment has a named date and physiotherapy purpose.", sources: ["finalPt"], summary: "1 direct source · named purpose", sourceRelations: { finalPt: "direct" } },
-      followup_2wk: { title: "Outpatient review in two weeks", description: "Two notes document the timing but do not consistently identify the clinic purpose.", sources: ["dischargeInfo", "amwr9"], summary: "2 linked notes · clinic not specified", sourceRelations: { dischargeInfo: "direct", amwr9: "corroborates" } },
-      followup_6wk: { title: "Clinic review in six weeks", description: "One source specifies fracture clinic; another says outpatient clinic. This may be separate from two-week and physiotherapy appointments.", sources: ["pmwr8", "paperwork"], summary: "2 linked notes · destination varies", sourceRelations: { pmwr8: "direct", paperwork: "corroborates" } },
-      followup: { title: "Combined follow-up ambiguity", description: "Aggregate fact-ledger view of all three timing references.", sources: ["finalPt", "dischargeInfo", "amwr9", "pmwr8", "paperwork"], summary: "5 linked notes · three timing references" },
-      pending: { title: "Histology and repeat inflammatory markers not found", description: "The operative note requests histology and ward rounds request repeated markers. Neither result appears within the 26 retrieved notes.", sources: ["theatre", "bloods", "amwr8"], summary: "3 linked notes · results not found" },
-      discharge_tomorrow: { title: "08:00 discharge documentation", description: "The ward-round note on 9 January documents discharge as planned for the following day.", sources: ["amwr9"], summary: "1 direct source · planned tomorrow", sourceRelations: { amwr9: "direct" } },
-      discharge_same_day: { title: "Later same-day discharge documentation", description: "Later therapy and nursing documentation records discharge or completed paperwork on 9 January.", sources: ["finalPt", "paperwork"], summary: "2 linked notes · later same-day entries", sourceRelations: { finalPt: "direct", paperwork: "corroborates" } },
-      discharge: { title: "End-of-episode accounts", description: "Aggregate fact-ledger view of the morning plan and later same-day discharge documentation.", sources: ["amwr9", "finalPt", "paperwork"], summary: "3 linked notes · differing same-day accounts" }
+      demographics: { title: "Patient identity and age difference", description: "The source row reports age 43, while DOB 17 February 1980 makes the patient 45 during the January 2026 admission. The duplicate synthetic patient and admission rows were excluded from retrieval.", sources: ["patients", "admission"], summary: "2 linked records · age differs", sourceRelations: { patients: "conflicts", admission: "context" } },
+      presentation: { title: "Presentation and admission", description: "ED and clerking records describe two weeks of progressive exertional breathlessness with hypoxia, tachycardia and borderline hypotension, leading to Respiratory HDU admission.", sources: ["triage", "edDepart", "clerking"], summary: "3 linked notes · acute presentation" },
+      baseline: { title: "Home, work and functional baseline", description: "The ED summary and clerking record describe a school teacher living alone and independent with ADLs; her brother later supported discharge arrangements.", sources: ["edDepart", "clerking", "nok"], summary: "3 linked notes · baseline and support" },
+      current_status: { title: "Last documented clinical and functional status", description: "The final medical, nursing and therapy notes are grouped to show the last bedside assessment, discharge communication and functional plan. They describe status on 10 January 2026, not the patient's current condition today.", sources: ["finalAmwr", "dischargeSummary", "finalPhysio"], summary: "3 linked notes · last documented 10 Jan" },
+      background: { title: "Documented history at admission", description: "Hypertension, asthma and nut allergy recur in the admission records. The patient reported no current medicines; this episode does not contain an authoritative longitudinal medication history.", sources: ["triage", "edDepart", "clerking"], summary: "3 linked notes · admission history" },
+      record_context: { title: "Documentation differences and data limitations", description: "This bundle shows the changing anticoagulation accounts, missing renal and weight values, and deterministic age mismatch. These are presented as record context rather than tasks for the clinician.", sources: ["ptwr", "anticoagPharm", "selfInjection", "finalAmwr", "patients", "admission"], summary: "6 linked records · contextual differences", sourceRelations: { finalAmwr: "direct", ptwr: "conflicts", selfInjection: "conflicts", patients: "conflicts", admission: "context" } },
+      cteph: { title: "Confirmed chronic thromboembolic pulmonary hypertension", description: "CTPA, echocardiography and V/Q documentation support chronic thromboembolic disease with severe pulmonary hypertension, right-ventricular strain and mismatched perfusion defects.", sources: ["gpCtp", "cardio", "vq", "finalAmwr"], summary: "4 linked notes · imaging and clinical synthesis" },
+      anaemia: { title: "Mild anaemia and follow-up plan", description: "Later ward rounds document Hb 110 g/L, previously 120 g/L, initiation of ferrous sulfate and an outpatient repeat-haemoglobin plan.", sources: ["amwr8", "amwr9", "finalAmwr"], summary: "3 linked notes · repeat planned" },
+      hypertension: { title: "Hypertension history", description: "Hypertension is included in ED and clerking history, but no regular antihypertensive is named in the available admission notes.", sources: ["edDepart", "clerking"], summary: "2 linked notes · regular medicine not recorded" },
+      asthma: { title: "Asthma history", description: "Asthma is included in admission history. The ED review documents no wheeze, and no regular inhaler appears in the available episode.", sources: ["edDepart", "clerking"], summary: "2 linked notes · no regular inhaler recorded" },
+      therapy: { title: "Mobility, respiratory therapy and home plan", description: "Therapy documentation covers short-distance walking, a wheeled walker, home safety, breathing exercises, pacing, energy conservation and outpatient follow-up.", sources: ["homeSafety", "homeExercise", "finalPhysio"], summary: "3 linked notes · functional and home plan" },
+      allergy: { title: "Documented nut allergy", description: "Nut allergy is repeated in four clinical records. None supplies the reaction, severity or verification status, and no structured allergy record is present in this dataset.", sources: ["triage", "edDepart", "clerking", "cardio"], summary: "4 linked notes · reaction not recorded" },
+      discharge_meds: { title: "Last medical discharge medication plan", description: "The final medical note lists rivaroxaban, sildenafil and ferrous sulfate. Earlier notes corroborate these medicines, but the dataset contains no medication order, MAR, dispensing record or reconciliation timestamp.", sources: ["finalAmwr", "amwr8", "cardio"], summary: "3 linked notes · not an authoritative medication list", sourceRelations: { finalAmwr: "direct", amwr8: "corroborates", cardio: "context" } },
+      anticoag_initial: { title: "Initial therapeutic enoxaparin", description: "The ED summary and medical clerking document therapeutic-dose enoxaparin at admission.", sources: ["edDepart", "clerking"], summary: "2 linked notes · initial anticoagulation" },
+      anticoag_apixaban: { title: "Early consultant apixaban plan", description: "The first consultant ward round documents apixaban 10 mg twice daily for seven days then 5 mg twice daily, with LMWH until initiation.", sources: ["ptwr"], summary: "1 direct source · early plan" },
+      anticoag_rivaroxaban: { title: "Subsequent rivaroxaban documentation", description: "Pharmacy and later medical notes use rivaroxaban. The final note specifies 15 mg twice daily for three weeks followed by 20 mg once daily.", sources: ["anticoagPharm", "amwr9", "finalAmwr"], summary: "3 linked notes · latest medical plan" },
+      anticoag_enoxaparin: { title: "Post-discharge enoxaparin education", description: "A later nursing education note separately describes enoxaparin 40 mg once daily after discharge, which differs from the final medical rivaroxaban plan.", sources: ["selfInjection"], summary: "1 direct source · different account" },
+      furosemide: { title: "Furosemide documentation", description: "Furosemide 40 mg once daily was started for fluid retention and repeated in early plans. The final medical discharge list names other medicines but does not mention furosemide.", sources: ["amwr4", "amwr5", "cardio", "finalAmwr"], summary: "4 linked notes · final status not stated", sourceRelations: { finalAmwr: "context" } },
+      patient_education: { title: "Education and safety netting", description: "The notes document pulmonary-hypertension and anticoagulation education, bleeding precautions, breathing exercises, pacing and urgent help for severe breathlessness or chest pain.", sources: ["education", "selfInjection", "homeExercise"], summary: "3 linked notes · education and escalation advice" },
+      investigations: { title: "Key investigation findings", description: "This bundle links the CTPA, echo, V/Q and blood-review documentation used in the summary. It also shows the persistently elevated NT-proBNP and lack of acute infection in the reviewed bloods.", sources: ["gpCtp", "cardio", "vq", "bloodReview"], summary: "4 linked notes · imaging and laboratory context" },
+      support: { title: "Discharge support", description: "The only explicit informal-support entry records her brother being contacted for transport and home support. No broader formal care package is visible.", sources: ["nok"], summary: "1 direct source · brother involved" },
+      followup: { title: "Specialist and outpatient follow-up", description: "A referral was sent to a tertiary pulmonary-hypertension centre for management and pulmonary endarterectomy assessment. The final medical note specifies four-week follow-up; nursing and therapy notes record discharge and outpatient plans.", sources: ["phReferral", "finalAmwr", "dischargeSummary"], summary: "3 linked notes · referral sent" },
+      gp_update: { title: "GP communication", description: "A brief entry records that the GP was updated after CTPA confirmation regarding the CTEPH diagnosis, hospital management and anticoagulation.", sources: ["gpCtp"], summary: "1 direct source · GP updated" },
+      renal_context: { title: "Renal function and body-weight context", description: "The pharmacist states that rivaroxaban dosing was adjusted for renal function and body weight. The underlying renal values and recorded weight do not appear in the available admission notes.", sources: ["anticoagPharm"], summary: "1 direct source · underlying values absent" }
     };
 
-    const claimOrder = ["baseline", "current_status", "background", "safety_overview", "procedure", "labs", "hypertension", "hyperlipidaemia", "anaemia", "allergy", "antibiotic_5", "antibiotic_7", "analgesia_para", "analgesia_combo", "analgesia_ibuprofen", "dalteparin", "chronic_meds", "infection_later", "infection_clinical", "therapy", "home_plan", "preop", "presentation", "followup_physio", "followup_2wk", "followup_6wk", "pending", "demographics", "discharge_tomorrow", "discharge_same_day"];
+    const claimOrder = ["baseline", "current_status", "background", "record_context", "presentation", "cteph", "anaemia", "hypertension", "asthma", "therapy", "allergy", "discharge_meds", "anticoag_initial", "anticoag_apixaban", "anticoag_rivaroxaban", "anticoag_enoxaparin", "furosemide", "patient_education", "investigations", "support", "followup", "gp_update", "renal_context", "demographics"];
     let activeClaim = null;
 
     const relationLabel = { direct: "Direct support", corroborates: "Corroborates", conflicts: "Different account", context: "Context" };
