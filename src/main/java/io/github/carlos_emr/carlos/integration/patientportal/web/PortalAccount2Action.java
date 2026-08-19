@@ -88,14 +88,13 @@ public class PortalAccount2Action extends PortalJsonAction {
             "a reason is required when disabling a portal account";
 
     private final transient SecurityInfoManager securityInfoManager;
-    private final transient PatientPortalService patientPortalService;
     private final transient PortalStaffContextResolver staffContextResolver;
 
     /** Struts instantiates actions reflectively, so the wiring happens here. */
     public PortalAccount2Action() {
         this(
                 SpringUtils.getBean(SecurityInfoManager.class),
-                SpringUtils.getBean(PatientPortalService.class),
+                null,
                 SpringUtils.getBean(PortalStaffContextResolver.class));
     }
 
@@ -103,8 +102,8 @@ public class PortalAccount2Action extends PortalJsonAction {
             SecurityInfoManager securityInfoManager,
             PatientPortalService patientPortalService,
             PortalStaffContextResolver staffContextResolver) {
+        super(patientPortalService);
         this.securityInfoManager = securityInfoManager;
-        this.patientPortalService = patientPortalService;
         this.staffContextResolver = staffContextResolver;
     }
 
@@ -133,6 +132,11 @@ public class PortalAccount2Action extends PortalJsonAction {
                         : PortalStaffContextResolver.OBJECT_ACCOUNT;
         requirePrivilege(securityInfoManager, loggedInInfo, securityObject);
 
+        PatientPortalService portal = portalService();
+        if (portal == null) {
+            return portalNotConfigured(response);
+        }
+
         PatientPortalStaffContext staff = staffContextResolver.resolve(loggedInInfo);
         int demographicNo = positiveInt(request.getParameter("demographicNo"));
         if (demographicNo <= 0) {
@@ -140,8 +144,8 @@ public class PortalAccount2Action extends PortalJsonAction {
         }
         try {
             return switch (method == null ? "" : method) {
-                case METHOD_UNLOCK -> unlock(response, demographicNo, staff);
-                case METHOD_ACCESS -> access(request, response, demographicNo, staff);
+                case METHOD_UNLOCK -> unlock(portal, response, demographicNo, staff);
+                case METHOD_ACCESS -> access(portal, request, response, demographicNo, staff);
                 default -> badRequest(response, UNKNOWN_METHOD);
             };
         } catch (PatientPortalException exception) {
@@ -150,10 +154,11 @@ public class PortalAccount2Action extends PortalJsonAction {
     }
 
     private String unlock(
-            HttpServletResponse response, int demographicNo, PatientPortalStaffContext staff)
+            PatientPortalService portal, HttpServletResponse response, int demographicNo,
+            PatientPortalStaffContext staff)
             throws IOException {
         PatientPortalAccountAcknowledgementDto account =
-                patientPortalService.unlockAccount(demographicNo, staff);
+                portal.unlockAccount(demographicNo, staff);
         ObjectNode payload = objectMapper().createObjectNode();
         payload.put("ok", true);
         payload.put("accountId", account.id());
@@ -171,6 +176,7 @@ public class PortalAccount2Action extends PortalJsonAction {
      * point of action costs one field and saves reconstructing intent from an audit trail.
      */
     private String access(
+            PatientPortalService portal,
             HttpServletRequest request,
             HttpServletResponse response,
             int demographicNo,
@@ -183,7 +189,7 @@ public class PortalAccount2Action extends PortalJsonAction {
             return badRequest(response, REASON_REQUIRED);
         }
         PatientPortalAccountAcknowledgementDto account =
-                patientPortalService.setAccountAccess(
+                portal.setAccountAccess(
                         demographicNo, enabled, reasonMissing ? "staff_action" : reason.strip(),
                         staff);
         ObjectNode payload = objectMapper().createObjectNode();

@@ -80,7 +80,6 @@ public class PortalInvite2Action extends PortalJsonAction {
 
     private final transient SecurityInfoManager securityInfoManager;
     private final transient DemographicManager demographicManager;
-    private final transient PatientPortalService patientPortalService;
     private final transient PortalStaffContextResolver staffContextResolver;
     private final transient PortalInviteIdentityValidator identityValidator;
 
@@ -89,7 +88,7 @@ public class PortalInvite2Action extends PortalJsonAction {
         this(
                 SpringUtils.getBean(SecurityInfoManager.class),
                 SpringUtils.getBean(DemographicManager.class),
-                SpringUtils.getBean(PatientPortalService.class),
+                null,
                 SpringUtils.getBean(PortalStaffContextResolver.class),
                 new PortalInviteIdentityValidator());
     }
@@ -100,9 +99,9 @@ public class PortalInvite2Action extends PortalJsonAction {
             PatientPortalService patientPortalService,
             PortalStaffContextResolver staffContextResolver,
             PortalInviteIdentityValidator identityValidator) {
+        super(patientPortalService);
         this.securityInfoManager = securityInfoManager;
         this.demographicManager = demographicManager;
-        this.patientPortalService = patientPortalService;
         this.staffContextResolver = staffContextResolver;
         this.identityValidator = identityValidator;
     }
@@ -122,13 +121,18 @@ public class PortalInvite2Action extends PortalJsonAction {
         requirePrivilege(
                 securityInfoManager, loggedInInfo, PortalStaffContextResolver.OBJECT_INVITE);
 
+        PatientPortalService portal = portalService();
+        if (portal == null) {
+            return portalNotConfigured(response);
+        }
+
         PatientPortalStaffContext staff = staffContextResolver.resolve(loggedInInfo);
         String method = request.getParameter("method");
         try {
             return switch (method == null ? "" : method) {
-                case METHOD_CREATE -> create(request, response, loggedInInfo, staff);
-                case METHOD_RESEND -> resend(request, response, staff);
-                case METHOD_REVOKE -> revoke(request, response, staff);
+                case METHOD_CREATE -> create(portal, request, response, loggedInInfo, staff);
+                case METHOD_RESEND -> resend(portal, request, response, staff);
+                case METHOD_REVOKE -> revoke(portal, request, response, staff);
                 default -> badRequest(response, UNKNOWN_METHOD);
             };
         } catch (PatientPortalException exception) {
@@ -137,6 +141,7 @@ public class PortalInvite2Action extends PortalJsonAction {
     }
 
     private String create(
+            PatientPortalService portal,
             HttpServletRequest request,
             HttpServletResponse response,
             LoggedInInfo loggedInInfo,
@@ -161,12 +166,12 @@ public class PortalInvite2Action extends PortalJsonAction {
 
         // The replace guard. See the class notes: a second create silently revokes the first.
         if (!Boolean.parseBoolean(request.getParameter("confirmReplace"))
-                && hasPendingInvite(demographicNo, staff)) {
+                && hasPendingInvite(portal, demographicNo, staff)) {
             return conflict(response, "confirm_replace", NEEDS_CONFIRMATION);
         }
 
         PatientPortalIssuedInviteDto issued =
-                patientPortalService.createInvite(
+                portal.createInvite(
                         demographicNo,
                         identity.email(),
                         identity.dateOfBirth(),
@@ -182,10 +187,11 @@ public class PortalInvite2Action extends PortalJsonAction {
      * needing confirmation rather than allowed through. A portal hiccup must not be the reason a
      * patient's working invitation is silently revoked.
      */
-    private boolean hasPendingInvite(int demographicNo, PatientPortalStaffContext staff) {
+    private boolean hasPendingInvite(
+            PatientPortalService portal, int demographicNo, PatientPortalStaffContext staff) {
         try {
             List<PatientPortalInviteDto> invites =
-                    patientPortalService.listInvites(
+                    portal.listInvites(
                             demographicNo, PatientPortalService.MAX_INVITE_PAGE_SIZE, staff);
             return invites.stream().anyMatch(invite -> "pending".equals(invite.status()));
         } catch (PatientPortalException exception) {
@@ -194,25 +200,25 @@ public class PortalInvite2Action extends PortalJsonAction {
     }
 
     private String resend(
-            HttpServletRequest request, HttpServletResponse response,
-            PatientPortalStaffContext staff)
+            PatientPortalService portal, HttpServletRequest request,
+            HttpServletResponse response, PatientPortalStaffContext staff)
             throws IOException {
         long inviteId = inviteId(request);
         if (inviteId <= 0) {
             return badRequest(response, "an invitation must be selected");
         }
-        return issuedInvite(response, patientPortalService.resendInvite(inviteId, staff));
+        return issuedInvite(response, portal.resendInvite(inviteId, staff));
     }
 
     private String revoke(
-            HttpServletRequest request, HttpServletResponse response,
-            PatientPortalStaffContext staff)
+            PatientPortalService portal, HttpServletRequest request,
+            HttpServletResponse response, PatientPortalStaffContext staff)
             throws IOException {
         long inviteId = inviteId(request);
         if (inviteId <= 0) {
             return badRequest(response, "an invitation must be selected");
         }
-        PatientPortalInviteDto invite = patientPortalService.revokeInvite(inviteId, staff);
+        PatientPortalInviteDto invite = portal.revokeInvite(inviteId, staff);
         ObjectNode payload = objectMapper().createObjectNode();
         payload.put("ok", true);
         payload.put("inviteId", invite.id());
