@@ -17,6 +17,7 @@ migration/
            V1.0.8__expand_appointment_type_location.sql
            V1.0.9__remove_carlosdoc_schedule_group_denial.sql
            V1.0.10__seed_default_measurement_groups.sql
+           V1.0.13__fix_phcp_diagnosis_group_backfill_collation.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -29,10 +30,14 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest version currently shipped is `V1.0.12`. The next
-Ontario or shared migration is `V1.0.13`; the next BC-only migration is `V1.0.11` because Ontario
-and BC locations are mutually exclusive (the version line is global only across `common` + the
-selected province — see below).
+`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.13`, and the
+next free number for ANY location — shared or province — is `V1.0.14`. The version line is global:
+the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
+Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
+run — `common/V1.0.13` today. A hypothetical new `bc/V1.0.11` would apply fine on a fresh install
+(version order places it before `common/V1.0.13`) but would silently never run on existing BC
+databases and would fail `flyway validate` there — so never number a new migration at or below the
+global high-water mark, even if that number was only ever used under the other province.
 
 A database applies **`common` + exactly one province** location, selected by `flyway.locations`:
 
