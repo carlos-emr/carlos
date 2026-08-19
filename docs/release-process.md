@@ -6,10 +6,16 @@ target branch, preparing a release, creating tags, and forwarding fixes.
 
 ## Version format
 
-Release versions and tags use the same value:
+Exact release versions and tags use the same value:
 
 ```text
 YYYY.MM.PATCH[-alphaN|-betaN|-rcN]
+```
+
+Working snapshot versions append `-SNAPSHOT` to the intended exact version:
+
+```text
+YYYY.MM.PATCH[-alphaN|-betaN|-rcN]-SNAPSHOT
 ```
 
 Examples are `2026.08.0-alpha2`, `2026.08.0-rc1`, `2026.08.0`, and
@@ -142,8 +148,11 @@ Then:
 5. Create and push an annotated tag on that exact commit. For example:
 
    ```bash
-   git tag -a 2026.08.0-alpha3 -m "Release 2026.08.0-alpha3"
-   git push origin 2026.08.0-alpha3
+   RELEASE_TAG=2026.08.0-alpha3
+   RELEASE_COMMIT="<verified-publication-target-sha>"
+   git tag -a "$RELEASE_TAG" "$RELEASE_COMMIT" -m "Release $RELEASE_TAG"
+   test "$(git rev-parse "${RELEASE_TAG}^{commit}")" = "$RELEASE_COMMIT"
+   git push origin "$RELEASE_TAG"
    ```
 
 6. The tag workflow re-runs the full build and tests, creates a clean WAR and

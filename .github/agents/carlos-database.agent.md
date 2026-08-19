@@ -11,7 +11,7 @@ tools: ["*"]
 > versions, snapshots, maintenance fixes, tags, and forward merges.
 > Normal work targets `develop`; supported fixes start from and target the oldest
 > affected `release/YYYY.MM` and are forward-merged while preserving target
-> version metadata. Application changes target `main` only for release preparation;
+> version and SCM metadata. Application changes target `main` only for release preparation;
 > narrowly scoped release-infrastructure corrections are also allowed. Tags and
 > published Flyway migration bytes are immutable.
 

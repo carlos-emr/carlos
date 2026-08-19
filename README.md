@@ -37,9 +37,10 @@ should follow the canonical [release process](docs/release-process.md) for
 versioning, target-branch selection, tags, hotfixes, and release verification.
 
 In brief, normal work starts from and targets `develop`; high-priority fixes for
-a supported release start from and target its `release/YYYY.MM` branch; and
-release-preparation PRs promote current-train exact versions to `main`. Older
-supported patches remain on their maintenance branch. Ongoing branches use
+supported releases start from and target the oldest affected `release/YYYY.MM`
+branch before they are forward-merged; and release-preparation PRs promote
+current-train exact versions to `main`. Older supported patches remain on their
+maintenance branch. Ongoing branches use
 `-SNAPSHOT` with SCM tag `HEAD`. Release tags are annotated, immutable, and
 created only on exact non-snapshot release commits.
 
