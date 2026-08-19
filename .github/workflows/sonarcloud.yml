@@ -9,8 +9,8 @@
 # all local_repo dependencies are available for the build.
 #
 # Usage:
-# - Triggered on pushes to develop and release/* branches
-# - Triggered on pull requests targeting develop and release/*
+# - Triggered on pushes to main, develop, and release/* branches
+# - Triggered on pull requests targeting main, develop, and release/*
 #
 # Requirements:
 # - SONAR_TOKEN secret must be configured in repository settings
@@ -29,11 +29,13 @@ name: SonarCloud Analysis
 on:
   push:
     branches:
+      - main
       - develop
       - release/*
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
+      - main
       - develop
       - release/*
 
@@ -177,7 +179,7 @@ jobs:
             git config --global --add safe.directory /workspace
           "
 
-      - name: Build and analyze (Push to develop)
+      - name: Build and analyze (Push branch)
         if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
