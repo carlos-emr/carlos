@@ -289,6 +289,13 @@ jobs:
               fi
 
               if printf '%s\n' "$body" | grep -qiF "$CONFIRMATION_PHRASE"; then
+                if [ "$comment_confirmed_epoch" -le "$latest_commit_epoch" ]; then
+                  stale_confirmation_found=true
+                  # Continue scanning so every stale confirmation gets a warning and a newer fresh confirmation can still pass.
+                  echo "::warning::PR #$PR_NUMBER: Ignoring stale DCO confirmation from $author at $comment_confirmed_at (latest commit is $latest_commit_at). A fresh confirmation is required after the latest commit."
+                  continue
+                fi
+
                 permission_json=""
                 if ! permission_json=$(curl -fsSL \
                   -H "Authorization: Bearer $GH_TOKEN" \
@@ -306,17 +313,12 @@ jobs:
                   continue
                 fi
 
-                if [ "$comment_confirmed_epoch" -gt "$latest_commit_epoch" ]; then
-                  found=true
-                  confirming_user="$author"
-                  confirming_permission="$permission"
-                  confirming_role="$role_name"
-                  confirming_at="$comment_confirmed_at"
-                  break
-                fi
-                stale_confirmation_found=true
-                # Continue scanning so every stale confirmation gets a warning and a newer fresh confirmation can still pass.
-                echo "::warning::PR #$PR_NUMBER: Ignoring stale DCO confirmation from $author at $comment_confirmed_at (latest commit is $latest_commit_at). A fresh confirmation is required after the latest commit."
+                found=true
+                confirming_user="$author"
+                confirming_permission="$permission"
+                confirming_role="$role_name"
+                confirming_at="$comment_confirmed_at"
+                break
               fi
             done < <(jq -c '.[] | {
               body: .body,
