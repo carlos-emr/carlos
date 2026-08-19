@@ -44,7 +44,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          if release_json=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" 2>/dev/null); then
+          if release_json=$(gh release view "$RELEASE_TAG" --repo "$REPO" \
+            --json isDraft --jq '{draft: .isDraft}' 2>/dev/null); then
             if [ "$(jq -r '.draft' <<< "$release_json")" = "false" ]; then
               echo "Release $RELEASE_TAG is already published; nothing to change."
               echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -305,7 +306,14 @@ jobs:
           set -euo pipefail
 
           gh release upload "$RELEASE_TAG" release-assets/* --repo "$REPO" --clobber
-          release_json=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG")
+          release_id=$(gh api "repos/$REPO/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | .id" |
+            head -n 1)
+          if [ -z "$release_id" ]; then
+            echo "::error::Draft release $RELEASE_TAG was not found after asset upload."
+            exit 1
+          fi
+          release_json=$(gh api "repos/$REPO/releases/$release_id")
 
           for asset in release-assets/*; do
             name=$(basename "$asset")
