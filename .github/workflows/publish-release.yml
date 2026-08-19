@@ -306,9 +306,8 @@ jobs:
           set -euo pipefail
 
           gh release upload "$RELEASE_TAG" release-assets/* --repo "$REPO" --clobber
-          release_id=$(gh api "repos/$REPO/releases?per_page=100" \
-            --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | .id" |
-            head -n 1)
+          release_id=$(gh api --paginate "repos/$REPO/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | .id")
           if [ -z "$release_id" ]; then
             echo "::error::Draft release $RELEASE_TAG was not found after asset upload."
             exit 1
