@@ -68,6 +68,34 @@ Demo/patient data is **not** in this baseline — it belongs in a dev-only `demo
   been retired (recoverable from git history). Do not regenerate it — evolve the schema forward.
 - **drugref2 is a separate database** — not managed here (keeps `../development-drugref.sql` + `../drugref/*.sql`).
 
+## MariaDB CLI recovery for V1.0.7
+
+Flyway/JDBC runs negotiate a compatible connection collation, and the development bootstrap pins
+one before applying forward migrations. A manual `mysql`/`mariadb` run through `carlos-ctl db`,
+however, may use `utf8mb4_uca1400_ai_ci` on MariaDB 11.4 or newer. In that session V1.0.7 can stop
+with `ERROR 1267 (Illegal mix of collations)` after its DDL and before its guarded backfill inserts.
+
+If that happens, rerun V1.0.7 with the compatible collation established in the **same client
+session**:
+
+```bash
+{
+  printf '%s\n' 'SET NAMES utf8mb4 COLLATE utf8mb4_general_ci;'
+  cat common/V1.0.7__restore_phcp_diagnosis_groups.sql
+} | sudo EMR_HOME=/usr/local/emr carlos-ctl db oscar
+```
+
+Run this from `database/mysql/migration/`, then continue with V1.0.8 through V1.0.13 in global
+version order. V1.0.7 is safe to rerun: its DDL is repeatable and both inserts exclude rows already
+present. A separate `SET NAMES` invocation does **not** work because the setting ends with that
+client process. Do not add `--force`; continuing after an unrelated SQL error could leave the
+schema in an unknown state.
+
+V1.0.13 is an idempotent no-op after the pinned V1.0.7 rerun. It also fills the missing rows when
+an operator previously bypassed the V1.0.7 error and continued directly to later migrations.
+Automatic protection in the deployment CLI is tracked in
+[carlos-podman #17](https://github.com/carlos-emr/carlos-podman/issues/17).
+
 ## Evolving the schema
 
 Add a forward migration under the right location — `common/` for shared changes, `on/`/`bc/` for
