@@ -95,7 +95,7 @@
 | 003 | Intestinal Infectious Diseases: Other salmonella infections |
 | 005 | Intestinal Infectious Diseases: Food poisoning |
 | 006 | Intestinal Infectious Diseases: Amoebiasis, amoebic dysentery |
-| 009 | Intestinal Infectious Diseases: Diarrhea, gastro-enteritis, viral gastroenteritis |
+| 009 | Intestinal Infectious Diseases: Diarrhea, gastro-enteritis, viral gastro-enteritis |
 | 010 | Tuberculosis: Primary tuberculous infection, including recent positive TB skin test conversion |
 | 011 | Tuberculosis: Pulmonary tuberculosis |
 | 012 | Tuberculosis: Other respiratory tuberculosis, tuberculous pleurisy with or without effusion |
@@ -727,8 +727,8 @@
 | 969 | Immunization: Other Immunization-Not Defined |
 | 897 | Social, Marital and Family Problems: Economic problems |
 | 898 | Social, Marital and Family Problems: Marital difficulties |
-| 899 | Social, Marital and Family Problems: Parent-child problems (e.g., childabuse, battered child, child neglect) |
-| 900 | Social, Marital and Family Problems: Problems with aged parents or inlaws |
+| 899 | Social, Marital and Family Problems: Parent-child problems (e.g., child-abuse, battered child, child neglect) |
+| 900 | Social, Marital and Family Problems: Problems with aged parents or in-laws |
 | 901 | Social, Marital and Family Problems: Family disruption, divorce |
 | 902 | Social, Marital and Family Problems: Educational problems |
 | 903 | Social, Marital and Family Problems: Illegitimacy |
