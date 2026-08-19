@@ -481,7 +481,14 @@ public class PatientPortalService implements Closeable {
      * /internal/carlos/patients/{id}/invites}.
      */
     private static String templateOf(String pathFormat) {
-        return pathFormat.replace("%d", "{id}");
+        int query = pathFormat.indexOf('?');
+        if (query < 0) {
+            return pathFormat.replace("%d", "{id}");
+        }
+        // Only path segments are record identifiers; a paging parameter rendered as {id} reads as
+        // though the limit were a patient number.
+        return pathFormat.substring(0, query).replace("%d", "{id}")
+                + pathFormat.substring(query).replace("%d", "{n}");
     }
 
     /**
