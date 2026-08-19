@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal.web;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
@@ -40,7 +39,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
-import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
@@ -64,7 +62,7 @@ import org.apache.struts2.ServletActionContext;
  *
  * @since 2026-08-19
  */
-public class PortalInvite2Action extends ActionSupport {
+public class PortalInvite2Action extends PortalJsonAction {
 
     private static final long serialVersionUID = 1L;
 
@@ -72,9 +70,6 @@ public class PortalInvite2Action extends ActionSupport {
     static final String METHOD_RESEND = "resend";
     static final String METHOD_REVOKE = "revoke";
 
-    private static final String JSON = "application/json;charset=UTF-8";
-    private static final String MISSING_PRIVILEGE =
-            "missing required sec object (%s)";
     private static final String NEEDS_CONFIRMATION =
             "This patient already has a pending invitation. Sending a new one immediately"
                     + " invalidates the previous link, so any email already sent will stop working.";
@@ -88,7 +83,6 @@ public class PortalInvite2Action extends ActionSupport {
     private final transient PatientPortalService patientPortalService;
     private final transient PortalStaffContextResolver staffContextResolver;
     private final transient PortalInviteIdentityValidator identityValidator;
-    private final transient ObjectMapper objectMapper = new ObjectMapper();
 
     /** Struts instantiates actions reflectively, so the wiring happens here. */
     public PortalInvite2Action() {
@@ -125,14 +119,8 @@ public class PortalInvite2Action extends ActionSupport {
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(
-                loggedInInfo, PortalStaffContextResolver.OBJECT_INVITE, "w", null)) {
-            throw new SecurityException(
-                    String.format(
-                            Locale.ROOT,
-                            MISSING_PRIVILEGE,
-                            PortalStaffContextResolver.OBJECT_INVITE));
-        }
+        requirePrivilege(
+                securityInfoManager, loggedInInfo, PortalStaffContextResolver.OBJECT_INVITE);
 
         PatientPortalStaffContext staff = staffContextResolver.resolve(loggedInInfo);
         String method = request.getParameter("method");
@@ -225,7 +213,7 @@ public class PortalInvite2Action extends ActionSupport {
             return badRequest(response, "an invitation must be selected");
         }
         PatientPortalInviteDto invite = patientPortalService.revokeInvite(inviteId, staff);
-        ObjectNode payload = objectMapper.createObjectNode();
+        ObjectNode payload = objectMapper().createObjectNode();
         payload.put("ok", true);
         payload.put("inviteId", invite.id());
         payload.put("status", invite.status());
@@ -241,7 +229,7 @@ public class PortalInvite2Action extends ActionSupport {
      */
     private String issuedInvite(HttpServletResponse response, PatientPortalIssuedInviteDto issued)
             throws IOException {
-        ObjectNode payload = objectMapper.createObjectNode();
+        ObjectNode payload = objectMapper().createObjectNode();
         payload.put("ok", true);
         payload.put("inviteId", issued.invite().id());
         payload.put("status", issued.invite().status());
@@ -253,76 +241,11 @@ public class PortalInvite2Action extends ActionSupport {
         return write(response, HttpServletResponse.SC_OK, payload);
     }
 
-    /**
-     * Maps a portal failure to a staff-facing message.
-     *
-     * <p>The portal's own message is not forwarded: it embeds an endpoint template and a status that
-     * mean nothing to a receptionist. Note that {@code 404} is three-way — unknown record, no portal
-     * account, or a rejected identity — so it is reported as a configuration or lookup problem
-     * rather than asserted to be a missing patient.
-     */
-    private String portalFailure(HttpServletResponse response, PatientPortalException exception)
-            throws IOException {
-        String message =
-                switch (exception.kind()) {
-                    case CONFLICT -> exception.detail() == null
-                            ? "The portal rejected this change because the account state has moved on."
-                            : exception.detail();
-                    case PERMISSION_DENIED ->
-                            "This account is not permitted to manage portal invitations.";
-                    case NOT_FOUND_OR_UNAUTHENTICATED ->
-                            "The portal did not recognise this request. If this affects every"
-                                    + " patient, the portal connection needs checking.";
-                    case THROTTLED -> "The portal is rate limiting requests. Try again shortly.";
-                    case TRANSPORT_FAILURE -> "The patient portal could not be reached.";
-                    case MALFORMED_RESPONSE ->
-                            "The portal replied in a form CARLOS could not read. The change may or"
-                                    + " may not have been applied; check before retrying.";
-                    default -> "The portal rejected this request.";
-                };
-        return conflict(response, exception.kind().name().toLowerCase(Locale.ROOT), message);
-    }
-
-    private String badRequest(HttpServletResponse response, String message) throws IOException {
-        ObjectNode payload = objectMapper.createObjectNode();
-        payload.put("ok", false);
-        payload.put("reason", "bad_request");
-        payload.put("message", message);
-        return write(response, HttpServletResponse.SC_BAD_REQUEST, payload);
-    }
-
-    private String conflict(HttpServletResponse response, String reason, String message)
-            throws IOException {
-        ObjectNode payload = objectMapper.createObjectNode();
-        payload.put("ok", false);
-        payload.put("reason", reason);
-        payload.put("message", message);
-        return write(response, HttpServletResponse.SC_CONFLICT, payload);
-    }
-
-    private String write(HttpServletResponse response, int status, ObjectNode payload)
-            throws IOException {
-        response.setStatus(status);
-        response.setContentType(JSON);
-        response.getWriter().write(objectMapper.writeValueAsString(payload));
-        response.getWriter().flush();
-        return NONE;
-    }
-
     private static int demographicNo(HttpServletRequest request) {
         return positiveInt(request.getParameter("demographicNo"));
     }
 
     private static long inviteId(HttpServletRequest request) {
         return positiveInt(request.getParameter("inviteId"));
-    }
-
-    private static int positiveInt(String value) {
-        try {
-            int parsed = Integer.parseInt(value == null ? "" : value.strip());
-            return parsed > 0 ? parsed : -1;
-        } catch (NumberFormatException exception) {
-            return -1;
-        }
     }
 }

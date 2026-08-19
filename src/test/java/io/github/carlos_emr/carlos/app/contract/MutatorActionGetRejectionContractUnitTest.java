@@ -243,7 +243,13 @@ class MutatorActionGetRejectionContractUnitTest {
             // before authorization. A GET that reached create would mint a token and silently
             // revoke the patient's existing one.
             Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action",
-                    "_portal.invite", "w")
+                    "_portal.invite", "w"),
+            // Clears a lockout or disables an account. Unconditional for the same reason: the panel
+            // read lives in PortalPanel2Action, so nothing on this class is a view route. The
+            // declared object is the account one; the unlock route gates on the narrower
+            // _portal.account.unlock, which the focused test covers.
+            Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccount2Action",
+                    "_portal.account", "w")
         );
     }
 
