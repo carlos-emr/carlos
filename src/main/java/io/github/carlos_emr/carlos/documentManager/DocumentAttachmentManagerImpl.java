@@ -8,6 +8,7 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
@@ -87,6 +88,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     private ConsultDocsDao consultDocsDao;
     @Autowired
     private EFormDocsDao eFormDocsDao;
+    @Autowired
+    private OutboundEmailArchiveDao outboundEmailArchiveDao;
 
     @Autowired
     private ConsultationManager consultationManager;
@@ -378,6 +381,12 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.WRITE, demographicNo)) {
             throw new RuntimeException("missing required sec object (_eform)");
         }
+
+        assertNoOutboundEmailArchiveAttachments(documentType, attachments);
+        attachments = preserveCurrentArchiveAttachments(documentType, attachments,
+                eFormDocsDao.findByFdidIdDocType(fdid, documentType.getType()).stream()
+                        .map(EFormDocs::getDocumentNo)
+                        .toList());
 
         DocumentAttach documentAttach = new DocumentAttach();
         documentAttach.attachToEForm(attachments, documentType, providerNo, fdid);
@@ -956,5 +965,61 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 }
             }
         }
+    }
+    /**
+     * Refuses an attempt to attach an outbound email archive eDoc to an eForm.
+     *
+     * <p>Only {@link DocumentType#DOC} can name an eDoc, so other attachment types short-circuit
+     * without a query.</p>
+     */
+    private void assertNoOutboundEmailArchiveAttachments(DocumentType documentType, String[] attachments) {
+        if (documentType != DocumentType.DOC || attachments == null) {
+            return;
+        }
+        List<Integer> documentNos = new ArrayList<>();
+        for (String attachment : attachments) {
+            if (attachment == null || attachment.isBlank()) {
+                continue;
+            }
+            try {
+                documentNos.add(Integer.valueOf(attachment.trim()));
+            } catch (NumberFormatException e) {
+                // Left for DocumentAttach to reject, so invalid-id behaviour is unchanged.
+            }
+        }
+        if (!findArchiveDocumentNos(documentType, documentNos).isEmpty()) {
+            throw new SecurityException(
+                    "Outbound email archive eDocs must be managed through the controlled archive workflow");
+        }
+    }
+
+    /**
+     * Keeps archive eDocs already attached to this eForm attached.
+     *
+     * <p>This call replaces the eForm's whole attachment set, so a submit that simply omits an
+     * archive artifact would detach it -- quietly severing a legal record from the form it was
+     * sent with, without ever going through the controlled-deletion path. Refusing the submit
+     * would be worse: the omission is normal UI behaviour, not an attack. So the archive
+     * attachments are folded back in and the rest of the submitted set is honoured.</p>
+     */
+    private String[] preserveCurrentArchiveAttachments(
+            DocumentType documentType, String[] submittedAttachments, Collection<Integer> currentDocumentNos) {
+        Set<Integer> archiveDocumentNos = findArchiveDocumentNos(documentType, currentDocumentNos);
+        if (archiveDocumentNos.isEmpty()) {
+            return submittedAttachments;
+        }
+        LinkedHashSet<String> preservedAttachments = new LinkedHashSet<>();
+        if (submittedAttachments != null) {
+            Collections.addAll(preservedAttachments, submittedAttachments);
+        }
+        archiveDocumentNos.stream().map(String::valueOf).forEach(preservedAttachments::add);
+        return preservedAttachments.toArray(new String[0]);
+    }
+
+    private Set<Integer> findArchiveDocumentNos(DocumentType documentType, Collection<Integer> documentNos) {
+        if (documentType != DocumentType.DOC || documentNos == null || documentNos.isEmpty()) {
+            return Set.of();
+        }
+        return outboundEmailArchiveDao.findExistingDocumentNos(documentNos);
     }
 }
