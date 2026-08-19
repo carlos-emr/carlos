@@ -54,7 +54,7 @@ import java.util.function.Function;
 public record PatientPortalSettings(
         String baseUrl,
         String clinicId,
-        String serviceToken,
+        PortalSecret serviceToken,
         Duration connectTimeout,
         Duration readTimeout) {
 
@@ -78,7 +78,7 @@ public record PatientPortalSettings(
     private static final String QUERY_MESSAGE = "%s must not carry a query string or fragment";
     private static final String TIMEOUT_MESSAGE = "%s must be a positive number of milliseconds";
     private static final String DESCRIPTION =
-            "PatientPortalSettings[baseUrl=%s, clinicId=%s, token=REDACTED, connect=%s, read=%s]";
+            "PatientPortalSettings[baseUrl=%s, clinicId=%s, token=%s, connect=%s, read=%s]";
 
     /**
      * Reads and validates the channel configuration.
@@ -105,7 +105,7 @@ public record PatientPortalSettings(
         return new PatientPortalSettings(
                 required(lookup, BASE_URL_KEY),
                 required(lookup, CLINIC_ID_KEY),
-                required(lookup, SERVICE_TOKEN_KEY),
+                PortalSecret.of(requireValue(required(lookup, SERVICE_TOKEN_KEY), SERVICE_TOKEN_KEY)),
                 timeout(lookup, CONNECT_TIMEOUT_KEY, DEFAULT_CONNECT_TIMEOUT_MS),
                 timeout(lookup, READ_TIMEOUT_KEY, DEFAULT_READ_TIMEOUT_MS));
     }
@@ -121,7 +121,10 @@ public record PatientPortalSettings(
     public PatientPortalSettings {
         baseUrl = validatedBaseUrl(requireValue(baseUrl, BASE_URL_KEY));
         clinicId = requireValue(clinicId, CLINIC_ID_KEY);
-        serviceToken = requireValue(serviceToken, SERVICE_TOKEN_KEY);
+        if (serviceToken == null) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, MISSING_MESSAGE, SERVICE_TOKEN_KEY));
+        }
         requirePositive(connectTimeout, CONNECT_TIMEOUT_KEY);
         requirePositive(readTimeout, READ_TIMEOUT_KEY);
     }
@@ -223,6 +226,7 @@ public record PatientPortalSettings(
     @Override
     public String toString() {
         return String.format(
-                Locale.ROOT, DESCRIPTION, baseUrl, clinicId, connectTimeout, readTimeout);
+                Locale.ROOT, DESCRIPTION, baseUrl, clinicId, serviceToken, connectTimeout,
+                readTimeout);
     }
 }

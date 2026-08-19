@@ -71,7 +71,7 @@ class PatientPortalSettingsUnitTest {
 
             assertThat(settings.baseUrl()).isEqualTo("https://portal.clinic.example");
             assertThat(settings.clinicId()).isEqualTo("maplecreek");
-            assertThat(settings.serviceToken()).isEqualTo(TOKEN);
+            assertThat(settings.serviceToken().expose()).isEqualTo(TOKEN);
         }
 
         @Test
@@ -119,7 +119,7 @@ class PatientPortalSettingsUnitTest {
 
             assertThat(settings.baseUrl()).isEqualTo("https://portal.clinic.example");
             assertThat(settings.clinicId()).isEqualTo("maplecreek");
-            assertThat(settings.serviceToken()).isEqualTo(TOKEN);
+            assertThat(settings.serviceToken().expose()).isEqualTo(TOKEN);
         }
     }
 
@@ -169,6 +169,53 @@ class PatientPortalSettingsUnitTest {
             assertThatThrownBy(() -> PatientPortalSettings.fromProperties(withQuery))
                     .isInstanceOf(PatientPortalConfigurationException.class);
             assertThatThrownBy(() -> PatientPortalSettings.fromProperties(withFragment))
+                    .isInstanceOf(PatientPortalConfigurationException.class);
+        }
+
+
+        /**
+         * Validation used to live only in the factory, leaving the record's canonical constructor
+         * public and unchecked — a plaintext destination for the service token compiled cleanly.
+         */
+        @Test
+        @DisplayName("should refuse a plaintext base URL through the constructor too")
+        void shouldReject_whenPlaintextIsPassedToTheCanonicalConstructor() {
+            assertThatThrownBy(
+                            () ->
+                                    new PatientPortalSettings(
+                                            "http://evil.example",
+                                            "maplecreek",
+                                            PortalSecret.of(TOKEN),
+                                            Duration.ofSeconds(5),
+                                            Duration.ofSeconds(15)))
+                    .isInstanceOf(PatientPortalConfigurationException.class);
+        }
+
+        @Test
+        @DisplayName("should refuse a non-positive timeout through the constructor too")
+        void shouldReject_whenTimeoutIsNonPositiveInTheConstructor() {
+            assertThatThrownBy(
+                            () ->
+                                    new PatientPortalSettings(
+                                            "https://portal.clinic.example",
+                                            "maplecreek",
+                                            PortalSecret.of(TOKEN),
+                                            Duration.ZERO,
+                                            Duration.ofSeconds(15)))
+                    .isInstanceOf(PatientPortalConfigurationException.class);
+        }
+
+        @Test
+        @DisplayName("should refuse a missing service token through the constructor too")
+        void shouldReject_whenServiceTokenIsNullInTheConstructor() {
+            assertThatThrownBy(
+                            () ->
+                                    new PatientPortalSettings(
+                                            "https://portal.clinic.example",
+                                            "maplecreek",
+                                            null,
+                                            Duration.ofSeconds(5),
+                                            Duration.ofSeconds(15)))
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
 

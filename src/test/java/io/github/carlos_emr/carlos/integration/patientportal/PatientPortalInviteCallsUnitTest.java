@@ -143,7 +143,7 @@ class PatientPortalInviteCallsUnitTest {
                             "1234567890",
                             staff());
 
-            assertThat(issued.inviteToken()).isEqualTo(INVITE_TOKEN);
+            assertThat(issued.inviteToken().expose()).isEqualTo(INVITE_TOKEN);
             assertThat(issued.invite().id()).isEqualTo(7L);
             assertThat(issued.invite().status()).isEqualTo("pending");
             assertThat(issued.invite().issuedCount()).isEqualTo(1);
@@ -269,7 +269,7 @@ class PatientPortalInviteCallsUnitTest {
             assertThat(exchange.captured.getMethod()).isEqualTo("POST");
             assertThat(exchange.captured.getRequestUri())
                     .contains("/internal/carlos/invites/7/resend");
-            assertThat(issued.inviteToken()).isEqualTo(INVITE_TOKEN);
+            assertThat(issued.inviteToken().expose()).isEqualTo(INVITE_TOKEN);
         }
 
         @Test

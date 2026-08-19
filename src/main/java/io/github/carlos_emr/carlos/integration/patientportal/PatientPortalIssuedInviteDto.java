@@ -38,20 +38,24 @@ import java.util.Locale;
  * @param inviteToken one-time activation token; treat as a credential
  * @since 2026-08-19
  */
-public record PatientPortalIssuedInviteDto(PatientPortalInviteDto invite, String inviteToken) {
+public record PatientPortalIssuedInviteDto(
+        PatientPortalInviteDto invite, PortalSecret inviteToken) {
 
-    private static final String DESCRIPTION = "PatientPortalIssuedInviteDto[invite=%s, token=REDACTED]";
+    private static final String DESCRIPTION = "PatientPortalIssuedInviteDto[invite=%s, token=%s]";
+    private static final String MISSING_TOKEN =
+            "portal issued an invite without the one-time token";
 
     static PatientPortalIssuedInviteDto fromJson(JsonNode node) {
-        JsonNode token = node.get("invite_token");
-        return new PatientPortalIssuedInviteDto(
-                PatientPortalInviteDto.fromJson(node),
-                token == null || token.isNull() ? null : token.asText());
+        PortalSecret token = PortalSecret.ofNullable(PortalJson.text(node, "invite_token"));
+        if (token == null) {
+            throw new PortalContractException(MISSING_TOKEN);
+        }
+        return new PatientPortalIssuedInviteDto(PatientPortalInviteDto.fromJson(node), token);
     }
 
     /** Renders the invite without the token, which is a credential. */
     @Override
     public String toString() {
-        return String.format(Locale.ROOT, DESCRIPTION, invite);
+        return String.format(Locale.ROOT, DESCRIPTION, invite, inviteToken);
     }
 }

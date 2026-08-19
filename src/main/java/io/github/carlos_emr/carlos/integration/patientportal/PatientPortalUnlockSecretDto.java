@@ -57,16 +57,20 @@ import java.util.Locale;
  * @since 2026-08-19
  */
 public record PatientPortalUnlockSecretDto(
-        long id, boolean created, String secret, String sourceReference, String status) {
+        long id,
+        boolean created,
+        PortalSecret secret,
+        String sourceReference,
+        String status) {
 
     private static final String DESCRIPTION =
-            "PatientPortalUnlockSecretDto[id=%d, created=%s, source=%s, status=%s, secret=REDACTED]";
+            "PatientPortalUnlockSecretDto[id=%d, created=%s, source=%s, status=%s, secret=%s]";
 
     static PatientPortalUnlockSecretDto fromJson(JsonNode node) {
         return new PatientPortalUnlockSecretDto(
                 PortalJson.requiredLong(node, "id"),
                 PortalJson.requiredBool(node, "created"),
-                PortalJson.text(node, "secret"),
+                PortalSecret.ofNullable(PortalJson.text(node, "secret")),
                 PortalJson.text(node, "source_reference"),
                 PortalJson.text(node, "status"));
     }
@@ -74,6 +78,7 @@ public record PatientPortalUnlockSecretDto(
     /** Renders the record without the passphrase, which unlocks patient correspondence. */
     @Override
     public String toString() {
-        return String.format(Locale.ROOT, DESCRIPTION, id, created, sourceReference, status);
+        return String.format(
+                Locale.ROOT, DESCRIPTION, id, created, sourceReference, status, secret);
     }
 }

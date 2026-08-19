@@ -188,7 +188,7 @@ class PatientPortalAccountAndSecretCallsUnitTest {
 
             assertThat(secret.status()).isEqualTo("pending");
             assertThat(secret.created()).isTrue();
-            assertThat(secret.secret()).isEqualTo(PASSPHRASE);
+            assertThat(secret.secret().expose()).isEqualTo(PASSPHRASE);
             assertThat(bodyOf(exchange.sent.get(0)))
                     .contains("\"source_reference\":\"doc-42\"")
                     .contains("\"secret_type\":\"email\"")
@@ -219,7 +219,7 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                                     staff(PatientPortalStaffContext.PERMISSION_SECRET_MANAGE));
 
             assertThat(secret.created()).isFalse();
-            assertThat(secret.secret()).isEqualTo(PASSPHRASE);
+            assertThat(secret.secret().expose()).isEqualTo(PASSPHRASE);
         }
 
         @Test
