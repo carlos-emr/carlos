@@ -1,36 +1,25 @@
--- Restore the diagnosis grouping lookup required by the legacy PHCP encounter report.
--- The original report shipped without this table or a distributable PHCP-specific data set.
--- Seed the numeric billing diagnoses with the standard ICD-9 chapter taxonomy so every
--- diagnosis the report can parse has a stable, non-misleading category.
+-- Re-run the V1.0.7 dxphcpgroup backfill with a collation-safe comparison.
+--
+-- V1.0.7's legacy-expansion join compares the utf8mb4_general_ci dxcode column
+-- against a bare CAST(... AS CHAR). That cast takes the SESSION's default
+-- utf8mb4 collation, so on servers whose session collation for utf8mb4 is not
+-- in the general_ci family — for example MariaDB 11.4+ images that ship
+-- character_set_collations = utf8mb4=uca1400_ai_ci, reached through a utf8mb4
+-- client session — the comparison fails with ERROR 1267 (illegal mix of
+-- collations) and V1.0.7 aborts after its DDL but before either backfill
+-- INSERT. JDBC/Flyway sessions negotiate a compatible collation, which is why
+-- managed migrations never hit this; migrations applied through the
+-- mysql/mariadb CLI (the carlos-podman deployment path) do.
+--
+-- V1.0.7 itself is left byte-identical to preserve its recorded Flyway
+-- checksum. This forward-only migration repeats both backfill INSERTs with the
+-- cast pinned to CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci (matching
+-- the table), so it works under any session collation. Both INSERTs keep
+-- their existence guards, so this is a no-op on databases where V1.0.7
+-- completed and fills in the missing rows on databases where it aborted.
 
-CREATE TABLE IF NOT EXISTS dxphcpgroup (
-  dxcode varchar(5) NOT NULL,
-  level1 varchar(100) NOT NULL,
-  level2 varchar(100) NOT NULL,
-  lastUpdateUser varchar(100) NOT NULL DEFAULT 'migration',
-  lastUpdateDate timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (dxcode)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- Preserve clinic-specific legacy groupings while bringing adopted tables up to the
--- audit-column convention required for new CARLOS tables. Legacy tables used an
--- integer key, which collapsed distinct zero-padded diagnoses (for example, BC
--- 0320 and 320) into one group. The source diagnostic code is at most five
--- characters, so use its exact string representation for new mappings.
-ALTER TABLE dxphcpgroup
-  MODIFY COLUMN dxcode varchar(5) NOT NULL,
-  ADD COLUMN IF NOT EXISTS lastUpdateUser varchar(100) NOT NULL DEFAULT 'migration',
-  ADD COLUMN IF NOT EXISTS lastUpdateDate timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP;
-
-ALTER TABLE dxphcpgroup
-  ENGINE=InnoDB,
-  CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-
--- An adopted integer key has already lost its original padding. Preserve the
--- clinic's legacy matching behavior by expanding that mapping to every exact
--- diagnostic-code spelling that previously normalized to the same integer. This
--- intentionally copies an ambiguous legacy 320 mapping to both 320 and 0320;
--- future exact-string lookups can then distinguish newly edited mappings.
+-- Expand adopted legacy integer-keyed mappings to every exact diagnostic-code
+-- spelling that normalizes to the same integer (see V1.0.7 for the rationale).
 INSERT INTO dxphcpgroup (dxcode, level1, level2, lastUpdateUser, lastUpdateDate)
 SELECT codes.dxcode,
        legacy.level1,
@@ -46,12 +35,17 @@ FROM (
 ) codes
 JOIN dxphcpgroup legacy
   ON legacy.dxcode REGEXP '^[0-9]{1,5}$'
-  AND legacy.dxcode = CAST(CAST(legacy.dxcode AS UNSIGNED) AS CHAR)
+  -- Pin the cast's charset AND collation: a bare CAST(... AS CHAR) inherits
+  -- the session collation and can clash with the table's utf8mb4_general_ci.
+  AND legacy.dxcode = CAST(CAST(legacy.dxcode AS UNSIGNED) AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_general_ci
   AND CAST(legacy.dxcode AS UNSIGNED) = codes.numeric_code
 LEFT JOIN dxphcpgroup exact_mapping
   ON exact_mapping.dxcode = codes.dxcode
 WHERE exact_mapping.dxcode IS NULL;
 
+-- Seed the remaining numeric billing diagnoses with the ICD-9 chapter
+-- taxonomy (identical to V1.0.7's second INSERT; guarded, so a completed
+-- V1.0.7 makes this a no-op).
 INSERT INTO dxphcpgroup (dxcode, level1, level2, lastUpdateUser, lastUpdateDate)
 SELECT codes.dxcode,
        CASE
