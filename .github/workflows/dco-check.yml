@@ -4,8 +4,8 @@
 # as required by the Developer Certificate of Origin (DCO).
 # See https://developercertificate.org/
 #
-# This check can also pass if the PR author or an authorized project
-# contributor posts a PR comment containing:
+# This check can also pass if an authorized maintainer with write or higher
+# repository permission posts a PR comment containing:
 #   Confirming DCO sign off for all commits
 #
 # This workflow intentionally uses pull_request_target and the GitHub API
@@ -47,8 +47,7 @@ jobs:
        github.event.issue.pull_request &&
        (contains(github.event.comment.body, 'Confirming DCO sign off for all commits') ||
         contains(github.event.comment.body, 'confirming dco sign off for all commits')) &&
-       (contains(fromJson('["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]'), github.event.comment.author_association) ||
-        github.event.comment.user.login == github.event.issue.user.login))
+       contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
     steps:
       - name: Resolve PR context
         id: pr
@@ -60,7 +59,6 @@ jobs:
           CONFIRMATION_PHRASE: Confirming DCO sign off for all commits
           ISSUE_PR_URL: ${{ github.event.issue.pull_request.url }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
@@ -78,11 +76,9 @@ jobs:
               "$ISSUE_PR_URL")
 
             echo "pr_number=$(jq -r '.number' <<< "$pr_json")" >> "$GITHUB_OUTPUT"
-            echo "pr_author=$(jq -r '.user.login' <<< "$pr_json")" >> "$GITHUB_OUTPUT"
             echo "head_sha=$(jq -r '.head.sha' <<< "$pr_json")" >> "$GITHUB_OUTPUT"
           else
             echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-            echo "pr_author=$PR_AUTHOR" >> "$GITHUB_OUTPUT"
             echo "head_sha=$PR_HEAD_SHA" >> "$GITHUB_OUTPUT"
           fi
 
@@ -248,7 +244,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
-          PR_AUTHOR: ${{ steps.pr.outputs.pr_author }}
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           CONFIRMATION_PHRASE: Confirming DCO sign off for all commits
         run: |
@@ -264,7 +259,8 @@ jobs:
           page=1
           found=false
           confirming_user=""
-          confirming_association=""
+          confirming_permission=""
+          confirming_role=""
           confirming_at=""
           stale_confirmation_found=false
 
@@ -281,7 +277,6 @@ jobs:
             while IFS= read -r comment; do
               body=$(jq -r '.body // ""' <<< "$comment")
               author=$(jq -r '.author' <<< "$comment")
-              association=$(jq -r '.association' <<< "$comment")
               created_at=$(jq -r '.created_at' <<< "$comment")
               updated_at=$(jq -r '.updated_at' <<< "$comment")
               created_epoch=$(date -d "$created_at" +%s)
@@ -294,27 +289,40 @@ jobs:
               fi
 
               if printf '%s\n' "$body" | grep -qiF "$CONFIRMATION_PHRASE"; then
-                if [ "$author" = "$PR_AUTHOR" ] || printf '%s' "$association" | grep -qE '^(OWNER|MEMBER|COLLABORATOR|CONTRIBUTOR)$'; then
-                  if [ "$comment_confirmed_epoch" -gt "$latest_commit_epoch" ]; then
-                    found=true
-                    confirming_user="$author"
-                    confirming_at="$comment_confirmed_at"
-                    if [ "$author" = "$PR_AUTHOR" ]; then
-                      confirming_association="AUTHOR"
-                    else
-                      confirming_association="$association"
-                    fi
-                    break
-                  fi
+                if [ "$comment_confirmed_epoch" -le "$latest_commit_epoch" ]; then
                   stale_confirmation_found=true
                   # Continue scanning so every stale confirmation gets a warning and a newer fresh confirmation can still pass.
                   echo "::warning::PR #$PR_NUMBER: Ignoring stale DCO confirmation from $author at $comment_confirmed_at (latest commit is $latest_commit_at). A fresh confirmation is required after the latest commit."
+                  continue
                 fi
+
+                permission_json=""
+                if ! permission_json=$(curl -fsSL \
+                  -H "Authorization: Bearer $GH_TOKEN" \
+                  -H "Accept: application/vnd.github+json" \
+                  -H "X-GitHub-Api-Version: 2022-11-28" \
+                  "https://api.github.com/repos/$REPO/collaborators/$author/permission"); then
+                  echo "::warning::PR #$PR_NUMBER: Ignoring DCO confirmation from $author because repository permission could not be verified."
+                  continue
+                fi
+
+                permission=$(jq -r '.permission // "none"' <<< "$permission_json")
+                role_name=$(jq -r '.role_name // .permission // "none"' <<< "$permission_json")
+                if ! printf '%s' "$permission" | grep -qE '^(write|admin)$'; then
+                  echo "::warning::PR #$PR_NUMBER: Ignoring DCO confirmation from $author because $role_name repository access is below maintainer level."
+                  continue
+                fi
+
+                found=true
+                confirming_user="$author"
+                confirming_permission="$permission"
+                confirming_role="$role_name"
+                confirming_at="$comment_confirmed_at"
+                break
               fi
             done < <(jq -c '.[] | {
               body: .body,
               author: .user.login,
-              association: .author_association,
               created_at: .created_at,
               updated_at: .updated_at
             }' <<< "$comments")
@@ -328,7 +336,8 @@ jobs:
 
           echo "manual_confirmed=$found" >> "$GITHUB_OUTPUT"
           echo "confirming_user=$confirming_user" >> "$GITHUB_OUTPUT"
-          echo "confirming_association=$confirming_association" >> "$GITHUB_OUTPUT"
+          echo "confirming_permission=$confirming_permission" >> "$GITHUB_OUTPUT"
+          echo "confirming_role=$confirming_role" >> "$GITHUB_OUTPUT"
           echo "confirming_at=$confirming_at" >> "$GITHUB_OUTPUT"
           echo "latest_commit_at=$latest_commit_at" >> "$GITHUB_OUTPUT"
           echo "stale_confirmation_found=$stale_confirmation_found" >> "$GITHUB_OUTPUT"
@@ -343,7 +352,8 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           MANUAL_CONFIRMED: ${{ steps.manual_check.outputs.manual_confirmed }}
           CONFIRMING_USER: ${{ steps.manual_check.outputs.confirming_user }}
-          CONFIRMING_ASSOCIATION: ${{ steps.manual_check.outputs.confirming_association }}
+          CONFIRMING_PERMISSION: ${{ steps.manual_check.outputs.confirming_permission }}
+          CONFIRMING_ROLE: ${{ steps.manual_check.outputs.confirming_role }}
           CONFIRMING_AT: ${{ steps.manual_check.outputs.confirming_at }}
           LATEST_COMMIT_AT: ${{ steps.manual_check.outputs.latest_commit_at }}
           STALE_CONFIRMATION_FOUND: ${{ steps.manual_check.outputs.stale_confirmation_found }}
@@ -463,7 +473,7 @@ jobs:
           }
 
           if [ "$MANUAL_CONFIRMED" = "true" ]; then
-            echo "DCO check passed via manual confirmation from $CONFIRMING_USER ($CONFIRMING_ASSOCIATION) at $CONFIRMING_AT."
+            echo "DCO check passed via manual confirmation from $CONFIRMING_USER ($CONFIRMING_ROLE; base permission $CONFIRMING_PERMISSION) at $CONFIRMING_AT."
             # Keep pull_request_target statuses current when an existing fresh confirmation is reused.
             # Deleting an absent failure comment is a no-op; posting the same status again is safe.
             delete_failure_comment || \
@@ -473,7 +483,7 @@ jobs:
               {
                 echo "## CARLOS EMR DCO Check Passed via Manual Confirmation"
                 echo ""
-                echo "Thank you, **$CONFIRMING_USER** ($CONFIRMING_ASSOCIATION)."
+                echo "Thank you, **$CONFIRMING_USER** ($CONFIRMING_ROLE)."
                 echo ""
                 echo "The DCO check has passed using manual PR sign-off. No commit changes are required."
               } > /tmp/dco_success_comment.md
@@ -492,7 +502,7 @@ jobs:
               echo ""
               cat /tmp/dco_truncated.txt
               echo ""
-              echo "Please reduce the PR commit count or have the PR author/project contributor post the manual confirmation phrase below after reviewing DCO coverage."
+              echo "Please reduce the PR commit count or have an authorized maintainer with write or higher repository permission post the manual confirmation phrase below after reviewing DCO coverage."
               echo ""
               echo "> Confirming DCO sign off for all commits"
               echo ""
@@ -528,7 +538,7 @@ jobs:
               echo ""
               echo "### Manual confirmation fallback"
               echo ""
-              echo "The PR author or a project contributor can confirm DCO sign-off by posting this exact phrase:"
+              echo "An authorized maintainer with write or higher repository permission can confirm DCO sign-off after reviewing the connected history by posting this exact phrase:"
               echo ""
               echo "> Confirming DCO sign off for all commits"
               echo ""
