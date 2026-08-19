@@ -33,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("fast")
 @Tag("email")
 @DisplayName("EmailData")
-class EmailDataTest {
+class EmailDataUnitTest {
 
     @Test
     @DisplayName("should allow adding attachments to default list")

@@ -17,6 +17,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
@@ -36,7 +37,7 @@ import static org.mockito.Mockito.when;
 @Tag("fast")
 @Tag("email")
 @DisplayName("ManageEmails2Action")
-class ManageEmails2ActionTest extends CarlosUnitTestBase {
+class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockHttpServletRequest request;
@@ -47,6 +48,7 @@ class ManageEmails2ActionTest extends CarlosUnitTestBase {
     private DocumentAttachmentManager documentAttachmentManager;
     private FormsManager formsManager;
     private SecurityInfoManager securityInfoManager;
+    private PdfPreviewCapabilityService pdfPreviewCapabilityService;
 
     @BeforeEach
     void setUp() {
@@ -58,6 +60,9 @@ class ManageEmails2ActionTest extends CarlosUnitTestBase {
         documentAttachmentManager = mock(DocumentAttachmentManager.class);
         formsManager = mock(FormsManager.class);
         securityInfoManager = mock(SecurityInfoManager.class);
+        // Added to ManageEmails2Action's SpringUtils-wired fields by #3193 after this test was
+        // written. The test never ran in CI, so the missing registration went unnoticed.
+        pdfPreviewCapabilityService = mock(PdfPreviewCapabilityService.class);
 
         registerMock(DemographicManager.class, demographicManager);
         registerMock(EmailComposeManager.class, emailComposeManager);
@@ -65,6 +70,7 @@ class ManageEmails2ActionTest extends CarlosUnitTestBase {
         registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
         registerMock(FormsManager.class, formsManager);
         registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(PdfPreviewCapabilityService.class, pdfPreviewCapabilityService);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
