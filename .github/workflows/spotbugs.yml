@@ -14,8 +14,8 @@
 # all local_repo dependencies are available for compilation.
 #
 # Usage:
-# - Triggered on pull requests targeting develop, main, experimental
-# - Triggered on pushes to develop
+# - Triggered on pull requests targeting develop, main, experimental, or release/*
+# - Triggered on pushes to develop or release/*
 # - Scheduled weekly full scan (Monday 5:30 UTC)
 # - Manual dispatch available
 #
@@ -38,13 +38,14 @@ on:
       - main
       - develop
       - experimental
+      - release/*
     paths:
       - '**.java'
       - 'pom.xml'
       - '.github/spotbugs/**'
       - '.github/workflows/spotbugs.yml'
   push:
-    branches: [develop]
+    branches: [develop, "release/*"]
     paths:
       - '**.java'
       - 'pom.xml'
