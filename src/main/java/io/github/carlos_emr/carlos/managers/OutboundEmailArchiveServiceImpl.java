@@ -64,7 +64,7 @@ import java.util.UUID;
 /**
  * Stores finalized outbound email artifacts in eDoc and records archive/deletion audit metadata.
  *
- * @since 2026-07-07
+ * @since 2026-08-14
  */
 @SuppressWarnings("java:S2143") // CARLOS Hibernate models still use java.util.Date for DATETIME fields.
 @Service
@@ -190,7 +190,14 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
                     providerNo,
                     artifactBytes);
         } catch (IOException | RuntimeException e) {
-            deleteArchivedDocumentFile(document.getDocfilename() != null ? document.getDocfilename() : fileName);
+            // Only the name DocumentManager assigned can be deleted here. Until it does, the
+            // server-generated on-disk name is unknown to this method, and falling back to the
+            // requested name produces a deleteIfExists that quietly matches nothing and hides the
+            // orphan; DocumentManagerImpl removes its own partial file in that window instead.
+            String storedFileName = document.getDocfilename();
+            if (storedFileName != null && !storedFileName.equals(fileName)) {
+                deleteArchivedDocumentFile(storedFileName);
+            }
             throw e;
         }
         registerRollbackCleanup(savedDocument);
@@ -227,13 +234,9 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         // the "not found" message.
         requireArchiveAdminAuthority(loggedInInfo);
 
-        OutboundEmailArchive archive = outboundEmailArchiveDao.findForUpdate(archiveId);
-        if (archive == null) {
-            throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
-        }
+        OutboundEmailArchive archive = lockArchiveForAuthorizedCaller(loggedInInfo, archiveId);
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
-        requirePatientRecordAccess(loggedInInfo, requireArchiveDemographicNo(archive));
         String truncatedDeleteReason = truncate(deleteReason.trim(), 1000);
         // Throws while the archive is still under legal hold, which is the default state
         // for every archive — an admin must have released it via releaseLegalHold first.
@@ -243,11 +246,21 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         outboundEmailArchiveDao.merge(archive);
         outboundEmailArchiveDeletionDao.persist(deletion);
 
+        // Resolved before the synchronization is registered, not inside it: documentId()
+        // dereferences a lazy Document proxy, and Document maps its @Id on the field, so there is
+        // no identifier-getter shortcut and the read initializes the proxy. Deferred, that is a
+        // SELECT issued from afterCommit() once the transaction has already completed, which
+        // throws LazyInitializationException out of an otherwise successful call wherever the
+        // EntityManager closes first. Demographic maps its @Id on the getter, so demographicNo()
+        // is safe either way; both are hoisted so the pair cannot drift apart.
+        String auditContentId = "archiveId=" + archive.getId() + " documentNo=" + documentId(archive);
+        String auditDemographicNo = demographicNo(archive);
+
         registerAfterCommitLog(() -> LogAction.addLog(loggedInInfo,
                 "OutboundEmailArchiveService.recordControlledDeletion",
                 "Outbound email archive tombstone",
-                "archiveId=" + archive.getId() + " documentNo=" + documentId(archive),
-                demographicNo(archive),
+                auditContentId,
+                auditDemographicNo,
                 ""));
 
         return deletion;
@@ -268,7 +281,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     /**
      * Shared transition for both legal hold directions.
      *
-     * <p>Kept as one method because the authority gate, row lock, patient-record check,
+     * <p>Kept as one method because the authority gate, patient-record check, row lock,
      * event record, and audit entry are identical; only the entity transition differs.
      * The {@code FOR UPDATE} lock matters here for the same reason it does on deletion:
      * two concurrent releases must not both succeed and write two RELEASED events.</p>
@@ -287,13 +300,9 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
         requireArchiveAdminAuthority(loggedInInfo);
 
-        OutboundEmailArchive archive = outboundEmailArchiveDao.findForUpdate(archiveId);
-        if (archive == null) {
-            throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
-        }
+        OutboundEmailArchive archive = lockArchiveForAuthorizedCaller(loggedInInfo, archiveId);
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
-        requirePatientRecordAccess(loggedInInfo, requireArchiveDemographicNo(archive));
         String truncatedReason = truncate(reason.trim(), 1000);
 
         if (OutboundEmailArchiveLegalHoldEvent.ACTION_RELEASED.equals(action)) {
@@ -308,11 +317,16 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         outboundEmailArchiveDao.merge(archive);
         outboundEmailArchiveLegalHoldEventDao.persist(event);
 
+        // Resolved eagerly for the same reason as in recordControlledDeletion: documentId()
+        // initializes a lazy Document proxy, which must not happen after the transaction closes.
+        String auditContentId = "archiveId=" + archive.getId() + " documentNo=" + documentId(archive);
+        String auditDemographicNo = demographicNo(archive);
+
         registerAfterCommitLog(() -> LogAction.addLog(loggedInInfo,
                 "OutboundEmailArchiveService.changeLegalHold",
                 "Outbound email archive legal hold " + action,
-                "archiveId=" + archive.getId() + " documentNo=" + documentId(archive),
-                demographicNo(archive),
+                auditContentId,
+                auditDemographicNo,
                 ""));
 
         return event;
@@ -446,7 +460,10 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
         OutboundEmailArchiveAttachment attachment = new OutboundEmailArchiveAttachment();
         attachment.setFileName(truncate(defaultIfBlank(request.getFileName(), "attachment"), 255));
-        attachment.setContentType(truncate(request.getContentType(), 100));
+        // Same normalisation as the main artifact: strip MIME parameters before the
+        // length cap, so a long "type/subtype; name=..." is not cut mid-parameter into
+        // a malformed content type.
+        attachment.setContentType(archiveContentType(request.getContentType()));
         attachment.setSha256Hash(sha256Hash);
         attachment.setByteSize(byteSize);
         attachment.setSourceDocumentType(truncate(request.getSourceDocumentType(), 50));
@@ -663,6 +680,49 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         }
     }
 
+    /**
+     * Resolves and write-locks an archive for a privileged state change, refusing a
+     * caller who may not see the archive's patient.
+     *
+     * <p>The patient check comes first for the same reason
+     * {@link #requireArchiveAdminAuthority} precedes the lookup: {@code findForUpdate}
+     * issues {@code SELECT ... FOR UPDATE}, and a caller holding
+     * {@code _admin.edocdelete} but no access to this patient must not be able to take a
+     * lock on that patient's row.</p>
+     *
+     * <p><b>The pre-lock read must stay a scalar projection.</b> A JPA query does not
+     * refresh an already-managed entity, so loading the archive here would make
+     * {@code findForUpdate} hand back this transaction's pre-lock copy: the lock would be
+     * held, but {@code legalHold} and {@code deleted} would be read from before it. Two
+     * concurrent releases would then both see {@code legalHold = true} and both succeed,
+     * which is exactly what the lock exists to prevent.
+     * {@code findDemographicNoById} reads the FK column without hydrating the entity.</p>
+     *
+     * @param loggedInInfo current user context
+     * @param archiveId persisted archive identifier
+     * @return the write-locked archive, hydrated under its lock
+     * @throws IllegalArgumentException when no archive has that identifier
+     * @throws SecurityException when the caller may not access the archive's patient
+     */
+    private OutboundEmailArchive lockArchiveForAuthorizedCaller(LoggedInInfo loggedInInfo, Integer archiveId) {
+        Integer authorizedDemographicNo = outboundEmailArchiveDao.findDemographicNoById(archiveId);
+        if (authorizedDemographicNo == null) {
+            throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
+        }
+        requirePatientRecordAccess(loggedInInfo, authorizedDemographicNo);
+
+        OutboundEmailArchive archive = outboundEmailArchiveDao.findForUpdate(archiveId);
+        if (archive == null) {
+            throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
+        }
+        // The locked row is the one about to be mutated, so it is the one whose demographic
+        // has to match what was authorised above.
+        if (!authorizedDemographicNo.equals(requireArchiveDemographicNo(archive))) {
+            throw new SecurityException("not authorized for outbound email archive demographic");
+        }
+        return archive;
+    }
+
     private void requirePatientRecordAccess(LoggedInInfo loggedInInfo, Integer demographicNo) {
         if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
             throw new SecurityException("not authorized for outbound email archive demographic");
@@ -685,8 +745,17 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCompletion(int status) {
-                if (status != STATUS_COMMITTED) {
+                if (status == STATUS_ROLLED_BACK) {
                     deleteArchivedDocumentFile(fileName);
+                } else if (status == STATUS_UNKNOWN) {
+                    // Heuristic or mixed completion: the archive row may well have committed, so
+                    // this is deliberately not treated as a rollback. An orphaned artifact is
+                    // reconcilable; an archive row whose bytes were unlinked can never be verified
+                    // against its tombstone hash again, which is the one failure this table exists
+                    // to make impossible.
+                    MiscUtils.getLogger().error(
+                            "Outbound email archive transaction completed with unknown status; artifact {} left in place for manual reconciliation",
+                            fileName);
                 }
             }
         });
@@ -719,7 +788,14 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             File archiveFile = PathValidationUtils.validateExistingPath(new File(documentDirectory, safeFileName), documentDirectory);
             Files.deleteIfExists(archiveFile.toPath());
         } catch (IOException | SecurityException e) {
-            MiscUtils.getLogger().warn("Failed to delete rolled back outbound email archive eDoc file: {}", e.getClass().getSimpleName());
+            // ERROR, not WARN: what survives is unreferenced PHI in DOCUMENT_DIR. The filename is
+            // server-generated (outbound-email-<id>-<uuid>) and carries no patient data, so it is
+            // logged deliberately -- it is the only handle an operator has for reconciliation, and
+            // omitting it made every one of these lines unactionable. This also catches a
+            // DOCUMENT_DIR misconfiguration, which fails every cleanup rather than just this one.
+            MiscUtils.getLogger().error(
+                    "Orphaned outbound email archive artifact left in DOCUMENT_DIR: file={} cause={}",
+                    fileName, e.toString(), e);
         }
     }
 

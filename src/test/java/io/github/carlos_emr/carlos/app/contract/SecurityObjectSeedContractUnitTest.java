@@ -29,6 +29,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -47,10 +48,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * reachable in a freshly migrated database.
  *
  * <p><b>Why this exists.</b> {@code _admin.edocdelete} was created only by the
- * frozen legacy script {@code database/mysql/updates/update-2008-10-20.sql} and
- * appeared nowhere in the Flyway migration set. On a fresh install the row simply
- * did not exist, so {@code hasPrivilege(..., "_admin.edocdelete", "w", ...)}
- * returned false for every user forever. In {@code DocumentUndelete2Action} that
+ * frozen legacy script {@code database/mysql/updates/update-2008-10-20.sql}, which
+ * inserts the name into {@code secObjectName} and grants it to no role at all, and
+ * it appeared nowhere in the Flyway migration set. Because
+ * {@code hasPrivilege} resolves through {@code SecObjPrivilegeDao} and never reads
+ * {@code secObjectName}, the missing <em>grant</em> is what shut the gate — so it
+ * returned false for every user forever on fresh installs <em>and</em> on legacy
+ * databases that had run the 2008 patch. In {@code DocumentUndelete2Action} that
  * silently demoted administrators to the creator-only undelete branch, and it
  * would have made outbound email archives permanently unretirable.</p>
  *
@@ -66,7 +70,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p><b>Two distinct failure modes,</b> both of which leave a gate permanently
  * shut: the object name is never inserted into {@code secObjectName}, or it is
  * inserted but no {@code secObjPrivilege} row ever grants it to a role. Checking
- * grants alone covers both, since an ungranted name is unreachable either way.</p>
+ * grants alone covers both, since an ungranted name is unreachable either way. It
+ * does not cover a third mode — granted, but at too low a privilege — which is
+ * described under the known limits below.</p>
  *
  * <p><b>When this test fails on code you just wrote:</b> seed the object name into
  * {@code secObjectName} and grant it to the appropriate role in the migration that
@@ -82,6 +88,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  * "every gate is reachable". Widening the scan is welcome; until then, do not read
  * a pass as clearance for a gate you added indirectly.</p>
  *
+ * <p><b>The scan compares object names, never privilege levels.</b> It records that
+ * some {@code secObjPrivilege} row mentions the object, not what that row grants or
+ * to whom. A grant of {@code 'r'} against a gate asking for {@code 'w'}, or a grant
+ * scoped to a single {@code provider_no}, still reads as "granted" here while
+ * {@code hasPrivilege} keeps returning false. So this contract would not catch a
+ * change that lowers an existing grant's privilege — only one that removes the grant
+ * outright. ({@code _admin.edocdelete} is granted {@code 'x'}, which
+ * {@code SecurityInfoManagerImpl} accepts wherever {@code 'w'} is asked for.)</p>
+ *
  * @since 2026-08-17
  */
 @DisplayName("Security object seed contract")
@@ -89,8 +104,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("security")
 class SecurityObjectSeedContractUnitTest {
 
-    private static final Path MIGRATIONS = Path.of("database/mysql/migration");
-    private static final Path MAIN_JAVA = Path.of("src/main/java");
+    /** Bounded so a run outside the repository fails fast instead of walking to /. */
+    private static final int MAX_PARENT_SEARCH_DEPTH = 4;
+
+    private static final Path MIGRATIONS = resolveProjectDirectory(Path.of("database/mysql/migration"));
+    private static final Path MAIN_JAVA = resolveProjectDirectory(Path.of("src/main/java"));
 
     /** Sec object literal appearing shortly after a hasPrivilege( call. */
     private static final Pattern PRIVILEGE_CALL =
@@ -144,6 +162,12 @@ class SecurityObjectSeedContractUnitTest {
         assertThat(granted)
                 .as("no secObjPrivilege grants parsed from the %s migration set", province)
                 .isNotEmpty();
+        // Name the two objects this contract was written for. A size floor alone would still
+        // pass if the parser stopped matching exactly these -- which is the regression that
+        // would let the _admin.edocdelete gap recur unnoticed.
+        assertThat(granted)
+                .as("grant scanner no longer sees the objects this contract exists to protect")
+                .contains("_admin.edocdelete", "_edoc");
 
         Set<String> unreachable = new TreeSet<>(referenced);
         unreachable.removeAll(granted);
@@ -172,13 +196,32 @@ class SecurityObjectSeedContractUnitTest {
                 .isEmpty();
     }
 
+    /**
+     * Removes {@code --} line comments so only executable SQL is scanned for object names.
+     * Deliberately naive: CARLOS migrations do not put {@code --} inside string literals, and
+     * over-stripping would only ever cause a false red, which is the safe direction here.
+     */
+    private String stripLineComments(String sql) {
+        StringBuilder stripped = new StringBuilder(sql.length());
+        for (String line : sql.split("\n", -1)) {
+            int comment = line.indexOf("--");
+            stripped.append(comment >= 0 ? line.substring(0, comment) : line).append('\n');
+        }
+        return stripped.toString();
+    }
+
     /** Objects granted to at least one role by the common + province migration set. */
     private Set<String> grantedObjects(String province) {
         Set<String> granted = new LinkedHashSet<>();
         for (Path file : migrationFiles(province)) {
-            // Split on statement terminators so a secObjPrivilege insert cannot absorb
+            // Strip line comments before anything else: object names are routinely discussed in
+            // the prose above a grant, and that prose sits inside the same statement chunk. Left
+            // in, a migration that merely *mentions* an object would register it as granted --
+            // a false green in the one test whose entire value is soundness.
+            //
+            // Then split on statement terminators so a secObjPrivilege insert cannot absorb
             // object names belonging to a neighbouring statement.
-            for (String statement : read(file).split(";")) {
+            for (String statement : stripLineComments(read(file)).split(";")) {
                 if (!statement.contains("secObjPrivilege") || !statement.contains("INSERT")) {
                     continue;
                 }
@@ -224,15 +267,44 @@ class SecurityObjectSeedContractUnitTest {
     }
 
     /**
-     * Reads a file as UTF-8. A handful of legacy sources and SQL dumps carry
-     * non-UTF-8 bytes; those are skipped rather than failing the contract, since a
-     * decoding quirk in an unrelated file is not a security-seed defect.
+     * Resolves a repository-relative directory against the working directory, walking a
+     * bounded number of parents.
+     *
+     * <p>Surefire runs with {@code basedir} as the working directory, but IDE and forked
+     * runs do not always. Failing loudly here matters more than usual: this contract's
+     * whole value is the scan finding things, so a fixture root that silently resolved to
+     * nothing would be the one failure mode worse than a red build.</p>
+     */
+    private static Path resolveProjectDirectory(Path relativePath) {
+        Path current = Path.of(System.getProperty("basedir", System.getProperty("user.dir")))
+                .toAbsolutePath()
+                .normalize();
+        for (int depth = 0; depth <= MAX_PARENT_SEARCH_DEPTH && current != null; depth++) {
+            Path candidate = current.resolve(relativePath);
+            if (Files.isDirectory(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate project directory: " + relativePath);
+    }
+
+    /**
+     * Reads a file as UTF-8. A handful of legacy sources and SQL dumps carry non-UTF-8
+     * bytes; those are skipped rather than failing the contract, since a decoding quirk
+     * in an unrelated file is not a security-seed defect.
+     *
+     * <p>Only the decoding failure is swallowed. Any other I/O error means the scan did
+     * not actually see the file, and a scan that quietly covers less than it claims is
+     * how this contract would go green while missing an unreachable gate.</p>
      */
     private String read(Path path) {
         try {
             return Files.readString(path, StandardCharsets.UTF_8);
-        } catch (IOException e) {
+        } catch (CharacterCodingException e) {
             return "";
+        } catch (IOException e) {
+            throw new UncheckedIOException("cannot read " + path, e);
         }
     }
 }

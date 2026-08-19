@@ -1,5 +1,5 @@
 -- Ensure tables referenced by the outbound email archive foreign keys are
--- InnoDB before V1.0.10__outbound_email_archive.sql runs.
+-- InnoDB before V1.0.16__outbound_email_archive.sql runs.
 --
 -- Fresh installs on current CARLOS database configuration already inherit
 -- InnoDB. This migration is for upgraded legacy installs where one of these

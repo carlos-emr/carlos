@@ -28,6 +28,8 @@ import java.util.List;
 
 /**
  * Data access contract for durable outbound email archive records.
+ *
+ * @since 2026-08-14
  */
 public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchive> {
 
@@ -35,12 +37,22 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
      * Finds archive rows for an email log, newest archive first.
      *
      * @param emailLogId persisted email log identifier
-     * @return archives linked to the email log ordered by archived date descending
+     * <p>Includes archives retired by {@code recordControlledDeletion} — retirement is a
+     * {@code deleted} flag plus a tombstone, not a row removal, and this query does not filter
+     * on it. A caller rendering archives to a user is responsible for suppressing them.</p>
+     *
+     * @return archives linked to the email log ordered by archived date descending, retired ones included
      */
     List<OutboundEmailArchive> findByEmailLogId(Integer emailLogId);
 
     /**
      * Finds an archive row with a write lock for short controlled-deletion critical sections.
+     *
+     * <p><b>Must be the first read of the row in its transaction.</b> A JPA query does not
+     * refresh an entity that is already managed, so if the archive was loaded earlier in
+     * the same transaction this returns that instance with its pre-lock state -- the row
+     * lock is taken, but the state guarded by it is stale. See
+     * {@code findDemographicNoById} for the read to use ahead of the lock.</p>
      *
      * @param archiveId persisted archive identifier
      * @return locked archive row, or {@code null} when no row exists
@@ -48,10 +60,24 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
     OutboundEmailArchive findForUpdate(Integer archiveId);
 
     /**
+     * Reads just the demographic number for an archive, without loading the archive.
+     *
+     * <p>Exists so an authorization check can run before {@link #findForUpdate} without
+     * putting the entity in the persistence context, which would make the subsequent
+     * locked read return stale state.</p>
+     *
+     * @param archiveId persisted archive identifier
+     * @return demographic number, or {@code null} when no row exists
+     */
+    Integer findDemographicNoById(Integer archiveId);
+
+    /**
      * Finds archive rows for a patient demographic, newest archive first.
      *
      * @param demographicNo patient demographic number
-     * @return archives linked to the demographic ordered by archived date descending
+     * <p>Includes retired archives, for the same reason as {@link #findByEmailLogId}.</p>
+     *
+     * @return archives linked to the demographic ordered by archived date descending, retired ones included
      */
     List<OutboundEmailArchive> findByDemographicNo(Integer demographicNo);
 }

@@ -39,13 +39,29 @@ import java.util.Date;
 /**
  * Immutable tombstone for a controlled deletion of an outbound email archive record.
  *
- * @since 2026-07-07
+ * @since 2026-08-14
  */
 @Entity
 @Table(name = "outboundEmailArchiveDeletion")
 @SuppressWarnings({"java:S2160", "java:S2143"}) // Equality is inherited from AbstractModel id; DATETIME mappings follow CARLOS Hibernate conventions.
 public class OutboundEmailArchiveDeletion extends OutboundEmailArchiveArtifact {
 
+    /**
+     * Constrained at the database level, mirroring
+     * {@link OutboundEmailArchiveLegalHoldEvent}. Archives are never hard-deleted --
+     * {@link OutboundEmailArchive#preRemove} refuses removal and retirement is a soft
+     * flag plus this tombstone -- so the foreign key can never block anything the
+     * design permits, and it makes an orphaned tombstone impossible. That matters
+     * because this association is navigable: without the constraint a stale
+     * {@code archiveId} would surface as {@code EntityNotFoundException} on the first
+     * dereference rather than being rejected at insert.
+     *
+     * <p>{@code archiveId} and {@code emailLogId} are the only keys on this table.
+     * {@code demographicNo} and the inherited {@code documentNo} are deliberately
+     * unconstrained for the same engine-scope reason given on
+     * {@link OutboundEmailArchive}, so the argument above does not extend to them --
+     * a reader that dereferences either is subject to the caveat documented there.</p>
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "archiveId", nullable = false)
     private OutboundEmailArchive archive;

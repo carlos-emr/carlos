@@ -27,6 +27,8 @@ import org.springframework.stereotype.Repository;
 
 /**
  * JPA DAO implementation for outbound email archive attachment metadata.
+ *
+ * @since 2026-08-14
  */
 @Repository
 public class OutboundEmailArchiveAttachmentDaoImpl extends AbstractDaoImpl<OutboundEmailArchiveAttachment> implements OutboundEmailArchiveAttachmentDao {

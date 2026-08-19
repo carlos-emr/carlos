@@ -30,6 +30,8 @@ import java.util.List;
 
 /**
  * JPA DAO implementation for outbound email archive legal hold events.
+ *
+ * @since 2026-08-17
  */
 @Repository
 public class OutboundEmailArchiveLegalHoldEventDaoImpl

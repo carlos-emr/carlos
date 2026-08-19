@@ -26,6 +26,8 @@ import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveDeletion;
 
 /**
  * Data access contract for outbound email archive controlled deletion tombstones.
+ *
+ * @since 2026-08-14
  */
 public interface OutboundEmailArchiveDeletionDao extends AbstractDao<OutboundEmailArchiveDeletion> {
 }

@@ -38,13 +38,14 @@ import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
 /**
  * Durable metadata for an exact outbound email artifact stored in the patient eDoc file.
  *
- * @since 2026-07-07
+ * @since 2026-08-14
  */
 @Entity
 @Table(name = "outboundEmailArchive")
@@ -64,23 +65,30 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
     private EmailLog emailLog;
 
     /**
-     * Demographic and provider carry no database foreign key (see
-     * {@code V1.0.10__outbound_email_archive.sql}), unlike emailLog, emailConfig and
-     * document. That is an engine-scope decision, not a decoupling one: these remain
-     * ordinary hard associations.
+     * Demographic and provider carry no database foreign key (see the migration that
+     * creates this table), unlike emailLog, emailConfig and document. That is an
+     * engine-scope decision about legacy in-place upgrades, not a decoupling one: these
+     * remain ordinary associations, and {@code demographic} is mapped {@code nullable =
+     * false}. ({@code provider} is genuinely optional — see the field below.)
      *
-     * <p>Reading the identifier off an uninitialized proxy — {@code getDemographicNo()},
-     * {@code getProviderNo()} — is safe and does not hit the database. Reading anything
-     * else initializes the proxy and throws {@code EntityNotFoundException} if the row
-     * is gone. Nothing in CARLOS hard-deletes demographics or providers today (merges
-     * go through {@code demographic_merged} and keep both rows), so this holds; but a
-     * reader that renders patient or provider names is depending on that, and should
-     * say so rather than assume the archive is self-contained.</p>
+     * <p>Reading the identifier off an uninitialized proxy —
+     * {@code getDemographic().getDemographicNo()}, {@code getProvider().getProviderNo()} —
+     * is safe and does not hit the database, because both entities annotate their
+     * {@code @Id} on the getter and Hibernate serves it from the proxy. Reading anything
+     * else initializes the proxy and throws {@code EntityNotFoundException} if the row is
+     * gone.</p>
+     *
+     * <p>Nothing reachable hard-deletes a demographic today, so that holds for
+     * {@code demographic}. It is weaker for {@code provider}: {@code SecProviderDaoImpl}
+     * and the inherited {@code ProviderDataDao.remove} are real hard deletes with no
+     * production caller. A reader that renders patient or provider names is depending on
+     * all of this, and should say so rather than assume the archive is self-contained.</p>
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "demographicNo", nullable = false)
     private Demographic demographic;
 
+    /** Optional: an archive may have no responsible provider, matching the nullable column. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "providerNo")
     private Provider provider;
@@ -358,8 +366,18 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
         this.deleteReason = deleteReason;
     }
 
+    /**
+     * Returns the attachments as a read-only view.
+     *
+     * <p>Unmodifiable so {@link #addAttachment} stays the only way into the
+     * collection. Adding straight to the returned list would skip the owning-side
+     * assignment that method performs, and the attachment would then fail to
+     * persist because {@code archiveId} is {@code NOT NULL}.</p>
+     *
+     * @return attachments associated with this archive, never {@code null}
+     */
     public List<OutboundEmailArchiveAttachment> getAttachments() {
-        return attachments;
+        return Collections.unmodifiableList(attachments);
     }
 
     /**

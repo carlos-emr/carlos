@@ -31,6 +31,8 @@ import java.util.List;
 
 /**
  * JPA DAO implementation for durable outbound email archive records.
+ *
+ * @since 2026-08-14
  */
 @Repository
 public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailArchive> implements OutboundEmailArchiveDao {
@@ -59,6 +61,22 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
         query.setParameter("archiveId", archiveId);
         query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
         List<OutboundEmailArchive> rows = query.getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Override
+    public Integer findDemographicNoById(Integer archiveId) {
+        if (archiveId == null) {
+            return null;
+        }
+        // Scalar projection on purpose. Dereferencing only the identifier of a @ManyToOne
+        // reads the FK column without a join, and selecting a scalar leaves the
+        // persistence context empty so findForUpdate still hydrates under its lock.
+        TypedQuery<Integer> query = entityManager.createQuery(
+                "SELECT archive.demographic.demographicNo FROM OutboundEmailArchive archive WHERE archive.id = :archiveId",
+                Integer.class);
+        query.setParameter("archiveId", archiveId);
+        List<Integer> rows = query.getResultList();
         return rows.isEmpty() ? null : rows.get(0);
     }
 
