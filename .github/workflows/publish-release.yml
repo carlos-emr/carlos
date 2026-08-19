@@ -253,8 +253,18 @@ jobs:
             printf '%s\n' "$build_properties"
             exit 1
           fi
-          if grep -qi SNAPSHOT pom.xml || [[ "$war" == *SNAPSHOT* ]] || [[ "$sbom" == *SNAPSHOT* ]]; then
-            echo "::error::Release artifacts must not contain snapshot version metadata."
+          # Check the RESOLVED project version, not the raw pom text: a
+          # future comment, property name, or pinned dependency containing
+          # the word "snapshot" must not block every release. The artifact
+          # filenames are checked too — they embed the version the WAR/SBOM
+          # were actually built as.
+          project_version=$(python3 -c '
+          import xml.etree.ElementTree as ET
+          ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+          v = ET.parse("pom.xml").getroot().find("m:version", ns)
+          print("" if v is None else (v.text or ""))')
+          if [[ "${project_version^^}" == *SNAPSHOT* ]] || [[ "$war" == *SNAPSHOT* ]] || [[ "$sbom" == *SNAPSHOT* ]]; then
+            echo "::error::Release artifacts must not contain snapshot version metadata (project.version='$project_version')."
             exit 1
           fi
 
@@ -332,5 +342,19 @@ jobs:
           if [ "$IS_PRERELEASE" = "true" ]; then
             gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease --latest=false
           else
-            gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease=false --latest
+            # A maintenance patch published from an OLDER release line (the
+            # documented supported-release flow) must not steal the repo's
+            # "latest release" pointer from a newer train: mark latest only
+            # when this tag tops every published stable release under the
+            # CalVer numeric sort (first-ever stable release wins trivially).
+            latest_flag=--latest
+            existing=$(gh release list --repo "$REPO" --exclude-drafts --exclude-pre-releases \
+              --limit 200 --json tagName --jq '.[].tagName')
+            top=$({ printf '%s\n' "$RELEASE_TAG"; printf '%s\n' "$existing"; } \
+              | sed '/^$/d' | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
+            if [ "$top" != "$RELEASE_TAG" ]; then
+              latest_flag=--latest=false
+              echo "A newer stable release ($top) is already published — not marking $RELEASE_TAG as latest."
+            fi
+            gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease=false "$latest_flag"
           fi
