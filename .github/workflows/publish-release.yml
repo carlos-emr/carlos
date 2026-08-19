@@ -197,7 +197,7 @@ jobs:
             carlos-release-build-env bash -euo pipefail -c "
               git config --global --add safe.directory /workspace
               mvn se.vandmo:dependency-lock-maven-plugin:check -q
-              mvn clean -DskipTests=true -T 1C package
+              mvn clean -DskipTests=true -DbuildNumber=$TAG_COMMIT -T 1C package
               mvn org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeAggregateBom \
                 -DoutputFormat=json \
                 -DschemaVersion=1.6 \
