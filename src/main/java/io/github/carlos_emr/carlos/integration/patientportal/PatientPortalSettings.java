@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+import io.github.carlos_emr.CarlosProperties;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
@@ -91,6 +92,43 @@ public record PatientPortalSettings(
      */
     public static PatientPortalSettings fromProperties(Map<String, String> properties) {
         return fromProperties(properties::get);
+    }
+
+    /**
+     * Reads the channel configuration from CARLOS deployment properties.
+     *
+     * <p>The Spring wiring's entry point. Kept separate from {@link #fromProperties(Function)} so
+     * the validation stays testable without the {@code CarlosProperties} singleton.
+     *
+     * @throws PatientPortalConfigurationException if the portal is unconfigured or misconfigured
+     */
+    public static PatientPortalSettings fromCarlosProperties() {
+        return fromProperties(key -> CarlosProperties.getInstance().getProperty(key));
+    }
+
+    /**
+     * Reports whether a portal is configured at all, without throwing.
+     *
+     * <p>Distinct from construction on purpose. Most CARLOS deployments will never use the portal,
+     * and for them "unconfigured" is the normal state rather than an error — the panel should not
+     * render and the actions should say so plainly. Construction stays fail-closed for the case
+     * where someone <em>has</em> configured it and got it wrong, which is the dangerous one.
+     *
+     * <p>This checks presence only. A configured-but-invalid value still throws on construction,
+     * because a half-configured portal must not look like an absent one.
+     */
+    public static boolean isConfigured() {
+        return isConfigured(key -> CarlosProperties.getInstance().getProperty(key));
+    }
+
+    static boolean isConfigured(Function<String, String> lookup) {
+        for (String key : new String[] {BASE_URL_KEY, CLINIC_ID_KEY, SERVICE_TOKEN_KEY}) {
+            String value = lookup.apply(key);
+            if (value == null || value.isBlank()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

@@ -67,14 +67,13 @@ public class PortalPanel2Action extends PortalJsonAction {
     private static final String SECTION_UNAVAILABLE = "unavailable";
 
     private final transient SecurityInfoManager securityInfoManager;
-    private final transient PatientPortalService patientPortalService;
     private final transient PortalStaffContextResolver staffContextResolver;
 
     /** Struts instantiates actions reflectively, so the wiring happens here. */
     public PortalPanel2Action() {
         this(
                 SpringUtils.getBean(SecurityInfoManager.class),
-                SpringUtils.getBean(PatientPortalService.class),
+                null,
                 SpringUtils.getBean(PortalStaffContextResolver.class));
     }
 
@@ -82,8 +81,8 @@ public class PortalPanel2Action extends PortalJsonAction {
             SecurityInfoManager securityInfoManager,
             PatientPortalService patientPortalService,
             PortalStaffContextResolver staffContextResolver) {
+        super(patientPortalService);
         this.securityInfoManager = securityInfoManager;
-        this.patientPortalService = patientPortalService;
         this.staffContextResolver = staffContextResolver;
     }
 
@@ -114,14 +113,19 @@ public class PortalPanel2Action extends PortalJsonAction {
             return badRequest(response, "a patient must be selected");
         }
 
+        PatientPortalService portal = portalService();
+        if (portal == null) {
+            return portalNotConfigured(response);
+        }
+
         PatientPortalStaffContext staff = staffContextResolver.resolve(loggedInInfo);
         ObjectNode payload = objectMapper().createObjectNode();
         payload.put("ok", true);
         if (mayReadInvites) {
-            addInvites(payload, demographicNo, staff);
+            addInvites(portal, payload, demographicNo, staff);
         }
         if (mayReadAccount) {
-            addAccount(payload, demographicNo, staff);
+            addAccount(portal, payload, demographicNo, staff);
         }
         return write(response, HttpServletResponse.SC_OK, payload);
     }
@@ -134,11 +138,12 @@ public class PortalPanel2Action extends PortalJsonAction {
      * evidence is the single most likely misreading of this data.
      */
     private void addInvites(
-            ObjectNode payload, int demographicNo, PatientPortalStaffContext staff) {
+            PatientPortalService portal, ObjectNode payload, int demographicNo,
+            PatientPortalStaffContext staff) {
         ArrayNode invites = payload.putArray("invites");
         try {
             List<PatientPortalInviteDto> found =
-                    patientPortalService.listInvites(
+                    portal.listInvites(
                             demographicNo, PatientPortalService.MAX_INVITE_PAGE_SIZE, staff);
             for (PatientPortalInviteDto invite : found) {
                 ObjectNode node = invites.addObject();
@@ -168,10 +173,11 @@ public class PortalPanel2Action extends PortalJsonAction {
      * invite staff to issue an invitation the patient does not need.
      */
     private void addAccount(
-            ObjectNode payload, int demographicNo, PatientPortalStaffContext staff) {
+            PatientPortalService portal, ObjectNode payload, int demographicNo,
+            PatientPortalStaffContext staff) {
         try {
             PatientPortalAccountDto account =
-                    patientPortalService.findAccount(demographicNo, staff);
+                    portal.findAccount(demographicNo, staff);
             ObjectNode node = payload.putObject("account");
             node.put("accountId", account.id());
             node.put("status", account.status());

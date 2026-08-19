@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                           http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <!--
+      Patient portal integration (issue #3475). Picked up automatically by the
+      classpath:applicationContext*.xml pattern in web.xml.
+
+      EVERY BEAN HERE IS lazy-init. This is the load-bearing detail, not a tuning choice.
+
+      PatientPortalSettings.fromCarlosProperties() throws when the portal is unconfigured, which is
+      correct at a call site — a portal call must never silently become a no-op a clinic would
+      misread as "the invitation was sent". But an eager bean whose factory throws fails the whole
+      Spring context refresh, so that same fail-closed rule would stop CARLOS starting at all for
+      every clinic that does not use the portal. Most will not. Lazy initialisation keeps the
+      failure where it belongs: at the moment someone tries to use a portal that is not there.
+
+      PatientPortalService holds a pooled HTTP client, hence destroy-method="close".
+    -->
+
+    <bean id="patientPortalSettings"
+          class="io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings"
+          factory-method="fromCarlosProperties"
+          lazy-init="true"/>
+
+    <bean id="patientPortalService"
+          class="io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService"
+          destroy-method="close"
+          lazy-init="true">
+        <constructor-arg ref="patientPortalSettings"/>
+    </bean>
+
+    <!--
+      The resolver reads SecurityInfoManager only, so it constructs whether or not a portal is
+      configured. Still lazy for symmetry: nothing should touch this package on a deployment that
+      does not use it.
+    -->
+    <bean id="portalStaffContextResolver"
+          class="io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver"
+          lazy-init="true">
+        <constructor-arg ref="securityInfoManager"/>
+    </bean>
+
+</beans>

@@ -24,8 +24,11 @@ package io.github.carlos_emr.carlos.integration.patientportal.web;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Locale;
@@ -51,6 +54,17 @@ abstract class PortalJsonAction extends ActionSupport {
 
     private static final long serialVersionUID = 1L;
 
+    /** Non-null only when a test supplied the client directly. */
+    private final transient PatientPortalService injectedService;
+
+    PortalJsonAction() {
+        this(null);
+    }
+
+    PortalJsonAction(PatientPortalService injectedService) {
+        this.injectedService = injectedService;
+    }
+
     private static final String JSON = "application/json;charset=UTF-8";
     private static final String MISSING_PRIVILEGE = "missing required sec object (%s)";
 
@@ -70,11 +84,47 @@ abstract class PortalJsonAction extends ActionSupport {
             The portal replied in a form CARLOS could not read. The change may or may not have been \
             applied; check before retrying.""";
     private static final String REJECTED = "The portal rejected this request.";
+    private static final String NOT_CONFIGURED =
+            """
+            The patient portal is not configured on this CARLOS server. An administrator needs to \
+            set the portal connection before these actions can be used.""";
 
     private final transient ObjectMapper objectMapper = new ObjectMapper();
 
     ObjectMapper objectMapper() {
         return objectMapper;
+    }
+
+    /**
+     * Resolves the portal client, or {@code null} when this deployment has no portal.
+     *
+     * <p>Resolved here rather than in a constructor so an unconfigured portal is answerable. The
+     * bean is lazy and its factory throws when the portal is unconfigured, so a constructor lookup
+     * would blow up while Struts was still instantiating the action — producing a stack trace where
+     * a sentence would do, and giving the action no chance to say what is actually wrong.
+     *
+     * <p>Absence is checked before construction is attempted. "No portal on this server" is the
+     * normal state for most CARLOS deployments and must not be reported as a fault; a portal that
+     * <em>is</em> configured but invalid still throws, because a half-configured portal must not
+     * look like an absent one.
+     */
+    PatientPortalService portalService() {
+        if (injectedService != null) {
+            return injectedService;
+        }
+        if (!PatientPortalSettings.isConfigured()) {
+            return null;
+        }
+        return SpringUtils.getBean(PatientPortalService.class);
+    }
+
+    /** Answers a request made against a CARLOS server that has no portal configured. */
+    String portalNotConfigured(HttpServletResponse response) throws IOException {
+        return failure(
+                response,
+                HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                "portal_not_configured",
+                NOT_CONFIGURED);
     }
 
     /**
