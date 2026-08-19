@@ -52,6 +52,12 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -76,6 +82,14 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     private static final String DOCUMENT_DOCTYPE = "email";
     private static final String DOCUMENT_SOURCE = "Outbound Email Archive";
     private static final String CTL_DOCUMENT_MODULE_DEMOGRAPHIC = "demographic";
+    /**
+     * Ceiling on a single artifact read. Bounds heap for one call rather than expressing a policy
+     * about archive size: {@code readArchivedArtifact} materialises the whole artifact, so an
+     * unbounded read on a shared Tomcat is a denial-of-service surface. Overridable for tests.
+     */
+    private static final long DEFAULT_MAX_ARCHIVED_ARTIFACT_BYTES = 50L * 1024L * 1024L;
+
+    private final long maxArchivedArtifactBytes;
 
     private final DocumentManager documentManager;
 
@@ -100,6 +114,26 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             OutboundEmailArchiveLegalHoldEventDao outboundEmailArchiveLegalHoldEventDao,
             CtlDocumentDao ctlDocumentDao,
             SecurityInfoManager securityInfoManager) {
+        this(documentManager,
+                emailLogDao,
+                outboundEmailArchiveDao,
+                outboundEmailArchiveDeletionDao,
+                outboundEmailArchiveLegalHoldEventDao,
+                ctlDocumentDao,
+                securityInfoManager,
+                DEFAULT_MAX_ARCHIVED_ARTIFACT_BYTES);
+    }
+
+    OutboundEmailArchiveServiceImpl(
+            DocumentManager documentManager,
+            EmailLogDao emailLogDao,
+            OutboundEmailArchiveDao outboundEmailArchiveDao,
+            OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao,
+            OutboundEmailArchiveLegalHoldEventDao outboundEmailArchiveLegalHoldEventDao,
+            CtlDocumentDao ctlDocumentDao,
+            SecurityInfoManager securityInfoManager,
+            long maxArchivedArtifactBytes) {
+        this.maxArchivedArtifactBytes = maxArchivedArtifactBytes;
         this.documentManager = documentManager;
         this.emailLogDao = emailLogDao;
         this.outboundEmailArchiveDao = outboundEmailArchiveDao;
@@ -214,6 +248,75 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
                 ""));
 
         return archive;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OutboundEmailArchive getActiveArchive(LoggedInInfo loggedInInfo, Integer archiveId) {
+        OutboundEmailArchive archive = loadArchiveForAuthorizedRead(loggedInInfo, archiveId, false);
+
+        String auditDetails = "archiveId=" + archive.getId() + " documentNo=" + documentId(archive);
+        String auditDemographicNo = demographicNo(archive);
+        registerAfterCommitLog(() -> LogAction.addLog(loggedInInfo,
+                "OutboundEmailArchiveService.getActiveArchive",
+                "Outbound email archive",
+                auditDetails,
+                auditDemographicNo,
+                ""));
+        return archive;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>{@code noRollbackFor = IOException} is load-bearing rather than incidental: an integrity
+     * failure audits itself before rethrowing, and rolling back would discard that audit row --
+     * losing exactly the evidence that retained PHI no longer matches what was archived.</p>
+     */
+    @Override
+    @Transactional(noRollbackFor = IOException.class)
+    public byte[] readArchivedArtifact(LoggedInInfo loggedInInfo, Integer archiveId) throws IOException {
+        // Locked, unlike getActiveArchive: a controlled deletion running concurrently would
+        // otherwise be free to remove the stored file between the checks below and the read.
+        OutboundEmailArchive archive = loadArchiveForAuthorizedRead(loggedInInfo, archiveId, true);
+        Document document = archive.getDocument();
+        byte[] artifactBytes;
+        try {
+            if (document == null || document.getDocfilename() == null || document.getDocfilename().isBlank()) {
+                throw new IOException("Archived artifact document metadata is missing");
+            }
+            Long expectedByteSize = archive.getByteSize();
+            if (expectedByteSize == null) {
+                throw new IOException("Archived artifact byte size is missing");
+            }
+            String expectedSha256Hash;
+            try {
+                expectedSha256Hash = normalizeSha256Hex(archive.getSha256Hash());
+            } catch (IllegalArgumentException e) {
+                throw new IOException("Archived artifact SHA-256 hash is invalid", e);
+            }
+            Path archivePath;
+            try {
+                archivePath = resolveArchivedArtifactPath(document.getDocfilename());
+            } catch (RuntimeException e) {
+                throw new IOException("Archived artifact path is invalid", e);
+            }
+            artifactBytes = readArchivedArtifactBytes(archivePath, expectedByteSize);
+            validateArchivedArtifactHash(expectedSha256Hash, artifactBytes);
+        } catch (IOException e) {
+            auditArtifactReadIntegrityFailure(loggedInInfo, archive, document, e);
+            throw e;
+        }
+
+        String auditDetails = "archiveId=" + archive.getId() + " documentNo=" + document.getId();
+        String auditDemographicNo = demographicNo(archive);
+        registerAfterCommitLog(() -> LogAction.addLog(loggedInInfo,
+                "OutboundEmailArchiveService.readArchivedArtifact",
+                "Outbound email archive",
+                auditDetails,
+                auditDemographicNo,
+                ""));
+        return artifactBytes;
     }
 
     @Override
@@ -721,6 +824,135 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             throw new SecurityException("not authorized for outbound email archive demographic");
         }
         return archive;
+    }
+
+    /**
+     * Loads an archive for reading, authorizing the caller before the row is fetched.
+     *
+     * <p>Deliberately mirrors {@link #lockArchiveForAuthorizedCaller(LoggedInInfo, Integer)}:
+     * the demographic is resolved and authorized through a narrow projection first, and the
+     * fetched row's demographic is then re-checked against the one that was authorized. Loading
+     * the row first and authorizing from it is the ordering this class already moved away from,
+     * so the read path is not written the other way round.</p>
+     *
+     * @param lockForUpdate whether to take the row's write lock, for reads that then touch the
+     *        stored file and must not race a controlled deletion
+     */
+    private OutboundEmailArchive loadArchiveForAuthorizedRead(
+            LoggedInInfo loggedInInfo, Integer archiveId, boolean lockForUpdate) {
+        if (loggedInInfo == null) {
+            throw new IllegalArgumentException("Logged-in user context is required");
+        }
+        if (archiveId == null) {
+            throw new IllegalArgumentException("Archive ID is required");
+        }
+
+        Integer authorizedDemographicNo = outboundEmailArchiveDao.findDemographicNoById(archiveId);
+        if (authorizedDemographicNo == null) {
+            throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+        requirePatientRecordAccess(loggedInInfo, authorizedDemographicNo);
+
+        OutboundEmailArchive archive = lockForUpdate
+                ? outboundEmailArchiveDao.findForUpdate(archiveId)
+                : outboundEmailArchiveDao.findForRead(archiveId);
+        if (archive == null) {
+            throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
+        }
+        if (!authorizedDemographicNo.equals(requireArchiveDemographicNo(archive))) {
+            throw new SecurityException("not authorized for outbound email archive demographic");
+        }
+        if (archive.isDeleted()) {
+            throw new IllegalStateException("Outbound email archive has been deleted");
+        }
+        Document document = archive.getDocument();
+        if (document != null && document.getStatus() == Document.STATUS_DELETED) {
+            throw new IllegalStateException("Outbound email archive eDoc has been deleted");
+        }
+        return archive;
+    }
+
+    @SuppressFBWarnings(
+            value = "PATH_TRAVERSAL_IN",
+            justification = "Archive eDoc reads validate the stored filename as a single path component and revalidate DOCUMENT_DIR containment before reading.")
+    private Path resolveArchivedArtifactPath(String fileName) {
+        File documentDirectory = PathValidationUtils.resolveConfiguredDirectory(
+                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"),
+                "DOCUMENT_DIR");
+        String safeFileName = PathValidationUtils.validatePathComponent(fileName, "archive eDoc filename");
+        File archiveFile = PathValidationUtils.validateExistingPath(new File(documentDirectory, safeFileName), documentDirectory);
+        return archiveFile.toPath();
+    }
+
+    private byte[] readArchivedArtifactBytes(Path archivePath, long expectedByteSize) throws IOException {
+        requireReadableArtifactSize(expectedByteSize);
+
+        // NOFOLLOW_LINKS on both the check and the open: a symlink swapped in between them would
+        // otherwise let a validated path read a file outside DOCUMENT_DIR.
+        if (!Files.isRegularFile(archivePath, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Archived artifact is not a regular file");
+        }
+        try (FileChannel channel = FileChannel.open(archivePath, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+            long fileSize = channel.size();
+            requireReadableArtifactSize(fileSize);
+            if (fileSize != expectedByteSize) {
+                throw new IOException("Archived artifact size does not match archive metadata");
+            }
+            ByteBuffer buffer = ByteBuffer.allocate((int) fileSize);
+            while (buffer.hasRemaining() && channel.read(buffer) != -1) {
+                // read until the buffer is full or the file ends
+            }
+            if (buffer.hasRemaining()) {
+                throw new IOException("Archived artifact is shorter than archive metadata");
+            }
+            return buffer.array();
+        }
+    }
+
+    private void requireReadableArtifactSize(long byteSize) throws IOException {
+        if (byteSize < 0) {
+            throw new IOException("Archived artifact size is invalid");
+        }
+        if (byteSize > maxArchivedArtifactBytes) {
+            throw new IOException("Archived artifact exceeds maximum read size of " + maxArchivedArtifactBytes + " bytes");
+        }
+    }
+
+    private void validateArchivedArtifactHash(String expectedSha256Hash, byte[] artifactBytes) throws IOException {
+        // Constant-time compare. The hash is not a secret, but this is the check that decides
+        // whether retained PHI is trustworthy, and a timing-independent comparison costs nothing.
+        if (!MessageDigest.isEqual(
+                expectedSha256Hash.getBytes(StandardCharsets.US_ASCII),
+                sha256Hex(artifactBytes).getBytes(StandardCharsets.US_ASCII))) {
+            throw new IOException("Archived artifact hash does not match archive metadata");
+        }
+    }
+
+    /**
+     * Records a size or hash mismatch on a stored artifact as a security event.
+     *
+     * <p>Written synchronously, not after commit: the read is about to fail, and an
+     * after-commit hook on a failing transaction is exactly the audit that would not survive.
+     * Everything logged is an internal surrogate identifier or a fixed constant -- no filename,
+     * no user input, no clinical content.</p>
+     */
+    private void auditArtifactReadIntegrityFailure(
+            LoggedInInfo loggedInInfo, OutboundEmailArchive archive, Document document, IOException failure) {
+        MiscUtils.getLogger().warn(
+                "Outbound email archive artifact integrity failure archiveId={}: {}",
+                archive.getId(),
+                failure.getMessage());
+        LogAction.addLogSynchronous(loggedInInfo,
+                "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
+                "Outbound email archive",
+                "archiveId=" + archive.getId()
+                        + " documentNo=" + (document != null ? document.getId() : "")
+                        + " reason=artifactIntegrityFailure",
+                demographicNo(archive),
+                "");
     }
 
     private void requirePatientRecordAccess(LoggedInInfo loggedInInfo, Integer demographicNo) {
