@@ -765,6 +765,121 @@
       background: #f1f4f5;
       border-bottom-color: #394950;
     }
+
+    /* Alternative format: orientation rail plus a focused clinical reading column. */
+    #summary-panel { container-name: summary-panel; container-type: inline-size; }
+    .summary-content { padding: 22px 26px 56px; }
+    .draft-alert {
+      margin-bottom: 26px;
+      border: 0;
+      border-left: 5px solid #b83a34;
+      border-radius: 0;
+      background: #fff8f7;
+    }
+    .briefing-layout {
+      display: grid;
+      grid-template-columns: minmax(280px, .78fr) minmax(0, 2fr);
+      align-items: start;
+      gap: 34px;
+    }
+    .briefing-rail {
+      position: sticky;
+      top: 0;
+      min-width: 0;
+      padding: 18px;
+      border: 1px solid #b9c2c7;
+      background: #f7f8f8;
+    }
+    .briefing-rail .quick-glance {
+      margin: 0;
+      border: 0;
+      background: transparent;
+    }
+    .briefing-rail .quick-glance-title {
+      margin: 0;
+      padding: 0 0 11px;
+      border: 0;
+      border-bottom: 2px solid #263840;
+      color: #17242b;
+      background: transparent;
+      font-size: 17px;
+    }
+    .briefing-rail .quick-grid { grid-template-columns: 1fr; }
+    .briefing-rail .quick-item,
+    .briefing-rail .quick-item:nth-child(even),
+    .briefing-rail .quick-item:nth-last-child(-n+2) {
+      padding: 16px 0;
+      border-right: 0;
+      border-bottom: 1px solid #ccd3d6;
+      background: transparent;
+    }
+    .briefing-rail .quick-item:last-child { border-bottom: 0; }
+    .briefing-rail .quick-item strong {
+      margin-bottom: 5px;
+      color: #3c4a51;
+      font-size: 12px;
+      letter-spacing: .045em;
+    }
+    .briefing-rail .quick-item .claim { line-height: 1.58; }
+    .briefing-rail .record-limit {
+      max-width: none;
+      margin: 18px 0 0;
+      padding: 14px;
+      border: 0;
+      border-left: 4px solid #758791;
+      color: #26353d;
+      background: #fff;
+    }
+    .briefing-body { min-width: 0; }
+    .briefing-body .summary-section { margin-bottom: 42px; }
+    .briefing-body .summary-section h3 {
+      margin: 0 0 17px;
+      padding: 0 0 9px;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 14px;
+      border: 0;
+      border-bottom: 2px solid #263840;
+      color: #17242b;
+      background: transparent;
+      font-size: 19px;
+      line-height: 1.3;
+    }
+    .briefing-body .summary-section h3 span {
+      flex: 0 0 auto;
+      color: #53636b;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .briefing-body .summary-section > p,
+    .briefing-body .summary-section > .fact-list,
+    .briefing-body .summary-section > .timeline { max-width: 72ch; }
+    .briefing-body .problem-list { border: 0; }
+    .briefing-body .problem-row {
+      padding: 15px 0;
+      border-top: 1px solid #c8d0d4;
+      border-bottom: 0;
+    }
+    .briefing-body .problem-row:last-child { border-bottom: 1px solid #c8d0d4; }
+
+    @container summary-panel (max-width: 850px) {
+      .briefing-layout { grid-template-columns: 1fr; gap: 28px; }
+      .briefing-rail {
+        position: static;
+        display: grid;
+        grid-template-columns: minmax(0, 1.25fr) minmax(220px, .75fr);
+        gap: 20px;
+      }
+      .briefing-rail .record-limit { margin-top: 0; align-self: start; }
+    }
+
+    @container summary-panel (max-width: 600px) {
+      .summary-content { padding: 18px 16px 42px; }
+      .briefing-rail { grid-template-columns: 1fr; padding: 16px; }
+      .briefing-rail .record-limit { margin-top: 4px; }
+      .briefing-body .summary-section h3 { align-items: flex-start; flex-direction: column; gap: 3px; }
+    }
   </style>
 </head>
 <body>
@@ -833,8 +948,10 @@
               <div><strong>Patient overview ready · five chart issues need review</strong><p>This overview supports rapid chart orientation. It is not a reconciled medication list and should not be treated as a complete longitudinal record.</p></div>
             </div>
 
-            <div class="quick-glance">
-              <div class="quick-glance-title">20-second patient overview</div>
+            <div class="briefing-layout">
+              <aside class="briefing-rail" aria-label="Patient orientation and review priorities">
+                <div class="quick-glance">
+              <div class="quick-glance-title">Clinical snapshot</div>
               <div class="quick-grid">
                 <div class="quick-item"><strong>Who he is</strong><button class="claim" type="button" data-claim="baseline">Retired man living with his spouse in a bungalow; independent with daily activities before the recorded surgical episode.<span class="source-count">1 source</span></button></div>
                 <div class="quick-item"><strong>Active clinical picture</strong><button class="claim" type="button" data-claim="current_status">Recovering after right shoulder replacement on 6 Jan 2026; last notes describe manageable pain, clean wound, mild swelling, and independent home exercises.<span class="source-count">6 sources</span></button></div>
@@ -843,9 +960,12 @@
               </div>
             </div>
             <div class="record-limit"><strong>Record limitation:</strong> all 26 available notes are concentrated on one orthopaedic episode from 23 Dec 2025–9 Jan 2026. The absence of other diagnoses, medications, visits, or preventive history in this dataset must not be interpreted as evidence that none exist.</div>
+              </aside>
+
+              <div class="briefing-body">
 
             <section class="summary-section">
-              <h3>Last documented clinical status · 9 Jan 2026</h3>
+              <h3>Current status <span>9 Jan 2026</span></h3>
               <p><button class="claim" type="button" data-claim="current_status">Alert and comfortable, with mild manageable right-shoulder discomfort. The wound was clean with mild expected swelling and no erythema or discharge; temperature 36.8°C, BP 132/80, HR 78, RR 16, and SpO₂ 97%. He demonstrated sling use and the home exercise programme.<span class="source-count">6 sources</span></button></p>
             </section>
 
@@ -936,6 +1056,8 @@
             </section>
 
             <div class="footnote"><strong>How to review:</strong> select any statement with a source badge or conflict marker to open its complete source note. This is a general patient overview of the available chart, not a discharge summary and not proof of a complete longitudinal history.</div>
+              </div>
+            </div>
           </div>
         </article>
 
