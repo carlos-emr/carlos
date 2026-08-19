@@ -4,7 +4,7 @@
     <groupId>io.github.carlos_emr</groupId>
     <artifactId>carlos</artifactId>
     <packaging>war</packaging>
-    <version>2026.08.0-alpha2-SNAPSHOT</version>
+    <version>2026.08.0-alpha2</version>
     <name>CARLOS</name>
     <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
     <inceptionYear>2024</inceptionYear>
@@ -19,7 +19,7 @@
         <url>https://github.com/carlos-emr/carlos</url>
         <connection>scm:git:https://github.com/carlos-emr/carlos.git</connection>
         <developerConnection>scm:git:ssh://git@github.com:carlos-emr/carlos.git</developerConnection>
-        <tag>HEAD</tag>
+        <tag>2026.08.0-alpha2</tag>
     </scm>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
