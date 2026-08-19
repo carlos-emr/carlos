@@ -705,6 +705,66 @@
       .quick-item { padding: 14px 12px; }
       .problem-row { padding: 14px 12px; }
     }
+
+    /* Neutral clinical-reading palette: color communicates state, not clickability. */
+    .claim {
+      color: #17242b;
+      background: transparent;
+      box-shadow: inset 0 -1px 0 #98a7af;
+    }
+    .claim:hover {
+      color: #111;
+      background: #f1f4f5;
+      box-shadow: inset 0 -2px 0 #647780;
+    }
+    .claim.conflict {
+      padding-left: 7px;
+      color: #17242b;
+      background: #fffaf2;
+      box-shadow: inset 3px 0 0 #b7791f, inset 0 -1px 0 #d2b98f;
+    }
+    .claim.conflict:hover {
+      color: #111;
+      background: #f9f1e5;
+      box-shadow: inset 3px 0 0 #9b6317, inset 0 -2px 0 #9b7b48;
+    }
+    .claim[data-review="confirmed"] {
+      color: #17242b;
+      background: #eef6f1;
+      box-shadow: inset 0 -2px 0 #4f8b6f;
+    }
+    .claim[data-review="flagged"] {
+      color: #17242b;
+      background: #fff1f0;
+      box-shadow: inset 0 -2px 0 #a83b35;
+    }
+    .claim.active,
+    .claim:focus-visible {
+      color: #111;
+      background: #e8f1f7;
+      box-shadow: inset 3px 0 0 #4d7f9d, inset 0 -2px 0 #4d7f9d;
+    }
+    .claim.conflict.active,
+    .claim.conflict:focus-visible {
+      color: #111;
+      background: #edf2f5;
+      box-shadow: inset 3px 0 0 #b7791f, inset 0 -2px 0 #4d7f9d;
+    }
+    .source-count,
+    .conflict .source-count {
+      color: #36454f;
+      background: #e8edef;
+    }
+    .ledger-table button {
+      color: #17242b;
+      border-bottom: 1px dotted #7e8e96;
+    }
+    .ledger-table button:hover,
+    .ledger-table button:focus-visible {
+      color: #111;
+      background: #f1f4f5;
+      border-bottom-color: #394950;
+    }
   </style>
 </head>
 <body>
@@ -875,7 +935,7 @@
               </div>
             </section>
 
-            <div class="footnote"><strong>How to review:</strong> select any blue or amber statement to open its complete source note. This is a general patient overview of the available chart, not a discharge summary and not proof of a complete longitudinal history.</div>
+            <div class="footnote"><strong>How to review:</strong> select any statement with a source badge or conflict marker to open its complete source note. This is a general patient overview of the available chart, not a discharge summary and not proof of a complete longitudinal history.</div>
           </div>
         </article>
 
@@ -935,7 +995,7 @@
         <div class="empty-evidence">
           <div class="empty-evidence-icon" aria-hidden="true">↗</div>
           <h3>Click a line to see sources</h3>
-          <p>Select any blue or amber line in the summary. Its supporting, contextual, and conflicting records will appear here.</p>
+          <p>Select any statement with a source badge or conflict marker. Its supporting, contextual, and conflicting records will appear here.</p>
         </div>
       </div>
 
