@@ -52,6 +52,8 @@
           HTML to the response body.
         -->
         <action name="demographic/portalInvite" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action"/>
+        <action name="demographic/portalAccount" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccount2Action"/>
+        <action name="demographic/portalPanel" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalPanel2Action"/>
         <action name="demographic/printDemoLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoLabel2Action"/>
         <action name="demographic/printDemoAddressLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoAddressLabel2Action"/>
         <action name="demographic/printDemoChartLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoChartLabel2Action"/>
