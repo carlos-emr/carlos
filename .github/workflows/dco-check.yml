@@ -120,9 +120,9 @@ jobs:
           bot_logins_regex='^(google-labs-jules\[bot\]|copilot-swe-agent\[bot\]|claude\[bot\]|coderabbitai\[bot\]|github-actions\[bot\]|dependabot\[bot\])$'
 
           # GitHub's web-flow merge commits cannot carry a contributor DCO
-          # trailer. Exempt only API-verified GitHub PR merge commits; the
-          # subject alone is spoofable and is never sufficient.
-          is_verified_github_pr_merge() {
+          # trailer. Exempt only API-verified PR merges and base-update merges;
+          # the subject alone is spoofable and is never sufficient.
+          is_verified_github_merge() {
             local subject=$1
             local committer_login=$2
             local parent_count=$3
@@ -133,12 +133,13 @@ jobs:
               [ "$committer_login" = "web-flow" ] &&
               [ "$signature_verified" = "true" ] &&
               [ "$verification_reason" = "valid" ] &&
-              [[ "$subject" =~ ^Merge\ pull\ request\ \#[0-9]+\ from\ .+ ]]
+              { [[ "$subject" =~ ^Merge\ pull\ request\ \#[0-9]+\ from\ .+ ]] ||
+                [[ "$subject" =~ ^Merge\ branch\ \'.+\'\ into\ .+ ]]; }
           }
 
           missing=()
           bot_exempt=()
-          github_pr_merge_exempt=()
+          github_merge_exempt=()
           total=0
           passed=0
           page=1
@@ -172,9 +173,9 @@ jobs:
               elif [ "$author_type" = "Bot" ] && printf '%s' "$author_login" | grep -qE "$bot_logins_regex"; then
                 passed=$((passed + 1))
                 bot_exempt+=("$short - $subject")
-              elif is_verified_github_pr_merge "$subject" "$committer_login" "$parent_count" "$signature_verified" "$verification_reason"; then
+              elif is_verified_github_merge "$subject" "$committer_login" "$parent_count" "$signature_verified" "$verification_reason"; then
                 passed=$((passed + 1))
-                github_pr_merge_exempt+=("$short - $subject")
+                github_merge_exempt+=("$short - $subject")
               else
                 missing+=("$short $subject")
               fi
@@ -200,9 +201,9 @@ jobs:
             echo ""
           fi
 
-          if [ ${#github_pr_merge_exempt[@]} -gt 0 ]; then
-            echo "DCO-exempt verified GitHub PR merge commits (${#github_pr_merge_exempt[@]}):"
-            for entry in "${github_pr_merge_exempt[@]}"; do
+          if [ ${#github_merge_exempt[@]} -gt 0 ]; then
+            echo "DCO-exempt verified GitHub-generated merge commits (${#github_merge_exempt[@]}):"
+            for entry in "${github_merge_exempt[@]}"; do
               printf '  - %s\n' "$entry"
             done
             echo ""

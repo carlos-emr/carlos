@@ -439,7 +439,7 @@ chmod 755 ${SCHEMA_OUT}/flyway-${FLYWAY_VERSION}/flyway
 # - update-2026-02-14-facility-integrator-removal.sql drops facility columns that are
 #   incompatible with OSCAR 19 installations.
 # - update-2026-05-03-billing-disk-filename-unique.sql is Ontario-only and is now managed
-#   idempotently by Flyway migration on/V1.0.11__billing_filename_unique_indexes.sql.
+#   idempotently by Flyway migration on/V1.0.12__portable_billing_filename_unique_indexes.sql.
 # All other update scripts are included.
 # The postinst script applies these after the WAR is deployed to bring the schema current.
 echo "bundling incremental database update scripts from database/mysql/updates/"
