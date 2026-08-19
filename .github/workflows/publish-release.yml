@@ -23,6 +23,8 @@ jobs:
     name: Validate release tag
     runs-on: ubuntu-latest
     permissions:
+      # Required to inspect prior workflow runs and validation-job results for dispatch retries.
+      actions: read
       contents: read
     outputs:
       skip: ${{ steps.release-state.outputs.skip }}
@@ -34,6 +36,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      IS_DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
     steps:
       - name: Detect an already-published immutable release
         id: release-state
@@ -42,7 +45,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          if release_json=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" 2>/dev/null); then
+          if release_json=$(gh release view "$RELEASE_TAG" --repo "$REPO" \
+            --json isDraft --jq '{draft: .isDraft}' 2>/dev/null); then
             if [ "$(jq -r '.draft' <<< "$release_json")" = "false" ]; then
               echo "Release $RELEASE_TAG is already published; nothing to change."
               echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -59,6 +63,17 @@ jobs:
           ref: refs/tags/${{ env.RELEASE_TAG }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Set up JDK 21
+        if: steps.release-state.outputs.skip != 'true'
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Verify Maven toolchain
+        if: steps.release-state.outputs.skip != 'true'
+        run: mvn --version
 
       - name: Validate CalVer, annotation, source branch, and Maven metadata
         if: steps.release-state.outputs.skip != 'true'
@@ -105,14 +120,45 @@ jobs:
             "refs/heads/release/$release_line:refs/remotes/origin/release/$release_line" || \
             git fetch --no-tags origin "refs/heads/main:refs/remotes/origin/main"
 
+          is_retry=false
+          if [ "$IS_DISPATCH" = "true" ]; then
+            while IFS= read -r prior_run_id; do
+              [ -n "$prior_run_id" ] || continue
+              validation_result=$(gh api \
+                "repos/$REPO/actions/runs/$prior_run_id/jobs?filter=all&per_page=100" \
+                --jq '.jobs[] | select(.name == "Validate release tag") | .conclusion' |
+                head -n 1)
+              if [ "$validation_result" = "success" ]; then
+                is_retry=true
+                break
+              fi
+            done < <(
+              gh run list --repo "$REPO" --workflow publish-release.yml \
+                --branch "$RELEASE_TAG" --event push --limit 100 \
+                --json databaseId,headSha,status,conclusion \
+                --jq ".[] | select(.headSha == \"$tag_commit\" and .status == \"completed\" and .conclusion != \"success\") | .databaseId"
+            )
+          fi
+
           source_branch=""
-          if [ "$(git rev-parse origin/main)" = "$tag_commit" ]; then
+          main_head=$(git rev-parse origin/main)
+          if [ "$main_head" = "$tag_commit" ]; then
             source_branch=main
-          elif git show-ref --verify --quiet "refs/remotes/origin/release/$release_line" &&
-               [ "$(git rev-parse "origin/release/$release_line")" = "$tag_commit" ]; then
-            source_branch="release/$release_line"
-          else
-            echo "::error::Tag must point to the current head of main or release/$release_line."
+          elif [ "$is_retry" = "true" ] &&
+               git merge-base --is-ancestor "$tag_commit" origin/main; then
+            source_branch=main
+          elif git show-ref --verify --quiet "refs/remotes/origin/release/$release_line"; then
+            release_ref="origin/release/$release_line"
+            release_head=$(git rev-parse "$release_ref")
+            if [ "$release_head" = "$tag_commit" ]; then
+              source_branch="release/$release_line"
+            elif [ "$is_retry" = "true" ] &&
+                 git merge-base --is-ancestor "$tag_commit" "$release_ref"; then
+              source_branch="release/$release_line"
+            fi
+          fi
+          if [ -z "$source_branch" ]; then
+            echo "::error::Tag must be the current branch head; ancestor validation requires a prior unsuccessful tag-push attempt."
             exit 1
           fi
 
@@ -186,7 +232,7 @@ jobs:
             carlos-release-build-env bash -euo pipefail -c "
               git config --global --add safe.directory /workspace
               mvn se.vandmo:dependency-lock-maven-plugin:check -q
-              mvn clean -DskipTests=true -T 1C package
+              mvn clean -DskipTests=true -DbuildNumber=$TAG_COMMIT -T 1C package
               mvn org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeAggregateBom \
                 -DoutputFormat=json \
                 -DschemaVersion=1.6 \
@@ -261,7 +307,13 @@ jobs:
           set -euo pipefail
 
           gh release upload "$RELEASE_TAG" release-assets/* --repo "$REPO" --clobber
-          release_json=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG")
+          release_id=$(gh api --paginate "repos/$REPO/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | .id")
+          if [ -z "$release_id" ]; then
+            echo "::error::Draft release $RELEASE_TAG was not found after asset upload."
+            exit 1
+          fi
+          release_json=$(gh api "repos/$REPO/releases/$release_id")
 
           for asset in release-assets/*; do
             name=$(basename "$asset")

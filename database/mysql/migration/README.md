@@ -17,20 +17,21 @@ migration/
            V1.0.8__expand_appointment_type_location.sql
            V1.0.9__remove_carlosdoc_schedule_group_denial.sql
            V1.0.10__seed_default_measurement_groups.sql
-           V1.0.12__fix_phcp_diagnosis_group_backfill_collation.sql
+           V1.0.13__fix_phcp_diagnosis_group_backfill_collation.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
            V1.0.6__restore_reporting_privilege.sql
            V1.0.11__billing_filename_unique_indexes.sql
+           V1.0.12__portable_billing_filename_unique_indexes.sql
   bc/      V1.0.1__bc_schema.sql            # British Columbia-only tables (structure)
            V1.0.2__bc_data.sql              # British Columbia reference data (rows)
            V1.0.6__restore_live_legacy_bc_tables_and_reference_data.sql
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest version currently shipped is `V1.0.12`. The next
-Ontario or shared migration is `V1.0.13`; the next BC-only migration is `V1.0.11` because Ontario
+`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.13`. The next
+Ontario or shared migration is `V1.0.14`; the next BC-only migration is `V1.0.11` because Ontario
 and BC locations are mutually exclusive (the version line is global only across `common` + the
 selected province — see below).
 
@@ -54,8 +55,9 @@ Demo/patient data is **not** in this baseline — it belongs in a dev-only `demo
 ## Conventions
 
 - **New schema changes** are Flyway migrations named `V1.0.N__short_description.sql` (sequential, next free number) in
-  `common/` (shared) or `on/`/`bc/` (province-specific). Never edit the `V1*` baseline files or add to
-  `../updates/` (frozen — see `../updates/README.md`).
+  `common/` (shared) or `on/`/`bc/` (province-specific). Never edit any versioned migration after it
+  ships in a release tag: Flyway records its checksum, so corrections must use a new forward migration.
+  Never add to `../updates/` (frozen — see `../updates/README.md`).
 - **The `V1` baseline is COMPLETE and frozen** (schema + required reference data): it is the genesis
   of the CARLOS schema. It was captured once (demo-free, dead-pruned per `pruned-tables.txt`) at the
   Flyway cutover; the legacy `createdatabase_*.sh` / `oscarinit*` / `oscardata*` build it replaced has
