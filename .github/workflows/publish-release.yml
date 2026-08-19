@@ -23,6 +23,7 @@ jobs:
     name: Validate release tag
     runs-on: ubuntu-latest
     permissions:
+      # Required to inspect prior workflow runs and validation-job results for dispatch retries.
       actions: read
       contents: read
     outputs:
