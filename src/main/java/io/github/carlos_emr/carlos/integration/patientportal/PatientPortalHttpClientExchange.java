@@ -27,6 +27,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -82,10 +83,21 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
     private final CloseableHttpClient client;
 
     PatientPortalHttpClientExchange(PatientPortalSettings settings) {
+        this(settings.connectTimeout(), settings.readTimeout());
+    }
+
+    /**
+     * Takes only the two values this class uses.
+     *
+     * <p>Depending on the whole settings record would drag the https rule into a test that needs a
+     * plain loopback socket, and would tempt a bypass in production code to satisfy a test. The
+     * transport has no business knowing the base URL or the credential — the request it is handed
+     * already carries both.
+     */
+    PatientPortalHttpClientExchange(Duration connectTimeout, Duration readTimeout) {
         ConnectionConfig connectionConfig =
                 ConnectionConfig.custom()
-                        .setConnectTimeout(
-                                Timeout.ofMilliseconds(settings.connectTimeout().toMillis()))
+                        .setConnectTimeout(Timeout.ofMilliseconds(connectTimeout.toMillis()))
                         .build();
         PoolingHttpClientConnectionManager connectionManager =
                 PoolingHttpClientConnectionManagerBuilder.create()
@@ -94,9 +106,8 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
         RequestConfig requestConfig =
                 RequestConfig.custom()
                         .setConnectionRequestTimeout(
-                                Timeout.ofMilliseconds(settings.connectTimeout().toMillis()))
-                        .setResponseTimeout(
-                                Timeout.ofMilliseconds(settings.readTimeout().toMillis()))
+                                Timeout.ofMilliseconds(connectTimeout.toMillis()))
+                        .setResponseTimeout(Timeout.ofMilliseconds(readTimeout.toMillis()))
                         .setRedirectsEnabled(false)
                         .build();
         this.client =

@@ -558,7 +558,10 @@ public class PatientPortalService implements Closeable {
                         .setUri(uri)
                         .setHeader(
                                 AUTHORIZATION_HEADER,
-                                String.format(Locale.ROOT, BEARER_PREFIX, settings.serviceToken()))
+                                String.format(
+                                        Locale.ROOT,
+                                        BEARER_PREFIX,
+                                        settings.serviceToken().expose()))
                         .setHeader(PROVIDER_ID_HEADER, staff.providerId())
                         .setHeader(PROVIDER_NAME_HEADER, staff.providerName())
                         // From configuration, never from the caller: a caller must not be able to
