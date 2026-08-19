@@ -20,7 +20,7 @@
 # labels through the gh CLI.
 #
 # License:
-# This GitHub Workflow file is part of the Carlos EMR project and is subject
+# This GitHub Workflow file is part of the CARLOS EMR project and is subject
 # to the licensing terms outlined in the repository's LICENSE file.
 #
 # Last Updated:
@@ -113,7 +113,7 @@ jobs:
           # run (per-PR concurrency groups don't serialize across PRs; an
           # already-exists failure is success for our purposes) — the
           # add-label below still fails loudly if the label truly is absent.
-          if ! gh label list --repo "$REPO" --limit 200 --json name --jq '.[].name' \
+          if ! gh api --paginate "repos/$REPO/labels?per_page=100" --jq '.[].name' \
               | grep -qxF "$desired"; then
             gh label create "$desired" --repo "$REPO" --color BFD4F2 \
               --description "Release-notes category (applied from the PR title prefix)" \

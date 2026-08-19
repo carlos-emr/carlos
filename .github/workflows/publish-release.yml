@@ -292,9 +292,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          previous_tag=$(gh release list --repo "$REPO" --limit 100 \
-            --json tagName,isDraft,publishedAt \
-            --jq ".[] | select(.isDraft == false) | .tagName" |
+          # Paginated: a fixed --limit would silently miss the same-line
+          # predecessor once the repo accumulates more releases than the cap.
+          previous_tag=$(gh api --paginate "repos/$REPO/releases?per_page=100" \
+            --jq '.[] | select(.draft | not) | .tag_name' |
             grep -E "^$RELEASE_LINE\." |
             grep -Fxv "$RELEASE_TAG" |
             head -n 1 || true)
@@ -353,9 +354,12 @@ jobs:
             # "latest release" pointer from a newer train: mark latest only
             # when this tag tops every published stable release under the
             # CalVer numeric sort (first-ever stable release wins trivially).
+            # Paginated: a fixed --limit would stop seeing the newest stable
+            # release once the repo accumulates more releases than the cap,
+            # letting an old-train patch wrongly grab the latest pointer.
             latest_flag=--latest
-            existing=$(gh release list --repo "$REPO" --exclude-drafts --exclude-pre-releases \
-              --limit 200 --json tagName --jq '.[].tagName')
+            existing=$(gh api --paginate "repos/$REPO/releases?per_page=100" \
+              --jq '.[] | select((.draft or .prerelease) | not) | .tag_name')
             top=$({ printf '%s\n' "$RELEASE_TAG"; printf '%s\n' "$existing"; } \
               | sed '/^$/d' | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
             if [ "$top" != "$RELEASE_TAG" ]; then
