@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchive` (
     -- decoupling. On a Flyway-built database this constraint could be added today:
     -- V1__baseline_schema.sql creates demographic and provider as InnoDB already (there
     -- is no MyISAM table left in that baseline). It is on an install upgraded in place
-    -- from an older OSCAR/OpenO schema that the engine is unknown, and V1.0.9 converts
+    -- from an older OSCAR/OpenO schema that the engine is unknown, and V1.0.15 converts
     -- only the three tables this feature strictly needs. Omitting the key keeps one
     -- schema across both paths rather than diverging by install history.
     --
