@@ -78,12 +78,27 @@ public class PatientPortalService {
     private static final String INVITE_RESEND_PATH = "/internal/carlos/invites/%d/resend";
     private static final String INVITE_REVOKE_PATH = "/internal/carlos/invites/%d/revoke";
     private static final String INVITE_LIST_PATH = "/internal/carlos/patients/%d/invites?limit=%d";
+    private static final String UNLOCK_PATH = "/internal/carlos/patients/%d/unlock";
+    private static final String ACCOUNT_PATH = "/internal/carlos/patients/%d/portal-account";
+    private static final String ACCESS_PATH = "/internal/carlos/patients/%d/portal-account/access";
+    private static final String SECRETS_PATH = "/internal/carlos/patients/%d/unlock-secrets";
+    private static final String SECRET_PUBLISH_PATH = "/internal/carlos/unlock-secrets/%d/publish";
+    private static final String SECRET_REVOKE_PATH = "/internal/carlos/unlock-secrets/%d/revoke";
+    private static final String REVIEWS_PATH = "/internal/carlos/contact-reviews?limit=%d&offset=%d";
+    private static final String REVIEW_DECISION_PATH =
+            "/internal/carlos/contact-reviews/%d/decision";
 
     private static final String GET = "GET";
     private static final String POST = "POST";
 
     /** The portal caps an invite listing at 100 records per request. */
     static final int MAX_INVITE_PAGE_SIZE = 100;
+
+    /** The portal caps a contact-review page at 100 records per request. */
+    static final int MAX_REVIEW_PAGE_SIZE = 100;
+
+    /** The only secret type the portal currently mints. */
+    static final String SECRET_TYPE_EMAIL = "email";
 
     private final PatientPortalSettings settings;
     private final PatientPortalHttpExchange exchange;
@@ -177,6 +192,163 @@ public class PatientPortalService {
         String path = String.format(Locale.ROOT, INVITE_REVOKE_PATH, inviteId);
         return PatientPortalInviteDto.fromJson(send(POST, path, null, staff));
     }
+
+
+    /**
+     * Clears a patient lockout.
+     *
+     * <p>This also revokes active sessions and MFA challenges and sets {@code forcePasswordReset}.
+     * The patient must complete the reset flow before signing in, so staff-facing copy must not say
+     * the account is simply usable again.
+     *
+     * @param staff the authenticated provider, holding {@code portal.account.unlock}
+     */
+    public PatientPortalAccountDto unlockAccount(
+            int demographicNo, PatientPortalStaffContext staff) {
+        String path = String.format(Locale.ROOT, UNLOCK_PATH, demographicNo);
+        return PatientPortalAccountDto.fromPartialJson(send(POST, path, null, staff));
+    }
+
+    /**
+     * Reads a patient's portal account status.
+     *
+     * @param staff the authenticated provider, holding {@code portal.account.manage}
+     */
+    public PatientPortalAccountDto findAccount(int demographicNo, PatientPortalStaffContext staff) {
+        String path = String.format(Locale.ROOT, ACCOUNT_PATH, demographicNo);
+        return PatientPortalAccountDto.fromJson(send(GET, path, null, staff));
+    }
+
+    /**
+     * Enables or disables a patient's portal account.
+     *
+     * @param enabled {@code false} to disable the account
+     * @param reason short operator-supplied reason, recorded in the portal audit trail
+     * @param staff the authenticated provider, holding {@code portal.account.manage}
+     */
+    public PatientPortalAccountDto setAccountAccess(
+            int demographicNo, boolean enabled, String reason, PatientPortalStaffContext staff) {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("enabled", enabled);
+        body.put("reason", reason);
+        String path = String.format(Locale.ROOT, ACCESS_PATH, demographicNo);
+        return PatientPortalAccountDto.fromPartialJson(send(POST, path, body.toString(), staff));
+    }
+
+    /**
+     * Generates a passphrase for an encrypted message, in {@code pending} state.
+     *
+     * <p><b>Step one of three.</b> The patient cannot see this until {@link #publishUnlockSecret}
+     * runs, and it must only run once the send is confirmed; a failed send calls {@link
+     * #revokeUnlockSecret} instead.
+     *
+     * <p>Idempotent on {@code sourceReference}: a repeat call returns the existing record with
+     * {@code created() == false} and the same passphrase, so a retry cannot mint a second one for
+     * the same message. Pass a stable, unique reference per outbound message.
+     *
+     * @param sourceReference identifies the CARLOS message; 1 to 128 characters
+     * @param label optional operator-facing label, at most 128 characters
+     * @param staff the authenticated provider, holding {@code portal.secret.manage}
+     * @throws PatientPortalException with {@link PatientPortalException.Kind#CONFLICT} if the
+     *     source reference belongs to a revoked record
+     */
+    public PatientPortalUnlockSecretDto createUnlockSecret(
+            int demographicNo, String sourceReference, String label,
+            PatientPortalStaffContext staff) {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("source_reference", sourceReference);
+        body.put("secret_type", SECRET_TYPE_EMAIL);
+        if (label != null) {
+            body.put("label", label);
+        }
+        String path = String.format(Locale.ROOT, SECRETS_PATH, demographicNo);
+        return PatientPortalUnlockSecretDto.fromJson(send(POST, path, body.toString(), staff));
+    }
+
+    /**
+     * Makes a passphrase visible to the patient.
+     *
+     * <p><b>Call this only after the message send is confirmed.</b> Publishing first shows the
+     * patient a passphrase for correspondence that may never arrive, and nothing downstream will
+     * flag it.
+     *
+     * @param staff the authenticated provider, holding {@code portal.secret.manage}
+     */
+    public PatientPortalUnlockSecretDto publishUnlockSecret(
+            long unlockSecretId, PatientPortalStaffContext staff) {
+        String path = String.format(Locale.ROOT, SECRET_PUBLISH_PATH, unlockSecretId);
+        return PatientPortalUnlockSecretDto.fromJson(send(POST, path, null, staff));
+    }
+
+    /**
+     * Retires a passphrase whose message was never sent.
+     *
+     * @param reason short operator-supplied reason, at most 64 characters, or {@code null}
+     * @param staff the authenticated provider, holding {@code portal.secret.manage}
+     */
+    public PatientPortalUnlockSecretDto revokeUnlockSecret(
+            long unlockSecretId, String reason, PatientPortalStaffContext staff) {
+        ObjectNode body = objectMapper.createObjectNode();
+        if (reason != null) {
+            body.put("reason", reason);
+        }
+        String path = String.format(Locale.ROOT, SECRET_REVOKE_PATH, unlockSecretId);
+        return PatientPortalUnlockSecretDto.fromJson(send(POST, path, body.toString(), staff));
+    }
+
+    /**
+     * Reads a page of the pending contact-review queue.
+     *
+     * <p>This is a clinic-wide work queue rather than a per-patient view.
+     *
+     * @param limit page size; the portal caps this at {@value #MAX_REVIEW_PAGE_SIZE}
+     * @param offset page offset
+     * @param staff the authenticated provider, holding {@code portal.contact.review}
+     */
+    public PatientPortalContactReviewPageDto listContactReviews(
+            int limit, int offset, PatientPortalStaffContext staff) {
+        int requested = Math.min(Math.max(limit, 1), MAX_REVIEW_PAGE_SIZE);
+        int from = Math.max(offset, 0);
+        String path = String.format(Locale.ROOT, REVIEWS_PATH, requested, from);
+        return PatientPortalContactReviewPageDto.fromJson(send(GET, path, null, staff));
+    }
+
+    /**
+     * Records the clinic's decision on a contact change.
+     *
+     * <p><b>Update the eChart before calling this.</b> The portal treats the decision as the point
+     * at which the clinic has taken the change into its record of truth; confirming first and
+     * failing to update afterwards leaves the two permanently disagreeing with nothing to detect it.
+     *
+     * <p>Repeat confirmations of the same revision are idempotent. A {@link
+     * PatientPortalException.Kind#CONFLICT} means the revision is stale — the request changed
+     * underneath the reviewer — so re-read the queue and re-present it rather than retrying.
+     *
+     * @param revision the exact {@code revision} from the review item
+     * @param staff the authenticated provider, holding {@code portal.contact.review}
+     */
+    public PatientPortalContactReviewDecision decideContactReview(
+            long reviewRequestId, boolean approve, String revision,
+            PatientPortalStaffContext staff) {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("approve", approve);
+        body.put("revision", revision);
+        String path = String.format(Locale.ROOT, REVIEW_DECISION_PATH, reviewRequestId);
+        JsonNode payload = send(POST, path, body.toString(), staff);
+        return new PatientPortalContactReviewDecision(
+                payload.path("id").asLong(),
+                PortalJson.text(payload, "status"),
+                PortalJson.text(payload, "decision"));
+    }
+
+    /**
+     * Outcome of a contact-review decision.
+     *
+     * @param id review request id
+     * @param status portal review status after the decision
+     * @param decision the recorded decision, or {@code null} if the portal did not report one
+     */
+    public record PatientPortalContactReviewDecision(long id, String status, String decision) {}
 
     /**
      * Sends an authenticated request and returns the parsed success body.
