@@ -153,7 +153,7 @@ transmission of electronic messages. It will be used
 for: identification; authentication; and authorization of
 parties using EBS as well as ensuring message
 integrity by means of a digital signature applied to each
-message. For more information refer to http://www.oasisopen.org/committees/tc_home.php?wg_abbrev=wss.
+message. For more information refer to http://www.oasis-open.org/committees/tc_home.php?wg_abbrev=wss.
 
 <!-- page 6 -->
 
@@ -668,7 +668,7 @@ Final December 2012 Version 3.0 Page 22 of 37
 <sp:Header Name="UserID" Namespace=""/>
 </sp:RequiredParts>
 <sp:RequiredParts>
-<sp:Header Name="Timestamp" Namespace="http://docs.oasisopen.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
 </sp:RequiredParts>
 </wsp:All>
 </wsp:ExactlyOne>
@@ -677,13 +677,13 @@ Final December 2012 Version 3.0 Page 22 of 37
 <sp:SignedParts>
 <sp:Header Name="EBS" Namespace="http://ebs.health.ontario.ca/"/>
 <sp:Header Name="MSA" Namespace="http://msa.ebs.health.ontario.ca/"/>
-<sp:Header Name="Timestamp" Namespace="http://docs.oasisopen.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
 
 <!-- page 23 -->
 
 Electronic Business Services Sensitivity: Low
 Final December 2012 Version 3.0 Page 23 of 37
-<sp:Header Name="UsernameToken" Namespace="http://docs.oasisopen.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"/>
 <sp:Body/>
 </sp:SignedParts>
 </wsp:All>
@@ -705,8 +705,8 @@ Final December 2012 Version 3.0 Page 23 of 37
 <sp:SignedParts>
 <sp:Header Name="EBS" Namespace="http://ebs.health.ontario.ca/"/>
 <sp:Header Name="IDP" Namespace="http://idp.ebs.health.ontario.ca/"/>
-<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis200401-wss-wssecurity-utility-1.0.xsd"/>
-<sp:Header Name="UsernameToken" Namespace="http://docs.oasisopen.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"/>
 <sp:Body/>
 </sp:SignedParts>
 </wsp:All>
@@ -734,7 +734,7 @@ Final December 2012 Version 3.0 Page 24 of 37
 <sp:Header Name="ServiceUserMUID" Namespace=""/>
 </sp:RequiredParts>
 <sp:RequiredParts>
-<sp:Header Name="Timestamp" Namespace="http://docs.oasisopen.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
 </sp:RequiredParts>
 </wsp:All>
 </wsp:ExactlyOne>
@@ -857,7 +857,7 @@ APPENDIX G: SOAP Header MSA Security Model Example
  <wsse:Username>73367252</wsse:Username>
  </wsse:UsernameToken>
  <wsse:BinarySecurityToken
-EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security1.0#Base64Binary"
+EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary"
 ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3"
 wsu:Id="X509-FBB16D2886CB8FE58213384666945491">
 MIICMzCCAZygAwIBAgIET1e+dDANBgkqhkiG9w0BAQUFADBeMQswCQYDVQQGEwJDQTEQMA4GA1UECBMHT250YXJpbzENMAsGA1U
@@ -955,7 +955,7 @@ X6/PL0ecIyQVX1tFlacQ3Se67uCIp9ZAu677POQNpXCgNO6qMTZZMBZYeC8hS4jcPBCW0dYFvMsDAlbe
  <ds:KeyInfo Id="KI-FBB16D2886CB8FE58213384666945692">
  <wsse:SecurityTokenReference wsu:Id="STR-FBB16D2886CB8FE58213384666945693">
  <wsse:Reference URI="#X509-FBB16D2886CB8FE58213384666945491"
-ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile1.0#X509v3" />
+ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3" />
  </wsse:SecurityTokenReference>
  </ds:KeyInfo>
  </ds:Signature>
@@ -984,7 +984,7 @@ APPENDIX H: SOAP Header IDP Security Model Example
  <wsse:Username>SUTESTDEVONE@YAHOO.CA</wsse:Username>
  <wsse:Password Type="wsse:PasswordText">Cliffsammy12!</wsse:Password>
  </wsse:UsernameToken>
-<wsse:BinarySecurityToken EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soapmessage-security-1.0#Base64Binary" ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-
+<wsse:BinarySecurityToken EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary" ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-
 wss-x509-token-profile-1.0#X509v3"
 wsu:Id="X509-
 02F859690D5C74E20913402151228211">MIICMzCCAZygAwIBAgIET1e+dDANBgkqhkiG9w0BAQUFADBeMQswCQYDVQQGEwJDQTE
@@ -1081,7 +1081,7 @@ kRZDrdgotJT++WzhMLdt1J0Kah0aZVCWabQrxeGY2N3QDuMWr5PSlm1RWbkA3W5B4YLaD+S/j3QKc=
  <ds:KeyInfo Id="KI-02F859690D5C74E20913402151228312">
  <wsse:SecurityTokenReference wsu:Id="STR-02F859690D5C74E20913402151228413">
 <wsse:Reference URI="#X509-02F859690D5C74E20913402151228211"
-ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile1.0#X509v3" />
+ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3" />
  </wsse:SecurityTokenReference>
  </ds:KeyInfo>
  </ds:Signature>
