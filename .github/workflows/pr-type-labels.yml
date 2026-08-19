@@ -77,6 +77,7 @@ jobs:
               refactor) desired="type: refactor" ;;
               docs)     desired="type: documentation" ;;
               test|tests) desired="type: tests" ;;
+              deps)     desired="type: dependencies" ;;
             esac
           fi
           if [ -z "$desired" ] && [[ "${ACTOR,,}" == dependabot* ]]; then
