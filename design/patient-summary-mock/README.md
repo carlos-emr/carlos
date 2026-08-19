@@ -25,6 +25,13 @@ The mock demonstrates:
 - Responsive evidence-panel behavior for narrow screens
 - A draggable, keyboard-accessible desktop divider for enlarging either the summary or source evidence pane
 
+## Current screenshots
+
+- `abena-overview.png` — problem-oriented overview and orientation rail
+- `abena-allergies-safety.png` — allergies and safety categories, including explicit record-limited empty states
+- `abena-medication-evidence.png` — medication documentation with the complete-note evidence pane enlarged
+- `abena-coverage.png` — retrieval manifest and note-coverage accounting
+
 ## Important data note
 
 The mock uses Abena Bonsu's admission `7b266c9e-fb25-4209-b856-95bda6915f12`. The dataset also contains a duplicate synthetic admission (`8ab5fb09-1638-4054-a031-03291ddf8d07`) with the same 45 notes; that duplicate is deliberately excluded from retrieval and counts.
