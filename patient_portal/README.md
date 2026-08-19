@@ -466,6 +466,11 @@ under an approved retention and key-management procedure before retrying a downg
 Migration `0002_staff_identity_audit` preflights FHIR audit events before changing schema, and
 `0004_invite_issuance_history` similarly refuses to discard superseded invite history.
 
+Keep every revision id to 32 characters or fewer. Alembic creates `alembic_version.version_num` as
+`VARCHAR(32)`; SQLite ignores the declared width but PostgreSQL enforces it, so a longer id passes
+the test suite and the SQLite round trip while leaving every PostgreSQL database unable to reach
+head. `tests/test_review_blocker_regressions.py` fails the build on an over-long id.
+
 ## Pilot Operations
 
 Run audit retention pruning from an installed wheel:

@@ -11,6 +11,7 @@ from datetime import timedelta
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.pool import StaticPool
@@ -51,12 +52,15 @@ from tests.support import (
     STRONG_PASSWORD,
     STRONG_RESET_PASSWORD,
     activate_seeded_patient_account,
+    alembic_config_for_tests,
     migrated_development_app,
     upgrade_to_head,
 )
 
 SECRET = "regression-secret-value-32-characters"
 SEEDED_USERNAME = "patient.user"
+# Alembic creates alembic_version.version_num as VARCHAR(32) and never widens it.
+ALEMBIC_VERSION_NUM_LENGTH = 32
 
 
 # --------------------------------------------------------------------------------------
@@ -81,6 +85,29 @@ def test_migrated_schema_matches_the_models_exactly() -> None:
         engine.dispose()
 
     assert differences == [], f"migrations and models.py disagree: {differences}"
+
+
+# --------------------------------------------------------------------------------------
+# Revision identifiers - a revision id that overflows alembic_version strands every PostgreSQL
+# --------------------------------------------------------------------------------------
+
+
+def test_every_revision_id_fits_the_alembic_version_column() -> None:
+    """Fail the build when a revision id cannot be written to `alembic_version`.
+
+    Alembic creates `alembic_version.version_num` as VARCHAR(32). SQLite ignores a declared width,
+    so an over-long id migrates cleanly there and raises StringDataRightTruncation only on
+    PostgreSQL -- leaving pytest, the SQLite round trip, and the whole 3.11 matrix leg green while
+    no PostgreSQL database could reach head at all. Measuring the ids puts that on every leg.
+    """
+    script_directory = ScriptDirectory.from_config(alembic_config_for_tests())
+    over_limit = {
+        script.revision: len(script.revision)
+        for script in script_directory.walk_revisions()
+        if len(script.revision) > ALEMBIC_VERSION_NUM_LENGTH
+    }
+
+    assert over_limit == {}, f"revision ids exceed alembic_version.version_num: {over_limit}"
 
 
 # --------------------------------------------------------------------------------------

@@ -16,7 +16,7 @@ while reset tokens are bulk-deleted by cleanup-transient-auth. Unindexed, Postgr
 cascade with a sequential scan per deleted parent row, so the DELETE exceeds statement_timeout and
 transient-auth cleanup stops completing at all.
 
-Revision ID: 0009_state_invariants_and_outbox_indexes
+Revision ID: 0009_invariants_outbox_indexes
 Revises: 0008_phone_contact_confirmation
 Create Date: 2026-08-18 12:00:00+00:00
 """
@@ -27,7 +27,7 @@ from alembic import context, op
 from sqlalchemy import text
 
 _ALEMBIC_REVISION_IDENTIFIERS: dict[str, str | Sequence[str] | None] = {
-    "revision": "0009_state_invariants_and_outbox_indexes",
+    "revision": "0009_invariants_outbox_indexes",
     "down_revision": "0008_phone_contact_confirmation",
     "branch_labels": None,
     "depends_on": None,
