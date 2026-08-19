@@ -547,6 +547,53 @@
       .problem-row { grid-template-columns: 1fr; }
       .problem-status { justify-self: start; }
     }
+
+    /* Readability/layout trial: larger small text and a closeable 75/25 evidence split. */
+    body { font-size: 16px; }
+    .workspace { grid-template-columns: minmax(0, 3fr) minmax(300px, 1fr); }
+    .workspace.evidence-closed { grid-template-columns: minmax(0, 1fr); }
+    .workspace.evidence-closed .evidence-panel { display: none; }
+    .panel-actions { display: flex; align-items: center; gap: 8px; }
+    .show-evidence { display: none; }
+    .workspace.evidence-closed .show-evidence { display: inline-flex; }
+
+    .synthetic-banner p, .synthetic-banner a,
+    .patient-meta,
+    .ledger-intro, .coverage-intro,
+    .summary-scope, .footnote,
+    .evidence-description,
+    .source-summary, .source-summary strong,
+    .source-meta,
+    .source-link,
+    .source-note,
+    .full-source-toolbar p,
+    .full-source-actions span,
+    .record-limit,
+    .medication-warning { font-size: 14px; }
+
+    .summary-section p, .fact-list, .timeline,
+    .claim, .quick-item .claim,
+    .excerpt, .full-source-note { font-size: 16px; }
+
+    .pill, .header-status small,
+    .source-count, .tab-badge,
+    .state, .relation,
+    .problem-status { font-size: 12px; }
+
+    .btn { font-size: 14px; }
+    .ledger-table { font-size: 15px; }
+    .ledger-table button { font-size: 15px; line-height: 1.5; }
+
+    @media (max-width: 1050px) {
+      .workspace, .workspace.evidence-closed { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 680px) {
+      body { font-size: 15px; }
+      .summary-section p, .fact-list, .timeline,
+      .claim, .quick-item .claim,
+      .excerpt, .full-source-note { font-size: 16px; }
+    }
   </style>
 </head>
 <body>
@@ -592,7 +639,7 @@
     </div>
   </section>
 
-  <main class="workspace">
+  <main class="workspace" id="workspace">
     <section class="panel" aria-label="AI-generated patient overview">
       <div class="panel-top">
         <div class="tabs" role="tablist" aria-label="Patient overview views">
@@ -601,7 +648,10 @@
           <button class="tab" type="button" role="tab" aria-selected="false" data-tab="coverage">Coverage</button>
           <button class="tab" type="button" role="tab" aria-selected="false" data-tab="summary-view" data-focus-conflicts>Conflicts <span class="tab-badge">5</span></button>
         </div>
-        <button class="btn finalize" type="button" disabled title="Resolve high-risk issues first">Complete review</button>
+        <div class="panel-actions">
+          <button class="btn show-evidence" type="button" id="show-evidence" aria-controls="source-evidence" aria-expanded="true">Show evidence</button>
+          <button class="btn finalize" type="button" disabled title="Resolve high-risk issues first">Complete review</button>
+        </div>
       </div>
 
       <div class="scroll">
@@ -758,12 +808,13 @@
       </div>
     </section>
 
-    <aside class="panel evidence-panel" aria-label="Source evidence">
+    <aside class="panel evidence-panel" id="source-evidence" aria-label="Source evidence">
       <div class="panel-top">
         <div class="panel-title"><h2>Source evidence <span class="mobile-evidence-label">drawer</span></h2><p id="evidence-subtitle">Click a highlighted line to see sources</p></div>
         <div class="evidence-controls">
           <button class="icon-button" type="button" id="previous-claim" aria-label="Previous claim" title="Previous claim" disabled>↑</button>
           <button class="icon-button" type="button" id="next-claim" aria-label="Next claim" title="Next claim" disabled>↓</button>
+          <button class="icon-button" type="button" id="hide-evidence" aria-label="Hide source evidence" title="Hide source evidence">×</button>
         </div>
       </div>
 
@@ -1036,6 +1087,17 @@
       return claim.sourceRelations?.[sourceId] || sources[sourceId].relation;
     }
 
+    function setEvidenceVisible(visible) {
+      const workspace = document.getElementById("workspace");
+      const evidencePanel = document.getElementById("source-evidence");
+      const showButton = document.getElementById("show-evidence");
+      workspace.classList.toggle("evidence-closed", !visible);
+      evidencePanel.setAttribute("aria-hidden", String(!visible));
+      evidencePanel.toggleAttribute("inert", !visible);
+      showButton.setAttribute("aria-expanded", String(visible));
+      if (visible) requestAnimationFrame(() => evidencePanel.querySelector(".panel-top").focus?.());
+    }
+
     async function showSourceDocument(claimId, sourceIndex) {
       const claim = claims[claimId];
       if (!claim) return;
@@ -1090,6 +1152,7 @@
 
     function selectClaim(id, scrollPanel = false) {
       if (!claims[id]) return;
+      setEvidenceVisible(true);
       activeClaim = id;
       document.getElementById("evidence-footer").hidden = false;
       document.getElementById("previous-claim").disabled = false;
@@ -1179,6 +1242,16 @@
       if (!activeClaim) return;
       const current = claimOrder.indexOf(activeClaim);
       selectClaim(claimOrder[(current + 1) % claimOrder.length]);
+    });
+
+    document.getElementById("hide-evidence").addEventListener("click", () => {
+      setEvidenceVisible(false);
+      document.getElementById("show-evidence").focus();
+    });
+
+    document.getElementById("show-evidence").addEventListener("click", () => {
+      setEvidenceVisible(true);
+      document.getElementById("hide-evidence").focus();
     });
 
     updateProgress();
