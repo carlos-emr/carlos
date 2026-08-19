@@ -27,6 +27,8 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
+import io.github.carlos_emr.carlos.email.helpers.APISendGridEmailSender;
+import io.github.carlos_emr.carlos.email.helpers.LocalSMTPEmailSender;
 import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
@@ -38,8 +40,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedConstruction;
 import org.springframework.mail.javamail.JavaMailSender;
 
+import java.util.ArrayList;
 import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -49,6 +53,8 @@ import java.util.HexFormat;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mockConstruction;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -188,13 +194,13 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(false);
         EmailSender emailSender = new EmailSender(loggedInInfo, smtpEmailConfig(), emailData(List.of()));
         SMTPEmailSender smtpSendHelper = mock(SMTPEmailSender.class);
-        injectDependency(emailSender, "preparedSmtpSendHelper", smtpSendHelper);
+        injectDependency(emailSender, "preparedTransport", smtpSendHelper);
 
         assertThatThrownBy(emailSender::sendPrepared)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("missing required sec object (_email)");
-        verify(smtpSendHelper, never()).sendPreparedMessage();
-        verify(smtpSendHelper).discardPreparedMessage();
+        verify(smtpSendHelper, never()).sendPrepared();
+        verify(smtpSendHelper).discardPrepared();
     }
 
     @Test
@@ -204,7 +210,7 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(emailSender::sendPrepared)
                 .isInstanceOf(EmailSendingException.class)
-                .hasMessageContaining("SMTP message must be prepared before sending");
+                .hasMessageContaining("Outbound message must be prepared before sending");
     }
 
     private EmailData emailData(List<EmailAttachment> attachments) {
@@ -214,6 +220,58 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
         emailData.setBody("Body text");
         emailData.setAttachments(attachments);
         return emailData;
+    }
+
+    @Test
+    @DisplayName("should archive or refuse for every transport configuration, with no unarchived send path")
+    void shouldArchiveOrRefuse_forEveryTransportConfiguration() {
+        // #3222's core requirement. The risk being pinned is not that a send fails -- it is that a
+        // send SUCCEEDS while leaving no archive, which is invisible at runtime and only shows up
+        // later as a missing legal record. The property that rules it out is agreement: for every
+        // configuration the enums permit, sending and archiving must reach the same verdict.
+        //
+        // Sweeping the enum product rather than listing today's providers is deliberate. Adding an
+        // EmailProvider constant with no transport is exactly how a silent gap would be
+        // introduced, and this loop fails the moment such a constant appears.
+        List<EmailConfig> configurations = new ArrayList<>();
+        for (EmailConfig.EmailType emailType : EmailConfig.EmailType.values()) {
+            for (EmailConfig.EmailProvider emailProvider : EmailConfig.EmailProvider.values()) {
+                EmailConfig emailConfig = new EmailConfig(emailType, emailProvider, "provider@example.test");
+                emailConfig.setConfigDetailsJson("{\"host\":\"smtp.example.test\",\"port\":\"587\",\"username\":\"u\",\"password\":\"p\"}");
+                configurations.add(emailConfig);
+            }
+        }
+
+        // LocalSMTPEmailSender is mocked separately: it is a SUBCLASS of SMTPEmailSender, and
+        // mockConstruction does not intercept subclasses. Without this the SMTP/LOCAL pair
+        // silently constructs a real local sender and this test measures its failure instead of
+        // the routing being asserted.
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(SMTPEmailSender.class);
+             MockedConstruction<LocalSMTPEmailSender> localSenders = mockConstruction(LocalSMTPEmailSender.class);
+             MockedConstruction<APISendGridEmailSender> sendGridSenders = mockConstruction(APISendGridEmailSender.class)) {
+
+            for (EmailConfig emailConfig : configurations) {
+                String configuration = emailConfig.getEmailType() + "/" + emailConfig.getEmailProvider();
+
+                Throwable sendFailure = catchThrowable(
+                        () -> new EmailSender(loggedInInfo, emailConfig, emailData(List.of())).send());
+                Throwable archiveFailure = catchThrowable(
+                        () -> new EmailSender(loggedInInfo, emailConfig, emailData(List.of()))
+                                .prepareOutboundArchive(new EmailLog()));
+
+                assertThat(archiveFailure == null)
+                        .as("%s: archiving and sending must agree; a configuration that can send but "
+                                + "cannot archive is a silent retention gap", configuration)
+                        .isEqualTo(sendFailure == null);
+
+                if (sendFailure != null) {
+                    assertThat(sendFailure)
+                            .as("%s: an unsupported configuration must be refused, not sent unarchived", configuration)
+                            .isInstanceOf(EmailSendingException.class)
+                            .hasMessage("Invalid email configuration");
+                }
+            }
+        }
     }
 
     private EmailConfig smtpEmailConfig() {
