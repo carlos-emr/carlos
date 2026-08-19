@@ -38,18 +38,27 @@
       every clinic that does not use the portal. Most will not. Lazy initialisation keeps the
       failure where it belongs: at the moment someone tries to use a portal that is not there.
 
+      EVERY BEAN IS ALSO autowire-candidate="false". lazy-init alone is NOT enough, which a
+      deployed CARLOS proved: spring_ws.xml declares beans that autowire by type, and by-type
+      resolution instantiates candidate beans to inspect them. That defeated lazy-init, constructed
+      PatientPortalSettings during context refresh on a server with no portal configured, and the
+      whole webapp failed to start. Excluding these from autowiring restores the guarantee. Lookup
+      by type through SpringUtils still works: autowire-candidate governs autowiring, not getBean.
+
       PatientPortalService holds a pooled HTTP client, hence destroy-method="close".
     -->
 
     <bean id="patientPortalSettings"
           class="io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings"
           factory-method="fromCarlosProperties"
-          lazy-init="true"/>
+          lazy-init="true"
+          autowire-candidate="false"/>
 
     <bean id="patientPortalService"
           class="io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService"
           destroy-method="close"
-          lazy-init="true">
+          lazy-init="true"
+          autowire-candidate="false">
         <constructor-arg ref="patientPortalSettings"/>
     </bean>
 
@@ -60,8 +69,11 @@
     -->
     <bean id="portalStaffContextResolver"
           class="io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver"
-          lazy-init="true">
-        <constructor-arg ref="securityInfoManager"/>
+          lazy-init="true"
+          autowire-candidate="false">
+        <!-- SecurityInfoManager is an interface; the @Service implementation registers under the
+             default name derived from its class, so the reference is to the implementation. -->
+        <constructor-arg ref="securityInfoManagerImpl"/>
     </bean>
 
 </beans>

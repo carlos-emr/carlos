@@ -60,7 +60,12 @@ class PatientPortalSpringWiringUnitTest {
     private GenericApplicationContext contextWithSecurityManager() {
         GenericApplicationContext context = new GenericApplicationContext();
         DefaultListableBeanFactory factory = context.getDefaultListableBeanFactory();
-        factory.registerSingleton("securityInfoManager", mock(SecurityInfoManager.class));
+        // Registered under the name the XML actually references. An earlier version of this test
+        // registered it as "securityInfoManager", which is not a bean in CARLOS — SecurityInfoManager
+        // is an interface and its @Service implementation registers as "securityInfoManagerImpl".
+        // The test invented the name it was asserting against and passed while a deployed CARLOS
+        // failed to start.
+        factory.registerSingleton("securityInfoManagerImpl", mock(SecurityInfoManager.class));
         new XmlBeanDefinitionReader(context).loadBeanDefinitions(CONTEXT);
         return context;
     }
@@ -95,6 +100,36 @@ class PatientPortalSpringWiringUnitTest {
                                         + " on any server without portal configuration",
                                 bean)
                         .isTrue();
+            }
+        }
+    }
+
+    /**
+     * lazy-init alone is not enough, which only a deployed CARLOS revealed.
+     *
+     * <p>{@code spring_ws.xml} declares beans that autowire by type, and by-type resolution
+     * instantiates candidate beans in order to inspect them. That constructed the portal settings
+     * during context refresh on a server with no portal configured, and the whole webapp failed to
+     * start — the exact outage lazy-init was chosen to prevent. Excluding these beans from
+     * autowiring restores the guarantee.
+     */
+    @Test
+    @DisplayName("should exclude the portal beans from autowiring, which defeats lazy-init")
+    void shouldMarkBeansNonAutowireCandidates_soByTypeResolutionCannotInstantiateThem() {
+        try (GenericApplicationContext context = contextWithSecurityManager()) {
+            context.refresh();
+
+            for (String bean :
+                    new String[] {
+                        "patientPortalSettings", "patientPortalService", "portalStaffContextResolver"
+                    }) {
+                assertThat(context.getBeanFactory().getBeanDefinition(bean).isAutowireCandidate())
+                        .withFailMessage(
+                                "%s must not be an autowire candidate: by-type autowiring elsewhere"
+                                        + " in the context instantiates candidates and defeats"
+                                        + " lazy-init, stopping CARLOS from starting",
+                                bean)
+                        .isFalse();
             }
         }
     }
