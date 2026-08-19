@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import java.time.Instant;
-import java.time.OffsetDateTime;
 
 /**
  * One portal invite as the portal reports it.
@@ -64,38 +63,16 @@ public record PatientPortalInviteDto(
     static PatientPortalInviteDto fromJson(JsonNode node) {
         return new PatientPortalInviteDto(
                 node.path("id").asLong(),
-                text(node, "clinic_id"),
+                PortalJson.text(node, "clinic_id"),
                 node.path("demographic_no").asInt(),
-                text(node, "status"),
-                text(node, "created_by_id"),
-                text(node, "created_by"),
+                PortalJson.text(node, "status"),
+                PortalJson.text(node, "created_by_id"),
+                PortalJson.text(node, "created_by"),
                 node.path("issued_count").asInt(),
-                timestamp(node, "last_issued_at"),
-                text(node, "last_issued_by"),
-                timestamp(node, "expires_at"),
-                optionalLong(node, "accepted_account_id"),
-                optionalLong(node, "supersedes_invite_id"));
-    }
-
-    private static String text(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        return value == null || value.isNull() ? null : value.asText();
-    }
-
-    private static Long optionalLong(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        return value == null || value.isNull() ? null : value.asLong();
-    }
-
-    /**
-     * Parses a portal timestamp.
-     *
-     * <p>The portal emits ISO-8601 with an explicit offset — {@code Z} in practice, though pydantic
-     * renders a configured offset as {@code +00:00}. {@link OffsetDateTime} accepts both forms;
-     * {@link Instant#parse} would reject the second.
-     */
-    private static Instant timestamp(JsonNode node, String field) {
-        String value = text(node, field);
-        return value == null ? null : OffsetDateTime.parse(value).toInstant();
+                PortalJson.timestamp(node, "last_issued_at"),
+                PortalJson.text(node, "last_issued_by"),
+                PortalJson.timestamp(node, "expires_at"),
+                PortalJson.optionalLong(node, "accepted_account_id"),
+                PortalJson.optionalLong(node, "supersedes_invite_id"));
     }
 }

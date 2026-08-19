@@ -31,10 +31,12 @@ import java.util.Locale;
  * status code. Two mappings matter and are easy to get wrong:
  *
  * <ul>
- *   <li>{@code 404} is <b>ambiguous by design</b>. The portal fails closed on a bad service token,
- *       missing identity headers, or a clinic mismatch, and returns the same {@code 404} it returns
- *       for a genuinely unknown record — an unauthenticated caller must not learn which. Treat
- *       {@link Kind#NOT_FOUND_OR_UNAUTHENTICATED} as "check the configuration first".
+ *   <li>{@code 404} is <b>ambiguous by design</b>, and three-way. The portal fails closed on a bad
+ *       service token, missing identity headers, or a clinic mismatch, and returns the same {@code
+ *       404} it returns for an unknown record and for a patient who simply has no portal account
+ *       yet. An unauthenticated caller must not learn which. The last of those is the routine case,
+ *       so staff-facing copy should read as "no portal account" rather than as an error, while a
+ *       {@code 404} on every call points at configuration.
  *   <li>{@code 409} is a real business outcome, not a transport error. The patient already has an
  *       account, an invite is already pending, or a contact review moved on. Retrying is wrong;
  *       re-reading state and re-presenting it to the user is right.
