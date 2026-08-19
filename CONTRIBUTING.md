@@ -265,9 +265,9 @@ make install --run-integration-tests  # Integration tests (requires database)
 
 CARLOS uses `develop` as the default integration branch for the next release train.
 Normal feature and bug-fix pull requests target `develop`. High-priority fixes for a
-supported release target its `release/YYYY.MM` maintenance branch. Current-train
-release preparation and narrowly scoped release-infrastructure corrections may target
-`main`. **Do not work directly on a protected
+supported release start from and target the oldest affected `release/YYYY.MM`
+maintenance branch. Current-train release preparation and narrowly scoped
+release-infrastructure corrections may target `main`. **Do not work directly on a protected
 branch** — always create a topic branch.
 
 The canonical [release process](docs/release-process.md) defines CalVer versions, supported
