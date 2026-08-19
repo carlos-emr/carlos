@@ -120,14 +120,22 @@ jobs:
 
           is_retry=false
           if [ "$IS_DISPATCH" = "true" ]; then
-            prior_attempt=$(gh run list --repo "$REPO" --workflow publish-release.yml \
-              --branch "$RELEASE_TAG" --event push --limit 100 \
-              --json headSha,status,conclusion \
-              --jq ".[] | select(.headSha == \"$tag_commit\" and .status == \"completed\" and .conclusion != \"success\") | .headSha" |
-              head -n 1)
-            if [ "$prior_attempt" = "$tag_commit" ]; then
-              is_retry=true
-            fi
+            while IFS= read -r prior_run_id; do
+              [ -n "$prior_run_id" ] || continue
+              validation_result=$(gh api \
+                "repos/$REPO/actions/runs/$prior_run_id/jobs?filter=all&per_page=100" \
+                --jq '.jobs[] | select(.name == "Validate release tag") | .conclusion' |
+                head -n 1)
+              if [ "$validation_result" = "success" ]; then
+                is_retry=true
+                break
+              fi
+            done < <(
+              gh run list --repo "$REPO" --workflow publish-release.yml \
+                --branch "$RELEASE_TAG" --event push --limit 100 \
+                --json databaseId,headSha,status,conclusion \
+                --jq ".[] | select(.headSha == \"$tag_commit\" and .status == \"completed\" and .conclusion != \"success\") | .databaseId"
+            )
           fi
 
           source_branch=""
