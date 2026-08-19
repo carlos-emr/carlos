@@ -21,24 +21,32 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+import java.io.Serial;
+
 /**
- * A raw portal reply, before it is mapped onto a typed outcome.
+ * The portal answered with a body that does not match the contract CARLOS was built against.
  *
- * <p>The body is deliberately left unparsed here: success bodies vary per endpoint, so parsing
- * belongs with the endpoint that knows the shape. {@link PatientPortalService} reads only the
- * {@code detail} string out of an error body, and only when that field is a plain string.
+ * <p>Package-private by intent: {@link PatientPortalService} catches this and re-raises it as a
+ * {@link PatientPortalException} with {@link PatientPortalException.Kind#MALFORMED_RESPONSE}, so
+ * callers branch on one exception type. Letting a raw parse failure escape — which an earlier
+ * revision did for a malformed timestamp — bypasses the {@code Kind} contract the package is built
+ * around and surfaces as a generic CARLOS error page.
  *
- * @param statusCode HTTP status the portal returned
- * @param body response body, possibly empty; never {@code null}
+ * <p>Messages name the offending field only, never its value, because portal payloads carry patient
+ * contact details.
+ *
  * @since 2026-08-19
  */
-record PatientPortalHttpResponse(int statusCode, String body) {
+class PortalContractException extends RuntimeException {
 
-    PatientPortalHttpResponse {
-        body = body == null ? "" : body;
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    PortalContractException(String message) {
+        super(message);
     }
 
-    boolean isSuccess() {
-        return statusCode >= 200 && statusCode < 300;
+    PortalContractException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

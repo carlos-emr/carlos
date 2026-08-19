@@ -70,7 +70,8 @@ public record PatientPortalSettings(
 
     private static final String MISSING_MESSAGE = "patient portal is not configured: %s is required";
     private static final String PLAINTEXT_MESSAGE =
-            "%s must be an https:// URL; refusing to send the portal token over plaintext";
+            "%s must begin with a lowercase https:// ; refusing to send the portal token over"
+                    + " plaintext";
     private static final String MALFORMED_MESSAGE = "%s is not a valid URL";
     private static final String NO_HOST_MESSAGE = "%s must name a host";
     private static final String USER_INFO_MESSAGE = "%s must not embed credentials";
@@ -101,22 +102,47 @@ public record PatientPortalSettings(
      * @param lookup resolves a property key to its configured value, or {@code null} if unset
      */
     public static PatientPortalSettings fromProperties(Function<String, String> lookup) {
-        String baseUrl = validatedBaseUrl(required(lookup, BASE_URL_KEY));
-        String clinicId = required(lookup, CLINIC_ID_KEY);
-        String serviceToken = required(lookup, SERVICE_TOKEN_KEY);
-        Duration connectTimeout = timeout(lookup, CONNECT_TIMEOUT_KEY, DEFAULT_CONNECT_TIMEOUT_MS);
-        Duration readTimeout = timeout(lookup, READ_TIMEOUT_KEY, DEFAULT_READ_TIMEOUT_MS);
         return new PatientPortalSettings(
-                baseUrl, clinicId, serviceToken, connectTimeout, readTimeout);
+                required(lookup, BASE_URL_KEY),
+                required(lookup, CLINIC_ID_KEY),
+                required(lookup, SERVICE_TOKEN_KEY),
+                timeout(lookup, CONNECT_TIMEOUT_KEY, DEFAULT_CONNECT_TIMEOUT_MS),
+                timeout(lookup, READ_TIMEOUT_KEY, DEFAULT_READ_TIMEOUT_MS));
     }
 
-    private static String required(Function<String, String> lookup, String key) {
-        String value = lookup.apply(key);
+    /**
+     * Validates on every construction path, not only through {@link #fromProperties}.
+     *
+     * <p>An earlier revision validated in the factory alone, which left the canonical constructor
+     * public and unchecked — {@code new PatientPortalSettings("http://evil.example", ...)} compiled
+     * and produced a plaintext destination for the service token. A class whose own Javadoc calls
+     * itself a security boundary cannot leave the front door open.
+     */
+    public PatientPortalSettings {
+        baseUrl = validatedBaseUrl(requireValue(baseUrl, BASE_URL_KEY));
+        clinicId = requireValue(clinicId, CLINIC_ID_KEY);
+        serviceToken = requireValue(serviceToken, SERVICE_TOKEN_KEY);
+        requirePositive(connectTimeout, CONNECT_TIMEOUT_KEY);
+        requirePositive(readTimeout, READ_TIMEOUT_KEY);
+    }
+
+    private static String requireValue(String value, String key) {
         if (value == null || value.isBlank()) {
             throw new PatientPortalConfigurationException(
                     String.format(Locale.ROOT, MISSING_MESSAGE, key));
         }
         return value.strip();
+    }
+
+    private static void requirePositive(Duration duration, String key) {
+        if (duration == null || duration.isZero() || duration.isNegative()) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, TIMEOUT_MESSAGE, key));
+        }
+    }
+
+    private static String required(Function<String, String> lookup, String key) {
+        return lookup.apply(key);
     }
 
     /**
@@ -127,9 +153,10 @@ public record PatientPortalSettings(
      * CVE-2024-38827 class of defect that CARLOS tracks in issue #2496; an operator writing {@code
      * HTTPS://} gets a clear error rather than a silently locale-sensitive comparison.
      *
-     * <p>User-info is rejected because credentials in a URL leak into logs and proxy traces, and a
-     * query or fragment is rejected because it would be silently dropped when endpoint paths are
-     * appended — leaving an operator convinced they had configured something that never applied.
+     * <p>User-info is rejected because credentials in a URL leak into logs and proxy traces. A
+     * query or fragment is rejected because endpoint paths are appended by string concatenation, so
+     * {@code https://host?a=1} would yield {@code https://host?a=1/internal/carlos/...} — the entire
+     * endpoint path swallowed into the query string, and every call landing on the portal root.
      */
     private static String validatedBaseUrl(String configured) {
         if (!configured.startsWith(REQUIRED_SCHEME_PREFIX)) {

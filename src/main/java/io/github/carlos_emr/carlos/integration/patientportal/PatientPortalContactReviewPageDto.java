@@ -46,16 +46,22 @@ public record PatientPortalContactReviewPageDto(
         int total,
         Integer nextOffset) {
 
+    private static final String MISSING_ITEMS = "portal review page is missing its items array";
+
     static PatientPortalContactReviewPageDto fromJson(JsonNode node) {
+        JsonNode itemNodes = node.get("items");
+        if (itemNodes == null || !itemNodes.isArray()) {
+            throw new PortalContractException(MISSING_ITEMS);
+        }
         List<PatientPortalContactReviewDto> items = new ArrayList<>();
-        for (JsonNode item : node.path("items")) {
+        for (JsonNode item : itemNodes) {
             items.add(PatientPortalContactReviewDto.fromJson(item));
         }
         return new PatientPortalContactReviewPageDto(
                 List.copyOf(items),
-                node.path("limit").asInt(),
-                node.path("offset").asInt(),
-                node.path("total").asInt(),
+                PortalJson.requiredInt(node, "limit"),
+                PortalJson.requiredInt(node, "offset"),
+                PortalJson.requiredInt(node, "total"),
                 PortalJson.optionalInt(node, "next_offset"));
     }
 }

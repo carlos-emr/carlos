@@ -28,7 +28,7 @@ import java.util.Locale;
  * A patient portal call that did not succeed.
  *
  * <p>The {@link Kind} exists so callers can branch on the outcome without re-deriving meaning from a
- * status code. Two mappings matter and are easy to get wrong:
+ * status code. Three mappings matter and are easy to get wrong:
  *
  * <ul>
  *   <li>{@code 404} is <b>ambiguous by design</b>, and three-way. The portal fails closed on a bad
@@ -38,13 +38,23 @@ import java.util.Locale;
  *       so staff-facing copy should read as "no portal account" rather than as an error, while a
  *       {@code 404} on every call points at configuration.
  *   <li>{@code 409} is a real business outcome, not a transport error. The patient already has an
- *       account, an invite is already pending, or a contact review moved on. Retrying is wrong;
- *       re-reading state and re-presenting it to the user is right.
+ *       account, or a contact review moved on. Retrying is wrong; re-reading state and
+ *       re-presenting it to the user is right.
+ *   <li>{@link Kind#MALFORMED_RESPONSE} is <b>not</b> {@link Kind#TRANSPORT_FAILURE}. The portal
+ *       answered and CARLOS could not read the answer, which points at a contract change or a proxy
+ *       rewriting bodies — a different system and a different fix from a network fault. Critically,
+ *       a mutating request that fails this way <b>may already have taken effect</b>, so it must not
+ *       be retried blindly the way a connect failure can be.
  * </ul>
  *
- * <p>Messages carry the status and the endpoint path only. The service token, invite tokens, and
- * passphrases never appear, because these messages reach logs and, in some flows, staff-visible
- * error pages.
+ * <p><b>PHI:</b> messages carry an endpoint <em>template</em> such as {@code
+ * /internal/carlos/patients/{id}/invites}, never the interpolated path. Portal paths embed
+ * {@code demographic_no}, which CLAUDE.md classifies as a PHI-correlating identifier that must not
+ * reach a browser-visible exception message; these messages surface in logs and, through Struts
+ * result resolution, on error pages. Callers needing the identifier already hold it.
+ *
+ * <p>The service token, invite tokens, and passphrases never appear. The portal's {@code detail}
+ * string is carried when it is safe to do so — see {@link #detail()}.
  *
  * @since 2026-08-19
  */
@@ -54,7 +64,11 @@ public class PatientPortalException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     private static final String MESSAGE = "patient portal call to %s failed: %s (HTTP %d)";
+    private static final String MESSAGE_WITH_DETAIL =
+            "patient portal call to %s failed: %s (HTTP %d): %s";
     private static final String TRANSPORT_MESSAGE = "patient portal call to %s could not complete";
+    private static final String MALFORMED_MESSAGE =
+            "patient portal call to %s returned a body CARLOS could not read (HTTP %d)";
 
     /** Why the call failed, derived from the portal's documented status codes. */
     public enum Kind {
@@ -62,7 +76,7 @@ public class PatientPortalException extends RuntimeException {
         BAD_REQUEST,
         /** {@code 403} — authenticated, but the provider lacks the portal permission. */
         PERMISSION_DENIED,
-        /** {@code 404} — unknown record, or a rejected service token / identity / clinic. */
+        /** {@code 404} — unknown record, no portal account yet, or a rejected identity. */
         NOT_FOUND_OR_UNAUTHENTICATED,
         /** {@code 409} — the requested state transition conflicts with current portal state. */
         CONFLICT,
@@ -72,23 +86,73 @@ public class PatientPortalException extends RuntimeException {
         THROTTLED,
         /** Any other status the portal returned. */
         UNEXPECTED_STATUS,
+        /**
+         * The portal answered, but the body was absent, truncated, or not the documented shape.
+         *
+         * <p>A mutating call that fails this way may already have taken effect.
+         */
+        MALFORMED_RESPONSE,
         /** The call never produced a response: connect failure, timeout, or TLS failure. */
         TRANSPORT_FAILURE
     }
 
-    private final transient Kind kind;
+    private final Kind kind;
     private final int statusCode;
+    private final String detail;
 
-    public PatientPortalException(Kind kind, int statusCode, String path) {
-        super(String.format(Locale.ROOT, MESSAGE, path, kind, statusCode));
+    private PatientPortalException(String message, Kind kind, int statusCode, String detail) {
+        super(message);
         this.kind = kind;
         this.statusCode = statusCode;
+        this.detail = detail;
     }
 
-    public PatientPortalException(String path, Throwable cause) {
-        super(String.format(Locale.ROOT, TRANSPORT_MESSAGE, path), cause);
-        this.kind = Kind.TRANSPORT_FAILURE;
-        this.statusCode = 0;
+    private PatientPortalException(String message, Kind kind, int statusCode, Throwable cause) {
+        super(message, cause);
+        this.kind = kind;
+        this.statusCode = statusCode;
+        this.detail = null;
+    }
+
+    /**
+     * Builds the failure for a portal response CARLOS understood but that reported an error.
+     *
+     * @param statusCode status the portal returned
+     * @param endpointTemplate endpoint template with placeholders, never an interpolated path
+     * @param detail the portal's {@code detail} string, or {@code null} when absent or unsafe
+     */
+    static PatientPortalException ofStatus(int statusCode, String endpointTemplate, String detail) {
+        Kind kind = kindForStatus(statusCode);
+        String message =
+                detail == null
+                        ? String.format(Locale.ROOT, MESSAGE, endpointTemplate, kind, statusCode)
+                        : String.format(
+                                Locale.ROOT,
+                                MESSAGE_WITH_DETAIL,
+                                endpointTemplate,
+                                kind,
+                                statusCode,
+                                detail);
+        return new PatientPortalException(message, kind, statusCode, detail);
+    }
+
+    /** Builds the failure for a call that never produced a response. */
+    static PatientPortalException ofTransportFailure(String endpointTemplate, Throwable cause) {
+        return new PatientPortalException(
+                String.format(Locale.ROOT, TRANSPORT_MESSAGE, endpointTemplate),
+                Kind.TRANSPORT_FAILURE,
+                0,
+                cause);
+    }
+
+    /** Builds the failure for a success status whose body CARLOS could not read. */
+    static PatientPortalException ofMalformedResponse(
+            int statusCode, String endpointTemplate, Throwable cause) {
+        return new PatientPortalException(
+                String.format(Locale.ROOT, MALFORMED_MESSAGE, endpointTemplate, statusCode),
+                Kind.MALFORMED_RESPONSE,
+                statusCode,
+                cause);
     }
 
     public Kind kind() {
@@ -100,6 +164,21 @@ public class PatientPortalException extends RuntimeException {
      */
     public int statusCode() {
         return statusCode;
+    }
+
+    /**
+     * The portal's {@code detail} string, when it was safe to carry.
+     *
+     * <p>Only a plain JSON string is kept. A {@code 422} from the portal's validation layer answers
+     * with a list of objects that can echo the offending input — patient email or health card number
+     * — so that shape is discarded rather than parsed. The result is that {@code 422} is the one
+     * status where no detail is available, which is the correct trade for not copying PHI into an
+     * error message.
+     *
+     * @return the detail string, or {@code null} when absent or withheld
+     */
+    public String detail() {
+        return detail;
     }
 
     /**

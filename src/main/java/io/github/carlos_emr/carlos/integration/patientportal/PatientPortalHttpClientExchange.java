@@ -21,15 +21,18 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
-import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
+import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.HttpEntity;
@@ -44,27 +47,50 @@ import org.apache.hc.core5.util.Timeout;
  *   <li><b>Redirects are disabled.</b> Following one would replay the {@code Authorization} header
  *       at whatever host the response named, handing the portal service token to it. A redirect
  *       from the portal is a misconfiguration, and failing is the correct response.
- *   <li><b>Timeouts are always set.</b> Without them a stalled portal would pin request threads
- *       until the connector pool was exhausted, taking the EMR down with it.
+ *   <li><b>Both timeouts are set where HttpClient 5 actually reads them.</b> The socket connect
+ *       timeout lives on {@link ConnectionConfig} and the read timeout on {@link RequestConfig}.
+ *       This distinction is not cosmetic: {@code RequestConfig.setConnectionRequestTimeout} is the
+ *       <em>pool-lease</em> wait, and an earlier revision set only that, leaving the real connect
+ *       timeout at the library default of three minutes. A portal host that accepted SYN and never
+ *       completed the handshake would then pin a Tomcat worker for three minutes per call — the
+ *       EMR-wide availability failure this control exists to prevent.
  *   <li><b>The response body is capped.</b> A compromised or malfunctioning portal should not be
  *       able to exhaust heap through a reply CARLOS reads into memory.
  * </ul>
  *
+ * <p>The client is built once per instance rather than per request. A per-request client meant a
+ * fresh TLS handshake and a fresh empty connection pool on every staff action, and it also made the
+ * pool-lease timeout structurally unreachable. Callers that own an instance should {@link #close()}
+ * it.
+ *
  * @since 2026-08-19
  */
-class PatientPortalHttpClientExchange implements PatientPortalHttpExchange {
+class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Closeable {
 
-    /** Portal replies are small JSON documents; the largest is a capped invite or review page. */
-    static final int MAX_RESPONSE_BYTES = 1024 * 1024;
+    /**
+     * Cap on the decoded response we will hold in memory, counted in UTF-16 characters.
+     *
+     * <p>Characters rather than bytes because that is what a {@link StringBuilder} measures. For
+     * multi-byte UTF-8 the wire payload may be larger, and the builder itself holds roughly two
+     * bytes per character plus growth slack, so treat this as an order-of-magnitude bound rather
+     * than an exact byte ceiling.
+     */
+    static final int MAX_RESPONSE_CHARS = 1024 * 1024;
 
-    private final PatientPortalSettings settings;
+    private static final int READ_BUFFER_CHARS = 8192;
+
+    private final CloseableHttpClient client;
 
     PatientPortalHttpClientExchange(PatientPortalSettings settings) {
-        this.settings = settings;
-    }
-
-    @Override
-    public PatientPortalHttpResponse send(ClassicHttpRequest request) throws IOException {
+        ConnectionConfig connectionConfig =
+                ConnectionConfig.custom()
+                        .setConnectTimeout(
+                                Timeout.ofMilliseconds(settings.connectTimeout().toMillis()))
+                        .build();
+        PoolingHttpClientConnectionManager connectionManager =
+                PoolingHttpClientConnectionManagerBuilder.create()
+                        .setDefaultConnectionConfig(connectionConfig)
+                        .build();
         RequestConfig requestConfig =
                 RequestConfig.custom()
                         .setConnectionRequestTimeout(
@@ -73,16 +99,25 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange {
                                 Timeout.ofMilliseconds(settings.readTimeout().toMillis()))
                         .setRedirectsEnabled(false)
                         .build();
-        if (request instanceof HttpUriRequestBase uriRequest) {
-            uriRequest.setConfig(requestConfig);
-        }
-        try (CloseableHttpClient client =
+        this.client =
                 HttpClients.custom()
+                        .setConnectionManager(connectionManager)
+                        // Belt and braces on a security control: the builder switch and the
+                        // per-request flag are independent paths to the same guarantee, and a
+                        // redirect must never replay the bearer token at another host.
                         .disableRedirectHandling()
                         .setDefaultRequestConfig(requestConfig)
-                        .build()) {
-            return client.execute(request, PatientPortalHttpClientExchange::toResponse);
-        }
+                        .build();
+    }
+
+    @Override
+    public PatientPortalHttpResponse send(ClassicHttpRequest request) throws IOException {
+        return client.execute(request, PatientPortalHttpClientExchange::toResponse);
+    }
+
+    @Override
+    public void close() throws IOException {
+        client.close();
     }
 
     private static PatientPortalHttpResponse toResponse(ClassicHttpResponse response)
@@ -93,20 +128,24 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange {
     }
 
     /**
-     * Reads at most {@link #MAX_RESPONSE_BYTES} characters, then stops.
+     * Reads the body, stopping once {@link #MAX_RESPONSE_CHARS} characters have been collected.
      *
-     * <p>Truncation is silent on purpose: every documented portal reply fits well inside the cap, so
-     * exceeding it means the peer is not behaving like the portal, and the resulting body will fail
-     * JSON parsing and surface as a transport failure rather than as partial data.
+     * <p>Truncation is not signalled to the caller, and callers must not assume a truncated body
+     * will fail to parse. It usually will — a document cut mid-token raises a Jackson EOF — but
+     * Jackson does not reject trailing content by default, so a reply whose first complete JSON
+     * value ends inside the cap parses cleanly and the truncation is invisible. That is acceptable
+     * only because the cap exists to bound memory, not to validate the peer: every documented portal
+     * reply is far smaller, so reaching the cap already means the peer is not the portal.
      */
     private static String readCapped(HttpEntity entity) throws IOException {
         StringBuilder collected = new StringBuilder();
-        char[] buffer = new char[8192];
+        char[] buffer = new char[READ_BUFFER_CHARS];
         try (InputStream content = entity.getContent();
                 Reader reader = new InputStreamReader(content, StandardCharsets.UTF_8)) {
             int read;
-            while ((read = reader.read(buffer)) >= 0 && collected.length() < MAX_RESPONSE_BYTES) {
-                collected.append(buffer, 0, read);
+            while (collected.length() < MAX_RESPONSE_CHARS && (read = reader.read(buffer)) >= 0) {
+                int remaining = MAX_RESPONSE_CHARS - collected.length();
+                collected.append(buffer, 0, Math.min(read, remaining));
             }
         }
         return collected.toString();

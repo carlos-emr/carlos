@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.integration.patientportal;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.Locale;
 import java.time.Instant;
 
 /**
@@ -54,31 +55,25 @@ public record PatientPortalAccountDto(
 
     static PatientPortalAccountDto fromJson(JsonNode node) {
         return new PatientPortalAccountDto(
-                node.path("id").asLong(),
+                PortalJson.requiredLong(node, "id"),
                 PortalJson.text(node, "clinic_id"),
-                node.path("demographic_no").asInt(),
+                PortalJson.requiredInt(node, "demographic_no"),
                 PortalJson.text(node, "status"),
-                PortalJson.bool(node, "locked"),
-                PortalJson.bool(node, "force_password_reset"),
+                PortalJson.requiredBool(node, "locked"),
+                PortalJson.requiredBool(node, "force_password_reset"),
                 PortalJson.timestamp(node, "disabled_at"),
                 PortalJson.text(node, "disabled_reason"));
     }
 
+    private static final String DESCRIPTION =
+            "PatientPortalAccountDto[id=%d, clinicId=%s, status=%s, locked=%s, patient=REDACTED]";
+
     /**
-     * Reads the narrower payload returned by unlock and access changes.
-     *
-     * <p>Those endpoints answer with a subset of the status fields, so the absent ones stay {@code
-     * null} or {@code false} rather than being invented.
+     * Renders the record without {@code demographicNo}, a PHI-correlating identifier that the
+     * generated record {@code toString} would otherwise print into any log line.
      */
-    static PatientPortalAccountDto fromPartialJson(JsonNode node) {
-        return new PatientPortalAccountDto(
-                node.path("id").asLong(),
-                PortalJson.text(node, "clinic_id"),
-                node.path("demographic_no").asInt(),
-                PortalJson.text(node, "status"),
-                PortalJson.timestamp(node, "locked_at") != null,
-                PortalJson.bool(node, "force_password_reset"),
-                null,
-                null);
+    @Override
+    public String toString() {
+        return String.format(Locale.ROOT, DESCRIPTION, id, clinicId, status, locked);
     }
 }

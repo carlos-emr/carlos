@@ -44,11 +44,10 @@ import java.util.Locale;
  * sourceReference}, which makes creation idempotent so a CARLOS retry cannot mint a second
  * passphrase for one message. Use a stable, unique reference per outbound message.
  *
- * <p>Observed status values, verified against a live portal: {@code pending} on creation, {@code
- * available} once published — <b>not</b> {@code published} — and {@code revoked} after a revoke.
- * Publishing twice is idempotent and answers {@code 200} both times, so a retry after an ambiguous
- * network failure is safe. Recreating a revoked {@code sourceReference} answers {@code 409}, which
- * means a new reference is needed rather than a retry.
+ * <p>Creation answers with {@code pending}. The later transitions are reported by {@link
+ * PatientPortalUnlockSecretStatusDto}, which is a different and narrower payload. Recreating a
+ * revoked {@code sourceReference} answers {@code 409}, which means a new reference is needed rather
+ * than a retry.
  *
  * @param id portal unlock-secret id
  * @param created {@code false} when an existing record was returned instead
@@ -65,8 +64,8 @@ public record PatientPortalUnlockSecretDto(
 
     static PatientPortalUnlockSecretDto fromJson(JsonNode node) {
         return new PatientPortalUnlockSecretDto(
-                node.path("id").asLong(),
-                PortalJson.bool(node, "created"),
+                PortalJson.requiredLong(node, "id"),
+                PortalJson.requiredBool(node, "created"),
                 PortalJson.text(node, "secret"),
                 PortalJson.text(node, "source_reference"),
                 PortalJson.text(node, "status"));
