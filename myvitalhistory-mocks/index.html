@@ -173,7 +173,7 @@
 
 <!-- ============ 5. LIBRARY ============ -->
 <section class="screen" id="library">
-  <div class="screen-caption"><strong>Home screen.</strong> Newest first, grouped by recency, source clinic always visible. One row is still locked &mdash; it arrived by email but the portal passphrase hasn't been entered yet.</div>
+  <div class="screen-caption"><strong>Home screen.</strong> Newest first, grouped by recency, source clinic always visible. Nothing here is ever locked &mdash; documents are unlocked in the email before they are sent across, so everything in the vault is readable once the vault itself is open.</div>
   <div class="app">
     <div class="titlebar">
       <div class="dots"><i></i><i></i><i></i></div>
@@ -191,7 +191,7 @@
         </div>
         <nav class="nav">
           <a href="#library" class="selected" data-go="library"><i class="fas fa-folder"></i> All records <span class="count">42</span></a>
-          <a href="#import" data-go="import"><i class="fas fa-inbox"></i> Waiting <span class="count">1</span></a>
+          <a href="#import" data-go="import"><i class="fas fa-inbox"></i> Recently added <span class="count">3</span></a>
           <a href="#library"><i class="fas fa-star"></i> Pinned <span class="count">3</span></a>
           <div class="nav-label">By kind</div>
           <a href="#library"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
@@ -230,18 +230,6 @@
           <button class="chip">Prescriptions</button>
           <button class="chip"><i class="fas fa-hospital"></i> Maple Creek Medical</button>
           <button class="chip"><i class="fas fa-calendar"></i> Any date</button>
-        </div>
-
-        <div class="group-label">Waiting for you</div>
-        <div class="docs">
-          <button class="doc" data-go="import">
-            <span class="doc-icon letter"><i class="fas fa-lock"></i></span>
-            <span class="doc-main">
-              <span class="doc-title">Document from Maple Creek Medical</span>
-              <span class="doc-meta"><span class="tag locked">Locked</span> Needs the passphrase from your clinic portal</span>
-            </span>
-            <span class="doc-side">Today<br>9:12 AM</span>
-          </button>
         </div>
 
         <div class="group-label">This month</div>
@@ -316,7 +304,7 @@
         </div>
         <nav class="nav">
           <a href="#empty" class="selected"><i class="fas fa-folder"></i> All records <span class="count">0</span></a>
-          <a href="#empty"><i class="fas fa-inbox"></i> Waiting</a>
+          <a href="#empty"><i class="fas fa-inbox"></i> Recently added</a>
           <div class="nav-label">Settings</div>
           <a href="#security" data-go="security"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
         </nav>
@@ -336,33 +324,44 @@
 
 <!-- ============ 7. IMPORT ============ -->
 <section class="screen" id="import">
-  <div class="screen-caption"><strong>The anchor workflow from #3474.</strong> Patient clicked &ldquo;Send this to MyVitalHistory&rdquo; in a CARLOS email. The document is here but still encrypted; the passphrase comes from the CARLOS patient portal (#3207, #3449, #3450).</div>
+  <div class="screen-caption"><strong>The anchor workflow from #3474.</strong> The patient already unlocked the document in their email, using the passphrase from the CARLOS portal (#3207, #3449, #3450), and pressed &ldquo;Send this to MyVitalHistory&rdquo;. It arrives readable. <strong>MyVitalHistory never sees the clinic's passphrase</strong> &mdash; that boundary stays with CARLOS and the portal.</div>
   <div class="app">
     <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div><span class="title">MyVitalHistory &mdash; Adding a document</span></div>
     <div class="centred">
       <div class="big-mark"><i class="fas fa-envelope-circle-check"></i></div>
-      <h1>A document from your clinic</h1>
-      <p class="lede">Maple Creek Medical sent this on 19 August 2026. It's locked with a passphrase from your clinic portal.</p>
+      <h1>Save this to your records?</h1>
+      <p class="lede">Maple Creek Medical sent this on 19 August 2026, and you've already opened it.</p>
 
       <div class="doc" style="margin-bottom:18px">
-        <span class="doc-icon letter"><i class="fas fa-file-pdf"></i></span>
+        <span class="doc-icon letter"><i class="fas fa-envelope-open-text"></i></span>
         <span class="doc-main">
-          <span class="doc-title">specialist-letter-aug2026.pdf</span>
-          <span class="doc-meta">248 KB &middot; still locked</span>
+          <span class="doc-title">Specialist letter &mdash; cardiology</span>
+          <span class="doc-meta">2 pages &middot; from Dr. R. Alvarez</span>
         </span>
       </div>
 
       <label class="field">
-        <span>Passphrase from your clinic portal</span>
-        <input type="password" value="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
-        <span class="hint">Sign in to the Maple Creek portal to find it. <a href="#">Where do I look?</a></span>
+        <span>File it under</span>
+        <select>
+          <option selected>Letters</option>
+          <option>Test results</option>
+          <option>Imaging</option>
+          <option>Prescriptions</option>
+          <option>Something else</option>
+        </select>
       </label>
 
-      <button class="btn primary big"><i class="fas fa-unlock"></i><span>Unlock and save</span></button>
+      <label class="field">
+        <span>Add a note for yourself <span style="font-weight:400;color:var(--ink-faint)">(optional)</span></span>
+        <input type="text" placeholder="e.g. follow-up booked for October">
+      </label>
+
+      <button class="btn primary big"><i class="fas fa-lock"></i><span>Save to my records</span></button>
+      <button class="btn ghost big" style="margin-top:8px"><span>Not now</span></button>
 
       <div class="note plain" style="margin-top:18px;margin-bottom:0">
         <i class="fas fa-shield-halved"></i>
-        <div>Once saved, this document is re-locked with <em>your</em> passphrase. You won't need the clinic's passphrase again.</div>
+        <div>Saving locks this with <em>your</em> passphrase. From then on it's yours, and it stays here even if you change clinics.</div>
       </div>
     </div>
   </div>
@@ -370,7 +369,7 @@
 
 <!-- ============ 8. IMPORT DONE ============ -->
 <section class="screen" id="import-done">
-  <div class="screen-caption"><strong>Confirmation.</strong> Says what was filed and where. The re-encryption note matters: it is the moment custody moves from the clinic's passphrase to the patient's.</div>
+  <div class="screen-caption"><strong>Confirmation.</strong> Says what was filed and where. This is the moment custody moves: the clinic sent a copy, and from here the patient's own passphrase is the only thing that opens it.</div>
   <div class="app">
     <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div><span class="title">MyVitalHistory</span></div>
     <div class="centred">
@@ -385,11 +384,6 @@
           <span class="doc-meta">Filed under <strong>Letters</strong> &middot; 19 Aug 2026 &middot; Maple Creek Medical</span>
         </span>
       </div>
-
-      <label class="field">
-        <span>Add a note for yourself <span style="font-weight:400;color:var(--ink-faint)">(optional)</span></span>
-        <input type="text" placeholder="e.g. follow-up booked for October">
-      </label>
 
       <button class="btn primary big" data-go="viewer"><i class="fas fa-eye"></i><span>Read it now</span></button>
       <button class="btn ghost big" style="margin-top:8px" data-go="library"><i class="fas fa-folder"></i><span>Back to my records</span></button>
@@ -417,7 +411,7 @@
         </div>
         <nav class="nav">
           <a href="#library" data-go="library"><i class="fas fa-folder"></i> All records <span class="count">42</span></a>
-          <a href="#library"><i class="fas fa-inbox"></i> Waiting <span class="count">1</span></a>
+          <a href="#library"><i class="fas fa-inbox"></i> Recently added <span class="count">3</span></a>
           <div class="nav-label">By kind</div>
           <a href="#library" class="selected"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
           <a href="#library"><i class="fas fa-envelope-open-text"></i> Letters <span class="count">11</span></a>
@@ -497,7 +491,7 @@
         </div>
         <nav class="nav">
           <a href="#library" data-go="library"><i class="fas fa-folder"></i> All records <span class="count">42</span></a>
-          <a href="#library"><i class="fas fa-inbox"></i> Waiting <span class="count">1</span></a>
+          <a href="#library"><i class="fas fa-inbox"></i> Recently added <span class="count">3</span></a>
           <div class="nav-label">Settings</div>
           <a href="#security" class="selected"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
           <a href="#health" data-go="health"><i class="fas fa-heart"></i> Health data</a>
@@ -605,10 +599,10 @@
           <div class="search" style="margin-bottom:12px"><i class="fas fa-magnifying-glass"></i><input type="text" placeholder="Search"></div>
           <div class="docs">
             <button class="doc">
-              <span class="doc-icon letter"><i class="fas fa-lock"></i></span>
+              <span class="doc-icon letter"><i class="fas fa-envelope-open-text"></i></span>
               <span class="doc-main">
-                <span class="doc-title">From Maple Creek Medical</span>
-                <span class="doc-meta"><span class="tag locked">Locked</span> Tap to unlock</span>
+                <span class="doc-title">Specialist letter &mdash; cardiology</span>
+                <span class="doc-meta"><span class="tag new">New</span> 19 Aug 2026 &middot; Dr. Alvarez</span>
               </span>
             </button>
             <button class="doc">

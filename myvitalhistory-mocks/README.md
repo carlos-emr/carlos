@@ -31,7 +31,7 @@ with `?screen=`, or from the switcher bar at the top:
 4. **Unlock** — returning-user unlock, passphrase or biometric
 5. **Library** — the home screen, with one document still locked
 6. **Empty** — first-run empty state, explaining the CARLOS handoff
-7. **Import** — the "Send this to MyVitalHistory" flow from a CARLOS email
+7. **Import** — the "Send this to MyVitalHistory" flow, after the patient unlocked the document in their email
 8. **Import done** — confirmation, and the handover of custody
 9. **Viewer** — reading a document, with a provenance panel
 10. **Security** — encryption, recovery, backup, and auto-lock settings
@@ -52,10 +52,15 @@ reassuring one.
 iCloud copy is unreadable by Apple. That is the design decision recorded on #3474, and it is
 what makes automatic OS backup acceptable for PHI leaving the country.
 
-**The CARLOS handoff is a custody transfer, not a download.** Screens 7 and 8 show a document
-arriving locked under the *clinic's* passphrase (from the portal — #3207, #3449, #3450) and
-being re-locked under the *patient's*. After that the clinic's passphrase is irrelevant. Making
-that moment explicit is the point of the flow.
+**The CARLOS handoff is a custody transfer, not a download.** The patient unlocks the emailed
+document *in their email*, using the passphrase the CARLOS portal gives them (#3207, #3449,
+#3450), and only then presses "Send this to MyVitalHistory". So the document arrives readable and
+is locked again under the patient's own passphrase.
+
+**MyVitalHistory never handles the clinic's passphrase.** That boundary stays with CARLOS and the
+portal, which keeps the app out of the clinic's key material entirely. It also means nothing in
+the vault is ever in a locked-and-unopenable state — once the vault is open, everything in it is
+readable.
 
 **Provenance is a feature.** A patient-held record is only useful if its origin is beyond
 doubt, so the viewer keeps sender, provider, arrival date, and filing date visible rather
