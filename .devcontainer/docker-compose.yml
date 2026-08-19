@@ -1,6 +1,12 @@
 services:
   carlos:
     container_name: carlos-tomcat-dev
+    # Run tini as PID 1 so orphaned subprocesses are reaped. The eForm browser renderer
+    # launches a Chromium process tree per render; on an abnormal teardown (watchdog kill,
+    # redeploy mid-render) orphaned helpers reparent to PID 1 and — without an init — become
+    # permanent zombies that exhaust the container's pids cgroup over a long dev session
+    # ("unable to create native thread"). See docs/eform-browser-pdf-renderer.md.
+    init: true
     build:
       context: ./development
       dockerfile: Dockerfile
@@ -47,10 +53,20 @@ services:
       - ./drugref/drugref2.xml:/usr/local/tomcat/conf/Catalina/localhost/drugref2.xml:ro
     environment:
       TZ: America/Toronto
-      # Pass-through for site-specific Tomcat tuning unrelated to the allow list
-      # (e.g. heap sizing, GC flags). The allow list itself is NOT configurable
+      # `-Dhibernate.dialect` is mandatory here and must stay ahead of the pass-through below.
+      # drugref2's WEB-INF/classes/spring_config.xml declares no `hibernate.dialect`, so Hibernate
+      # falls back to detecting it from JDBC metadata. Detection runs Connector/J's
+      # `SELECT WORD FROM INFORMATION_SCHEMA.KEYWORDS WHERE RESERVED=1` probe; `RESERVED` is a
+      # MySQL-only column that MariaDB's KEYWORDS table does not have (true on 10.5 and 11.8
+      # alike), so the probe throws, metadata comes back empty, and the EntityManagerFactory dies
+      # with "Unable to determine Dialect" — taking the whole /drugref2 context down with a 404.
+      # Naming the dialect makes the failed probe harmless. This mirrors CARLOS itself, which
+      # runs the same Connector/J against MariaDB and pins OscarMySQL5Dialect explicitly.
+      #
+      # DRUGREF_CATALINA_OPTS is appended, not substituted, so site-specific tuning (heap, GC)
+      # cannot accidentally drop the dialect. The drugref2.xml allow list is NOT configurable
       # through this env var — see the comment on drugref2.xml.
-      CATALINA_OPTS: ${DRUGREF_CATALINA_OPTS:-}
+      CATALINA_OPTS: -Dhibernate.dialect=org.hibernate.dialect.MariaDBDialect ${DRUGREF_CATALINA_OPTS:-}
     networks:
       - carlos-network
     depends_on:
@@ -73,10 +89,18 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - mariadb-files:/var/lib/mysql
+      - mariadb-11-flyway-files:/var/lib/mysql
     environment:
       TZ: America/Toronto
       container: docker
+      # NOTE: do NOT re-declare MYSQL_ROOT_PASSWORD / MARIADB_ROOT_PASSWORD here. Both are
+      # supplied by the env_file above (local.env), which is the single source of truth for dev
+      # credentials. They were previously set with a nested default
+      # (`${MARIADB_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD:-password}}`). podman-compose does not
+      # support nested `${...}` interpolation — it stops at the first `}` — so the root password
+      # was silently set to the *literal* string `${MYSQL_ROOT_PASSWORD:-password}}`. The database
+      # then initialized correctly against that literal while the app, which connects as
+      # root/password per carlos.properties, got "Access denied" on every connection.
     networks:
       - carlos-network
     deploy:
@@ -85,14 +109,20 @@ services:
           memory: 2G
           cpus: "2"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppassword"]
+      # Authenticate as the same root credential the app uses and run a real query.
+      # `mariadb-admin ping` is NOT sufficient: it exits 0 even on "Access denied", so a root
+      # password mismatch reports the container healthy while every app connection fails —
+      # exactly the failure this healthcheck previously hid. Forcing TCP (-h 127.0.0.1) also
+      # stops the check from passing against the socket-only temporary server that the entrypoint
+      # runs while /docker-entrypoint-initdb.d is still loading.
+      test: ["CMD-SHELL", "MYSQL_PWD=$${MARIADB_ROOT_PASSWORD:-password} mariadb -u root -h 127.0.0.1 -e 'SELECT 1' >/dev/null 2>&1"]
       timeout: 20s
       retries: 10
       interval: 10s
       start_period: 60s
 
 volumes:
-  mariadb-files:
+  mariadb-11-flyway-files:
     driver: local
 
   m2-volume:

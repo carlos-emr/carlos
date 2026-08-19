@@ -7,6 +7,9 @@ tools: ["*"]
 
 # CARLOS EMR Frontend Development Agent
 
+> **Release policy**: Follow `docs/release-process.md` for target branches, CalVer
+> versions, snapshots, maintenance fixes, tags, and forward merges.
+
 ## Core Context
 
 **Project**: CARLOS (Clinical Assisting Recording Ledger Open Source) - Canadian healthcare EMR
