@@ -34,6 +34,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      IS_RETRY: ${{ github.event_name == 'workflow_dispatch' }}
     steps:
       - name: Detect an already-published immutable release
         id: release-state
@@ -117,13 +118,16 @@ jobs:
             git fetch --no-tags origin "refs/heads/main:refs/remotes/origin/main"
 
           source_branch=""
-          if [ "$(git rev-parse origin/main)" = "$tag_commit" ]; then
+          if [ "$(git rev-parse origin/main)" = "$tag_commit" ] ||
+             { [ "$IS_RETRY" = "true" ] && git merge-base --is-ancestor "$tag_commit" origin/main; }; then
             source_branch=main
           elif git show-ref --verify --quiet "refs/remotes/origin/release/$release_line" &&
-               [ "$(git rev-parse "origin/release/$release_line")" = "$tag_commit" ]; then
+               { [ "$(git rev-parse "origin/release/$release_line")" = "$tag_commit" ] ||
+                 { [ "$IS_RETRY" = "true" ] &&
+                   git merge-base --is-ancestor "$tag_commit" "origin/release/$release_line"; }; }; then
             source_branch="release/$release_line"
           else
-            echo "::error::Tag must point to the current head of main or release/$release_line."
+            echo "::error::Tag must point to the current branch head, or be its ancestor during an explicit retry."
             exit 1
           fi
 
