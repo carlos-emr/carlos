@@ -11,7 +11,7 @@ Use the local preview server at `http://localhost:4173`. No build or package ins
 The mock demonstrates:
 
 - A compact CARLOS-style navigation, typography, panels, and Bootstrap-blue interaction treatment
-- A clinical-briefing format with a sticky orientation/review rail followed by a problem-oriented general overview synthesized from all 26 retrieved notes
+- A clinical-briefing format with an orientation/review rail followed by a problem-oriented general overview synthesized from all 26 retrieved notes
 - An explicit warning that the available record covers only one orthopaedic episode and is not a complete longitudinal chart
 - Clickable summary sentences
 - Multiple sources attached to one sentence

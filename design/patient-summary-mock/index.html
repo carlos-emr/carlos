@@ -880,6 +880,39 @@
       .briefing-rail .record-limit { margin-top: 4px; }
       .briefing-body .summary-section h3 { align-items: flex-start; flex-direction: column; gap: 3px; }
     }
+
+    /* The summary follows the page scroll; only source evidence scrolls independently. */
+    .workspace {
+      height: auto;
+      min-height: calc(100vh - 30px - 54px - 82px);
+      align-items: start;
+    }
+    #summary-panel {
+      height: auto;
+      min-height: calc(100vh - 30px - 54px - 82px - 18px);
+    }
+    #summary-panel > .scroll { overflow: visible; }
+    .briefing-rail { position: static; }
+    .pane-splitter {
+      position: sticky;
+      top: 12px;
+      align-self: start;
+      height: calc(100vh - 24px);
+    }
+    #source-evidence {
+      position: sticky;
+      top: 12px;
+      align-self: start;
+      height: calc(100vh - 24px);
+    }
+
+    @media (max-width: 1050px) {
+      #source-evidence {
+        position: relative;
+        top: auto;
+        height: 700px;
+      }
+    }
   </style>
 </head>
 <body>
