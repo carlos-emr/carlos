@@ -97,10 +97,10 @@ public class PatientPortalService implements Closeable {
     private static final String POST = "POST";
 
     /** The portal caps an invite listing at 100 records per request. */
-    static final int MAX_INVITE_PAGE_SIZE = 100;
+    public static final int MAX_INVITE_PAGE_SIZE = 100;
 
     /** The portal caps a contact-review page at 100 records per request. */
-    static final int MAX_REVIEW_PAGE_SIZE = 100;
+    public static final int MAX_REVIEW_PAGE_SIZE = 100;
 
     /** The only secret type the portal currently mints. */
     static final String SECRET_TYPE_EMAIL = "email";

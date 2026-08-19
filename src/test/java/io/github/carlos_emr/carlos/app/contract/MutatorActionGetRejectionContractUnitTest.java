@@ -234,7 +234,16 @@ class MutatorActionGetRejectionContractUnitTest {
             // method is checked before authorization, so a GET rejects without any
             // hasPrivilege call — the declared tuple below is the POST-path bar.
             Arguments.of("io.github.carlos_emr.carlos.decision.gate.SaveAntenatalRiskConfig2Action",
-                    "_form", "w")
+                    "_form", "w"),
+            // --- patient portal ---
+            // Issues, resends, and revokes portal invitations against the external portal service.
+            // Registered explicitly because the integration.patientportal.web package is not in
+            // IN_SCOPE_PACKAGE_PREFIXES. Unconditional: reading the invite list belongs to a
+            // separate read action, so every route on this class mutates and the method check runs
+            // before authorization. A GET that reached create would mint a token and silently
+            // revoke the patient's existing one.
+            Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action",
+                    "_portal.invite", "w")
         );
     }
 
