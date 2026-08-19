@@ -31,9 +31,11 @@ migration/
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
 `V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.13`. The next
-Ontario or shared migration is `V1.0.14`; the next BC-only migration is `V1.0.11` because Ontario
-and BC locations are mutually exclusive (the version line is global only across `common` + the
-selected province — see below).
+Ontario or shared migration is `V1.0.14` — and so is the next BC-only migration: although Ontario
+and BC locations are mutually exclusive (a number used only under `on/` could in principle recur
+under `bc/`), the shared `common/` line is in EVERY database's path, and Flyway (no `outOfOrder`)
+never applies a new migration numbered below the highest it has already run — `common/V1.0.13` —
+so a `bc/V1.0.11` would silently never reach BC installs and would fail `flyway validate`.
 
 A database applies **`common` + exactly one province** location, selected by `flyway.locations`:
 

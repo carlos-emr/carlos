@@ -9,5 +9,7 @@ Forward deltas (not part of the frozen baseline):
 
 Applied together with `common/` for a BC install (`flyway.locations=filesystem:.../migration/common,filesystem:.../migration/bc` (see `flyway.conf` for the real paths)). New BC-only
 changes go here as `V1.0.N__short_description.sql` (sequential, next free version number). The
-version line is global across `common` + `bc`, so the next free BC-only number is `V1.0.11` (the
-highest migration in the BC path is the shared `V1.0.10`; see `../README.md`).
+version line is global across `common` + `bc`, so the next free BC-only number is `V1.0.14` (the
+highest migration in the BC path is the shared `common/V1.0.13`; a lower number — even one only
+ever used under `on/` — would be out-of-order below the applied `V1.0.13` and Flyway would never
+run it; see `../README.md`).
