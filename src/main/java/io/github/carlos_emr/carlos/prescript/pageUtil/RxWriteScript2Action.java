@@ -96,6 +96,10 @@ public final class RxWriteScript2Action extends ActionSupport {
     private static final String DEFAULT_QUANTITY = "30";
     private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
 
+    /** The only {@code action} values {@link #updateReRxDrug()} will act on. */
+    private static final Set<String> RE_RX_ACTIONS =
+            Set.of("addToReRxDrugIdList", "removeFromReRxDrugIdList", "clearReRxDrugIdList");
+
     private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     private final RxManager rxManager = SpringUtils.getBean(RxManager.class);
 
@@ -240,6 +244,25 @@ public final class RxWriteScript2Action extends ActionSupport {
         return fwd;
     }
 
+    /**
+     * Adds, removes, or clears the drug ids staged in the Rx session for re-prescribing. Called by
+     * the prescription UI as an AJAX POST; nothing is persisted here, and the staged ids are only
+     * acted on later by {@link #archiveReRxDrugs}.
+     *
+     * <p>The {@code action} parameter must be one of {@link #RE_RX_ACTIONS}; anything else is
+     * rejected with {@code 403}. Staging additionally requires that {@code reRxDrugId} belongs to
+     * the demographic this Rx session is scoped to, so a caller in one chart cannot queue another
+     * patient's medication for archival.</p>
+     *
+     * <p>A request that names a valid action but is a no-op against the current list state (adding
+     * an already-staged id, removing one that is not staged) is accepted, so double-submits from
+     * the UI stay harmless.</p>
+     *
+     * @return {@link #NONE} when the request is rejected and an error status has been written,
+     *         otherwise {@code null} so the dispatcher completes without rendering a view
+     * @throws IOException if writing the error status or redirect fails
+     * @since 2010-03-17
+     */
     public String updateReRxDrug() throws IOException {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
 
@@ -251,9 +274,13 @@ public final class RxWriteScript2Action extends ActionSupport {
         List<String> reRxDrugIdList = bean.getReRxDrugIdList();
         String action = request.getParameter("action");
         String drugId = request.getParameter("reRxDrugId");
-        if (action == null) {
-            logger.warn("WARNING: reRxDrugId not updated, no action requested");
-            return null;
+        // Gate on the action name only: the else below also catches benign list-state no-ops, and
+        // 403-ing those would break idempotent double-submits. Set.of(...).contains(null) throws.
+        if (action == null || !RE_RX_ACTIONS.contains(action)) {
+            // The value is untrusted request input, so it is deliberately not echoed to the log.
+            logger.warn("Rejected re-Rx update: missing or unrecognized action");
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
         }
         if (action.equals("addToReRxDrugIdList") && !reRxDrugIdList.contains(drugId)) {
             // drugId is client-supplied. Nothing is persisted at staging time, so reject outright
@@ -279,7 +306,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         } else if (action.equals("clearReRxDrugIdList")) {
             bean.clearReRxDrugIdList();
         } else {
-            logger.warn("WARNING: reRxDrugId not updated");
+            // Valid action, but a no-op against the current list (repeat add, remove of an unstaged
+            // id). Harmless once the name is gated above, so it is a debug note, not a warning.
+            logger.debug("No change to staged re-Rx drug ids: action is a no-op for the current list");
         }
 
         return null;
@@ -1464,10 +1493,29 @@ public final class RxWriteScript2Action extends ActionSupport {
      * <p>A rejected drug is skipped, not fatal: the new prescription is already persisted by this
      * point and no transaction spans the loop, so aborting would leave a half-written script.</p>
      *
+     * <p>A malformed, null, or refused entry is skipped individually so one bad id cannot stop the
+     * remaining staged drugs from being archived.</p>
+     *
      * <p>Package-private for the re-prescribe regression tests.</p>
+     *
+     * @param loggedInInfo the provider performing the re-prescribe, used for the archival
+     *                     authorization check and the audit entries
+     * @param bean         the Rx session supplying both the staged drug ids and the demographic
+     *                     they are validated against
+     * @param ip           caller address recorded on the re-prescribe audit entry
+     * @param auditStr     audit detail string shared with the enclosing save
+     * @since 2026-08-16
      */
     void archiveReRxDrugs(LoggedInInfo loggedInInfo, RxSessionBean bean, String ip, String auditStr) {
         for (String item : bean.getReRxDrugIdList()) {
+
+            // The list permits nulls, and item.trim() would throw past the catch below, stranding
+            // every later entry after the new script is already persisted.
+            if (item == null) {
+                logger.warn("Skipped re-Rx archival: null staged drug id, demographicNo={}",
+                        bean.getDemographicNo());
+                continue;
+            }
 
             int drugId;
             try {
@@ -1483,7 +1531,8 @@ public final class RxWriteScript2Action extends ActionSupport {
                     bean.getDemographicNo(), Drug.REPRESCRIBED);
 
             if (!archived) {
-                logger.warn("Blocked cross-patient re-Rx archival: drugId={} demographicNo={}",
+                // archiveDrug() cannot distinguish a missing row from a cross-patient one.
+                logger.warn("Skipped re-Rx archival: drugId={} not found or not owned by demographicNo={}",
                         drugId, bean.getDemographicNo());
                 continue;
             }
