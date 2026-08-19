@@ -1,9 +1,13 @@
 package io.github.carlos_emr.carlos.managers;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
-import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.eform.util.EFormBrowserPdfService;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -13,15 +17,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @DisplayName("EformDataManagerImpl createEformPDF")
@@ -35,9 +39,9 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
     @Mock private DocumentAttachmentManager documentAttachmentManager;
     @Mock private FormsManager formsManager;
     @Mock private LoggedInInfo loggedInInfo;
+    @Mock private EFormBrowserPdfService eFormBrowserPdfService;
 
     private AutoCloseable mocks;
-    private MockedStatic<ConvertToEdoc> convertToEdocMock;
     private EformDataManagerImpl manager;
 
     @BeforeEach
@@ -48,14 +52,14 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
         registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
         registerMock(FormsManager.class, formsManager);
 
-        manager = new EformDataManagerImpl();
-        injectDependency(manager, "securityInfoManager", securityInfoManager);
+        manager = new EformDataManagerImpl(securityInfoManager, eFormBrowserPdfService);
         injectDependency(manager, "eFormDataDao", eFormDataDao);
         injectDependency(manager, "documentManager", documentManager);
         injectDependency(manager, "documentAttachmentManager", documentAttachmentManager);
         injectDependency(manager, "formsManager", formsManager);
 
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_eform"), eq(SecurityInfoManager.READ), eq("123"))).thenReturn(true);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
         EFormData eformData = new EFormData();
         eformData.setId(77);
@@ -63,37 +67,114 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
         eformData.setFormName("Consult Form");
         eformData.setFormData("<html></html>");
         when(eFormDataDao.find(77)).thenReturn(eformData);
-
-        convertToEdocMock = mockStatic(ConvertToEdoc.class);
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        if (convertToEdocMock != null) convertToEdocMock.close();
         if (mocks != null) mocks.close();
     }
 
     @Test
-    @DisplayName("should throw PDFGenerationException when conversion returns null path")
-    void shouldThrowPdfGenerationException_whenConversionReturnsNullPath() {
-        convertToEdocMock.when(() -> ConvertToEdoc.saveAsTempPDF(any(EFormData.class))).thenReturn(null);
+    @DisplayName("should throw PDFGenerationException when browser renderer returns null path")
+    void shouldThrowPdfGenerationException_whenBrowserRendererReturnsNullPath() throws Exception {
+        when(eFormBrowserPdfService.renderSavedEformPdf(
+                loggedInInfo, 77, (EFormRenderApproval) null)).thenReturn(null);
 
         assertThatThrownBy(() -> manager.createEformPDF(loggedInInfo, 77))
                 .isInstanceOf(PDFGenerationException.class)
-                .hasMessageContaining("HTML-to-PDF conversion");
+                .hasMessageContaining("browser rendering");
     }
 
     @Test
-    @DisplayName("should require demographic-scoped eForm read privilege for temporary PDF rendering")
-    void shouldRequireDemographicScopedEformReadPrivilege_forTemporaryPdfRendering() {
-        convertToEdocMock.when(() -> ConvertToEdoc.saveAsTempPDF(any(EFormData.class))).thenReturn(null);
+    @DisplayName("should return the readable PDF path from the browser renderer")
+    void shouldReturnReadablePdfPath_whenBrowserRendererSucceeds() throws Exception {
+        // Filename must match the RenderedEformPdf guard prefix (the real renderer output name).
+        Path pdfPath = Files.createTempFile("eform-browser-render-", ".pdf");
+        try {
+            Files.write(pdfPath, new byte[] {1, 2, 3, 4});
+            when(eFormBrowserPdfService.renderSavedEformPdf(
+                    loggedInInfo, 77, (EFormRenderApproval) null))
+                .thenReturn(new EFormBrowserPdfService.RenderedEformPdf(pdfPath));
 
+            Path actualPath = manager.createEformPDF(loggedInInfo, 77);
+
+            assertThat(actualPath).isEqualTo(pdfPath);
+            verify(eFormBrowserPdfService).renderSavedEformPdf(
+                    loggedInInfo, 77, (EFormRenderApproval) null);
+        } finally {
+            Files.deleteIfExists(pdfPath);
+        }
+    }
+
+    @Test
+    @DisplayName("should throw PDFGenerationException when browser renderer returns an unreadable path")
+    void shouldThrowPdfGenerationException_whenBrowserRendererReturnsUnreadablePath() throws Exception {
+        // Create a unique temp path and delete it so the renderer result is guaranteed unreadable,
+        // regardless of any files other processes may have left in the shared temp directory.
+        // Filename must match the RenderedEformPdf guard prefix (the real renderer output name).
+        Path pdfPath = Files.createTempFile("eform-browser-render-missing-", ".pdf");
+        Files.deleteIfExists(pdfPath);
+        when(eFormBrowserPdfService.renderSavedEformPdf(
+                loggedInInfo, 77, (EFormRenderApproval) null))
+                .thenReturn(new EFormBrowserPdfService.RenderedEformPdf(pdfPath));
+
+        assertThatThrownBy(() -> manager.createEformPDF(loggedInInfo, 77))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("unreadable temporary file");
+
+        verify(eFormBrowserPdfService).renderSavedEformPdf(
+                loggedInInfo, 77, (EFormRenderApproval) null);
+    }
+
+    @Test
+    @DisplayName("should require demographic-scoped eForm read privilege before browser rendering")
+    void shouldRequireDemographicScopedEformReadPrivilege_beforeBrowserRendering() throws Exception {
+        when(eFormBrowserPdfService.renderSavedEformPdf(
+                loggedInInfo, 77, (EFormRenderApproval) null)).thenReturn(null);
+
+        // This test's contract is the demographic-scoped privilege check below; the null-path →
+        // exception-message contract is owned by shouldThrowPdfGenerationException_whenBrowserRendererReturnsNullPath,
+        // so assert only the exception type here to avoid duplicating that message assertion.
         assertThatThrownBy(() -> manager.createEformPDF(loggedInInfo, 77))
                 .isInstanceOf(PDFGenerationException.class);
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, "123");
         verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null);
         verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.UPDATE, "123");
+        verify(eFormBrowserPdfService).renderSavedEformPdf(
+                loggedInInfo, 77, (EFormRenderApproval) null);
+    }
+
+    @Test
+    @DisplayName("should preserve a retryable renderer failure's message and retryability structurally, not by matching its wording")
+    void shouldPreserveRetryableRendererFailure_structurally() throws Exception {
+        when(eFormBrowserPdfService.renderSavedEformPdf(
+                loggedInInfo, 77, (EFormRenderApproval) null))
+                .thenThrow(new PDFGenerationException(
+                        "Browser rendering is at capacity; please retry shortly.", true));
+
+        PDFGenerationException thrown = catchThrowableOfType(
+                PDFGenerationException.class, () -> manager.createEformPDF(loggedInInfo, 77));
+
+        assertThat(thrown).hasMessage("Browser rendering is at capacity; please retry shortly.");
+        assertThat(thrown.isRetryable()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should mask a non-retryable renderer failure's message behind a stable diagnosis")
+    void shouldMaskNonRetryableRendererFailure_behindStableDiagnosis() throws Exception {
+        // A non-retryable renderer message can carry page-generated text, URLs, or paths, so it
+        // must never reach the caller verbatim -- only the two known-transient messages do, and
+        // only because they are marked retryable() structurally, not because of their wording.
+        when(eFormBrowserPdfService.renderSavedEformPdf(
+                loggedInInfo, 77, (EFormRenderApproval) null))
+                .thenThrow(new PDFGenerationException("<script>page-generated text</script>"));
+
+        PDFGenerationException thrown = catchThrowableOfType(
+                PDFGenerationException.class, () -> manager.createEformPDF(loggedInInfo, 77));
+
+        assertThat(thrown).hasMessage("EForm PDF generation failed during browser rendering.");
+        assertThat(thrown.isRetryable()).isFalse();
     }
 
     @Test
@@ -106,6 +187,6 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("missing required sec object (_eform)");
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, "123");
-        convertToEdocMock.verifyNoInteractions();
+        verifyNoInteractions(eFormBrowserPdfService);
     }
 }

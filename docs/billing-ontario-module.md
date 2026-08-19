@@ -705,9 +705,11 @@ The recipe itself is documented in
 
 Suppose you're adding a new "void claim" page. Follow this checklist:
 
-1. **Database changes** (if any) go to `database/mysql/updates/update-YYYY-
-   MM-DD-void-claim.sql`. Add the migration script; do not modify
-   `oscarinit_2025.sql` directly.
+1. **Database changes** (if any) go to a Flyway forward migration under
+   `database/mysql/migration/on/` for Ontario-only changes, or
+   `database/mysql/migration/common/` for shared changes. Use the next global
+   `V1.0.N__void_claim.sql` version (`V1.0.7` at the time of this document).
+   Do not add new files to the frozen `database/mysql/updates/` directory.
 2. **DAO method**, if a new query is needed. Add to the relevant
    `*Dao.java` interface and `*DaoImpl.java`. Use parameterised JPQL.
    Cover with a `*DaoIntegrationTest`.

@@ -28,9 +28,20 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Renders note revision history and issue history in the case-management
+    history popup. CaseManagementEntry2Action primarily supplies title, demoName, history,
+    and the optional current flags used to identify removed revisions.
+
+    When history is empty, the page displays a localized explanation instead of
+    leaving the popup body blank.
+
+    @since 2026-08-13
+--%>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -62,6 +73,9 @@
 <body>
     <h3 style="text-align: center;">${title}</h3>
     <h3 style="text-align: center;">${demoName}</h3>
+    <c:if test="${empty history}">
+        <p style="text-align: center;"><fmt:message key="casemgmt.showHistory.msgNoHistory"/></p>
+    </c:if>
     <c:forEach var="note" items="${history}" varStatus="idx">
         <div style="width: 99%; background-color: #EFEFEF; font-size: 12px; border-left: thin groove #000000; border-bottom: thin groove #000000; border-right: thin groove #000000;">
             <div>
