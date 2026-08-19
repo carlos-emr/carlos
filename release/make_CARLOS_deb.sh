@@ -67,8 +67,18 @@ db_name=oscar_15
 ## tolerate fields without default values that are not named in the query
 db_switch=\'?characterEncoding=UTF-8\\\&zeroDateTimeBehavior=round\\\&useOldAliasMetadataBehavior=true\\\&jdbcCompliantTruncation=false\'
 
-# and the target of mvn 3 is
-TARGET=carlos-0-SNAPSHOT.war
+# Derive the WAR name from Maven so CalVer changes cannot break packaging.
+if ! MAVEN_FINAL_NAME=$(mvn -f "${REPO_ROOT}/pom.xml" \
+    help:evaluate -Dexpression=project.build.finalName \
+    -Dstyle.color=never -q -DforceStdout); then
+    echo "ERROR: Could not determine Maven project.build.finalName." >&2
+    exit 1
+fi
+if [[ ! "$MAVEN_FINAL_NAME" =~ ^[A-Za-z0-9._+-]+$ ]]; then
+    echo "ERROR: Unsafe Maven project.build.finalName: $MAVEN_FINAL_NAME" >&2
+    exit 1
+fi
+TARGET="${MAVEN_FINAL_NAME}.war"
 
 buildDateTime=$(date)
 SHA1=""
@@ -283,15 +293,15 @@ fi
 
 # --- Optional helper scripts (not all may be present in every build) ---
 
-# reOscar.sh → reCarlos.sh: the Tomcat restart helper; patched with PROGRAM name.
+# reOscar.sh -> recarlos.sh: the Tomcat restart helper; patched with PROGRAM name.
 if [ -f "release/reOscar.sh" ]; then
     sed -e 's/^PROGRAM.*/PROGRAM='"$PROGRAM"'/' \
-    release/reOscar.sh > ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/reCarlos.sh
+    release/reOscar.sh > ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/recarlos.sh
     # Note: the original scripts keep the .sh extension; end users should rename to
     # prevent the packager from overwriting customised copies on upgrade.
-    chmod 711 ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/reCarlos.sh
+    chmod 711 ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/recarlos.sh
 else
-    echo "WARNING: release/reOscar.sh not found, reCarlos.sh will be absent from package"
+    echo "WARNING: release/reOscar.sh not found, recarlos.sh will be absent from package"
 fi
 
 # gateway.sh: optional HTTPS-redirect/reverse-proxy helper.
@@ -340,7 +350,7 @@ fi
 
 # --- Pull carlos.properties from source ---
 # For new installs and OSCAR 19 migrations the postinst config step will substitute
-# the correct MySQL credentials into this file using the debconf answers.
+# the correct database credentials into this file using the debconf answers.
 # Source path is relative to the repo root (current dir after the cd .. above).
 if [ -f "./src/main/resources/carlos.properties" ]; then
     cp ./src/main/resources/carlos.properties ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/carlos.properties
@@ -364,8 +374,10 @@ cp -R release/bc_billing_dashboard.sql ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKA
 # Tomcat server.xml configuration templates.
 # tomcat9server.xml   → plain HTTP + self-signed TLS (development/internal use).
 # tomcat9LEserver.xml → Let's Encrypt signed TLS (production use).
-cp -R release/tomcat9server.xml ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/
-cp -R release/tomcat9LEserver.xml ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/
+for TOMCAT_TEMPLATE_VERSION in tomcat10 tomcat11; do
+    cp -R release/tomcat9server.xml ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/${TOMCAT_TEMPLATE_VERSION}server.xml
+    cp -R release/tomcat9LEserver.xml ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/${TOMCAT_TEMPLATE_VERSION}LEserver.xml
+done
 
 # run_rxquery.sh: cron helper that queries the DrugRef web service for drug interaction data.
 cp -R release/run_rxquery.sh ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/
@@ -385,50 +397,50 @@ chmod 711 ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/restore.sh
 cp -R release/drugrefUpdate.cron ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/
 chmod +x ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/drugrefUpdate.cron
 
-# --- Bundle database schema scripts for new installs ---
-# The postinst script calls these at install time (for new installs only) to create and
-# populate the oscar_15 schema.  Both ON (Ontario) and BC (British Columbia) variants are
-# included; the installer selects the appropriate one based on the province debconf answer.
-echo "bundling database schema scripts from database/mysql/"
-mkdir -p ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-# Core schema (required for all provinces)
-cp ./database/mysql/oscarinit.sql          ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/oscarinit_2025.sql     ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/oscardata.sql          ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/oscardata_additional.sql ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/measurementMapData.sql ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/expire_openodoc.sql    ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-# ICD-9 and ICD-10 diagnostic code tables
-cp ./database/mysql/icd9.sql              ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/icd10.sql             ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/icd9_issue_groups.sql  ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/icd10_issue_groups.sql ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-# Ontario (ON) province-specific data
-cp ./database/mysql/oscarinit_on.sql      ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/oscardata_on.sql      ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-# Ontario OLIS (Ontario Laboratory Information System) data
-cp -R ./database/mysql/olis/              ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/olis/
-# BC (British Columbia) province-specific data
-cp ./database/mysql/oscarinit_bc.sql       ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/oscardata_bc.sql       ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/bc_billingServiceCodes.sql    ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/bc_professionalSpecialists.sql ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/bc_pharmacies.sql     ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-# CAISI (Computerized Assessment and Integration System) community data — used by both provinces
-cp -R ./database/mysql/caisi/             ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/caisi/
-# Database creation helper scripts — postinst calls the province-appropriate one.
-# createdatabase_generic.sh [user] [pass] [dbname] [on|bc] [icd_version]
-# createdatabase_on.sh      [user] [pass] [dbname]   (wraps generic with on/9)
-# createdatabase_bc.sh      [user] [pass] [dbname]   (wraps generic with bc/9)
-cp ./database/mysql/createdatabase_generic.sh ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/createdatabase_on.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/createdatabase_bc.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-chmod 755 ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/createdatabase_*.sh
+# --- Bundle the Flyway migration set + CLI for new installs ---
+# New installs no longer run the legacy createdatabase_*.sh scripts. The postinst applies the
+# consolidated Flyway V1 baseline (schema + reference data) with the bundled Flyway CLI, selecting
+# the common + province (on|bc) locations from the province debconf answer — exactly the set the
+# container path applies via `carlos-ctl db migrate`. This yields a proper flyway_schema_history so
+# subsequent `carlos-ctl db migrate` runs and the boot-time validate gate work.
+DEB_ARCH=${DEB_ARCH:-$(dpkg --print-architecture 2>/dev/null || echo unknown)}
+if [ "${DEB_ARCH}" != "amd64" ]; then
+  echo "ERROR: this package bundles the linux-x64 Flyway CLI and must be built as amd64 (got ${DEB_ARCH})" >&2
+  exit 1
+fi
+
+FLYWAY_VERSION=11.14.0
+SCHEMA_OUT=${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema
+echo "bundling Flyway migration set from database/mysql/migration/"
+mkdir -p ${SCHEMA_OUT}
+cp -R ./database/mysql/migration ${SCHEMA_OUT}/migration
+# expire_openodoc.sql is a dev-only credential-expiry helper kept for existing tooling.
+cp ./database/mysql/expire_openodoc.sql ${SCHEMA_OUT}/ 2>/dev/null || true
+
+echo "bundling Flyway ${FLYWAY_VERSION} CLI (offline-capable, self-contained JRE)"
+# The bundled linux CLI tarball is on Red Gate's mirror; Maven Central only ships the jar.
+# Download to a file and verify a pinned SHA256 before extracting (same supply-chain posture as
+# the drugref.war check below) — update FLYWAY_SHA256 when bumping FLYWAY_VERSION.
+FLYWAY_SHA256=${FLYWAY_SHA256:-310af67e104e128e93cfe7fa7a59570024f0bb2c03bfdc70137acbe03d5cf5d0}
+# Plain temp FILE (not mktemp -d): the tarball is extracted into ${SCHEMA_OUT}, so the temp
+# location only needs to hold the download. Using a file avoids leaving an empty temp dir behind
+# after the rm below (tar/sha256sum don't require a .tar.gz name).
+FLYWAY_TARBALL="$(mktemp)"
+curl -fsSL "https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
+  -o "${FLYWAY_TARBALL}"
+echo "${FLYWAY_SHA256}  ${FLYWAY_TARBALL}" | sha256sum -c - || { echo "ERROR: Flyway CLI SHA256 mismatch — aborting build" >&2; exit 1; }
+tar xzf "${FLYWAY_TARBALL}" -C ${SCHEMA_OUT}
+rm -f "${FLYWAY_TARBALL}"
+[ -x "${SCHEMA_OUT}/flyway-${FLYWAY_VERSION}/flyway" ] || { echo "ERROR: Flyway CLI missing after extract" >&2; exit 1; }
+chmod 755 ${SCHEMA_OUT}/flyway-${FLYWAY_VERSION}/flyway
 
 # Bundle incremental update scripts for CARLOS revision upgrades.
-# update-2026-02-14-facility-integrator-removal.sql is intentionally excluded because it
-# drops facility columns that are incompatible with OSCAR 19 installations and cannot be
-# safely applied during a package upgrade.  All other update scripts are included.
+# Two legacy update scripts are intentionally excluded:
+# - update-2026-02-14-facility-integrator-removal.sql drops facility columns that are
+#   incompatible with OSCAR 19 installations.
+# - update-2026-05-03-billing-disk-filename-unique.sql is Ontario-only and is now managed
+#   idempotently by Flyway migration on/V1.0.11__billing_filename_unique_indexes.sql.
+# All other update scripts are included.
 # The postinst script applies these after the WAR is deployed to bring the schema current.
 echo "bundling incremental database update scripts from database/mysql/updates/"
 _update_sql_count=0
@@ -436,8 +448,9 @@ mkdir -p "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
 # Loop through the SQL files in the specified directory
 for _upd_sql in ./database/mysql/updates/update-2026-*.sql; do
     if [ -f "${_upd_sql}" ]; then
-        # Skip the specific destructive SQL file for compatibility reasons.
-        if [[ "${_upd_sql}" == "./database/mysql/updates/update-2026-02-14-facility-integrator-removal.sql" ]]; then
+        # Skip scripts that are unsafe for the blanket, province-neutral legacy update loop.
+        if [[ "${_upd_sql}" == "./database/mysql/updates/update-2026-02-14-facility-integrator-removal.sql" ||
+              "${_upd_sql}" == "./database/mysql/updates/update-2026-05-03-billing-disk-filename-unique.sql" ]]; then
             continue
         fi
         cp "${_upd_sql}" "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
@@ -511,6 +524,11 @@ curl -o ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/OscarDocument/${PROGRAM}/ef
 
 echo "now invoking dpkg -b ${RELEASE_DIR}/${DEBNAME}"
 
+# Update Installed-Size after all payload files are staged; the value is KiB and is used by apt
+# for disk-space checks. Keep release/control as a template and stamp the real size here.
+INSTALLED_SIZE=$(du -sk "${RELEASE_DIR}/${DEBNAME}" | cut -f1)
+sed -i "s/^Installed-Size:.*/Installed-Size: ${INSTALLED_SIZE}/" "${RELEASE_DIR}/${DEBNAME}/DEBIAN/control"
+
 # Build the .deb package from the assembled directory tree.
 # Output: ${RELEASE_DIR}/${DEBNAME}.deb
 dpkg -b "${RELEASE_DIR}/${DEBNAME}"
@@ -525,7 +543,6 @@ echo ""
 echo "the md5sum is"
 md5sum "${RELEASE_DIR}/${DEBNAME}.deb"
 echo "#########" `date` "#########"
-
 
 
 

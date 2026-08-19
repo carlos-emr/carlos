@@ -24,8 +24,8 @@
 # not on every commit, saving CI/CD minutes and reducing wait times.
 #
 # Triggers:
-# - Push to main/develop/experimental branches
-# - Pull requests to main/develop/experimental branches
+# - Push to main/develop/experimental/release/* branches
+# - Pull requests to main/develop/experimental/release/* branches
 # - Manual dispatch for forced rebuilds (with force_rebuild option)
 #
 # License:
@@ -42,6 +42,7 @@ on:
       - experimental
       - staging/*
       - hotfix/*
+      - release/*
   pull_request:
     branches:
       - main
@@ -49,6 +50,7 @@ on:
       - experimental
       - staging/*
       - hotfix/*
+      - release/*
   workflow_dispatch:
     inputs:
       force_rebuild:
@@ -124,17 +126,20 @@ jobs:
             echo "Checking container: $name"
             echo "========================================="
 
-            # Calculate hash of Dockerfile and relevant context files only
+            # Calculate hash from every file in the Docker build inputs, not just selected
+            # extensions. Dockerfile COPY sources include extensionless scripts, .properties, .xml,
+            # .jsp, and .ico files; filtering by suffix can leave stale images in the registry.
+            # Note: extra_context is expected to be a space-separated list of paths. Paths
+            # containing spaces are not supported here.
+            local hash_paths=("$context_path")
             if [ -n "$extra_context" ]; then
-              # Note: extra_context is expected to be a space-separated list of paths.
-              # Paths containing spaces are not supported here.
-              local extra_context_array=()
               # Intentionally rely on word splitting to support multiple paths.
-              extra_context_array=($extra_context)
-              HASH=$(find "$context_path" "${extra_context_array[@]}" \( -name 'Dockerfile' -o -name 'Dockerfile.*' -o -name '*.dockerfile' -o -name '*.sh' -o -name '*.sql' -o -name '*.yml' -o -name '*.yaml' -o -name '*.conf' -o -name '*.cnf' \) -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -d' ' -f1)
-            else
-              HASH=$(find "$context_path" \( -name 'Dockerfile' -o -name 'Dockerfile.*' -o -name '*.dockerfile' -o -name '*.sh' -o -name '*.sql' -o -name '*.yml' -o -name '*.yaml' -o -name '*.conf' -o -name '*.cnf' \) -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -d' ' -f1)
+              local extra_context_array=($extra_context)
+              hash_paths+=("${extra_context_array[@]}")
             fi
+            HASH=$(find "${hash_paths[@]}" \
+              -path '*/db_data/*' -prune -o \
+              -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -d' ' -f1)
             echo "Content hash: $HASH"
             echo "${output_name}_hash=$HASH" >> "$GITHUB_OUTPUT"
 
@@ -171,7 +176,7 @@ jobs:
 
           # Check each container (name, output_name, context_path, extra_context)
           check_container "tomcat-dev" "tomcat" ".devcontainer/development" ""
-          check_container "mariadb-dev" "mariadb" ".devcontainer/db" "database .devcontainer/development/config/shared"
+          check_container "mariadb-dev" "mariadb" ".devcontainer/db" "database .devcontainer/development/config/shared/my.cnf"
           check_container "drugref" "drugref" ".devcontainer/drugref" ""
 
   # ===========================================================================
@@ -229,6 +234,9 @@ jobs:
 
       - name: Save tested tomcat-dev image
         run: |
+          echo "Reclaiming Docker Buildx cache before exporting tested image..."
+          docker buildx prune -af || true
+          docker system df || true
           mkdir -p "$RUNNER_TEMP/container-images"
           docker save carlos-tomcat-dev:test -o "$RUNNER_TEMP/container-images/carlos-tomcat-dev.tar"
 
@@ -326,13 +334,13 @@ jobs:
         run: |
           echo "Testing container starts correctly..."
           docker run -d --name test-mariadb \
-            -e MYSQL_ROOT_PASSWORD=testpassword \
+            -e MARIADB_ROOT_PASSWORD=testpassword \
             carlos-mariadb-dev:test
 
           echo "Waiting for MariaDB to start..."
           ready=false
           for i in {1..30}; do
-            if docker exec test-mariadb mysqladmin ping -h localhost -u root -ptestpassword 2>/dev/null; then
+            if docker exec test-mariadb mariadb-admin ping -h localhost -u root -ptestpassword 2>/dev/null; then
               echo "MariaDB is ready!"
               ready=true
               break
@@ -349,7 +357,7 @@ jobs:
           fi
 
           echo "Verifying MariaDB version..."
-          docker exec test-mariadb mysql --version
+          docker exec test-mariadb mariadb --version
 
           echo "Verifying database scripts are present..."
           docker exec test-mariadb ls -la /database/mysql/
@@ -360,7 +368,7 @@ jobs:
             # Check container logs for the exact completion message from populate_db.sh: "Database initialization complete!"
             if docker logs test-mariadb 2>&1 | grep -q "Database initialization complete!"; then
               # Verify database state to avoid false positives from reused logs
-              provider_count=$(docker exec test-mariadb mysql -N -u root -ptestpassword -e "SELECT COUNT(*) FROM oscar.provider;" 2>/dev/null || echo 0)
+              provider_count=$(docker exec test-mariadb mariadb -N -u root -ptestpassword -e "SELECT COUNT(*) FROM oscar.provider;" 2>/dev/null || echo 0)
               if [ "$provider_count" -gt 0 ]; then
                 echo "Database initialization complete and provider table populated (count=$provider_count)."
                 initialized=true
@@ -381,9 +389,9 @@ jobs:
 
           # Verify all databases exist
           echo "Verifying databases..."
-          docker exec test-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar" > /dev/null || { echo "ERROR: oscar database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
-          docker exec test-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar_test" > /dev/null || { echo "ERROR: oscar_test database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
-          docker exec test-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null || { echo "ERROR: drugref2 database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar" > /dev/null || { echo "ERROR: oscar database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar_test" > /dev/null || { echo "ERROR: oscar_test database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null || { echo "ERROR: drugref2 database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
           echo "All databases verified!"
 
           echo "All tests passed!"

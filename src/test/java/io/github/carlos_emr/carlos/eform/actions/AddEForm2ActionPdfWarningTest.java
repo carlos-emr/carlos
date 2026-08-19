@@ -21,7 +21,6 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -77,9 +76,9 @@ class AddEForm2ActionPdfWarningTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should close with warning when preview pdf generation fails")
     void shouldCloseWithWarning_whenPreviewPdfGenerationFails() throws Exception {
-        AddEForm2Action action = new AddEForm2Action();
         when(documentAttachmentManager.renderEFormWithAttachments(request, response))
                 .thenThrow(new PDFGenerationException("render failed"));
+        AddEForm2Action action = new AddEForm2Action();
 
         String result = action.closeWithPdfPreview(loggedInInfo, "123", "42");
 
@@ -95,32 +94,29 @@ class AddEForm2ActionPdfWarningTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should close with warning when preview conversion throws runtime exception")
-    void shouldCloseWithWarning_whenPreviewConversionThrowsRuntimeException() throws Exception {
+    @DisplayName("should fall back to a generic preview filename when demographic number is invalid")
+    void shouldUseFallbackPreviewFilename_whenDemographicNumberIsInvalid() throws Exception {
+        when(documentAttachmentManager.renderEFormWithAttachments(request, response))
+                .thenThrow(new PDFGenerationException("render failed"));
         AddEForm2Action action = new AddEForm2Action();
-        Path pdfPath = Path.of("/tmp/eform-preview.pdf");
 
-        when(documentAttachmentManager.renderEFormWithAttachments(request, response)).thenReturn(pdfPath);
-        when(documentAttachmentManager.convertPDFToBase64(pdfPath)).thenThrow(new IllegalStateException("bad preview"));
+        String result = action.closeWithPdfPreview(loggedInInfo, "abc", "42");
+
+        assertThat(result).isEqualTo("close");
+        assertThat(request.getAttribute("eFormPDFName").toString()).matches("\\d{4}_\\d{2}_\\d{2}_eform\\.pdf");
+        assertThat(request.getAttribute("warningMessage")).isEqualTo("This eForm was saved, but its PDF preview could not be generated.");
+        assertThat(request.getAttribute("warningMessage").toString()).doesNotContain("render failed");
+    }
+    @Test
+    @DisplayName("should close with warning when preview pdf path is missing")
+    void shouldCloseWithWarning_whenPreviewPdfPathIsMissing() throws Exception {
+        when(documentAttachmentManager.renderEFormWithAttachments(request, response)).thenReturn(null);
+        AddEForm2Action action = new AddEForm2Action();
 
         String result = action.closeWithPdfPreview(loggedInInfo, "123", "42");
 
         assertThat(result).isEqualTo("close");
         assertThat(request.getAttribute("warningMessage")).isEqualTo("This eForm was saved, but its PDF preview could not be generated.");
         assertThat(request.getAttribute("eFormPDF")).isEqualTo("");
-    }
-
-    @Test
-    @DisplayName("should fall back to generic filename when demographic number is invalid")
-    void shouldFallBackToGenericFilename_whenDemographicNumberIsInvalid() throws Exception {
-        AddEForm2Action action = new AddEForm2Action();
-        when(documentAttachmentManager.renderEFormWithAttachments(request, response))
-                .thenThrow(new PDFGenerationException("render failed"));
-
-        String result = action.closeWithPdfPreview(loggedInInfo, "not-a-number", "42");
-
-        assertThat(result).isEqualTo("close");
-        assertThat(request.getAttribute("warningMessage")).isEqualTo("This eForm was saved, but its PDF preview could not be generated.");
-        assertThat(request.getAttribute("eFormPDFName").toString()).matches("\\d{4}_\\d{2}_\\d{2}_eform\\.pdf");
     }
 }

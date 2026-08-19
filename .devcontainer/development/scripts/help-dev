@@ -52,7 +52,7 @@ AI CODING ASSISTANTS:
 
 DATABASE ACCESS:
   db-connect              Connect to MariaDB as root
-  mysql -h db -u root -ppassword oscar
+  mariadb -h db -u root -ppassword oscar
 
 MAVEN OPERATIONS:
   mvn clean compile       Build Java project
