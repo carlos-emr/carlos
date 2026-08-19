@@ -36,10 +36,17 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -64,13 +71,16 @@ public class CombinePDF2Action extends ActionSupport {
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient CtlDocumentDao ctlDocumentDao = SpringUtils.getBean(CtlDocumentDao.class);
+    private transient DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String execute() {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_doc)");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
         }
 
         String[] files = request.getParameterValues("docNo");
@@ -78,12 +88,44 @@ public class CombinePDF2Action extends ActionSupport {
         ArrayList<Object> alist = new ArrayList<Object>();
         if (files != null) {
             MiscUtils.getLogger().debug("size = " + files.length);
-            EDocUtil docData = new EDocUtil();
+            List<Integer> documentNos = new ArrayList<>();
+            for (String file : files) {
+                try {
+                    documentNos.add(Integer.valueOf(file));
+                } catch (NumberFormatException e) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
+                }
+            }
+            List<CtlDocument> documentLinks = ctlDocumentDao.findByDocumentNos(documentNos);
+            Map<Integer, List<CtlDocument>> linksByDocumentNo = new HashMap<>();
+            for (CtlDocument documentLink : documentLinks) {
+                if (documentLink == null || documentLink.getId() == null
+                        || documentLink.getId().getDocumentNo() == null) {
+                    continue;
+                }
+                linksByDocumentNo
+                        .computeIfAbsent(documentLink.getId().getDocumentNo(), ignored -> new ArrayList<>())
+                        .add(documentLink);
+            }
+            List<Document> documents = new ArrayList<>();
+            for (Integer documentNo : documentNos) {
+                Document document = documentDao.find(documentNo.intValue());
+                if (document == null || document.getDocfilename() == null || document.getDocfilename().isBlank()) {
+                    response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                    return NONE;
+                }
+                if (!isAuthorizedDocumentScope(loggedInInfo, document, linksByDocumentNo.get(documentNo))) {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    return NONE;
+                }
+                documents.add(document);
+            }
             File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
             Path filePath;
-            for (int i = 0; i < files.length; i++) {
-                String filename = docData.getDocumentName(files[i]);
-                filePath = PathValidationUtils.validateExistingPath(new File(documentDir, filename), documentDir).toPath();
+            for (Document document : documents) {
+                filePath = PathValidationUtils.validateExistingPath(
+                        new File(documentDir, document.getDocfilename()), documentDir).toPath();
                 alist.add(filePath.toAbsolutePath().toString());
             }
             if (alist.size() > 0) {
@@ -142,6 +184,55 @@ public class CombinePDF2Action extends ActionSupport {
             }
         }
         return SUCCESS;
+    }
+
+    boolean isAuthorizedDocumentScope(
+            LoggedInInfo loggedInInfo, Document document, List<CtlDocument> documentLinks) {
+        if (documentLinks == null || documentLinks.isEmpty()) {
+            return false;
+        }
+
+        boolean hasDemographicLink = false;
+        for (CtlDocument documentLink : documentLinks) {
+            String module = documentLink.getId().getModule();
+            Integer moduleId = documentLink.getId().getModuleId();
+            if (isDemographicModule(module)) {
+                hasDemographicLink = true;
+                if (moduleId == null
+                        || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, moduleId)) {
+                    return false;
+                }
+            }
+        }
+        if (hasDemographicLink) {
+            return true;
+        }
+
+        boolean hasProviderLink = documentLinks.stream()
+                .anyMatch(documentLink -> EDocUtil.isProviderModule(documentLink.getId().getModule()));
+        if (!hasProviderLink) {
+            return false;
+        }
+        if (document.getPublic1() == 1) {
+            return true;
+        }
+        Integer providerNo = parseProviderNo(loggedInInfo.getLoggedInProviderNo());
+        return providerNo != null && documentLinks.stream()
+                .anyMatch(documentLink -> EDocUtil.isProviderModule(documentLink.getId().getModule())
+                        && providerNo.equals(documentLink.getId().getModuleId()));
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "ASCII database module identifier is matched case-insensitively for legacy compatibility")
+    private boolean isDemographicModule(String module) {
+        return "demographic".equalsIgnoreCase(module);
+    }
+
+    private Integer parseProviderNo(String providerNo) {
+        try {
+            return providerNo != null ? Integer.valueOf(providerNo) : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**
