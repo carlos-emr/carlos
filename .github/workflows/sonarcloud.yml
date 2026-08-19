@@ -229,3 +229,15 @@ jobs:
                 \"-Dsonar.pullrequest.branch=\$PR_BRANCH\" \
                 \"-Dsonar.pullrequest.base=\$PR_BASE\" \
                             "
+
+      # The dev container runs as root and leaves root-owned files in the
+      # mounted workspace (.m2-cache, .sonar-cache, target/**). The post-job
+      # cache save runs as the runner user: it re-evaluates the cache key's
+      # hashFiles('**/pom.xml', ...) across the workspace and tars the cache
+      # directories, so unreadable root-owned paths fail the job even after a
+      # successful analysis. Only cold-cache runs hit this — an exact-key
+      # cache hit skips the save step entirely, which is why develop pushes
+      # never saw it. Restore runner ownership before the post steps run.
+      - name: Fix workspace ownership for cache save
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
