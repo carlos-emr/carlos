@@ -1,0 +1,201 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.integration.patientportal;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.Duration;
+import java.util.Locale;
+import java.util.Map;
+import java.util.function.Function;
+
+/**
+ * Deployment configuration for the CARLOS to patient-portal channel.
+ *
+ * <p>The portal's {@code /internal/carlos/**} API grants clinic-wide staff powers — issuing invite
+ * tokens, unlocking accounts, revealing passphrases — to any caller holding the service token. That
+ * makes this class a security boundary, not plumbing, and it enforces three properties:
+ *
+ * <ul>
+ *   <li><b>TLS only.</b> The base URL must be {@code https://}. The token is a bearer credential, so
+ *       one plaintext hop hands clinic-wide portal access to anyone on the path.
+ *   <li><b>Config-pinned destination.</b> The URL is read from deployment properties and never from
+ *       request input, so no CARLOS request can redirect portal calls at an attacker's host.
+ *   <li><b>Fail closed.</b> Missing or malformed configuration throws. Portal calls never silently
+ *       become no-ops that a clinic would misread as "the invite was sent".
+ * </ul>
+ *
+ * <p>CARLOS sends exactly one token. Rotation is driven from the portal side, which accepts both
+ * {@code PATIENT_PORTAL_INTERNAL_API_TOKEN} and {@code ..._PREVIOUS} at once: set the portal's
+ * previous token to the outgoing value, then move CARLOS to the new one. There is deliberately no
+ * "previous token" property here — CARLOS would have no way to choose between two.
+ *
+ * @since 2026-08-19
+ */
+public record PatientPortalSettings(
+        String baseUrl,
+        String clinicId,
+        String serviceToken,
+        Duration connectTimeout,
+        Duration readTimeout) {
+
+    public static final String BASE_URL_KEY = "patient_portal.base_url";
+    public static final String CLINIC_ID_KEY = "patient_portal.clinic_id";
+    public static final String SERVICE_TOKEN_KEY = "patient_portal.service_token";
+    public static final String CONNECT_TIMEOUT_KEY = "patient_portal.timeout.connect.ms";
+    public static final String READ_TIMEOUT_KEY = "patient_portal.timeout.read.ms";
+
+    private static final String REQUIRED_SCHEME_PREFIX = "https://";
+    private static final long DEFAULT_CONNECT_TIMEOUT_MS = 5000L;
+    private static final long DEFAULT_READ_TIMEOUT_MS = 15000L;
+
+    private static final String MISSING_MESSAGE = "patient portal is not configured: %s is required";
+    private static final String PLAINTEXT_MESSAGE =
+            "%s must be an https:// URL; refusing to send the portal token over plaintext";
+    private static final String MALFORMED_MESSAGE = "%s is not a valid URL";
+    private static final String NO_HOST_MESSAGE = "%s must name a host";
+    private static final String USER_INFO_MESSAGE = "%s must not embed credentials";
+    private static final String QUERY_MESSAGE = "%s must not carry a query string or fragment";
+    private static final String TIMEOUT_MESSAGE = "%s must be a positive number of milliseconds";
+    private static final String DESCRIPTION =
+            "PatientPortalSettings[baseUrl=%s, clinicId=%s, token=REDACTED, connect=%s, read=%s]";
+
+    /**
+     * Reads and validates the channel configuration.
+     *
+     * @param properties deployment properties, typically {@code carlos.properties} overlaid with
+     *     {@code over_ride_config.properties}
+     * @return validated settings; never partially populated
+     * @throws PatientPortalConfigurationException if a required value is absent or blank, the base
+     *     URL is not a plain {@code https://} origin, or a timeout is not a positive integer
+     */
+    public static PatientPortalSettings fromProperties(Map<String, String> properties) {
+        return fromProperties(properties::get);
+    }
+
+    /**
+     * Reads and validates the channel configuration from an arbitrary property lookup.
+     *
+     * <p>Taking a lookup function rather than a concrete properties object keeps this testable
+     * without the {@code CarlosProperties} singleton, and lets callers overlay sources.
+     *
+     * @param lookup resolves a property key to its configured value, or {@code null} if unset
+     */
+    public static PatientPortalSettings fromProperties(Function<String, String> lookup) {
+        String baseUrl = validatedBaseUrl(required(lookup, BASE_URL_KEY));
+        String clinicId = required(lookup, CLINIC_ID_KEY);
+        String serviceToken = required(lookup, SERVICE_TOKEN_KEY);
+        Duration connectTimeout = timeout(lookup, CONNECT_TIMEOUT_KEY, DEFAULT_CONNECT_TIMEOUT_MS);
+        Duration readTimeout = timeout(lookup, READ_TIMEOUT_KEY, DEFAULT_READ_TIMEOUT_MS);
+        return new PatientPortalSettings(
+                baseUrl, clinicId, serviceToken, connectTimeout, readTimeout);
+    }
+
+    private static String required(Function<String, String> lookup, String key) {
+        String value = lookup.apply(key);
+        if (value == null || value.isBlank()) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, MISSING_MESSAGE, key));
+        }
+        return value.strip();
+    }
+
+    /**
+     * Rejects anything that is not a bare {@code https://} origin.
+     *
+     * <p>The scheme is matched as an exact lowercase prefix rather than case-insensitively on
+     * purpose. This is a TLS enforcement decision, and locale-dependent case folding is the
+     * CVE-2024-38827 class of defect that CARLOS tracks in issue #2496; an operator writing {@code
+     * HTTPS://} gets a clear error rather than a silently locale-sensitive comparison.
+     *
+     * <p>User-info is rejected because credentials in a URL leak into logs and proxy traces, and a
+     * query or fragment is rejected because it would be silently dropped when endpoint paths are
+     * appended — leaving an operator convinced they had configured something that never applied.
+     */
+    private static String validatedBaseUrl(String configured) {
+        if (!configured.startsWith(REQUIRED_SCHEME_PREFIX)) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, PLAINTEXT_MESSAGE, BASE_URL_KEY));
+        }
+        URI uri;
+        try {
+            uri = new URI(configured);
+        } catch (URISyntaxException exception) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, MALFORMED_MESSAGE, BASE_URL_KEY), exception);
+        }
+        if (uri.getHost() == null) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, NO_HOST_MESSAGE, BASE_URL_KEY));
+        }
+        if (uri.getUserInfo() != null) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, USER_INFO_MESSAGE, BASE_URL_KEY));
+        }
+        if (uri.getQuery() != null || uri.getFragment() != null) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, QUERY_MESSAGE, BASE_URL_KEY));
+        }
+        return stripTrailingSlashes(configured);
+    }
+
+    private static String stripTrailingSlashes(String value) {
+        int end = value.length();
+        while (end > REQUIRED_SCHEME_PREFIX.length() && value.charAt(end - 1) == '/') {
+            end--;
+        }
+        return value.substring(0, end);
+    }
+
+    private static Duration timeout(
+            Function<String, String> lookup, String key, long defaultMilliseconds) {
+        String configured = lookup.apply(key);
+        if (configured == null || configured.isBlank()) {
+            return Duration.ofMillis(defaultMilliseconds);
+        }
+        long milliseconds;
+        try {
+            milliseconds = Long.parseLong(configured.strip());
+        } catch (NumberFormatException exception) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, TIMEOUT_MESSAGE, key), exception);
+        }
+        if (milliseconds <= 0) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, TIMEOUT_MESSAGE, key));
+        }
+        return Duration.ofMillis(milliseconds);
+    }
+
+    /**
+     * Renders the endpoint without the credential.
+     *
+     * <p>A record's generated {@code toString} prints every component, which would put the service
+     * token into any log line, stack trace, or debugger view that happened to render these
+     * settings.
+     */
+    @Override
+    public String toString() {
+        return String.format(
+                Locale.ROOT, DESCRIPTION, baseUrl, clinicId, connectTimeout, readTimeout);
+    }
+}
