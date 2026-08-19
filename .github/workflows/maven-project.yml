@@ -16,6 +16,7 @@
 #   - main
 #   - develop
 #   - experimental
+#   - release/*
 #
 # Key Jobs:
 # - build:
@@ -44,6 +45,13 @@
 name: Check Carlos EMR
 
 on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to verify; defaults to the event commit
+        required: false
+        type: string
+        default: ""
   pull_request:
     branches:
       - main
@@ -51,6 +59,7 @@ on:
       - experimental
       - staging/*
       - hotfix/*
+      - release/*
       - community/*/develop
       - community/*/staging/*
 
@@ -68,6 +77,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
+          persist-credentials: false
 
       - name: Log in to Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
@@ -180,6 +192,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
+          persist-credentials: false
 
       - name: Restore Maven cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -302,6 +317,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
+          persist-credentials: false
       - name: Run encoder null-safety lint
         run: bash scripts/lint/check-encoder-null-safety.sh
       - name: Run encoder null-safety lint fixtures
@@ -319,6 +337,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
+          persist-credentials: false
 
       - name: Restore Maven cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0

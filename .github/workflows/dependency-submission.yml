@@ -5,7 +5,7 @@
 # dependency graph to GitHub for security monitoring.
 #
 # Trigger:
-# - Runs on push to main and develop branches when pom.xml or lock file changes
+# - Runs on pushes to the configured branches when pom.xml or the lock file changes
 # - Does NOT run on pull requests (maven-project.yml handles PR validation)
 #
 # Jobs:
@@ -30,6 +30,7 @@ on:
       - experimental
       - staging/*
       - hotfix/*
+      - release/*
       - community/*/develop
       - community/*/staging/*
     paths:

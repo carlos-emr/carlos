@@ -24,8 +24,8 @@
 # not on every commit, saving CI/CD minutes and reducing wait times.
 #
 # Triggers:
-# - Push to main/develop/experimental branches
-# - Pull requests to main/develop/experimental branches
+# - Push to main/develop/experimental/release/* branches
+# - Pull requests to main/develop/experimental/release/* branches
 # - Manual dispatch for forced rebuilds (with force_rebuild option)
 #
 # License:
@@ -42,6 +42,7 @@ on:
       - experimental
       - staging/*
       - hotfix/*
+      - release/*
   pull_request:
     branches:
       - main
@@ -49,6 +50,7 @@ on:
       - experimental
       - staging/*
       - hotfix/*
+      - release/*
   workflow_dispatch:
     inputs:
       force_rebuild:

@@ -941,6 +941,7 @@
         // All-specialists data for autocomplete (loaded once on page ready)
         var allSpecialistsData = [];
         var allServicesData = [];
+        var lastResolvedServiceId = '';
 
         function loadAllSpecialistsData(callback) {
             jQuery.ajax({
@@ -980,6 +981,34 @@
             });
             jQuery('#serviceInput').on('click', function() {
                 jQuery(this).autocomplete('search', '');
+            });
+            // #service is the field actually posted, and the select handler above is the only
+            // thing that ever wrote it. The id therefore survived the clinician clearing the
+            // visible text, so a service that looked deselected was still submitted and the
+            // submit guard (see issue #2241) approved a value nobody could see. Re-resolve the
+            // hidden id from the visible text on every edit: an exact service name keeps its
+            // id, anything else clears it.
+            //
+            // Keep the last valid id while the text is only a partial/unknown value. That lets us
+            // avoid wiping dependent fields on every keystroke while still detecting when the
+            // clinician has manually entered a different exact service name.
+            jQuery('#serviceInput').on('input', function() {
+                var previousServiceId = lastResolvedServiceId;
+                var typed = jQuery(this).val().trim().toLowerCase();
+                var matchedId = '';
+                for (var i = 0; i < allServicesData.length; i++) {
+                    var description = (allServicesData[i].serviceDesc || '').trim().toLowerCase();
+                    if (description === typed) {
+                        matchedId = allServicesData[i].serviceId;
+                        break;
+                    }
+                }
+                jQuery('#service').val(matchedId);
+                if (matchedId !== '') {
+                    if (String(matchedId) !== String(previousServiceId || '')) {
+                        onServiceSelected(matchedId);
+                    }
+                }
             });
         }
 
@@ -1045,6 +1074,7 @@
         }
 
         function onServiceSelected(serviceId) {
+            lastResolvedServiceId = String(serviceId || '');
             // Clear specialist selection when service changes
             jQuery('#specialistInput').val('');
             jQuery('#specialist').val('');
@@ -1071,6 +1101,7 @@
             if ((!currentService || currentService === '' || currentService === '-1') && specData.serviceIds && specData.serviceIds.length > 0) {
                 jQuery('#service').val(specData.serviceIds[0]);
                 jQuery('#serviceInput').val(specData.serviceNames ? specData.serviceNames[0] : '');
+                lastResolvedServiceId = String(specData.serviceIds[0]);
             }
 
             document.getElementById('consult-disclaimer').style.display = 'none';
@@ -1460,6 +1491,7 @@
             if (savedService && savedService !== 'null' && savedService !== '-1') {
                 jQuery('#service').val(savedService);
                 jQuery('#serviceInput').val(savedServiceName || '');
+                lastResolvedServiceId = String(savedService);
                 // Maintain legacy data structure for backward compatibility
                 if (!services[savedService]) {
                     K(savedService, savedServiceName);
@@ -1693,8 +1725,9 @@
         function checkForm(submissionVal, formName) {
             ShowSpin(true);
             var success = true;
+            var isEReferral = document.getElementById('isOceanEReferral') !== null;
 
-            if (typeof checkFormHCT === "function") {
+            if (!isEReferral && typeof checkFormHCT === "function") {
                 if (!checkFormHCT()) {
                     HideSpin();
                     return false;
@@ -1704,12 +1737,28 @@
             var msg = "<fmt:message key="Errors.service.noServiceSelected"/>";
             msg = msg.replace('<li>', '');
             msg = msg.replace('</li>', '');
-            var serviceOptionsElement = document.EctConsultationFormRequest2Form.service.options;
-            if (serviceOptionsElement && serviceOptionsElement.selectedIndex == 0) {
-                alert(msg);
-                document.EctConsultationFormRequest2Form.service.focus();
-                HideSpin();
-                return false;
+            // `service` is rendered three different ways: a hidden input paired with the
+            // #serviceInput autocomplete (Health Care Team off), a hidden input fixed at "0"
+            // (Health Care Team on), and no field at all on an eReferral, where the service is
+            // read-only text. Reading `.options` only worked for a <select> that this form no
+            // longer renders, so this guard silently passed for every real submission and let a
+            // blank service reach the server. The normal interactive form intentionally requires
+            // a service; the action still accepts null defensively for eReferrals, alternate
+            // clients, and direct requests so a missing value can never discard the referral.
+            // See issue #2241.
+            var serviceElement = document.EctConsultationFormRequest2Form.service;
+            if (serviceElement && !isEReferral) {
+                var serviceValue = serviceElement.options
+                        ? (serviceElement.selectedIndex > 0 ? serviceElement.value : '')
+                        : (serviceElement.value || '').trim();
+                if (serviceValue === '') {
+                    alert(msg);
+                    // Focus the visible autocomplete when present; a hidden input cannot take focus.
+                    var serviceInput = document.getElementById('serviceInput');
+                    (serviceInput || serviceElement).focus();
+                    HideSpin();
+                    return false;
+                }
             }
             var faxNumber = document.EctConsultationFormRequest2Form.fax.value;
             faxNumber = faxNumber.trim();
@@ -3297,6 +3346,9 @@ if (userAgent != null) {
                                     loadAllSpecialistsData(function() {
                                         initServiceAutocomplete();
                                         initSpecialistAutocomplete();
+                                        // Resolve text entered while either asynchronous lookup was loading.
+                                        // Existing consultations are restored from their saved IDs immediately below.
+                                        jQuery('#serviceInput').trigger('input');
                                         initializeConsultation(
                                             '<carlos:encode value='<%= String.valueOf(consultUtil.service) %>' context="javaScriptBlock"/>',
                                             '<%=((consultUtil.service==null)?"":SafeEncode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>',

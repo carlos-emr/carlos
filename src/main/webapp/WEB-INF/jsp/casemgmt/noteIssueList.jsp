@@ -427,12 +427,14 @@
 
 <div id='autosaveTime' class='sig' style='text-align:center; margin:0px;'></div>
 <script type="text/javascript">
+(function () {
+    // AJAX responses re-evaluate this fragment, so keep its declarations isolated.
 
     //check to see if we need to update div containers to most recent note id
     //this happens only when we're called thru ajaxsave
     <c:if test="${not empty ajaxsave}">
-        var origId = "${origNoteId}";
-        var newId = "${ajaxsave}";
+        var origId = "${carlos:forJavaScriptBlock(origNoteId)}";
+        var newId = "${carlos:forJavaScriptBlock(ajaxsave)}";
         var oldDiv;
         var newDiv;
         var prequel = ["n", "sig", "signed", "full", "bgColour", "print", "editWarn"];
@@ -445,8 +447,7 @@
         }
         updatedNoteId = newId;
 
-        // Assuming noteTxt comes from request attribute or is passed in a similar way
-        var noteTxt = "${fn:escapeXml(noteTxt)}"; // Escape any special characters in noteTxt
+        var noteTxt = "${carlos:forJavaScriptBlock(noteTxt)}";
         completeChangeToView(noteTxt, newId);
 
         if (origId.substr(0, 1) == "0") {
@@ -455,10 +456,10 @@
         }
 
         <c:if test="${not empty DateError}">
-            alert("${DateError}");
+            alert("${carlos:forJavaScriptBlock(DateError)}");
         </c:if>
     </c:if>
-    const backgroundColorId = "bgColour" + "<%=noteIndex%>";
+    const backgroundColorId = "bgColour" + "${carlos:forJavaScriptBlock(noteIndex)}";
     const backgroundColorInput = document.getElementById(backgroundColorId);
     let txtColour = "#000000";
     let background = "#CCCCFF";
@@ -475,7 +476,7 @@
     }
 
 
-	const summaryId = "summary" + "${noteIndex}";
+	const summaryId = "summary" + "${carlos:forJavaScriptBlock(noteIndex)}";
 	const summaryDiv = document.getElementById(summaryId);
 	if (summaryDiv) {
 		summaryDiv.style.color = txtColour;
@@ -502,8 +503,8 @@
     }
 
     //do we have a custom encounter type?  if so add an option to the encounter type select
-    var encounterType = '${caseManagementEntryForm.caseNote.encounter_type}';
-    var selectEnc = "${encSelect}";
+    var encounterType = '${carlos:forJavaScriptBlock(caseManagementEntryForm.caseNote.encounter_type)}';
+    var selectEnc = "${carlos:forJavaScriptBlock(encSelect)}";
     const selectElement = document.getElementById(selectEnc);
     if (selectElement) {
         if ( selectElement.value == "" && encounterType != "" ) {
@@ -533,7 +534,7 @@
 
 
     //store observation date so we know if user changes it
-   if (observationDateInput) {
+    if (observationDateInput) {
         origObservationDate = observationDateInput.value;
 
         //create calendar
@@ -546,5 +547,6 @@
             step: 1
         });
     }
+}());
 </script>
 </div>
