@@ -24,6 +24,7 @@ The mock demonstrates:
 - Claim confirmation and issue-flagging interactions
 - Hard-blocked finalization while high-risk conflicts remain
 - Responsive evidence-panel behavior for narrow screens
+- A draggable, keyboard-accessible desktop divider for enlarging either the summary or source evidence pane
 
 ## Important data note
 
