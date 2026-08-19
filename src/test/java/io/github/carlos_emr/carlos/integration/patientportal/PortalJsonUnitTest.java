@@ -165,14 +165,29 @@ class PortalJsonUnitTest {
         }
 
         /**
-         * A raw DateTimeParseException used to escape past every caller that catches
-         * PatientPortalException, surfacing as a generic CARLOS error page.
+         * Found only by running against a live portal. Values that round-trip through the portal's
+         * database come back without an offset because SQLite does not persist tzinfo, while
+         * freshly constructed ones carry Z. Rejecting the naive form broke every list and revoke
+         * call on the SQLite demo path while every unit test stayed green.
          */
         @Test
-        @DisplayName("should refuse a timestamp with no offset instead of escaping unmapped")
-        void shouldThrowContractException_whenTimestampHasNoOffset() {
-            assertThatThrownBy(
-                            () -> PortalJson.timestamp(node("{\"t\":\"2026-08-19T12:00:00\"}"), "t"))
+        @DisplayName("should read a naive timestamp as UTC, as the portal emits on list and revoke")
+        void shouldParseNaiveTimestamp_asUtc() {
+            assertThat(PortalJson.timestamp(node("{\"t\":\"2026-08-19T19:18:56.278540\"}"), "t"))
+                    .isEqualTo(Instant.parse("2026-08-19T19:18:56.278540Z"));
+        }
+
+        @Test
+        @DisplayName("should read both forms of the same instant identically")
+        void shouldAgree_betweenOffsetAndNaiveFormsOfOneInstant() {
+            assertThat(PortalJson.timestamp(node("{\"t\":\"2026-08-19T19:18:56\"}"), "t"))
+                    .isEqualTo(PortalJson.timestamp(node("{\"t\":\"2026-08-19T19:18:56Z\"}"), "t"));
+        }
+
+        @Test
+        @DisplayName("should still refuse something that is not a timestamp at all")
+        void shouldThrowContractException_whenValueIsNotATimestamp() {
+            assertThatThrownBy(() -> PortalJson.timestamp(node("{\"t\":\"soon\"}"), "t"))
                     .isInstanceOf(PortalContractException.class);
         }
 

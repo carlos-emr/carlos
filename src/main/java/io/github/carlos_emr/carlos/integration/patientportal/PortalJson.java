@@ -23,7 +23,9 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
 
@@ -119,14 +121,31 @@ final class PortalJson {
     }
 
     /**
-     * Parses a portal timestamp.
+     * Parses a portal timestamp, with or without an offset.
      *
-     * <p>The portal emits ISO-8601 with an explicit offset — {@code Z} in practice, though pydantic
-     * renders a configured offset as {@code +00:00}. {@link OffsetDateTime} is used rather than
-     * {@link Instant} only because it names the expectation; both accept either offset form on the
-     * Java 21 baseline, and both reject a timestamp with no offset at all.
+     * <p>The portal emits the same field two different ways, which is not obvious and is not
+     * documented anywhere on that side. Verified against a live portal:
      *
-     * @throws PortalContractException if the value is not a parseable offset timestamp
+     * <pre>
+     *   create  last_issued_at: 2026-08-19T19:18:56.278540Z
+     *   resend  last_issued_at: 2026-08-19T19:18:56.394257Z
+     *   list    last_issued_at: 2026-08-19T19:18:56.278540     &lt;- no offset
+     *   revoke  last_issued_at: 2026-08-19T19:18:27.892796     &lt;- no offset
+     * </pre>
+     *
+     * <p>The split is by provenance, not by endpoint: a value freshly constructed in the portal
+     * process is timezone-aware and serializes with {@code Z}, while a value that has round-tripped
+     * through the database comes back naive, because SQLite does not persist {@code tzinfo}. A
+     * PostgreSQL deployment using {@code timestamptz} would not lose it — so a parser that accepted
+     * only the offset form worked in unit tests, worked against PostgreSQL, and failed every list
+     * and revoke call on the SQLite demo and development path.
+     *
+     * <p>A naive value is therefore read as UTC rather than rejected. That is not a guess: the
+     * portal's models timestamp with {@code utc_now()}, so the offset is lost in storage rather than
+     * being unknown. Reading it as local time would silently shift every date by the server's
+     * offset, which for a seven-day invite expiry is the difference between valid and expired.
+     *
+     * @throws PortalContractException if the value is neither form of ISO-8601 date-time
      */
     static Instant timestamp(JsonNode node, String field) {
         String value = text(node, field);
@@ -135,9 +154,13 @@ final class PortalJson {
         }
         try {
             return OffsetDateTime.parse(value).toInstant();
-        } catch (DateTimeParseException exception) {
-            throw new PortalContractException(
-                    String.format(Locale.ROOT, WRONG_TYPE, field), exception);
+        } catch (DateTimeParseException withoutOffset) {
+            try {
+                return LocalDateTime.parse(value).toInstant(ZoneOffset.UTC);
+            } catch (DateTimeParseException notATimestamp) {
+                throw new PortalContractException(
+                        String.format(Locale.ROOT, WRONG_TYPE, field), notATimestamp);
+            }
         }
     }
 }
