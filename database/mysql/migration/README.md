@@ -17,6 +17,7 @@ migration/
            V1.0.8__expand_appointment_type_location.sql
            V1.0.9__remove_carlosdoc_schedule_group_denial.sql
            V1.0.10__seed_default_measurement_groups.sql
+           V1.0.13__fix_phcp_diagnosis_group_backfill_collation.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -29,8 +30,8 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest version currently shipped is `V1.0.12`. The next
-Ontario or shared migration is `V1.0.13`; the next BC-only migration is `V1.0.11` because Ontario
+`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.13`. The next
+Ontario or shared migration is `V1.0.14`; the next BC-only migration is `V1.0.11` because Ontario
 and BC locations are mutually exclusive (the version line is global only across `common` + the
 selected province — see below).
 
