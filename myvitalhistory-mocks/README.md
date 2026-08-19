@@ -10,36 +10,62 @@ is wired to CARLOS.
 Open `index.html` in a browser to view the welcome screen. Other screens can be opened
 with `?screen=`, or from the switcher bar at the top:
 
-- `index.html?screen=welcome`
-- `index.html?screen=passphrase`
-- `index.html?screen=recovery`
-- `index.html?screen=unlock`
-- `index.html?screen=library`
-- `index.html?screen=empty`
-- `index.html?screen=import`
-- `index.html?screen=import-done`
-- `index.html?screen=viewer`
-- `index.html?screen=security`
-- `index.html?screen=mobile`
-- `index.html?screen=health`
+`welcome` · `passphrase` · `recovery` · `unlock` · `library` · `grid` · `folder` · `menu` ·
+`select` · `move` · `trash` · `empty` · `import` · `import-done` · `viewer` · `security` ·
+`mobile` · `health`
 
 ## Included screens
 
+**Getting in**
+
 1. **Welcome** — first run; establishes that the vault belongs to the patient
 2. **Passphrase** — vault passphrase creation, with the no-reset warning
-3. **Recovery** — the three key-recovery options, as an open question
+3. **Recovery** — the key-recovery options, as an open question
 4. **Unlock** — returning-user unlock, passphrase or biometric
-5. **Library** — the home screen, with one document still locked
-6. **Empty** — first-run empty state, explaining the CARLOS handoff
-7. **Import** — the "Send this to MyVitalHistory" flow, after the patient unlocked the document in their email
-8. **Import done** — confirmation, and the handover of custody
-9. **Viewer** — reading a document, with a provenance panel
-10. **Security** — encryption, recovery, backup, and auto-lock settings
-11. **Mobile** — three phone screens (locked, records, reading) via the Capacitor shell
-12. **Health data** — Apple Health / Health Connect, flagged as concept only
+
+**The file system**
+
+5. **Library** — the home screen: folders, sortable columns, list view
+6. **Grid** — the same records as thumbnails
+7. **Folder** — inside a folder, with breadcrumbs
+8. **Menu** — what you can do with a single document
+9. **Select** — multi-select with a bulk action bar
+10. **Move** — the folder picker
+11. **Trash** — deleted items, with a 30-day countdown
+12. **Empty** — first-run empty state, explaining the CARLOS handoff
+
+**Getting documents in and reading them**
+
+13. **Import** — "Send this to MyVitalHistory", after the patient unlocked it in their email
+14. **Import done** — confirmation, and the handover of custody
+15. **Viewer** — reading a document, with a provenance panel
+
+**Everything else**
+
+16. **Security** — encryption, recovery, backup, and auto-lock settings
+17. **Mobile** — three phone screens via the Capacitor shell
+18. **Health data** — Apple Health / Health Connect, flagged as concept only
 
 Each screen carries an amber caption explaining what it is showing and which open question
 it relates to. The captions are mock scaffolding, not part of the product.
+
+## The model: a filing cabinet, not an inbox
+
+The organising idea is a **file system the patient runs themselves** — the familiarity of
+Google Drive, narrowed to medical documents. Folders the patient names, list and grid views,
+sorting, multi-select, move, rename, and a trash that holds things for 30 days.
+
+Two consequences of taking that seriously:
+
+**Nothing files itself.** Documents arrive at the top level and stay there until the patient
+puts them somewhere. Automatic sorting is tempting and wrong here: a patient's mental model of
+their own care ("everything for the cardiology referral") rarely matches the categories a
+clinical system would assign, and being second-guessed by software about your own records is
+exactly the feeling this app exists to avoid. The "By kind" entries in the sidebar are filters
+over what is already there, not folders competing with the patient's own.
+
+**Deleting is survivable.** A medical record deleted by accident is not recoverable from
+anywhere else, so trash keeps items for 30 days and every row states its own countdown.
 
 ## What these mocks are arguing
 
@@ -74,6 +100,10 @@ than burying them.
   technical one.
 - **Apple Health / Health Connect** (screen 12) is drawn as a concept and labelled as such. It
   is phone-only and cannot ingest documents.
+- **"Send a copy"** appears in the document menu but has no screen behind it. Sharing a record
+  with a new doctor or a family member is genuinely useful and probably necessary, but it is the
+  one action that takes a document back *out* of the vault, so it needs its own design rather
+  than a menu entry.
 - The **name**, the **backup destinations**, and whether there are **accounts at all** are all
   still open.
 

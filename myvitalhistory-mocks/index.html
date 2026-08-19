@@ -15,10 +15,16 @@
   <button class="mock-tab" data-go="passphrase">Passphrase</button>
   <button class="mock-tab" data-go="recovery">Recovery</button>
   <button class="mock-tab" data-go="unlock">Unlock</button>
-  <button class="mock-tab" data-go="library">Library</button>
+  <button class="mock-tab" data-go="library">Records</button>
+  <button class="mock-tab" data-go="grid">Grid</button>
+  <button class="mock-tab" data-go="folder">Folder</button>
+  <button class="mock-tab" data-go="menu">Menu</button>
+  <button class="mock-tab" data-go="select">Select</button>
+  <button class="mock-tab" data-go="move">Move</button>
+  <button class="mock-tab" data-go="trash">Trash</button>
   <button class="mock-tab" data-go="empty">Empty</button>
   <button class="mock-tab" data-go="import">Import</button>
-  <button class="mock-tab" data-go="import-done">Import done</button>
+  <button class="mock-tab" data-go="import-done">Saved</button>
   <button class="mock-tab" data-go="viewer">Viewer</button>
   <button class="mock-tab" data-go="security">Security</button>
   <button class="mock-tab" data-go="mobile">Mobile</button>
@@ -171,9 +177,9 @@
   </div>
 </section>
 
-<!-- ============ 5. LIBRARY ============ -->
+<!-- ============ LIBRARY ============ -->
 <section class="screen" id="library">
-  <div class="screen-caption"><strong>Home screen.</strong> Newest first, grouped by recency, source clinic always visible. Nothing here is ever locked &mdash; documents are unlocked in the email before they are sent across, so everything in the vault is readable once the vault itself is open.</div>
+  <div class="screen-caption"><strong>Home &mdash; the file system.</strong> Folders the patient makes themselves, sortable columns, and a familiar list/grid switch. Drag a document onto a folder to move it. Nothing here is ever locked: documents are unlocked in the email before they are sent across.</div>
   <div class="app">
     <div class="titlebar">
       <div class="dots"><i></i><i></i><i></i></div>
@@ -190,16 +196,18 @@
           </span>
         </div>
         <nav class="nav">
-          <a href="#library" class="selected" data-go="library"><i class="fas fa-folder"></i> All records <span class="count">42</span></a>
-          <a href="#import" data-go="import"><i class="fas fa-inbox"></i> Recently added <span class="count">3</span></a>
-          <a href="#library"><i class="fas fa-star"></i> Pinned <span class="count">3</span></a>
+          <a href="#library" class="selected" data-go="library"><i class="fas fa-folder"></i> My records</a>
+          <a href="#library" data-go="library"><i class="fas fa-clock-rotate-left"></i> Recent</a>
+          <a href="#library" data-go="library"><i class="fas fa-star"></i> Starred <span class="count">3</span></a>
+          <a href="#trash" data-go="trash"><i class="fas fa-trash-can"></i> Trash <span class="count">2</span></a>
           <div class="nav-label">By kind</div>
-          <a href="#library"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
-          <a href="#library"><i class="fas fa-envelope-open-text"></i> Letters <span class="count">11</span></a>
-          <a href="#library"><i class="fas fa-x-ray"></i> Imaging <span class="count">6</span></a>
-          <a href="#library"><i class="fas fa-pills"></i> Prescriptions <span class="count">7</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-envelope-open-text"></i> Letters <span class="count">11</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-x-ray"></i> Imaging <span class="count">6</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-pills"></i> Prescriptions <span class="count">7</span></a>
           <div class="nav-label">Settings</div>
           <a href="#security" data-go="security"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
+          <a href="#health" data-go="health"><i class="fas fa-heart"></i> Health data</a>
         </nav>
         <div class="storage">
           Backup up to date
@@ -209,74 +217,937 @@
       </aside>
 
       <main class="main">
+        <div class="crumbs"><span class="here">My records</span></div>
         <div class="main-head">
           <div>
-            <h1>All records</h1>
-            <p>42 documents &middot; oldest from March 2019</p>
+            <h1>My records</h1>
+            <p>3 folders &middot; 42 documents &middot; 1.4 GB</p>
           </div>
           <div class="actions">
-            <button class="btn"><i class="fas fa-camera"></i><span>Scan</span></button>
-            <button class="btn primary"><i class="fas fa-plus"></i><span>Add</span></button>
+            <button class="btn"><i class="fas fa-folder-plus"></i><span>New folder</span></button>
+            <div class="newmenu">
+              <button class="btn primary"><i class="fas fa-plus"></i><span>New</span></button>
+            </div>
           </div>
         </div>
 
         <div class="search"><i class="fas fa-magnifying-glass"></i><input type="text" placeholder="Search your records"></div>
 
-        <div class="filters">
+        <div class="viewbar">
           <button class="chip selected">All</button>
           <button class="chip">Test results</button>
           <button class="chip">Letters</button>
           <button class="chip">Imaging</button>
-          <button class="chip">Prescriptions</button>
-          <button class="chip"><i class="fas fa-hospital"></i> Maple Creek Medical</button>
-          <button class="chip"><i class="fas fa-calendar"></i> Any date</button>
+          <span class="spacer"></span>
+          <span class="sortmenu"><i class="fas fa-arrow-down-short-wide"></i> Newest first <i class="fas fa-chevron-down" style="font-size:10px"></i></span>
+          <span class="segment">
+            <button class="selected" title="List"><i class="fas fa-list"></i></button>
+            <button data-go="grid" title="Grid"><i class="fas fa-table-cells-large"></i></button>
+          </span>
         </div>
 
-        <div class="group-label">This month</div>
-        <div class="docs">
-          <button class="doc" data-go="viewer">
-            <span class="doc-icon lab"><i class="fas fa-flask"></i></span>
-            <span class="doc-main">
-              <span class="doc-title">Bloodwork &mdash; cholesterol and liver panel</span>
-              <span class="doc-meta"><span class="tag new">New</span> Maple Creek Medical &middot; Dr. Alvarez</span>
+        <div class="filelist">
+          <div class="head">
+            <span></span>
+            <button class="sorted">Name <i class="fas fa-arrow-up" style="font-size:10px"></i></button>
+            <button class="col">Sent by</button>
+            <button class="col">Date added</button>
+            <span></span>
+          </div>
+          <button class="filerow" data-go="folder">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon folder"><i class="fas fa-folder"></i></span>
+              <span style="min-width:0">
+                <span class="label">Heart &amp; blood pressure</span>
+                <span class="sub">9 items</span>
+              </span>
             </span>
-            <span class="doc-side">12 Aug 2026<br>2 pages</span>
+            <span class="col">&mdash;</span>
+            <span class="col">Renamed 2 Aug 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
           </button>
-          <button class="doc">
-            <span class="doc-icon letter"><i class="fas fa-envelope-open-text"></i></span>
-            <span class="doc-main">
-              <span class="doc-title">Referral letter &mdash; cardiology</span>
-              <span class="doc-meta">Maple Creek Medical &middot; Dr. Alvarez</span>
+          <button class="filerow" data-go="folder">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon folder"><i class="fas fa-folder"></i></span>
+              <span style="min-width:0">
+                <span class="label">Test results 2026</span>
+                <span class="sub">14 items</span>
+              </span>
             </span>
-            <span class="doc-side">4 Aug 2026<br>1 page</span>
+            <span class="col">&mdash;</span>
+            <span class="col">9 Jul 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
           </button>
-          <button class="doc">
-            <span class="doc-icon img"><i class="fas fa-x-ray"></i></span>
-            <span class="doc-main">
-              <span class="doc-title">Chest X-ray report</span>
-              <span class="doc-meta">Riverside Imaging &middot; added by you</span>
+          <button class="filerow" data-go="folder">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon folder"><i class="fas fa-folder"></i></span>
+              <span style="min-width:0">
+                <span class="label">Old records from Dr. Chen</span>
+                <span class="sub">11 items</span>
+              </span>
             </span>
-            <span class="doc-side">1 Aug 2026<br>1 page</span>
+            <span class="col">&mdash;</span>
+            <span class="col">Mar 2019</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow" data-go="viewer">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon lab"><i class="fas fa-flask"></i></span>
+              <span style="min-width:0">
+                <span class="label">Bloodwork &mdash; cholesterol and liver panel</span>
+                <span class="sub">2 pages &middot; PDF</span>
+              </span>
+            </span>
+            <span class="col">Maple Creek Medical</span>
+            <span class="col">12 Aug 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon letter"><i class="fas fa-envelope-open-text"></i></span>
+              <span style="min-width:0">
+                <span class="label">Specialist letter &mdash; cardiology</span>
+                <span class="sub">2 pages &middot; PDF</span>
+              </span>
+            </span>
+            <span class="col">Maple Creek Medical</span>
+            <span class="col">19 Aug 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon img"><i class="fas fa-x-ray"></i></span>
+              <span style="min-width:0">
+                <span class="label">Chest X-ray report</span>
+                <span class="sub">1 page &middot; PDF</span>
+              </span>
+            </span>
+            <span class="col">Riverside Imaging</span>
+            <span class="col">1 Aug 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon "><i class="fas fa-pills"></i></span>
+              <span style="min-width:0">
+                <span class="label">Prescription &mdash; ramipril 5mg</span>
+                <span class="sub">1 page &middot; PDF</span>
+              </span>
+            </span>
+            <span class="col">Maple Creek Medical</span>
+            <span class="col">22 Jul 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon "><i class="fas fa-camera"></i></span>
+              <span style="min-width:0">
+                <span class="label">Letter from physio (photo)</span>
+                <span class="sub">1 page &middot; JPEG</span>
+              </span>
+            </span>
+            <span class="col">Added by you</span>
+            <span class="col">14 Jul 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
           </button>
         </div>
+      </main>
+    </div>
+  </div>
+</section>
 
-        <div class="group-label">July 2026</div>
-        <div class="docs">
-          <button class="doc">
-            <span class="doc-icon"><i class="fas fa-pills"></i></span>
-            <span class="doc-main">
-              <span class="doc-title">Prescription &mdash; ramipril 5mg</span>
-              <span class="doc-meta">Maple Creek Medical &middot; Dr. Alvarez</span>
+<!-- ============ GRID ============ -->
+<section class="screen" id="grid">
+  <div class="screen-caption"><strong>Grid view.</strong> Same records, thumbnails instead of rows. Patients recognise a letter by how it looks long before they read its title, so previews earn their space here.</div>
+  <div class="app">
+    <div class="titlebar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <span class="title">MyVitalHistory</span>
+      <span class="lock"><i class="fas fa-lock-open"></i> Unlocked</span>
+    </div>
+    <div class="body">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark"><i class="fas fa-heart-pulse"></i></span>
+          <span>
+            <span class="brand-name">MyVitalHistory</span>
+            <span class="brand-sub">Margaret Whitfield</span>
+          </span>
+        </div>
+        <nav class="nav">
+          <a href="#library" class="selected" data-go="library"><i class="fas fa-folder"></i> My records</a>
+          <a href="#library" data-go="library"><i class="fas fa-clock-rotate-left"></i> Recent</a>
+          <a href="#library" data-go="library"><i class="fas fa-star"></i> Starred <span class="count">3</span></a>
+          <a href="#trash" data-go="trash"><i class="fas fa-trash-can"></i> Trash <span class="count">2</span></a>
+          <div class="nav-label">By kind</div>
+          <a href="#library" data-go="library"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-envelope-open-text"></i> Letters <span class="count">11</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-x-ray"></i> Imaging <span class="count">6</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-pills"></i> Prescriptions <span class="count">7</span></a>
+          <div class="nav-label">Settings</div>
+          <a href="#security" data-go="security"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
+          <a href="#health" data-go="health"><i class="fas fa-heart"></i> Health data</a>
+        </nav>
+        <div class="storage">
+          Backup up to date
+          <div class="meter"><span style="width:38%"></span></div>
+          1.4 GB of 4 GB used
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="crumbs"><span class="here">My records</span></div>
+        <div class="main-head">
+          <div>
+            <h1>My records</h1>
+            <p>3 folders &middot; 42 documents &middot; 1.4 GB</p>
+          </div>
+          <div class="actions">
+            <button class="btn"><i class="fas fa-folder-plus"></i><span>New folder</span></button>
+            <div class="newmenu">
+              <button class="btn primary"><i class="fas fa-plus"></i><span>New</span></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="search"><i class="fas fa-magnifying-glass"></i><input type="text" placeholder="Search your records"></div>
+
+        <div class="viewbar">
+          <button class="chip selected">All</button>
+          <button class="chip">Test results</button>
+          <button class="chip">Letters</button>
+          <button class="chip">Imaging</button>
+          <span class="spacer"></span>
+          <span class="sortmenu"><i class="fas fa-arrow-down-short-wide"></i> Newest first <i class="fas fa-chevron-down" style="font-size:10px"></i></span>
+          <span class="segment">
+            <button data-go="library" title="List"><i class="fas fa-list"></i></button>
+            <button class="selected" title="Grid"><i class="fas fa-table-cells-large"></i></button>
+          </span>
+        </div>
+
+        <div class="filegrid">
+          <button class="tile">
+            <span class="thumb folder"><i class="fas fa-folder"></i></span>
+            <span class="cap">
+              <span class="doc-icon folder"><i class="fas fa-folder"></i></span>
+              <span style="min-width:0">
+                <span class="t">Heart &amp; blood pressure</span>
+                <span class="m">9 items</span>
+              </span>
             </span>
-            <span class="doc-side">22 Jul 2026<br>1 page</span>
           </button>
-          <button class="doc">
-            <span class="doc-icon lab"><i class="fas fa-flask"></i></span>
-            <span class="doc-main">
-              <span class="doc-title">Bloodwork &mdash; thyroid</span>
-              <span class="doc-meta">Maple Creek Medical &middot; Dr. Alvarez</span>
+          <button class="tile">
+            <span class="thumb folder"><i class="fas fa-folder"></i></span>
+            <span class="cap">
+              <span class="doc-icon folder"><i class="fas fa-folder"></i></span>
+              <span style="min-width:0">
+                <span class="t">Test results 2026</span>
+                <span class="m">14 items</span>
+              </span>
             </span>
-            <span class="doc-side">9 Jul 2026<br>1 page</span>
+          </button>
+          <button class="tile">
+            <span class="thumb folder"><i class="fas fa-folder"></i></span>
+            <span class="cap">
+              <span class="doc-icon folder"><i class="fas fa-folder"></i></span>
+              <span style="min-width:0">
+                <span class="t">Old records from Dr. Chen</span>
+                <span class="m">11 items</span>
+              </span>
+            </span>
+          </button>
+          <button class="tile">
+            <span class="thumb"><span class="mini">
+              <span class="bar t"></span><span class="bar"></span><span class="bar s"></span><span class="bar"></span><span class="bar s"></span>
+            </span></span>
+            <span class="cap">
+              <span class="doc-icon lab"><i class="fas fa-flask"></i></span>
+              <span style="min-width:0">
+                <span class="t">Bloodwork &mdash; cholesterol and liver panel</span>
+                <span class="m">Maple Creek Medical &middot; 12 Aug 2026</span>
+              </span>
+            </span>
+          </button>
+          <button class="tile">
+            <span class="thumb"><span class="mini">
+              <span class="bar t"></span><span class="bar"></span><span class="bar s"></span><span class="bar"></span><span class="bar s"></span>
+            </span></span>
+            <span class="cap">
+              <span class="doc-icon letter"><i class="fas fa-envelope-open-text"></i></span>
+              <span style="min-width:0">
+                <span class="t">Specialist letter &mdash; cardiology</span>
+                <span class="m">Maple Creek Medical &middot; 19 Aug 2026</span>
+              </span>
+            </span>
+          </button>
+          <button class="tile">
+            <span class="thumb"><span class="mini">
+              <span class="bar t"></span><span class="bar"></span><span class="bar s"></span><span class="bar"></span><span class="bar s"></span>
+            </span></span>
+            <span class="cap">
+              <span class="doc-icon img"><i class="fas fa-x-ray"></i></span>
+              <span style="min-width:0">
+                <span class="t">Chest X-ray report</span>
+                <span class="m">Riverside Imaging &middot; 1 Aug 2026</span>
+              </span>
+            </span>
+          </button>
+          <button class="tile">
+            <span class="thumb"><span class="mini">
+              <span class="bar t"></span><span class="bar"></span><span class="bar s"></span><span class="bar"></span><span class="bar s"></span>
+            </span></span>
+            <span class="cap">
+              <span class="doc-icon "><i class="fas fa-pills"></i></span>
+              <span style="min-width:0">
+                <span class="t">Prescription &mdash; ramipril 5mg</span>
+                <span class="m">Maple Creek Medical &middot; 22 Jul 2026</span>
+              </span>
+            </span>
+          </button>
+          <button class="tile">
+            <span class="thumb"><span class="mini">
+              <span class="bar t"></span><span class="bar"></span><span class="bar s"></span><span class="bar"></span><span class="bar s"></span>
+            </span></span>
+            <span class="cap">
+              <span class="doc-icon "><i class="fas fa-camera"></i></span>
+              <span style="min-width:0">
+                <span class="t">Letter from physio (photo)</span>
+                <span class="m">Added by you &middot; 14 Jul 2026</span>
+              </span>
+            </span>
+          </button>
+        </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOLDER ============ -->
+<section class="screen" id="folder">
+  <div class="screen-caption"><strong>Inside a folder.</strong> Breadcrumbs back to the top, and the folder description doubles as a place for the patient to say what it is for. Folders are the patient's own &mdash; nothing files itself automatically.</div>
+  <div class="app">
+    <div class="titlebar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <span class="title">MyVitalHistory</span>
+      <span class="lock"><i class="fas fa-lock-open"></i> Unlocked</span>
+    </div>
+    <div class="body">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark"><i class="fas fa-heart-pulse"></i></span>
+          <span>
+            <span class="brand-name">MyVitalHistory</span>
+            <span class="brand-sub">Margaret Whitfield</span>
+          </span>
+        </div>
+        <nav class="nav">
+          <a href="#library" class="selected" data-go="library"><i class="fas fa-folder"></i> My records</a>
+          <a href="#library" data-go="library"><i class="fas fa-clock-rotate-left"></i> Recent</a>
+          <a href="#library" data-go="library"><i class="fas fa-star"></i> Starred <span class="count">3</span></a>
+          <a href="#trash" data-go="trash"><i class="fas fa-trash-can"></i> Trash <span class="count">2</span></a>
+          <div class="nav-label">By kind</div>
+          <a href="#library" data-go="library"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-envelope-open-text"></i> Letters <span class="count">11</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-x-ray"></i> Imaging <span class="count">6</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-pills"></i> Prescriptions <span class="count">7</span></a>
+          <div class="nav-label">Settings</div>
+          <a href="#security" data-go="security"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
+          <a href="#health" data-go="health"><i class="fas fa-heart"></i> Health data</a>
+        </nav>
+        <div class="storage">
+          Backup up to date
+          <div class="meter"><span style="width:38%"></span></div>
+          1.4 GB of 4 GB used
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="crumbs">
+          <a href="#library" data-go="library">My records</a>
+          <i class="fas fa-chevron-right sep"></i>
+          <span class="here">Heart &amp; blood pressure</span>
+        </div>
+        <div class="main-head">
+          <div>
+            <h1>Heart &amp; blood pressure</h1>
+            <p>9 items &middot; everything for Dr. Alvarez's cardiology referral</p>
+          </div>
+          <div class="actions">
+            <button class="btn"><i class="fas fa-pen"></i><span>Rename</span></button>
+            <div class="newmenu">
+              <button class="btn primary"><i class="fas fa-plus"></i><span>New</span></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="search"><i class="fas fa-magnifying-glass"></i><input type="text" placeholder="Search your records"></div>
+
+        <div class="viewbar">
+          <button class="chip selected">All</button>
+          <button class="chip">Test results</button>
+          <button class="chip">Letters</button>
+          <button class="chip">Imaging</button>
+          <span class="spacer"></span>
+          <span class="sortmenu"><i class="fas fa-arrow-down-short-wide"></i> Newest first <i class="fas fa-chevron-down" style="font-size:10px"></i></span>
+          <span class="segment">
+            <button class="selected" title="List"><i class="fas fa-list"></i></button>
+            <button data-go="grid" title="Grid"><i class="fas fa-table-cells-large"></i></button>
+          </span>
+        </div>
+
+        <div class="filelist">
+          <div class="head">
+            <span></span>
+            <button class="sorted">Name <i class="fas fa-arrow-up" style="font-size:10px"></i></button>
+            <button class="col">Sent by</button>
+            <button class="col">Date added</button>
+            <span></span>
+          </div>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon lab"><i class="fas fa-flask"></i></span>
+              <span style="min-width:0">
+                <span class="label">Bloodwork &mdash; cholesterol and liver panel</span>
+                <span class="sub">2 pages &middot; PDF</span>
+              </span>
+            </span>
+            <span class="col">Maple Creek Medical</span>
+            <span class="col">12 Aug 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon letter"><i class="fas fa-envelope-open-text"></i></span>
+              <span style="min-width:0">
+                <span class="label">Specialist letter &mdash; cardiology</span>
+                <span class="sub">2 pages &middot; PDF</span>
+              </span>
+            </span>
+            <span class="col">Maple Creek Medical</span>
+            <span class="col">19 Aug 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon "><i class="fas fa-heart-pulse"></i></span>
+              <span style="min-width:0">
+                <span class="label">Blood pressure readings, June&ndash;August</span>
+                <span class="sub">Spreadsheet &middot; added by you</span>
+              </span>
+            </span>
+            <span class="col">Added by you</span>
+            <span class="col">18 Aug 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon "><i class="fas fa-pills"></i></span>
+              <span style="min-width:0">
+                <span class="label">Prescription &mdash; ramipril 5mg</span>
+                <span class="sub">1 page &middot; PDF</span>
+              </span>
+            </span>
+            <span class="col">Maple Creek Medical</span>
+            <span class="col">22 Jul 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+        </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MENU ============ -->
+<section class="screen" id="menu">
+  <div class="screen-caption"><strong>What you can do with one document.</strong> The wording avoids file-manager jargon: &ldquo;Save a copy to this computer&rdquo; rather than &ldquo;Export&rdquo;. <strong>&ldquo;Send a copy&rdquo; is an open question</strong> &mdash; sharing a record with a new doctor or a family member is genuinely useful, but it is the one action that takes a document back out of the vault, so it needs its own design.</div>
+  <div class="app">
+    <div class="titlebar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <span class="title">MyVitalHistory</span>
+      <span class="lock"><i class="fas fa-lock-open"></i> Unlocked</span>
+    </div>
+    <div class="body">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark"><i class="fas fa-heart-pulse"></i></span>
+          <span>
+            <span class="brand-name">MyVitalHistory</span>
+            <span class="brand-sub">Margaret Whitfield</span>
+          </span>
+        </div>
+        <nav class="nav">
+          <a href="#library" class="selected" data-go="library"><i class="fas fa-folder"></i> My records</a>
+          <a href="#library" data-go="library"><i class="fas fa-clock-rotate-left"></i> Recent</a>
+          <a href="#library" data-go="library"><i class="fas fa-star"></i> Starred <span class="count">3</span></a>
+          <a href="#trash" data-go="trash"><i class="fas fa-trash-can"></i> Trash <span class="count">2</span></a>
+          <div class="nav-label">By kind</div>
+          <a href="#library" data-go="library"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-envelope-open-text"></i> Letters <span class="count">11</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-x-ray"></i> Imaging <span class="count">6</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-pills"></i> Prescriptions <span class="count">7</span></a>
+          <div class="nav-label">Settings</div>
+          <a href="#security" data-go="security"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
+          <a href="#health" data-go="health"><i class="fas fa-heart"></i> Health data</a>
+        </nav>
+        <div class="storage">
+          Backup up to date
+          <div class="meter"><span style="width:38%"></span></div>
+          1.4 GB of 4 GB used
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="crumbs"><span class="here">My records</span></div>
+        <div class="main-head">
+          <div>
+            <h1>My records</h1>
+            <p>3 folders &middot; 42 documents &middot; 1.4 GB</p>
+          </div>
+          <div class="actions">
+            <button class="btn"><i class="fas fa-folder-plus"></i><span>New folder</span></button>
+            <div class="newmenu">
+              <button class="btn primary"><i class="fas fa-plus"></i><span>New</span></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="search"><i class="fas fa-magnifying-glass"></i><input type="text" placeholder="Search your records"></div>
+
+        <div class="viewbar">
+          <button class="chip selected">All</button>
+          <button class="chip">Test results</button>
+          <button class="chip">Letters</button>
+          <button class="chip">Imaging</button>
+          <span class="spacer"></span>
+          <span class="sortmenu"><i class="fas fa-arrow-down-short-wide"></i> Newest first <i class="fas fa-chevron-down" style="font-size:10px"></i></span>
+          <span class="segment">
+            <button class="selected" title="List"><i class="fas fa-list"></i></button>
+            <button data-go="grid" title="Grid"><i class="fas fa-table-cells-large"></i></button>
+          </span>
+        </div>
+
+        <div class="filelist menu-anchor">
+          <div class="head">
+            <span></span>
+            <button class="sorted">Name <i class="fas fa-arrow-up" style="font-size:10px"></i></button>
+            <button class="col">Sent by</button>
+            <button class="col">Date added</button>
+            <span></span>
+          </div>
+          <button class="filerow" data-go="folder">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon folder"><i class="fas fa-folder"></i></span>
+              <span style="min-width:0">
+                <span class="label">Heart &amp; blood pressure</span>
+                <span class="sub">9 items</span>
+              </span>
+            </span>
+            <span class="col">&mdash;</span>
+            <span class="col">Renamed 2 Aug 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow" data-go="folder">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon folder"><i class="fas fa-folder"></i></span>
+              <span style="min-width:0">
+                <span class="label">Test results 2026</span>
+                <span class="sub">14 items</span>
+              </span>
+            </span>
+            <span class="col">&mdash;</span>
+            <span class="col">9 Jul 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow" data-go="folder">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon folder"><i class="fas fa-folder"></i></span>
+              <span style="min-width:0">
+                <span class="label">Old records from Dr. Chen</span>
+                <span class="sub">11 items</span>
+              </span>
+            </span>
+            <span class="col">&mdash;</span>
+            <span class="col">Mar 2019</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow" data-go="viewer">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon lab"><i class="fas fa-flask"></i></span>
+              <span style="min-width:0">
+                <span class="label">Bloodwork &mdash; cholesterol and liver panel</span>
+                <span class="sub">2 pages &middot; PDF</span>
+              </span>
+            </span>
+            <span class="col">Maple Creek Medical</span>
+            <span class="col">12 Aug 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon letter"><i class="fas fa-envelope-open-text"></i></span>
+              <span style="min-width:0">
+                <span class="label">Specialist letter &mdash; cardiology</span>
+                <span class="sub">2 pages &middot; PDF</span>
+              </span>
+            </span>
+            <span class="col">Maple Creek Medical</span>
+            <span class="col">19 Aug 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon img"><i class="fas fa-x-ray"></i></span>
+              <span style="min-width:0">
+                <span class="label">Chest X-ray report</span>
+                <span class="sub">1 page &middot; PDF</span>
+              </span>
+            </span>
+            <span class="col">Riverside Imaging</span>
+            <span class="col">1 Aug 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon "><i class="fas fa-pills"></i></span>
+              <span style="min-width:0">
+                <span class="label">Prescription &mdash; ramipril 5mg</span>
+                <span class="sub">1 page &middot; PDF</span>
+              </span>
+            </span>
+            <span class="col">Maple Creek Medical</span>
+            <span class="col">22 Jul 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon "><i class="fas fa-camera"></i></span>
+              <span style="min-width:0">
+                <span class="label">Letter from physio (photo)</span>
+                <span class="sub">1 page &middot; JPEG</span>
+              </span>
+            </span>
+            <span class="col">Added by you</span>
+            <span class="col">14 Jul 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+
+          <div class="menu">
+            <button><i class="fas fa-eye"></i> Open</button>
+            <button><i class="fas fa-pen"></i> Rename</button>
+            <button><i class="fas fa-folder-open"></i> Move to&hellip;</button>
+            <button><i class="fas fa-star"></i> Add to starred</button>
+            <hr>
+            <button><i class="fas fa-print"></i> Print</button>
+            <button><i class="fas fa-share-nodes"></i> Send a copy&hellip;</button>
+            <button><i class="fas fa-file-arrow-down"></i> Save a copy to this computer</button>
+            <hr>
+            <button class="danger"><i class="fas fa-trash-can"></i> Move to trash</button>
+          </div>
+                </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SELECT ============ -->
+<section class="screen" id="select">
+  <div class="screen-caption"><strong>Selecting several at once.</strong> Tidying up a year of results should not mean repeating the same action fifteen times. The bar states the count plainly and every action on it is reversible.</div>
+  <div class="app">
+    <div class="titlebar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <span class="title">MyVitalHistory</span>
+      <span class="lock"><i class="fas fa-lock-open"></i> Unlocked</span>
+    </div>
+    <div class="body">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark"><i class="fas fa-heart-pulse"></i></span>
+          <span>
+            <span class="brand-name">MyVitalHistory</span>
+            <span class="brand-sub">Margaret Whitfield</span>
+          </span>
+        </div>
+        <nav class="nav">
+          <a href="#library" class="selected" data-go="library"><i class="fas fa-folder"></i> My records</a>
+          <a href="#library" data-go="library"><i class="fas fa-clock-rotate-left"></i> Recent</a>
+          <a href="#library" data-go="library"><i class="fas fa-star"></i> Starred <span class="count">3</span></a>
+          <a href="#trash" data-go="trash"><i class="fas fa-trash-can"></i> Trash <span class="count">2</span></a>
+          <div class="nav-label">By kind</div>
+          <a href="#library" data-go="library"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-envelope-open-text"></i> Letters <span class="count">11</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-x-ray"></i> Imaging <span class="count">6</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-pills"></i> Prescriptions <span class="count">7</span></a>
+          <div class="nav-label">Settings</div>
+          <a href="#security" data-go="security"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
+          <a href="#health" data-go="health"><i class="fas fa-heart"></i> Health data</a>
+        </nav>
+        <div class="storage">
+          Backup up to date
+          <div class="meter"><span style="width:38%"></span></div>
+          1.4 GB of 4 GB used
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="crumbs"><span class="here">My records</span></div>
+        <div class="main-head">
+          <div>
+            <h1>My records</h1>
+            <p>3 folders &middot; 42 documents &middot; 1.4 GB</p>
+          </div>
+          <div class="actions">
+            <button class="btn"><i class="fas fa-folder-plus"></i><span>New folder</span></button>
+            <div class="newmenu">
+              <button class="btn primary"><i class="fas fa-plus"></i><span>New</span></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="search"><i class="fas fa-magnifying-glass"></i><input type="text" placeholder="Search your records"></div>
+
+        <div class="viewbar">
+          <button class="chip selected">All</button>
+          <button class="chip">Test results</button>
+          <button class="chip">Letters</button>
+          <button class="chip">Imaging</button>
+          <span class="spacer"></span>
+          <span class="sortmenu"><i class="fas fa-arrow-down-short-wide"></i> Newest first <i class="fas fa-chevron-down" style="font-size:10px"></i></span>
+          <span class="segment">
+            <button class="selected" title="List"><i class="fas fa-list"></i></button>
+            <button data-go="grid" title="Grid"><i class="fas fa-table-cells-large"></i></button>
+          </span>
+        </div>
+
+        <div class="bulkbar">
+          <span class="check on"></span>
+          <span class="n">3 selected</span>
+          <span class="spacer"></span>
+          <button data-go="move"><i class="fas fa-folder-open"></i> Move to</button>
+          <button><i class="fas fa-star"></i> Star</button>
+          <button><i class="fas fa-print"></i> Print</button>
+          <button><i class="fas fa-trash-can"></i> Trash</button>
+          <button><i class="fas fa-xmark"></i></button>
+        </div>
+
+        <div class="filelist">
+          <div class="head">
+            <span></span>
+            <button class="sorted">Name <i class="fas fa-arrow-up" style="font-size:10px"></i></button>
+            <button class="col">Sent by</button>
+            <button class="col">Date added</button>
+            <span></span>
+          </div>
+          <button class="filerow selected" data-go="viewer">
+            <span class="check on"></span>
+            <span class="nm">
+              <span class="doc-icon lab"><i class="fas fa-flask"></i></span>
+              <span style="min-width:0">
+                <span class="label">Bloodwork &mdash; cholesterol and liver panel</span>
+                <span class="sub">2 pages &middot; PDF</span>
+              </span>
+            </span>
+            <span class="col">Maple Creek Medical</span>
+            <span class="col">12 Aug 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow selected">
+            <span class="check on"></span>
+            <span class="nm">
+              <span class="doc-icon letter"><i class="fas fa-envelope-open-text"></i></span>
+              <span style="min-width:0">
+                <span class="label">Specialist letter &mdash; cardiology</span>
+                <span class="sub">2 pages &middot; PDF</span>
+              </span>
+            </span>
+            <span class="col">Maple Creek Medical</span>
+            <span class="col">19 Aug 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow selected">
+            <span class="check on"></span>
+            <span class="nm">
+              <span class="doc-icon img"><i class="fas fa-x-ray"></i></span>
+              <span style="min-width:0">
+                <span class="label">Chest X-ray report</span>
+                <span class="sub">1 page &middot; PDF</span>
+              </span>
+            </span>
+            <span class="col">Riverside Imaging</span>
+            <span class="col">1 Aug 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon "><i class="fas fa-pills"></i></span>
+              <span style="min-width:0">
+                <span class="label">Prescription &mdash; ramipril 5mg</span>
+                <span class="sub">1 page &middot; PDF</span>
+              </span>
+            </span>
+            <span class="col">Maple Creek Medical</span>
+            <span class="col">22 Jul 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon "><i class="fas fa-camera"></i></span>
+              <span style="min-width:0">
+                <span class="label">Letter from physio (photo)</span>
+                <span class="sub">1 page &middot; JPEG</span>
+              </span>
+            </span>
+            <span class="col">Added by you</span>
+            <span class="col">14 Jul 2026</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+        </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MOVE ============ -->
+<section class="screen" id="move">
+  <div class="screen-caption"><strong>Moving things.</strong> A plain folder picker over the records behind it, so the patient keeps their place. &ldquo;New folder&rdquo; is available right here, because people decide where something belongs at the moment they file it.</div>
+  <div class="app">
+    <div class="titlebar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <span class="title">MyVitalHistory</span>
+      <span class="lock"><i class="fas fa-lock-open"></i> Unlocked</span>
+    </div>
+    <div class="scrim">
+      <div class="dialog">
+        <header>
+          <h2>Move 3 items</h2>
+          <p>Choose where they should go.</p>
+        </header>
+        <div class="content">
+          <button class="picker selected"><i class="fas fa-folder"></i><span class="nm">Heart &amp; blood pressure</span><span class="cnt">9 items</span></button>
+          <button class="picker"><i class="fas fa-folder"></i><span class="nm">Test results 2026</span><span class="cnt">14 items</span></button>
+          <button class="picker"><i class="fas fa-folder"></i><span class="nm">Old records from Dr. Chen</span><span class="cnt">11 items</span></button>
+          <button class="picker"><i class="fas fa-house"></i><span class="nm">My records (the top level)</span><span class="cnt">42 items</span></button>
+        </div>
+        <footer>
+          <button class="btn ghost"><i class="fas fa-folder-plus"></i><span>New folder</span></button>
+          <button class="btn" data-go="library">Cancel</button>
+          <button class="btn primary" data-go="library">Move here</button>
+        </footer>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TRASH ============ -->
+<section class="screen" id="trash">
+  <div class="screen-caption"><strong>Trash.</strong> Deleting a medical record by accident should be survivable, so nothing goes immediately. The countdown is stated on every row rather than hidden in a help page.</div>
+  <div class="app">
+    <div class="titlebar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <span class="title">MyVitalHistory</span>
+      <span class="lock"><i class="fas fa-lock-open"></i> Unlocked</span>
+    </div>
+    <div class="body">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark"><i class="fas fa-heart-pulse"></i></span>
+          <span>
+            <span class="brand-name">MyVitalHistory</span>
+            <span class="brand-sub">Margaret Whitfield</span>
+          </span>
+        </div>
+        <nav class="nav">
+          <a href="#library" data-go="library"><i class="fas fa-folder"></i> My records</a>
+          <a href="#library" data-go="library"><i class="fas fa-clock-rotate-left"></i> Recent</a>
+          <a href="#library" data-go="library"><i class="fas fa-star"></i> Starred <span class="count">3</span></a>
+          <a href="#trash" class="selected" data-go="trash"><i class="fas fa-trash-can"></i> Trash <span class="count">2</span></a>
+          <div class="nav-label">By kind</div>
+          <a href="#library" data-go="library"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-envelope-open-text"></i> Letters <span class="count">11</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-x-ray"></i> Imaging <span class="count">6</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-pills"></i> Prescriptions <span class="count">7</span></a>
+          <div class="nav-label">Settings</div>
+          <a href="#security" data-go="security"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
+          <a href="#health" data-go="health"><i class="fas fa-heart"></i> Health data</a>
+        </nav>
+        <div class="storage">
+          Backup up to date
+          <div class="meter"><span style="width:38%"></span></div>
+          1.4 GB of 4 GB used
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="crumbs"><span class="here">Trash</span></div>
+        <div class="main-head">
+          <div>
+            <h1>Trash</h1>
+            <p>Kept for 30 days, then deleted for good</p>
+          </div>
+          <div class="actions">
+            <button class="btn danger"><i class="fas fa-trash-can"></i><span>Empty trash</span></button>
+          </div>
+        </div>
+
+        <div class="trashnote">
+          <i class="fas fa-circle-info"></i>
+          <span>Items here still take up space until they are deleted for good. Restoring puts them back where they were.</span>
+        </div>
+
+        <div class="filelist">
+          <div class="head">
+            <span></span>
+            <button class="sorted">Name <i class="fas fa-arrow-up" style="font-size:10px"></i></button>
+            <button class="col">Where it was</button>
+            <button class="col">Deleted</button>
+            <span></span>
+          </div>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon lab"><i class="fas fa-flask"></i></span>
+              <span style="min-width:0">
+                <span class="label">Bloodwork &mdash; thyroid</span>
+                <span class="sub">Deleted 3 days ago</span>
+              </span>
+            </span>
+            <span class="col">Maple Creek Medical</span>
+            <span class="col">Gone in 27 days</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
+          </button>
+          <button class="filerow">
+            <span class="check"></span>
+            <span class="nm">
+              <span class="doc-icon folder"><i class="fas fa-folder"></i></span>
+              <span style="min-width:0">
+                <span class="label">Scans to sort out</span>
+                <span class="sub">Deleted yesterday &middot; 4 items</span>
+              </span>
+            </span>
+            <span class="col">&mdash;</span>
+            <span class="col">Gone in 29 days</span>
+            <span class="kebab"><i class="fas fa-ellipsis-vertical"></i></span>
           </button>
         </div>
       </main>
@@ -303,18 +1174,32 @@
           </span>
         </div>
         <nav class="nav">
-          <a href="#empty" class="selected"><i class="fas fa-folder"></i> All records <span class="count">0</span></a>
-          <a href="#empty"><i class="fas fa-inbox"></i> Recently added</a>
+          <a href="#library" class="selected" data-go="library"><i class="fas fa-folder"></i> My records</a>
+          <a href="#library" data-go="library"><i class="fas fa-clock-rotate-left"></i> Recent</a>
+          <a href="#library" data-go="library"><i class="fas fa-star"></i> Starred <span class="count">3</span></a>
+          <a href="#trash" data-go="trash"><i class="fas fa-trash-can"></i> Trash <span class="count">2</span></a>
+          <div class="nav-label">By kind</div>
+          <a href="#library" data-go="library"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-envelope-open-text"></i> Letters <span class="count">11</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-x-ray"></i> Imaging <span class="count">6</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-pills"></i> Prescriptions <span class="count">7</span></a>
           <div class="nav-label">Settings</div>
           <a href="#security" data-go="security"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
+          <a href="#health" data-go="health"><i class="fas fa-heart"></i> Health data</a>
         </nav>
+        <div class="storage">
+          Backup up to date
+          <div class="meter"><span style="width:38%"></span></div>
+          1.4 GB of 4 GB used
+        </div>
       </aside>
       <main class="main">
         <div class="empty">
           <div class="big-mark"><i class="fas fa-folder-open"></i></div>
           <h2>Nothing here yet</h2>
-          <p>When your clinic emails you a document, open it and choose <strong>&ldquo;Send this to MyVitalHistory&rdquo;</strong>. It will show up here.</p>
+          <p>When your clinic emails you a document, open it and choose <strong>&ldquo;Send this to MyVitalHistory&rdquo;</strong>. It will show up here, and you can sort it into folders however makes sense to you.</p>
           <button class="btn primary"><i class="fas fa-plus"></i><span>Add a file from this computer</span></button>
+          <button class="btn" style="margin-left:8px"><i class="fas fa-folder-plus"></i><span>Make a folder</span></button>
           <p style="margin-top:16px;font-size:13px">You can also <a href="#">scan a paper letter</a> with your phone.</p>
         </div>
       </main>
@@ -410,14 +1295,24 @@
           </span>
         </div>
         <nav class="nav">
-          <a href="#library" data-go="library"><i class="fas fa-folder"></i> All records <span class="count">42</span></a>
-          <a href="#library"><i class="fas fa-inbox"></i> Recently added <span class="count">3</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-folder"></i> My records</a>
+          <a href="#library" data-go="library"><i class="fas fa-clock-rotate-left"></i> Recent</a>
+          <a href="#library" data-go="library"><i class="fas fa-star"></i> Starred <span class="count">3</span></a>
+          <a href="#trash" data-go="trash"><i class="fas fa-trash-can"></i> Trash <span class="count">2</span></a>
           <div class="nav-label">By kind</div>
-          <a href="#library" class="selected"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
-          <a href="#library"><i class="fas fa-envelope-open-text"></i> Letters <span class="count">11</span></a>
+          <a href="#library" class="selected" data-go="library"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-envelope-open-text"></i> Letters <span class="count">11</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-x-ray"></i> Imaging <span class="count">6</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-pills"></i> Prescriptions <span class="count">7</span></a>
           <div class="nav-label">Settings</div>
           <a href="#security" data-go="security"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
+          <a href="#health" data-go="health"><i class="fas fa-heart"></i> Health data</a>
         </nav>
+        <div class="storage">
+          Backup up to date
+          <div class="meter"><span style="width:38%"></span></div>
+          1.4 GB of 4 GB used
+        </div>
       </aside>
 
       <main class="main">
@@ -490,12 +1385,24 @@
           </span>
         </div>
         <nav class="nav">
-          <a href="#library" data-go="library"><i class="fas fa-folder"></i> All records <span class="count">42</span></a>
-          <a href="#library"><i class="fas fa-inbox"></i> Recently added <span class="count">3</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-folder"></i> My records</a>
+          <a href="#library" data-go="library"><i class="fas fa-clock-rotate-left"></i> Recent</a>
+          <a href="#library" data-go="library"><i class="fas fa-star"></i> Starred <span class="count">3</span></a>
+          <a href="#trash" data-go="trash"><i class="fas fa-trash-can"></i> Trash <span class="count">2</span></a>
+          <div class="nav-label">By kind</div>
+          <a href="#library" data-go="library"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-envelope-open-text"></i> Letters <span class="count">11</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-x-ray"></i> Imaging <span class="count">6</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-pills"></i> Prescriptions <span class="count">7</span></a>
           <div class="nav-label">Settings</div>
-          <a href="#security" class="selected"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
+          <a href="#security" class="selected" data-go="security"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
           <a href="#health" data-go="health"><i class="fas fa-heart"></i> Health data</a>
         </nav>
+        <div class="storage">
+          Backup up to date
+          <div class="meter"><span style="width:38%"></span></div>
+          1.4 GB of 4 GB used
+        </div>
       </aside>
 
       <main class="main">
@@ -705,11 +1612,24 @@
           </span>
         </div>
         <nav class="nav">
-          <a href="#library" data-go="library"><i class="fas fa-folder"></i> All records <span class="count">42</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-folder"></i> My records</a>
+          <a href="#library" data-go="library"><i class="fas fa-clock-rotate-left"></i> Recent</a>
+          <a href="#library" data-go="library"><i class="fas fa-star"></i> Starred <span class="count">3</span></a>
+          <a href="#trash" data-go="trash"><i class="fas fa-trash-can"></i> Trash <span class="count">2</span></a>
+          <div class="nav-label">By kind</div>
+          <a href="#library" data-go="library"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-envelope-open-text"></i> Letters <span class="count">11</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-x-ray"></i> Imaging <span class="count">6</span></a>
+          <a href="#library" data-go="library"><i class="fas fa-pills"></i> Prescriptions <span class="count">7</span></a>
           <div class="nav-label">Settings</div>
           <a href="#security" data-go="security"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
-          <a href="#health" class="selected"><i class="fas fa-heart"></i> Health data</a>
+          <a href="#health" class="selected" data-go="health"><i class="fas fa-heart"></i> Health data</a>
         </nav>
+        <div class="storage">
+          Backup up to date
+          <div class="meter"><span style="width:38%"></span></div>
+          1.4 GB of 4 GB used
+        </div>
       </aside>
 
       <main class="main">
