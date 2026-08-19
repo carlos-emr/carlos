@@ -192,7 +192,7 @@ jobs:
               echo '========================================='
               echo 'Running SonarCloud Analysis (Branch)'
               echo '========================================='
-              mvn -B verify sonar:sonar \
+              mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
                 -Pskip-dependency-lock \
                 -Dmaven.test.failure.ignore=true \
                 -Dsonar.host.url=https://sonarcloud.io \
@@ -222,7 +222,7 @@ jobs:
               echo \"PR Branch: \$PR_BRANCH\"
               echo \"PR Base: \$PR_BASE\"
               echo '========================================='
-              mvn -B verify sonar:sonar \
+              mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
                 -Pskip-dependency-lock \
                 -Dmaven.test.failure.ignore=true \
                 -Dsonar.host.url=https://sonarcloud.io \
