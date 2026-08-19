@@ -23,6 +23,7 @@ jobs:
     name: Validate release tag
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
     outputs:
       skip: ${{ steps.release-state.outputs.skip }}
@@ -34,7 +35,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-      IS_RETRY: ${{ github.event_name == 'workflow_dispatch' }}
+      IS_DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
     steps:
       - name: Detect an already-published immutable release
         id: release-state
@@ -117,17 +118,37 @@ jobs:
             "refs/heads/release/$release_line:refs/remotes/origin/release/$release_line" || \
             git fetch --no-tags origin "refs/heads/main:refs/remotes/origin/main"
 
+          is_retry=false
+          if [ "$IS_DISPATCH" = "true" ]; then
+            prior_attempt=$(gh run list --repo "$REPO" --workflow publish-release.yml \
+              --branch "$RELEASE_TAG" --event push --limit 100 \
+              --json headSha,status,conclusion \
+              --jq ".[] | select(.headSha == \"$tag_commit\" and .status == \"completed\" and .conclusion != \"success\") | .headSha" |
+              head -n 1)
+            if [ "$prior_attempt" = "$tag_commit" ]; then
+              is_retry=true
+            fi
+          fi
+
           source_branch=""
-          if [ "$(git rev-parse origin/main)" = "$tag_commit" ] ||
-             { [ "$IS_RETRY" = "true" ] && git merge-base --is-ancestor "$tag_commit" origin/main; }; then
+          main_head=$(git rev-parse origin/main)
+          if [ "$main_head" = "$tag_commit" ]; then
             source_branch=main
-          elif git show-ref --verify --quiet "refs/remotes/origin/release/$release_line" &&
-               { [ "$(git rev-parse "origin/release/$release_line")" = "$tag_commit" ] ||
-                 { [ "$IS_RETRY" = "true" ] &&
-                   git merge-base --is-ancestor "$tag_commit" "origin/release/$release_line"; }; }; then
-            source_branch="release/$release_line"
-          else
-            echo "::error::Tag must point to the current branch head, or be its ancestor during an explicit retry."
+          elif [ "$is_retry" = "true" ] &&
+               git merge-base --is-ancestor "$tag_commit" origin/main; then
+            source_branch=main
+          elif git show-ref --verify --quiet "refs/remotes/origin/release/$release_line"; then
+            release_ref="origin/release/$release_line"
+            release_head=$(git rev-parse "$release_ref")
+            if [ "$release_head" = "$tag_commit" ]; then
+              source_branch="release/$release_line"
+            elif [ "$is_retry" = "true" ] &&
+                 git merge-base --is-ancestor "$tag_commit" "$release_ref"; then
+              source_branch="release/$release_line"
+            fi
+          fi
+          if [ -z "$source_branch" ]; then
+            echo "::error::Tag must be the current branch head; ancestor validation requires a prior unsuccessful tag-push attempt."
             exit 1
           fi
 
