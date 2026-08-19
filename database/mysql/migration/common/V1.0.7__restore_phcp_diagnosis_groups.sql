@@ -46,7 +46,12 @@ FROM (
 ) codes
 JOIN dxphcpgroup legacy
   ON legacy.dxcode REGEXP '^[0-9]{1,5}$'
-  AND legacy.dxcode = CAST(CAST(legacy.dxcode AS UNSIGNED) AS CHAR)
+  -- The CHAR cast must carry an explicit charset + collation: MariaDB 11.4 changed the
+  -- session default utf8mb4 collation to utf8mb4_uca1400_ai_ci, so a bare CAST(... AS CHAR)
+  -- compared against this table's utf8mb4_general_ci column fails with ERROR 1267
+  -- (illegal mix of collations). Pinning general_ci matches the table on every
+  -- supported MariaDB/MySQL version.
+  AND legacy.dxcode = CAST(CAST(legacy.dxcode AS UNSIGNED) AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_general_ci
   AND CAST(legacy.dxcode AS UNSIGNED) = codes.numeric_code
 LEFT JOIN dxphcpgroup exact_mapping
   ON exact_mapping.dxcode = codes.dxcode
