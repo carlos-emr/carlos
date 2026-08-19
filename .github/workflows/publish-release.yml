@@ -11,8 +11,14 @@ on:
         required: true
         type: string
 
+# One GLOBAL group (not per-tag): the publish step's latest-pointer decision
+# reads the set of already-published stable releases, so two stable tags
+# publishing concurrently could each miss the other (still a draft at query
+# time) and both claim --latest. Releases are rare and deliberate — strict
+# serialization costs nothing and removes the race; same-tag re-runs still
+# queue exactly as before.
 concurrency:
-  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  group: publish-release
   cancel-in-progress: false
 
 permissions:
@@ -253,8 +259,18 @@ jobs:
             printf '%s\n' "$build_properties"
             exit 1
           fi
-          if grep -qi SNAPSHOT pom.xml || [[ "$war" == *SNAPSHOT* ]] || [[ "$sbom" == *SNAPSHOT* ]]; then
-            echo "::error::Release artifacts must not contain snapshot version metadata."
+          # Check the RESOLVED project version, not the raw pom text: a
+          # future comment, property name, or pinned dependency containing
+          # the word "snapshot" must not block every release. The artifact
+          # filenames are checked too — they embed the version the WAR/SBOM
+          # were actually built as.
+          project_version=$(python3 -c '
+          import xml.etree.ElementTree as ET
+          ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+          v = ET.parse("pom.xml").getroot().find("m:version", ns)
+          print("" if v is None else (v.text or ""))')
+          if [[ "${project_version^^}" == *SNAPSHOT* ]] || [[ "$war" == *SNAPSHOT* ]] || [[ "$sbom" == *SNAPSHOT* ]]; then
+            echo "::error::Release artifacts must not contain snapshot version metadata (project.version='$project_version')."
             exit 1
           fi
 
@@ -276,9 +292,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          previous_tag=$(gh release list --repo "$REPO" --limit 100 \
-            --json tagName,isDraft,publishedAt \
-            --jq ".[] | select(.isDraft == false) | .tagName" |
+          # Paginated: a fixed --limit would silently miss the same-line
+          # predecessor once the repo accumulates more releases than the cap.
+          previous_tag=$(gh api --paginate "repos/$REPO/releases?per_page=100" \
+            --jq '.[] | select(.draft | not) | .tag_name' |
             grep -E "^$RELEASE_LINE\." |
             grep -Fxv "$RELEASE_TAG" |
             head -n 1 || true)
@@ -332,5 +349,22 @@ jobs:
           if [ "$IS_PRERELEASE" = "true" ]; then
             gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease --latest=false
           else
-            gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease=false --latest
+            # A maintenance patch published from an OLDER release line (the
+            # documented supported-release flow) must not steal the repo's
+            # "latest release" pointer from a newer train: mark latest only
+            # when this tag tops every published stable release under the
+            # CalVer numeric sort (first-ever stable release wins trivially).
+            # Paginated: a fixed --limit would stop seeing the newest stable
+            # release once the repo accumulates more releases than the cap,
+            # letting an old-train patch wrongly grab the latest pointer.
+            latest_flag=--latest
+            existing=$(gh api --paginate "repos/$REPO/releases?per_page=100" \
+              --jq '.[] | select((.draft or .prerelease) | not) | .tag_name')
+            top=$({ printf '%s\n' "$RELEASE_TAG"; printf '%s\n' "$existing"; } \
+              | sed '/^$/d' | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
+            if [ "$top" != "$RELEASE_TAG" ]; then
+              latest_flag=--latest=false
+              echo "A newer stable release ($top) is already published — not marking $RELEASE_TAG as latest."
+            fi
+            gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease=false "$latest_flag"
           fi
