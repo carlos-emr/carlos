@@ -550,9 +550,58 @@
 
     /* Readability/layout trial: larger small text and a closeable 75/25 evidence split. */
     body { font-size: 16px; }
-    .workspace { grid-template-columns: minmax(0, 3fr) minmax(300px, 1fr); }
+    .workspace {
+      --evidence-width: 25%;
+      grid-template-columns: minmax(0, 1fr) 16px minmax(300px, var(--evidence-width));
+      gap: 0;
+    }
     .workspace.evidence-closed { grid-template-columns: minmax(0, 1fr); }
-    .workspace.evidence-closed .evidence-panel { display: none; }
+    .workspace.evidence-closed .evidence-panel,
+    .workspace.evidence-closed .pane-splitter { display: none; }
+    .pane-splitter {
+      position: relative;
+      min-width: 16px;
+      border: 0;
+      background: transparent;
+      cursor: col-resize;
+      touch-action: none;
+    }
+    .pane-splitter::before {
+      content: "";
+      position: absolute;
+      top: 12px;
+      bottom: 12px;
+      left: 50%;
+      width: 2px;
+      border-radius: 2px;
+      background: #8f9ba3;
+      transform: translateX(-50%);
+      transition: width .15s, background .15s;
+    }
+    .pane-splitter::after {
+      content: "⋮";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      display: grid;
+      place-items: center;
+      width: 14px;
+      height: 38px;
+      border: 1px solid #8f9ba3;
+      border-radius: 8px;
+      color: #46525a;
+      background: #fff;
+      font-size: 18px;
+      line-height: 1;
+      transform: translate(-50%, -50%);
+    }
+    .pane-splitter:hover::before,
+    .pane-splitter:focus-visible::before,
+    body.resizing-evidence .pane-splitter::before { width: 4px; background: var(--blue); }
+    .pane-splitter:hover::after,
+    .pane-splitter:focus-visible::after,
+    body.resizing-evidence .pane-splitter::after { border-color: var(--blue); color: var(--blue); background: var(--blue-50); }
+    body.resizing-evidence { cursor: col-resize; user-select: none; }
     .panel-actions { display: flex; align-items: center; gap: 8px; }
     .show-evidence { display: none; }
     .workspace.evidence-closed .show-evidence { display: inline-flex; }
@@ -585,7 +634,8 @@
     .ledger-table button { font-size: 15px; line-height: 1.5; }
 
     @media (max-width: 1050px) {
-      .workspace, .workspace.evidence-closed { grid-template-columns: 1fr; }
+      .workspace, .workspace.evidence-closed { grid-template-columns: 1fr; row-gap: 9px; }
+      .pane-splitter { display: none; }
     }
 
     @media (max-width: 680px) {
@@ -701,7 +751,7 @@
   </section>
 
   <main class="workspace" id="workspace">
-    <section class="panel" aria-label="AI-generated patient overview">
+    <section class="panel" id="summary-panel" aria-label="AI-generated patient overview">
       <div class="panel-top">
         <div class="tabs" role="tablist" aria-label="Patient overview views">
           <button class="tab" type="button" role="tab" aria-selected="true" data-tab="summary-view">Overview</button>
@@ -868,6 +918,8 @@
         </section>
       </div>
     </section>
+
+    <div class="pane-splitter" id="pane-splitter" role="separator" aria-label="Resize summary and source evidence panes" aria-orientation="vertical" aria-controls="summary-panel source-evidence" aria-valuemin="20" aria-valuemax="60" aria-valuenow="25" tabindex="0" title="Drag to resize · use arrow keys · double-click to reset"></div>
 
     <aside class="panel evidence-panel" id="source-evidence" aria-label="Source evidence">
       <div class="panel-top">
@@ -1148,6 +1200,88 @@
       return claim.sourceRelations?.[sourceId] || sources[sourceId].relation;
     }
 
+    const defaultEvidencePercent = 25;
+    const evidenceWidthStorageKey = "patient-summary-evidence-width";
+    const workspaceElement = document.getElementById("workspace");
+    const splitterElement = document.getElementById("pane-splitter");
+    let pendingEvidenceWidth = null;
+
+    function evidenceWidthBounds() {
+      const style = getComputedStyle(workspaceElement);
+      const horizontalPadding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+      const contentWidth = workspaceElement.clientWidth - horizontalPadding;
+      const splitterWidth = splitterElement.getBoundingClientRect().width || 16;
+      const minimumEvidence = Math.min(320, Math.max(240, contentWidth - 520 - splitterWidth));
+      const maximumEvidence = Math.max(minimumEvidence, Math.min(contentWidth * .6, contentWidth - 520 - splitterWidth));
+      return { contentWidth, minimumEvidence, maximumEvidence };
+    }
+
+    function setEvidenceWidth(width, persist = false) {
+      if (window.innerWidth <= 1050) return;
+      const bounds = evidenceWidthBounds();
+      const nextWidth = Math.max(bounds.minimumEvidence, Math.min(width, bounds.maximumEvidence));
+      const percent = Math.round((nextWidth / bounds.contentWidth) * 100);
+      pendingEvidenceWidth = nextWidth;
+      workspaceElement.style.setProperty("--evidence-width", `${nextWidth}px`);
+      splitterElement.setAttribute("aria-valuemin", String(Math.round((bounds.minimumEvidence / bounds.contentWidth) * 100)));
+      splitterElement.setAttribute("aria-valuemax", String(Math.round((bounds.maximumEvidence / bounds.contentWidth) * 100)));
+      splitterElement.setAttribute("aria-valuenow", String(percent));
+      splitterElement.setAttribute("aria-valuetext", `${percent}% source evidence, ${100 - percent}% patient summary`);
+      if (persist) localStorage.setItem(evidenceWidthStorageKey, String(percent));
+    }
+
+    function setEvidencePercent(percent, persist = false) {
+      const bounds = evidenceWidthBounds();
+      setEvidenceWidth(bounds.contentWidth * (percent / 100), persist);
+    }
+
+    function restoreEvidenceWidth() {
+      const storedPercent = Number(localStorage.getItem(evidenceWidthStorageKey));
+      setEvidencePercent(Number.isFinite(storedPercent) && storedPercent > 0 ? storedPercent : defaultEvidencePercent);
+    }
+
+    splitterElement.addEventListener("pointerdown", event => {
+      if (event.button !== 0 || window.innerWidth <= 1050) return;
+      splitterElement.setPointerCapture(event.pointerId);
+      document.body.classList.add("resizing-evidence");
+      event.preventDefault();
+    });
+
+    splitterElement.addEventListener("pointermove", event => {
+      if (!splitterElement.hasPointerCapture(event.pointerId)) return;
+      const workspaceRect = workspaceElement.getBoundingClientRect();
+      const rightPadding = parseFloat(getComputedStyle(workspaceElement).paddingRight);
+      setEvidenceWidth(workspaceRect.right - rightPadding - event.clientX);
+    });
+
+    function finishEvidenceResize(event) {
+      if (!splitterElement.hasPointerCapture(event.pointerId)) return;
+      splitterElement.releasePointerCapture(event.pointerId);
+      document.body.classList.remove("resizing-evidence");
+      if (pendingEvidenceWidth !== null) setEvidenceWidth(pendingEvidenceWidth, true);
+    }
+
+    splitterElement.addEventListener("pointerup", finishEvidenceResize);
+    splitterElement.addEventListener("pointercancel", finishEvidenceResize);
+    splitterElement.addEventListener("dblclick", () => setEvidencePercent(defaultEvidencePercent, true));
+    splitterElement.addEventListener("keydown", event => {
+      const bounds = evidenceWidthBounds();
+      const currentWidth = document.getElementById("source-evidence").getBoundingClientRect().width;
+      const step = bounds.contentWidth * .05;
+      let nextWidth = null;
+      if (event.key === "ArrowLeft") nextWidth = currentWidth + step;
+      if (event.key === "ArrowRight") nextWidth = currentWidth - step;
+      if (event.key === "Home") nextWidth = bounds.maximumEvidence;
+      if (event.key === "End") nextWidth = bounds.minimumEvidence;
+      if (nextWidth === null) return;
+      event.preventDefault();
+      setEvidenceWidth(nextWidth, true);
+    });
+
+    window.addEventListener("resize", () => {
+      if (window.innerWidth > 1050) restoreEvidenceWidth();
+    });
+
     function setEvidenceVisible(visible) {
       const workspace = document.getElementById("workspace");
       const evidencePanel = document.getElementById("source-evidence");
@@ -1315,6 +1449,7 @@
       document.getElementById("hide-evidence").focus();
     });
 
+    restoreEvidenceWidth();
     updateProgress();
   </script>
 </body>
