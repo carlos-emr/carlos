@@ -594,6 +594,67 @@
       .claim, .quick-item .claim,
       .excerpt, .full-source-note { font-size: 16px; }
     }
+
+    /* Readability/layout trial 2: calmer headings, more vertical rhythm, larger controls. */
+    .summary-content { padding: 20px 24px 48px; }
+    .draft-alert { margin-bottom: 22px; padding: 14px 16px; }
+    .draft-alert p { max-width: 78ch; }
+    .quick-glance { margin-bottom: 22px; border-color: var(--line-strong); background: #fff; }
+    .quick-glance-title,
+    .summary-section h3 {
+      margin: 0 0 12px;
+      padding: 8px 10px;
+      border: 0;
+      border-left: 5px solid var(--blue);
+      border-bottom: 1px solid var(--line-strong);
+      color: #17242b;
+      background: transparent;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .quick-glance-title { margin-bottom: 0; }
+    .quick-item { padding: 14px 13px; }
+    .summary-section { margin-bottom: 30px; }
+    .summary-section > p,
+    .summary-section > .fact-list,
+    .summary-section > .timeline { max-width: 78ch; }
+    .summary-section p { margin-bottom: 12px; }
+    .record-limit { margin-bottom: 24px; padding: 12px 13px; max-width: 92ch; }
+    .problem-row { padding: 15px 13px; gap: 16px; }
+    .medication-warning { margin-bottom: 16px; padding: 11px 13px; }
+    .conflict-compare { margin: 14px 0 20px; }
+    .conflict-heading { padding: 9px 11px; }
+    .position { padding: 13px 11px; gap: 12px; }
+    .interpretation { padding: 11px; }
+    .fact-list li { margin-bottom: 13px; }
+    .timeline li { padding-bottom: 18px; }
+    .footnote { margin-top: 8px; padding-top: 18px; max-width: 82ch; }
+
+    .btn { min-height: 44px; padding: 9px 13px; }
+    .icon-button,
+    .source-step { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+    .tab { min-height: 44px; }
+    button:focus-visible,
+    a:focus-visible,
+    select:focus-visible {
+      outline: 3px solid #0b6fb8;
+      outline-offset: 2px;
+    }
+    .claim:focus-visible {
+      outline: 3px solid #0b6fb8;
+      outline-offset: 3px;
+      background: #dceefa;
+      box-shadow: inset 0 -2px 0 #005b9f;
+    }
+
+    @media (max-width: 680px) {
+      .summary-content { padding: 18px 16px 40px; }
+      .summary-section { margin-bottom: 26px; }
+      .quick-item { padding: 14px 12px; }
+      .problem-row { padding: 14px 12px; }
+    }
   </style>
 </head>
 <body>
