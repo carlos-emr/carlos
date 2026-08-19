@@ -41,6 +41,10 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import java.util.Set;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
@@ -106,6 +110,9 @@ public class DocumentManagerImpl implements DocumentManager {
     private DocumentDao documentDao;
 
     @Autowired
+    private OutboundEmailArchiveDao outboundEmailArchiveDao;
+
+    @Autowired
     private CtlDocumentDao ctlDocumentDao;
 
     @Autowired
@@ -135,6 +142,7 @@ public class DocumentManagerImpl implements DocumentManager {
         }
 
         Document result = documentDao.find(id);
+        assertNotOutboundEmailArchiveDocument(result);
 
         //--- log action ---
         if (result != null) {
@@ -250,6 +258,7 @@ public class DocumentManagerImpl implements DocumentManager {
         IOException lastFailure = null;
         for (int attempt = 0; attempt < UNIQUE_FILENAME_MAX_ATTEMPTS; attempt++) {
             String candidateName = buildUniqueDocumentFilename(normalizedFileName);
+            assertNotOutboundEmailArchiveFileName(candidateName);
             File candidate = PathValidationUtils.validateUserFilePath(candidateName, destinationDir);
             try {
                 Files.write(candidate.toPath(), documentData, StandardOpenOption.CREATE_NEW);
@@ -336,6 +345,7 @@ public class DocumentManagerImpl implements DocumentManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", "")) {
             throw new RuntimeException("Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
+        assertNotOutboundEmailArchiveDocument(document);
 
         Integer savedId = null;
 
@@ -427,6 +437,7 @@ public class DocumentManagerImpl implements DocumentManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "x", "")) {
             throw new RuntimeException("Read and Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
+        assertNotOutboundEmailArchiveDocument(document);
 
         // move the PDF from the temp location to CARLOS document directory.
         try {
@@ -459,6 +470,7 @@ public class DocumentManagerImpl implements DocumentManager {
      */
     public String getPathToDocument(LoggedInInfo loggedInInfo, int documentId) {
         Document document = this.getDocument(loggedInInfo, documentId);
+        assertNotOutboundEmailArchiveDocument(documentId);
         String path = null;
 
         if (document != null) {
@@ -487,6 +499,7 @@ public class DocumentManagerImpl implements DocumentManager {
             logger.error("Document filename contains path separator, rejected: {}", Encode.forJava(filename));
             return null;
         }
+        assertNotOutboundEmailArchiveFileName(filename);
 
         String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
@@ -516,7 +529,7 @@ public class DocumentManagerImpl implements DocumentManager {
 
         LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDemographicDocumentsByDocumentType", "fetching documents of type " + documentType.getName() + " for demographic " + demographicNo);
 
-        return documentDao.findByDemographicAndDoctype(demographicNo, documentType);
+        return withoutOutboundEmailArchiveDocuments(documentDao.findByDemographicAndDoctype(demographicNo, documentType));
     }
 
     public Document getDocumentByDemographicAndFilename(LoggedInInfo loggedInInfo, int demographicNo, String fileName) {
@@ -526,7 +539,9 @@ public class DocumentManagerImpl implements DocumentManager {
 
         LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDocumentByDemographicAndFilename", "fetching document with filename " + fileName + " for demographic " + demographicNo);
 
-        return documentDao.findByDemographicAndFilename(demographicNo, fileName);
+        Document document = documentDao.findByDemographicAndFilename(demographicNo, fileName);
+        assertNotOutboundEmailArchiveDocument(document);
+        return document;
     }
 
     /**
@@ -596,6 +611,7 @@ public class DocumentManagerImpl implements DocumentManager {
     }
 
     public List<String> getProvidersThatHaveAcknowledgedDocument(LoggedInInfo loggedInInfo, Integer documentId) {
+        assertNotOutboundEmailArchiveDocument(documentId);
         List<ProviderInboxItem> inboxList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", documentId);
         List<String> providerList = new ArrayList<String>();
         for (ProviderInboxItem item : inboxList) {
@@ -612,6 +628,7 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Access Denied");
         }
 
+        assertNotOutboundEmailArchiveDocument(eDoc);
         return renderDocument(eDoc);
     }
 
@@ -620,6 +637,7 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Access Denied");
         }
 
+        assertNotOutboundEmailArchiveDocument(documentId);
         EDoc eDoc = EDocUtil.getEDocFromDocId(String.valueOf(documentId));
         return renderDocument(eDoc);
     }
@@ -669,9 +687,106 @@ public class DocumentManagerImpl implements DocumentManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
-        List<DocumentListItemDTO> results = documentDao.findDocumentDTOsByDemographicNo(demographicNo);
+        List<DocumentListItemDTO> results = withoutOutboundEmailArchiveDocumentDTOs(documentDao.findDocumentDTOsByDemographicNo(demographicNo));
         LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDocumentDTOs",
                 "demographicNo=" + demographicNo);
         return results;
+    }
+    // --- outbound email archive guard -----------------------------------------------------------
+    // Archived patient email is stored as an ordinary eDoc, so every route in this manager can
+    // reach one. Individual operations refuse them; list queries filter them out so the eDoc
+    // browser does not surface a legal record as if it were a clinical document.
+
+    private static final String OUTBOUND_ARCHIVE_MESSAGE =
+            "Outbound email archive eDocs must be managed through the controlled archive workflow";
+
+    private void assertNotOutboundEmailArchiveDocument(EDoc eDoc) {
+        if (eDoc != null) {
+            assertNotOutboundEmailArchiveDocument(eDoc.getDocId());
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveDocument(Document document) {
+        if (document != null) {
+            assertNotOutboundEmailArchiveDocument(document.getDocumentNo());
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveDocument(String documentId) {
+        if (documentId == null || documentId.isBlank()) {
+            return;
+        }
+        try {
+            assertNotOutboundEmailArchiveDocument(Integer.valueOf(documentId.trim()));
+        } catch (NumberFormatException e) {
+            // Left to the caller, so invalid-id behaviour is unchanged by adding this guard.
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveDocument(Integer documentId) {
+        if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao, documentId)) {
+            throw new SecurityException(OUTBOUND_ARCHIVE_MESSAGE);
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveFileName(String fileName) {
+        if (OutboundEmailArchiveDocumentGuard.isArchiveFileName(outboundEmailArchiveDao, fileName)) {
+            throw new SecurityException(OUTBOUND_ARCHIVE_MESSAGE);
+        }
+    }
+
+    /**
+     * Drops archive artifacts from a document listing.
+     *
+     * <p>Filtering rather than refusing, because a list is a legitimate request that happens to
+     * span an archive: failing the whole call would make a patient's document list unusable for
+     * anyone who has ever been emailed. The per-document operations above are the backstop for
+     * anyone who names an archive id directly.</p>
+     */
+    private List<Document> withoutOutboundEmailArchiveDocuments(List<Document> documents) {
+        if (documents == null || documents.isEmpty()) {
+            return documents;
+        }
+        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(
+                documents.stream()
+                        .filter(Objects::nonNull)
+                        .map(Document::getDocumentNo)
+                        .filter(Objects::nonNull)
+                        .toList());
+        if (archiveDocumentNos == null || archiveDocumentNos.isEmpty()) {
+            return documents;
+        }
+        List<Document> filtered = new ArrayList<>();
+        for (Document document : documents) {
+            if (document == null || document.getDocumentNo() == null
+                    || !archiveDocumentNos.contains(document.getDocumentNo())) {
+                filtered.add(document);
+            }
+        }
+        return filtered;
+    }
+
+    /** DTO-shaped counterpart of {@link #withoutOutboundEmailArchiveDocuments(List)}. */
+    private List<DocumentListItemDTO> withoutOutboundEmailArchiveDocumentDTOs(List<DocumentListItemDTO> documents) {
+        if (documents == null || documents.isEmpty()) {
+            return documents;
+        }
+        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(
+                documents.stream()
+                        .filter(Objects::nonNull)
+                        .map(DocumentListItemDTO::getDocumentNo)
+                        .filter(Objects::nonNull)
+                        .toList());
+        if (archiveDocumentNos == null || archiveDocumentNos.isEmpty()) {
+            return documents;
+        }
+        List<DocumentListItemDTO> filtered = new ArrayList<>();
+        for (DocumentListItemDTO document : documents) {
+            if (document == null || document.getDocumentNo() == null
+                    || !archiveDocumentNos.contains(document.getDocumentNo())) {
+                filtered.add(document);
+            }
+        }
+        return filtered;
     }
 }
