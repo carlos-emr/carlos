@@ -193,6 +193,8 @@ class PatientPortalServiceUnitTest {
             assertThat(PatientPortalException.kindForStatus(429)).isEqualTo(Kind.THROTTLED);
             assertThat(PatientPortalException.kindForStatus(500))
                     .isEqualTo(Kind.UNEXPECTED_STATUS);
+            assertThat(PatientPortalException.ofMalformedResponse(200, "/x", null).kind())
+                    .isEqualTo(Kind.MALFORMED_RESPONSE);
         }
 
         /**
@@ -216,7 +218,7 @@ class PatientPortalServiceUnitTest {
         @DisplayName("should keep the service token out of failure messages")
         void shouldOmitServiceToken_fromExceptionMessage() {
             PatientPortalException exception =
-                    new PatientPortalException(Kind.PERMISSION_DENIED, 403, INVITE_PATH);
+                    PatientPortalException.ofStatus(403, INVITE_PATH, null);
 
             assertThat(exception.getMessage()).doesNotContain(TOKEN);
             assertThat(exception.getMessage()).contains(INVITE_PATH);
@@ -227,7 +229,8 @@ class PatientPortalServiceUnitTest {
         @DisplayName("should report a transport failure without a status")
         void shouldReportZeroStatus_whenNoResponseArrived() {
             PatientPortalException exception =
-                    new PatientPortalException(INVITE_PATH, new java.io.IOException("refused"));
+                    PatientPortalException.ofTransportFailure(
+                            INVITE_PATH, new java.io.IOException("refused"));
 
             assertThat(exception.kind()).isEqualTo(Kind.TRANSPORT_FAILURE);
             assertThat(exception.statusCode()).isZero();

@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.integration.patientportal;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.Locale;
 import java.time.Instant;
 
 /**
@@ -62,17 +63,29 @@ public record PatientPortalInviteDto(
 
     static PatientPortalInviteDto fromJson(JsonNode node) {
         return new PatientPortalInviteDto(
-                node.path("id").asLong(),
+                PortalJson.requiredLong(node, "id"),
                 PortalJson.text(node, "clinic_id"),
-                node.path("demographic_no").asInt(),
+                PortalJson.requiredInt(node, "demographic_no"),
                 PortalJson.text(node, "status"),
                 PortalJson.text(node, "created_by_id"),
                 PortalJson.text(node, "created_by"),
-                node.path("issued_count").asInt(),
+                PortalJson.requiredInt(node, "issued_count"),
                 PortalJson.timestamp(node, "last_issued_at"),
                 PortalJson.text(node, "last_issued_by"),
                 PortalJson.timestamp(node, "expires_at"),
                 PortalJson.optionalLong(node, "accepted_account_id"),
                 PortalJson.optionalLong(node, "supersedes_invite_id"));
+    }
+
+    private static final String DESCRIPTION =
+            "PatientPortalInviteDto[id=%d, clinicId=%s, status=%s, expiresAt=%s, patient=REDACTED]";
+
+    /**
+     * Renders the record without {@code demographicNo}, a PHI-correlating identifier that the
+     * generated record {@code toString} would otherwise print into any log line.
+     */
+    @Override
+    public String toString() {
+        return String.format(Locale.ROOT, DESCRIPTION, id, clinicId, status, expiresAt);
     }
 }

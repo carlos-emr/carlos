@@ -65,9 +65,9 @@ public record PatientPortalContactReviewDto(
 
     static PatientPortalContactReviewDto fromJson(JsonNode node) {
         return new PatientPortalContactReviewDto(
-                node.path("id").asLong(),
+                PortalJson.requiredLong(node, "id"),
                 PortalJson.text(node, "clinic_id"),
-                node.path("demographic_no").asInt(),
+                PortalJson.requiredInt(node, "demographic_no"),
                 PortalJson.text(node, "email_before"),
                 PortalJson.text(node, "email_after"),
                 PortalJson.text(node, "phone_number_before"),

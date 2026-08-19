@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -31,6 +32,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Function;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.io.entity.StringEntity;
@@ -39,9 +41,10 @@ import org.apache.hc.core5.http.io.support.ClassicRequestBuilder;
 /**
  * Outbound channel to the patient portal's {@code /internal/carlos/**} API.
  *
- * <p>This owns the authenticated envelope every portal call shares: the service bearer token, the
- * four {@code X-CARLOS-*} identity headers, request timeouts, and the mapping from the portal's
- * documented status codes onto {@link PatientPortalException.Kind}.
+ * <p>This owns the authenticated envelope every portal call shares: the service bearer token and
+ * the four {@code X-CARLOS-*} identity headers. Timeouts and redirect policy belong to {@link
+ * PatientPortalHttpClientExchange}; the status-to-outcome mapping belongs to {@link
+ * PatientPortalException}.
  *
  * <p><b>Security boundaries this class holds:</b>
  *
@@ -62,7 +65,7 @@ import org.apache.hc.core5.http.io.support.ClassicRequestBuilder;
  *
  * @since 2026-08-19
  */
-public class PatientPortalService {
+public class PatientPortalService implements Closeable {
 
     static final String AUTHORIZATION_HEADER = "Authorization";
     static final String PROVIDER_ID_HEADER = "X-CARLOS-Provider-ID";
@@ -72,7 +75,9 @@ public class PatientPortalService {
 
     private static final String BEARER_PREFIX = "Bearer %s";
     private static final String INVALID_PATH = "portal endpoint path is not a valid URI: %s";
-    private static final String UNREADABLE_BODY = "portal returned an unreadable body";
+    private static final String EMPTY_BODY = "portal returned an empty or non-JSON body";
+    private static final int MAX_DETAIL_LENGTH = 200;
+    private static final String NOT_AN_ARRAY = "portal returned a non-array invite listing";
 
     private static final String INVITES_PATH = "/internal/carlos/patients/%d/invites";
     private static final String INVITE_RESEND_PATH = "/internal/carlos/invites/%d/resend";
@@ -113,8 +118,19 @@ public class PatientPortalService {
         if (settings == null) {
             throw new PatientPortalConfigurationException("patient portal settings are required");
         }
+        if (exchange == null) {
+            throw new PatientPortalConfigurationException("patient portal transport is required");
+        }
         this.settings = settings;
         this.exchange = exchange;
+    }
+
+    /** Releases the pooled connections held by the transport, when it owns any. */
+    @Override
+    public void close() throws IOException {
+        if (exchange instanceof Closeable closeable) {
+            closeable.close();
+        }
     }
 
     /**
@@ -140,8 +156,7 @@ public class PatientPortalService {
      * @param staff the authenticated provider, holding {@code portal.invite.manage}
      * @return the invite and its one-time token
      * @throws PatientPortalException with {@link PatientPortalException.Kind#CONFLICT} if the
-     *     patient already has a portal account, or {@link
-     *     PatientPortalException.Kind#BAD_REQUEST} if {@code demographicNo} disagrees with the body
+     *     patient already has a portal account
      */
     public PatientPortalIssuedInviteDto createInvite(
             int demographicNo,
@@ -154,8 +169,13 @@ public class PatientPortalService {
         body.put("email", email);
         body.put("date_of_birth", dateOfBirth == null ? null : dateOfBirth.toString());
         body.put("health_card_number", healthCardNumber);
-        String path = String.format(Locale.ROOT, INVITES_PATH, demographicNo);
-        return PatientPortalIssuedInviteDto.fromJson(send(POST, path, body.toString(), staff));
+        return fetch(
+                POST,
+                INVITES_PATH,
+                body.toString(),
+                staff,
+                PatientPortalIssuedInviteDto::fromJson,
+                demographicNo);
     }
 
     /**
@@ -166,13 +186,14 @@ public class PatientPortalService {
     public List<PatientPortalInviteDto> listInvites(
             int demographicNo, int limit, PatientPortalStaffContext staff) {
         int requested = Math.min(Math.max(limit, 1), MAX_INVITE_PAGE_SIZE);
-        String path = String.format(Locale.ROOT, INVITE_LIST_PATH, demographicNo, requested);
-        JsonNode payload = send(GET, path, null, staff);
-        List<PatientPortalInviteDto> invites = new ArrayList<>();
-        for (JsonNode node : payload) {
-            invites.add(PatientPortalInviteDto.fromJson(node));
-        }
-        return List.copyOf(invites);
+        return fetch(
+                GET,
+                INVITE_LIST_PATH,
+                null,
+                staff,
+                PatientPortalService::inviteList,
+                demographicNo,
+                requested);
     }
 
     /**
@@ -183,14 +204,16 @@ public class PatientPortalService {
      * worth surfacing rather than a retry that can be dropped.
      */
     public PatientPortalIssuedInviteDto resendInvite(long inviteId, PatientPortalStaffContext staff) {
-        String path = String.format(Locale.ROOT, INVITE_RESEND_PATH, inviteId);
-        return PatientPortalIssuedInviteDto.fromJson(send(POST, path, null, staff));
+        return fetch(
+                POST, INVITE_RESEND_PATH, null, staff,
+                PatientPortalIssuedInviteDto::fromJson, inviteId);
     }
 
     /** Revokes a pending invite. */
     public PatientPortalInviteDto revokeInvite(long inviteId, PatientPortalStaffContext staff) {
-        String path = String.format(Locale.ROOT, INVITE_REVOKE_PATH, inviteId);
-        return PatientPortalInviteDto.fromJson(send(POST, path, null, staff));
+        return fetch(
+                POST, INVITE_REVOKE_PATH, null, staff,
+                PatientPortalInviteDto::fromJson, inviteId);
     }
 
 
@@ -203,10 +226,11 @@ public class PatientPortalService {
      *
      * @param staff the authenticated provider, holding {@code portal.account.unlock}
      */
-    public PatientPortalAccountDto unlockAccount(
+    public PatientPortalAccountAcknowledgementDto unlockAccount(
             int demographicNo, PatientPortalStaffContext staff) {
-        String path = String.format(Locale.ROOT, UNLOCK_PATH, demographicNo);
-        return PatientPortalAccountDto.fromPartialJson(send(POST, path, null, staff));
+        return fetch(
+                POST, UNLOCK_PATH, null, staff,
+                PatientPortalAccountAcknowledgementDto::fromJson, demographicNo);
     }
 
     /**
@@ -215,8 +239,9 @@ public class PatientPortalService {
      * @param staff the authenticated provider, holding {@code portal.account.manage}
      */
     public PatientPortalAccountDto findAccount(int demographicNo, PatientPortalStaffContext staff) {
-        String path = String.format(Locale.ROOT, ACCOUNT_PATH, demographicNo);
-        return PatientPortalAccountDto.fromJson(send(GET, path, null, staff));
+        return fetch(
+                GET, ACCOUNT_PATH, null, staff,
+                PatientPortalAccountDto::fromJson, demographicNo);
     }
 
     /**
@@ -226,13 +251,18 @@ public class PatientPortalService {
      * @param reason short operator-supplied reason, recorded in the portal audit trail
      * @param staff the authenticated provider, holding {@code portal.account.manage}
      */
-    public PatientPortalAccountDto setAccountAccess(
+    public PatientPortalAccountAcknowledgementDto setAccountAccess(
             int demographicNo, boolean enabled, String reason, PatientPortalStaffContext staff) {
         ObjectNode body = objectMapper.createObjectNode();
         body.put("enabled", enabled);
         body.put("reason", reason);
-        String path = String.format(Locale.ROOT, ACCESS_PATH, demographicNo);
-        return PatientPortalAccountDto.fromPartialJson(send(POST, path, body.toString(), staff));
+        return fetch(
+                POST,
+                ACCESS_PATH,
+                body.toString(),
+                staff,
+                PatientPortalAccountAcknowledgementDto::fromJson,
+                demographicNo);
     }
 
     /**
@@ -261,8 +291,13 @@ public class PatientPortalService {
         if (label != null) {
             body.put("label", label);
         }
-        String path = String.format(Locale.ROOT, SECRETS_PATH, demographicNo);
-        return PatientPortalUnlockSecretDto.fromJson(send(POST, path, body.toString(), staff));
+        return fetch(
+                POST,
+                SECRETS_PATH,
+                body.toString(),
+                staff,
+                PatientPortalUnlockSecretDto::fromJson,
+                demographicNo);
     }
 
     /**
@@ -274,10 +309,11 @@ public class PatientPortalService {
      *
      * @param staff the authenticated provider, holding {@code portal.secret.manage}
      */
-    public PatientPortalUnlockSecretDto publishUnlockSecret(
+    public PatientPortalUnlockSecretStatusDto publishUnlockSecret(
             long unlockSecretId, PatientPortalStaffContext staff) {
-        String path = String.format(Locale.ROOT, SECRET_PUBLISH_PATH, unlockSecretId);
-        return PatientPortalUnlockSecretDto.fromJson(send(POST, path, null, staff));
+        return fetch(
+                POST, SECRET_PUBLISH_PATH, null, staff,
+                PatientPortalUnlockSecretStatusDto::fromJson, unlockSecretId);
     }
 
     /**
@@ -286,14 +322,19 @@ public class PatientPortalService {
      * @param reason short operator-supplied reason, at most 64 characters, or {@code null}
      * @param staff the authenticated provider, holding {@code portal.secret.manage}
      */
-    public PatientPortalUnlockSecretDto revokeUnlockSecret(
+    public PatientPortalUnlockSecretStatusDto revokeUnlockSecret(
             long unlockSecretId, String reason, PatientPortalStaffContext staff) {
         ObjectNode body = objectMapper.createObjectNode();
         if (reason != null) {
             body.put("reason", reason);
         }
-        String path = String.format(Locale.ROOT, SECRET_REVOKE_PATH, unlockSecretId);
-        return PatientPortalUnlockSecretDto.fromJson(send(POST, path, body.toString(), staff));
+        return fetch(
+                POST,
+                SECRET_REVOKE_PATH,
+                body.toString(),
+                staff,
+                PatientPortalUnlockSecretStatusDto::fromJson,
+                unlockSecretId);
     }
 
     /**
@@ -309,8 +350,14 @@ public class PatientPortalService {
             int limit, int offset, PatientPortalStaffContext staff) {
         int requested = Math.min(Math.max(limit, 1), MAX_REVIEW_PAGE_SIZE);
         int from = Math.max(offset, 0);
-        String path = String.format(Locale.ROOT, REVIEWS_PATH, requested, from);
-        return PatientPortalContactReviewPageDto.fromJson(send(GET, path, null, staff));
+        return fetch(
+                GET,
+                REVIEWS_PATH,
+                null,
+                staff,
+                PatientPortalContactReviewPageDto::fromJson,
+                requested,
+                from);
     }
 
     /**
@@ -333,12 +380,13 @@ public class PatientPortalService {
         ObjectNode body = objectMapper.createObjectNode();
         body.put("approve", approve);
         body.put("revision", revision);
-        String path = String.format(Locale.ROOT, REVIEW_DECISION_PATH, reviewRequestId);
-        JsonNode payload = send(POST, path, body.toString(), staff);
-        return new PatientPortalContactReviewDecision(
-                payload.path("id").asLong(),
-                PortalJson.text(payload, "status"),
-                PortalJson.text(payload, "decision"));
+        return fetch(
+                POST,
+                REVIEW_DECISION_PATH,
+                body.toString(),
+                staff,
+                PatientPortalService::contactReviewDecision,
+                reviewRequestId);
     }
 
     /**
@@ -351,29 +399,141 @@ public class PatientPortalService {
     public record PatientPortalContactReviewDecision(long id, String status, String decision) {}
 
     /**
+     * Sends a request and maps the success body, translating a contract violation into the
+     * package's own exception type.
+     *
+     * <p>The mapping is done here rather than at each call site so a malformed field — a missing
+     * identifier, a timestamp with no offset — surfaces as {@link
+     * PatientPortalException.Kind#MALFORMED_RESPONSE} instead of escaping as a raw runtime
+     * exception past every caller that catches {@link PatientPortalException}.
+     */
+    private <T> T fetch(
+            String method,
+            String pathFormat,
+            String jsonBody,
+            PatientPortalStaffContext staff,
+            Function<JsonNode, T> factory,
+            Object... args) {
+        Parsed parsed = send(method, pathFormat, jsonBody, staff, args);
+        try {
+            return factory.apply(parsed.payload());
+        } catch (PortalContractException exception) {
+            throw PatientPortalException.ofMalformedResponse(
+                    parsed.statusCode(), templateOf(pathFormat), exception);
+        }
+    }
+
+    private static List<PatientPortalInviteDto> inviteList(JsonNode payload) {
+        if (!payload.isArray()) {
+            throw new PortalContractException(NOT_AN_ARRAY);
+        }
+        List<PatientPortalInviteDto> invites = new ArrayList<>();
+        for (JsonNode node : payload) {
+            invites.add(PatientPortalInviteDto.fromJson(node));
+        }
+        return List.copyOf(invites);
+    }
+
+    private static PatientPortalContactReviewDecision contactReviewDecision(JsonNode payload) {
+        return new PatientPortalContactReviewDecision(
+                PortalJson.requiredLong(payload, "id"),
+                PortalJson.text(payload, "status"),
+                PortalJson.text(payload, "decision"));
+    }
+
+    /** A parsed success body together with the status it arrived with. */
+    private record Parsed(JsonNode payload, int statusCode) {}
+
+    /**
      * Sends an authenticated request and returns the parsed success body.
      *
-     * @throws PatientPortalException mapped from the portal's status, or wrapping a transport
-     *     failure; never carrying a credential in its message
+     * <p>Takes the path <em>format</em> plus its arguments rather than an interpolated path, so the
+     * failure path can name the endpoint without the interpolated {@code demographic_no}. Portal
+     * paths embed that identifier, and CLAUDE.md forbids putting it in a browser-visible exception
+     * message.
+     *
+     * @throws PatientPortalException mapped from the portal's status, or reporting a transport or
+     *     contract failure; never carrying a credential or a patient identifier in its message
      */
-    private JsonNode send(
-            String method, String path, String jsonBody, PatientPortalStaffContext staff) {
+    private Parsed send(
+            String method,
+            String pathFormat,
+            String jsonBody,
+            PatientPortalStaffContext staff,
+            Object... args) {
+        String path = String.format(Locale.ROOT, pathFormat, args);
+        String template = templateOf(pathFormat);
         PatientPortalHttpResponse response;
         try {
             response = exchange.send(buildRequest(method, path, jsonBody, staff));
         } catch (IOException exception) {
-            throw new PatientPortalException(path, exception);
+            throw PatientPortalException.ofTransportFailure(template, exception);
         }
         if (!response.isSuccess()) {
-            throw new PatientPortalException(
-                    PatientPortalException.kindForStatus(response.statusCode()),
+            throw PatientPortalException.ofStatus(
+                    response.statusCode(), template, safeDetail(response.body()));
+        }
+        return new Parsed(parsed(response, template), response.statusCode());
+    }
+
+    /**
+     * Renders a path format as a PHI-free endpoint template, e.g. {@code
+     * /internal/carlos/patients/{id}/invites}.
+     */
+    private static String templateOf(String pathFormat) {
+        return pathFormat.replace("%d", "{id}");
+    }
+
+    /**
+     * Parses a success body, rejecting anything that is not a JSON object or array.
+     *
+     * <p>An empty body is the case that matters. {@code readTree("")} returns a missing node rather
+     * than throwing, so without this guard a {@code 204}, or a proxy that stripped the body, would
+     * flow into the DTO factories and produce a record of zeros and nulls — "the account is not
+     * locked", "this patient has no invites", "the review queue is empty". The configuration path in
+     * this package fails closed; the response path must not fail open.
+     */
+    private JsonNode parsed(PatientPortalHttpResponse response, String template) {
+        JsonNode payload;
+        try {
+            payload = objectMapper.readTree(response.body());
+        } catch (IOException exception) {
+            throw PatientPortalException.ofMalformedResponse(
+                    response.statusCode(), template, exception);
+        }
+        if (payload == null || !payload.isContainerNode()) {
+            throw PatientPortalException.ofMalformedResponse(
                     response.statusCode(),
-                    path);
+                    template,
+                    new PortalContractException(EMPTY_BODY));
+        }
+        return payload;
+    }
+
+    /**
+     * Extracts the portal's {@code detail} string when it is safe to carry.
+     *
+     * <p>Only a plain JSON string is kept. The portal's validation layer answers a {@code 422} with
+     * a list of objects that can echo the offending input — a patient email or health card number —
+     * so that shape is dropped rather than parsed. Losing the detail on {@code 422} is the correct
+     * trade for never copying PHI into an error message that reaches logs and error pages.
+     */
+    private String safeDetail(String body) {
+        if (body == null || body.isBlank()) {
+            return null;
         }
         try {
-            return objectMapper.readTree(response.body());
+            JsonNode node = objectMapper.readTree(body);
+            JsonNode detail = node == null ? null : node.get("detail");
+            if (detail == null || !detail.isTextual()) {
+                return null;
+            }
+            String text = detail.asText();
+            return text.length() > MAX_DETAIL_LENGTH
+                    ? text.substring(0, MAX_DETAIL_LENGTH)
+                    : text;
         } catch (IOException exception) {
-            throw new PatientPortalException(path, new IOException(UNREADABLE_BODY, exception));
+            return null;
         }
     }
 
@@ -420,7 +580,4 @@ public class PatientPortalService {
         }
     }
 
-    PatientPortalSettings settings() {
-        return settings;
-    }
 }

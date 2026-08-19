@@ -103,10 +103,9 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                     new ScriptedExchange()
                             .reply(
                                     200,
-                                    "{\"id\":5,\"clinic_id\":\"maplecreek\",\"demographic_no\":123,"
-                                            + "\"locked_at\":null,\"force_password_reset\":true}");
+                                    "{\"id\":5,\"locked_at\":null,\"force_password_reset\":true}");
 
-            PatientPortalAccountDto account =
+            PatientPortalAccountAcknowledgementDto account =
                     service(exchange)
                             .unlockAccount(
                                     123,
@@ -407,12 +406,18 @@ class PatientPortalAccountAndSecretCallsUnitTest {
     @DisplayName("transport")
     class Transport {
 
+        /**
+         * An earlier revision threw a {@code RuntimeException} wrapper here, so {@code send}'s
+         * {@code catch (IOException)} never ran and the assertion passed for any exception at all —
+         * it would have passed with the bearer token in the message. The seam declares {@code throws
+         * IOException}, so the wrapper was never needed.
+         */
         @Test
-        @DisplayName("should keep the service token out of every failure path")
-        void shouldOmitServiceToken_whenAnyCallFails() {
+        @DisplayName("should map a transport failure and keep the service token out of it")
+        void shouldMapTransportFailure_whenTheSocketFails() {
             PatientPortalHttpExchange failing =
                     request -> {
-                        throw new UncheckedIoWrapper(new IOException("connection reset"));
+                        throw new IOException("connection reset");
                     };
             PatientPortalService service = service(failing);
 
@@ -423,16 +428,109 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                                             staff(
                                                     PatientPortalStaffContext
                                                             .PERMISSION_ACCOUNT_MANAGE)))
-                    .hasMessageNotContaining(TOKEN);
+                    .isInstanceOf(PatientPortalException.class)
+                    .hasMessageNotContaining(TOKEN)
+                    .extracting(exception -> ((PatientPortalException) exception).kind())
+                    .isEqualTo(Kind.TRANSPORT_FAILURE);
         }
 
-        /** Lets the lambda above throw without declaring a checked exception. */
-        private static final class UncheckedIoWrapper extends RuntimeException {
-            private static final long serialVersionUID = 1L;
+        @Test
+        @DisplayName("should keep the patient identifier out of the failure message")
+        void shouldOmitDemographicNumber_fromFailureMessage() {
+            assertThatThrownBy(
+                            () ->
+                                    service(new ScriptedExchange().reply(409, "{}"))
+                                            .findAccount(
+                                                    123,
+                                                    staff(
+                                                            PatientPortalStaffContext
+                                                                    .PERMISSION_ACCOUNT_MANAGE)))
+                    .isInstanceOf(PatientPortalException.class)
+                    .hasMessageNotContaining("123")
+                    .hasMessageContaining("{id}");
+        }
 
-            UncheckedIoWrapper(IOException cause) {
-                super(cause);
-            }
+        @Test
+        @DisplayName("should reject a success status carrying an empty body")
+        void shouldMapMalformedResponse_whenSuccessBodyIsEmpty() {
+            assertThatThrownBy(
+                            () ->
+                                    service(new ScriptedExchange().reply(200, ""))
+                                            .findAccount(
+                                                    123,
+                                                    staff(
+                                                            PatientPortalStaffContext
+                                                                    .PERMISSION_ACCOUNT_MANAGE)))
+                    .isInstanceOf(PatientPortalException.class)
+                    .extracting(exception -> ((PatientPortalException) exception).kind())
+                    .isEqualTo(Kind.MALFORMED_RESPONSE);
+        }
+
+        @Test
+        @DisplayName("should reject a success body missing a required identifier")
+        void shouldMapMalformedResponse_whenRequiredFieldIsAbsent() {
+            assertThatThrownBy(
+                            () ->
+                                    service(new ScriptedExchange().reply(200, "{\"status\":\"ok\"}"))
+                                            .findAccount(
+                                                    123,
+                                                    staff(
+                                                            PatientPortalStaffContext
+                                                                    .PERMISSION_ACCOUNT_MANAGE)))
+                    .isInstanceOf(PatientPortalException.class)
+                    .extracting(exception -> ((PatientPortalException) exception).kind())
+                    .isEqualTo(Kind.MALFORMED_RESPONSE);
+        }
+
+        @Test
+        @DisplayName("should carry the portal detail string when it is a plain string")
+        void shouldCarryDetail_whenPortalReportsOne() {
+            PatientPortalException failure =
+                    org.assertj.core.api.Assertions.catchThrowableOfType(
+                            PatientPortalException.class,
+                            () ->
+                                    service(
+                                                    new ScriptedExchange()
+                                                            .reply(
+                                                                    409,
+                                                                    "{\"detail\":\"portal account"
+                                                                        + " already exists\"}"))
+                                            .findAccount(
+                                                    123,
+                                                    staff(
+                                                            PatientPortalStaffContext
+                                                                    .PERMISSION_ACCOUNT_MANAGE)));
+
+            assertThat(failure.detail()).isEqualTo("portal account already exists");
+        }
+
+        /**
+         * The portal's validation layer answers a 422 with a list of objects that can echo the
+         * offending input — a patient email or health card number. That shape is dropped rather
+         * than parsed, so 422 is the one status with no detail available.
+         */
+        @Test
+        @DisplayName("should withhold a structured validation detail that could echo patient input")
+        void shouldWithholdDetail_whenPortalReturnsStructuredValidationErrors() {
+            PatientPortalException failure =
+                    org.assertj.core.api.Assertions.catchThrowableOfType(
+                            PatientPortalException.class,
+                            () ->
+                                    service(
+                                                    new ScriptedExchange()
+                                                            .reply(
+                                                                    422,
+                                                                    "{\"detail\":[{\"loc\":[\"body\","
+                                                                        + "\"email\"],\"input\":"
+                                                                        + "\"patient@example.com\"}]}"))
+                                            .findAccount(
+                                                    123,
+                                                    staff(
+                                                            PatientPortalStaffContext
+                                                                    .PERMISSION_ACCOUNT_MANAGE)));
+
+            assertThat(failure.detail()).isNull();
+            assertThat(failure.getMessage()).doesNotContain("patient@example.com");
         }
     }
 }

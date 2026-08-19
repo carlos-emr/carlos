@@ -73,6 +73,8 @@ public record PatientPortalStaffContext(
     private static final String TOO_MANY_PERMISSIONS = "portal permits at most %d permissions";
     private static final String PERMISSION_TOO_LONG = "portal permission exceeds %d characters";
     private static final String PERMISSION_HAS_COMMA = "portal permission must not contain a comma";
+    private static final String CONTROL_CHARACTER =
+            "portal staff identity must not contain control characters";
 
     /**
      * Validates the caller identity against the limits the portal itself enforces.
@@ -97,22 +99,41 @@ public record PatientPortalStaffContext(
             throw new IllegalArgumentException(
                     String.format(Locale.ROOT, TOO_MANY_PERMISSIONS, MAX_PERMISSION_COUNT));
         }
+        providerId = providerId.strip();
+        providerName = providerName.strip();
+        // Every one of these three becomes an HTTP header value. A carriage return or newline
+        // would let a caller append headers of its own — including a second
+        // X-CARLOS-Permissions claiming privileges the provider does not hold. An earlier
+        // revision checked only for commas in permissions, which is the narrower half of the
+        // same problem.
+        rejectControlCharacters(providerId);
+        rejectControlCharacters(providerName);
+        Set<String> normalized = new LinkedHashSet<>();
         for (String permission : permissions) {
             if (permission == null || permission.isBlank()) {
                 throw new IllegalArgumentException(NO_PERMISSIONS);
             }
-            if (permission.length() > MAX_PERMISSION_LENGTH) {
+            String stripped = permission.strip();
+            if (stripped.length() > MAX_PERMISSION_LENGTH) {
                 throw new IllegalArgumentException(
                         String.format(Locale.ROOT, PERMISSION_TOO_LONG, MAX_PERMISSION_LENGTH));
             }
             // A comma would split into two claimed permissions inside the portal's header parser.
-            if (permission.indexOf(',') >= 0) {
+            if (stripped.indexOf(',') >= 0) {
                 throw new IllegalArgumentException(PERMISSION_HAS_COMMA);
             }
+            rejectControlCharacters(stripped);
+            normalized.add(stripped);
         }
-        providerId = providerId.strip();
-        providerName = providerName.strip();
-        permissions = Set.copyOf(new LinkedHashSet<>(permissions));
+        permissions = Set.copyOf(normalized);
+    }
+
+    private static void rejectControlCharacters(String value) {
+        for (int index = 0; index < value.length(); index++) {
+            if (Character.isISOControl(value.charAt(index))) {
+                throw new IllegalArgumentException(CONTROL_CHARACTER);
+            }
+        }
     }
 
     /**
