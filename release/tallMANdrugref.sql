@@ -3,7 +3,7 @@
 -- this script changes new OSCAR Rx into TALLman format
 -- and cleans out generic company prefixes / suffixes
 -- usage
--- mysql -uroot -p****** drugref < tallMANdrugref.sql
+-- mariadb -uroot -p****** drugref < tallMANdrugref.sql
 -- its run when you execute the Deb since oscar_emr15-67~677.deb 
 
 UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'AFATINIB' , 'AFAtinib') WHERE `name` LIKE '%AFATINIB%' ;

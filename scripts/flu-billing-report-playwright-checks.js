@@ -1,0 +1,812 @@
+#!/usr/bin/env node
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
+/*
+ * Browser regression coverage for the Flu Billing Report demographic mapping.
+ *
+ * The check creates three synthetic patients and three valid flu claims, then
+ * verifies every displayed demographic field, the latest selected-year billing
+ * date, and the blank billing-date cell of a patient with no claim that year.
+ *
+ * It also covers the input handling that repeatedly produced an empty worklist
+ * under an "All Providers" label: the parameterless URL both entry points
+ * actually link to, a whitespace-padded provider, a provider that is unknown or
+ * deactivated, malformed report years, and the year selector at both ends of its
+ * accepted range.
+ *
+ * Seeded rows are removed even when an assertion fails; a delete that does not
+ * succeed fails the run rather than leaving synthetic patients behind silently.
+ *
+ * Defaults are for the local devcontainer:
+ *   npm run test:flu-billing-report-playwright
+ *
+ * Optional environment:
+ *   BASE_URL=http://127.0.0.1:8080/carlos
+ *   CHROME_PATH=/path/to/chrome-or-chromium
+ *   TEST_USER=carlosdoc
+ *   TEST_PASSWORD=carlos2026
+ *   TEST_PIN=2026
+ *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=oscar
+ *   ALLOW_NON_LOCAL_BASE_URL=true only for an intentional non-local test target
+ *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-local test database
+ *
+ * BASE_URL and MYSQL_HOST are both restricted to local targets by default, but
+ * MYSQL_HOST is held to a stricter definition. Browsing accepts any private
+ * network address; seeding does not, because a shared clinic database usually
+ * lives on one. Only loopback and the devcontainer service names reach the
+ * database without ALLOW_NON_LOCAL_MYSQL_HOST=true. A browse target that is not
+ * plainly loopback must additionally use https, since this script logs in with
+ * real credentials.
+ */
+
+const { execFileSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { chromium } = require('playwright');
+
+// Hosts reachable enough to browse against. 'carlos' and 'db' are the
+// devcontainer compose service names for the app and the MariaDB container, and
+// host.docker.internal reaches the developer's own machine; all resolve only
+// from inside that environment. 0.0.0.0 is deliberately absent: it is a bind
+// address rather than a connect target.
+const LOCAL_HOSTS = new Set([
+  'localhost',
+  '127.0.0.1',
+  '::1',
+  'host.docker.internal',
+  'carlos',
+  'db',
+]);
+
+function isPrivateIpv4(host) {
+  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!match) {
+    return false;
+  }
+  const octets = match.slice(1).map(Number);
+  if (octets.some((octet) => octet > 255)) {
+    return false;
+  }
+  const [a, b] = octets;
+  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
+}
+
+function normalizeHost(rawHost) {
+  return rawHost.toLowerCase().replace(/^\[|\]$/g, '');
+}
+
+function isLocalHost(rawHost) {
+  const host = normalizeHost(rawHost);
+  return LOCAL_HOSTS.has(host) || isPrivateIpv4(host);
+}
+
+/*
+ * Hosts that are unambiguously this machine or its private compose network.
+ *
+ * Deliberately excludes the private IPv4 ranges and host.docker.internal that
+ * isLocalHost accepts, since those reach the developer's host or a shared
+ * network.
+ *
+ * Two things key off this rather than the looser check:
+ *   - the database target, because seeding writes patients and OHIP claims;
+ *   - whether TLS verification may be skipped, because this script logs in with
+ *     real credentials and any non-loopback target must prove its certificate.
+ */
+const EXACT_LOCAL_HOSTS = new Set([
+  'localhost',
+  '127.0.0.1',
+  '::1',
+  'db',
+  'carlos',
+]);
+
+function isExactLocalHost(rawHost) {
+  return EXACT_LOCAL_HOSTS.has(normalizeHost(rawHost));
+}
+
+function validateBaseUrl(rawBaseUrl) {
+  const parsed = new URL(rawBaseUrl);
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
+  }
+  // Credentials in the URL would travel into Playwright navigations and can
+  // surface in request or failure logging, so reject them outright.
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not contain embedded credentials');
+  }
+  if (!isLocalHost(parsed.hostname) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+    throw new Error(`Refusing non-local BASE_URL host ${parsed.hostname}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
+  }
+  // This script logs in with real credentials, so anything that is not plainly
+  // loopback has to prove its certificate. Matches the same rule in
+  // scripts/patient-search-dob-playwright-checks.js.
+  if (!isExactLocalHost(parsed.hostname) && parsed.protocol !== 'https:') {
+    throw new Error(`Non-loopback BASE_URL host ${parsed.hostname} must use https`);
+  }
+  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  return parsed;
+}
+
+/*
+ * This check writes synthetic patients and OHIP claims, so the database target is
+ * gated harder than the browsing target — see isExactLocalHost. Without this an
+ * exported MYSQL_HOST could seed fixtures straight into a shared or production
+ * patient schema, which no amount of cleanup fully undoes.
+ */
+function validateMysqlHost(rawHost) {
+  if (!isExactLocalHost(rawHost) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
+    throw new Error(`Refusing to seed synthetic patients into non-local MYSQL_HOST ${rawHost}; set ALLOW_NON_LOCAL_MYSQL_HOST=true for a disposable test database`);
+  }
+  return rawHost;
+}
+
+const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+const chromePath = process.env.CHROME_PATH || '';
+const testUser = process.env.TEST_USER || 'carlosdoc';
+const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
+const testPin = process.env.TEST_PIN || '2026';
+const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'db');
+const mysqlUser = process.env.MYSQL_USER || 'root';
+const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+
+const seededDemographicIds = [];
+const seededHeaderIds = [];
+const browserFindings = [];
+let mysqlDefaults = null;
+
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+function createMysqlDefaultsFile() {
+  if (/[\r\n]/.test(mysqlPassword)) {
+    throw new Error('MYSQL_PASSWORD must not contain newline characters');
+  }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-flu-report-mysql-'));
+  const file = path.join(dir, 'client.cnf');
+  try {
+    fs.writeFileSync(file, `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`, { mode: 0o600 });
+  } catch (error) {
+    // This runs before the run-level cleanup exists, so a partial write would
+    // otherwise strand the directory -- possibly holding the password.
+    fs.rmSync(dir, { recursive: true, force: true });
+    throw error;
+  }
+  return { dir, file };
+}
+
+/*
+ * Reduces a failed mysql invocation to a reportable reason.
+ *
+ * Neither of the obvious sources is safe on its own. execFileSync builds its
+ * message from the whole argv, so it embeds the statement, and the seeding
+ * statements carry a real provider number. mysql's stderr is safe for errors
+ * like access-denied, but on a syntax error it echoes the offending statement on
+ * its own line and then quotes a fragment back in "near '...' at line 1".
+ *
+ * So: take only the ERROR line, drop the quoted fragment, mask digit runs, and
+ * cap the length. Taking the first stderr line instead would report the literal
+ * "--------------" that mysql prints above the echoed statement.
+ */
+function describeMysqlFailure(error) {
+  const errorLine = String(error.stderr || '')
+    .split('\n')
+    .find((line) => line.startsWith('ERROR '));
+  if (!errorLine) {
+    return `mysql exited with status ${error.status}`;
+  }
+  return errorLine
+    .replace(/ near '.*$/, ' near <redacted>')
+    .replace(/\d{3,}/g, '###')
+    .slice(0, 200);
+}
+
+const MYSQL_TIMEOUT_MS = 30000;
+
+function sql(query) {
+  try {
+    return execFileSync('mysql', [
+      `--defaults-extra-file=${mysqlDefaults.file}`,
+      '-h', mysqlHost,
+      '-u', mysqlUser,
+      mysqlDatabase,
+      '-N',
+      '-B',
+      '-e',
+      query,
+    ], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      // Without this an unreachable host blocks forever, and the signal handler
+      // calls straight back into here -- so an interrupted run would hang while
+      // trying to remove its own seeded rows.
+      timeout: MYSQL_TIMEOUT_MS,
+    }).trim();
+  } catch (error) {
+    throw new Error(`mysql command failed: ${describeMysqlFailure(error)}`);
+  }
+}
+
+function escapeSql(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/'/g, "''");
+}
+
+/*
+ * Age the report should show for a fixture, derived from that fixture's own
+ * birth fields and evaluated by the database so it uses the same clock and the
+ * same birthday-adjustment rule as the report query. Deriving it from the
+ * fixture keeps the two from drifting; deriving it from the rendered report
+ * instead would make the age assertion tautological.
+ */
+function expectedAgeFor(fixture) {
+  const age = sql(`SELECT YEAR(CURRENT_DATE)-${fixture.birthYear}`
+    + `-(DATE_FORMAT(CURRENT_DATE,'%m%d')<'${fixture.birthMonth}${fixture.birthDay}')`);
+  assert(/^\d{1,3}$/.test(age), `Database returned an invalid expected age for ${fixture.lastName}`);
+  return age;
+}
+
+function numericId(value, label) {
+  assert(/^\d+$/.test(value), `${label} was not a numeric database id`);
+  return Number(value);
+}
+
+function appUrl(appPath) {
+  assert(appPath.startsWith('/') && !appPath.startsWith('//'), `Invalid application path ${appPath}`);
+  const [pathPart, queryPart] = appPath.split('?');
+  const url = new URL(baseUrl.href);
+  url.pathname = `${baseUrl.pathname}${pathPart}`.replace(/\/{2,}/g, '/');
+  url.search = queryPart ? `?${queryPart}` : '';
+  return url.toString();
+}
+
+function providerNoForTestUser() {
+  const providerNo = sql(
+    `SELECT provider_no FROM security WHERE user_name='${escapeSql(testUser)}' ORDER BY security_no LIMIT 1`
+  );
+  assert(providerNo && /^[A-Za-z0-9_-]+$/.test(providerNo), `No valid provider number found for TEST_USER=${testUser}`);
+  return providerNo;
+}
+
+function seedDemographic(fixture) {
+  const demographicId = numericId(sql(
+    `INSERT INTO demographic`
+      + ` (last_name, first_name, phone, year_of_birth, month_of_birth, date_of_birth,`
+      + ` roster_status, patient_status, provider_no, sex, lastUpdateDate, pref_name)`
+      + ` VALUES ('${escapeSql(fixture.lastName)}', '${escapeSql(fixture.firstName)}',`
+      + ` '${escapeSql(fixture.phone)}', '${fixture.birthYear}', '${fixture.birthMonth}',`
+      + ` '${fixture.birthDay}', '${fixture.rosterStatus}', '${fixture.patientStatus}',`
+      + ` '${escapeSql(fixture.providerNo)}', 'F', NOW(), '');`
+      + ` SELECT LAST_INSERT_ID();`
+  ), 'demographic id');
+  seededDemographicIds.push(demographicId);
+  return demographicId;
+}
+
+function seedFluClaim(demographicId, providerNo, patientName, billingDate, serviceCode) {
+  assert(['G590A', 'G591A'].includes(serviceCode), `Unsupported flu service code ${serviceCode}`);
+  assert(/^\d{4}-\d{2}-\d{2}$/.test(billingDate), `Invalid billing date ${billingDate}`);
+  const headerId = numericId(sql(
+    `INSERT INTO billing_on_cheader1`
+      + ` (header_id, demographic_no, provider_no, demographic_name, billing_date, status)`
+      + ` VALUES (0, ${demographicId}, '${escapeSql(providerNo)}',`
+      + ` '${escapeSql(patientName)}', '${billingDate}', 'O');`
+      + ` SELECT LAST_INSERT_ID();`
+  ), 'billing header id');
+  seededHeaderIds.push(headerId);
+  sql(
+    `INSERT INTO billing_on_item (ch1_id, service_code, service_date, status)`
+      + ` VALUES (${headerId}, '${serviceCode}', '${billingDate}', 'O')`
+  );
+}
+
+/*
+ * Deletes every seeded row, continuing past individual failures so one blocked
+ * delete cannot orphan the rest. Failures are returned rather than only logged:
+ * leftover synthetic 65+ patients would show up in real Flu Billing Reports and
+ * patient searches, so the caller must fail the run instead of printing PASS.
+ */
+function cleanupSeedData() {
+  const failures = [];
+  for (const headerId of [...seededHeaderIds].reverse()) {
+    try {
+      sql(`DELETE FROM billing_on_item WHERE ch1_id=${headerId}`);
+      sql(`DELETE FROM billing_on_cheader1 WHERE id=${headerId}`);
+    } catch (error) {
+      failures.push(`billing_on_cheader1 id=${headerId}: ${error.message}`);
+    }
+  }
+  for (const demographicId of [...seededDemographicIds].reverse()) {
+    try {
+      sql(`DELETE FROM demographic WHERE demographic_no=${demographicId}`);
+    } catch (error) {
+      failures.push(`demographic demographic_no=${demographicId}: ${error.message}`);
+    }
+  }
+  return failures;
+}
+
+/*
+ * Cleanup runs from the normal finally block and from the signal handlers, so it
+ * is latched: whichever path arrives first does the work and the other gets an
+ * empty result rather than a second round of deletes.
+ */
+let cleanupCompleted = false;
+
+function runCleanupOnce() {
+  if (cleanupCompleted) {
+    return [];
+  }
+  cleanupCompleted = true;
+  try {
+    return cleanupSeedData();
+  } finally {
+    cleanupMysqlDefaultsFile();
+  }
+}
+
+function cleanupMysqlDefaultsFile() {
+  if (mysqlDefaults) {
+    fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true });
+    mysqlDefaults = null;
+  }
+}
+
+/*
+ * Browser text is captured from a rendered patient report, so any of it can carry
+ * names, phone numbers, or demographic and provider numbers, and findings are
+ * printed on every failure. No message body is reproduced: a finding records the
+ * error's class where the engine supplies one, and otherwise only that something
+ * was logged and how long it was.
+ *
+ * An earlier version kept engine-error text verbatim on the grounds that
+ * "ReferenceError: registerFormSubmit is not defined" was the diagnostic this
+ * check had needed. That reasoning no longer holds -- the typeof guard added to
+ * the JSP means the identifier is never dereferenced, so that error cannot fire
+ * -- and with the motivating case gone there is no reason to keep the residual
+ * risk that an application-thrown TypeError built from a patient name would
+ * surface that name. The error class plus the failing assertion is enough to
+ * reproduce by hand.
+ */
+const JS_ENGINE_ERROR = /^([A-Z][A-Za-z]*Error):/;
+
+function redactFinding(text) {
+  const firstLine = String(text).split('\n')[0];
+  const engineError = JS_ENGINE_ERROR.exec(firstLine);
+  return engineError ? engineError[1] : `[redacted ${firstLine.length} chars]`;
+}
+
+// Resource fetches that are allowed to be missing. Both handlers below consult
+// this: Chromium reports a failed subresource twice, once as a response and once
+// as a console error, so tolerating it in only one place would fail the run on
+// exactly the 404 the other is written to ignore -- and, since console text is
+// redacted, with nothing but "[redacted N chars]" to explain it.
+//
+// Only a 404 is benign. A 403 or 500 on these paths is a real signal and is
+// still reported by the response handler, which is the side that sees a status;
+// the console duplicate stays suppressed to avoid reporting it twice.
+const IGNORABLE_RESOURCE = /\/favicon\.ico$|\/imageRenderingServlet\?/;
+
+function wirePage(page) {
+  page.on('response', (response) => {
+    const responseUrl = response.url();
+    if (response.status() >= 400
+        && !(response.status() === 404 && IGNORABLE_RESOURCE.test(responseUrl))) {
+      // Path only: report URLs carry proNo, a real provider number.
+      browserFindings.push({ type: 'http', status: response.status(), path: new URL(responseUrl).pathname });
+    }
+  });
+  page.on('console', (message) => {
+    const text = message.text();
+    const expected = /Content Security Policy.*report-only|Master token \[CSRF-TOKEN\]|Hidden token fields .* updated/.test(text);
+    const ignorableResource = IGNORABLE_RESOURCE.test((message.location() || {}).url || '');
+    if (!expected && !ignorableResource
+        && (message.type() === 'error' || /(ReferenceError|TypeError|SyntaxError)/.test(text))) {
+      browserFindings.push({ type: `console:${message.type()}`, detail: redactFinding(text) });
+    }
+  });
+  page.on('pageerror', (error) => {
+    browserFindings.push({ type: 'pageerror', detail: redactFinding(error.message) });
+  });
+  page.on('dialog', async (dialog) => {
+    browserFindings.push({ type: 'dialog', detail: redactFinding(dialog.message()) });
+    await dialog.dismiss();
+  });
+}
+
+async function login(page) {
+  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl restricts paths and validateBaseUrl restricts hosts by default
+  await page.locator('#username').fill(testUser);
+  await page.locator('#password').fill(testPassword);
+  await page.locator('#pin').fill(testPin);
+  await Promise.all([
+    page.waitForURL(/providercontrol/, { timeout: 30000 }),
+    page.locator('input[type="submit"], button[type="submit"]').first().click(),
+  ]);
+}
+
+/*
+ * Loads the report and returns its rows as arrays of cell text.
+ *
+ * Passing reportYear/providerNo as null omits the parameter entirely, which is
+ * how the real entry points link to this report (leftNav.jspf and admin.jsp both
+ * send only "?orderby="). Exercising that shape matters: an absent proNo used to
+ * filter on provider_no = '' and render an empty worklist under a dropdown that
+ * still read "All Providers".
+ */
+async function reportRows(page, reportYear, providerNo, expectedSelectedProvider) {
+  const query = new URLSearchParams();
+  if (reportYear !== null) {
+    query.set('numMonth', reportYear);
+  }
+  if (providerNo !== null) {
+    query.set('proNo', providerNo);
+  }
+  const suffix = query.toString() ? `?${query.toString()}` : '?orderby=';
+  // A navigation failure reports the URL it was loading, twice, and run()'s
+  // handler prints error.stack verbatim -- which would put the real provider
+  // number in the output that wirePage and the assertions are careful to keep it
+  // out of. Replace it with the path and the failure reason only.
+  try {
+    await page.goto(appUrl(`/oscarReport/FluBilling${suffix}`), { // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- reportYear and providerNo are database-derived validated values, and appUrl restricts the target host/path
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    });
+  } catch (error) {
+    const reason = String(error.message).split('\n')[0].replace(/https?:\/\/\S+/g, '<url>');
+    throw new Error(`Navigation to the Flu Billing Report failed: ${reason}`);
+  }
+  // Only a networkidle timeout is expected here (the report page keeps some
+  // long-lived connections open). Anything else — a closed target, a failed
+  // navigation — must surface rather than turn into a confusing failure on the
+  // innerText() call below.
+  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch((error) => {
+    if (!/Timeout .* exceeded/.test(error.message)) {
+      throw error;
+    }
+  });
+  const body = await page.locator('body').innerText();
+  assert(!/CARLOS has encountered an unexpected error|HTTP Status 500|Exception Report/i.test(body), 'Flu Billing Report rendered an error page');
+  assert(await page.locator('table tbody').count(), 'Flu Billing Report result table was missing');
+  // The dropdown must agree with the filter that actually ran, so a mismatch
+  // between "All Providers" on screen and the applied filter cannot recur.
+  const expectedSelection = expectedSelectedProvider === undefined ? providerNo : expectedSelectedProvider;
+  const selectedProvider = await page.locator('select[name="proNo"]').inputValue();
+  // Provider numbers are PHI-correlating, so report only whether the dropdown
+  // agreed with the requested filter, never the values themselves.
+  assert(selectedProvider === expectedSelection,
+    'Flu Billing Report provider dropdown did not match the filter that was applied');
+  return page.locator('table tbody tr').evaluateAll((rows) => rows.map((row) =>
+    [...row.querySelectorAll('td')].map((cell) => cell.textContent.trim())
+  ));
+}
+
+function offeredYears(page) {
+  return page.locator('select[name="numMonth"] option').evaluateAll((options) => options.map((o) => o.value));
+}
+
+function fixtureRow(rows, expectedName) {
+  const matches = rows.filter((row) => row[0] === expectedName);
+  assert(matches.length === 1, `Expected exactly one synthetic row for ${expectedName}, found ${matches.length}`);
+  return matches[0];
+}
+
+function assertPatientRow(row, expected) {
+  assert(row.length === 7, `Expected seven Flu Billing Report columns, found ${row.length}`);
+  const actual = {
+    name: row[0],
+    dateOfBirth: row[1],
+    age: row[2],
+    rosterStatus: row[3],
+    patientStatus: row[4],
+    phone: row[5],
+    billingDate: row[6],
+  };
+  assert(JSON.stringify(actual) === JSON.stringify(expected),
+    `Synthetic Flu Billing Report row did not match expected values: ${JSON.stringify({ actual, expected })}`);
+}
+
+async function run() {
+  let browser = null;
+  let cleanupFailures = [];
+  mysqlDefaults = createMysqlDefaultsFile();
+  try {
+    // Use a completed year so both seeded claims are valid historical data no
+    // matter when the check runs. The report offers the selected year plus or
+    // minus two, so the previous year remains a normal UI-supported choice.
+    const reportYear = sql('SELECT YEAR(CURRENT_DATE)-1');
+    assert(/^\d{4}$/.test(reportYear), `Database returned invalid current year ${reportYear}`);
+    const providerNo = providerNoForTestUser();
+    const suffix = Date.now().toString(36).slice(-8);
+    const primary = {
+      lastName: `Flu${suffix}A`,
+      firstName: 'Primary',
+      phone: '416-555-0714',
+      birthYear: '1940',
+      birthMonth: '06',
+      birthDay: '15',
+      rosterStatus: 'RO',
+      patientStatus: 'AC',
+      providerNo,
+    };
+    const secondary = {
+      lastName: `Flu${suffix}B`,
+      firstName: 'Secondary',
+      phone: '416-555-0715',
+      birthYear: '1941',
+      birthMonth: '01',
+      birthDay: '02',
+      rosterStatus: 'NR',
+      patientStatus: 'UHIP',
+      providerNo: 'PWNONE',
+    };
+    // Seeded with no flu claim at all: the unvaccinated 65+ patient this recall
+    // report exists to surface. Its Billing Date cell must be blank, not the
+    // literal text "&nbsp;".
+    const unvaccinated = {
+      lastName: `Flu${suffix}C`,
+      firstName: 'Unvaccinated',
+      phone: '416-555-0716',
+      birthYear: '1942',
+      birthMonth: '03',
+      birthDay: '09',
+      rosterStatus: 'FS',
+      patientStatus: 'AC',
+      providerNo,
+    };
+    for (const fixture of [primary, secondary, unvaccinated]) {
+      fixture.patientName = `${fixture.lastName},${fixture.firstName}`;
+      fixture.expectedAge = expectedAgeFor(fixture);
+      fixture.expectedDateOfBirth = `${fixture.birthYear}-${fixture.birthMonth}-${fixture.birthDay}`;
+      // Latest claim seeded below for this fixture, or blank where none is.
+      fixture.expectedBillingDate = '';
+    }
+
+    const primaryId = seedDemographic(primary);
+    const secondaryId = seedDemographic(secondary);
+    seedDemographic(unvaccinated);
+    seedFluClaim(primaryId, primary.providerNo, primary.patientName, `${reportYear}-01-15`, 'G590A');
+    seedFluClaim(primaryId, primary.providerNo, primary.patientName, `${reportYear}-10-20`, 'G591A');
+    primary.expectedBillingDate = `${reportYear}-10-20`;
+    seedFluClaim(secondaryId, secondary.providerNo, secondary.patientName, `${reportYear}-05-05`, 'G590A');
+    secondary.expectedBillingDate = `${reportYear}-05-05`;
+
+    const launchOptions = {
+      headless: true,
+      args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    };
+    if (chromePath) {
+      launchOptions.executablePath = chromePath;
+    }
+    browser = await chromium.launch(launchOptions);
+    const context = await browser.newContext({
+      ignoreHTTPSErrors: isExactLocalHost(baseUrl.hostname),
+      viewport: { width: 1440, height: 1000 },
+    });
+    const page = await context.newPage();
+    wirePage(page);
+    await login(page);
+
+    const allProviderRows = await reportRows(page, reportYear, '-1');
+    assertPatientRow(fixtureRow(allProviderRows, primary.patientName), {
+      name: primary.patientName,
+      dateOfBirth: primary.expectedDateOfBirth,
+      age: primary.expectedAge,
+      rosterStatus: primary.rosterStatus,
+      patientStatus: primary.patientStatus,
+      phone: primary.phone,
+      billingDate: `${reportYear}-10-20`,
+    });
+    assertPatientRow(fixtureRow(allProviderRows, secondary.patientName), {
+      name: secondary.patientName,
+      dateOfBirth: secondary.expectedDateOfBirth,
+      age: secondary.expectedAge,
+      rosterStatus: secondary.rosterStatus,
+      patientStatus: secondary.patientStatus,
+      phone: secondary.phone,
+      billingDate: `${reportYear}-05-05`,
+    });
+    assertPatientRow(fixtureRow(allProviderRows, unvaccinated.patientName), {
+      name: unvaccinated.patientName,
+      dateOfBirth: unvaccinated.expectedDateOfBirth,
+      age: unvaccinated.expectedAge,
+      rosterStatus: unvaccinated.rosterStatus,
+      patientStatus: unvaccinated.patientStatus,
+      phone: unvaccinated.phone,
+      billingDate: '',
+    });
+
+    const individualProviderRows = await reportRows(page, reportYear, providerNo);
+    assertPatientRow(fixtureRow(individualProviderRows, primary.patientName), {
+      name: primary.patientName,
+      dateOfBirth: primary.expectedDateOfBirth,
+      age: primary.expectedAge,
+      rosterStatus: primary.rosterStatus,
+      patientStatus: primary.patientStatus,
+      phone: primary.phone,
+      billingDate: `${reportYear}-10-20`,
+    });
+    // The no-claim fixture is assigned to this provider, so filtering must keep it
+    // and must keep its billing-date cell blank rather than dropping the row.
+    assertPatientRow(fixtureRow(individualProviderRows, unvaccinated.patientName), {
+      name: unvaccinated.patientName,
+      dateOfBirth: unvaccinated.expectedDateOfBirth,
+      age: unvaccinated.expectedAge,
+      rosterStatus: unvaccinated.rosterStatus,
+      patientStatus: unvaccinated.patientStatus,
+      phone: unvaccinated.phone,
+      billingDate: '',
+    });
+    assert(!individualProviderRows.some((row) => row[0] === secondary.patientName),
+      'Individual-provider filtering included the synthetic patient assigned to another provider');
+
+    // The shape both real entry points use: no numMonth, no proNo. This must list
+    // every eligible patient rather than filtering on an empty provider number.
+    const defaultEntryRows = await reportRows(page, null, null, '-1');
+
+    // Read the current year from the report itself rather than from the database.
+    // The JSP derives it from the Tomcat JVM's clock while the fixtures come from
+    // MySQL's, and in the devcontainer those are separate images; comparing across
+    // them would fail at a year boundary even though the server behaved correctly.
+    // The parameterless URL loaded just above shows the server's own default year.
+    const currentYear = await page.locator('select[name="numMonth"]').inputValue();
+    assert(/^\d{4}$/.test(currentYear),
+      `Default report year was not a four-digit year: ${currentYear}`);
+
+    // Claims are seeded into reportYear, which is normally the year before the
+    // one this view defaults to, so the cells are blank. If the two clocks
+    // straddle a year boundary the years coincide and the claim is genuinely due
+    // to show -- expecting blank unconditionally would fail a correct server.
+    const defaultViewShowsSeededYear = currentYear === reportYear;
+    for (const fixture of [primary, secondary, unvaccinated]) {
+      const row = fixtureRow(defaultEntryRows, fixture.patientName);
+      const expected = defaultViewShowsSeededYear ? fixture.expectedBillingDate : '';
+      assert(row[6] === expected,
+        `Default entry point billing date for ${fixture.lastName} was "${row[6]}", expected "${expected}"`);
+    }
+    for (const badYear of ['abc', '+2023', '2147483645', '-5', '0025']) {
+      const rows = await reportRows(page, badYear, '-1');
+      assert(rows.length > 0, `Malformed numMonth=${badYear} produced no rows at all`);
+      fixtureRow(rows, primary.patientName);
+      // Assert what it fell back TO, not merely that it did not error.
+      const shownYear = await page.locator('select[name="numMonth"]').inputValue();
+      assert(shownYear === currentYear,
+        `Malformed numMonth=${badYear} fell back to ${shownYear} instead of the current year ${currentYear}`);
+    }
+
+    // The selector must never offer a year its own validation would reject.
+    // Both clamps are no-ops at the current year, so this has to drive the
+    // boundaries: every offered option must round-trip to itself rather than
+    // silently falling back.
+    const maxYear = String(Number(currentYear) + 2);
+    for (const boundaryYear of [maxYear, '1900']) {
+      await reportRows(page, boundaryYear, '-1');
+      const offered = await offeredYears(page);
+      assert(offered.length > 0, `No year options offered for numMonth=${boundaryYear}`);
+      assert(offered.every((year) => Number(year) >= 1900 && Number(year) <= Number(maxYear)),
+        `Year selector offered out-of-range options for numMonth=${boundaryYear}: ${offered.join(',')}`);
+      assert(offered.includes(boundaryYear),
+        `Year selector dropped the selected year ${boundaryYear}: ${offered.join(',')}`);
+      for (const offeredYear of offered) {
+        await reportRows(page, offeredYear, '-1');
+        const shown = await page.locator('select[name="numMonth"]').inputValue();
+        assert(shown === offeredYear,
+          `Year selector offered ${offeredYear} but selecting it fell back to ${shown}`);
+      }
+    }
+
+    // Whitespace around a real provider must be trimmed rather than turned into a
+    // literal filter. A padded provider is the only shape that pins the trim: if
+    // it were not trimmed the value would be unselectable, fall back to All
+    // Providers, and admit the other provider's patient, which the exclusion
+    // below catches. Padding the "-1" sentinel proves nothing by comparison --
+    // trimmed or not it ends at All Providers, which the unknown-provider case
+    // already covers.
+    const paddedProviderRows = await reportRows(page, null, ` ${providerNo} `, providerNo);
+    fixtureRow(paddedProviderRows, primary.patientName);
+    assert(!paddedProviderRows.some((row) => row[0] === secondary.patientName),
+      'Padded provider filter did not actually filter by provider');
+
+    // A provider the dropdown cannot show -- unknown, or deactivated since a URL
+    // was bookmarked -- must fall back to All Providers rather than filtering the
+    // table to nothing while the dropdown still reads All Providers.
+    const unknownProviderRows = await reportRows(page, null, 'ZZZNOPE', '-1');
+    fixtureRow(unknownProviderRows, primary.patientName);
+    fixtureRow(unknownProviderRows, secondary.patientName);
+
+    assert(browserFindings.length === 0, `Browser findings: ${JSON.stringify(browserFindings)}`);
+
+    // The provider number is deliberately not reported: it is a real
+    // security.provider_no, a PHI-correlating identifier, and nothing about the
+    // result needs it. The seeded ids in cleanup diagnostics are different — those
+    // rows are synthetic and an operator needs the ids to remove them by hand.
+    console.log(JSON.stringify({
+      reportYear,
+      assertions: [
+        'all seven patient and billing columns map correctly',
+        'latest valid selected-year flu claim is displayed',
+        'a patient with no claim that year renders a blank billing date',
+        'All Providers includes every synthetic patient',
+        'individual provider keeps both of its assigned synthetic patients and excludes the other',
+        'the parameterless entry-point URL lists every patient and selects All Providers',
+        'a malformed report year falls back to the current year instead of erroring',
+        'every year the selector offers round-trips to itself at both boundaries',
+        'an unknown or deactivated provider falls back to All Providers',
+      ],
+    }, null, 2));
+  } finally {
+    // browser.close() can reject (crashed target, close timeout). Swallow it here
+    // so the database and the cleartext MySQL password file are always cleaned up
+    // rather than the rest of this block being skipped.
+    if (browser) {
+      await browser.close().catch((error) => {
+        console.error(`WARN failed to close browser: ${error.message}`);
+      });
+    }
+    cleanupFailures = runCleanupOnce();
+    cleanupFailures.forEach((failure) => console.error(`WARN ${failure}`));
+  }
+
+  // Reached only when every assertion passed. Left-behind synthetic 65+ patients
+  // would pollute real Flu Billing Reports, so a dirty database is a failed run.
+  if (cleanupFailures.length) {
+    throw new Error(
+      `Synthetic rows were left in the database and must be removed by hand:\n  ${cleanupFailures.join('\n  ')}`
+    );
+  }
+  console.log('PASS CARLOS EMR Flu Billing Report demographic mapping and provider filters');
+}
+
+// A run takes minutes, so Ctrl-C part way through is entirely likely. Without
+// this, Node exits without unwinding the finally block and leaves synthetic 65+
+// patients sitting in the schema -- exactly what the cleanup guarantee exists to
+// prevent. The browser is left to the OS; only the database and the cleartext
+// password file matter here.
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    console.error(`\n${signal} received; removing seeded rows before exiting.`);
+    let interrupted = [];
+    try {
+      interrupted = runCleanupOnce();
+    } catch (error) {
+      console.error(`WARN cleanup after ${signal} failed: ${error.message}`);
+    }
+    interrupted.forEach((failure) => console.error(`WARN ${failure}`));
+    process.exit(130);
+  });
+}
+
+run().catch((error) => {
+  console.error('FAIL CARLOS EMR Flu Billing Report Playwright check');
+  console.error(error.stack || error.message);
+  // A row mismatch is usually caused by something the page already reported —
+  // an HTTP 500 on the report action, a JS error that broke rendering. Print the
+  // collected findings on every failure, not only when they are the assertion.
+  if (browserFindings.length) {
+    console.error(`Browser findings during the run: ${JSON.stringify(browserFindings, null, 2)}`);
+  }
+  process.exit(1);
+});

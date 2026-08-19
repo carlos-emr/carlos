@@ -4,9 +4,9 @@ Version: 8-x.x
 Section: base
 Installed-Size: 348160
 Priority: optional
-Architecture: all
+Architecture: amd64
 Pre-depends:  curl, cron
-Depends: tomcat10 | tomcat11 , mysql-server (>= 5.0) | mariadb-server, libmysql-java (>= 5.0) | libmariadb-java,  unzip
+Depends: tomcat10 | tomcat11, mariadb-server, mariadb-client, libmariadb-java, unzip
 Recommends: xfonts-75dpi, firefox | chromium-browser , wkhtmltopdf
 Maintainer: Peter Hutten-Czapski <phc@srpc.ca>
 Homepage: https://github.com/carlos-emr/carlos
