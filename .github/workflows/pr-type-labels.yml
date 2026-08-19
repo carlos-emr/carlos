@@ -108,10 +108,15 @@ jobs:
             exit 0
           fi
           # Create-if-missing, then apply: gh pr edit refuses unknown labels.
+          # The create tolerates losing a race with another PR's concurrent
+          # run (per-PR concurrency groups don't serialize across PRs; an
+          # already-exists failure is success for our purposes) — the
+          # add-label below still fails loudly if the label truly is absent.
           if ! gh label list --repo "$REPO" --limit 200 --json name --jq '.[].name' \
               | grep -qxF "$desired"; then
             gh label create "$desired" --repo "$REPO" --color BFD4F2 \
-              --description "Release-notes category (applied from the PR title prefix)"
+              --description "Release-notes category (applied from the PR title prefix)" \
+              || echo "label create failed (likely created concurrently) — applying anyway"
           fi
           gh pr edit "$PR" --repo "$REPO" --add-label "$desired"
           echo "applied: $desired"

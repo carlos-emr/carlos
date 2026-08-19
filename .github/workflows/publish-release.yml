@@ -11,8 +11,14 @@ on:
         required: true
         type: string
 
+# One GLOBAL group (not per-tag): the publish step's latest-pointer decision
+# reads the set of already-published stable releases, so two stable tags
+# publishing concurrently could each miss the other (still a draft at query
+# time) and both claim --latest. Releases are rare and deliberate — strict
+# serialization costs nothing and removes the race; same-tag re-runs still
+# queue exactly as before.
 concurrency:
-  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  group: publish-release
   cancel-in-progress: false
 
 permissions:
