@@ -6,7 +6,7 @@
 #
 # This check can also pass if an authorized maintainer with write or higher
 # repository permission posts a PR comment containing:
-#   Confirming DCO sign off for all commits
+#   Confirming DCO sign off for all commits at <full PR head SHA>
 #
 # This workflow intentionally uses pull_request_target and the GitHub API
 # instead of checking out PR code. That lets it post guidance comments on fork
@@ -249,12 +249,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          commit_json=$(curl -fsSL \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/$REPO/commits/$HEAD_SHA")
-          latest_commit_at=$(jq -r '.commit.committer.date // .commit.author.date' <<< "$commit_json")
-          latest_commit_epoch=$(date -d "$latest_commit_at" +%s)
+          expected_confirmation="$CONFIRMATION_PHRASE at $HEAD_SHA"
 
           page=1
           found=false
@@ -277,22 +272,14 @@ jobs:
             while IFS= read -r comment; do
               body=$(jq -r '.body // ""' <<< "$comment")
               author=$(jq -r '.author' <<< "$comment")
-              created_at=$(jq -r '.created_at' <<< "$comment")
               updated_at=$(jq -r '.updated_at' <<< "$comment")
-              created_epoch=$(date -d "$created_at" +%s)
-              updated_epoch=$(date -d "$updated_at" +%s)
               comment_confirmed_at="$updated_at"
-              comment_confirmed_epoch="$updated_epoch"
-              if [ "$updated_epoch" -lt "$created_epoch" ]; then
-                echo "::error::PR #$PR_NUMBER: DCO confirmation comment timestamp integrity check failed for $author: updated_at ($updated_at) is earlier than created_at ($created_at)."
-                exit 1
-              fi
 
               if printf '%s\n' "$body" | grep -qiF "$CONFIRMATION_PHRASE"; then
-                if [ "$comment_confirmed_epoch" -le "$latest_commit_epoch" ]; then
+                if ! printf '%s\n' "$body" | grep -qiFx "$expected_confirmation"; then
                   stale_confirmation_found=true
-                  # Continue scanning so every stale confirmation gets a warning and a newer fresh confirmation can still pass.
-                  echo "::warning::PR #$PR_NUMBER: Ignoring stale DCO confirmation from $author at $comment_confirmed_at (latest commit is $latest_commit_at). A fresh confirmation is required after the latest commit."
+                  # Continue scanning so every confirmation for an earlier revision gets a warning and a current confirmation can still pass.
+                  echo "::warning::PR #$PR_NUMBER: Ignoring DCO confirmation from $author at $comment_confirmed_at because it is not bound to the current PR head $HEAD_SHA. Post the exact confirmation for the current revision."
                   continue
                 fi
 
@@ -323,7 +310,6 @@ jobs:
             done < <(jq -c '.[] | {
               body: .body,
               author: .user.login,
-              created_at: .created_at,
               updated_at: .updated_at
             }' <<< "$comments")
 
@@ -339,7 +325,6 @@ jobs:
           echo "confirming_permission=$confirming_permission" >> "$GITHUB_OUTPUT"
           echo "confirming_role=$confirming_role" >> "$GITHUB_OUTPUT"
           echo "confirming_at=$confirming_at" >> "$GITHUB_OUTPUT"
-          echo "latest_commit_at=$latest_commit_at" >> "$GITHUB_OUTPUT"
           echo "stale_confirmation_found=$stale_confirmation_found" >> "$GITHUB_OUTPUT"
 
       - name: Report result
@@ -355,9 +340,9 @@ jobs:
           CONFIRMING_PERMISSION: ${{ steps.manual_check.outputs.confirming_permission }}
           CONFIRMING_ROLE: ${{ steps.manual_check.outputs.confirming_role }}
           CONFIRMING_AT: ${{ steps.manual_check.outputs.confirming_at }}
-          LATEST_COMMIT_AT: ${{ steps.manual_check.outputs.latest_commit_at }}
           STALE_CONFIRMATION_FOUND: ${{ steps.manual_check.outputs.stale_confirmation_found }}
           DCO_TRUNCATED: ${{ steps.dco_check.outputs.dco_truncated }}
+          CONFIRMATION_PHRASE: Confirming DCO sign off for all commits
         run: |
           set -euo pipefail
 
@@ -485,7 +470,7 @@ jobs:
                 echo ""
                 echo "Thank you, **$CONFIRMING_USER** ($CONFIRMING_ROLE)."
                 echo ""
-                echo "The DCO check has passed using manual PR sign-off. No commit changes are required."
+                echo "The DCO check has passed using manual sign-off for PR head \`$HEAD_SHA\`. No commit changes are required."
               } > /tmp/dco_success_comment.md
               if ! post_comment /tmp/dco_success_comment.md; then
                 echo "::warning::DCO passed, but the workflow could not post its optional success comment."
@@ -504,7 +489,9 @@ jobs:
               echo ""
               echo "Please reduce the PR commit count or have an authorized maintainer with write or higher repository permission post the manual confirmation phrase below after reviewing DCO coverage."
               echo ""
-              echo "> Confirming DCO sign off for all commits"
+              echo '```text'
+              echo "$CONFIRMATION_PHRASE at $HEAD_SHA"
+              echo '```'
               echo ""
               echo "See https://developercertificate.org/ for DCO details."
             } > /tmp/dco_failure_comment.md
@@ -538,9 +525,11 @@ jobs:
               echo ""
               echo "### Manual confirmation fallback"
               echo ""
-              echo "An authorized maintainer with write or higher repository permission can confirm DCO sign-off after reviewing the connected history by posting this exact phrase:"
+              echo "An authorized maintainer with write or higher repository permission can confirm DCO sign-off after reviewing the connected history by posting this exact phrase for the current PR revision:"
               echo ""
-              echo "> Confirming DCO sign off for all commits"
+              echo '```text'
+              echo "$CONFIRMATION_PHRASE at $HEAD_SHA"
+              echo '```'
               echo ""
               echo "See https://developercertificate.org/ for DCO details."
             } > /tmp/dco_failure_comment.md
