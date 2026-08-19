@@ -18,7 +18,7 @@ The mock demonstrates:
 - Complete source-note viewing with automatic scrolling to highlighted evidence
 - A source selector for moving between multiple complete documents linked to one claim
 - Direct, corroborating, contextual, and differing source accounts
-- Neutral side-by-side record differences that preserve each cited account without assigning reconciliation to the clinician
+- Quiet narrative documentation notes that preserve each cited account without assigning reconciliation to the clinician
 - Exact source identifiers and links to the primary dataset files
 - Fact-ledger and retrieval-coverage views
 - Responsive evidence-panel behavior for narrow screens
