@@ -20,6 +20,10 @@ import jakarta.mail.internet.MimeMessage;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveAttachmentDto;
+import io.github.carlos_emr.carlos.email.core.OutboundEmailTransport;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
@@ -63,9 +67,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * @see io.github.carlos_emr.carlos.managers.SecurityInfoManager
  * @since 2026-01-24
  */
-public class SMTPEmailSender {
+public class SMTPEmailSender implements OutboundEmailTransport {
     private static final HexFormat HEX_FORMAT = HexFormat.of();
     private static final String DEFAULT_ATTACHMENT_CONTENT_TYPE = "application/octet-stream";
+    private static final String RFC822_CONTENT_TYPE = "message/rfc822";
 
     private final Logger logger = MiscUtils.getLogger();
     private LoggedInInfo loggedInInfo;
@@ -162,8 +167,8 @@ public class SMTPEmailSender {
      * @throws SecurityException if the user lacks required _email write privilege
      */
     public void send() throws EmailSendingException {
-        prepareMessageBytes();
-        sendPreparedMessage();
+        prepareArtifactBytes();
+        sendPrepared();
     }
 
     /**
@@ -171,17 +176,17 @@ public class SMTPEmailSender {
      *
      * <p>Attachments are read once into the prepared MIME message and their archive
      * metadata is recorded from that same byte snapshot. Callers must archive the
-     * returned RFC 822 bytes before invoking {@link #sendPreparedMessage()}.</p>
+     * returned RFC 822 bytes before invoking {@link #sendPrepared()}.</p>
      *
      * @return finalized RFC 822 message bytes suitable for outbound archive storage
      * @throws EmailSendingException if message construction, attachment reading, or serialization fails
      * @throws SecurityException if the current user lacks the required "_email" write privilege
      * @since 2026-07-20
      */
-    public byte[] prepareMessageBytes() throws EmailSendingException {
+    public byte[] prepareArtifactBytes() throws EmailSendingException {
         assertEmailWritePrivilege();
 
-        discardPreparedMessage();
+        discardPrepared();
         javaMailSender = createTLSMailSender(emailConfig);
         MimeMessage message = javaMailSender.createMimeMessage();
         List<Path> attachmentSnapshotPaths = new ArrayList<>();
@@ -206,13 +211,13 @@ public class SMTPEmailSender {
     }
 
     /**
-     * Sends the message previously finalized by {@link #prepareMessageBytes()}.
+     * Sends the message previously finalized by {@link #prepareArtifactBytes()}.
      *
      * @throws EmailSendingException if the message has not been prepared or transport delivery fails
      * @throws SecurityException if the current user lacks the required "_email" write privilege
      * @since 2026-07-20
      */
-    public void sendPreparedMessage() throws EmailSendingException {
+    public void sendPrepared() throws EmailSendingException {
         try {
             assertEmailWritePrivilege();
             if (preparedMessage == null) {
@@ -224,14 +229,14 @@ public class SMTPEmailSender {
         } catch (Exception e) {
             throw new EmailSendingException(e.getMessage(), e);
         } finally {
-            discardPreparedMessage();
+            discardPrepared();
         }
     }
 
     /**
      * Releases any attachment snapshots held by a prepared message that will not be sent.
      */
-    public void discardPreparedMessage() {
+    public void discardPrepared() {
         deleteAttachmentSnapshots(preparedAttachmentSnapshots);
         preparedAttachmentSnapshots = List.of();
         preparedAttachments = List.of();
@@ -246,6 +251,57 @@ public class SMTPEmailSender {
      */
     public List<PreparedAttachment> getPreparedAttachments() {
         return preparedAttachments;
+    }
+
+    // --- OutboundEmailTransport ---------------------------------------------------------------
+    // send(), prepareArtifactBytes(), sendPrepared() and discardPrepared() above are the
+    // interface methods directly; they carry no SMTP-specific aliases. Two public names for one
+    // operation would let a caller -- or a mock -- bind to the name the archive path does not
+    // use, which is the same class of silent divergence this interface exists to remove.
+
+    @Override
+    public String getArchiveArtifactType() {
+        return OutboundEmailArchive.ARTIFACT_TYPE_SMTP_RFC822;
+    }
+
+    @Override
+    public String getArchiveContentType() {
+        return RFC822_CONTENT_TYPE;
+    }
+
+    @Override
+    public String getArchiveFileName(EmailLog emailLog) {
+        return "outbound-email-" + (emailLog != null ? emailLog.getId() : null) + ".eml";
+    }
+
+    /**
+     * Derives archive attachment metadata from the MIME parts captured while preparing the
+     * message, so the recorded hash and size describe the bytes actually attached rather than a
+     * re-read of the source file, which could have changed underneath us.
+     */
+    @Override
+    public List<OutboundEmailArchiveAttachmentDto> describePreparedAttachments() throws EmailSendingException {
+        List<PreparedAttachment> snapshots = getPreparedAttachments();
+        if (snapshots == null || snapshots.isEmpty()) {
+            return List.of();
+        }
+
+        List<OutboundEmailArchiveAttachmentDto> attachmentDtos = new ArrayList<>();
+        for (PreparedAttachment preparedAttachment : snapshots) {
+            if (preparedAttachment == null || preparedAttachment.getAttachment() == null) {
+                throw new EmailSendingException("Prepared attachment is required for archive metadata");
+            }
+            EmailAttachment attachment = preparedAttachment.getAttachment();
+            OutboundEmailArchiveAttachmentDto attachmentDto = new OutboundEmailArchiveAttachmentDto();
+            attachmentDto.setFileName(attachment.getFileName());
+            attachmentDto.setContentType(preparedAttachment.getContentType());
+            attachmentDto.setSha256Hash(preparedAttachment.getSha256Hash());
+            attachmentDto.setByteSize(preparedAttachment.getByteSize());
+            attachmentDto.setSourceDocumentType(attachment.getDocumentType() != null ? attachment.getDocumentType().name() : null);
+            attachmentDto.setSourceDocumentId(attachment.getDocumentId());
+            attachmentDtos.add(attachmentDto);
+        }
+        return attachmentDtos;
     }
 
     private void assertEmailWritePrivilege() {
