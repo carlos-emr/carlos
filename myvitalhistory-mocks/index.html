@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyVitalHistory Mocks</title>
+  <link rel="stylesheet" href="../src/main/webapp/css/fontawesome-all.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="mock-bar" aria-label="Mock screen switcher">
+  <strong>MyVitalHistory mocks</strong>
+  <button class="mock-tab" data-go="welcome">Welcome</button>
+  <button class="mock-tab" data-go="passphrase">Passphrase</button>
+  <button class="mock-tab" data-go="recovery">Recovery</button>
+  <button class="mock-tab" data-go="unlock">Unlock</button>
+  <button class="mock-tab" data-go="library">Library</button>
+  <button class="mock-tab" data-go="empty">Empty</button>
+  <button class="mock-tab" data-go="import">Import</button>
+  <button class="mock-tab" data-go="import-done">Import done</button>
+  <button class="mock-tab" data-go="viewer">Viewer</button>
+  <button class="mock-tab" data-go="security">Security</button>
+  <button class="mock-tab" data-go="mobile">Mobile</button>
+  <button class="mock-tab" data-go="health">Health data</button>
+  <span class="mock-note">Working name &middot; non-functional &middot; issue #3474</span>
+</nav>
+
+<!-- ============ 1. WELCOME ============ -->
+<section class="screen" id="welcome">
+  <div class="screen-caption"><strong>Onboarding, step 1.</strong> First run. Sets the expectation that this vault belongs to the patient and that the clinic cannot read it &mdash; before asking for anything.</div>
+  <div class="app">
+    <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div><span class="title">MyVitalHistory</span></div>
+    <div class="centred">
+      <div class="big-mark"><i class="fas fa-heart-pulse"></i></div>
+      <h1>Your health records, kept by you</h1>
+      <p class="lede">MyVitalHistory stores the letters, results, and reports your clinic sends you, so you always have your own copy &mdash; even if you change doctors.</p>
+
+      <div class="note">
+        <i class="fas fa-lock"></i>
+        <div>
+          <strong>Only you can open this</strong>
+          Everything is scrambled with a passphrase that only you know. Your clinic can't read it, and neither can we.
+        </div>
+      </div>
+      <div class="note plain">
+        <i class="fas fa-wifi"></i>
+        <div>
+          <strong>Works without internet</strong>
+          Your records are kept on this device. You don't need a connection to open them.
+        </div>
+      </div>
+
+      <button class="btn primary big"><i class="fas fa-arrow-right"></i><span>Set up my vault</span></button>
+      <button class="btn ghost big" style="margin-top:8px"><i class="fas fa-download"></i><span>Restore from a backup</span></button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2. PASSPHRASE ============ -->
+<section class="screen" id="passphrase">
+  <div class="screen-caption"><strong>Onboarding, step 2.</strong> Passphrase, not password &mdash; length beats complexity and it is easier to say out loud. The warning is deliberately blunt because there is no reset.</div>
+  <div class="app">
+    <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div><span class="title">MyVitalHistory &mdash; Setup</span></div>
+    <div class="centred">
+      <h1>Choose your passphrase</h1>
+      <p class="lede">Use three or four random words you'll remember. Longer is safer than complicated.</p>
+
+      <label class="field">
+        <span>Passphrase</span>
+        <input type="text" value="copper lantern winter fern">
+        <div class="strength"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+        <span class="hint">Strong &mdash; about 28 characters</span>
+      </label>
+
+      <label class="field">
+        <span>Type it again</span>
+        <input type="password" value="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+      </label>
+
+      <div class="note danger">
+        <i class="fas fa-triangle-exclamation"></i>
+        <div>
+          <strong>There is no "forgot passphrase"</strong>
+          Because nobody else holds your key, we can't reset it for you. If you forget it and have no recovery method, your records can't be opened again. We'll help you set up a backup way in on the next screen.
+        </div>
+      </div>
+
+      <button class="btn primary big"><i class="fas fa-arrow-right"></i><span>Continue</span></button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3. RECOVERY ============ -->
+<section class="screen" id="recovery">
+  <div class="screen-caption"><strong>Onboarding, step 3 &mdash; the open design question (#3474).</strong> Three ways to survive a forgotten passphrase, each shifting risk somewhere different. Mocked so the trade-off can be argued about concretely; not a decision.</div>
+  <div class="app">
+    <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div><span class="title">MyVitalHistory &mdash; Setup</span></div>
+    <div class="centred wide">
+      <h1>How should we help if you forget?</h1>
+      <p class="lede">Pick at least one. You can add more later, and you can remove any of them at any time.</p>
+
+      <div class="options">
+        <button class="option selected">
+          <span class="radio"></span>
+          <span>
+            <span class="opt-title">Print a recovery sheet</span>
+            <span class="opt-body">We show you a one-page code to print and keep somewhere safe &mdash; with your passport, or in a drawer at home. It opens your vault if you forget your passphrase.</span>
+            <span class="opt-flag good">Nobody else ever holds your key</span>
+            <span class="opt-flag bad">Lost sheet + forgotten passphrase = records gone</span>
+          </span>
+        </button>
+
+        <button class="option">
+          <span class="radio"></span>
+          <span>
+            <span class="opt-title">Ask someone you trust to hold a spare key</span>
+            <span class="opt-body">Choose a family member or friend. Their copy is useless on its own &mdash; they can only help you get back in, they can't read your records.</span>
+            <span class="opt-flag good">No paper to lose</span>
+            <span class="opt-flag bad">Depends on staying in touch with that person</span>
+          </span>
+        </button>
+
+        <button class="option">
+          <span class="radio"></span>
+          <span>
+            <span class="opt-title">Let my clinic hold a spare key</span>
+            <span class="opt-body">Maple Creek Medical keeps a sealed copy. You'd verify your identity at the front desk to use it, the same as picking up records.</span>
+            <span class="opt-flag">Easiest to use &mdash; but the clinic now holds key material</span>
+            <span class="opt-flag bad">Open question: liability and custody for the practice</span>
+          </span>
+        </button>
+      </div>
+
+      <div class="note warn">
+        <i class="fas fa-circle-question"></i>
+        <div>
+          <strong>Not settled yet</strong>
+          Whether the third option should exist at all is an open item on #3474. It is the friendliest for patients and the most awkward for the practice, because it makes the clinic a custodian of key material for records it otherwise cannot read.
+        </div>
+      </div>
+
+      <button class="btn primary big"><i class="fas fa-check"></i><span>Finish setup</span></button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. UNLOCK ============ -->
+<section class="screen" id="unlock">
+  <div class="screen-caption"><strong>Every launch.</strong> Vault is sealed until the passphrase or biometric is supplied. Nothing about the contents &mdash; not even document counts &mdash; is shown before unlocking.</div>
+  <div class="app">
+    <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div><span class="title">MyVitalHistory</span></div>
+    <div class="centred">
+      <div class="big-mark"><i class="fas fa-lock"></i></div>
+      <h1>Welcome back, Margaret</h1>
+      <p class="lede">Your vault is locked.</p>
+
+      <label class="field">
+        <span>Passphrase</span>
+        <input type="password" value="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+      </label>
+
+      <button class="btn primary big"><i class="fas fa-unlock"></i><span>Unlock</span></button>
+      <button class="btn ghost big" style="margin-top:8px"><i class="fas fa-fingerprint"></i><span>Use Touch ID instead</span></button>
+
+      <div class="note plain" style="margin-top:20px;margin-bottom:0">
+        <i class="fas fa-circle-info"></i>
+        <div>Locks itself again after 15 minutes of no use. <a href="#security" data-go="security">Change this</a></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5. LIBRARY ============ -->
+<section class="screen" id="library">
+  <div class="screen-caption"><strong>Home screen.</strong> Newest first, grouped by recency, source clinic always visible. One row is still locked &mdash; it arrived by email but the portal passphrase hasn't been entered yet.</div>
+  <div class="app">
+    <div class="titlebar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <span class="title">MyVitalHistory</span>
+      <span class="lock"><i class="fas fa-lock-open"></i> Unlocked</span>
+    </div>
+    <div class="body">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark"><i class="fas fa-heart-pulse"></i></span>
+          <span>
+            <span class="brand-name">MyVitalHistory</span>
+            <span class="brand-sub">Margaret Whitfield</span>
+          </span>
+        </div>
+        <nav class="nav">
+          <a href="#library" class="selected" data-go="library"><i class="fas fa-folder"></i> All records <span class="count">42</span></a>
+          <a href="#import" data-go="import"><i class="fas fa-inbox"></i> Waiting <span class="count">1</span></a>
+          <a href="#library"><i class="fas fa-star"></i> Pinned <span class="count">3</span></a>
+          <div class="nav-label">By kind</div>
+          <a href="#library"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
+          <a href="#library"><i class="fas fa-envelope-open-text"></i> Letters <span class="count">11</span></a>
+          <a href="#library"><i class="fas fa-x-ray"></i> Imaging <span class="count">6</span></a>
+          <a href="#library"><i class="fas fa-pills"></i> Prescriptions <span class="count">7</span></a>
+          <div class="nav-label">Settings</div>
+          <a href="#security" data-go="security"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
+        </nav>
+        <div class="storage">
+          Backup up to date
+          <div class="meter"><span style="width:38%"></span></div>
+          1.4 GB of 4 GB used
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="main-head">
+          <div>
+            <h1>All records</h1>
+            <p>42 documents &middot; oldest from March 2019</p>
+          </div>
+          <div class="actions">
+            <button class="btn"><i class="fas fa-camera"></i><span>Scan</span></button>
+            <button class="btn primary"><i class="fas fa-plus"></i><span>Add</span></button>
+          </div>
+        </div>
+
+        <div class="search"><i class="fas fa-magnifying-glass"></i><input type="text" placeholder="Search your records"></div>
+
+        <div class="filters">
+          <button class="chip selected">All</button>
+          <button class="chip">Test results</button>
+          <button class="chip">Letters</button>
+          <button class="chip">Imaging</button>
+          <button class="chip">Prescriptions</button>
+          <button class="chip"><i class="fas fa-hospital"></i> Maple Creek Medical</button>
+          <button class="chip"><i class="fas fa-calendar"></i> Any date</button>
+        </div>
+
+        <div class="group-label">Waiting for you</div>
+        <div class="docs">
+          <button class="doc" data-go="import">
+            <span class="doc-icon letter"><i class="fas fa-lock"></i></span>
+            <span class="doc-main">
+              <span class="doc-title">Document from Maple Creek Medical</span>
+              <span class="doc-meta"><span class="tag locked">Locked</span> Needs the passphrase from your clinic portal</span>
+            </span>
+            <span class="doc-side">Today<br>9:12 AM</span>
+          </button>
+        </div>
+
+        <div class="group-label">This month</div>
+        <div class="docs">
+          <button class="doc" data-go="viewer">
+            <span class="doc-icon lab"><i class="fas fa-flask"></i></span>
+            <span class="doc-main">
+              <span class="doc-title">Bloodwork &mdash; cholesterol and liver panel</span>
+              <span class="doc-meta"><span class="tag new">New</span> Maple Creek Medical &middot; Dr. Alvarez</span>
+            </span>
+            <span class="doc-side">12 Aug 2026<br>2 pages</span>
+          </button>
+          <button class="doc">
+            <span class="doc-icon letter"><i class="fas fa-envelope-open-text"></i></span>
+            <span class="doc-main">
+              <span class="doc-title">Referral letter &mdash; cardiology</span>
+              <span class="doc-meta">Maple Creek Medical &middot; Dr. Alvarez</span>
+            </span>
+            <span class="doc-side">4 Aug 2026<br>1 page</span>
+          </button>
+          <button class="doc">
+            <span class="doc-icon img"><i class="fas fa-x-ray"></i></span>
+            <span class="doc-main">
+              <span class="doc-title">Chest X-ray report</span>
+              <span class="doc-meta">Riverside Imaging &middot; added by you</span>
+            </span>
+            <span class="doc-side">1 Aug 2026<br>1 page</span>
+          </button>
+        </div>
+
+        <div class="group-label">July 2026</div>
+        <div class="docs">
+          <button class="doc">
+            <span class="doc-icon"><i class="fas fa-pills"></i></span>
+            <span class="doc-main">
+              <span class="doc-title">Prescription &mdash; ramipril 5mg</span>
+              <span class="doc-meta">Maple Creek Medical &middot; Dr. Alvarez</span>
+            </span>
+            <span class="doc-side">22 Jul 2026<br>1 page</span>
+          </button>
+          <button class="doc">
+            <span class="doc-icon lab"><i class="fas fa-flask"></i></span>
+            <span class="doc-main">
+              <span class="doc-title">Bloodwork &mdash; thyroid</span>
+              <span class="doc-meta">Maple Creek Medical &middot; Dr. Alvarez</span>
+            </span>
+            <span class="doc-side">9 Jul 2026<br>1 page</span>
+          </button>
+        </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6. EMPTY ============ -->
+<section class="screen" id="empty">
+  <div class="screen-caption"><strong>First unlock, nothing filed yet.</strong> The empty state is where we explain the CARLOS handoff, since that is how most patients will get their first document.</div>
+  <div class="app">
+    <div class="titlebar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <span class="title">MyVitalHistory</span>
+      <span class="lock"><i class="fas fa-lock-open"></i> Unlocked</span>
+    </div>
+    <div class="body">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark"><i class="fas fa-heart-pulse"></i></span>
+          <span>
+            <span class="brand-name">MyVitalHistory</span>
+            <span class="brand-sub">Margaret Whitfield</span>
+          </span>
+        </div>
+        <nav class="nav">
+          <a href="#empty" class="selected"><i class="fas fa-folder"></i> All records <span class="count">0</span></a>
+          <a href="#empty"><i class="fas fa-inbox"></i> Waiting</a>
+          <div class="nav-label">Settings</div>
+          <a href="#security" data-go="security"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
+        </nav>
+      </aside>
+      <main class="main">
+        <div class="empty">
+          <div class="big-mark"><i class="fas fa-folder-open"></i></div>
+          <h2>Nothing here yet</h2>
+          <p>When your clinic emails you a document, open it and choose <strong>&ldquo;Send this to MyVitalHistory&rdquo;</strong>. It will show up here.</p>
+          <button class="btn primary"><i class="fas fa-plus"></i><span>Add a file from this computer</span></button>
+          <p style="margin-top:16px;font-size:13px">You can also <a href="#">scan a paper letter</a> with your phone.</p>
+        </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7. IMPORT ============ -->
+<section class="screen" id="import">
+  <div class="screen-caption"><strong>The anchor workflow from #3474.</strong> Patient clicked &ldquo;Send this to MyVitalHistory&rdquo; in a CARLOS email. The document is here but still encrypted; the passphrase comes from the CARLOS patient portal (#3207, #3449, #3450).</div>
+  <div class="app">
+    <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div><span class="title">MyVitalHistory &mdash; Adding a document</span></div>
+    <div class="centred">
+      <div class="big-mark"><i class="fas fa-envelope-circle-check"></i></div>
+      <h1>A document from your clinic</h1>
+      <p class="lede">Maple Creek Medical sent this on 19 August 2026. It's locked with a passphrase from your clinic portal.</p>
+
+      <div class="doc" style="margin-bottom:18px">
+        <span class="doc-icon letter"><i class="fas fa-file-pdf"></i></span>
+        <span class="doc-main">
+          <span class="doc-title">specialist-letter-aug2026.pdf</span>
+          <span class="doc-meta">248 KB &middot; still locked</span>
+        </span>
+      </div>
+
+      <label class="field">
+        <span>Passphrase from your clinic portal</span>
+        <input type="password" value="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+        <span class="hint">Sign in to the Maple Creek portal to find it. <a href="#">Where do I look?</a></span>
+      </label>
+
+      <button class="btn primary big"><i class="fas fa-unlock"></i><span>Unlock and save</span></button>
+
+      <div class="note plain" style="margin-top:18px;margin-bottom:0">
+        <i class="fas fa-shield-halved"></i>
+        <div>Once saved, this document is re-locked with <em>your</em> passphrase. You won't need the clinic's passphrase again.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 8. IMPORT DONE ============ -->
+<section class="screen" id="import-done">
+  <div class="screen-caption"><strong>Confirmation.</strong> Says what was filed and where. The re-encryption note matters: it is the moment custody moves from the clinic's passphrase to the patient's.</div>
+  <div class="app">
+    <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div><span class="title">MyVitalHistory</span></div>
+    <div class="centred">
+      <div class="big-mark" style="background:var(--green)"><i class="fas fa-check"></i></div>
+      <h1>Saved to your records</h1>
+      <p class="lede">It's yours now, and it stays here even if you change clinics.</p>
+
+      <div class="doc" style="margin-bottom:18px">
+        <span class="doc-icon letter"><i class="fas fa-envelope-open-text"></i></span>
+        <span class="doc-main">
+          <span class="doc-title">Specialist letter &mdash; cardiology</span>
+          <span class="doc-meta">Filed under <strong>Letters</strong> &middot; 19 Aug 2026 &middot; Maple Creek Medical</span>
+        </span>
+      </div>
+
+      <label class="field">
+        <span>Add a note for yourself <span style="font-weight:400;color:var(--ink-faint)">(optional)</span></span>
+        <input type="text" placeholder="e.g. follow-up booked for October">
+      </label>
+
+      <button class="btn primary big" data-go="viewer"><i class="fas fa-eye"></i><span>Read it now</span></button>
+      <button class="btn ghost big" style="margin-top:8px" data-go="library"><i class="fas fa-folder"></i><span>Back to my records</span></button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 9. VIEWER ============ -->
+<section class="screen" id="viewer">
+  <div class="screen-caption"><strong>Reading a document.</strong> Provenance panel on the right &mdash; who sent it, when it arrived, and how it got here &mdash; because a patient-held record is only useful if its origin is beyond doubt.</div>
+  <div class="app">
+    <div class="titlebar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <span class="title">MyVitalHistory</span>
+      <span class="lock"><i class="fas fa-lock-open"></i> Unlocked</span>
+    </div>
+    <div class="body">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark"><i class="fas fa-heart-pulse"></i></span>
+          <span>
+            <span class="brand-name">MyVitalHistory</span>
+            <span class="brand-sub">Margaret Whitfield</span>
+          </span>
+        </div>
+        <nav class="nav">
+          <a href="#library" data-go="library"><i class="fas fa-folder"></i> All records <span class="count">42</span></a>
+          <a href="#library"><i class="fas fa-inbox"></i> Waiting <span class="count">1</span></a>
+          <div class="nav-label">By kind</div>
+          <a href="#library" class="selected"><i class="fas fa-flask"></i> Test results <span class="count">18</span></a>
+          <a href="#library"><i class="fas fa-envelope-open-text"></i> Letters <span class="count">11</span></a>
+          <div class="nav-label">Settings</div>
+          <a href="#security" data-go="security"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <div class="toolbar">
+          <button class="btn ghost" data-go="library"><i class="fas fa-arrow-left"></i><span>Back</span></button>
+          <span class="spacer"></span>
+          <button class="btn ghost"><i class="fas fa-magnifying-glass-minus"></i></button>
+          <button class="btn ghost"><i class="fas fa-magnifying-glass-plus"></i></button>
+          <button class="btn"><i class="fas fa-print"></i><span>Print</span></button>
+          <button class="btn"><i class="fas fa-share-nodes"></i><span>Share</span></button>
+        </div>
+
+        <div class="viewer">
+          <div class="page">
+            <div class="letterhead">
+              <h2>Maple Creek Medical</h2>
+              <div style="color:var(--ink-faint)">1180 Creekside Drive &middot; Kingston, ON</div>
+            </div>
+            <div class="row"><span>Patient</span><span>Margaret Whitfield</span></div>
+            <div class="row"><span>Date collected</span><span>12 August 2026</span></div>
+            <div class="row"><span>Ordering provider</span><span>Dr. R. Alvarez</span></div>
+            <div class="row"><span>Cholesterol, total</span><span>4.9 mmol/L</span></div>
+            <div class="row"><span>LDL</span><span>2.7 mmol/L</span></div>
+            <div class="row"><span>HDL</span><span>1.5 mmol/L</span></div>
+            <div class="row"><span>ALT</span><span>26 U/L</span></div>
+            <div style="margin-top:20px">
+              <div class="skeleton m"></div>
+              <div class="skeleton"></div>
+              <div class="skeleton s"></div>
+            </div>
+          </div>
+
+          <aside class="aside">
+            <h3>Where this came from</h3>
+            <dl>
+              <dt>Sent by</dt><dd>Maple Creek Medical</dd>
+              <dt>Provider</dt><dd>Dr. R. Alvarez</dd>
+              <dt>Arrived</dt><dd>12 Aug 2026, by email</dd>
+              <dt>Saved to vault</dt><dd>12 Aug 2026, 4:31 PM</dd>
+              <dt>Kind</dt><dd>Test result</dd>
+            </dl>
+            <h3>Your notes</h3>
+            <p style="color:var(--ink-soft);margin-bottom:12px">Recheck in 6 months &mdash; Dr. A. said no change to medication for now.</p>
+            <button class="btn"><i class="fas fa-pen"></i><span>Edit note</span></button>
+            <button class="btn"><i class="fas fa-star"></i><span>Pin to top</span></button>
+            <button class="btn danger"><i class="fas fa-trash"></i><span>Delete</span></button>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 10. SECURITY ============ -->
+<section class="screen" id="security">
+  <div class="screen-caption"><strong>Security &amp; backup.</strong> Makes the encryption-at-rest decision visible to the patient, and states plainly that cloud copies are unreadable ciphertext &mdash; the point that resolves the iCloud residency concern.</div>
+  <div class="app">
+    <div class="titlebar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <span class="title">MyVitalHistory</span>
+      <span class="lock"><i class="fas fa-lock-open"></i> Unlocked</span>
+    </div>
+    <div class="body">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark"><i class="fas fa-heart-pulse"></i></span>
+          <span>
+            <span class="brand-name">MyVitalHistory</span>
+            <span class="brand-sub">Margaret Whitfield</span>
+          </span>
+        </div>
+        <nav class="nav">
+          <a href="#library" data-go="library"><i class="fas fa-folder"></i> All records <span class="count">42</span></a>
+          <a href="#library"><i class="fas fa-inbox"></i> Waiting <span class="count">1</span></a>
+          <div class="nav-label">Settings</div>
+          <a href="#security" class="selected"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
+          <a href="#health" data-go="health"><i class="fas fa-heart"></i> Health data</a>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <div class="main-head">
+          <div>
+            <h1>Security &amp; backup</h1>
+            <p>How your records are protected and copied</p>
+          </div>
+        </div>
+
+        <div class="setting">
+          <div class="s-main">
+            <div class="s-title">Encryption <span class="pill">On &mdash; always</span></div>
+            <div class="s-body">Your records are scrambled on this device using your passphrase. This can't be turned off.</div>
+          </div>
+        </div>
+
+        <div class="setting">
+          <div class="s-main">
+            <div class="s-title">Recovery sheet <span class="pill warn">Printed 2 years ago</span></div>
+            <div class="s-body">Your printed sheet still works. If you've lost it, print a new one &mdash; the old sheet stops working straight away.</div>
+          </div>
+          <div class="s-side"><button class="btn"><i class="fas fa-print"></i><span>Print new</span></button></div>
+        </div>
+
+        <div class="setting">
+          <div class="s-main">
+            <div class="s-title">Backup to iCloud <span class="pill">On</span></div>
+            <div class="s-body">Last backed up 20 minutes ago. Your records are copied to iCloud <strong>still scrambled</strong> &mdash; Apple can't read them, and neither can anyone who gets into your iCloud account.</div>
+          </div>
+          <div class="s-side"><button class="toggle" aria-label="Backup to iCloud"></button></div>
+        </div>
+
+        <div class="setting">
+          <div class="s-main">
+            <div class="s-title">Backup to a folder or drive <span class="pill off">Off</span></div>
+            <div class="s-body">Keep a second copy on a USB stick or a folder you choose. Recommended if your records matter to you &mdash; cloud storage can fill up or expire.</div>
+          </div>
+          <div class="s-side"><button class="toggle off" aria-label="Backup to a folder"></button></div>
+        </div>
+
+        <div class="setting">
+          <div class="s-main">
+            <div class="s-title">Lock automatically</div>
+            <div class="s-body">After 15 minutes without use.</div>
+          </div>
+          <div class="s-side">
+            <select style="border:1px solid var(--line);border-radius:8px;padding:7px 10px">
+              <option>1 minute</option><option>5 minutes</option><option selected>15 minutes</option><option>1 hour</option><option>Never</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="setting">
+          <div class="s-main">
+            <div class="s-title">Unlock with Touch ID <span class="pill">On</span></div>
+            <div class="s-body">Your passphrase is still needed after restarting, and once a week.</div>
+          </div>
+          <div class="s-side"><button class="toggle" aria-label="Touch ID"></button></div>
+        </div>
+
+        <div class="setting">
+          <div class="s-main">
+            <div class="s-title">Change passphrase</div>
+            <div class="s-body">Re-locks every record with the new one. Takes a few minutes for a large vault.</div>
+          </div>
+          <div class="s-side"><button class="btn"><i class="fas fa-key"></i><span>Change</span></button></div>
+        </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 11. MOBILE ============ -->
+<section class="screen" id="mobile">
+  <div class="screen-caption"><strong>Phone, via the Capacitor shell.</strong> Same web core as the desktop build. Left: locked. Middle: records. Right: reading. Scan-with-camera is a phone-first affordance the desktop build can't offer.</div>
+  <div class="phones">
+
+    <div>
+      <div class="phone">
+        <div class="phone-status"><span>9:41</span><span><i class="fas fa-signal"></i> <i class="fas fa-wifi"></i> <i class="fas fa-battery-three-quarters"></i></span></div>
+        <div class="phone-body" style="display:flex;flex-direction:column;justify-content:center;text-align:center;padding:20px">
+          <div class="big-mark" style="margin:0 auto 18px"><i class="fas fa-lock"></i></div>
+          <h1 style="font-size:20px;margin-bottom:6px">MyVitalHistory</h1>
+          <p style="color:var(--ink-soft);font-size:13.5px;margin-bottom:24px">Your vault is locked</p>
+          <button class="btn primary big"><i class="fas fa-face-smile"></i><span>Unlock with Face ID</span></button>
+          <button class="btn ghost big" style="margin-top:8px"><span>Use passphrase</span></button>
+        </div>
+      </div>
+      <div class="phone-caption">Locked</div>
+    </div>
+
+    <div>
+      <div class="phone">
+        <div class="phone-status"><span>9:41</span><span><i class="fas fa-signal"></i> <i class="fas fa-wifi"></i> <i class="fas fa-battery-three-quarters"></i></span></div>
+        <div class="phone-head">
+          <h1>My records</h1>
+          <div class="sub">42 documents &middot; backed up</div>
+        </div>
+        <div class="phone-body">
+          <div class="search" style="margin-bottom:12px"><i class="fas fa-magnifying-glass"></i><input type="text" placeholder="Search"></div>
+          <div class="docs">
+            <button class="doc">
+              <span class="doc-icon letter"><i class="fas fa-lock"></i></span>
+              <span class="doc-main">
+                <span class="doc-title">From Maple Creek Medical</span>
+                <span class="doc-meta"><span class="tag locked">Locked</span> Tap to unlock</span>
+              </span>
+            </button>
+            <button class="doc">
+              <span class="doc-icon lab"><i class="fas fa-flask"></i></span>
+              <span class="doc-main">
+                <span class="doc-title">Bloodwork &mdash; cholesterol</span>
+                <span class="doc-meta">12 Aug 2026 &middot; Dr. Alvarez</span>
+              </span>
+            </button>
+            <button class="doc">
+              <span class="doc-icon letter"><i class="fas fa-envelope-open-text"></i></span>
+              <span class="doc-main">
+                <span class="doc-title">Referral &mdash; cardiology</span>
+                <span class="doc-meta">4 Aug 2026 &middot; Dr. Alvarez</span>
+              </span>
+            </button>
+            <button class="doc">
+              <span class="doc-icon img"><i class="fas fa-x-ray"></i></span>
+              <span class="doc-main">
+                <span class="doc-title">Chest X-ray report</span>
+                <span class="doc-meta">1 Aug 2026 &middot; Riverside</span>
+              </span>
+            </button>
+            <button class="doc">
+              <span class="doc-icon"><i class="fas fa-pills"></i></span>
+              <span class="doc-main">
+                <span class="doc-title">Ramipril 5mg</span>
+                <span class="doc-meta">22 Jul 2026 &middot; Dr. Alvarez</span>
+              </span>
+            </button>
+          </div>
+        </div>
+        <div class="phone-tabs">
+          <a href="#mobile" class="selected"><i class="fas fa-folder"></i> Records</a>
+          <a href="#mobile"><i class="fas fa-camera"></i> Scan</a>
+          <a href="#mobile"><i class="fas fa-magnifying-glass"></i> Search</a>
+          <a href="#mobile"><i class="fas fa-gear"></i> Settings</a>
+        </div>
+      </div>
+      <div class="phone-caption">Records</div>
+    </div>
+
+    <div>
+      <div class="phone">
+        <div class="phone-status"><span>9:41</span><span><i class="fas fa-signal"></i> <i class="fas fa-wifi"></i> <i class="fas fa-battery-three-quarters"></i></span></div>
+        <div class="phone-head" style="display:flex;align-items:center;gap:10px">
+          <button class="btn ghost" style="padding:4px 6px"><i class="fas fa-arrow-left"></i></button>
+          <div style="min-width:0">
+            <h1 style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Bloodwork &mdash; cholesterol</h1>
+            <div class="sub">12 Aug 2026</div>
+          </div>
+        </div>
+        <div class="phone-body" style="background:var(--canvas);padding:10px">
+          <div class="page" style="min-height:0;padding:16px 15px;font-size:11px">
+            <div class="letterhead" style="padding-bottom:7px;margin-bottom:10px">
+              <h2 style="font-size:13px">Maple Creek Medical</h2>
+              <div style="color:var(--ink-faint);font-size:10px">Kingston, ON</div>
+            </div>
+            <div class="row" style="padding:4px 0"><span style="width:92px">Patient</span><span>M. Whitfield</span></div>
+            <div class="row" style="padding:4px 0"><span style="width:92px">Cholesterol</span><span>4.9 mmol/L</span></div>
+            <div class="row" style="padding:4px 0"><span style="width:92px">LDL</span><span>2.7 mmol/L</span></div>
+            <div class="row" style="padding:4px 0"><span style="width:92px">HDL</span><span>1.5 mmol/L</span></div>
+            <div class="row" style="padding:4px 0"><span style="width:92px">ALT</span><span>26 U/L</span></div>
+            <div style="margin-top:12px">
+              <div class="skeleton m"></div>
+              <div class="skeleton"></div>
+              <div class="skeleton s"></div>
+            </div>
+          </div>
+        </div>
+        <div class="phone-tabs">
+          <a href="#mobile" class="selected"><i class="fas fa-folder"></i> Records</a>
+          <a href="#mobile"><i class="fas fa-camera"></i> Scan</a>
+          <a href="#mobile"><i class="fas fa-magnifying-glass"></i> Search</a>
+          <a href="#mobile"><i class="fas fa-gear"></i> Settings</a>
+        </div>
+      </div>
+      <div class="phone-caption">Reading</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ 12. HEALTH DATA ============ -->
+<section class="screen" id="health">
+  <div class="screen-caption"><strong>Concept only &mdash; scope undecided (#3474).</strong> Apple Health / Health Connect hold vitals and labs, never documents, so this can only ever sit alongside the record vault. iPhone and Android only; there is no HealthKit on desktop.</div>
+  <div class="app">
+    <div class="titlebar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <span class="title">MyVitalHistory</span>
+      <span class="lock"><i class="fas fa-lock-open"></i> Unlocked</span>
+    </div>
+    <div class="body">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark"><i class="fas fa-heart-pulse"></i></span>
+          <span>
+            <span class="brand-name">MyVitalHistory</span>
+            <span class="brand-sub">Margaret Whitfield</span>
+          </span>
+        </div>
+        <nav class="nav">
+          <a href="#library" data-go="library"><i class="fas fa-folder"></i> All records <span class="count">42</span></a>
+          <div class="nav-label">Settings</div>
+          <a href="#security" data-go="security"><i class="fas fa-shield-halved"></i> Security &amp; backup</a>
+          <a href="#health" class="selected"><i class="fas fa-heart"></i> Health data</a>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <div class="main-head">
+          <div>
+            <h1>Health data</h1>
+            <p>Readings from your phone and devices, alongside your records</p>
+          </div>
+        </div>
+
+        <div class="note warn">
+          <i class="fas fa-flask-vial"></i>
+          <div>
+            <strong>Concept &mdash; not committed</strong>
+            Whether to build this at all is open on #3474. It would work on iPhone and Android only, and it cannot bring in documents &mdash; Apple Health stores numbers, not letters and reports.
+          </div>
+        </div>
+
+        <div class="setting">
+          <div class="s-main">
+            <div class="s-title">Apple Health <span class="pill off">Not connected</span></div>
+            <div class="s-body">Bring in blood pressure, weight, and steps from your iPhone. MyVitalHistory would only read what you allow, and never send anything back.</div>
+          </div>
+          <div class="s-side"><button class="btn"><i class="fas fa-link"></i><span>Connect</span></button></div>
+        </div>
+
+        <div class="setting">
+          <div class="s-main">
+            <div class="s-title">Health Connect <span class="pill off">Not connected</span></div>
+            <div class="s-body">The Android equivalent. Same readings, separate connection.</div>
+          </div>
+          <div class="s-side"><button class="btn"><i class="fas fa-link"></i><span>Connect</span></button></div>
+        </div>
+
+        <div class="empty" style="padding:36px 20px">
+          <div class="big-mark"><i class="fas fa-chart-line"></i></div>
+          <h2>Nothing connected yet</h2>
+          <p>Once connected, your blood pressure readings would show next to the bloodwork your clinic sends &mdash; one place for the whole picture.</p>
+        </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<script>
+  function showScreen(id, push) {
+    var target = document.getElementById(id) ? id : 'library';
+    document.querySelectorAll('.screen').forEach(function (s) {
+      s.classList.toggle('active', s.id === target);
+    });
+    document.querySelectorAll('.mock-tab').forEach(function (t) {
+      t.classList.toggle('selected', t.dataset.go === target);
+    });
+    if (push !== false) {
+      history.replaceState(null, '', '?screen=' + target);
+    }
+    window.scrollTo(0, 0);
+  }
+
+  document.addEventListener('click', function (e) {
+    var trigger = e.target.closest('[data-go]');
+    if (!trigger) return;
+    e.preventDefault();
+    showScreen(trigger.dataset.go);
+  });
+
+  var initial = new URLSearchParams(window.location.search).get('screen')
+    || window.location.hash.replace('#', '')
+    || 'welcome';
+  showScreen(initial, false);
+</script>
+</body>
+</html>
