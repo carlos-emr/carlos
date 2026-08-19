@@ -1307,14 +1307,21 @@ public final class EDocUtil {
         File resolvedFile = new File(resolvePath(fileName));
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(
                 CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        File trustedFile;
         try {
-            return PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
+            trustedFile = PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
         } catch (SecurityException e) {
             if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
-                return PathValidationUtils.resolveTrustedPath(resolvedFile);
+                trustedFile = PathValidationUtils.resolveTrustedPath(resolvedFile);
+            } else {
+                throw e;
             }
-            throw e;
         }
+        // Guarded here rather than in each caller: this resolver is the single point every raw
+        // document-file read passes through, and the name is only trustworthy once it has been
+        // resolved and containment-checked above.
+        assertNotOutboundEmailArchiveFileName(trustedFile.getName());
+        return trustedFile;
     }
 
     /**
