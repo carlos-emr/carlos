@@ -46,6 +46,12 @@
             <result name="failureUnMerge">/WEB-INF/jsp/admin/demographicmergerecord.jsp?outcome=failureUnMerge</result>
             <result name="caisiSearch">/PMmodule/ClientSearch2</result>
         </action>
+        <!--
+          Patient portal invitations (issue #3475). No <result> elements: every route writes JSON
+          directly and returns NONE, so a named result would resolve to a JSP forward and append
+          HTML to the response body.
+        -->
+        <action name="demographic/portalInvite" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action"/>
         <action name="demographic/printDemoLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoLabel2Action"/>
         <action name="demographic/printDemoAddressLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoAddressLabel2Action"/>
         <action name="demographic/printDemoChartLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoChartLabel2Action"/>

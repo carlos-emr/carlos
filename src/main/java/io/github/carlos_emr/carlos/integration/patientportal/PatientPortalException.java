@@ -121,7 +121,7 @@ public class PatientPortalException extends RuntimeException {
      * @param endpointTemplate endpoint template with placeholders, never an interpolated path
      * @param detail the portal's {@code detail} string, or {@code null} when absent or unsafe
      */
-    static PatientPortalException ofStatus(int statusCode, String endpointTemplate, String detail) {
+    public static PatientPortalException ofStatus(int statusCode, String endpointTemplate, String detail) {
         Kind kind = kindForStatus(statusCode);
         String message =
                 detail == null
@@ -137,7 +137,7 @@ public class PatientPortalException extends RuntimeException {
     }
 
     /** Builds the failure for a call that never produced a response. */
-    static PatientPortalException ofTransportFailure(String endpointTemplate, Throwable cause) {
+    public static PatientPortalException ofTransportFailure(String endpointTemplate, Throwable cause) {
         return new PatientPortalException(
                 String.format(Locale.ROOT, TRANSPORT_MESSAGE, endpointTemplate),
                 Kind.TRANSPORT_FAILURE,
@@ -146,7 +146,7 @@ public class PatientPortalException extends RuntimeException {
     }
 
     /** Builds the failure for a success status whose body CARLOS could not read. */
-    static PatientPortalException ofMalformedResponse(
+    public static PatientPortalException ofMalformedResponse(
             int statusCode, String endpointTemplate, Throwable cause) {
         return new PatientPortalException(
                 String.format(Locale.ROOT, MALFORMED_MESSAGE, endpointTemplate, statusCode),
