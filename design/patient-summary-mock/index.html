@@ -156,19 +156,6 @@
     .scroll { min-height: 0; overflow: auto; scrollbar-color: #b7c7ca transparent; scrollbar-width: thin; }
     .summary-content { padding: 18px 20px 32px; }
 
-    .draft-alert {
-      margin-bottom: 18px;
-      padding: 12px 14px;
-      display: flex;
-      gap: 10px;
-      border: 1px solid #e6b5b2;
-      border-radius: 9px;
-      color: #7b2929;
-      background: var(--red-50);
-    }
-    .draft-alert strong { display: block; margin-bottom: 2px; }
-    .draft-alert p { margin: 0; font-size: 12px; }
-
     .summary-section { margin: 0 0 21px; }
     .summary-section h3 { margin: 0 0 8px; color: var(--teal-800); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
     .summary-section p { margin: 0; color: #233d48; font-size: 14px; line-height: 1.72; }
@@ -351,7 +338,6 @@
     .tab[aria-selected="true"] { color: #245580; }
     .tab[aria-selected="true"]::after { height: 2px; border-radius: 0; background: #337ab7; }
     .summary-content { padding: 12px 14px 28px; }
-    .draft-alert { margin-bottom: 12px; padding: 8px 10px; border-radius: 3px; }
     .summary-section { margin-bottom: 14px; }
     .summary-section h3 { margin-bottom: 7px; padding: 5px 7px; border-left: 4px solid #337ab7; color: #222; background: #f1f1f1; font-size: 11px; letter-spacing: 0; text-transform: none; }
     .summary-section p { font-size: 12px; line-height: 1.62; }
@@ -379,17 +365,6 @@
     .fact-list { margin: 0; padding-left: 18px; }
     .fact-list li { margin-bottom: 5px; }
 
-    .conflict-compare { margin: 8px 0 10px; border: 1px solid #e0b36a; background: #fffaf0; }
-    .conflict-heading { padding: 5px 8px; display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid #e6c78f; color: #734500; background: #fce8c1; font-size: 11px; font-weight: bold; }
-    .conflict-heading span:last-child { font-size: 9px; text-transform: uppercase; }
-    .position { padding: 7px 8px; display: grid; grid-template-columns: 88px 1fr; gap: 8px; border-bottom: 1px solid #ead9b8; }
-    .position:last-child { border-bottom: 0; }
-    .position-label { color: #6a6a6a; font-size: 10px; font-weight: bold; }
-    .position.conversely { background: #fffdf8; }
-    .position.conversely .position-label { color: #9b4f00; }
-    .position .claim { line-height: 1.5; }
-    .interpretation { padding: 6px 8px; border-top: 1px dashed #d2ac68; color: #694b1d; background: #fff4dc; font-size: 10px; }
-
     .timeline { margin: 0; padding: 0; list-style: none; }
     .timeline li { position: relative; margin-left: 5px; padding: 0 0 9px 18px; border-left: 2px solid #c9d9e4; }
     .timeline li:last-child { border-left-color: transparent; }
@@ -401,7 +376,6 @@
       .quick-grid { grid-template-columns: 1fr; }
       .quick-item, .quick-item:nth-child(even), .quick-item:nth-last-child(-n+2) { border-right: 0; border-bottom: 1px solid #dbe5ec; }
       .quick-item:last-child { border-bottom: 0; }
-      .position { grid-template-columns: 1fr; gap: 2px; }
     }
 
     /* Readability pass: higher contrast and larger clinical text. */
@@ -440,8 +414,6 @@
     .tab { font-size: 13px; }
     .btn { font-size: 12px; }
 
-    .draft-alert strong { font-size: 15px; }
-    .draft-alert p { font-size: 13.5px; }
     .summary-scope, .footnote { color: #3f4c54; font-size: 12.5px; line-height: 1.55; }
     .summary-section h3 { padding: 7px 9px; border-left-width: 5px; color: #111; font-size: 14px; }
     .summary-section p, .fact-list, .timeline { color: #17242b; font-size: 15px; line-height: 1.65; }
@@ -460,14 +432,6 @@
     .quick-item { padding: 10px 11px; }
     .quick-item strong { color: #303b42; font-size: 12px; }
     .quick-item .claim { font-size: 15px; line-height: 1.55; }
-
-    .conflict-compare { border-color: #ba7411; }
-    .conflict-heading { padding: 7px 9px; border-bottom-color: #c7892d; color: #542900; background: #ffdfa4; font-size: 14px; }
-    .conflict-heading span:last-child { font-size: 11px; }
-    .position { grid-template-columns: 116px 1fr; padding: 9px; border-bottom-color: #d9b26c; }
-    .position-label { color: #39464d; font-size: 12px; }
-    .position.conversely .position-label { color: #713400; }
-    .interpretation { padding: 8px 9px; color: #4d3109; background: #ffedc7; font-size: 13px; line-height: 1.5; }
 
     .ledger-intro, .coverage-intro { font-size: 14px; }
     .ledger-table { font-size: 14px; }
@@ -528,7 +492,6 @@
     .medication-warning { margin-bottom: 9px; padding: 8px 10px; border: 1px solid #c8811a; color: #542900; background: #fff0cf; font-size: 13px; }
 
     @media (max-width: 680px) {
-      .position { grid-template-columns: 1fr; }
       body { font-size: 14px; }
       .claim, .quick-item .claim, .summary-section p, .fact-list, .timeline { font-size: 14px; }
       .source-switcher-row { grid-template-columns: 1fr auto auto; }
@@ -638,8 +601,6 @@
 
     /* Readability/layout trial 2: calmer headings, more vertical rhythm, larger controls. */
     .summary-content { padding: 20px 24px 48px; }
-    .draft-alert { margin-bottom: 22px; padding: 14px 16px; }
-    .draft-alert p { max-width: 78ch; }
     .quick-glance { margin-bottom: 22px; border-color: var(--line-strong); background: #fff; }
     .quick-glance-title,
     .summary-section h3 {
@@ -665,10 +626,6 @@
     .record-limit { margin-bottom: 24px; padding: 12px 13px; max-width: 92ch; }
     .problem-row { padding: 15px 13px; gap: 16px; }
     .medication-warning { margin-bottom: 16px; padding: 11px 13px; }
-    .conflict-compare { margin: 14px 0 20px; }
-    .conflict-heading { padding: 9px 11px; }
-    .position { padding: 13px 11px; gap: 12px; }
-    .interpretation { padding: 11px; }
     .fact-list li { margin-bottom: 13px; }
     .timeline li { padding-bottom: 18px; }
     .footnote { margin-top: 8px; padding-top: 18px; max-width: 82ch; }
@@ -736,27 +693,37 @@
       color: #36454f;
       background: #e8edef;
     }
-    .conflict-compare {
-      border-color: #aeb8be;
-      background: #fff;
-    }
-    .conflict-heading {
-      border-bottom-color: #b9c2c7;
-      color: #26353d;
-      background: #eef1f3;
-    }
-    .position { border-bottom-color: #cbd2d6; }
-    .position.conversely { background: #fafbfb; }
-    .position.conversely .position-label { color: #52616a; }
-    .interpretation {
-      border-top-color: #aeb8be;
-      color: #34434b;
-      background: #f5f7f8;
-    }
     .source-card.conflicts { border-color: #aeb8be; }
     .source-card.conflicts .source-index { color: #455761; background: #e7ecee; }
     .source-card.conflicts .excerpt { border-left-color: #758791; background: #f5f7f8; }
     .relation.conflicts { color: #455761; background: #e7ecee; }
+    .documentation-note {
+      margin: 14px 0 20px;
+      padding: 12px 14px;
+      border-left: 3px solid #9aa7ad;
+      color: #26353d;
+      background: #f7f8f8;
+    }
+    .documentation-note-label {
+      margin-bottom: 5px;
+      color: #52616a;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: .045em;
+      text-transform: uppercase;
+    }
+    .documentation-note p { margin: 0; }
+    .documentation-note .claim {
+      padding: 0 1px 2px;
+      background: transparent;
+      box-shadow: inset 0 -1px 0 #98a7af;
+    }
+    .documentation-note .claim:hover,
+    .documentation-note .claim:focus-visible,
+    .documentation-note .claim.active {
+      background: #e8edef;
+      box-shadow: inset 0 -2px 0 #647780;
+    }
     .ledger-table button {
       color: #17242b;
       border-bottom: 1px dotted #7e8e96;
@@ -771,14 +738,6 @@
     /* Alternative format: orientation rail plus a focused clinical reading column. */
     #summary-panel { container-name: summary-panel; container-type: inline-size; }
     .summary-content { padding: 22px 26px 56px; }
-    .draft-alert {
-      margin-bottom: 26px;
-      border: 0;
-      border-left: 5px solid #758791;
-      border-radius: 0;
-      color: #26353d;
-      background: #f5f7f8;
-    }
     .briefing-layout {
       display: grid;
       grid-template-columns: minmax(280px, .78fr) minmax(0, 2fr);
@@ -977,13 +936,8 @@
       <div class="scroll">
         <article class="summary-view active" id="summary-view">
           <div class="summary-content">
-            <div class="draft-alert">
-              <span aria-hidden="true">ⓘ</span>
-              <div><strong>Patient overview ready · record differences are included in context</strong><p>Where notes differ, the overview reports each documented account without asking the clinician to reconcile the source record. This is not an authoritative medication list or complete longitudinal record.</p></div>
-            </div>
-
             <div class="briefing-layout">
-              <aside class="briefing-rail" aria-label="Patient orientation and review priorities">
+              <aside class="briefing-rail" aria-label="Patient orientation and record context">
                 <div class="quick-glance">
               <div class="quick-glance-title">Clinical snapshot</div>
               <div class="quick-grid">
@@ -1018,18 +972,13 @@
               <h3>Medication and allergy picture</h3>
               <div class="medication-warning"><strong>Not a reconciled medication list:</strong> the dataset contains narrative plans but no authoritative medication order, administration record, or dispensing record.</div>
               <p><button class="claim" type="button" data-claim="allergy">Nut allergy is consistently documented in the available notes.<span class="source-count">4 sources</span></button></p>
-              <div class="conflict-compare">
-                <div class="conflict-heading"><span>Antibiotic documentation</span><span>Records differ</span></div>
-                <div class="position"><span class="position-label">8 Jan plan</span><button class="claim conflict" type="button" data-claim="antibiotic_5">Co-amoxiclav 625 mg by mouth three times daily for 5 days.<span class="source-count">2 sources</span></button></div>
-                <div class="position conversely"><span class="position-label">Conversely · 9 Jan</span><button class="claim conflict" type="button" data-claim="antibiotic_7">Co-amoxiclav 500/125 mg by mouth three times daily for 7 days.<span class="source-count">1 source</span></button></div>
-                <div class="interpretation">Equivalent strength, different duration. The actual completed course is unknown.</div>
+              <div class="documentation-note">
+                <div class="documentation-note-label">Documentation note · antibiotics</div>
+                <p><button class="claim" type="button" data-claim="antibiotic_5">On 8 Jan, co-amoxiclav 625 mg three times daily was documented for five days.<span class="source-count">2 sources</span></button> <button class="claim" type="button" data-claim="antibiotic_7">A 9 Jan note records the equivalent 500/125 mg strength for seven days.<span class="source-count">1 source</span></button> The completed course is not stated.</p>
               </div>
-              <div class="conflict-compare">
-                <div class="conflict-heading"><span>Analgesia documentation</span><span>Records differ</span></div>
-                <div class="position"><span class="position-label">One plan</span><button class="claim conflict" type="button" data-claim="analgesia_para">Paracetamol 1 g four times daily was advised.<span class="source-count">1 source</span></button></div>
-                <div class="position conversely"><span class="position-label">Conversely</span><button class="claim conflict" type="button" data-claim="analgesia_combo">Co-codamol 30/500 was also listed, while separate codeine had been added for breakthrough pain.<span class="source-count">3 sources</span></button></div>
-                <div class="position conversely"><span class="position-label">Also inconsistent</span><button class="claim conflict" type="button" data-claim="analgesia_ibuprofen">Ibuprofen was discontinued, but a later therapy note still listed it in the regimen.<span class="source-count">2 sources</span></button></div>
-                <div class="interpretation">The available notes do not establish one authoritative final regimen or whether ibuprofen actually stopped.</div>
+              <div class="documentation-note">
+                <div class="documentation-note-label">Documentation note · analgesia</div>
+                <p><button class="claim" type="button" data-claim="analgesia_para">Paracetamol 1 g four times daily was advised.<span class="source-count">1 source</span></button> <button class="claim" type="button" data-claim="analgesia_combo">Later notes also list co-codamol 30/500 and separate codeine for breakthrough pain.<span class="source-count">3 sources</span></button> <button class="claim" type="button" data-claim="analgesia_ibuprofen">Ibuprofen was stopped in one note but remained listed in a later therapy note.<span class="source-count">2 sources</span></button> No authoritative final regimen appears in the available record.</p>
               </div>
               <ul class="fact-list">
                 <li><button class="claim" type="button" data-claim="dalteparin">Dalteparin 5,000 units SC each morning for 7 days appears in two final plans; fulfillment is not verifiable.<span class="source-count">2 sources</span></button></li>
@@ -1039,11 +988,9 @@
 
             <section class="summary-section">
               <h3>Inflammatory-marker documentation · accounts in the record</h3>
-              <div class="conflict-compare">
-                <div class="conflict-heading"><span>Possible infection and clinical healing</span><span>Different evidence</span></div>
-                <div class="position"><span class="position-label">Concern</span><button class="claim conflict" type="button" data-claim="infection_later">CRP/WBC elevation prompted documentation of possible/suspected early infection and co-amoxiclav treatment.<span class="source-count">3 sources</span></button></div>
-                <div class="position conversely"><span class="position-label">Conversely</span><button class="claim conflict" type="button" data-claim="infection_clinical">Serial examinations documented normal temperature, clean wound, mild expected swelling, and no erythema or discharge.<span class="source-count">6 sources</span></button></div>
-                <div class="interpretation"><strong>The available chart does not confirm an infection.</strong> It documents elevated markers and empirical treatment, but no definitive diagnosis or repeat result.</div>
+              <div class="documentation-note">
+                <div class="documentation-note-label">Documentation note · possible infection</div>
+                <p><button class="claim" type="button" data-claim="infection_later">Elevated CRP/WBC prompted documentation of possible early infection and co-amoxiclav treatment.<span class="source-count">3 sources</span></button> <button class="claim" type="button" data-claim="infection_clinical">Serial examinations recorded normal temperature, a clean wound, mild expected swelling, and no erythema or discharge.<span class="source-count">6 sources</span></button> <strong>The available chart does not confirm an infection or include a repeat result.</strong></p>
               </div>
             </section>
 
@@ -1069,12 +1016,9 @@
 
             <section class="summary-section">
               <h3>Follow-up and pending actions</h3>
-              <div class="conflict-compare">
-                <div class="conflict-heading"><span>Follow-up references</span><span>Multiple timings</span></div>
-                <div class="position"><span class="position-label">Physiotherapy</span><button class="claim conflict" type="button" data-claim="followup_physio">OPD physiotherapy was scheduled for 16 Jan 2026.<span class="source-count">1 source</span></button></div>
-                <div class="position conversely"><span class="position-label">Separate or conflicting?</span><button class="claim conflict" type="button" data-claim="followup_2wk">Two notes request outpatient follow-up two weeks after discharge.<span class="source-count">2 sources</span></button></div>
-                <div class="position conversely"><span class="position-label">Conversely</span><button class="claim conflict" type="button" data-claim="followup_6wk">Two other notes request fracture/OP clinic review in six weeks.<span class="source-count">2 sources</span></button></div>
-                <div class="interpretation">These may all be legitimate appointments, but clinic, purpose, and ownership are not consistently specified.</div>
+              <div class="documentation-note">
+                <div class="documentation-note-label">Documentation note · follow-up</div>
+                <p><button class="claim" type="button" data-claim="followup_physio">Physiotherapy was scheduled for 16 Jan 2026.<span class="source-count">1 source</span></button> <button class="claim" type="button" data-claim="followup_2wk">Other notes mention outpatient follow-up two weeks after discharge,<span class="source-count">2 sources</span></button> <button class="claim" type="button" data-claim="followup_6wk">while fracture or outpatient clinic review is also documented at six weeks.<span class="source-count">2 sources</span></button> These may be separate appointments; their purpose is not consistently specified.</p>
               </div>
               <p><button class="claim conflict" type="button" data-claim="pending">Histology and repeat inflammatory-marker results were expected but do not appear in the available record.<span class="source-count">3 sources</span></button></p>
             </section>
@@ -1082,10 +1026,9 @@
             <section class="summary-section">
               <h3>Other record differences</h3>
               <p><button class="claim conflict" type="button" data-claim="demographics">The dataset states age 76, but DOB 12 Apr 1947 implies age 78 during the January 2026 episode.<span class="source-count">2 sources</span></button></p>
-              <div class="conflict-compare">
-                <div class="conflict-heading"><span>End-of-episode documentation</span><span>Records differ</span></div>
-                <div class="position"><span class="position-label">09 Jan · 08:00</span><button class="claim conflict" type="button" data-claim="discharge_tomorrow">The ward-round note says he was ready for discharge “tomorrow.”<span class="source-count">1 source</span></button></div>
-                <div class="position conversely"><span class="position-label">Conversely · later</span><button class="claim conflict" type="button" data-claim="discharge_same_day">The 09:30 physiotherapy note describes him as discharged, and the 10:30 nursing note says discharge paperwork was completed.<span class="source-count">2 sources</span></button></div>
+              <div class="documentation-note">
+                <div class="documentation-note-label">Documentation note · end of episode</div>
+                <p><button class="claim" type="button" data-claim="discharge_tomorrow">At 08:00 on 9 Jan, a ward-round note says he was ready for discharge “tomorrow.”<span class="source-count">1 source</span></button> <button class="claim" type="button" data-claim="discharge_same_day">Later that morning, physiotherapy describes him as discharged and nursing records completed discharge paperwork.<span class="source-count">2 sources</span></button></p>
               </div>
             </section>
 
@@ -1255,27 +1198,27 @@
       labs: { title: "Inflammatory markers elevated; repeat results absent", description: "CRP and WBC are repeated in later notes. A plan to repeat testing does not prove that the repeat occurred or that a result was available.", sources: ["bloods", "pmwr7", "amwr8", "amwr9"], summary: "4 linked notes · result gap detected", sourceRelations: { amwr9: "corroborates" } },
       therapy: { title: "Progressive PT/OT rehabilitation", description: "Different therapy notes support different stages: early passive movement, active-assisted range, mobility, equipment, and final independent home technique.", sources: ["ptPost", "pt7", "ptMobility", "pt8active", "pt8", "ot8", "finalPt"], summary: "7 linked therapy notes · staged progression" },
       safety_overview: { title: "Record differences and limitations", description: "This overview links to a broad source bundle; detailed sections below present the documented accounts and the limits of the available record.", sources: ["pmwr7", "amwr8", "amwr9", "dischargeInfo", "finalPt", "pt8", "paperwork", "theatre", "bloods"], summary: "9 linked notes · contextual differences" },
-      infection_48h: { title: "Position A: theatre antibiotic plan", description: "This view isolates the source supporting the immediate post-operative cefuroxime plan.", sources: ["theatre"], summary: "1 direct source · 48-hour plan", sourceRelations: { theatre: "direct" } },
-      infection_none: { title: "Position B: no antibiotics required", description: "This is the converse same-day position and is intentionally kept separate from the theatre plan.", sources: ["pmwr6"], summary: "1 direct source · converse position", sourceRelations: { pmwr6: "direct" } },
-      infection_clinical: { title: "Converse evidence: serial exams did not show wound infection", description: "Six ward-round notes repeatedly document normal temperature and a clean wound without erythema or discharge. This clinical evidence does not exclude infection, but it prevents elevated markers and empirical antibiotics from being summarized as a confirmed diagnosis.", sources: ["pmwr6", "amwr7", "pmwr7", "amwr8", "pmwr8", "amwr9"], summary: "6 linked notes · serial converse evidence", sourceRelations: { pmwr6: "direct", amwr7: "corroborates", pmwr7: "corroborates", amwr8: "corroborates", pmwr8: "corroborates", amwr9: "corroborates" } },
-      infection_later: { title: "Position C: later suspected early infection", description: "These notes respond to elevated inflammatory markers while continuing to document a clean wound and normal temperature.", sources: ["pmwr7", "amwr8", "pmwr8"], summary: "3 linked notes · later position" },
+      infection_48h: { title: "Theatre antibiotic plan", description: "This view isolates the source documenting the immediate post-operative cefuroxime plan.", sources: ["theatre"], summary: "1 direct source · 48-hour plan", sourceRelations: { theatre: "direct" } },
+      infection_none: { title: "Same-day ward-round antibiotic plan", description: "This ward-round entry documents that no antibiotics were required on the day of surgery; the theatre plan remains available as separate context.", sources: ["pmwr6"], summary: "1 direct source · no-antibiotic plan", sourceRelations: { pmwr6: "direct" } },
+      infection_clinical: { title: "Serial clinical wound examinations", description: "Six ward-round notes repeatedly document normal temperature and a clean wound without erythema or discharge. This clinical evidence does not exclude infection, but the available chart does not establish a confirmed diagnosis.", sources: ["pmwr6", "amwr7", "pmwr7", "amwr8", "pmwr8", "amwr9"], summary: "6 linked notes · serial examinations", sourceRelations: { pmwr6: "direct", amwr7: "corroborates", pmwr7: "corroborates", amwr8: "corroborates", pmwr8: "corroborates", amwr9: "corroborates" } },
+      infection_later: { title: "Later suspected-infection documentation", description: "These notes respond to elevated inflammatory markers while continuing to document a clean wound and normal temperature.", sources: ["pmwr7", "amwr8", "pmwr8"], summary: "3 linked notes · later documentation" },
       infection: { title: "Combined change in antibiotic position", description: "Aggregate fact-ledger view of the theatre prophylaxis plan, the later same-day no-antibiotic position, and subsequent co-amoxiclav treatment after elevated markers.", sources: ["theatre", "pmwr6", "pmwr7", "amwr8", "pmwr8"], summary: "5 linked notes · three positions", sourceRelations: { theatre: "direct", pmwr6: "conflicts", pmwr7: "conflicts", amwr8: "conflicts", pmwr8: "conflicts" } },
-      antibiotic_5: { title: "Position A: co-amoxiclav for five days", description: "Two notes on 8 January support this duration.", sources: ["amwr8", "pmwr8"], summary: "2 linked notes · five-day plan" },
-      antibiotic_7: { title: "Position B: co-amoxiclav for seven days", description: "A later 9 January ward-round note supports seven days. The strength notation is equivalent to 625 mg, but duration differs.", sources: ["amwr9"], summary: "1 direct source · converse seven-day plan", sourceRelations: { amwr9: "direct" } },
+      antibiotic_5: { title: "8 Jan co-amoxiclav documentation · five days", description: "Two notes on 8 January document this duration.", sources: ["amwr8", "pmwr8"], summary: "2 linked notes · five-day plan" },
+      antibiotic_7: { title: "9 Jan co-amoxiclav documentation · seven days", description: "A later 9 January ward-round note documents seven days. The strength notation is equivalent to 625 mg, but duration differs.", sources: ["amwr9"], summary: "1 direct source · seven-day plan", sourceRelations: { amwr9: "direct" } },
       antibiotics: { title: "Co-amoxiclav accounts in the record", description: "Aggregate fact-ledger view of both documented durations plus the earlier no-antibiotic position.", sources: ["amwr8", "pmwr8", "amwr9", "pmwr6"], summary: "4 linked notes · different documented plans" },
-      analgesia_para: { title: "Position A: paracetamol 1 g four times daily", description: "This discharge-education note supports scheduled paracetamol at home.", sources: ["dischargeInfo"], summary: "1 direct source · paracetamol plan", sourceRelations: { dischargeInfo: "direct" } },
-      analgesia_combo: { title: "Position B: co-codamol plus separate codeine references", description: "These later notes create potential duplicate paracetamol and codeine exposure if interpreted as simultaneous instructions.", sources: ["amwr9", "finalPt", "amwr7"], summary: "3 linked notes · duplication risk", sourceRelations: { amwr9: "direct", finalPt: "corroborates", amwr7: "conflicts" } },
+      analgesia_para: { title: "Paracetamol discharge documentation", description: "This discharge-education note documents scheduled paracetamol at home.", sources: ["dischargeInfo"], summary: "1 direct source · paracetamol plan", sourceRelations: { dischargeInfo: "direct" } },
+      analgesia_combo: { title: "Co-codamol and codeine documentation", description: "These later notes list co-codamol and separate codeine, which could duplicate paracetamol and codeine exposure if interpreted as simultaneous instructions.", sources: ["amwr9", "finalPt", "amwr7"], summary: "3 linked notes · overlapping medicines", sourceRelations: { amwr9: "direct", finalPt: "corroborates", amwr7: "conflicts" } },
       analgesia_ibuprofen: { title: "Ibuprofen discontinuation versus later stale reference", description: "One medical plan stops ibuprofen; a later PT note nevertheless lists it as current analgesia.", sources: ["pmwr8", "pt8"], summary: "2 linked notes · direct contradiction", sourceRelations: { pmwr8: "direct", pt8: "conflicts" } },
       analgesia: { title: "Discharge analgesia accounts", description: "Aggregate fact-ledger view of paracetamol, co-codamol, separate codeine, and ibuprofen documentation.", sources: ["dischargeInfo", "amwr9", "finalPt", "amwr7", "pt8", "pmwr8"], summary: "6 linked notes · different documented plans" },
       dalteparin: { title: "Dalteparin in final discharge plans", description: "Two notes support 5,000 units SC each morning for seven days, but this synthetic dataset has no medication order or dispensing record to verify fulfillment.", sources: ["amwr9", "finalPt"], summary: "2 linked notes · prescription unavailable", sourceRelations: { amwr9: "direct" } },
       home_plan: { title: "Home rehabilitation and support plan", description: "The evidence bundle combines functional baseline, PT instructions, OT equipment recommendations, and discharge documentation.", sources: ["preop", "pt8", "ot8", "finalPt", "paperwork"], summary: "5 linked notes · home plan" },
-      followup_physio: { title: "Follow-up A: physiotherapy on 16 January", description: "This appointment has a named date and physiotherapy purpose.", sources: ["finalPt"], summary: "1 direct source · named purpose", sourceRelations: { finalPt: "direct" } },
-      followup_2wk: { title: "Follow-up B: outpatient review in two weeks", description: "Two notes support the timing but do not consistently identify the clinic purpose.", sources: ["dischargeInfo", "amwr9"], summary: "2 linked notes · clinic unclear", sourceRelations: { dischargeInfo: "direct", amwr9: "corroborates" } },
-      followup_6wk: { title: "Follow-up C: clinic review in six weeks", description: "One source specifies fracture clinic; another says outpatient clinic. This may be separate from two-week and physio appointments.", sources: ["pmwr8", "paperwork"], summary: "2 linked notes · destination varies", sourceRelations: { pmwr8: "direct", paperwork: "corroborates" } },
+      followup_physio: { title: "Physiotherapy on 16 January", description: "This appointment has a named date and physiotherapy purpose.", sources: ["finalPt"], summary: "1 direct source · named purpose", sourceRelations: { finalPt: "direct" } },
+      followup_2wk: { title: "Outpatient review in two weeks", description: "Two notes document the timing but do not consistently identify the clinic purpose.", sources: ["dischargeInfo", "amwr9"], summary: "2 linked notes · clinic not specified", sourceRelations: { dischargeInfo: "direct", amwr9: "corroborates" } },
+      followup_6wk: { title: "Clinic review in six weeks", description: "One source specifies fracture clinic; another says outpatient clinic. This may be separate from two-week and physiotherapy appointments.", sources: ["pmwr8", "paperwork"], summary: "2 linked notes · destination varies", sourceRelations: { pmwr8: "direct", paperwork: "corroborates" } },
       followup: { title: "Combined follow-up ambiguity", description: "Aggregate fact-ledger view of all three timing references.", sources: ["finalPt", "dischargeInfo", "amwr9", "pmwr8", "paperwork"], summary: "5 linked notes · three timing references" },
       pending: { title: "Histology and repeat inflammatory markers not found", description: "The operative note requests histology and ward rounds request repeated markers. Neither result appears within the 26 retrieved notes.", sources: ["theatre", "bloods", "amwr8"], summary: "3 linked notes · results not found" },
-      discharge_tomorrow: { title: "Position A: discharge planned for tomorrow", description: "The 08:00 ward-round note on 9 January supports this position.", sources: ["amwr9"], summary: "1 direct source · planned tomorrow", sourceRelations: { amwr9: "direct" } },
-      discharge_same_day: { title: "Position B: discharged or paperwork complete on 9 January", description: "Later same-day therapy and nursing documentation supports discharge on 9 January.", sources: ["finalPt", "paperwork"], summary: "2 linked notes · converse same-day position", sourceRelations: { finalPt: "direct", paperwork: "corroborates" } },
+      discharge_tomorrow: { title: "08:00 discharge documentation", description: "The ward-round note on 9 January documents discharge as planned for the following day.", sources: ["amwr9"], summary: "1 direct source · planned tomorrow", sourceRelations: { amwr9: "direct" } },
+      discharge_same_day: { title: "Later same-day discharge documentation", description: "Later therapy and nursing documentation records discharge or completed paperwork on 9 January.", sources: ["finalPt", "paperwork"], summary: "2 linked notes · later same-day entries", sourceRelations: { finalPt: "direct", paperwork: "corroborates" } },
       discharge: { title: "End-of-episode accounts", description: "Aggregate fact-ledger view of the morning plan and later same-day discharge documentation.", sources: ["amwr9", "finalPt", "paperwork"], summary: "3 linked notes · differing same-day accounts" }
     };
 
