@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.email.core;
 
 /**
  * Shared HTTP session keys used by email compose/send flows.
+ *
+ * @since 2026-07-16
  */
 public final class EmailSessionKeys {
     public static final String EMAIL_ATTACHMENT_LIST = "emailAttachmentList";
