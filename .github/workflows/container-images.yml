@@ -12,7 +12,7 @@
 # Containers Managed:
 # - carlos-tomcat-dev: Development container with Java 21, Tomcat, Maven, Node.js
 # - carlos-mariadb-dev: MariaDB database container with schema initialization scripts
-# - carlos-drugref-dev: DrugRef2 service container with Java 11
+# - carlos-drugref-dev: DrugRef2 service container with Java 21
 #   (the bare "carlos-drugref" ghcr name is reserved for the DEPLOYMENT image
 #   published by the carlos-podman repo's Publish Images workflow — dev images
 #   all carry the -dev suffix)
