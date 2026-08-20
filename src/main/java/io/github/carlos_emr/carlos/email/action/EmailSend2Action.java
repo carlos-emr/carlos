@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -68,13 +69,19 @@ public class EmailSend2Action extends ActionSupport {
      *
      * <p>This method implements method-based routing for the following email workflows:</p>
      * <ul>
-     *   <li><strong>sendDirectEmail</strong> - Sends email directly without EForm context</li>
+     *   <li><strong>sendDirectEmail</strong> - Sends email directly without EForm context (POST only)</li>
      *   <li><strong>cancel</strong> - Cancels email operation and redirects to source</li>
-     *   <li><strong>default</strong> - Sends email with EForm context (if no method parameter specified)</li>
+     *   <li><strong>default</strong> - Sends email with EForm context (if no method parameter specified; POST only)</li>
      * </ul>
      *
+     * <p><strong>HTTP-method contract:</strong> every dispatch except {@code method=cancel} is a
+     * mutation — it transmits patient email outbound, persists an {@link EmailLog}, and may delete
+     * eForm data. Those paths reject non-POST requests with 405 before any side effect fires, per
+     * the mutator GET/HEAD rejection contract ({@code MutatorActionGetRejectionContractTest}).
+     * The {@code cancel} dispatch is pure navigation and stays reachable via GET.</p>
+     *
      * @return String Struts2 result identifier - "success" for successful email operations,
-     *         or transaction type name for cancel operations
+     *         transaction type name for cancel operations, or NONE after a 405 rejection
      */
     public String execute () {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -82,10 +89,28 @@ public class EmailSend2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_email)");
         }
 
+        if ("cancel".equals(request.getParameter("method"))) {
+            return cancel();
+        }
+
+        // Send intent (method=sendDirectEmail or the default eForm send): a crafted GET link
+        // could otherwise send PHI outbound and delete eForm data cross-site, since CSRFGuard's
+        // form-POST token protection does not cover GET-triggerable mutations.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            } catch (IOException | IllegalStateException e) {
+                // sendError throws IllegalStateException if the response is already committed
+                // (e.g. client abort) and IOException on write failure. The mutation is still
+                // blocked by returning NONE below; log for observability only.
+                logger.warn("Failed to send 405 on non-POST email send attempt", e);
+            }
+            return NONE;
+        }
+
         if ("sendDirectEmail".equals(request.getParameter("method"))) {
             return sendDirectEmail();
-        } else if ("cancel".equals(request.getParameter("method"))) {
-            return cancel();
         }
         return sendEFormEmail();
     }
@@ -153,14 +178,17 @@ public class EmailSend2Action extends ActionSupport {
      *
      * <p>This method handles the cancel workflow by:</p>
      * <ul>
-     *   <li>Preparing email fields from the request (to determine transaction type)</li>
+     *   <li>Reading the transaction type from the request (via {@link EmailData} for the
+     *       shared string-to-enum mapping) to determine the return destination</li>
      *   <li>Performing context-specific redirects based on the transaction type</li>
      *   <li>For EFORM transactions: redirects to the EForm display page with original form data</li>
      * </ul>
      *
-     * <p>The method uses the transaction type from the email data to determine the
-     * appropriate return destination, ensuring users are returned to their original
-     * workflow context when canceling an email operation.</p>
+     * <p>Cancel stays reachable via GET as pure navigation, so it must not consume
+     * session state: the {@code emailAttachmentList} cleanup (a mutation) only runs for
+     * POST requests, keeping a crafted GET link from clearing an in-progress email's
+     * attachments. The legitimate cancel path in {@code emailCompose.jsp} submits the
+     * compose form via POST and retains the cleanup.</p>
      *
      * @return String Struts2 result identifier matching the transaction type name
      * @throws RuntimeException if IOException occurs during redirect for EFORM transactions
@@ -168,7 +196,13 @@ public class EmailSend2Action extends ActionSupport {
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String cancel() {
-        EmailData emailData = prepareEmailFields(request);
+        EmailData emailData = new EmailData();
+        emailData.setTransactionType(request.getParameter("transactionType"));
+        // Session cleanup is a mutation, so it is POST-gated: cancel is GET-reachable
+        // navigation and a crafted GET link must not clear in-progress attachments.
+        if ("POST".equals(request.getMethod())) {
+            request.getSession().removeAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST);
+        }
         String emailRedirect = emailData.getTransactionType().name();
         if (emailData.getTransactionType().equals(EmailLog.TransactionType.EFORM)) {
             try {
@@ -238,7 +272,8 @@ public class EmailSend2Action extends ActionSupport {
         String transactionType = request.getParameter("transactionType");
         String demographicNo = request.getParameter("demographicId");
         String additionalParams = request.getParameter("additionalURLParams");
-        List<EmailAttachment> emailAttachmentList = (List<EmailAttachment>) request.getSession().getAttribute("emailAttachmentList");
+        List<EmailAttachment> emailAttachmentList = (List<EmailAttachment>) request.getSession()
+                .getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST);
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -261,7 +296,7 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setAdditionalParams(additionalParams);
         emailData.setAttachments(emailAttachmentList);
 
-        request.getSession().removeAttribute("emailAttachmentList");
+        request.getSession().removeAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST);
 
         return emailData;
     }
