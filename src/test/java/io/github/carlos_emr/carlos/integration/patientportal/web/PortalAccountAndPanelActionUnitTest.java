@@ -164,7 +164,7 @@ class PortalAccountAndPanelActionUnitTest {
          */
         @Test
         @DisplayName("should gate unlock on the narrower unlock object")
-        void shouldRequireUnlockObject_ratherThanAccountManagement() throws Exception {
+        void shouldRefuseInJson_whenTheUnlockObjectIsAbsent() throws Exception {
             when(securityInfoManager.hasPrivilege(
                             any(),
                             eq(PortalStaffContextResolver.OBJECT_ACCOUNT_UNLOCK),
@@ -173,9 +173,12 @@ class PortalAccountAndPanelActionUnitTest {
                     .thenReturn(false);
             request.setParameter("method", "unlock");
 
-            assertThatThrownBy(() -> accountAction().execute())
-                    .isInstanceOf(SecurityException.class)
-                    .hasMessageContaining("(_portal.account.unlock)");
+            accountAction().execute();
+
+            // Converted at the boundary: a JSON endpoint must not answer an authorization refusal
+            // with CARLOS's HTML error page. The gate itself still throws.
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(response.getContentAsString()).contains("not_permitted");
             verifyNoInteractions(patientPortalService);
         }
 
@@ -323,13 +326,15 @@ class PortalAccountAndPanelActionUnitTest {
 
         @Test
         @DisplayName("should refuse a provider holding neither portal object")
-        void shouldThrow_whenProviderMayReadNeitherSection() {
+        void shouldRefuseInJson_whenProviderMayReadNeitherSection() throws Exception {
             request.setMethod("GET");
             when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull()))
                     .thenReturn(false);
 
-            assertThatThrownBy(() -> panelAction().execute())
-                    .isInstanceOf(SecurityException.class);
+            panelAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(response.getContentAsString()).contains("not_permitted");
         }
 
         /**

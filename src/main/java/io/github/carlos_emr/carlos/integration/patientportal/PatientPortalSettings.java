@@ -126,8 +126,13 @@ public record PatientPortalSettings(
      * render and the actions should say so plainly. Construction stays fail-closed for the case
      * where someone <em>has</em> configured it and got it wrong, which is the dangerous one.
      *
-     * <p>This checks presence only. A configured-but-invalid value still throws on construction,
-     * because a half-configured portal must not look like an absent one.
+     * <p>This checks <em>presence</em> only, and the distinction matters more than it looks. A key
+     * that is present but malformed — a plaintext base URL, a non-numeric timeout — reports as
+     * configured here and throws on construction, which is the intended fail-closed path. A key
+     * that is present but <em>blank</em> does not: a portal with a base URL and a clinic id but an
+     * empty service token reports as absent, and the actions answer "no portal on this server"
+     * rather than naming the missing credential. That is the textbook half-configured deployment,
+     * and it is the one case this method does not distinguish.
      */
     public static boolean isConfigured() {
         return isConfigured(key -> CarlosProperties.getInstance().getProperty(key));

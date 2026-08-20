@@ -47,7 +47,7 @@ import org.apache.hc.core5.util.Timeout;
 /**
  * Sends portal requests over Apache HttpClient 5, the client CARLOS already uses for outbound HTTP.
  *
- * <p>Three settings here are security-relevant rather than tuning:
+ * <p>Four settings here are security-relevant rather than tuning:
  *
  * <ul>
  *   <li><b>Redirects are disabled.</b> Following one would replay the {@code Authorization} header
@@ -62,6 +62,12 @@ import org.apache.hc.core5.util.Timeout;
  *       EMR-wide availability failure this control exists to prevent.
  *   <li><b>The response body is capped.</b> A compromised or malfunctioning portal should not be
  *       able to exhaust heap through a reply CARLOS reads into memory.
+ *   <li><b>The portal's public key can be pinned.</b> When pins are configured, the socket factory
+ *       requires the leaf key to match one of them <em>in addition to</em> normal validation. Note
+ *       what happens when they are not: pinning is simply skipped, so a misspelled property key or
+ *       a value blanked during a config merge downgrades a deployment that believes it is pinned to
+ *       CA-only TLS, with nothing logged or rejected. See {@code PortalCertificatePinning} for the
+ *       threat that makes pinning worth configuring.
  * </ul>
  *
  * <p>The client is built once per instance rather than per request. A per-request client meant a
@@ -92,7 +98,7 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
     }
 
     /**
-     * Takes only the two values this class uses.
+     * Takes only the values this class uses: the two timeouts, and the pins in the overload below.
      *
      * <p>Depending on the whole settings record would drag the https rule into a test that needs a
      * plain loopback socket, and would tempt a bypass in production code to satisfy a test. The

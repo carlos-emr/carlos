@@ -209,14 +209,21 @@ class PortalInvite2ActionUnitTest {
 
         @Test
         @DisplayName("should refuse a provider without the invite privilege")
-        void shouldThrowSecurityException_whenPrivilegeIsAbsent() {
+        void shouldRefuseInJson_whenPrivilegeIsAbsent() throws Exception {
             when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull()))
                     .thenReturn(false);
             createRequest();
 
-            assertThatThrownBy(() -> action.execute())
-                    .isInstanceOf(SecurityException.class)
-                    .hasMessageContaining("(_portal.invite)");
+            action.execute();
+
+            // requirePrivilege still throws the SecurityException CLAUDE.md requires; the action
+            // converts it at the boundary so a JSON endpoint does not answer with an HTML error
+            // page that the caller's response.json() chokes on.
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(response.getContentType()).contains("application/json");
+            assertThat(response.getContentAsString()).contains("not_permitted");
+            // The missing object name is an administrator's business, not the browser's.
+            assertThat(response.getContentAsString()).doesNotContain("_portal.invite");
             verifyNoInteractions(patientPortalService);
         }
     }
