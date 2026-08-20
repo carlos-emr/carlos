@@ -93,8 +93,7 @@ public class PortalPanel2Action extends PortalJsonAction {
 
         String method = request.getMethod();
         if (!"GET".equalsIgnoreCase(method) && !"POST".equalsIgnoreCase(method)) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
+            return methodNotAllowed(response);
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

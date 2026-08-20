@@ -84,6 +84,8 @@ abstract class PortalJsonAction extends ActionSupport {
             The portal replied in a form CARLOS could not read. The change may or may not have been \
             applied; check before retrying.""";
     private static final String REJECTED = "The portal rejected this request.";
+    private static final String WRONG_METHOD =
+            "This action must be requested with POST.";
     private static final String NOT_CONFIGURED =
             """
             The patient portal is not configured on this CARLOS server. An administrator needs to \
@@ -146,6 +148,23 @@ abstract class PortalJsonAction extends ActionSupport {
         response.getWriter().write(objectMapper.writeValueAsString(payload));
         response.getWriter().flush();
         return NONE;
+    }
+
+    /**
+     * Refuses a method this action does not support, in JSON like every other reply.
+     *
+     * <p>{@code sendError} was used here first, which hands the response to the container and
+     * returns CARLOS's HTML error page. The status was right, so an AJAX caller reading only the
+     * status saw correct behaviour — but it made these endpoints the one place whose failures are
+     * sometimes JSON and sometimes a full HTML document, which any caller that reads the body has
+     * to special-case.
+     */
+    String methodNotAllowed(HttpServletResponse response) throws IOException {
+        return failure(
+                response,
+                HttpServletResponse.SC_METHOD_NOT_ALLOWED,
+                "method_not_allowed",
+                WRONG_METHOD);
     }
 
     String badRequest(HttpServletResponse response, String message) throws IOException {

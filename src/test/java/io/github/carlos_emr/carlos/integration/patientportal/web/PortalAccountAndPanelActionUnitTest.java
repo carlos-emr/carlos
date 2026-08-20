@@ -153,6 +153,7 @@ class PortalAccountAndPanelActionUnitTest {
             accountAction().execute();
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(response.getContentAsString()).contains("method_not_allowed");
             verifyNoInteractions(patientPortalService);
         }
 
@@ -295,6 +296,7 @@ class PortalAccountAndPanelActionUnitTest {
             panelAction().execute();
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(response.getContentAsString()).contains("method_not_allowed");
         }
 
         /**

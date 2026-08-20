@@ -186,6 +186,9 @@ class PortalInvite2ActionUnitTest {
 
             assertThat(response.getStatus())
                     .isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            // JSON, not the container's HTML error page: these endpoints answer one way.
+            assertThat(response.getContentAsString()).contains("method_not_allowed");
+            assertThat(response.getContentType()).contains("application/json");
             verifyNoInteractions(patientPortalService);
             verifyNoInteractions(demographicManager);
         }
