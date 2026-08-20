@@ -53,6 +53,8 @@ import java.util.Locale;
 final class PortalJson {
 
     private static final String MISSING_FIELD = "portal response is missing required field '%s'";
+    private static final String OUT_OF_RANGE =
+            "the portal sent %s as a number too large for the identifier CARLOS expects";
     private static final String WRONG_TYPE = "portal field '%s' is not of the expected JSON type";
 
     private PortalJson() {}
@@ -86,12 +88,23 @@ final class PortalJson {
     }
 
     /**
-     * Reads an identifier that the portal must supply.
+     * Reads an identifier that the portal must supply and that CARLOS models as an {@code int}.
      *
-     * @throws PortalContractException if the field is absent, null, or not a number
+     * <p>Out-of-range is a contract violation like any other, not an arithmetic accident.
+     * {@code Math.toIntExact} was used here and throws {@link ArithmeticException}, which is not a
+     * {@link PortalContractException} and so escapes the funnel in {@code PatientPortalService}
+     * that turns contract violations into {@code MALFORMED_RESPONSE} — landing on a generic CARLOS
+     * error page instead, the exact outcome this exception type exists to prevent.
+     *
+     * @throws PortalContractException if the field is absent, null, not a number, or too large to
+     *     be the identifier CARLOS expects
      */
     static int requiredInt(JsonNode node, String field) {
-        return Math.toIntExact(requiredLong(node, field));
+        long value = requiredLong(node, field);
+        if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
+            throw new PortalContractException(String.format(Locale.ROOT, OUT_OF_RANGE, field));
+        }
+        return (int) value;
     }
 
     /**

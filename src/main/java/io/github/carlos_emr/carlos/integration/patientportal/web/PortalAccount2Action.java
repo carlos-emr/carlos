@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Set;
 import org.apache.struts2.ServletActionContext;
 
 /**
@@ -138,7 +139,10 @@ public class PortalAccount2Action extends PortalJsonAction {
             return portalNotConfigured(response);
         }
 
-        PatientPortalStaffContext staff = staffContextResolver.resolve(loggedInInfo);
+        // Scoped to the object this route gated on, so an unlock does not also arrive at the
+        // portal carrying authority to manage passphrases.
+        PatientPortalStaffContext staff =
+                staffContextResolver.resolve(loggedInInfo, Set.of(securityObject));
         int demographicNo = positiveInt(request.getParameter("demographicNo"));
         if (demographicNo <= 0) {
             return badRequest(response, "a patient must be selected");

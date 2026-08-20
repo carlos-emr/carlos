@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -75,12 +76,21 @@ class PortalStaffContextResolverUnitTest {
         }
     }
 
+    /** Every portal object, so these tests exercise the privilege reads rather than the scope. */
+    private static final Set<String> ALL_OBJECTS =
+            Set.of(
+                    PortalStaffContextResolver.OBJECT_INVITE,
+                    PortalStaffContextResolver.OBJECT_ACCOUNT,
+                    PortalStaffContextResolver.OBJECT_ACCOUNT_UNLOCK,
+                    PortalStaffContextResolver.OBJECT_SECRET,
+                    PortalStaffContextResolver.OBJECT_CONTACT_REVIEW);
+
     @Test
     @DisplayName("should grant only the permission behind the object the provider holds")
     void shouldGrantOnePermission_whenProviderHoldsOneObject() {
         grant(PortalStaffContextResolver.OBJECT_INVITE);
 
-        PatientPortalStaffContext staff = resolver.resolve(loggedInInfo);
+        PatientPortalStaffContext staff = resolver.resolve(loggedInInfo, ALL_OBJECTS);
 
         assertThat(staff.permissions())
                 .containsExactly(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE);
@@ -97,7 +107,7 @@ class PortalStaffContextResolverUnitTest {
     void shouldWithholdPermissions_whenProviderLacksTheirObjects() {
         grant(PortalStaffContextResolver.OBJECT_INVITE, PortalStaffContextResolver.OBJECT_ACCOUNT);
 
-        PatientPortalStaffContext staff = resolver.resolve(loggedInInfo);
+        PatientPortalStaffContext staff = resolver.resolve(loggedInInfo, ALL_OBJECTS);
 
         assertThat(staff.permissions())
                 .containsExactlyInAnyOrder(
@@ -115,7 +125,7 @@ class PortalStaffContextResolverUnitTest {
     void shouldWithholdUnlock_whenProviderHoldsOnlyAccountManagement() {
         grant(PortalStaffContextResolver.OBJECT_ACCOUNT);
 
-        PatientPortalStaffContext staff = resolver.resolve(loggedInInfo);
+        PatientPortalStaffContext staff = resolver.resolve(loggedInInfo, ALL_OBJECTS);
 
         assertThat(staff.permissions())
                 .containsExactly(PatientPortalStaffContext.PERMISSION_ACCOUNT_MANAGE);
@@ -133,7 +143,7 @@ class PortalStaffContextResolverUnitTest {
                 PortalStaffContextResolver.OBJECT_SECRET,
                 PortalStaffContextResolver.OBJECT_CONTACT_REVIEW);
 
-        PatientPortalStaffContext staff = resolver.resolve(loggedInInfo);
+        PatientPortalStaffContext staff = resolver.resolve(loggedInInfo, ALL_OBJECTS);
 
         assertThat(staff.permissions()).hasSize(5);
     }
@@ -148,7 +158,7 @@ class PortalStaffContextResolverUnitTest {
     void shouldThrow_whenProviderHoldsNoPortalPrivilege() {
         grant();
 
-        assertThatThrownBy(() -> resolver.resolve(loggedInInfo))
+        assertThatThrownBy(() -> resolver.resolve(loggedInInfo, ALL_OBJECTS))
                 .isInstanceOf(SecurityException.class);
     }
 
@@ -157,7 +167,7 @@ class PortalStaffContextResolverUnitTest {
     void shouldUseProviderNumber_asThePortalIdentity() {
         grant(PortalStaffContextResolver.OBJECT_INVITE);
 
-        PatientPortalStaffContext staff = resolver.resolve(loggedInInfo);
+        PatientPortalStaffContext staff = resolver.resolve(loggedInInfo, ALL_OBJECTS);
 
         assertThat(staff.providerId()).isEqualTo(PROVIDER_NO);
         assertThat(staff.providerName()).isEqualTo("Dr Example");
@@ -169,8 +179,28 @@ class PortalStaffContextResolverUnitTest {
         when(loggedInInfo.getLoggedInProvider()).thenReturn(null);
         grant(PortalStaffContextResolver.OBJECT_INVITE);
 
-        PatientPortalStaffContext staff = resolver.resolve(loggedInInfo);
+        PatientPortalStaffContext staff = resolver.resolve(loggedInInfo, ALL_OBJECTS);
 
         assertThat(staff.providerName()).isEqualTo(PROVIDER_NO);
+    }
+
+    /**
+     * Scope, not just privilege. The portal authorises on this header alone, so a panel read must
+     * not arrive carrying authority to reveal message passphrases merely because the provider holds
+     * that object elsewhere in CARLOS.
+     */
+    @Test
+    @DisplayName("should send only the permissions the call asked for")
+    void shouldOmitPermissions_whenTheirObjectIsOutOfScope() {
+        grant(
+                PortalStaffContextResolver.OBJECT_INVITE,
+                PortalStaffContextResolver.OBJECT_SECRET);
+
+        PatientPortalStaffContext staff =
+                resolver.resolve(
+                        loggedInInfo, Set.of(PortalStaffContextResolver.OBJECT_INVITE));
+
+        assertThat(staff.permissions())
+                .containsExactly(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE);
     }
 }
