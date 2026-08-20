@@ -25,8 +25,10 @@ import io.github.carlos_emr.CarlosProperties;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
@@ -57,13 +59,23 @@ public record PatientPortalSettings(
         String clinicId,
         PortalSecret serviceToken,
         Duration connectTimeout,
-        Duration readTimeout) {
+        Duration readTimeout,
+        Set<String> certificatePins) {
 
     public static final String BASE_URL_KEY = "patient_portal.base_url";
     public static final String CLINIC_ID_KEY = "patient_portal.clinic_id";
     public static final String SERVICE_TOKEN_KEY = "patient_portal.service_token";
     public static final String CONNECT_TIMEOUT_KEY = "patient_portal.timeout.connect.ms";
     public static final String READ_TIMEOUT_KEY = "patient_portal.timeout.read.ms";
+
+    /**
+     * Optional public-key pins, comma separated.
+     *
+     * <p>Absent means standard TLS validation only, which trusts every CA in the JVM truststore.
+     * Set this where a TLS-inspecting proxy CA may be installed on clinic machines — see {@link
+     * PortalCertificatePinning}.
+     */
+    public static final String CERTIFICATE_PINS_KEY = "patient_portal.certificate.pins";
 
     private static final String REQUIRED_SCHEME_PREFIX = "https://";
     private static final long DEFAULT_CONNECT_TIMEOUT_MS = 5000L;
@@ -145,7 +157,8 @@ public record PatientPortalSettings(
                 required(lookup, CLINIC_ID_KEY),
                 PortalSecret.of(requireValue(required(lookup, SERVICE_TOKEN_KEY), SERVICE_TOKEN_KEY)),
                 timeout(lookup, CONNECT_TIMEOUT_KEY, DEFAULT_CONNECT_TIMEOUT_MS),
-                timeout(lookup, READ_TIMEOUT_KEY, DEFAULT_READ_TIMEOUT_MS));
+                timeout(lookup, READ_TIMEOUT_KEY, DEFAULT_READ_TIMEOUT_MS),
+                pins(lookup));
     }
 
     /**
@@ -165,6 +178,30 @@ public record PatientPortalSettings(
         }
         requirePositive(connectTimeout, CONNECT_TIMEOUT_KEY);
         requirePositive(readTimeout, READ_TIMEOUT_KEY);
+        certificatePins = certificatePins == null ? Set.of() : Set.copyOf(certificatePins);
+    }
+
+    /** Splits the optional pin list; an absent value means no pinning. */
+    private static Set<String> pins(Function<String, String> lookup) {
+        String configured = lookup.apply(CERTIFICATE_PINS_KEY);
+        if (configured == null || configured.isBlank()) {
+            return Set.of();
+        }
+        Set<String> parsed = new LinkedHashSet<>();
+        for (String pin : configured.split(",")) {
+            String trimmed = pin.strip();
+            if (!trimmed.isEmpty()) {
+                parsed.add(trimmed);
+            }
+        }
+        return Set.copyOf(parsed);
+    }
+
+    /**
+     * @return {@code true} when the deployment requires a specific portal public key
+     */
+    public boolean isPinned() {
+        return !certificatePins.isEmpty();
     }
 
     private static String requireValue(String value, String key) {

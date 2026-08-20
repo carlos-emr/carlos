@@ -187,7 +187,8 @@ class PatientPortalSettingsUnitTest {
                                             "maplecreek",
                                             PortalSecret.of(TOKEN),
                                             Duration.ofSeconds(5),
-                                            Duration.ofSeconds(15)))
+                                            Duration.ofSeconds(15),
+                                            java.util.Set.of()))
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
 
@@ -201,7 +202,8 @@ class PatientPortalSettingsUnitTest {
                                             "maplecreek",
                                             PortalSecret.of(TOKEN),
                                             Duration.ZERO,
-                                            Duration.ofSeconds(15)))
+                                            Duration.ofSeconds(15),
+                                            java.util.Set.of()))
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
 
@@ -215,7 +217,8 @@ class PatientPortalSettingsUnitTest {
                                             "maplecreek",
                                             null,
                                             Duration.ofSeconds(5),
-                                            Duration.ofSeconds(15)))
+                                            Duration.ofSeconds(15),
+                                            java.util.Set.of()))
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
 
