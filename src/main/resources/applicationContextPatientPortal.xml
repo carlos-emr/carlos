@@ -26,8 +26,13 @@
                            http://www.springframework.org/schema/beans/spring-beans.xsd">
 
     <!--
-      Patient portal integration (issue #3475). Picked up automatically by the
-      classpath:applicationContext*.xml pattern in web.xml.
+      Patient portal integration (issue #3475).
+
+      This file is NOT picked up by the classpath:applicationContext*.xml pattern in web.xml.
+      OscarSpringContextLoader overrides createWebApplicationContext and never reads
+      contextConfigLocation: it builds its own list from applicationContext.xml plus one file per
+      ModuleNames entry. It is imported explicitly from applicationContext.xml, and deleting that
+      import silently unwires the portal rather than failing.
 
       EVERY BEAN HERE IS lazy-init. This is the load-bearing detail, not a tuning choice.
 
@@ -38,12 +43,23 @@
       every clinic that does not use the portal. Most will not. Lazy initialisation keeps the
       failure where it belongs: at the moment someone tries to use a portal that is not there.
 
-      EVERY BEAN IS ALSO autowire-candidate="false". lazy-init alone is NOT enough, which a
-      deployed CARLOS proved: spring_ws.xml declares beans that autowire by type, and by-type
-      resolution instantiates candidate beans to inspect them. That defeated lazy-init, constructed
-      PatientPortalSettings during context refresh on a server with no portal configured, and the
-      whole webapp failed to start. Excluding these from autowiring restores the guarantee. Lookup
-      by type through SpringUtils still works: autowire-candidate governs autowiring, not getBean.
+      EVERY BEAN IS ALSO autowire-candidate="false", as defence in depth: an injection point
+      elsewhere that matches one of these types by type would resolve it during refresh and so
+      defeat lazy-init. There is no such injection point today, and this attribute is cheap
+      insurance against one being added.
+
+      Be careful with the history here. A deployed CARLOS did fail to start with these beans
+      present, and the fix commit blamed the byType beans in spring_ws.xml. That explanation does
+      not hold up: those two beans are the only autowire="byType" declarations in the file, XML
+      byType autowiring is setter-based, and neither class has a writable property of any type in
+      this package. The commit bundled three changes — the missing import above, a constructor-arg
+      naming a bean that does not exist (SecurityInfoManager is an interface; the @Service
+      implementation registers as securityInfoManagerImpl), and this attribute — and the trigger
+      was never isolated to one of them. The first two are independently proven defects. Treat
+      this attribute as unproven-but-harmless, not as a fix with a known mechanism.
+
+      Lookup by type through SpringUtils still works: autowire-candidate governs autowiring, not
+      getBean.
 
       PatientPortalService holds a pooled HTTP client, hence destroy-method="close".
     -->

@@ -37,7 +37,7 @@ import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
 
 /**
- * The Spring wiring, and specifically the property every CARLOS deployment depends on.
+ * The Spring wiring, and specifically the properties every CARLOS deployment depends on.
  *
  * <p>Most clinics will never configure a patient portal. For them the correct behaviour is that
  * CARLOS starts normally and the portal features simply are not there — <b>not</b> that the
@@ -48,7 +48,22 @@ import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
  * silently became a no-op would let a clinic believe an invitation had been sent. Registered as an
  * ordinary eager bean, that same correct rule would abort the Spring context refresh and take the
  * whole EMR down for every clinic not using the feature. {@code lazy-init} is what separates the
- * two, and nothing else in the codebase would notice if it were removed.
+ * two, and {@code autowire-candidate="false"} keeps a by-type injection point from resolving one of
+ * these beans during refresh and defeating it. See the XML for what is proven about that second
+ * attribute and what is not.
+ *
+ * <p>The traps this file has already fallen into, both of which it now guards:
+ *
+ * <ul>
+ *   <li>Asserting against a bean name nobody registers. An earlier version registered the mock as
+ *       {@code securityInfoManager}, which is not a bean in CARLOS, and passed while a deployed
+ *       CARLOS failed to start.
+ *   <li>Never instantiating anything. Every bean here is lazy, so refreshing the context resolves
+ *       no {@code constructor-arg ref} at all — the assertions below on {@code isLazyInit} and
+ *       {@code isAutowireCandidate} are read-backs of the XML that was just parsed and hold
+ *       whatever the references say. Only {@link #shouldResolveItsDependencies_whenTheResolverIsActuallyCreated()}
+ *       can fail on a broken reference.
+ * </ul>
  */
 @Tag("unit")
 @Tag("patient-portal")
@@ -89,11 +104,10 @@ class PatientPortalSpringWiringUnitTest {
         try (GenericApplicationContext context = contextWithSecurityManager()) {
             context.refresh();
 
-            for (String bean :
-                    new String[] {
-                        "patientPortalSettings", "patientPortalService", "portalStaffContextResolver"
-                    }) {
-                assertThat(context.containsBeanDefinition(bean)).isTrue();
+            // Every definition in the file, not a hardcoded list: the claim is "EVERY BEAN", and a
+            // fourth one added later must be covered without anyone remembering to edit this array.
+            assertThat(context.getBeanDefinitionNames()).isNotEmpty();
+            for (String bean : context.getBeanDefinitionNames()) {
                 assertThat(context.getBeanFactory().getBeanDefinition(bean).isLazyInit())
                         .withFailMessage(
                                 "%s must stay lazy-init: an eager portal bean stops CARLOS starting"
@@ -105,13 +119,13 @@ class PatientPortalSpringWiringUnitTest {
     }
 
     /**
-     * lazy-init alone is not enough, which only a deployed CARLOS revealed.
+     * lazy-init on its own is only as good as the absence of a by-type injection point.
      *
-     * <p>{@code spring_ws.xml} declares beans that autowire by type, and by-type resolution
-     * instantiates candidate beans in order to inspect them. That constructed the portal settings
-     * during context refresh on a server with no portal configured, and the whole webapp failed to
-     * start — the exact outage lazy-init was chosen to prevent. Excluding these beans from
-     * autowiring restores the guarantee.
+     * <p>By-type dependency resolution considers candidate beans during refresh, so an
+     * {@code @Autowired} field or byType setter matching one of these types elsewhere in the
+     * context would construct it on a server with no portal configured — the exact outage lazy-init
+     * is chosen to prevent. No such injection point exists today; this attribute is what keeps one
+     * from being introduced silently.
      */
     @Test
     @DisplayName("should exclude the portal beans from autowiring, which defeats lazy-init")
@@ -119,10 +133,8 @@ class PatientPortalSpringWiringUnitTest {
         try (GenericApplicationContext context = contextWithSecurityManager()) {
             context.refresh();
 
-            for (String bean :
-                    new String[] {
-                        "patientPortalSettings", "patientPortalService", "portalStaffContextResolver"
-                    }) {
+            assertThat(context.getBeanDefinitionNames()).isNotEmpty();
+            for (String bean : context.getBeanDefinitionNames()) {
                 assertThat(context.getBeanFactory().getBeanDefinition(bean).isAutowireCandidate())
                         .withFailMessage(
                                 "%s must not be an autowire candidate: by-type autowiring elsewhere"
@@ -170,5 +182,48 @@ class PatientPortalSpringWiringUnitTest {
         present.put(PatientPortalSettings.SERVICE_TOKEN_KEY, "token-value-0000000000000001");
 
         assertThat(PatientPortalSettings.isConfigured(present::get)).isTrue();
+    }
+
+    /**
+     * The only assertion in this file that exercises a {@code constructor-arg ref}.
+     *
+     * <p>Refreshing a context of lazy beans resolves no references, so the bean-definition
+     * assertions above pass with the wiring broken — renaming the {@code securityInfoManagerImpl}
+     * reference to something that does not exist leaves every one of them green. Creating the bean
+     * is what turns that into a failure, and this is the resolver whose reference was wrong on a
+     * deployed CARLOS.
+     */
+    @Test
+    @DisplayName("should resolve its dependencies when the resolver is actually created")
+    void shouldResolveItsDependencies_whenTheResolverIsActuallyCreated() {
+        try (GenericApplicationContext context = contextWithSecurityManager()) {
+            context.refresh();
+
+            assertThatCode(() -> context.getBean(PortalStaffContextResolver.class))
+                    .withFailMessage(
+                            "the resolver could not be constructed, so a constructor-arg ref in"
+                                    + " applicationContextPatientPortal.xml names a bean that does"
+                                    + " not exist in CARLOS")
+                    .doesNotThrowAnyException();
+            // by-type lookup despite autowire-candidate="false", which is what SpringUtils relies on
+            assertThat(context.getBean(PortalStaffContextResolver.class))
+                    .isSameAs(context.getBean("portalStaffContextResolver"));
+        }
+    }
+
+    /**
+     * The other half: the settings bean is reachable and still fails closed when created without a
+     * configured portal, rather than being quietly absent.
+     */
+    @Test
+    @DisplayName("should fail closed when the settings bean is created on an unconfigured server")
+    void shouldThrow_whenTheSettingsBeanIsCreatedWithoutConfiguration() {
+        try (GenericApplicationContext context = contextWithSecurityManager()) {
+            context.refresh();
+
+            assertThatThrownBy(() -> context.getBean("patientPortalSettings"))
+                    .rootCause()
+                    .isInstanceOf(PatientPortalConfigurationException.class);
+        }
     }
 }
