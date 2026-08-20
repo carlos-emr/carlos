@@ -27,13 +27,18 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.time.Duration;
+import java.util.Set;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
 import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.HttpEntity;
@@ -83,7 +88,7 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
     private final CloseableHttpClient client;
 
     PatientPortalHttpClientExchange(PatientPortalSettings settings) {
-        this(settings.connectTimeout(), settings.readTimeout());
+        this(settings.connectTimeout(), settings.readTimeout(), settings.certificatePins());
     }
 
     /**
@@ -95,14 +100,30 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
      * already carries both.
      */
     PatientPortalHttpClientExchange(Duration connectTimeout, Duration readTimeout) {
+        this(connectTimeout, readTimeout, Set.of());
+    }
+
+    /**
+     * @param certificatePins public-key pins the portal must present, or empty for standard TLS
+     *     validation only
+     */
+    PatientPortalHttpClientExchange(
+            Duration connectTimeout, Duration readTimeout, Set<String> certificatePins) {
         ConnectionConfig connectionConfig =
                 ConnectionConfig.custom()
                         .setConnectTimeout(Timeout.ofMilliseconds(connectTimeout.toMillis()))
                         .build();
-        PoolingHttpClientConnectionManager connectionManager =
+        PoolingHttpClientConnectionManagerBuilder connectionManagerBuilder =
                 PoolingHttpClientConnectionManagerBuilder.create()
-                        .setDefaultConnectionConfig(connectionConfig)
-                        .build();
+                        .setDefaultConnectionConfig(connectionConfig);
+        if (certificatePins != null && !certificatePins.isEmpty()) {
+            // Single-argument SSLConnectionSocketFactory keeps HttpClient's default hostname
+            // verifier. Passing a verifier here would be the second classic way to disable a TLS
+            // check while appearing to configure one.
+            connectionManagerBuilder.setSSLSocketFactory(
+                    new SSLConnectionSocketFactory(pinnedContext(certificatePins)));
+        }
+        PoolingHttpClientConnectionManager connectionManager = connectionManagerBuilder.build();
         RequestConfig requestConfig =
                 RequestConfig.custom()
                         .setConnectionRequestTimeout(
@@ -129,6 +150,24 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
     @Override
     public void close() throws IOException {
         client.close();
+    }
+
+    /**
+     * Builds an SSL context whose trust manager is the platform one plus a pin requirement.
+     *
+     * <p>The context is created with a null KeyManager and the default SecureRandom so that only
+     * trust evaluation changes; nothing else about the JVM's TLS configuration is overridden.
+     */
+    private static SSLContext pinnedContext(Set<String> certificatePins) {
+        try {
+            SSLContext context = SSLContext.getInstance("TLS");
+            context.init(
+                    null, new TrustManager[] {PortalCertificatePinning.over(certificatePins)}, null);
+            return context;
+        } catch (GeneralSecurityException exception) {
+            throw new PatientPortalConfigurationException(
+                    "could not configure portal certificate pinning", exception);
+        }
     }
 
     private static PatientPortalHttpResponse toResponse(ClassicHttpResponse response)
