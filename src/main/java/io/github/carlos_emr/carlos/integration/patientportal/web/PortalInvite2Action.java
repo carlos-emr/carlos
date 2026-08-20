@@ -113,8 +113,7 @@ public class PortalInvite2Action extends PortalJsonAction {
 
         // Before anything else: every route here mutates.
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
+            return methodNotAllowed(response);
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
