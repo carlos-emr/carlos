@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -59,6 +60,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -385,6 +387,141 @@ class PortalInvite2ActionUnitTest {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             assertThat(response.getContentAsString()).contains("revoked");
+        }
+    }
+
+    /**
+     * {@code resend} had no coverage at all — neither the success path nor its guard — on a route
+     * that mints a fresh token and supersedes the previous invitation.
+     */
+    @Nested
+    @DisplayName("resend")
+    class Resend {
+
+        @Test
+        @DisplayName("should resend the selected invitation")
+        void shouldResend_whenAnInviteIsSelected() throws Exception {
+            request.setParameter("method", "resend");
+            request.setParameter("inviteId", "7");
+            when(patientPortalService.resendInvite(eq(7L), any())).thenReturn(issued());
+
+            action.execute();
+
+            verify(patientPortalService).resendInvite(eq(7L), any());
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            // The token is never returned to the browser, on this route as on create.
+            assertThat(response.getContentAsString()).doesNotContain("token-value");
+        }
+
+        @Test
+        @DisplayName("should refuse without sending, when no invitation is selected")
+        void shouldRefuse_whenTheInviteIdIsAbsent() throws Exception {
+            request.setParameter("method", "resend");
+
+            action.execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            verify(patientPortalService, never()).resendInvite(anyLong(), any());
+        }
+
+        /**
+         * Invite identifiers are long everywhere in the portal's contract. Parsing them as int made
+         * anything above 2^31-1 unaddressable, and reported as "an invitation must be selected".
+         */
+        @Test
+        @DisplayName("should address an invitation beyond the range of an int")
+        void shouldResend_whenTheInviteIdExceedsIntegerRange() throws Exception {
+            long beyondInt = Integer.MAX_VALUE + 1L;
+            request.setParameter("method", "resend");
+            request.setParameter("inviteId", String.valueOf(beyondInt));
+            when(patientPortalService.resendInvite(eq(beyondInt), any())).thenReturn(issued());
+
+            action.execute();
+
+            verify(patientPortalService).resendInvite(eq(beyondInt), any());
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        }
+    }
+
+    @Nested
+    @DisplayName("staff identity")
+    class StaffIdentity {
+
+        /**
+         * The portal authorises on the identity header alone, so it matters that the action
+         * forwards the one the resolver derived rather than any context of its own. Every other
+         * test matches this argument with any(), which would not notice a fabricated one.
+         */
+        @Test
+        @DisplayName("should forward the identity the resolver derived, not one of its own")
+        void shouldSendTheResolvedContext_whenCreatingAnInvite() throws Exception {
+            PatientPortalStaffContext resolved =
+                    new PatientPortalStaffContext(
+                            "999998",
+                            "Dr Example",
+                            Set.of(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE));
+            when(staffContextResolver.resolve(any(), any())).thenReturn(resolved);
+            createRequest();
+            when(patientPortalService.listInvites(eq(DEMOGRAPHIC_NO), anyInt(), any()))
+                    .thenReturn(List.of());
+            when(patientPortalService.createInvite(
+                            eq(DEMOGRAPHIC_NO), anyString(), any(), anyString(), any()))
+                    .thenReturn(issued());
+
+            action.execute();
+
+            ArgumentCaptor<PatientPortalStaffContext> sent =
+                    ArgumentCaptor.forClass(PatientPortalStaffContext.class);
+            verify(patientPortalService)
+                    .createInvite(eq(DEMOGRAPHIC_NO), anyString(), any(), anyString(),
+                            sent.capture());
+            assertThat(sent.getValue()).isSameAs(resolved);
+        }
+
+        /**
+         * Scope, not just identity: an invite call has no business carrying authority over
+         * passphrases or the contact-review queue.
+         */
+        @Test
+        @DisplayName("should ask the resolver only for the invite object")
+        void shouldScopeTheIdentity_toTheInviteObject() throws Exception {
+            createRequest();
+            when(patientPortalService.listInvites(eq(DEMOGRAPHIC_NO), anyInt(), any()))
+                    .thenReturn(List.of());
+            when(patientPortalService.createInvite(
+                            eq(DEMOGRAPHIC_NO), anyString(), any(), anyString(), any()))
+                    .thenReturn(issued());
+
+            action.execute();
+
+            verify(staffContextResolver)
+                    .resolve(any(), eq(Set.of(PortalStaffContextResolver.OBJECT_INVITE)));
+        }
+    }
+
+    @Nested
+    @DisplayName("patient record")
+    class PatientRecord {
+
+        /**
+         * A demographic the manager does not return is not an incomplete record. Reporting it as
+         * one sends staff to fill in three fields on a patient who may not exist.
+         */
+        @Test
+        @DisplayName("should say the patient could not be loaded, not that fields are missing")
+        void shouldAnswerNotFound_whenTheDemographicIsAbsent() throws Exception {
+            request.setParameter("method", "create");
+            request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+            when(demographicManager.getDemographic(any(), eq(Integer.valueOf(DEMOGRAPHIC_NO))))
+                    .thenReturn(null);
+
+            action.execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            assertThat(response.getContentAsString())
+                    .contains("patient_not_found")
+                    .doesNotContain("incomplete_record");
+            verifyNoInteractions(patientPortalService);
         }
     }
 }

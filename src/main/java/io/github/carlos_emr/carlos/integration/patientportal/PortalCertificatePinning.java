@@ -109,13 +109,18 @@ final class PortalCertificatePinning implements X509TrustManager {
                     String.format(Locale.ROOT, BAD_PIN, PatientPortalSettings.CERTIFICATE_PINS_KEY));
         }
         for (String pin : pins) {
-            if (pin == null || !pin.startsWith(PIN_PREFIX) || pin.length() <= PIN_PREFIX.length()) {
+            if (!isWellFormed(pin)) {
                 throw new PatientPortalConfigurationException(
                         String.format(
                                 Locale.ROOT, BAD_PIN, PatientPortalSettings.CERTIFICATE_PINS_KEY));
             }
         }
         return new PortalCertificatePinning(delegate, Set.copyOf(pins));
+    }
+
+    /** Whether a configured value has the documented shape, so settings can reject a typo early. */
+    static boolean isWellFormed(String pin) {
+        return pin != null && pin.startsWith(PIN_PREFIX) && pin.length() > PIN_PREFIX.length();
     }
 
     /** The JVM's own trust manager, so the standard checks are kept rather than replaced. */

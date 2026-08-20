@@ -177,11 +177,17 @@ abstract class PortalJsonAction extends ActionSupport {
      * to special-case.
      */
     String methodNotAllowed(HttpServletResponse response) throws IOException {
+        response.setHeader("Allow", allowedMethods());
         return failure(
                 response,
                 HttpServletResponse.SC_METHOD_NOT_ALLOWED,
                 "method_not_allowed",
                 WRONG_METHOD);
+    }
+
+    /** The methods a 405 must advertise, per RFC 9110. Read actions widen this. */
+    String allowedMethods() {
+        return "POST";
     }
 
     /**
@@ -202,6 +208,11 @@ abstract class PortalJsonAction extends ActionSupport {
         logger.warn(exception.getMessage());
         return failure(
                 response, HttpServletResponse.SC_FORBIDDEN, "not_permitted", PERMISSION_DENIED);
+    }
+
+    String notFound(HttpServletResponse response, String reason, String message)
+            throws IOException {
+        return failure(response, HttpServletResponse.SC_NOT_FOUND, reason, message);
     }
 
     String badRequest(HttpServletResponse response, String message) throws IOException {
