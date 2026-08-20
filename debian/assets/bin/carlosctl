@@ -1,0 +1,1070 @@
+#!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
+#
+# carlosctl — administration for a CARLOS EMR host installed from the
+# carlos-emr package.
+#
+# The package's maintainer scripts call the same verbs an administrator does,
+# so provisioning logic exists in exactly one place: what `dpkg-reconfigure`
+# runs is what you can re-run by hand, and it behaves the same way.
+#
+# Run `carlosctl` with no arguments for the command list.
+
+set -euo pipefail
+
+CONF_DIR=/etc/carlos-emr
+ENV_FILE="${CONF_DIR}/carlos-emr.env"
+PROPERTIES="${CONF_DIR}/carlos.properties"
+DRUGREF_PROPERTIES="${CONF_DIR}/drugref2.properties"
+BACKUP_ENV="${CONF_DIR}/backup.env"
+SHARE=/usr/share/carlos-emr
+LIB=/usr/lib/carlos-emr
+WEBAPP="${SHARE}/webapp/carlos"
+STATE=/var/lib/carlos-emr
+
+RED=''; GREEN=''; YELLOW=''; RESET=''
+if [ -t 1 ]; then
+    RED=$'\033[31m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RESET=$'\033[0m'
+fi
+
+log()  { printf 'carlosctl: %s\n' "$*"; }
+warn() { printf 'carlosctl: %sWARNING%s: %s\n' "${YELLOW}" "${RESET}" "$*" >&2; }
+die()  { printf 'carlosctl: %sERROR%s: %s\n' "${RED}" "${RESET}" "$*" >&2; exit 1; }
+ok()   { printf '  %sOK%s      %s\n' "${GREEN}" "${RESET}" "$*"; }
+bad()  { printf '  %sFAIL%s    %s\n' "${RED}" "${RESET}" "$*"; CHECK_FAILURES=$((CHECK_FAILURES + 1)); }
+note() { printf '  %sNOTE%s    %s\n' "${YELLOW}" "${RESET}" "$*"; }
+CHECK_FAILURES=0
+
+# Is this the loopback interface, in any of the spellings ss prints?
+# 127.0.0.0/8, ::1, and the IPv4-mapped [::ffff:127.0.0.1] a dual-stack JVM
+# reports.
+is_loopback() {
+    case "${1#\[}" in
+        127.*|::1|\[::1|::ffff:127.*|\[::ffff:127.*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+need_root() {
+    [ "$(id -u)" = 0 ] || die "this command needs root (try: sudo carlosctl $*)"
+}
+
+load_env() {
+    # shellcheck disable=SC1090
+    [ -r "${ENV_FILE}" ] && . "${ENV_FILE}"
+    CARLOS_SERVER_NAME="${CARLOS_SERVER_NAME:-localhost}"
+    CARLOS_BIND_IP="${CARLOS_BIND_IP:-0.0.0.0}"
+    CARLOS_PROVINCE="${CARLOS_PROVINCE:-on}"
+    CARLOS_DB_HOST="${CARLOS_DB_HOST:-127.0.0.1}"
+    CARLOS_DB_PORT="${CARLOS_DB_PORT:-3306}"
+    CARLOS_DB_NAME="${CARLOS_DB_NAME:-oscar}"
+}
+
+# Read a value out of a Java .properties file. Deliberately not `source` — a
+# properties file is not shell, and treating a password containing a backtick
+# as shell would be a command-injection bug in the administration tool.
+prop_get() {
+    local file="$1" key="$2"
+    [ -r "${file}" ] || return 1
+    sed -n "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\(.*\)$/\1/p" "${file}" | tail -1
+}
+
+# Java .properties escaping: a backslash introduces an escape, so a password
+# containing one must be doubled or the application reads a different string
+# than the database was given.
+prop_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g'; }
+prop_unescape() { printf '%s' "$1" | sed -e 's/\\\\/\\/g'; }
+
+prop_set() {
+    local file="$1" key="$2" value="$3" tmp
+    tmp="$(mktemp "${file}.XXXXXX")"
+    # Preserve the file's mode and owner: these files hold credentials and a
+    # rewrite that resets them to 0644 would be a silent disclosure.
+    cp --preserve=mode,ownership "${file}" "${tmp}"
+    if grep -qE "^[[:space:]]*${key}[[:space:]]*=" "${file}"; then
+        # The value travels through the ENVIRONMENT, not `awk -v`. awk -v runs
+        # escape processing over its argument, so a value containing a
+        # backslash — legal in a Java properties value, and possible in an
+        # operator-chosen password — would arrive mangled and the application
+        # would authenticate with a different string than the database was
+        # given.
+        CARLOS_PROP_KEY="${key}" CARLOS_PROP_VALUE="${value}" awk '
+            BEGIN { k = ENVIRON["CARLOS_PROP_KEY"]; v = ENVIRON["CARLOS_PROP_VALUE"] }
+            $0 ~ "^[[:space:]]*"k"[[:space:]]*=" && !done { print k " = " v; done=1; next }
+            { print }
+        ' "${file}" > "${tmp}"
+    else
+        cat "${file}" > "${tmp}"
+        printf '%s = %s\n' "${key}" "${value}" >> "${tmp}"
+    fi
+    mv -f "${tmp}" "${file}"
+}
+
+# Random credential material.
+#
+# Alphanumeric only: these values end up in a Java properties file, a systemd
+# EnvironmentFile, a shell-sourced env file and SQL DDL, and losing a few bits
+# of entropy is a far better trade than a quoting bug in one of the four.
+#
+# NOT `tr -dc ... < /dev/urandom | head -c N`. That is the idiom everyone
+# reaches for and it is wrong here: head exits at N bytes, tr is killed by
+# SIGPIPE, and under `set -o pipefail` the pipeline reports 141 — which aborted
+# this script (and with it the package installation) partway through
+# provisioning. Reading a BOUNDED amount up front means every process in the
+# pipeline reaches EOF and exits 0.
+genrandom() {
+    local want="$1" alphabet="$2" raw
+    # 128 bytes of entropy is ~170 base64 characters; after stripping the
+    # non-alphanumerics that is comfortably more than any caller asks for.
+    raw="$(head -c 128 /dev/urandom | base64 | LC_ALL=C tr -dc "${alphabet}")"
+    if [ "${#raw}" -lt "${want}" ]; then
+        die "could not generate ${want} random characters (is /dev/urandom readable?)"
+    fi
+    printf '%s' "${raw:0:${want}}"
+}
+
+genpw() { genrandom 32 'A-Za-z0-9'; }
+
+# --- database access --------------------------------------------------------
+#
+# Administrative access uses root@localhost over the unix socket. On Ubuntu
+# that account authenticates with unix_socket, so root on the host is already
+# root in the database and NO password is stored anywhere for it. That is why
+# this package never asks for or records a MariaDB root password.
+db_root() { mariadb --protocol=socket --user=root "$@"; }
+
+db_root_ok() { db_root -N -B -e 'SELECT 1' >/dev/null 2>&1; }
+
+require_db_root() {
+    db_root_ok || die "cannot reach MariaDB as root over the unix socket. Is mariadb running (systemctl status mariadb), and are you root?"
+}
+
+# SQL string literal escaping for the few places a generated password is
+# interpolated into DDL. Passwords come from genpw (alphanumeric only), so this
+# is belt and braces for an operator-supplied value.
+sql_escape() { printf '%s' "$1" | sed -e "s/\\\\/\\\\\\\\/g" -e "s/'/\\\\'/g"; }
+
+# --- flyway -----------------------------------------------------------------
+
+flyway_locations() {
+    load_env
+    printf 'classpath:db/migration/common,classpath:db/migration/%s' "${CARLOS_PROVINCE}"
+}
+
+# The migration engine, the JDBC driver and the migration files all come from
+# the deployed WAR. Nothing else can guarantee that the history this writes is
+# the history the application validates at boot.
+run_flyway() {
+    local command="$1"
+    # Java 21 explicitly, for the same reason as the service wrapper: the
+    # migration engine and the JDBC driver come out of the deployed WAR and
+    # must run on the JVM the application was built for.
+    #
+    # Written as an if/fi rather than `[ -x "$d" ] && java="$d" && break`:
+    # under `set -e` that form exits the whole script the moment the last
+    # candidate does not exist, which is the normal case on a host that has
+    # only one JVM installed.
+    local java=""
+    local d
+    for d in /usr/lib/jvm/java-21-openjdk-*/bin/java \
+             /usr/lib/jvm/java-21-openjdk/bin/java \
+             /usr/lib/jvm/default-java/bin/java; do
+        if [ -x "${d}" ]; then
+            java="${d}"
+            break
+        fi
+    done
+    if [ -z "${java}" ]; then
+        java="$(command -v java || true)"
+    fi
+    [ -n "${java}" ] || die "no Java runtime found; install openjdk-21-jre-headless"
+    [ -d "${WEBAPP}/WEB-INF/lib" ] || die "${WEBAPP} is not an exploded CARLOS webapp"
+
+    load_env
+    local user password
+    user="$(prop_get "${PROPERTIES}" db_username)" || die "db_username missing from ${PROPERTIES}"
+    password="$(prop_unescape "$(prop_get "${PROPERTIES}" db_password || true)")"
+
+    # Credentials go through the environment, never argv: /proc/<pid>/cmdline
+    # is world-readable and this connects to a database holding PHI.
+    FLYWAY_URL="jdbc:mysql://${CARLOS_DB_HOST}:${CARLOS_DB_PORT}/${CARLOS_DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true" \
+    FLYWAY_USER="${user}" \
+    FLYWAY_PASSWORD="${password}" \
+    "${java}" \
+        -cp "${SHARE}/lib/carlos-flyway-runner.jar:${WEBAPP}/WEB-INF/classes:${WEBAPP}/WEB-INF/lib/*" \
+        io.github.carlos_emr.carlos.deb.FlywayRunner "${command}" "$(flyway_locations)"
+}
+
+# --- provisioning -----------------------------------------------------------
+
+cmd_provision_db() {
+    need_root provision-db
+    require_db_root
+    load_env
+
+    local app_pw drugref_pw backup_pw
+    # Re-use the existing password when one is already configured, so a
+    # dpkg-reconfigure or a package upgrade does not invalidate the credential
+    # the running application is holding.
+    app_pw="$(prop_unescape "$(prop_get "${PROPERTIES}" db_password 2>/dev/null || true)")"
+    [ -n "${app_pw}" ] || app_pw="$(genpw)"
+    drugref_pw="$(prop_unescape "$(prop_get "${DRUGREF_PROPERTIES}" db_password 2>/dev/null || true)")"
+    [ -n "${drugref_pw}" ] || drugref_pw="$(genpw)"
+    backup_pw="$(sed -n 's/^CARLOS_BACKUP_DB_PASSWORD=//p' "${BACKUP_ENV}" 2>/dev/null || true)"
+    [ -n "${backup_pw}" ] || backup_pw="$(genpw)"
+
+    local verify_db
+    verify_db="$(sed -n 's/^CARLOS_BACKUP_VERIFY_DB=//p' "${BACKUP_ENV}" 2>/dev/null || echo carlos_restore_drill)"
+    verify_db="${verify_db:-carlos_restore_drill}"
+
+    log "provisioning databases and least-privilege accounts"
+    db_root <<SQL
+-- Account and grant DDL must NOT ride the binary log. The backup's dump and
+-- replay legs exclude the mysql schema and run with sql_log_bin=0, so a
+-- point-in-time restore never re-applies credentials. That contract only holds
+-- if provisioning stays out of the binlog too; otherwise a windowed restore
+-- would replay an ALTER USER and rewind the application's password to a stale
+-- generation — an outage at the next restart, with no obvious cause.
+SET SESSION sql_log_bin = 0;
+
+CREATE DATABASE IF NOT EXISTS \`${CARLOS_DB_NAME}\`
+    CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+CREATE DATABASE IF NOT EXISTS \`${verify_db}\`
+    CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+
+-- The application account. ALL PRIVILEGES on its own schema and nothing
+-- anywhere else: it can do whatever the ORM needs inside \`${CARLOS_DB_NAME}\`
+-- and has no view of any other database, no FILE, no PROCESS, no SUPER.
+CREATE USER IF NOT EXISTS 'carlos'@'localhost' IDENTIFIED BY '$(sql_escape "${app_pw}")';
+CREATE USER IF NOT EXISTS 'carlos'@'127.0.0.1' IDENTIFIED BY '$(sql_escape "${app_pw}")';
+ALTER USER 'carlos'@'localhost' IDENTIFIED BY '$(sql_escape "${app_pw}")';
+ALTER USER 'carlos'@'127.0.0.1' IDENTIFIED BY '$(sql_escape "${app_pw}")';
+GRANT ALL PRIVILEGES ON \`${CARLOS_DB_NAME}\`.* TO 'carlos'@'localhost';
+GRANT ALL PRIVILEGES ON \`${CARLOS_DB_NAME}\`.* TO 'carlos'@'127.0.0.1';
+
+-- DrugRef gets rights on the drug reference schema only. Upstream's own
+-- configuration connects as root; on a host where one MariaDB serves both, a
+-- drug-lookup service must not hold a credential that can read the patient
+-- schema.
+CREATE USER IF NOT EXISTS 'drugref'@'localhost' IDENTIFIED BY '$(sql_escape "${drugref_pw}")';
+CREATE USER IF NOT EXISTS 'drugref'@'127.0.0.1' IDENTIFIED BY '$(sql_escape "${drugref_pw}")';
+ALTER USER 'drugref'@'localhost' IDENTIFIED BY '$(sql_escape "${drugref_pw}")';
+ALTER USER 'drugref'@'127.0.0.1' IDENTIFIED BY '$(sql_escape "${drugref_pw}")';
+
+-- The backup account is READ-ONLY on the clinical schema.
+--   SELECT, SHOW VIEW, TRIGGER, EVENT  what mariadb-dump reads
+--   RELOAD                             FLUSH BINARY LOGS
+--   REPLICATION CLIENT                 the binlog coordinates the dump records
+--   REPLICATION SLAVE                  stream closed binlogs off the server,
+--                                      so the job never needs to read the
+--                                      0700 mysql-owned datadir
+-- Deliberately NOT PROCESS: a leak of backup.env would otherwise let an
+-- attacker run SHOW PROCESSLIST and watch every clinician's live SQL, bound
+-- PHI parameters included. mariadb-dump is invoked with --no-tablespaces so it
+-- never needs it.
+CREATE USER IF NOT EXISTS 'backup'@'localhost' IDENTIFIED BY '$(sql_escape "${backup_pw}")';
+CREATE USER IF NOT EXISTS 'backup'@'127.0.0.1' IDENTIFIED BY '$(sql_escape "${backup_pw}")';
+ALTER USER 'backup'@'localhost' IDENTIFIED BY '$(sql_escape "${backup_pw}")';
+ALTER USER 'backup'@'127.0.0.1' IDENTIFIED BY '$(sql_escape "${backup_pw}")';
+GRANT SELECT, SHOW VIEW, TRIGGER, EVENT ON \`${CARLOS_DB_NAME}\`.* TO 'backup'@'localhost';
+GRANT SELECT, SHOW VIEW, TRIGGER, EVENT ON \`${CARLOS_DB_NAME}\`.* TO 'backup'@'127.0.0.1';
+GRANT RELOAD, REPLICATION CLIENT, REPLICATION SLAVE ON *.* TO 'backup'@'localhost';
+GRANT RELOAD, REPLICATION CLIENT, REPLICATION SLAVE ON *.* TO 'backup'@'127.0.0.1';
+-- Write rights on the restore-drill scratch database ONLY. The drill has to
+-- create and drop tables; scoping that to a throwaway schema is what stops a
+-- mistyped drill from touching the live one.
+GRANT ALL PRIVILEGES ON \`${verify_db}\`.* TO 'backup'@'localhost';
+GRANT ALL PRIVILEGES ON \`${verify_db}\`.* TO 'backup'@'127.0.0.1';
+
+-- mysql_secure_installation-equivalent hygiene. The Ubuntu package ships no
+-- anonymous accounts today, but a PHI database should not rest on an
+-- unverified default: an anonymous account is an unauthenticated path to the
+-- server. The \`test\` database is deliberately NOT dropped — provisioning
+-- stays additive, and a migrated legacy install can arrive with real data in
+-- a schema of that name.
+DELETE FROM mysql.global_priv WHERE User='';
+FLUSH PRIVILEGES;
+SQL
+
+    prop_set "${PROPERTIES}" db_password "$(prop_escape "${app_pw}")"
+    prop_set "${PROPERTIES}" db_username carlos
+    if [ -f "${DRUGREF_PROPERTIES}" ]; then
+        prop_set "${DRUGREF_PROPERTIES}" db_password "$(prop_escape "${drugref_pw}")"
+        prop_set "${DRUGREF_PROPERTIES}" db_user drugref
+    fi
+    if [ -f "${BACKUP_ENV}" ]; then
+        sed -i "s|^CARLOS_BACKUP_DB_PASSWORD=.*|CARLOS_BACKUP_DB_PASSWORD=${backup_pw}|" "${BACKUP_ENV}"
+    fi
+    log "accounts provisioned: carlos (read/write on ${CARLOS_DB_NAME}), drugref, backup (read-only)"
+}
+
+cmd_rotate_db_passwords() {
+    need_root rotate
+    require_db_root
+    log "rotating database passwords"
+    # Blank the stored values so provision-db generates fresh ones, then
+    # restart so the application picks up the credential it was just given.
+    prop_set "${PROPERTIES}" db_password ""
+    [ -f "${DRUGREF_PROPERTIES}" ] && prop_set "${DRUGREF_PROPERTIES}" db_password ""
+    [ -f "${BACKUP_ENV}" ] && sed -i 's|^CARLOS_BACKUP_DB_PASSWORD=.*|CARLOS_BACKUP_DB_PASSWORD=|' "${BACKUP_ENV}"
+    cmd_provision_db
+    systemctl restart carlos-emr.service
+    log "rotated; carlos-emr restarted"
+}
+
+# --- deliberate decommissioning --------------------------------------------
+
+# The ONLY supported way this software destroys clinical data.
+#
+# It lives here, in a command an operator types while the package is installed,
+# rather than in the package's own removal path. `apt purge` must never be able
+# to destroy patient records — not with -y, not with a debconf prompt somebody
+# tabs past at the end of a long day. Decommissioning a clinical system should
+# require someone to say what they are decommissioning, out loud, by name.
+cmd_destroy_data() {
+    need_root destroy-data
+    load_env
+
+    local confirm="" include_backups=0
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --confirm) shift; confirm="${1:-}" ;;
+            --including-backups) include_backups=1 ;;
+            *) die "unknown option: $1" ;;
+        esac
+        shift || true
+    done
+
+    if [ "${confirm}" != "${CARLOS_SERVER_NAME}" ]; then
+        cat >&2 <<EOF
+carlosctl: this destroys the clinical record on this host and cannot be undone.
+
+It will DROP the '${CARLOS_DB_NAME}' and 'drugref2' databases, and delete every
+patient document under ${STATE}/OscarDocument, every JVM heap dump, and the
+application logs.
+
+To proceed you must name the host you are destroying:
+
+    carlosctl destroy-data --confirm ${CARLOS_SERVER_NAME}
+
+Add --including-backups to also delete /var/backups/carlos-emr. Without it the
+backups survive, which is almost always what you want — a decommissioned
+instance whose backups are gone is not decommissioned, it is lost.
+EOF
+        exit 2
+    fi
+
+    warn "destroying the CARLOS clinical data on ${CARLOS_SERVER_NAME}"
+
+    # Stop the application first: dropping a schema out from under a running
+    # JVM produces a torrent of errors and can leave half-written files in the
+    # document store.
+    if [ -d /run/systemd/system ]; then
+        systemctl stop carlos-emr.service 2>/dev/null || true
+    fi
+
+    if db_root_ok; then
+        log "dropping databases"
+        db_root <<SQL
+SET SESSION sql_log_bin = 0;
+DROP DATABASE IF EXISTS \`${CARLOS_DB_NAME}\`;
+DROP DATABASE IF EXISTS \`drugref2\`;
+DROP USER IF EXISTS 'carlos'@'localhost';
+DROP USER IF EXISTS 'carlos'@'127.0.0.1';
+DROP USER IF EXISTS 'drugref'@'localhost';
+DROP USER IF EXISTS 'drugref'@'127.0.0.1';
+DROP USER IF EXISTS 'backup'@'localhost';
+DROP USER IF EXISTS 'backup'@'127.0.0.1';
+SQL
+    else
+        warn "MariaDB is not reachable; the databases were NOT dropped"
+    fi
+
+    log "removing patient documents, heap dumps and logs"
+    rm -rf "${STATE}/OscarDocument" "${STATE}/heapdumps"
+    rm -rf /var/log/carlos-emr/tomcat /var/log/carlos-emr/modsec
+
+    # The encryption key and the backup passphrase go last, and only once the
+    # data they protect is gone — shredded, not unlinked, because they are the
+    # difference between a retained backup being readable and being noise.
+    if [ "${include_backups}" = 1 ]; then
+        log "removing backups"
+        rm -rf /var/backups/carlos-emr
+        shred -u "${BACKUP_ENV}" 2>/dev/null || rm -f "${BACKUP_ENV}"
+        shred -u "${PROPERTIES}" 2>/dev/null || rm -f "${PROPERTIES}"
+        log "backups and key material destroyed"
+    else
+        warn "backups in /var/backups/carlos-emr were KEPT."
+        warn "${BACKUP_ENV} and ${PROPERTIES} were kept with them — without"
+        warn "RESTIC_PASSWORD and encryption.util.secret.key those backups are"
+        warn "unreadable. Escrow both before you wipe this host."
+    fi
+
+    log "done. 'apt purge carlos-emr carlos-emr-drugref' now removes the software."
+}
+
+# --- MariaDB runtime settings ------------------------------------------------
+
+# The drop-in at /etc/mysql/mariadb.conf.d/60-carlos-emr.cnf is read only when
+# the server starts, and mariadb-server is already running by the time this
+# package is configured. Without this step the deployment silently runs on
+# distribution defaults: STRICT sql_mode (which the OSCAR-lineage application
+# does not expect), no binary log (so no point-in-time recovery, and the
+# nightly backup fails outright), and a 128 MB buffer pool.
+#
+# Restarting somebody's database is not something a package should do casually,
+# so this only acts when the RUNNING values actually disagree with the file —
+# on an upgrade where nothing changed, it is a no-op.
+cmd_db_apply_settings() {
+    need_root 'db apply-settings'
+    require_db_root
+
+    local need_restart=0 actual
+    # SELECT @@GLOBAL.<var> renders booleans as 1/0, not ON/OFF, so `want` for
+    # a boolean is given as "1|ON" and matched against either spelling. An
+    # exact string compare against "ON" reported log_bin as wrong on a server
+    # that had it enabled, and bounced the database for nothing.
+    check_setting() {
+        local var="$1" want="$2"
+        actual="$(db_root -N -B -e "SELECT @@GLOBAL.${var}" 2>/dev/null || echo '?')"
+        case "|${want}|" in
+            *"|${actual}|"*) return 0 ;;
+        esac
+        log "MariaDB ${var} is '${actual}', the CARLOS drop-in asks for '${want}'"
+        need_restart=1
+    }
+    # Only settings that cannot be changed at runtime and that the deployment
+    # actually depends on. Buffer-pool size is deliberately not checked: it IS
+    # settable at runtime, a site may have tuned it, and disagreeing with the
+    # packaged default is not a reason to bounce a clinical database.
+    check_setting log_bin "1|ON"
+    check_setting sql_mode ""
+    check_setting character_set_server utf8mb4
+    check_setting bind_address 127.0.0.1
+
+    if [ "${need_restart}" = 0 ]; then
+        log "MariaDB is already running with the CARLOS settings"
+        return 0
+    fi
+
+    if [ ! -d /run/systemd/system ]; then
+        warn "MariaDB needs a restart to pick up /etc/mysql/mariadb.conf.d/60-carlos-emr.cnf,"
+        warn "but systemd is not running here. Restart it yourself before using this system."
+        return 0
+    fi
+
+    log "restarting MariaDB to apply /etc/mysql/mariadb.conf.d/60-carlos-emr.cnf"
+    systemctl restart mariadb.service || die "MariaDB failed to restart; check 'systemctl status mariadb' and 'journalctl -u mariadb'"
+
+    # Wait for it to accept connections again before anything downstream tries.
+    local i=0
+    while [ "${i}" -lt 60 ] && ! db_root_ok; do
+        sleep 1
+        i=$((i + 1))
+    done
+    db_root_ok || die "MariaDB did not come back after the restart"
+
+    need_restart=0
+    check_setting log_bin "1|ON"
+    check_setting sql_mode ""
+    if [ "${need_restart}" = 1 ]; then
+        warn "MariaDB restarted but is STILL not running the CARLOS settings."
+        warn "Something later in /etc/mysql/ is overriding the drop-in — MariaDB option"
+        warn "files are last-occurrence-wins, so look for a file sorting after 60-."
+        return 1
+    fi
+    log "MariaDB restarted with the CARLOS settings applied"
+}
+
+# --- schema -----------------------------------------------------------------
+
+cmd_db() {
+    local sub="${1:-info}"; shift || true
+    case "${sub}" in
+        info|validate|migrate|baseline|repair)
+            need_root "db ${sub}"
+            if [ "${sub}" = migrate ]; then
+                warn "apply migrations only AFTER a backup you have verified. DDL is not transactional in MariaDB; a failed migration can leave a partial schema."
+            fi
+            run_flyway "${sub}"
+            ;;
+        shell)
+            need_root 'db shell'
+            require_db_root
+            load_env
+            db_root "${CARLOS_DB_NAME}" "$@"
+            ;;
+        dump)
+            need_root 'db dump'
+            require_db_root
+            load_env
+            # To stdout, never to a default path: a database dump is the whole
+            # clinical record in one file and the operator must choose, and
+            # secure, where it lands.
+            mariadb-dump --protocol=socket --user=root --single-transaction \
+                --hex-blob --routines --events --triggers --no-tablespaces \
+                --default-character-set=utf8mb4 "${CARLOS_DB_NAME}"
+            ;;
+        apply-settings)
+            cmd_db_apply_settings
+            ;;
+        *)
+            die "unknown 'db' subcommand: ${sub} (info|validate|migrate|baseline|repair|apply-settings|shell|dump)"
+            ;;
+    esac
+}
+
+
+# --- configuration rendering ------------------------------------------------
+
+# Derive the application configuration from the site settings. Idempotent, and
+# it only ever touches keys this package owns — every other line of
+# carlos.properties is left exactly as the administrator left it, because that
+# file is where a clinic configures labs, faxes, billing and integrations.
+cmd_init_config() {
+    need_root init-config
+    load_env
+
+    [ -f "${PROPERTIES}" ] || die "${PROPERTIES} does not exist; reinstall the package"
+
+    local province_lc province_uc
+    province_lc="$(printf '%s' "${CARLOS_PROVINCE}" | tr 'A-Z' 'a-z')"
+    province_uc="$(printf '%s' "${CARLOS_PROVINCE}" | tr 'a-z' 'A-Z')"
+
+    # JDBC parameters, and why each one is here:
+    #   zeroDateTimeBehavior=round        the OSCAR-lineage schema contains
+    #       0000-00-00 dates; the driver's default is to throw on read, which
+    #       makes whole clinical screens fail. `round` returns 0001-01-01.
+    #       NOTE: that is a FABRICATED date, not a null. It is upstream's
+    #       long-standing choice and the application expects it;
+    #       convertToNull is the alternative if your workflows can take a null.
+    #   useOldAliasMetadataBehavior=true  legacy DAOs read columns by their
+    #       pre-alias names.
+    #   jdbcCompliantTruncation=false     matches the server's non-strict
+    #       sql_mode; without it the driver rejects what the server accepts.
+    #   characterEncoding/connectionCollation  keep the connection utf8mb4 so
+    #       the server-side default is not silently downgraded.
+    prop_set "${PROPERTIES}" db_name \
+        "${CARLOS_DB_NAME}?zeroDateTimeBehavior=round&useOldAliasMetadataBehavior=true&jdbcCompliantTruncation=false&characterEncoding=UTF-8&connectionCollation=utf8mb4_general_ci"
+    prop_set "${PROPERTIES}" db_uri "jdbc:mysql://${CARLOS_DB_HOST}:${CARLOS_DB_PORT}/"
+    prop_set "${PROPERTIES}" db_type mysql
+    prop_set "${PROPERTIES}" db_driver com.mysql.cj.jdbc.Driver
+
+    # Document storage. The application writes patient documents here; the
+    # directory is 2750 carlos:carlos so the backup user can read them and
+    # nothing else on the host can.
+    prop_set "${PROPERTIES}" BASE_DOCUMENT_DIR "${STATE}/OscarDocument/"
+    prop_set "${PROPERTIES}" DOCUMENT_DIR "${STATE}/OscarDocument/carlos/document/"
+    prop_set "${PROPERTIES}" INCOMINGDOCUMENT_DIR "${STATE}/OscarDocument/carlos/incomingdocs"
+    prop_set "${PROPERTIES}" INVOICE_DIR "${STATE}/OscarDocument/carlos/billing/invoices"
+    prop_set "${PROPERTIES}" FAX_INCOMING_DIR "${STATE}/OscarDocument/carlos/fax-incoming"
+    prop_set "${PROPERTIES}" tomcat_path "${STATE}/catalina/"
+
+    prop_set "${PROPERTIES}" billregion "${province_uc}"
+    prop_set "${PROPERTIES}" buildtag carlos-emr-deb
+
+    # Belt and braces for the build stamp. The skeleton is taken from the WAR,
+    # where the pom has already substituted these, so they should be real
+    # values. If a future build ever ships them unsubstituted, the application
+    # renders the raw ${...} text in the corner of the LOGIN page — visible to
+    # every unauthenticated visitor. Replace anything that still looks like a
+    # placeholder with this package's version, which is at least true.
+    local pkg_version
+    pkg_version="$(dpkg-query -f '${Version}' -W carlos-emr 2>/dev/null || echo unknown)"
+    case "$(prop_get "${PROPERTIES}" buildDate 2>/dev/null || true)" in
+        *'${'*) prop_set "${PROPERTIES}" buildDate "$(date -I)" ;;
+    esac
+    case "$(prop_get "${PROPERTIES}" buildVersion 2>/dev/null || true)" in
+        *'${'*) prop_set "${PROPERTIES}" buildVersion "carlos-emr ${pkg_version}" ;;
+    esac
+    # project_home is a legacy OSCAR name used two ways: as the OscarDocument
+    # subdirectory, and as a fallback URL context prefix when the eForm PDF
+    # composer and the MOH billing views cannot see a real context path. Both
+    # are "carlos" in this layout (/var/lib/carlos-emr/OscarDocument/carlos and
+    # the /carlos context), so the upstream default of "oscar_mcmaster" would
+    # send both down a path that does not exist here.
+    prop_set "${PROPERTIES}" project_home carlos
+
+    # The schema gate. `validate` is the production posture: the application
+    # refuses to start against a schema it was not built for, instead of
+    # failing hours later with a column-not-found error in the middle of a
+    # consultation. Migrations are applied by `carlosctl db migrate`, which is
+    # an explicit, logged operation an operator runs after taking a backup —
+    # never silently on boot.
+    prop_set "${PROPERTIES}" carlos.flyway.onBoot validate
+    prop_set "${PROPERTIES}" carlos.flyway.locations \
+        "classpath:db/migration/common,classpath:db/migration/${province_lc}"
+
+    # DrugRef is co-deployed in this Tomcat and is reachable only on loopback.
+    prop_set "${PROPERTIES}" drugref_url "http://127.0.0.1:18080/drugref2/DrugrefService"
+
+    # The shipped image carries no Chromium, so the boot-time browser probe for
+    # the eForm-to-PDF renderer can only fail and log an error burst on every
+    # start. A site that installs a browser sets this to `warn` and fills in
+    # the two paths.
+    prop_set "${PROPERTIES}" eform_pdf_browser_startup_check off
+
+    # AES-256 key used to encrypt third-party credentials (fax provider
+    # passwords and the like) at rest in the database. Generated once and NEVER
+    # rotated automatically: rotating it orphans every value already encrypted
+    # under the old key. Treat it as a data key — it is included in the backup,
+    # and it must also be escrowed somewhere the loss of this host does not
+    # reach.
+    local existing_key
+    existing_key="$(prop_get "${PROPERTIES}" encryption.util.secret.key 2>/dev/null || true)"
+    if [ -z "${existing_key}" ]; then
+        prop_set "${PROPERTIES}" encryption.util.secret.key "$(openssl rand -base64 32)"
+        log "generated encryption.util.secret.key — it is in the backup; escrow it off-host too"
+    fi
+
+    chown root:carlos "${PROPERTIES}"
+    chmod 0640 "${PROPERTIES}"
+
+    # nginx site fragments. Generated rather than shipped as conffiles so that
+    # changing the host name or the listen address is one edit in
+    # carlos-emr.env plus `carlosctl init-config`, with no conffile prompt on
+    # the next upgrade.
+    install -d -m 0755 "${CONF_DIR}/nginx"
+    cat > "${CONF_DIR}/nginx/server-name.conf" <<EOF
+# Generated by carlosctl from CARLOS_SERVER_NAME in ${ENV_FILE}. Do not edit.
+server_name ${CARLOS_SERVER_NAME};
+EOF
+    # A `listen 0.0.0.0:443` binds IPv4 only. On a host with a AAAA record that
+    # is an outage that looks like a DNS problem, so add the IPv6 wildcard when
+    # — and only when — the operator asked for every interface.
+    local listen6_http="" listen6_https=""
+    if [ "${CARLOS_BIND_IP}" = "0.0.0.0" ]; then
+        listen6_http="listen [::]:80;"
+        listen6_https="listen [::]:443 ssl;"
+    fi
+    cat > "${CONF_DIR}/nginx/listen-http.conf" <<EOF
+# Generated by carlosctl from CARLOS_BIND_IP in ${ENV_FILE}. Do not edit.
+# Plain HTTP exists only to redirect to HTTPS and to answer ACME challenges.
+listen ${CARLOS_BIND_IP}:80;
+${listen6_http}
+EOF
+    # http2 is its own directive: nginx 1.25 deprecated "listen ... http2" and
+    # 1.28 warns on it.
+    cat > "${CONF_DIR}/nginx/listen-https.conf" <<EOF
+# Generated by carlosctl from CARLOS_BIND_IP in ${ENV_FILE}. Do not edit.
+listen ${CARLOS_BIND_IP}:443 ssl;
+${listen6_https}
+http2 on;
+EOF
+    chmod 0644 "${CONF_DIR}/nginx"/*.conf
+    [ -f "${CONF_DIR}/nginx/proxy-params.conf" ] || \
+        install -m 0644 "${SHARE}/skel/proxy-params.conf" "${CONF_DIR}/nginx/proxy-params.conf"
+    [ -f "${CONF_DIR}/nginx/stapling.conf" ] || \
+        printf '# Managed by carlos-emr-cert.\n' > "${CONF_DIR}/nginx/stapling.conf"
+    log "configuration rendered for ${CARLOS_SERVER_NAME} (province ${province_uc})"
+}
+
+# --- bootstrap administrator ------------------------------------------------
+
+cmd_bootstrap_admin() {
+    need_root bootstrap-admin
+    require_db_root
+    load_env
+
+    # WHY THIS EXISTS. The Flyway province data migration seeds one
+    # administrator account (`carlosdoc`) with a FIXED bcrypt hash that is
+    # published in the source repository — it is the development credential the
+    # project's own test suite uses. Every installation created from these
+    # migrations therefore starts with the same publicly-known password and
+    # PIN. Leaving that in place on a machine that will hold patient records is
+    # not acceptable, so the package replaces both with random values at
+    # install time and tells the operator once.
+    local user=carlosdoc
+    local exists
+    exists="$(db_root -N -B -e \
+        "SELECT COUNT(*) FROM \`${CARLOS_DB_NAME}\`.security WHERE user_name='${user}'" 2>/dev/null || echo 0)"
+    if [ "${exists}" = 0 ]; then
+        log "no seeded '${user}' account present; nothing to reset"
+        return 0
+    fi
+
+    local password pin hash
+    password="$(genpw)"
+    # EXACTLY FOUR DIGITS. Not a style choice — Login2Action discards the
+    # submitted PIN unless it matches [0-9]{4}, then compares the resulting
+    # empty string against the stored one, so any other length authenticates
+    # as "wrong PIN" with a message that says the password was wrong. A
+    # six-digit PIN here made the freshly-installed administrator account
+    # impossible to log into, with no useful error anywhere. Verified live
+    # against the deployed application.
+    #
+    # Four digits is 10,000 possibilities. That is weak in isolation and it is
+    # the application's contract; what makes it acceptable is that the PIN is
+    # a second factor behind a 32-character random password, and the app locks
+    # an address out after login_max_failed_times attempts.
+    pin="$(genrandom 4 '0-9')"
+    # Spring Security's DelegatingPasswordEncoder format. Cost 12 to match what
+    # the application's own tooling produces (scripts/generate_bcrypt_password.py).
+    hash="$(BOOTSTRAP_PW="${password}" python3 - <<'PYEOF'
+import bcrypt, os
+pw = os.environ["BOOTSTRAP_PW"].encode()
+print("{bcrypt}" + bcrypt.hashpw(pw, bcrypt.gensalt(12)).decode())
+PYEOF
+)" || die "could not generate a bcrypt hash (is python3-bcrypt installed?)"
+
+    # sql_log_bin=0 for the same reason provisioning uses it: a point-in-time
+    # restore must not replay a credential change and rewind the administrator
+    # password to a generation nobody has any more.
+    db_root <<SQL
+SET SESSION sql_log_bin = 0;
+UPDATE \`${CARLOS_DB_NAME}\`.security
+   SET password='$(sql_escape "${hash}")',
+       pin='$(sql_escape "${pin}")',
+       passwordUpdateDate=NOW(),
+       pinUpdateDate=NOW(),
+       lastUpdateUser='carlosctl'
+ WHERE user_name='${user}';
+SQL
+
+    local out="${CONF_DIR}/initial-admin.txt"
+    umask 0077
+    cat > "${out}" <<EOF
+CARLOS EMR initial administrator credentials
+============================================
+Generated by the carlos-emr package on $(date -Is).
+
+  URL:      https://${CARLOS_SERVER_NAME}/carlos/
+  user:     ${user}
+  password: ${password}
+  PIN:      ${pin}
+
+The database migrations seed this account with a password whose hash is
+published in the CARLOS source repository. The package has replaced it with the
+random values above so that no installation ships with a known credential.
+
+The account is also flagged for a FORCED PASSWORD RESET, which is how the
+migrations seed it and which this package deliberately leaves in place: the
+password above exists in a file on disk, so it must not stay in use. Your first
+login goes straight to the reset page and asks for this password as the "old"
+one, plus a new one of your choosing.
+
+The PIN is four digits because the application accepts no other length: the
+login action discards any PIN that does not match [0-9]{4}. It is a second
+factor behind the password, and the application locks an address out after
+login_max_failed_times consecutive failures.
+
+DO THIS NOW, IN THIS ORDER:
+  1. Log in and complete the forced password reset.
+  2. Create a real named account for each clinician and administrator.
+  3. Disable this account (Administration > User Management).
+  4. Delete this file:  shred -u ${out}
+
+This file is mode 0600 and readable only by root. It is NOT included in the
+backup.
+EOF
+    chmod 0600 "${out}"
+    chown root:root "${out}"
+    log "reset the seeded '${user}' credential; the new password and PIN are in ${out}"
+}
+
+# --- WAF --------------------------------------------------------------------
+
+waf_engine() {
+    sed -n 's/^SecRuleEngine[[:space:]]\+\([A-Za-z]\+\).*/\1/p' "${CONF_DIR}/modsecurity/main.conf" | head -1
+}
+
+cmd_waf() {
+    local sub="${1:-status}"; shift || true
+    case "${sub}" in
+        status)
+            printf 'rule engine: %s\n' "$(waf_engine)"
+            printf 'policy:      %s\n' "${CONF_DIR}/modsecurity/main.conf"
+            printf 'exclusions:  %s\n' "${CONF_DIR}/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf"
+            printf 'audit log:   /var/log/carlos-emr/modsec/modsec_audit.log\n'
+            ;;
+        detect-only)
+            need_root 'waf detect-only'
+            sed -i 's/^SecRuleEngine .*/SecRuleEngine DetectionOnly/' "${CONF_DIR}/modsecurity/main.conf"
+            nginx -t && systemctl reload nginx
+            warn "the WAF is now LOGGING ONLY and blocks nothing. This is a triage mode."
+            warn "collect the false positives with 'carlosctl waf tail', add exclusions to"
+            warn "${CONF_DIR}/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf, then run"
+            warn "'carlosctl waf blocking'. Do not leave a PHI system in this state."
+            ;;
+        blocking)
+            need_root 'waf blocking'
+            sed -i 's/^SecRuleEngine .*/SecRuleEngine On/' "${CONF_DIR}/modsecurity/main.conf"
+            nginx -t && systemctl reload nginx
+            log "the WAF is blocking again"
+            ;;
+        tail)
+            # Print what an exclusion needs: the rule that fired, what it
+            # matched on, and the request it fired for.
+            local audit=/var/log/carlos-emr/modsec/modsec_audit.log
+            [ -r "${audit}" ] || die "${audit} is unreadable (are you root or in group adm?)"
+            if command -v jq >/dev/null 2>&1; then
+                tail -n "${1:-200}" "${audit}" | jq -r '
+                    . as $t
+                    | (.transaction.messages // [])[]
+                    | "\(.details.ruleId // "?")  \(.details.match // "" | .[0:120])
+      uri: \($t.transaction.request.uri // "?")
+      msg: \(.message // "")"' 2>/dev/null || tail -n "${1:-200}" "${audit}"
+            else
+                warn "install jq for readable output; showing raw JSON"
+                tail -n "${1:-200}" "${audit}"
+            fi
+            ;;
+        *)
+            die "unknown 'waf' subcommand: ${sub} (status|detect-only|blocking|tail [lines])"
+            ;;
+    esac
+}
+
+# --- health check -----------------------------------------------------------
+
+cmd_check() {
+    load_env
+    CHECK_FAILURES=0
+    printf '\nCARLOS EMR deployment check (%s)\n\n' "${CARLOS_SERVER_NAME}"
+
+    printf 'services\n'
+    local unit
+    for unit in mariadb nginx carlos-emr; do
+        if systemctl is-active --quiet "${unit}"; then ok "${unit} is running"
+        else bad "${unit} is NOT running (systemctl status ${unit})"; fi
+    done
+    for unit in carlos-emr-backup.timer carlos-emr-backup-verify.timer carlos-emr-cert-renew.timer; do
+        if systemctl is-enabled --quiet "${unit}" 2>/dev/null; then ok "${unit} is enabled"
+        else bad "${unit} is NOT enabled"; fi
+    done
+
+    printf '\nprocess ownership\n'
+    # The whole point of the user split: prove it at runtime rather than
+    # trusting that the unit files still say what they said at install time.
+    local owner
+    owner="$(ps -o user= -C java 2>/dev/null | sort -u | tr '\n' ' ' || true)"
+    if [ -z "${owner}" ]; then bad "no java process found"
+    elif printf '%s' "${owner}" | grep -qw root; then bad "a java process is running as ROOT: ${owner}"
+    else ok "application JVM runs as: ${owner}"; fi
+
+    printf '\nnetwork exposure\n'
+    # Tomcat must not be reachable except on loopback: anything else is a path
+    # around the WAF and therefore around TLS, the security headers and the
+    # rate limit in one step.
+    #
+    # A JVM with IPv6 enabled reports a loopback bind as [::ffff:127.0.0.1],
+    # the IPv4-mapped form — matching only the literal 127.0.0.1 made this
+    # check cry wolf on a perfectly correct deployment.
+    local listen_addr
+    listen_addr="$(ss -ltnH 2>/dev/null | awk '$4 ~ /:18080$/ {print $4}' | head -1)"
+    if [ -z "${listen_addr}" ]; then
+        bad "nothing is listening on 18080 — is carlos-emr running?"
+    elif is_loopback "${listen_addr%:*}"; then
+        ok "Tomcat listens on loopback only (${listen_addr})"
+    else
+        bad "Tomcat is listening on ${listen_addr} — requests can bypass the WAF"
+    fi
+    listen_addr="$(ss -ltnH 2>/dev/null | awk '$4 ~ /:3306$/ {print $4}' | head -1)"
+    if [ -n "${listen_addr}" ]; then
+        if is_loopback "${listen_addr%:*}"; then
+            ok "MariaDB listens on loopback only (${listen_addr})"
+        else
+            bad "MariaDB is listening on ${listen_addr} — check bind-address in /etc/mysql/mariadb.conf.d/60-carlos-emr.cnf"
+        fi
+    fi
+    if ss -ltn 2>/dev/null | grep -q ':443'; then ok "nginx is listening on 443"
+    else bad "nothing is listening on 443"; fi
+
+    printf '\nTLS\n'
+    "${LIB}/carlos-emr-cert" status | sed 's/^/  /'
+    if [ -r "${CONF_DIR}/tls/fullchain.pem" ]; then
+        if openssl x509 -checkend $((21 * 86400)) -noout -in "${CONF_DIR}/tls/fullchain.pem" >/dev/null 2>&1; then
+            ok "certificate is valid for at least 21 more days"
+        else
+            bad "certificate expires within 21 days"
+        fi
+    fi
+
+    printf '\nfront door\n'
+    local code
+    # Probe through the CONFIGURED server name, resolved to loopback, rather
+    # than by IP. Two reasons: it exercises SNI, the nginx server_name match
+    # and the certificate a real client sees, and it avoids CRS rule 920350
+    # ("Host header is a numeric IP address"), which otherwise fires on every
+    # health check and fills the audit log with noise generated by the health
+    # check itself.
+    #
+    # -k because the default certificate is self-signed; this is a local probe
+    # of our own listener, not a trust decision about a third party.
+    local -a probe=(curl -sk --max-time 20 --resolve "${CARLOS_SERVER_NAME}:443:127.0.0.1")
+    local url="https://${CARLOS_SERVER_NAME}/carlos/"
+    # Retry for a while before calling it a failure. Deploying this webapp takes
+    # around two minutes from cold, so a check run straight after a restart
+    # would otherwise report the front door down on a system that is merely
+    # still starting — the kind of false alarm that teaches people to ignore
+    # the tool.
+    local attempt=0
+    code=000
+    while [ "${attempt}" -lt 12 ]; do
+        code="$("${probe[@]}" -o /dev/null -w '%{http_code}' "${url}" 2>/dev/null || echo 000)"
+        case "${code}" in
+            200|302|303) break ;;
+        esac
+        if [ "${attempt}" = 0 ]; then
+            note "front door not answering yet; waiting up to 2 minutes for the application to deploy"
+        fi
+        attempt=$((attempt + 1))
+        sleep 10
+    done
+    case "${code}" in
+        200|302|303) ok "${url} returned ${code}" ;;
+        000)         bad "no HTTPS response from the front door at ${url} after 2 minutes" ;;
+        *)           bad "${url} returned ${code}" ;;
+    esac
+    if "${probe[@]}" -I "${url}" 2>/dev/null | grep -qi '^strict-transport-security:'; then
+        ok "HSTS header is served"
+    else
+        bad "HSTS header is missing — check /etc/nginx/snippets/carlos-emr-headers.conf"
+    fi
+    # nginx add_header does not inherit into a block with its own add_header;
+    # this is the exact regression that silently stripped the headers from the
+    # login page, so probe it separately rather than trusting the config.
+    if "${probe[@]}" -o /dev/null -w '%{http_code}' "https://${CARLOS_SERVER_NAME}/drugref2/DrugrefService" 2>/dev/null | grep -q '^404$'; then
+        ok "DrugRef is not reachable through the front door"
+    else
+        bad "the front door exposes /drugref2 — it is an unauthenticated service"
+    fi
+
+    printf '\nWAF\n'
+    if [ "$(waf_engine)" = On ]; then ok "ModSecurity rule engine is On (blocking)"
+    else bad "ModSecurity rule engine is $(waf_engine) — it is not blocking anything"; fi
+    # A live probe, because a config that says "blocking" and a WAF that blocks
+    # are different claims. This is a canonical CRS SQLi signature; it must not
+    # reach the application.
+    code="$("${probe[@]}" -o /dev/null -w '%{http_code}' \
+        "https://${CARLOS_SERVER_NAME}/carlos/index.jsp?id=1%27%20OR%20%271%27=%271" || echo 000)"
+    if [ "${code}" = 403 ]; then ok "a probe SQL-injection request was blocked (403)"
+    else bad "a probe SQL-injection request returned ${code}, expected 403"; fi
+
+    printf '\ndatabase\n'
+    if db_root_ok; then
+        ok "MariaDB reachable as root over the unix socket"
+        local n
+        n="$(db_root -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${CARLOS_DB_NAME}'" 2>/dev/null || echo 0)"
+        if [ "${n}" -gt 100 ]; then ok "${CARLOS_DB_NAME} has ${n} tables"
+        else bad "${CARLOS_DB_NAME} has only ${n} tables — has the schema been migrated?"; fi
+        n="$(db_root -N -B -e "SELECT COUNT(*) FROM \`${CARLOS_DB_NAME}\`.flyway_schema_history WHERE success=1" 2>/dev/null || echo 0)"
+        if [ "${n}" -gt 0 ]; then ok "flyway_schema_history has ${n} successful migration(s)"
+        else bad "flyway_schema_history is empty or missing — the application's boot-time schema gate will fail"; fi
+    else
+        bad "cannot reach MariaDB as root over the unix socket"
+    fi
+
+    printf '\nbackups\n'
+    if [ -r /var/backups/carlos-emr/.last-success ]; then
+        ok "last successful backup: $(cat /var/backups/carlos-emr/.last-success)"
+    else
+        bad "no backup has ever succeeded (systemctl start carlos-emr-backup)"
+    fi
+    if [ -r /var/backups/carlos-emr/.last-verify ]; then
+        ok "last restore drill: $(cat /var/backups/carlos-emr/.last-verify)"
+    else
+        note "no restore drill has run yet; the weekly timer will run one, or start carlos-emr-backup-verify now"
+    fi
+    if grep -q '^RESTIC_REPOSITORY=/var/backups' "${BACKUP_ENV}" 2>/dev/null; then
+        note "backups are stored on THIS HOST only. That is not disaster recovery — set an offsite RESTIC_REPOSITORY in ${BACKUP_ENV}."
+    fi
+
+    printf '\n'
+    if [ "${CHECK_FAILURES}" = 0 ]; then
+        printf '%sAll checks passed.%s\n\n' "${GREEN}" "${RESET}"
+        return 0
+    fi
+    printf '%s%d check(s) failed.%s\n\n' "${RED}" "${CHECK_FAILURES}" "${RESET}"
+    return 1
+}
+
+cmd_status() {
+    load_env
+    systemctl --no-pager --lines=0 status carlos-emr.service nginx.service mariadb.service 2>/dev/null || true
+    printf '\ntimers:\n'
+    systemctl --no-pager list-timers 'carlos-emr*' 2>/dev/null || true
+}
+
+usage() {
+    cat <<'EOU'
+carlosctl — administration for a CARLOS EMR host
+
+  carlosctl check                 run the full deployment check (start here)
+  carlosctl status                systemd status of the EMR and its timers
+
+  carlosctl db info               show the schema migration state
+  carlosctl db validate           verify the schema matches the deployed WAR
+  carlosctl db migrate            apply pending migrations (BACK UP FIRST)
+  carlosctl db baseline           adopt an existing pre-Flyway schema
+  carlosctl db repair             fix a flyway_schema_history after a failure
+  carlosctl db apply-settings     restart MariaDB if it is not running the
+                                  settings in the CARLOS drop-in
+  carlosctl db shell [args]       interactive SQL shell on the EMR database
+  carlosctl db dump               consistent dump to stdout
+
+  carlosctl cert status           what certificate is being served
+  carlosctl cert selfsigned       (re)generate the self-signed certificate
+  carlosctl cert acme <email>     switch to a Let's Encrypt certificate
+  carlosctl cert manual           adopt a certificate you placed yourself
+
+  carlosctl waf status            ModSecurity engine state and file locations
+  carlosctl waf tail [lines]      show recent WAF blocks, readable
+  carlosctl waf detect-only       stop blocking (triage only — see the warning)
+  carlosctl waf blocking          resume blocking
+
+  carlosctl backup run            take a backup now
+  carlosctl backup verify         restore the newest backup into a scratch db
+  carlosctl backup status         when backups and drills last succeeded
+  carlosctl backup snapshots      list what is in the repository
+
+  carlosctl init-config           re-render configuration from carlos-emr.env
+  carlosctl bootstrap-admin       reset the seeded administrator credential
+  carlosctl provision-db          (re)create the databases and accounts
+  carlosctl rotate                rotate every generated database password
+
+Decommissioning:
+  carlosctl destroy-data --confirm <server-name>
+                                  DESTROY the clinical record on this host.
+                                  Removing the package never does this; this is
+                                  the only supported way, and it makes you type
+                                  the host's own name back to it.
+  carlosctl logs [args]           journalctl -u carlos-emr
+
+Configuration:
+  /etc/carlos-emr/carlos-emr.env       site settings (host name, heap, province)
+  /etc/carlos-emr/carlos.properties    application configuration and credentials
+  /etc/carlos-emr/backup.env           backup repository and credentials
+  /etc/carlos-emr/tomcat/              Tomcat configuration
+  /etc/carlos-emr/modsecurity/         WAF policy and exclusions
+  /etc/nginx/sites-available/carlos-emr  front door
+
+Full documentation: /usr/share/doc/carlos-emr/README.Debian
+EOU
+}
+
+case "${1:-}" in
+    check)         cmd_check ;;
+    status)        cmd_status ;;
+    db)            shift; cmd_db "$@" ;;
+    cert)          shift; need_root cert; exec "${LIB}/carlos-emr-cert" "$@" ;;
+    waf)           shift; cmd_waf "$@" ;;
+    backup)
+        shift
+        need_root backup
+        # Always through the backup user, never as root: running the backup as
+        # root would defeat the separation the accounts exist to create, and
+        # would leave root-owned files in a repository the timer then cannot
+        # write to.
+        exec runuser -u carlos-backup -- "${LIB}/carlos-emr-backup" "$@"
+        ;;
+    init-config)   cmd_init_config ;;
+    bootstrap-admin) cmd_bootstrap_admin ;;
+    provision-db)  cmd_provision_db ;;
+    destroy-data)  shift; cmd_destroy_data "$@" ;;
+    rotate)        cmd_rotate_db_passwords ;;
+    logs)          shift; exec journalctl -u carlos-emr.service "$@" ;;
+    ''|-h|--help|help) usage ;;
+    *)             die "unknown command: $1 (try: carlosctl --help)" ;;
+esac

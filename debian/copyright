@@ -1,0 +1,78 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: CARLOS EMR
+Upstream-Contact: https://github.com/carlos-emr/carlos
+Source: https://github.com/carlos-emr/carlos
+Comment:
+ CARLOS (Clinical Assisting Recording Ledger Open Source) is a fork of the
+ OpenO EMR project, which is itself a fork of OSCAR McMaster. Copyright
+ statements from those projects survive throughout the source tree; they refer
+ to the upstream lineage and imply no affiliation with OpenOSP or McMaster
+ University.
+ .
+ The binary packages built from this source embed a large set of Java
+ dependencies resolved from Maven Central at build time and shipped inside
+ /usr/share/carlos-emr/webapp/. Those artefacts carry their own licences,
+ which are recorded in the CycloneDX software bill of materials published with
+ each CARLOS release rather than restated here.
+
+Files: *
+Copyright: 2001-2026 CARLOS Contributors
+           2001-2025 OpenO EMR Contributors
+           2001-2012 Department of Family Medicine, McMaster University
+License: GPL-2+
+
+Files: debian/*
+Copyright: 2026 CARLOS Contributors
+License: AGPL-3.0-only
+Comment:
+ The packaging is licensed AGPL-3.0-only to match the CARLOS deployment
+ tooling (carlos-podman), from which several of the configuration decisions
+ and their rationale are derived. It is combinable with the GPL-2+ application
+ it packages because it is an aggregate, not a derived work: nothing in
+ debian/ links against the application.
+
+Files: debian/assets/tomcat/server.xml
+       debian/assets/tomcat/context.xml
+       debian/assets/tomcat/logging.properties
+       debian/assets/tomcat/tomcat-users.xml
+       debian/assets/tomcat/Catalina/*
+Copyright: 2026 CARLOS Contributors
+License: Apache-2.0
+Comment:
+ Derived from the configuration templates shipped with Apache Tomcat 11 and
+ from the CARLOS devcontainer configuration.
+
+License: GPL-2+
+ This program is free software; you can redistribute it and/or modify it
+ under the terms of the GNU General Public License as published by the Free
+ Software Foundation; either version 2 of the License, or (at your option)
+ any later version.
+ .
+ This program is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ details.
+ .
+ On Debian systems, the complete text of the GNU General Public License
+ version 2 can be found in "/usr/share/common-licenses/GPL-2".
+
+License: AGPL-3.0-only
+ This program is free software: you can redistribute it and/or modify it
+ under the terms of the GNU Affero General Public License version 3 as
+ published by the Free Software Foundation.
+ .
+ This program is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+ details.
+ .
+ On Debian systems, the complete text of the GNU Affero General Public License
+ version 3 can be found in "/usr/share/common-licenses/AGPL-3".
+
+License: Apache-2.0
+ Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ use these files except in compliance with the License. You may obtain a copy
+ of the License at http://www.apache.org/licenses/LICENSE-2.0
+ .
+ On Debian systems, the complete text of the Apache License version 2.0 can be
+ found in "/usr/share/common-licenses/Apache-2.0".

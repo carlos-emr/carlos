@@ -1,0 +1,177 @@
+.TH CARLOSCTL 8 "2026-08-20" "carlos-emr" "System Administration"
+.SH NAME
+carlosctl \- administer a CARLOS EMR host installed from the carlos\-emr package
+.SH SYNOPSIS
+.B carlosctl
+.I command
+.RI [ subcommand ]
+.RI [ arguments ]
+.SH DESCRIPTION
+.B carlosctl
+is the administration interface for a single\-host CARLOS EMR deployment
+installed from the
+.B carlos\-emr
+package.
+.PP
+The package's maintainer scripts call the same verbs an administrator does, so
+provisioning logic exists in exactly one place: what
+.B dpkg\-reconfigure
+runs is what you can re\-run by hand, and it behaves identically.
+.PP
+Most commands require root.
+.SH COMMANDS
+.SS Diagnosis
+.TP
+.B check
+Run the full deployment check and exit non\-zero if anything fails. It verifies
+that the services are running, that no component is running as root, that
+Tomcat and MariaDB listen on loopback only, that the certificate is valid, that
+the security response headers are served, that the WAF blocks a probe
+SQL\-injection request, that DrugRef is not reachable through the front door,
+that the schema has a Flyway history, and that backups are fresh. Start here.
+.TP
+.B status
+Systemd status of the EMR, nginx, MariaDB and the package's timers.
+.TP
+.BR logs " [\fIjournalctl-args\fR]"
+Application server log.
+.SS Schema
+.TP
+.B db info
+Show which migrations are applied and which are pending.
+.TP
+.B db validate
+Verify the schema matches the migrations shipped in the deployed WAR. This is
+the same check the application performs at boot.
+.TP
+.B db migrate
+Apply pending migrations.
+.B Take a verified backup first:
+DDL is not transactional in MariaDB and a failed migration can leave a
+partially\-changed schema.
+.TP
+.B db baseline
+Adopt an existing pre\-Flyway (OSCAR 19 / OpenO) schema by stamping the history
+at the full genesis, version 1.0.2. Follow it with
+.BR "db migrate" .
+Never stamp at 1: Flyway would re\-run the province migrations, which DROP and
+recreate province tables.
+.TP
+.B db repair
+Repair
+.I flyway_schema_history
+after a failed migration.
+.TP
+.BR "db shell" " [\fIargs\fR]"
+Interactive SQL shell on the EMR database as root over the unix socket.
+.TP
+.B db dump
+Write a consistent dump to standard output. It is never written to a default
+path: a dump is the entire clinical record in one file and the operator must
+choose, and secure, where it lands.
+.SS Certificates
+.TP
+.B cert status
+Show which certificate is being served and when it expires.
+.TP
+.BR "cert selfsigned" " [\fB\-\-force\fR]"
+Generate the self\-signed pair, or regenerate it when it is within 30 days of
+expiry.
+.TP
+.BI "cert acme " email
+Obtain and install a Let's Encrypt certificate with certbot's webroot method.
+Requires that
+.B CARLOS_SERVER_NAME
+resolves in public DNS to this host and that port 80 is reachable.
+.TP
+.B cert manual
+Adopt a certificate chain and key you placed at
+.I /etc/carlos\-emr/tls/fullchain.pem
+and
+.IR privkey.pem .
+Nothing will overwrite them afterwards.
+.SS Web application firewall
+.TP
+.B waf status
+ModSecurity engine state and the location of the policy and exclusion files.
+.TP
+.BR "waf tail" " [\fIlines\fR]"
+Show recent WAF blocks with the rule id, what it matched and the request URI \-
+the information an exclusion needs.
+.TP
+.B waf detect-only
+Stop blocking. For triage only; do not leave a system holding patient data in
+this state.
+.TP
+.B waf blocking
+Resume blocking.
+.SS Backups
+.TP
+.B backup run
+Take a backup now. Always executed as the
+.B carlos\-backup
+user, never as root.
+.TP
+.B backup verify
+Restore the newest dump into the scratch database and check that it loaded.
+.TP
+.B backup status
+When the last backup and the last restore drill succeeded.
+.TP
+.BR "backup snapshots" " [\fIargs\fR]"
+List the contents of the restic repository.
+.SS Provisioning
+.TP
+.B init-config
+Re\-render the derived configuration from
+.IR /etc/carlos\-emr/carlos\-emr.env .
+Run it after changing the host name, the listen address or the heap size. Only
+keys this package owns are touched; every other line of
+.I carlos.properties
+is left alone.
+.TP
+.B bootstrap-admin
+Replace the seeded
+.B carlosdoc
+administrator password and PIN with random values and write them to
+.IR /etc/carlos\-emr/initial\-admin.txt .
+The migrations seed that account with a hash published in the CARLOS source
+repository, so this runs at install time by default.
+.TP
+.B provision-db
+Create the databases and the least\-privilege accounts. Idempotent, and it
+preserves any password already configured.
+.TP
+.B rotate
+Rotate every generated database password and restart the application.
+.SH FILES
+.TP
+.I /etc/carlos-emr/carlos-emr.env
+Site settings: host name, listen address, province, time zone, heap.
+.TP
+.I /etc/carlos-emr/carlos.properties
+Application configuration and the application's database credential.
+.TP
+.I /etc/carlos-emr/backup.env
+Backup repository, passphrase and the read\-only database credential.
+.TP
+.I /etc/carlos-emr/tomcat/
+Tomcat configuration for the CARLOS instance.
+.TP
+.I /etc/carlos-emr/modsecurity/
+WAF policy and site exclusions.
+.TP
+.I /etc/nginx/sites-available/carlos-emr
+The front door.
+.SH EXIT STATUS
+.B check
+exits non\-zero when any check fails. Other commands exit non\-zero on error.
+.SH SEE ALSO
+.BR nginx (8),
+.BR certbot (1),
+.BR restic (1),
+.BR mariadb (1)
+.PP
+.I /usr/share/doc/carlos-emr/README.Debian
+.SH AUTHOR
+CARLOS EMR Contributors.

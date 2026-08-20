@@ -1,0 +1,393 @@
+CARLOS EMR on Ubuntu — package notes
+====================================
+
+This package installs a complete, single-host CARLOS EMR deployment: the
+application, its database, a web application firewall, TLS, and backups. It is
+the simple alternative to the container-based carlos-podman deployment, for
+sites that want one virtual machine and `apt install`.
+
+  IT IS NOT A SUBSTITUTE FOR YOUR OWN REVIEW. Before this system holds patient
+  information, complete your own technical, security, privacy, backup, restore
+  and regulatory review. The sections marked "DECIDE THIS" below are the ones
+  where the package deliberately cannot choose for you.
+
+
+Contents
+--------
+  1. What gets installed and where
+  2. What runs as whom
+  3. First run
+  4. TLS certificates
+  5. The web application firewall
+  6. The database and its schema
+  7. Backups and restore  (DECIDE THIS)
+  8. Upgrades
+  9. Log retention  (DECIDE THIS)
+ 10. What this package deliberately does not do
+ 11. Troubleshooting
+
+
+1. What gets installed and where
+--------------------------------
+
+  /usr/share/carlos-emr/webapp/carlos/   the exploded application, root-owned
+                                         and read-only to the service account
+  /usr/share/carlos-emr/webapp/drugref2/ DrugRef2 (carlos-emr-drugref)
+  /usr/share/carlos-emr/schema/          the Flyway migration set, readable
+  /usr/lib/carlos-emr/                   the administrative helpers
+  /usr/sbin/carlosctl                    the administration command
+
+  /etc/carlos-emr/carlos-emr.env         site settings; yours to edit
+  /etc/carlos-emr/carlos.properties      application configuration + credentials
+  /etc/carlos-emr/drugref2.properties    DrugRef configuration + credentials
+  /etc/carlos-emr/backup.env             backup repository + credentials
+  /etc/carlos-emr/tomcat/                Tomcat configuration (conffiles)
+  /etc/carlos-emr/modsecurity/           WAF policy and exclusions (conffiles)
+  /etc/carlos-emr/tls/                   the served certificate and key
+  /etc/nginx/sites-available/carlos-emr  the front door (conffile)
+  /etc/mysql/mariadb.conf.d/60-carlos-emr.cnf   MariaDB settings (conffile)
+
+  /var/lib/carlos-emr/OscarDocument/     PATIENT DOCUMENTS
+  /var/lib/carlos-emr/catalina/          Tomcat's writable state
+  /var/lib/carlos-emr/heapdumps/         JVM heap dumps (PHI — see below)
+  /var/log/carlos-emr/tomcat/            application, container and access logs
+  /var/log/carlos-emr/modsec/            ModSecurity audit and debug logs
+  /var/backups/carlos-emr/               the local restic repository
+
+Both /var/lib/carlos-emr and /var/log/carlos-emr are root-owned containers;
+every subdirectory is owned by the account that writes it. That is not
+cosmetic: systemd-tmpfiles refuses to descend from a directory owned by one
+unprivileged user into one owned by another, so a service-owned parent would
+leave the nginx-owned subdirectories silently uncreated.
+
+A heap dump written by -XX:+HeapDumpOnOutOfMemoryError contains whatever
+clinical data was in memory when the JVM ran out. It lands in
+/var/lib/carlos-emr/heapdumps (0750 carlos:carlos), never /tmp. Treat one as
+you would a database dump.
+
+Which files are conffiles matters. Anything listed above as a conffile is
+yours to edit and dpkg will offer a three-way merge on upgrade. The four files
+carrying credentials are NOT conffiles: the package writes them once and never
+overwrites them, so an upgrade cannot invalidate a working credential. After an
+upgrade, compare them against the current reference copies in
+/usr/share/carlos-emr/skel/ to see whether new keys are available.
+
+
+2. What runs as whom
+--------------------
+
+  carlos          the JVM serving the EMR. Owns patient documents and holds
+                  the read/write database credential.
+  carlos-backup   the backup and restore-drill timers. Member of group
+                  `carlos` so it can READ application data; the application is
+                  in no group of its own, so it cannot read the backup
+                  repository, its passphrase, or the backup credential. A
+                  compromise of the EMR therefore cannot destroy or decrypt
+                  the backups you would recover from.
+  www-data        nginx, the only process listening on a public interface.
+  mysql           MariaDB, listening on loopback only.
+
+No long-running component runs as root. Root is used by the package maintainer
+scripts, and by the twice-daily certificate-renewal timer, which touches
+/etc/letsencrypt and reloads nginx and nothing else.
+
+nginx's master process starts as root in order to bind ports 80 and 443 and
+immediately drops to www-data for every worker. That is the distribution's own
+design and this package does not change it.
+
+Verify all of this on a running system with:  sudo carlosctl check
+
+
+3. First run
+------------
+
+  sudo carlosctl check
+
+runs the full deployment check: services, process ownership, what is listening
+where, certificate validity, the security headers, whether the WAF actually
+blocks a probe attack, schema state, and backup freshness. Start there.
+
+The database migrations seed one administrator account, `carlosdoc`, whose
+password hash is published in the CARLOS source repository. The package
+replaces that password and PIN with random values at install time and writes
+them to /etc/carlos-emr/initial-admin.txt (mode 0600, root only).
+
+That account arrives flagged for a FORCED PASSWORD RESET — the state the
+migrations seed it in, which this package deliberately keeps. Your first login
+goes straight to the reset page: it asks for the generated password as the
+"old" one and a new password of your choosing. That matters, because the
+generated password exists in a file on disk and must not become the long-term
+credential.
+
+The PIN is four digits, and that is not a package choice: Login2Action
+discards any submitted PIN that does not match [0-9]{4} and then compares the
+resulting empty string, so a longer PIN fails authentication with a message
+saying the *password* was wrong. If you set PINs by hand, use four digits.
+
+Then create real named accounts for each clinician, disable `carlosdoc`, and
+delete /etc/carlos-emr/initial-admin.txt.
+
+
+4. TLS certificates
+-------------------
+
+nginx always reads /etc/carlos-emr/tls/fullchain.pem and privkey.pem. What is
+behind those two paths is managed by carlosctl, so switching certificate
+providers never involves editing nginx configuration.
+
+  sudo carlosctl cert status          what is being served now
+  sudo carlosctl cert selfsigned      regenerate the self-signed pair
+  sudo carlosctl cert acme you@clinic.ca
+                                      switch to Let's Encrypt
+  sudo carlosctl cert manual          adopt files you placed yourself
+
+The default is self-signed, on purpose: it means the EMR is served over TLS
+from the first minute rather than sitting on plain HTTP "until we get the
+certificate sorted out". Browsers will warn until you replace it.
+
+`carlosctl cert acme` needs the host name in /etc/carlos-emr/carlos-emr.env to
+resolve in public DNS to this machine, and port 80 reachable from the internet
+for the HTTP-01 challenge. It uses certbot's webroot method rather than the
+nginx plugin, because the plugin rewrites the site file — a dpkg conffile —
+behind your back.
+
+The carlos-emr-cert-renew.timer runs twice a day. In acme mode it renews; in
+selfsigned mode it re-issues a certificate that is within 30 days of expiry;
+in manual mode it FAILS THE UNIT if your certificate expires within 21 days,
+so that a front door about to go dark is loud rather than silent.
+
+
+5. The web application firewall
+-------------------------------
+
+nginx runs ModSecurity 3 with the OWASP Core Rule Set at paranoia level 1, in
+BLOCKING mode, with the CRS default anomaly thresholds (inbound 5, outbound
+4). Those thresholds are not arbitrary: a single critical-severity signature
+scores 5, so one clean SQL-injection, cross-site-scripting or
+remote-code-execution hit blocks. The widely-copied 10/5 pair would log such an
+attack and let it through.
+
+  sudo carlosctl waf status           engine state and file locations
+  sudo carlosctl waf tail 200         recent blocks, in readable form
+
+The audit log is /var/log/carlos-emr/modsec/modsec_audit.log, mode 0640
+root:adm inside a 0750 directory — readable by root and group adm, and by
+nothing else. Records are JSON carrying headers and matched rules but NOT
+request or response bodies (SecAuditLogParts ABFHKZ). That is the PHI decision
+described under "Log retention", and it is checkable on a running system:
+every record has `request.headers` and no `request.body`.
+  sudo carlosctl waf detect-only      stop blocking, for triage only
+  sudo carlosctl waf blocking         resume blocking
+
+CARLOS is a large application of OSCAR lineage and a clinical workflow you use
+may trip a rule the packaged exclusions do not cover. The supported response
+is: reproduce it, read `carlosctl waf tail` for the rule id and the matched
+variable, and add the NARROWEST exclusion that works to
+
+  /etc/carlos-emr/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf
+
+which is a conffile, so your entries survive upgrades. Prefer
+`SecRuleUpdateTargetById 942100 "!ARGS:fieldname"` over
+`SecRuleRemoveById 942100`: the first unhooks one field from one rule, the
+second turns the rule off for the whole application.
+
+Do not leave a system holding patient data in detect-only mode.
+
+
+6. The database and its schema
+------------------------------
+
+Installing this package RESTARTS MariaDB once, if it has to. The settings in
+/etc/mysql/mariadb.conf.d/60-carlos-emr.cnf are read only at server start, and
+mariadb-server is already running by the time this package is configured — so
+without the restart the deployment silently runs on distribution defaults:
+STRICT sql_mode (which the OSCAR-lineage application does not expect) and no
+binary log, meaning no point-in-time recovery and a nightly backup that fails.
+`carlosctl db apply-settings` compares the RUNNING values against the file and
+restarts only when they disagree, so an upgrade that changes nothing never
+bounces your database.
+
+On Ubuntu 26.04 the MariaDB data directory is /var/lib/mariadb, not
+/var/lib/mysql — it moved in 1:11.8.6-5 for MySQL co-installability. The binary
+log setting in the drop-in is therefore RELATIVE (log_bin = binlog) so that it
+follows the datadir; an absolute /var/lib/mysql/binlog stops the server from
+starting on this release.
+
+MariaDB runs on this host, listening on loopback only, with three
+least-privilege accounts and no application ever connecting as root:
+
+  carlos    ALL PRIVILEGES on the EMR schema, nothing anywhere else
+  drugref   ALL PRIVILEGES on drugref2 only, so a drug lookup service cannot
+            read the patient schema
+  backup    read-only on the EMR schema, plus the replication rights that let
+            it stream binary logs off the server without being able to read
+            the datadir. Deliberately no PROCESS: a leak of backup.env must
+            not let someone watch clinicians' live SQL.
+
+Administrative access is root@localhost over the unix socket, which on Ubuntu
+authenticates by uid. That is why this package never asks for, and never
+stores, a MariaDB root password.
+
+The schema is managed with Flyway. The application boots with
+`carlos.flyway.onBoot=validate`, so it refuses to start against a schema it was
+not built for rather than failing later with a column-not-found error in the
+middle of a consultation. Migrations are applied explicitly:
+
+  sudo carlosctl db info              what is applied and what is pending
+  sudo carlosctl db validate          does the schema match the deployed WAR
+  sudo carlosctl db migrate           apply pending migrations
+
+TAKE A BACKUP YOU HAVE VERIFIED BEFORE MIGRATING. DDL is not transactional in
+MariaDB: a migration that fails part way can leave a partially-changed schema.
+
+MariaDB strictness. The drop-in leaves `sql_mode` empty, which is what the
+OSCAR-lineage application expects: over-length and out-of-range values are
+coerced rather than rejected, and zero dates are accepted. Enabling
+STRICT_TRANS_TABLES is a genuine data-integrity improvement and a genuine
+application-compatibility risk; validate it on a copy of your data first.
+
+Adopting an existing pre-Flyway (OSCAR 19 / OpenO) database is a two-step
+operation and NOT what `db migrate` does on its own:
+
+  sudo carlosctl db baseline          stamp the history at the full genesis
+  sudo carlosctl db migrate           apply only the forward deltas
+
+The baseline is stamped at 1.0.2, not 1. Stamping at 1 would make Flyway re-run
+the province migrations, and those DROP and recreate province tables — data
+loss.
+
+
+7. Backups and restore   (DECIDE THIS)
+--------------------------------------
+
+The nightly timer produces three encrypted restic snapshots:
+
+  db      a consistent logical dump taken with --single-transaction, recording
+          the binary-log coordinates it corresponds to
+  binlog  every closed binary log, streamed off the server with the backup
+          account's replication right (never read from the datadir, which is
+          0700 mysql:mysql). MariaDB's mariadb-binlog has no --raw, so these
+          are decoded SQL and replay with "mariadb < file".
+  files   patient documents and the configuration
+
+Together those support point-in-time recovery, not just "last night".
+
+  sudo carlosctl backup status        when the last backup and drill succeeded
+  sudo carlosctl backup run           take one now
+  sudo carlosctl backup verify        restore the newest dump into a scratch
+                                      database and check it loaded
+  sudo carlosctl backup snapshots     list the repository
+
+The weekly restore drill is the part that matters. A backup nobody has restored
+is a hypothesis; the drill is what distinguishes "backups ran" from "backups
+work".
+
+  ** THE DEFAULT REPOSITORY IS A DIRECTORY ON THIS MACHINE. **
+  ** THAT IS NOT DISASTER RECOVERY. **
+
+Set an offsite RESTIC_REPOSITORY in /etc/carlos-emr/backup.env before you
+consider the deployment finished, and copy RESTIC_PASSWORD somewhere off this
+host. Without that passphrase every backup ever written is permanently
+unreadable. The same applies to `encryption.util.secret.key` in
+carlos.properties: it decrypts stored third-party credentials, it is inside the
+backup, and it must also be escrowed separately.
+
+Set CARLOS_BACKUP_ALERT_WEBHOOK or CARLOS_BACKUP_ALERT_EMAIL. A backup failure
+nobody hears about is the same as no backup.
+
+To restore a live system (this stops the EMR, so it needs root):
+
+  sudo systemctl stop carlos-emr
+  sudo -u carlos-backup /usr/lib/carlos-emr/carlos-emr-backup snapshots
+  sudo -u carlos-backup restic restore <id> --target /var/backups/carlos-emr/work
+  sudo mariadb oscar < /var/backups/carlos-emr/work/.../oscar.sql
+  # then replay binary logs past the dump's coordinates if recovering forward
+  sudo carlosctl db validate
+  sudo systemctl start carlos-emr
+
+
+8. Upgrades
+-----------
+
+`apt upgrade` of this package replaces the webapp, then postinst re-renders the
+derived configuration, runs `carlosctl db migrate`, and restarts the service.
+The application is deliberately NOT stopped during unpack, so the outage covers
+the migration and restart rather than the whole operation.
+
+Your conffiles are offered as three-way merges. Your credential files are left
+alone. Read /usr/share/carlos-emr/skel/ afterwards to see whether new settings
+are available that your files predate.
+
+If a migration fails, the service will not start (the boot-time validate gate
+is doing its job). Fix the cause, run `carlosctl db migrate`, then
+`systemctl start carlos-emr`.
+
+
+9. Log retention   (DECIDE THIS)
+--------------------------------
+
+/etc/logrotate.d/carlos-emr keeps 30 days. These logs are PHI-adjacent:
+
+  - the Tomcat access log records which authenticated user reached which
+    application route, and from which client address. It deliberately logs the
+    path but NOT the query string, because query strings on this application
+    carry PHI-correlating identifiers.
+  - the ModSecurity audit log (/var/log/carlos-emr/modsec/) records the
+    request line, headers and matched rule for blocked requests. It is
+    configured with SecAuditLogParts ABFHKZ, which excludes request and
+    response BODIES — those are where clinical free text and health-card
+    numbers would land on every false positive.
+
+Only the ModSecurity logs are handled by logrotate. Tomcat's access log, the
+JULI container log and the application's own Log4j2 files each rotate and
+expire themselves (30, 30 and 7 generations respectively); putting logrotate
+on top of a file its writer already manages is how audit trails end up
+truncated. The relevant settings are in /etc/carlos-emr/tomcat/server.xml,
+/etc/carlos-emr/tomcat/logging.properties, and the application's log4j2.xml.
+
+All of them are included in the encrypted backup. Match the retention here,
+and in backup.env, to your own obligations.
+
+
+10. What this package deliberately does not do
+----------------------------------------------
+
+  - It does not configure a host firewall. Ubuntu ships ufw and nftables;
+    which one a site uses, and what else the machine serves, is not something
+    a package should decide. Allow 22, 80 and 443 and deny the rest.
+  - It does not set up an observability stack. Use the journal
+    (`carlosctl logs`), or the carlos-podman deployment if you want metrics
+    and log search.
+  - It does not run the EMR on more than one host, and must not be used that
+    way: several nodes against one database would each run the boot-time
+    schema gate independently.
+  - It does not manage clinical configuration — labs, faxes, HRM, billing
+    submission. Those are settings inside the EMR.
+  - It does not encrypt the disk. On a machine holding patient records, use
+    full-disk encryption.
+
+
+11. Troubleshooting
+-------------------
+
+  sudo carlosctl check                start here; it names the failure
+  sudo carlosctl logs -n 200          application server log
+  sudo journalctl -u nginx -n 100     front door
+  sudo tail -f /var/log/carlos-emr/modsec/modsec_audit.log
+
+The application will not start
+  Almost always the schema gate or the database. `carlosctl db info` shows the
+  migration state; `systemctl status mariadb` shows the database.
+
+A page returns 403 and the application log shows nothing
+  That is the WAF, not the application. `carlosctl waf tail` shows why.
+
+Login redirects to http:// or the session is lost
+  Tomcat's RemoteIpValve has stopped trusting nginx, so the application no
+  longer sees X-Forwarded-Proto. Check the `internalProxies` pattern in
+  /etc/carlos-emr/tomcat/server.xml and the proxy_set_header lines in
+  /etc/carlos-emr/nginx/proxy-params.conf.
+
+Drug lookups return nothing when prescribing
+  Install carlos-emr-drugref, or check that it deployed:
+  `carlosctl logs | grep drugref2`.

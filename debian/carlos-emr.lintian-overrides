@@ -1,0 +1,31 @@
+# The package ships a complete Java web application: the WAR that Maven built
+# from this source tree, exploded. Everything flagged below is content of that
+# artefact, not a packaging decision, and none of it can be replaced with a
+# distribution-packaged copy without rebuilding CARLOS against versions it was
+# never tested with. The full component inventory is published as a CycloneDX
+# SBOM with each CARLOS release.
+
+# Bundled fonts. The eForm renderer and the print stylesheets reference these by
+# path inside the webapp; repointing them at /usr/share/fonts would change how
+# printed clinical documents lay out, which is a validation question, not a
+# packaging one.
+duplicate-font-file
+truetype-font-prohibits-installable-embedding
+
+# Third-party jars that ship .java alongside .class, and jars carrying
+# multi-release entries for a JDK newer than the one this runs on (the JVM
+# simply ignores the versions/ directories above its own).
+jar-contains-source
+unknown-java-class-version
+
+# Bundled JavaScript, and jars whose payload is resources or a service
+# manifest rather than classes. Same reasoning: it is the built artefact.
+embedded-javascript-library
+codeless-jar
+
+# Legacy files inside the upstream application tree: a thumbnail cache
+# directory committed years ago, and a Brazilian-Portuguese copy of the GPL in
+# a non-UTF-8 encoding. Both are inert; removing them from the WAR is an
+# upstream change, not something to patch in at package time.
+package-contains-xvpics-dir
+national-encoding

@@ -1,0 +1,158 @@
+#!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
+#
+# Start wrapper for the CARLOS EMR Tomcat instance. Invoked only by
+# carlos-emr.service; run it by hand solely to reproduce a start failure.
+#
+# It exists rather than putting everything in the unit file for three reasons:
+# the JDK has to be located at run time, the JVM options are assembled from
+# operator-owned settings, and the service must not hand off to Tomcat before
+# the database answers — a Tomcat that deploys against a dead database logs
+# thousands of stack traces and leaves the context permanently failed.
+
+set -euo pipefail
+
+CATALINA_HOME=/usr/share/tomcat11
+CATALINA_BASE=/var/lib/carlos-emr/catalina
+CONF_DIR=/etc/carlos-emr
+PROPERTIES="${CONF_DIR}/carlos.properties"
+
+# --- settings ---------------------------------------------------------------
+# systemd already sourced this through EnvironmentFile=, but sourcing it again
+# makes a manual run behave identically to the service.
+if [ -r "${CONF_DIR}/carlos-emr.env" ]; then
+    # shellcheck disable=SC1091
+    . "${CONF_DIR}/carlos-emr.env"
+fi
+
+CARLOS_JAVA_XMS="${CARLOS_JAVA_XMS:-2g}"
+CARLOS_JAVA_XMX="${CARLOS_JAVA_XMX:-2g}"
+CARLOS_TZ="${CARLOS_TZ:-America/Toronto}"
+CARLOS_DB_HOST="${CARLOS_DB_HOST:-127.0.0.1}"
+CARLOS_DB_PORT="${CARLOS_DB_PORT:-3306}"
+CARLOS_JAVA_OPTS="${CARLOS_JAVA_OPTS:-}"
+
+# --- locate the JDK ---------------------------------------------------------
+# CARLOS is built for and tested on Java 21; pick it explicitly rather than
+# taking default-java, which on Ubuntu 26.04 is Java 25. A newer JVM is not a
+# free upgrade for an application this old — removed internal APIs and changed
+# defaults surface as class-loading failures halfway through a clinical page.
+find_java_home() {
+    if [ -n "${JAVA_HOME:-}" ] && [ -x "${JAVA_HOME}/bin/java" ]; then
+        printf '%s' "${JAVA_HOME}"
+        return 0
+    fi
+    local d
+    for d in /usr/lib/jvm/java-21-openjdk-* /usr/lib/jvm/java-21-openjdk \
+             /usr/lib/jvm/default-java; do
+        if [ -x "${d}/bin/java" ]; then
+            printf '%s' "${d}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if ! JAVA_HOME="$(find_java_home)"; then
+    echo "carlos-emr: no Java 21 runtime found. Install openjdk-21-jre-headless." >&2
+    exit 1
+fi
+export JAVA_HOME
+
+# --- sanity checks with actionable messages ---------------------------------
+# Each of these is a real failure that would otherwise appear as a Tomcat stack
+# trace several hundred lines into the log.
+if [ ! -r "${PROPERTIES}" ]; then
+    echo "carlos-emr: ${PROPERTIES} is missing or unreadable." >&2
+    echo "carlos-emr: run 'dpkg-reconfigure carlos-emr' to regenerate it." >&2
+    exit 1
+fi
+if [ ! -d "${CATALINA_HOME}/lib" ]; then
+    echo "carlos-emr: ${CATALINA_HOME} is not a Tomcat installation (is tomcat11-common installed?)." >&2
+    exit 1
+fi
+if [ ! -e "${CATALINA_BASE}/conf/server.xml" ]; then
+    echo "carlos-emr: ${CATALINA_BASE}/conf is not populated; expected a symlink to ${CONF_DIR}/tomcat." >&2
+    exit 1
+fi
+
+# --- wait for the database --------------------------------------------------
+# Bounded, and it fails the unit rather than looping forever: an operator
+# looking at `systemctl status carlos-emr` should see "database never came up",
+# not a service that has been "activating" since Tuesday. systemd's
+# Restart=on-failure retries the whole thing.
+wait_for_db() {
+    local deadline=$(( SECONDS + 120 ))
+    while [ "${SECONDS}" -lt "${deadline}" ]; do
+        # bash's /dev/tcp is enough: we only need to know something is
+        # accepting on the port, and it avoids depending on a client binary
+        # inside the service sandbox.
+        if (exec 3<>"/dev/tcp/${CARLOS_DB_HOST}/${CARLOS_DB_PORT}") 2>/dev/null; then
+            return 0
+        fi
+        sleep 2
+    done
+    return 1
+}
+
+if ! wait_for_db; then
+    echo "carlos-emr: MariaDB at ${CARLOS_DB_HOST}:${CARLOS_DB_PORT} did not accept a connection within 120s." >&2
+    echo "carlos-emr: check 'systemctl status mariadb'." >&2
+    exit 1
+fi
+
+# --- JVM options ------------------------------------------------------------
+# -Dcarlos_override_properties is how the application finds its configuration
+#   outside the WAR; without it CARLOS reads the packaged defaults, which point
+#   at a development database.
+# --add-opens java.base/java.net: required by the application's HTTP client
+#   under the Java 17+ module system; without it outbound integrations fail
+#   with InaccessibleObjectException.
+# -Djava.security.egd=file:/dev/urandom keeps first session-id generation from
+#   blocking for minutes on a freshly provisioned VM with a shallow entropy
+#   pool — a classic "Tomcat took 4 minutes to start" cause.
+# -XX:+ExitOnOutOfMemoryError: a JVM that has run out of heap serves broken
+#   pages and half-written records. Exiting lets systemd restart it, which is
+#   the safer outcome for a clinical record.
+# -XX:+HeapDumpOnOutOfMemoryError writes into /var/lib/carlos-emr/heapdumps,
+#   which is 0750 carlos:carlos: a heap dump of this application IS a PHI
+#   artefact — it holds whatever clinical data was in memory — and must never
+#   land in /tmp.
+# -Djava.util.prefs.userRoot keeps java.util.prefs off the service account's
+#   home directory, which is root-owned; without it the JVM logs a warning
+#   about a preferences directory it cannot create on every single start.
+CATALINA_OPTS="-Xms${CARLOS_JAVA_XMS} -Xmx${CARLOS_JAVA_XMX}"
+CATALINA_OPTS="${CATALINA_OPTS} -XX:+UseG1GC"
+CATALINA_OPTS="${CATALINA_OPTS} -XX:+ExitOnOutOfMemoryError"
+CATALINA_OPTS="${CATALINA_OPTS} -XX:+HeapDumpOnOutOfMemoryError"
+CATALINA_OPTS="${CATALINA_OPTS} -XX:HeapDumpPath=/var/lib/carlos-emr/heapdumps"
+CATALINA_OPTS="${CATALINA_OPTS} -Djava.awt.headless=true"
+CATALINA_OPTS="${CATALINA_OPTS} -Djava.util.prefs.userRoot=${CATALINA_BASE}/prefs"
+CATALINA_OPTS="${CATALINA_OPTS} -Djava.security.egd=file:/dev/urandom"
+CATALINA_OPTS="${CATALINA_OPTS} -Duser.timezone=${CARLOS_TZ}"
+CATALINA_OPTS="${CATALINA_OPTS} -Dcarlos_override_properties=${PROPERTIES}"
+CATALINA_OPTS="${CATALINA_OPTS} --add-opens java.base/java.net=ALL-UNNAMED"
+CATALINA_OPTS="${CATALINA_OPTS} ${CARLOS_JAVA_OPTS}"
+
+export CATALINA_HOME CATALINA_BASE CATALINA_OPTS
+export CATALINA_TMPDIR="${CATALINA_BASE}/temp"
+export CATALINA_PID="/run/carlos-emr/tomcat.pid"
+export TZ="${CARLOS_TZ}"
+
+case "${1:-run}" in
+    run)
+        cd "${CATALINA_BASE}"
+        # exec so the JVM becomes the unit's main process: systemd's SIGTERM
+        # then reaches Tomcat directly and it shuts down cleanly, instead of
+        # killing a shell and leaving an orphaned JVM holding port 18080.
+        exec "${CATALINA_HOME}/bin/catalina.sh" run
+        ;;
+    version)
+        exec "${CATALINA_HOME}/bin/version.sh"
+        ;;
+    *)
+        echo "usage: $0 [run|version]" >&2
+        exit 2
+        ;;
+esac

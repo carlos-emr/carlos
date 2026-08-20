@@ -1,0 +1,53 @@
+DrugRef2 for CARLOS EMR — package notes
+=======================================
+
+DrugRef2 is the drug and drug-interaction reference service CARLOS queries over
+XML-RPC when a prescription is written. Without it, prescription drug lookups
+return no results.
+
+Deployment
+----------
+It is deployed as a second web application inside the CARLOS Tomcat instance
+rather than in a JVM of its own. On a single host that saves a second heap and
+a second service to supervise; the isolation that matters is preserved by the
+servlet container's per-application class loaders and by the two access gates
+below. (The container-based carlos-podman deployment runs it in a separate
+container, where the trade-off is different.)
+
+Access control
+--------------
+DrugRef speaks UNAUTHENTICATED XML-RPC: anything that can reach
+/drugref2/DrugrefService can query it. It is gated twice, and neither gate is
+load-bearing on its own:
+
+  1. nginx returns 404 for /drugref2 — the front door has no route to it.
+  2. A RemoteCIDRValve in /etc/carlos-emr/tomcat/Catalina/localhost/drugref2.xml
+     refuses any client whose address is not the host loopback.
+
+`carlosctl check` probes the first of these from outside and fails if the
+service is reachable through the front door.
+
+Database
+--------
+DrugRef connects as its own `drugref` account, which holds privileges on the
+drugref2 database only. Upstream's own configuration connects as root; on a
+host where one MariaDB serves both applications, a drug-lookup service must not
+hold a credential that can read the patient schema.
+
+The drug dataset
+----------------
+The package loads the Health Canada Drug Product Database seed that ships with
+CARLOS, but ONLY into an empty drugref2 database — reloading over a populated
+one would discard updates a site has applied. The upstream seed creates its
+tables as ENGINE=Aria; the package converts them to InnoDB immediately, because
+a non-transactional table cannot take part in the backup's --single-transaction
+snapshot and would otherwise be reported by every nightly backup.
+
+Refresh or replace the dataset according to your own drug-data source and
+licensing. Commercial Medi-Span interaction monographs need a licence key in
+/etc/carlos-emr/drugref2.properties.
+
+Removing it
+-----------
+Removing the package undeploys the context and restarts the EMR. The drugref2
+database is left in place; drop it deliberately if you want it gone.

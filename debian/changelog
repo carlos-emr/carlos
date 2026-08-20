@@ -1,0 +1,19 @@
+carlos-emr (2026.09.0~snapshot1) resolute; urgency=medium
+
+  * Initial Debian/Ubuntu packaging for a single-VM CARLOS EMR deployment,
+    replacing the hand-rolled OSCAR-19-era `dpkg -b` machinery in release/.
+    Targets Ubuntu 26.04 LTS (resolute).
+  * Ships CARLOS on its own Tomcat 11 CATALINA_BASE running as the
+    unprivileged `carlos` system user — never root, never the shared
+    distribution `tomcat` user.
+  * Front door is nginx + ModSecurity 3 + OWASP CRS in blocking mode,
+    HTTPS-only with HSTS, self-signed by default and switchable to a
+    certbot-managed Let's Encrypt certificate.
+  * MariaDB is provisioned with least-privilege accounts (carlos, drugref,
+    backup); the schema is applied with the Flyway migration set shipped on
+    the WAR classpath, and the application boots with
+    carlos.flyway.onBoot=validate.
+  * Nightly restic backups plus a weekly restore drill run as the separate
+    unprivileged `carlos-backup` user.
+
+ -- CARLOS EMR Maintainers <maintainers@carlos-emr.invalid>  Thu, 20 Aug 2026 19:00:00 +0000

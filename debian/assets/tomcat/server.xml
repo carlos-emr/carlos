@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SPDX-License-Identifier: GPL-2.0-or-later
+  Copyright (C) 2026 CARLOS Contributors
+
+  Tomcat 11 server.xml for the CARLOS EMR Debian package.
+
+  This is the CATALINA_BASE configuration of a *private* Tomcat instance owned
+  by the unprivileged `carlos` system user. It is NOT the distribution's
+  /etc/tomcat11 — the package deliberately depends only on tomcat11-common and
+  libtomcat11-java (the code), never on the tomcat11 package (the service and
+  the shared `tomcat` user), so nothing else on the host shares this JVM, this
+  configuration or this uid.
+
+  THE FRONT DOOR IS NGINX. Everything below listens on the loopback interface
+  only; the internet-facing listener is nginx + ModSecurity/CRS, which
+  terminates TLS and proxies here (see /etc/nginx/sites-available/carlos-emr).
+  Do not add a host-visible connector: it would bypass the WAF, the security
+  response headers and the TLS policy in one step.
+-->
+<Server port="-1" shutdown="SHUTDOWN">
+  <!--
+    The shutdown port is disabled (port="-1"). systemd owns this instance's
+    lifecycle; a listening shutdown port would let any local process stop the
+    EMR by writing one word to a TCP socket.
+  -->
+  <Listener className="org.apache.catalina.startup.VersionLoggerListener"/>
+  <Listener className="org.apache.catalina.core.AprLifecycleListener"/>
+  <Listener className="org.apache.catalina.core.JreMemoryLeakPreventionListener"/>
+  <Listener className="org.apache.catalina.mbeans.GlobalResourcesLifecycleListener"/>
+  <Listener className="org.apache.catalina.core.ThreadLocalLeakPreventionListener"/>
+
+  <GlobalNamingResources>
+    <Resource name="UserDatabase" auth="Container"
+              type="org.apache.catalina.UserDatabase"
+              description="User database that can be updated and saved"
+              factory="org.apache.catalina.users.MemoryUserDatabaseFactory"
+              pathname="conf/tomcat-users.xml"/>
+  </GlobalNamingResources>
+
+  <Service name="Catalina">
+    <!--
+      The single connector, pinned to the loopback interface by `address`.
+      Port 18080 rather than 8080: 8080 is the first port an unrelated Java
+      service on the same host will try, and a collision here takes the EMR
+      down at boot with an obscure BindException.
+
+      Consumers: nginx (the WAF hop) and CARLOS's own XML-RPC calls to the
+      co-deployed DrugRef context. Both are on this host. PHI never crosses a
+      network segment in the clear — the only hop that leaves the machine is
+      nginx's TLS listener.
+
+      maxPostSize/maxSwallowSize are 50 MB to match the document and lab
+      uploads the EMR accepts, and the ModSecurity SecRequestBodyLimit in
+      /etc/carlos-emr/modsecurity/main.conf. Keep the three in step: a smaller
+      value at the WAF rejects a legitimate upload with a 413 before Tomcat
+      sees it, a smaller value here truncates it after the WAF passed it.
+
+      server="CARLOS" replaces the default Apache-Coyote/1.1 banner. Clients
+      only ever see nginx's header, but a local scan should not read the
+      servlet container version either.
+    -->
+    <Connector port="18080" protocol="HTTP/1.1"
+               address="127.0.0.1"
+               connectionTimeout="20000"
+               maxPostSize="52428800"
+               maxSwallowSize="52428800"
+               maxParameterCount="10000"
+               relaxedQueryChars="[]|{}^&#x60;&quot;&lt;&gt;"
+               server="CARLOS"
+               URIEncoding="UTF-8"/>
+
+    <Engine name="Catalina" defaultHost="localhost">
+      <Realm className="org.apache.catalina.realm.LockOutRealm">
+        <Realm className="org.apache.catalina.realm.UserDatabaseRealm"
+               resourceName="UserDatabase"/>
+      </Realm>
+
+      <!--
+        appBase is empty on purpose. Both applications are deployed from
+        context descriptors in conf/Catalina/localhost/ whose docBase points
+        into /usr/share/carlos-emr/webapp/, which is root-owned and read-only
+        to the `carlos` uid. A compromised application therefore cannot write
+        a JSP into its own served tree and have Tomcat compile and serve it.
+
+        autoDeploy="false" and unpackWARs="false": deployment is a package
+        operation, not a directory-watch.
+      -->
+      <Host name="localhost" appBase="webapps"
+            unpackWARs="false" autoDeploy="false" deployOnStartup="true">
+
+        <!--
+          Trust X-Forwarded-* from nginx so the application builds https://
+          redirects and marks its session cookie Secure. internalProxies is
+          pinned to the loopback addresses only — nginx is the sole proxy and
+          it is on this host. Tomcat's default regex also trusts RFC1918
+          ranges, which would let a client on the clinic LAN inject a spoofed
+          X-Forwarded-For and have it recorded as the PHI-access source IP.
+
+          LOGIN DEPENDS ON THIS VALVE. If it stops matching nginx's source
+          address, Tomcat loses X-Forwarded-Proto, drops the https scheme and
+          the Secure cookie flag, and login breaks. Re-test a real login after
+          any change here.
+        -->
+        <Valve className="org.apache.catalina.valves.RemoteIpValve"
+               remoteIpHeader="X-Forwarded-For"
+               protocolHeader="X-Forwarded-Proto"
+               protocolHeaderHttpsValue="https"
+               internalProxies="127\.0\.0\.1|0:0:0:0:0:0:0:1|::1"/>
+
+        <!--
+          Access log. The pattern logs %m %U %H (method, path, protocol) and
+          deliberately NOT %r or %q: the query string carries PHI-correlating
+          identifiers (demographicNo=, health-card numbers in search
+          parameters) and must not be written to a file that is rotated,
+          archived and read by non-clinical staff.
+
+          requestAttributesEnabled makes %h the client address the
+          RemoteIpValve above resolved, not nginx's 127.0.0.1.
+        -->
+        <Valve className="org.apache.catalina.valves.AccessLogValve"
+               directory="/var/log/carlos-emr/tomcat"
+               prefix="access" suffix=".log"
+               fileDateFormat=".yyyy-MM-dd"
+               rotatable="true" maxDays="30"
+               requestAttributesEnabled="true"
+               pattern="%h %l %u %t &quot;%m %U %H&quot; %s %b %{ms}T"/>
+
+        <!--
+          No version banner and no stack traces or JSP source in error
+          responses: this is a PHI application and an error page is the
+          cheapest reconnaissance surface there is.
+        -->
+        <Valve className="org.apache.catalina.valves.ErrorReportValve"
+               showServerInfo="false" showReport="false"/>
+      </Host>
+    </Engine>
+  </Service>
+</Server>

@@ -1,0 +1,403 @@
+#!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
+#
+# CARLOS EMR backup, restore drill and restore.
+#
+# Runs as the unprivileged `carlos-backup` user (see carlos-emr-backup.service).
+# It never needs root: it reaches the database over loopback with a dedicated
+# read-only account, reads the document store through group membership, and
+# owns the repository outright.
+#
+# What a run produces, as three separately-tagged restic snapshots:
+#
+#   db       a consistent logical dump of the `oscar` schema, taken with
+#            --single-transaction so it does not lock clinicians out, and with
+#            --source-data=2 so the dump records the binary-log coordinates it
+#            corresponds to. Those coordinates are the anchor that makes
+#            point-in-time recovery possible.
+#   binlog   every CLOSED binary log, streamed from the server rather than
+#            copied off disk (the datadir is mode 0700 mysql:mysql and this
+#            user has no business being able to read it). Replaying these on
+#            top of the dump is what recovers work done after the dump.
+#   files    the document store and the non-secret configuration.
+#
+# Everything is encrypted by restic before it leaves this process, so an
+# offsite repository never sees plaintext PHI.
+#
+# Exit status is meaningful: any non-zero exit fails the systemd unit, which is
+# what a monitoring system should watch. Failures are also pushed to
+# CARLOS_BACKUP_ALERT_WEBHOOK / CARLOS_BACKUP_ALERT_EMAIL if configured,
+# because a backup nobody hears about failing is the same as no backup.
+
+set -euo pipefail
+
+CONF_DIR=/etc/carlos-emr
+ENV_FILE="${CONF_DIR}/backup.env"
+STATE_DIR=/var/backups/carlos-emr
+WORK_DIR="${STATE_DIR}/work"
+DOCS_DIR=/var/lib/carlos-emr/OscarDocument
+LOG_TAG=carlos-emr-backup
+
+log()  { printf '%s: %s\n' "${LOG_TAG}" "$*"; }
+warn() { printf '%s: WARNING: %s\n' "${LOG_TAG}" "$*" >&2; }
+
+[ -r "${ENV_FILE}" ] || { echo "${LOG_TAG}: ${ENV_FILE} is unreadable" >&2; exit 1; }
+# `set -a` so EVERY assignment in the file is exported, not just the ones named
+# below: that is what lets an operator configure an S3/B2/Azure/SFTP backend by
+# adding its provider variables to backup.env without this script having to
+# know their names.
+set -a
+# shellcheck disable=SC1090
+. "${ENV_FILE}"
+set +a
+
+: "${RESTIC_REPOSITORY:?RESTIC_REPOSITORY is not set in ${ENV_FILE}}"
+: "${RESTIC_PASSWORD:?RESTIC_PASSWORD is not set in ${ENV_FILE} — the repository cannot be opened}"
+
+DB_USER="${CARLOS_BACKUP_DB_USER:-backup}"
+DB_PASS="${CARLOS_BACKUP_DB_PASSWORD:-}"
+DB_HOST="${CARLOS_BACKUP_DB_HOST:-127.0.0.1}"
+DB_PORT="${CARLOS_BACKUP_DB_PORT:-3306}"
+DB_NAME="${CARLOS_BACKUP_DB_NAME:-oscar}"
+KEEP="${CARLOS_BACKUP_KEEP:---keep-daily 7 --keep-weekly 5 --keep-monthly 12}"
+VERIFY_DB="${CARLOS_BACKUP_VERIFY_DB:-carlos_restore_drill}"
+CHECK_DOW="${CARLOS_BACKUP_CHECK_READ_DATA_DOW:-7}"
+
+# The password never appears on a command line: any local user can read
+# /proc/<pid>/cmdline while the process runs, and this one opens a database
+# full of PHI. MYSQL_PWD is inherited only by our own children.
+export MYSQL_PWD="${DB_PASS}"
+
+# The unix socket, not loopback TCP, for everything that can use it. It is one
+# fewer thing to get wrong (no port, no address family, no TLS question about a
+# connection that never leaves the kernel), and it silences MariaDB 11.4+'s
+# misleading "--ssl-verify-server-cert is disabled, because of an insecure
+# passwordless login" warning, which that client prints on every localhost TCP
+# connection whether or not a password is in use. Authentication is unchanged:
+# the account still presents its password, as backup@localhost.
+#
+# mariadb-binlog is the exception — --read-from-remote-server speaks the
+# replication protocol and needs a real socket address, so it keeps --host and
+# --port below.
+MYSQL_ARGS=(--user="${DB_USER}" --protocol=socket)
+
+alert() {
+    local subject="$1" body="$2"
+    warn "${subject}"
+    if [ -n "${CARLOS_BACKUP_ALERT_WEBHOOK:-}" ]; then
+        # --max-time so an unreachable webhook cannot hang the unit until its
+        # 6h timeout; the failure is already recorded in the journal.
+        curl -fsS --max-time 20 -X POST \
+            -H 'Content-Type: application/json' \
+            -d "$(printf '{"source":"carlos-emr-backup","host":"%s","subject":"%s","detail":"%s"}' \
+                    "$(hostname -f 2>/dev/null || hostname)" "${subject}" "${body//\"/\'}")" \
+            "${CARLOS_BACKUP_ALERT_WEBHOOK}" >/dev/null 2>&1 \
+            || warn "alert webhook POST failed"
+    fi
+    if [ -n "${CARLOS_BACKUP_ALERT_EMAIL:-}" ] && command -v mail >/dev/null 2>&1; then
+        printf '%s\n' "${body}" | mail -s "[CARLOS EMR] ${subject}" "${CARLOS_BACKUP_ALERT_EMAIL}" || true
+    fi
+}
+
+# One run at a time. Two concurrent runs would fight over the repository lock
+# and over the work directory, and restic's own lock error is far less clear
+# than saying so here.
+acquire_lock() {
+    exec 9>"${STATE_DIR}/.lock"
+    if ! flock -n 9; then
+        log "another backup run holds the lock; exiting without doing anything"
+        exit 0
+    fi
+}
+
+ensure_repo() {
+    if restic cat config >/dev/null 2>&1; then
+        return 0
+    fi
+    log "initialising restic repository at ${RESTIC_REPOSITORY}"
+    restic init
+}
+
+cleanup() {
+    # The dump and the streamed binlogs are plaintext PHI on local disk. They
+    # exist only between being written and being handed to restic, and they are
+    # removed even when the run fails part-way.
+    rm -rf "${WORK_DIR:?}"/* 2>/dev/null || true
+}
+
+# --- backup -----------------------------------------------------------------
+
+dump_database() {
+    local out="$1"
+    log "dumping ${DB_NAME}"
+    # --single-transaction   consistent snapshot without locking clinicians out
+    # --master-data=2        record the binlog coordinates as a comment; this
+    #                        is the anchor for point-in-time recovery.
+    #                        MariaDB kept the historical spelling — it has no
+    #                        --source-data, so do not "modernise" this to the
+    #                        MySQL 8 name; mariadb-dump rejects it outright.
+    # --hex-blob             scanned documents and signatures survive a round
+    #                        trip through a text dump intact
+    # --routines/--events/--triggers  the schema is not just tables
+    # --no-tablespaces       keeps mariadb-dump away from INFORMATION_SCHEMA.FILES,
+    #                        which would need the PROCESS privilege this account
+    #                        deliberately does not have
+    mariadb-dump "${MYSQL_ARGS[@]}" \
+        --single-transaction --master-data=2 --hex-blob \
+        --routines --events --triggers --no-tablespaces \
+        --default-character-set=utf8mb4 \
+        "${DB_NAME}" > "${out}"
+    # A dump that ends without the completion marker was truncated — by a
+    # killed connection, a full disk, a max_allowed_packet ceiling. Shipping it
+    # would produce a backup that restores into a silently incomplete database.
+    if ! tail -c 4096 "${out}" | grep -q 'Dump completed'; then
+        rm -f "${out}"
+        alert "database dump was truncated" \
+              "mariadb-dump of ${DB_NAME} did not write its completion marker; the dump was discarded and NOT shipped."
+        return 1
+    fi
+    log "dump is $(du -h "${out}" | cut -f1)"
+}
+
+check_engines() {
+    # A non-transactional table cannot take part in the --single-transaction
+    # snapshot, so its contents in the dump are from whenever it happened to be
+    # read, not from the snapshot instant. On this schema exactly one table is
+    # legitimately Aria — formRourke2009 has more columns than InnoDB allows —
+    # so anything else appearing here is drift worth knowing about, most often
+    # a hand-loaded DrugRef or reference dataset that was never converted.
+    local rows
+    rows="$(mariadb "${MYSQL_ARGS[@]}" -N -B -e \
+        "SELECT CONCAT(table_schema,'.',table_name,' (',engine,')')
+           FROM information_schema.tables
+          WHERE table_schema='${DB_NAME}'
+            AND engine IS NOT NULL AND engine <> 'InnoDB'
+            AND table_name <> 'formRourke2009'" 2>/dev/null || true)"
+    if [ -n "${rows}" ]; then
+        warn "non-transactional tables present; they are NOT consistent within the dump snapshot:"
+        printf '  %s\n' ${rows} >&2
+        warn "convert them: ALTER TABLE <name> ENGINE=InnoDB;"
+    fi
+}
+
+ship_binlogs() {
+    local dir="$1"
+    local marker="${STATE_DIR}/.binlog-shipped"
+
+    # The LAST name in SHOW BINARY LOGS is the file the server is still writing
+    # to; shipping it would capture a half-written event. Everything before it
+    # is closed and complete, and closed binlogs are immutable — so each one is
+    # shipped exactly once and the marker records how far we got.
+    local logs last previous="" shipped=""
+    logs="$(mariadb "${MYSQL_ARGS[@]}" -N -B -e 'SHOW BINARY LOGS' 2>/dev/null | awk '{print $1}' || true)"
+    if [ -z "${logs}" ]; then
+        warn "the server reports no binary logs; POINT-IN-TIME RECOVERY IS NOT AVAILABLE."
+        warn "check log_bin in /etc/mysql/mariadb.conf.d/60-carlos-emr.cnf and restart mariadb."
+        return 0
+    fi
+    last="$(printf '%s\n' ${logs} | tail -1)"
+    [ -r "${marker}" ] && previous="$(cat "${marker}")"
+
+    local name any=0
+    for name in ${logs}; do
+        [ "${name}" = "${last}" ] && continue
+        # Compare on the numeric suffix, not the whole string: binlog names are
+        # <base>.NNNNNN and only the counter moves. `sort` on the full name
+        # would be lexicographic and would break the moment the counter gained
+        # a digit.
+        if [ -n "${previous}" ]; then
+            local n p
+            n="${name##*.}"; p="${previous##*.}"
+            # 10# so a leading-zero counter is not read as octal.
+            if [ "$((10#${n}))" -le "$((10#${p}))" ]; then
+                continue
+            fi
+        fi
+        # --read-from-remote-server streams the log over the wire using the
+        # backup account's REPLICATION SLAVE right, so this job never needs to
+        # read the datadir — which is 0700 mysql:mysql, and rightly out of
+        # reach of a backup user.
+        #
+        # The output is decoded SQL, not a byte copy: MariaDB's mariadb-binlog
+        # has no --raw (that is a MySQL option). ROW events come out as
+        # base64 BINLOG statements, which replay with `mariadb < file`, so the
+        # recovery procedure is the same either way.
+        if mariadb-binlog --read-from-remote-server \
+                --host="${DB_HOST}" --port="${DB_PORT}" --user="${DB_USER}" \
+                --result-file="${dir}/${name}.sql" "${name}" 2>/dev/null; then
+            any=1
+            shipped="${name}"
+        else
+            warn "could not stream binary log ${name}"
+            warn "(does the backup account still have REPLICATION SLAVE? see 'carlosctl provision-db')"
+            # Stop at the first gap rather than skipping it: a binlog chain
+            # with a hole in it cannot be replayed past the hole, and a marker
+            # advanced over a missing log would hide that forever.
+            break
+        fi
+    done
+
+    if [ "${any}" = 1 ]; then
+        restic backup --tag binlog --host "$(hostname -s)-carlos" "${dir}"
+        printf '%s\n' "${shipped}" > "${marker}"
+        log "shipped closed binary logs through ${shipped}"
+        # The decoded logs are plaintext PHI on local disk; they exist only
+        # between being written and being handed to restic.
+        rm -f "${dir}"/*.sql
+    else
+        log "no new closed binary logs to ship"
+    fi
+}
+
+cmd_run() {
+    acquire_lock
+    ensure_repo
+    install -d -m 0700 "${WORK_DIR}" "${WORK_DIR}/binlog"
+    trap cleanup EXIT
+
+    check_engines
+
+    local dump="${WORK_DIR}/${DB_NAME}.sql"
+    dump_database "${dump}"
+    restic backup --tag db --host "$(hostname -s)-carlos" "${dump}"
+
+    ship_binlogs "${WORK_DIR}/binlog"
+
+    # Documents and the configuration that is not a secret. carlos.properties
+    # IS included: it carries the AES key the application uses to encrypt
+    # stored third-party credentials, and a restore without it leaves those
+    # values permanently undecryptable. The repository is encrypted, and this
+    # is exactly the material that must survive the loss of the host.
+    local -a targets=("${DOCS_DIR}")
+    [ -d "${CONF_DIR}" ] && targets+=("${CONF_DIR}")
+    # Two deliberate exclusions:
+    #
+    #   tls/          the front-door key and certificate. The key is
+    #                 replaceable in seconds (carlosctl cert selfsigned / cert
+    #                 acme) and there is no reason to carry a live TLS private
+    #                 key into every offsite copy of a backup. The directory
+    #                 as a whole is excluded, not just the key, because it is
+    #                 mode 0750 root:www-data and this user cannot list it.
+    #   initial-admin.txt  the first-login credential note. It is meant to be
+    #                 read once and shredded; copying it into every snapshot
+    #                 would keep a plaintext administrator password alive long
+    #                 after the account it describes was supposed to change.
+    restic backup --tag files --host "$(hostname -s)-carlos" \
+        --exclude "${CONF_DIR}/tls" \
+        --exclude "${CONF_DIR}/initial-admin.txt" \
+        "${targets[@]}"
+
+    log "pruning old snapshots (${KEEP})"
+    # Retention is applied per tag: a document snapshot and a binlog snapshot
+    # have different useful lifetimes, and a single global policy would either
+    # keep binlogs for a year or throw documents away in a week.
+    local tag
+    for tag in db files; do
+        restic forget --tag "${tag}" --host "$(hostname -s)-carlos" ${KEEP} --prune
+    done
+    # Binary logs only matter within reach of a full dump to replay them onto.
+    restic forget --tag binlog --host "$(hostname -s)-carlos" --keep-within 9d --prune
+
+    if [ "${CHECK_DOW}" != 0 ] && [ "$(date +%u)" = "${CHECK_DOW}" ]; then
+        log "weekly full integrity check (reads all pack data — this is slow)"
+        restic check --read-data
+    else
+        restic check
+    fi
+
+    date -Is > "${STATE_DIR}/.last-success"
+    log "backup complete"
+}
+
+# --- restore drill ----------------------------------------------------------
+
+cmd_verify() {
+    acquire_lock
+    install -d -m 0700 "${WORK_DIR}"
+    trap cleanup EXIT
+
+    log "restore drill: loading the newest db snapshot into ${VERIFY_DB}"
+    local restore_dir="${WORK_DIR}/drill"
+    rm -rf "${restore_dir}"; install -d -m 0700 "${restore_dir}"
+
+    restic restore latest --tag db --host "$(hostname -s)-carlos" --target "${restore_dir}" \
+        || { alert "restore drill failed" "restic could not restore the newest db snapshot."; exit 1; }
+
+    local dump
+    dump="$(find "${restore_dir}" -name '*.sql' -type f | head -1)"
+    [ -n "${dump}" ] || { alert "restore drill failed" "the restored db snapshot contained no .sql file."; exit 1; }
+
+    # Empty the scratch database first. The backup account holds rights on this
+    # database only; it cannot CREATE or DROP a database, which is deliberate —
+    # a restore drill must not be able to touch the live schema even by typo.
+    log "clearing ${VERIFY_DB}"
+    mariadb "${MYSQL_ARGS[@]}" -N -B -e \
+        "SELECT CONCAT('DROP TABLE IF EXISTS \`',table_name,'\`;')
+           FROM information_schema.tables WHERE table_schema='${VERIFY_DB}'" \
+        | { echo "SET FOREIGN_KEY_CHECKS=0;"; cat; } \
+        | mariadb "${MYSQL_ARGS[@]}" "${VERIFY_DB}"
+
+    log "loading the dump (this is the part that proves the backup is real)"
+    if ! mariadb "${MYSQL_ARGS[@]}" --default-character-set=utf8mb4 "${VERIFY_DB}" < "${dump}"; then
+        alert "restore drill failed" "the newest database dump did not load into ${VERIFY_DB}. The backups are NOT restorable."
+        exit 1
+    fi
+
+    # A dump can load cleanly and still be useless. Check that the tables that
+    # carry the clinical record are present and non-empty.
+    local table missing=0 n
+    for table in demographic provider appointment casemgmt_note drugs; do
+        n="$(mariadb "${MYSQL_ARGS[@]}" -N -B -e \
+            "SELECT COUNT(*) FROM information_schema.tables
+              WHERE table_schema='${VERIFY_DB}' AND table_name='${table}'")"
+        if [ "${n}" = 0 ]; then
+            warn "restored database has no ${table} table"
+            missing=1
+        fi
+    done
+    if [ "${missing}" = 1 ]; then
+        alert "restore drill failed" "the restored database is missing core clinical tables."
+        exit 1
+    fi
+
+    n="$(mariadb "${MYSQL_ARGS[@]}" -N -B -e "SELECT COUNT(*) FROM \`${VERIFY_DB}\`.demographic")"
+    log "restore drill passed: ${n} demographic row(s) restored from the newest backup"
+    date -Is > "${STATE_DIR}/.last-verify"
+}
+
+# --- reporting --------------------------------------------------------------
+
+cmd_status() {
+    printf 'repository:   %s\n' "${RESTIC_REPOSITORY}"
+    printf 'last success: %s\n' "$( [ -r "${STATE_DIR}/.last-success" ] && cat "${STATE_DIR}/.last-success" || echo 'NEVER' )"
+    printf 'last drill:   %s\n' "$( [ -r "${STATE_DIR}/.last-verify" ] && cat "${STATE_DIR}/.last-verify" || echo 'NEVER' )"
+    printf '\nsnapshots:\n'
+    restic snapshots --compact 2>/dev/null || printf '  (repository unreadable)\n'
+}
+
+cmd_snapshots() { restic snapshots "$@"; }
+
+case "${1:-}" in
+    run)       cmd_run ;;
+    verify)    cmd_verify ;;
+    status)    cmd_status ;;
+    snapshots) shift; cmd_snapshots "$@" ;;
+    restic)    shift; exec restic "$@" ;;
+    *)
+        cat >&2 <<'EOU'
+usage: carlos-emr-backup {run|verify|status|snapshots [args]|restic <args>}
+
+  run        take a backup now (what the nightly timer does)
+  verify     restore the newest dump into the scratch database and check it
+  status     when the last backup and the last drill succeeded
+  snapshots  list what is in the repository
+  restic     run an arbitrary restic command against the configured repository
+
+To RESTORE a live system, see "Restoring" in
+/usr/share/doc/carlos-emr/README.Debian — it is deliberately not a verb here,
+because a restore must stop the application first and that needs root.
+EOU
+        exit 2
+        ;;
+esac

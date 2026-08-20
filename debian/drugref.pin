@@ -1,0 +1,5 @@
+# The carlos-emr/drugref2026 revision this package builds DrugRef from when
+# neither DRUGREF_SRC nor DRUGREF_WAR is supplied. Pin a full commit SHA for a
+# release build: a branch name makes two builds weeks apart ship different
+# code under one package version.
+ref=master
