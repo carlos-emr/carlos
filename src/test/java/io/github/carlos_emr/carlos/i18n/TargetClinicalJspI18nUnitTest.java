@@ -48,7 +48,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Target clinical JSP i18n coverage")
 @Tag("unit")
 @Tag("i18n")
-class TargetClinicalJspI18nTest {
+class TargetClinicalJspI18nUnitTest {
 
     private static final String[] LOCALES = {"en", "fr", "es", "pt_BR", "pl"};
     private static final Pattern FMT_KEY_PATTERN = Pattern.compile("<fmt:message\\b[^>]*\\bkey=[\"']([^\"']+)[\"']");
@@ -70,13 +70,21 @@ class TargetClinicalJspI18nTest {
     void shouldDeclareOscarResourcesBundle_inTargetClinicalJsps() throws IOException {
         List<Path> missingBundle = new ArrayList<>();
         for (Path path : targetJsps().toList()) {
-            if (!read(path).contains("<fmt:setBundle basename=\"oscarResources\"/>")) {
+            String contents = read(path);
+            // Only pages that actually look a key up need the bundle. Requiring it everywhere
+            // also catches pages that render nothing -- demographiceditdemographic.jsp is a
+            // twelve-line <jsp:forward> compatibility stub -- where the declaration would be
+            // dead code and would say nothing about whether lookups resolve.
+            if (!FMT_KEY_PATTERN.matcher(contents).find()) {
+                continue;
+            }
+            if (!contents.contains("<fmt:setBundle basename=\"oscarResources\"/>")) {
                 missingBundle.add(path);
             }
         }
 
         assertThat(missingBundle)
-                .as("target clinical JSPs should initialize oscarResources for fmt:message lookups")
+                .as("target clinical JSPs that use fmt:message must initialize the oscarResources bundle")
                 .isEmpty();
     }
 
@@ -177,7 +185,7 @@ class TargetClinicalJspI18nTest {
 
     private Properties loadBundle(String locale) throws IOException {
         String resource = "/oscarResources_" + locale + ".properties";
-        try (InputStream is = TargetClinicalJspI18nTest.class.getResourceAsStream(resource)) {
+        try (InputStream is = TargetClinicalJspI18nUnitTest.class.getResourceAsStream(resource)) {
             assertThat(is)
                     .as("resource %s must exist on the classpath", resource)
                     .isNotNull();
