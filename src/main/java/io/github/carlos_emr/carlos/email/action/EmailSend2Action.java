@@ -63,6 +63,10 @@ public class EmailSend2Action extends ActionSupport {
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
 
+    private static final String PARAM_MESSAGE = "message";
+    private static final String PARAM_IS_EMAIL_ENCRYPTED = "isEmailEncrypted";
+    private static final String PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED = "isEmailAttachmentEncrypted";
+
     /**
      * Main execution method that routes to specific email handling methods based on the "method" request parameter.
      *
@@ -122,6 +126,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("isOpenEForm", request.getParameter("openEFormAfterEmail"));
         request.setAttribute("fdid", request.getParameter("fdid"));
         request.setAttribute("emailLog", emailLog);
+        preserveComposeInputsForReRender();
         return SUCCESS;
     }
 
@@ -145,7 +150,23 @@ public class EmailSend2Action extends ActionSupport {
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
         request.setAttribute("emailLog", emailLog);
+        preserveComposeInputsForReRender();
         return SUCCESS;
+    }
+
+    /**
+     * Re-seeds the provider's submitted compose inputs into request scope so a failed-send re-render
+     * of emailCompose.jsp preserves both the typed message AND the chosen encryption state. Without
+     * this, the JSP re-initializes the encryption toggle from {@code isEmailEncrypted} (unset after a
+     * send), so a blind retry of a failed encrypted send could silently go out as cleartext — a
+     * PHI-safety regression (issue #3118).
+     */
+    private void preserveComposeInputsForReRender() {
+        request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
+        // Fail closed on the message-encryption flag, matching prepareEmailFields: only an explicit
+        // "false" re-renders the toggle OFF, so a failed encrypted draft can never reopen as cleartext.
+        request.setAttribute(PARAM_IS_EMAIL_ENCRYPTED, !"false".equals(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED)));
+        request.setAttribute(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED, "true".equals(request.getParameter(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED)));
     }
 
     /**
@@ -227,12 +248,29 @@ public class EmailSend2Action extends ActionSupport {
         String senderConfigId = request.getParameter("senderConfigId");
         String[] receiverEmails = request.getParameterValues("receiverEmailAddress");
         String subject = request.getParameter("subjectEmail");
-        String body = request.getParameter("bodyEmail");
-        String encryptedMessage = request.getParameter("encryptedMessage");
+        String isEncrypted = request.getParameter(PARAM_IS_EMAIL_ENCRYPTED);
+
+        // Single "Message" field routed server-side by the encryption toggle so the client can never
+        // populate both the cleartext body and the encrypted-PDF channel at once (see issue #3118).
+        // Encryption ON  -> the message becomes the password-protected PDF (encryptedMessage), and the
+        //                   visible email body is a fixed, PHI-free notice.
+        // Encryption OFF -> the message is sent as the cleartext MIME body; there is no encrypted PDF.
+        String message = request.getParameter(PARAM_MESSAGE);
+        // Defensive: a direct POST may omit the message param entirely. Coalesce to empty so the
+        // cleartext body / encrypted-PDF content is never null downstream.
+        if (message == null) {
+            message = "";
+        }
+        // Fail closed: treat only an explicit "false" as encryption OFF. A direct or malformed POST
+        // that omits or garbles the toggle defaults to ENCRYPTED, so PHI is never routed to the
+        // cleartext body when intent is unclear (the compose flow defaults encryption on). See #3118.
+        boolean encrypted = !"false".equals(isEncrypted);
+        String body = encrypted ? encryptedBodyNotice() : message;
+        String encryptedMessage = encrypted ? message : "";
+
         String password = request.getParameter("emailPDFPassword");
         String passwordClue = request.getParameter("emailPDFPasswordClue");
-        String isEncrypted = request.getParameter("isEmailEncrypted");
-        String isAttachmentEncrypted = request.getParameter("isEmailAttachmentEncrypted");
+        String isAttachmentEncrypted = request.getParameter(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED);
         String chartDisplayOption = request.getParameter("patientChartOption");
         String internalComment = request.getParameter("internalComment");
         String transactionType = request.getParameter("transactionType");
@@ -251,7 +289,7 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setEncryptedMessage(encryptedMessage);
         emailData.setPassword(password);
         emailData.setPasswordClue(passwordClue);
-        emailData.setIsEncrypted(isEncrypted);
+        emailData.setIsEncrypted(encrypted);
         emailData.setIsAttachmentEncrypted(isAttachmentEncrypted);
         emailData.setChartDisplayOption(chartDisplayOption);
         emailData.setInternalComment(internalComment);
@@ -264,5 +302,19 @@ public class EmailSend2Action extends ActionSupport {
         request.getSession().removeAttribute("emailAttachmentList");
 
         return emailData;
+    }
+
+    /**
+     * Resolves the fixed, PHI-free notice used as the visible cleartext email body when the
+     * message is delivered encrypted. The actual clinical content lives only inside the
+     * password-protected PDF; the body must never carry patient health information.
+     *
+     * <p>Extracted as a protected method so it can be overridden in unit tests without a live
+     * Struts container backing {@link #getText(String)}.</p>
+     *
+     * @return the localized secure-message notice for the encrypted email body
+     */
+    protected String encryptedBodyNotice() {
+        return getText("email.compose.msg.encryptedBodyNotice");
     }
 }
