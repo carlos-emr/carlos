@@ -27,7 +27,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
-import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Set;
 import javax.net.ssl.TrustManager;
@@ -48,7 +47,15 @@ import javax.net.ssl.X509TrustManager;
  * a pin match. The common way pinning is implemented wrongly is to replace the trust manager with
  * one that accepts everything and then compare a fingerprint — which silently discards expiry and
  * chain validation in exchange for the pin. The delegate call below is what prevents that, and
- * {@code PortalCertificatePinningUnitTest} fails if it is removed.
+ * {@code PortalTlsTrustUnitTest} fails if it is removed.
+ *
+ * <p><b>Only the leaf is pinned.</b> The {@code chain} argument is supplied by the peer, not by the
+ * validator, so a pin match anywhere in it proves nothing about the key that terminated the
+ * handshake: the portal's real certificate is public, and an interceptor is free to append a copy
+ * of it to a chain rooted in a CA the machine trusts. Comparing {@code chain[0]} is what ties the
+ * pin to the key actually in use. HPKP-style "any certificate in the chain" matching is only sound
+ * over the chain a validator <i>returns</i>, which the {@link X509TrustManager} interface does not
+ * expose.
  *
  * <p>Pins are over the <b>public key</b> (SubjectPublicKeyInfo), not the certificate body, so
  * renewing a certificate with the same key does not break the deployment while rotating the key
@@ -64,7 +71,8 @@ final class PortalCertificatePinning implements X509TrustManager {
     static final String PIN_PREFIX = "sha256/";
 
     private static final String NO_MATCH =
-            "portal certificate did not match any configured pin in %s";
+            "portal certificate did not match any pin configured in %s; it presented %s";
+    private static final String NO_CERTIFICATE = "the portal presented no certificate";
     private static final String BAD_PIN =
             "%s entries must look like sha256/<base64 sha-256 of the public key>";
 
@@ -82,6 +90,20 @@ final class PortalCertificatePinning implements X509TrustManager {
      * @param pins one or more {@code sha256/…} pins; must not be empty
      */
     static PortalCertificatePinning over(Set<String> pins) {
+        return over(platformTrustManager(), pins);
+    }
+
+    /**
+     * Wraps a caller-supplied trust manager with a pin requirement.
+     *
+     * <p>Production uses {@link #over(Set)}. This form exists so the pin decision can be exercised
+     * against a trust manager that accepts the test's own generated chain — with the platform
+     * truststore, every generated certificate fails in the delegate and the comparison below is
+     * never reached, which is how the original pin tests came to assert nothing.
+     *
+     * @param pins one or more {@code sha256/…} pins; must not be empty
+     */
+    static PortalCertificatePinning over(X509TrustManager delegate, Set<String> pins) {
         if (pins == null || pins.isEmpty()) {
             throw new PatientPortalConfigurationException(
                     String.format(Locale.ROOT, BAD_PIN, PatientPortalSettings.CERTIFICATE_PINS_KEY));
@@ -93,7 +115,7 @@ final class PortalCertificatePinning implements X509TrustManager {
                                 Locale.ROOT, BAD_PIN, PatientPortalSettings.CERTIFICATE_PINS_KEY));
             }
         }
-        return new PortalCertificatePinning(platformTrustManager(), Set.copyOf(pins));
+        return new PortalCertificatePinning(delegate, Set.copyOf(pins));
     }
 
     /** The JVM's own trust manager, so the standard checks are kept rather than replaced. */
@@ -117,6 +139,9 @@ final class PortalCertificatePinning implements X509TrustManager {
 
     /**
      * Computes the pin for a certificate, for operators reading one off a live portal.
+     *
+     * <p>Read it from the <b>leaf</b> — the certificate the portal itself serves — since that is
+     * the only one compared.
      */
     static String pinFor(X509Certificate certificate) {
         try {
@@ -135,17 +160,22 @@ final class PortalCertificatePinning implements X509TrustManager {
         // Standard validation first. Never remove this in favour of the pin check alone.
         delegate.checkServerTrusted(chain, authType);
 
-        Set<String> presented = new LinkedHashSet<>();
-        for (X509Certificate certificate : chain) {
-            String pin = pinFor(certificate);
-            presented.add(pin);
-            if (pins.contains(pin)) {
-                return;
-            }
+        if (chain == null || chain.length == 0) {
+            throw new CertificateException(NO_CERTIFICATE);
         }
-        throw new CertificateException(
-                String.format(
-                        Locale.ROOT, NO_MATCH, PatientPortalSettings.CERTIFICATE_PINS_KEY));
+        // chain[0] only. See the class notes: the rest of the array is whatever the peer chose to
+        // send, so a match further down would not be a statement about the key in use.
+        String presented = pinFor(chain[0]);
+        if (!pins.contains(presented)) {
+            // The presented pin is a hash of a public key, so naming it is safe, and it is exactly
+            // what an operator needs to update configuration after a legitimate key rotation.
+            throw new CertificateException(
+                    String.format(
+                            Locale.ROOT,
+                            NO_MATCH,
+                            PatientPortalSettings.CERTIFICATE_PINS_KEY,
+                            presented));
+        }
     }
 
     @Override

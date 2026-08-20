@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.integration.patientportal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sun.net.httpserver.HttpsConfigurator;
@@ -35,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.Instant;
@@ -43,6 +45,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.X509TrustManager;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.io.support.ClassicRequestBuilder;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -54,6 +57,7 @@ import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -173,27 +177,6 @@ class PortalTlsTrustUnitTest {
     }
 
     /**
-     * The attack pinning exists to stop: a certificate that passes every standard check, because
-     * the machine trusts the CA that issued it, but is not the portal's key.
-     */
-    @Test
-    @DisplayName("should refuse a valid certificate that is not the pinned key")
-    void shouldRefuseUnpinnedKey_evenWhenTheCertificateItselfIsValid() throws Exception {
-        Identity server = identity("localhost", "127.0.0.1");
-        Identity somebodyElse = identity("localhost", "127.0.0.1");
-        String origin = startServer(server);
-        Set<String> pinnedToSomebodyElse =
-                Set.of(PortalCertificatePinning.pinFor(somebodyElse.certificate()));
-
-        try (PatientPortalHttpClientExchange transport =
-                new PatientPortalHttpClientExchange(quick(), quick(), pinnedToSomebodyElse)) {
-            assertThatThrownBy(() -> transport.send(request(origin)))
-                    .isInstanceOf(IOException.class);
-        }
-        assertThat(requestsReceived.get()).isZero();
-    }
-
-    /**
      * Pinning must not replace validation. A pin that matches an otherwise untrusted certificate
      * is still refused, because the platform trust manager runs first — the check that a
      * trust-everything implementation would quietly drop.
@@ -236,5 +219,157 @@ class PortalTlsTrustUnitTest {
                 .isInstanceOf(PatientPortalConfigurationException.class);
         assertThatThrownBy(() -> PortalCertificatePinning.over(Set.of()))
                 .isInstanceOf(PatientPortalConfigurationException.class);
+    }
+
+    /**
+     * The pin comparison itself, which no test above can reach.
+     *
+     * <p>Every certificate these tests generate is self-signed and in no truststore, so against the
+     * platform trust manager the delegate rejects it and {@code checkServerTrusted} returns before
+     * comparing anything. That is exactly how the original pin tests came to pass while asserting
+     * nothing: they were named for the pin and were measuring PKIX. Supplying a delegate that
+     * accepts the chain isolates the one decision under test — what the pin set does once standard
+     * validation has already succeeded, which is the situation a clinic's TLS-inspecting proxy
+     * creates for real.
+     */
+    @Nested
+    @DisplayName("Pin decision, once the chain already validates")
+    class PinDecision {
+
+        /** Stands in for a chain the platform already trusts — a proxy CA, or the real portal. */
+        private X509TrustManager accepting() {
+            return new X509TrustManager() {
+                @Override
+                public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+
+                @Override
+                public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+
+                @Override
+                public X509Certificate[] getAcceptedIssuers() {
+                    return new X509Certificate[0];
+                }
+            };
+        }
+
+        @Test
+        @DisplayName("should accept the leaf when its pin is configured")
+        void shouldAccept_whenTheLeafPinMatches() throws Exception {
+            Identity portal = identity("portal.example", "127.0.0.1");
+            PortalCertificatePinning pinning =
+                    PortalCertificatePinning.over(
+                            accepting(),
+                            Set.of(PortalCertificatePinning.pinFor(portal.certificate())));
+
+            assertThatCode(
+                            () ->
+                                    pinning.checkServerTrusted(
+                                            new X509Certificate[] {portal.certificate()}, "RSA"))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("should refuse the leaf when no configured pin matches")
+        void shouldRefuse_whenTheLeafPinIsNotConfigured() throws Exception {
+            Identity portal = identity("portal.example", "127.0.0.1");
+            Identity somebodyElse = identity("portal.example", "127.0.0.1");
+            PortalCertificatePinning pinning =
+                    PortalCertificatePinning.over(
+                            accepting(),
+                            Set.of(PortalCertificatePinning.pinFor(somebodyElse.certificate())));
+
+            assertThatThrownBy(
+                            () ->
+                                    pinning.checkServerTrusted(
+                                            new X509Certificate[] {portal.certificate()}, "RSA"))
+                    .isInstanceOf(CertificateException.class)
+                    // Naming the presented pin is what an operator needs after a key rotation.
+                    .hasMessageContaining(PortalCertificatePinning.pinFor(portal.certificate()));
+        }
+
+        /**
+         * The reason only {@code chain[0]} is compared.
+         *
+         * <p>The portal's real certificate is public — anyone can read it off the live service. An
+         * interceptor holding a CA the machine trusts can therefore present its own leaf and simply
+         * append a copy of the genuine certificate to the chain. Matching a pin anywhere in the
+         * array would accept that, and CARLOS would send the service token and the patient identity
+         * an invitation carries straight to the interceptor.
+         */
+        @Test
+        @DisplayName("should refuse an intercepting leaf that appends the genuine certificate")
+        void shouldRefuse_whenTheGenuineCertificateIsMerelyAppendedToTheChain() throws Exception {
+            Identity genuinePortal = identity("portal.example", "127.0.0.1");
+            Identity interceptor = identity("portal.example", "127.0.0.1");
+            PortalCertificatePinning pinning =
+                    PortalCertificatePinning.over(
+                            accepting(),
+                            Set.of(PortalCertificatePinning.pinFor(genuinePortal.certificate())));
+
+            assertThatThrownBy(
+                            () ->
+                                    pinning.checkServerTrusted(
+                                            new X509Certificate[] {
+                                                interceptor.certificate(),
+                                                genuinePortal.certificate()
+                                            },
+                                            "RSA"))
+                    .withFailMessage(
+                            "a pin match on a peer-supplied chain element accepted a key that did"
+                                    + " not terminate the handshake")
+                    .isInstanceOf(CertificateException.class);
+        }
+
+        @Test
+        @DisplayName("should refuse a chain with no certificates in it")
+        void shouldRefuse_whenTheChainIsEmpty() throws Exception {
+            PortalCertificatePinning pinning =
+                    PortalCertificatePinning.over(
+                            accepting(),
+                            Set.of(
+                                    PortalCertificatePinning.pinFor(
+                                            identity("portal.example", "127.0.0.1")
+                                                    .certificate())));
+
+            assertThatThrownBy(() -> pinning.checkServerTrusted(new X509Certificate[0], "RSA"))
+                    .isInstanceOf(CertificateException.class);
+        }
+
+        /**
+         * Validation stays ahead of the pin at unit level too, so the additive property is pinned
+         * without needing a live handshake.
+         */
+        @Test
+        @DisplayName("should let a validation failure through even when the pin matches")
+        void shouldRefuse_whenTheDelegateRejectsAMatchingLeaf() throws Exception {
+            Identity portal = identity("portal.example", "127.0.0.1");
+            X509TrustManager rejecting =
+                    new X509TrustManager() {
+                        @Override
+                        public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+
+                        @Override
+                        public void checkServerTrusted(X509Certificate[] chain, String authType)
+                                throws CertificateException {
+                            throw new CertificateException("expired");
+                        }
+
+                        @Override
+                        public X509Certificate[] getAcceptedIssuers() {
+                            return new X509Certificate[0];
+                        }
+                    };
+            PortalCertificatePinning pinning =
+                    PortalCertificatePinning.over(
+                            rejecting,
+                            Set.of(PortalCertificatePinning.pinFor(portal.certificate())));
+
+            assertThatThrownBy(
+                            () ->
+                                    pinning.checkServerTrusted(
+                                            new X509Certificate[] {portal.certificate()}, "RSA"))
+                    .isInstanceOf(CertificateException.class)
+                    .hasMessageContaining("expired");
+        }
     }
 }
