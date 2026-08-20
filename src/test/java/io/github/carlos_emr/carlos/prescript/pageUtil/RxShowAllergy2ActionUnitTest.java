@@ -39,6 +39,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,7 +51,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("RxShowAllergy2Action Unit Tests")
 @Tag("unit")
 @Tag("rx")
-class RxShowAllergy2ActionTest extends CarlosUnitTestBase {
+class RxShowAllergy2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -122,7 +123,11 @@ class RxShowAllergy2ActionTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_allergy");
 
-        verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("r"), isNull());
+        // Twice, not once: execute() gates the dispatcher and reorder() gates the handler it
+        // dispatches to. That duplication is deliberate defence in depth -- reorder() is also
+        // reachable directly -- so the count is asserted rather than relaxed to atLeastOnce().
+        verify(mockSecurityInfoManager, times(2))
+                .hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("r"), isNull());
         verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("u"), isNull());
         verify(mockAllergyDao, never()).merge(any(AbstractModel.class));
     }
