@@ -29,7 +29,7 @@ package io.github.carlos_emr.carlos.email.core;
 public final class EmailSessionKeys {
     public static final String EMAIL_ATTACHMENT_LIST = "emailAttachmentList";
 
+    /** Not instantiable: this class only holds constants. */
     private EmailSessionKeys() {
-        // Utility class.
     }
 }
