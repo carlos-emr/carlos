@@ -28,10 +28,12 @@ import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalServic
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Locale;
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 
 /**
@@ -54,6 +56,8 @@ abstract class PortalJsonAction extends ActionSupport {
 
     private static final long serialVersionUID = 1L;
 
+    private static final Logger logger = MiscUtils.getLogger();
+
     /** Non-null only when a test supplied the client directly. */
     private final transient PatientPortalService injectedService;
 
@@ -66,6 +70,9 @@ abstract class PortalJsonAction extends ActionSupport {
     }
 
     private static final String JSON = "application/json;charset=UTF-8";
+
+    /** Jakarta's HttpServletResponse predates RFC 6585 and has no constant for this. */
+    private static final int TOO_MANY_REQUESTS = 429;
     private static final String MISSING_PRIVILEGE = "missing required sec object (%s)";
 
     private static final String CONFLICT_DEFAULT =
@@ -84,6 +91,16 @@ abstract class PortalJsonAction extends ActionSupport {
             The portal replied in a form CARLOS could not read. The change may or may not have been \
             applied; check before retrying.""";
     private static final String REJECTED = "The portal rejected this request.";
+    private static final String VALIDATION_REJECTED =
+            """
+            The portal rejected the details CARLOS sent. The field it named is in the CARLOS server \
+            log; it is withheld here because it can echo patient data.""";
+    private static final String PORTAL_FAULT =
+            """
+            The patient portal returned an error. This is a fault at the portal rather than a \
+            problem with this request; it needs checking before retrying.""";
+    private static final String FAILURE_LOG =
+            "patient portal call failed: kind=%s, answered %d to the browser";
     private static final String WRONG_METHOD =
             "This action must be requested with POST.";
     private static final String NOT_CONFIGURED =
@@ -198,7 +215,23 @@ abstract class PortalJsonAction extends ActionSupport {
         return NOT_FOUND;
     }
 
-    /** Translates a portal failure into something a staff member can act on. */
+    /**
+     * Translates a portal failure into something a staff member can act on, and records it.
+     *
+     * <p>The status is per-kind rather than a blanket {@code 409}. Answering 409 to everything made
+     * a total portal outage produce no 5xx anywhere in CARLOS, so nothing in an access log or an
+     * uptime rule keyed on 5xx could see it, and a rate limit was indistinguishable from a
+     * permanent business conflict to any retry layer. {@code PatientPortalException} argues at
+     * length that these outcomes differ; the web layer has to carry that through.
+     *
+     * <p>The switch is exhaustive on purpose. A new {@link PatientPortalException.Kind} must not be
+     * able to inherit "the portal rejected this request" from a {@code default} arm without anyone
+     * deciding it should.
+     *
+     * <p>These failures reach a receptionist, not a developer, so their report is the only trigger
+     * anyone gets and the log is the only evidence. The exception message names an endpoint
+     * template and a status — never an interpolated path — so it is safe to record in full.
+     */
     String portalFailure(HttpServletResponse response, PatientPortalException exception)
             throws IOException {
         String message =
@@ -211,9 +244,25 @@ abstract class PortalJsonAction extends ActionSupport {
                     case THROTTLED -> THROTTLED;
                     case TRANSPORT_FAILURE -> UNREACHABLE;
                     case MALFORMED_RESPONSE -> MALFORMED;
-                    default -> REJECTED;
+                    case VALIDATION_FAILED -> VALIDATION_REJECTED;
+                    case UNEXPECTED_STATUS -> PORTAL_FAULT;
+                    case BAD_REQUEST -> REJECTED;
                 };
-        return conflict(response, exception.kind().name().toLowerCase(Locale.ROOT), message);
+        int status =
+                switch (exception.kind()) {
+                    case CONFLICT -> HttpServletResponse.SC_CONFLICT;
+                    case PERMISSION_DENIED -> HttpServletResponse.SC_FORBIDDEN;
+                    case NOT_FOUND_OR_UNAUTHENTICATED -> HttpServletResponse.SC_NOT_FOUND;
+                    case THROTTLED -> TOO_MANY_REQUESTS;
+                    case TRANSPORT_FAILURE -> HttpServletResponse.SC_GATEWAY_TIMEOUT;
+                    case MALFORMED_RESPONSE, UNEXPECTED_STATUS ->
+                            HttpServletResponse.SC_BAD_GATEWAY;
+                    case VALIDATION_FAILED, BAD_REQUEST -> HttpServletResponse.SC_BAD_REQUEST;
+                };
+        logger.error(
+                String.format(Locale.ROOT, FAILURE_LOG, exception.kind(), status), exception);
+        return failure(
+                response, status, exception.kind().name().toLowerCase(Locale.ROOT), message);
     }
 
     static int positiveInt(String value) {
