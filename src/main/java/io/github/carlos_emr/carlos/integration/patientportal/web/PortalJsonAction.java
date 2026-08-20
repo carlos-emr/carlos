@@ -273,4 +273,21 @@ abstract class PortalJsonAction extends ActionSupport {
             return -1;
         }
     }
+
+    /**
+     * Parses an identifier the portal models as a {@code long}.
+     *
+     * <p>Separate from {@link #positiveInt(String)} because invite identifiers are {@code long} in
+     * every DTO. Parsing them as {@code int} made any identifier above {@link Integer#MAX_VALUE}
+     * unaddressable, and reported as "an invitation must be selected" rather than as anything a
+     * caller could act on.
+     */
+    static long positiveLong(String value) {
+        try {
+            long parsed = Long.parseLong(value == null ? "" : value.strip());
+            return parsed > 0 ? parsed : -1;
+        } catch (NumberFormatException exception) {
+            return -1;
+        }
+    }
 }

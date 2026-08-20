@@ -35,7 +35,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import org.apache.struts2.ServletActionContext;
 
 /**
@@ -117,7 +119,16 @@ public class PortalPanel2Action extends PortalJsonAction {
             return portalNotConfigured(response);
         }
 
-        PatientPortalStaffContext staff = staffContextResolver.resolve(loggedInInfo);
+        // Only the sections this caller may read. A panel read has no business arriving at the
+        // portal with authority over passphrases or the contact-review queue.
+        Set<String> scope = new LinkedHashSet<>();
+        if (mayReadInvites) {
+            scope.add(PortalStaffContextResolver.OBJECT_INVITE);
+        }
+        if (mayReadAccount) {
+            scope.add(PortalStaffContextResolver.OBJECT_ACCOUNT);
+        }
+        PatientPortalStaffContext staff = staffContextResolver.resolve(loggedInInfo, scope);
         ObjectNode payload = objectMapper().createObjectNode();
         payload.put("ok", true);
         if (mayReadInvites) {

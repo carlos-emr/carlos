@@ -115,7 +115,7 @@ class PortalInvite2ActionUnitTest {
 
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull()))
                 .thenReturn(true);
-        when(staffContextResolver.resolve(any()))
+        when(staffContextResolver.resolve(any(), any()))
                 .thenReturn(
                         new PatientPortalStaffContext(
                                 "999998",

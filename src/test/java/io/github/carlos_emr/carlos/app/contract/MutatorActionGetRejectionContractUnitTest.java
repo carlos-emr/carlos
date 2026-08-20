@@ -375,6 +375,11 @@ class MutatorActionGetRejectionContractUnitTest {
         // appt slice: AppointmentType2Action is the only migrated mutator; the appt package is
         // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
         "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
+        // patient portal slice: the two mutators are registered explicitly rather than by package
+        // prefix, so the drift scan covers them and a third mutator added to
+        // integration.patientportal.web cannot land unclassified.
+        "io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action",
+        "io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccount2Action",
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         "io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",

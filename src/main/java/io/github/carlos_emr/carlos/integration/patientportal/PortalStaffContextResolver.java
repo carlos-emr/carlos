@@ -31,10 +31,11 @@ import java.util.Set;
 /**
  * Derives the portal permissions a logged-in provider actually holds.
  *
- * <p>This is the single enforcement point for the invariant {@link PatientPortalStaffContext}
- * documents but cannot enforce on its own: that the permissions sent to the portal reflect the
- * caller's real CARLOS privileges rather than what the calling code chose to claim. There is exactly
- * one way to build a context for a request, and it reads {@link SecurityInfoManager}.
+ * <p>This is the intended sole builder of a request's portal identity: the permissions sent to the
+ * portal come from {@link SecurityInfoManager} rather than from whatever the calling code chose to
+ * claim. It is a convention, not an enforced invariant — {@link PatientPortalStaffContext} is a
+ * public record with a public canonical constructor, so {@code Set.of(all five constants)} compiles
+ * from anywhere. Nothing in the build would catch that today.
  *
  * <p>The temptation this class exists to remove is a caller writing {@code Set.of(all five
  * constants)} because it is convenient — which compiles, works, and silently makes the portal's
@@ -50,6 +51,18 @@ import java.util.Set;
  *   <li>{@code _portal.secret} → {@code portal.secret.manage}
  *   <li>{@code _portal.contact.review} → {@code portal.contact.review}
  * </ul>
+ *
+ * <p><b>The portal's permissions are resource-scoped, not level-scoped.</b> One permission gates
+ * both the read and the mutations on a resource there — {@code portal.invite.manage} authorises
+ * listing invitations as well as creating and revoking them — so a provider who may only read still
+ * has to be sent a permission whose name says "manage". CARLOS's own {@code hasPrivilege} check is
+ * what keeps a read-only provider from reaching a mutating route; the header cannot express the
+ * distinction because the portal has no vocabulary for it. The privilege level is therefore read at
+ * {@code "r"} deliberately, and this is the reason.
+ *
+ * <p>What the caller <em>can</em> control is scope: {@link #resolve(LoggedInInfo, Set)} takes the
+ * objects the current call actually needs, so a panel read no longer asserts
+ * {@code portal.secret.manage} on the provider's behalf merely because they hold that object.
  *
  * @since 2026-08-19
  */
@@ -87,24 +100,30 @@ public class PortalStaffContextResolver {
     }
 
     /**
-     * Builds the portal identity for the logged-in provider.
+     * Builds the portal identity for the logged-in provider, limited to the objects a call needs.
      *
      * <p>The provider number is used as {@code providerId} because the portal retains it as the
      * permanent record of who acted, so it must be the durable CARLOS identifier rather than a
      * display name or a session key.
      *
+     * <p>Scoping matters because the portal authorises on this header alone. Sending every
+     * permission a provider happens to hold makes a read of the demographic panel arrive at the
+     * portal carrying authority to reveal message passphrases, which no part of that request needs.
+     *
      * @param loggedInInfo the authenticated CARLOS session
-     * @return a context carrying only the permissions this provider holds
-     * @throws SecurityException if the provider holds none of the portal objects. Sending an empty
-     *     permission set would be rejected by the portal as a malformed identity and logged there as
-     *     an authentication failure, which reads as a CARLOS misconfiguration rather than as the
+     * @param objects the portal security objects this call depends on
+     * @return a context carrying only the permissions this provider holds among {@code objects}
+     * @throws SecurityException if the provider holds none of them. Sending an empty permission set
+     *     would be rejected by the portal as a malformed identity and logged there as an
+     *     authentication failure, which reads as a CARLOS misconfiguration rather than as the
      *     authorization refusal it is.
      */
-    public PatientPortalStaffContext resolve(LoggedInInfo loggedInInfo) {
+    public PatientPortalStaffContext resolve(LoggedInInfo loggedInInfo, Set<String> objects) {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         Set<String> granted = new LinkedHashSet<>();
         for (Map.Entry<String, String> entry : PERMISSION_BY_OBJECT.entrySet()) {
-            if (securityInfoManager.hasPrivilege(loggedInInfo, entry.getKey(), READ, null)) {
+            if (objects.contains(entry.getKey())
+                    && securityInfoManager.hasPrivilege(loggedInInfo, entry.getKey(), READ, null)) {
                 granted.add(entry.getValue());
             }
         }

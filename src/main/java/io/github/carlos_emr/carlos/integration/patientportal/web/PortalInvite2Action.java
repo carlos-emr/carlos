@@ -162,7 +162,9 @@ public class PortalInvite2Action extends PortalJsonAction {
             return portalNotConfigured(response);
         }
 
-        PatientPortalStaffContext staff = staffContextResolver.resolve(loggedInInfo);
+        PatientPortalStaffContext staff =
+                staffContextResolver.resolve(
+                        loggedInInfo, Set.of(PortalStaffContextResolver.OBJECT_INVITE));
         String method = request.getParameter("method");
         try {
             return switch (method == null ? "" : method) {
@@ -306,6 +308,6 @@ public class PortalInvite2Action extends PortalJsonAction {
     }
 
     private static long inviteId(HttpServletRequest request) {
-        return positiveInt(request.getParameter("inviteId"));
+        return positiveLong(request.getParameter("inviteId"));
     }
 }
