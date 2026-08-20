@@ -59,6 +59,13 @@ const sidebars = {
     },
     {
       type: 'category',
+      label: 'Operations',
+      items: [
+        'email/provider-to-patient-email-operations',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Legacy',
       items: [
         'MyDrugref',

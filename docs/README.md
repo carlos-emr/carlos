@@ -42,6 +42,7 @@ Key testing resources:
 |----------|-------------|
 | [Runtime Directories](runtime-directories.md) | Required filesystem directories and permissions |
 | [Resources Directory](resources-directory.md) | Application resources structure |
+| [Provider-to-Patient Email Operations](email/provider-to-patient-email-operations.md) | Email workflow setup, monitoring, and safety runbook |
 | [GitHub Issue Management](github-issue-management.md) | Issue tracking and workflow |
 | [Testing Exclusions](Testing_Exclusion_of_MCEDT_and_HinValidator_tests.md) | Excluded test documentation |
 
