@@ -13,6 +13,7 @@ The mock demonstrates:
 - A compact CARLOS-style navigation, typography, and panel treatment
 - A clinical-briefing format with an orientation rail followed by a problem-oriented general overview synthesized from all 45 notes in one admission
 - An explicit warning that the available record covers only one acute respiratory admission and is not a complete longitudinal chart
+- DOB-derived age calculated at the viewing date, with ages from clinical documents interpreted at each document's date
 - A persistent Allergies & safety view that keeps expected clinical categories visible and uses explicit record-limited empty states
 - Clickable summary sentences
 - Multiple sources attached to one sentence
