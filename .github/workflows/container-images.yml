@@ -12,7 +12,10 @@
 # Containers Managed:
 # - carlos-tomcat-dev: Development container with Java 21, Tomcat, Maven, Node.js
 # - carlos-mariadb-dev: MariaDB database container with schema initialization scripts
-# - carlos-drugref: DrugRef2 service container with Java 11
+# - carlos-drugref-dev: DrugRef2 service container with Java 11
+#   (the bare "carlos-drugref" ghcr name is reserved for the DEPLOYMENT image
+#   published by the carlos-podman repo's Publish Images workflow — dev images
+#   all carry the -dev suffix)
 #
 # Freshness Check Strategy:
 # 1. Calculate SHA256 hash of Dockerfile + build context for each container
@@ -29,7 +32,7 @@
 # - Manual dispatch for forced rebuilds (with force_rebuild option)
 #
 # License:
-# This GitHub Workflow file is part of the Carlos EMR project and is subject
+# This GitHub Workflow file is part of the CARLOS EMR project and is subject
 # to the licensing terms outlined in the repository's LICENSE file.
 
 name: Development Container Images
@@ -177,7 +180,7 @@ jobs:
           # Check each container (name, output_name, context_path, extra_context)
           check_container "tomcat-dev" "tomcat" ".devcontainer/development" ""
           check_container "mariadb-dev" "mariadb" ".devcontainer/db" "database .devcontainer/development/config/shared/my.cnf"
-          check_container "drugref" "drugref" ".devcontainer/drugref" ""
+          check_container "drugref-dev" "drugref" ".devcontainer/drugref" ""
 
   # ===========================================================================
   # Build and push tomcat-dev container
@@ -483,10 +486,10 @@ jobs:
         env:
           CONTENT_HASH: ${{ needs.check-containers.outputs.drugref_hash }}
         run: |
-          echo "Building carlos-drugref container..."
+          echo "Building carlos-drugref-dev container..."
           docker buildx build \
             --load \
-            -t carlos-drugref:test \
+            -t carlos-drugref-dev:test \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
             --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
@@ -495,7 +498,7 @@ jobs:
       - name: Test drugref container
         run: |
           echo "Testing container starts correctly..."
-          docker run -d --name test-drugref -p 8081:8080 carlos-drugref:test
+          docker run -d --name test-drugref -p 8081:8080 carlos-drugref-dev:test
 
           echo "Waiting for Tomcat to start..."
           ready=false
@@ -537,13 +540,13 @@ jobs:
       - name: Save tested drugref image
         run: |
           mkdir -p "$RUNNER_TEMP/container-images"
-          docker save carlos-drugref:test -o "$RUNNER_TEMP/container-images/carlos-drugref.tar"
+          docker save carlos-drugref-dev:test -o "$RUNNER_TEMP/container-images/carlos-drugref-dev.tar"
 
       - name: Upload tested drugref image
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: carlos-drugref-image
-          path: ${{ runner.temp }}/container-images/carlos-drugref.tar
+          name: carlos-drugref-dev-image
+          path: ${{ runner.temp }}/container-images/carlos-drugref-dev.tar
           retention-days: 1
 
   publish-drugref:
@@ -557,7 +560,7 @@ jobs:
       - name: Download tested drugref image
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: carlos-drugref-image
+          name: carlos-drugref-dev-image
           path: ${{ runner.temp }}/container-images
 
       - name: Log in to Container Registry
@@ -569,7 +572,7 @@ jobs:
 
       - name: Push tested drugref container
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref-dev
           CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
@@ -584,14 +587,14 @@ jobs:
             printf '%s-latest' "$safe_ref"
           }
 
-          docker load -i "$RUNNER_TEMP/container-images/carlos-drugref.tar"
-          docker tag carlos-drugref:test "$IMAGE:${{ github.sha }}"
+          docker load -i "$RUNNER_TEMP/container-images/carlos-drugref-dev.tar"
+          docker tag carlos-drugref-dev:test "$IMAGE:${{ github.sha }}"
           CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
-          docker tag carlos-drugref:test "$IMAGE:$CACHE_TAG"
+          docker tag carlos-drugref-dev:test "$IMAGE:$CACHE_TAG"
           docker push "$IMAGE:$CACHE_TAG"
           echo "Pushed $IMAGE:$CACHE_TAG"
           if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
-            docker tag carlos-drugref:test "$IMAGE:latest"
+            docker tag carlos-drugref-dev:test "$IMAGE:latest"
             docker push "$IMAGE:latest"
             echo "Pushed $IMAGE:latest"
           fi
