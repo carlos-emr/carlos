@@ -48,7 +48,6 @@ io.github.carlos_emr.carlos.demographic.pageUtil.DemographicApptHistory2ActionTe
 io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEdit2ActionTest
 io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEditHelperTest
 io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42ActionCodeSystemAllowlistTest
-io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42ActionRequestMethodTest
 io.github.carlos_emr.carlos.demographic.pageUtil.DemographicLinkMsg2ActionTest
 io.github.carlos_emr.carlos.demographic.pageUtil.DemographicPdfLabel2ActionTest
 io.github.carlos_emr.carlos.demographic.pageUtil.DemographicUpdate2ActionTest
@@ -79,7 +78,6 @@ io.github.carlos_emr.carlos.eform.gate.ViewEFormAddData2ActionTest
 io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2ActionTest
 io.github.carlos_emr.carlos.eform.gate.ViewEFormShowData2ActionTest
 io.github.carlos_emr.carlos.email.action.EmailSend2ActionTest
-io.github.carlos_emr.carlos.email.core.EmailAttachmentSettingsTest
 io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2ActionTest
 io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayAllergy2ActionTest
 io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayRx2ActionSortTest
