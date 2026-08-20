@@ -93,7 +93,6 @@
     .patient-name button { padding: 0; border: 0; color: inherit; background: transparent; cursor: pointer; border-bottom: 1px dotted var(--blue); }
     .patient-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 12px; }
     .patient-meta span { display: inline-flex; align-items: center; gap: 5px; }
-    .patient-meta .mismatch { color: var(--red); font-weight: 700; }
 
     .header-status { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
     .status-line { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
@@ -910,8 +909,8 @@
         <h1 class="patient-name"><button type="button" data-claim="demographics">Abena Bonsu <span class="source-count">2 sources</span></button></h1>
         <div class="patient-meta">
           <span>Female</span>
+          <span id="patient-age" title="Calculated from date of birth at the viewing date">Age 46</span>
           <span>DOB 17 Feb 1980</span>
-          <span class="mismatch">⚠ Dataset age 43 · calculated age 45</span>
           <span>Synthetic NHS no. 395 107 142</span>
           <span>Available records 3–10 Jan 2026</span>
         </div>
@@ -952,7 +951,7 @@
                 <div class="quick-item"><strong>Who she is</strong><button class="claim" type="button" data-claim="baseline">School teacher living alone; independent with daily activities before admission, with her brother involved in discharge support.<span class="source-count">3 sources</span></button></div>
                 <div class="quick-item"><strong>Active clinical picture</strong><button class="claim" type="button" data-claim="current_status">Discharged 10 Jan after improvement from hypoxic exertional breathlessness. CTEPH with severe pulmonary hypertension and right-heart strain was documented; last SpO₂ was 94% on room air.<span class="source-count">3 sources</span></button></div>
                 <div class="quick-item"><strong>Known history</strong><button class="claim" type="button" data-claim="background">Hypertension, asthma, and nut allergy are documented. No pre-admission medicines were reported in the available episode notes.<span class="source-count">3 sources</span></button></div>
-                <div class="quick-item"><strong>Record context</strong><button class="claim conflict" type="button" data-claim="record_context">Anticoagulant plans change across the admission, renal values are absent, and the dataset age does not match the 2026 episode. These are reported as documentation context.<span class="source-count">6 sources</span></button></div>
+                <div class="quick-item"><strong>Record context</strong><button class="claim conflict" type="button" data-claim="record_context">Anticoagulant plans change across the admission, and the renal values cited for dosing are absent. These are reported as documentation context.<span class="source-count">4 sources</span></button></div>
               </div>
             </div>
             <div class="record-limit"><strong>Record limitation:</strong> all 45 notes belong to one acute admission from 3–10 Jan 2026. A duplicate synthetic admission was excluded. The absence of broader diagnoses, medications, visits, or preventive history must not be interpreted as evidence that none exist.</div>
@@ -1027,11 +1026,6 @@
                 <li><button class="claim" type="button" data-claim="therapy">The final physiotherapy note documents a home exercise programme and outpatient physiotherapy follow-up, without an appointment date.<span class="source-count">3 sources</span></button></li>
                 <li><button class="claim" type="button" data-claim="gp_update">The GP was updated after CTPA confirmation.<span class="source-count">1 source</span></button></li>
               </ul>
-            </section>
-
-            <section class="summary-section">
-              <h3>Other record context</h3>
-              <p><button class="claim conflict" type="button" data-claim="demographics">The dataset states age 43, while DOB 17 Feb 1980 implies age 45 during the January 2026 admission.<span class="source-count">2 sources</span></button></p>
             </section>
 
             <div class="footnote"><strong>Source context:</strong> select any statement with a source badge or record-difference marker to open its complete source note. Differences are reported as documented and do not require a decision in this overview. This is not a discharge summary or proof of a complete longitudinal history.</div>
@@ -1126,13 +1120,26 @@
     const rawPatientsUrl = "https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes/resolve/main/silver/patients.csv";
     const rawAdmissionsUrl = "https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes/resolve/main/silver/admissions.csv";
 
+    function calculateAgeAt(dateOfBirth, referenceDate) {
+      let age = referenceDate.getFullYear() - dateOfBirth.getFullYear();
+      const birthdayHasPassed = referenceDate.getMonth() > dateOfBirth.getMonth()
+        || (referenceDate.getMonth() === dateOfBirth.getMonth() && referenceDate.getDate() >= dateOfBirth.getDate());
+      if (!birthdayHasPassed) age -= 1;
+      return age;
+    }
+
+    const viewingDate = new Date();
+    const ageElement = document.getElementById("patient-age");
+    ageElement.textContent = `Age ${calculateAgeAt(new Date(1980, 1, 17), viewingDate)}`;
+    ageElement.title = `Calculated from DOB at ${new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(viewingDate)}`;
+
     const claimHighlightTerms = {
       demographics: ["17/02/1980", "43", "03/01/2026 01:35"],
       presentation: ["Progressive breathlessness", "SpO2 89% on room air", "Respiratory High Dependency Unit"],
       baseline: ["Lives alone", "independent in ADLs", "school teacher", "Kwame Bonsu"],
       current_status: ["Feelswell", "SpO2: 94% RA", "Mobilising well", "home exercise programme"],
       background: ["Past Medical History", "HTN", "Asthma", "None reported"],
-      record_context: ["apixaban", "Rivaroxaban", "enoxaparin 40 mg OD", "renal function", "43"],
+      record_context: ["apixaban", "Rivaroxaban", "enoxaparin 40 mg OD", "renal function"],
       cteph: ["chronic thromboembolic", "Severe pulmonary hypertension", "right ventricular strain", "Mismatched perfusion defects"],
       anaemia: ["Hb 110 g/L", "ferrous sulfate 200 mg BD", "repeat Hb check"],
       hypertension: ["HTN", "No current medications reported"],
@@ -1181,12 +1188,12 @@
     };
 
     const claims = {
-      demographics: { title: "Patient identity and age difference", description: "The source row reports age 43, while DOB 17 February 1980 makes the patient 45 during the January 2026 admission. The duplicate synthetic patient and admission rows were excluded from retrieval.", sources: ["patients", "admission"], summary: "2 linked records · age differs", sourceRelations: { patients: "conflicts", admission: "context" } },
+      demographics: { title: "Patient identity and calculated age", description: "Age in the patient header is calculated from DOB 17 February 1980 at the viewing date. She was 45 on admission on 3 January 2026. The undated stored age of 43 is not used as a current or episode age.", sources: ["patients", "admission"], summary: "2 linked records · age calculated from DOB", sourceRelations: { patients: "direct", admission: "context" } },
       presentation: { title: "Presentation and admission", description: "ED and clerking records describe two weeks of progressive exertional breathlessness with hypoxia, tachycardia and borderline hypotension, leading to Respiratory HDU admission.", sources: ["triage", "edDepart", "clerking"], summary: "3 linked notes · acute presentation" },
       baseline: { title: "Home, work and functional baseline", description: "The ED summary and clerking record describe a school teacher living alone and independent with ADLs; her brother later supported discharge arrangements.", sources: ["edDepart", "clerking", "nok"], summary: "3 linked notes · baseline and support" },
       current_status: { title: "Last documented clinical and functional status", description: "The final medical, nursing and therapy notes are grouped to show the last bedside assessment, discharge communication and functional plan. They describe status on 10 January 2026, not the patient's current condition today.", sources: ["finalAmwr", "dischargeSummary", "finalPhysio"], summary: "3 linked notes · last documented 10 Jan" },
       background: { title: "Documented history at admission", description: "Hypertension, asthma and nut allergy recur in the admission records. The patient reported no current medicines; this episode does not contain an authoritative longitudinal medication history.", sources: ["triage", "edDepart", "clerking"], summary: "3 linked notes · admission history" },
-      record_context: { title: "Documentation differences and data limitations", description: "This bundle shows the changing anticoagulation accounts, missing renal and weight values, and deterministic age mismatch. These are presented as record context rather than tasks for the clinician.", sources: ["ptwr", "anticoagPharm", "selfInjection", "finalAmwr", "patients", "admission"], summary: "6 linked records · contextual differences", sourceRelations: { finalAmwr: "direct", ptwr: "conflicts", selfInjection: "conflicts", patients: "conflicts", admission: "context" } },
+      record_context: { title: "Documentation differences and data limitations", description: "This bundle shows the changing anticoagulation accounts and the missing renal and weight values cited for dosing. These are presented as record context rather than tasks for the clinician.", sources: ["ptwr", "anticoagPharm", "selfInjection", "finalAmwr"], summary: "4 linked records · contextual differences", sourceRelations: { finalAmwr: "direct", ptwr: "conflicts", selfInjection: "conflicts" } },
       cteph: { title: "Confirmed chronic thromboembolic pulmonary hypertension", description: "CTPA, echocardiography and V/Q documentation support chronic thromboembolic disease with severe pulmonary hypertension, right-ventricular strain and mismatched perfusion defects.", sources: ["gpCtp", "cardio", "vq", "finalAmwr"], summary: "4 linked notes · imaging and clinical synthesis" },
       anaemia: { title: "Mild anaemia and follow-up plan", description: "Later ward rounds document Hb 110 g/L, previously 120 g/L, initiation of ferrous sulfate and an outpatient repeat-haemoglobin plan.", sources: ["amwr8", "amwr9", "finalAmwr"], summary: "3 linked notes · repeat planned" },
       hypertension: { title: "Hypertension history", description: "Hypertension is included in ED and clerking history, but no regular antihypertensive is named in the available admission notes.", sources: ["edDepart", "clerking"], summary: "2 linked notes · regular medicine not recorded" },
