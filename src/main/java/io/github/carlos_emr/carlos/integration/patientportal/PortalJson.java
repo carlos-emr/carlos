@@ -171,8 +171,12 @@ final class PortalJson {
             try {
                 return LocalDateTime.parse(value).toInstant(ZoneOffset.UTC);
             } catch (DateTimeParseException notATimestamp) {
-                throw new PortalContractException(
-                        String.format(Locale.ROOT, WRONG_TYPE, field), notATimestamp);
+                // The cause is deliberately dropped. DateTimeParseException embeds the value it
+                // choked on — "Text 'patient@example.com' could not be parsed" — and this exception
+                // is logged with its full cause chain when it reaches the web layer, so chaining it
+                // writes portal data straight into the CARLOS log. The field name is already in the
+                // message, and the value is the one thing that must not be kept.
+                throw new PortalContractException(String.format(Locale.ROOT, WRONG_TYPE, field));
             }
         }
     }

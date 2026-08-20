@@ -22,9 +22,12 @@
 package io.github.carlos_emr.carlos.integration.patientportal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
@@ -203,5 +206,34 @@ class PortalJsonUnitTest {
                     .hasMessageNotContaining("patient@example.com")
                     .hasMessageContaining("requested_at");
         }
+    }
+
+    /**
+     * What the thrown exception carries, not just what it says.
+     *
+     * <p>{@code DateTimeParseException} embeds the text it choked on — "Text 'patient@example.com'
+     * could not be parsed" — and this exception is logged with its full cause chain once it reaches
+     * the web layer. Chaining it therefore writes portal data into the CARLOS log, which is the one
+     * thing this codebase treats as absolute. The message names the field, which is all a
+     * maintainer can act on anyway.
+     *
+     * <p>Asserting on {@code getMessage()} alone would pass with the leak present; the value only
+     * appears once the cause chain is rendered, which is exactly what a log appender does.
+     */
+    @Test
+    @DisplayName("should not carry the offending value when a timestamp cannot be parsed")
+    void shouldOmitTheValue_whenATimestampIsNotATimestamp() {
+        String patientEmail = "patient@example.com";
+        JsonNode payload = node(String.format("{\"expires_at\":\"%s\"}", patientEmail));
+
+        Throwable thrown =
+                catchThrowable(() -> PortalJson.timestamp(payload, "expires_at"));
+
+        StringWriter rendered = new StringWriter();
+        thrown.printStackTrace(new PrintWriter(rendered));
+        assertThat(rendered.toString())
+                .withFailMessage("the parsed value survives in the cause chain and would be logged")
+                .doesNotContain(patientEmail);
+        assertThat(thrown).isInstanceOf(PortalContractException.class);
     }
 }
