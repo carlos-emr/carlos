@@ -942,6 +942,30 @@ cmd_check() {
     if [ "${code}" = 403 ]; then ok "a probe SQL-injection request was blocked (403)"
     else bad "a probe SQL-injection request returned ${code}, expected 403"; fi
 
+    printf '\nDrugRef\n'
+    # Installed only when carlos-emr-drugref is present. A live XML-RPC call,
+    # not a page probe: the context can deploy and still have a dead database
+    # pool behind it (seen in validation — a connection leak that only
+    # surfaced on the second search), and only an actual drug lookup
+    # exercises pool checkout, the query and the marshalling.
+    if [ -e "${CONF_DIR}/tomcat/Catalina/localhost/drugref2.xml" ]; then
+        local drugref_resp
+        drugref_resp="$(curl -s --max-time 30 -X POST -H 'Content-Type: text/xml' \
+            -d '<?xml version="1.0"?><methodCall><methodName>list_search_element3</methodName><params><param><value><string>ASA</string></value></param></params></methodCall>' \
+            http://127.0.0.1:18080/drugref2/DrugrefService 2>/dev/null || true)"
+        if printf '%s' "${drugref_resp}" | grep -q '<methodResponse>'; then
+            if printf '%s' "${drugref_resp}" | grep -q '<string>None found</string>'; then
+                bad "DrugRef answers XML-RPC but finds no drugs — pool exhaustion or an empty dataset (journalctl -u carlos-emr | grep -i hikari)"
+            else
+                ok "DrugRef answers a live drug lookup over XML-RPC"
+            fi
+        else
+            bad "DrugRef is not answering XML-RPC on loopback (is the /drugref2 context deployed? carlosctl logs | grep drugref2)"
+        fi
+    else
+        note "carlos-emr-drugref is not installed; prescription drug lookups will return nothing"
+    fi
+
     printf '\ndatabase\n'
     if db_root_ok; then
         ok "MariaDB reachable as root over the unix socket"

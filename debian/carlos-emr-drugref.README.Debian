@@ -47,6 +47,21 @@ Refresh or replace the dataset according to your own drug-data source and
 licensing. Commercial Medi-Span interaction monographs need a licence key in
 /etc/carlos-emr/drugref2.properties.
 
+Deployment fix baked into the webapp
+------------------------------------
+The package installs WEB-INF/classes/hibernate.properties naming the dialect
+explicitly (org.hibernate.dialect.MariaDBDialect). Hibernate's autodetection
+runs a MySQL-8-only information_schema query that MariaDB rejects, and
+without the pin the /drugref2 context fails to deploy at all; the file
+carries the full analysis.
+
+A second failure found during validation — DAO EntityManager leaks that
+exhausted the 32-connection pool after a single drug search — is fixed at
+source in carlos-emr/drugref2026 (branch fix/entitymanager-connection-leaks);
+debian/drugref.pin selects a revision that carries it. If you build this
+package against an older DrugRef revision, drug searches will stop returning
+results after the first one or two calls: that is the leak, not this package.
+
 Removing it
 -----------
 Removing the package undeploys the context and restarts the EMR. The drugref2

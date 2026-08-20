@@ -2,4 +2,9 @@
 # neither DRUGREF_SRC nor DRUGREF_WAR is supplied. Pin a full commit SHA for a
 # release build: a branch name makes two builds weeks apart ship different
 # code under one package version.
-ref=master
+#
+# The current pin is the EntityManager-leak fix
+# (fix/entitymanager-connection-leaks): without it, drug searches exhaust the
+# JDBC pool after one or two calls and permanently return "None found".
+# Once that branch merges, move the pin to the merge commit on master.
+ref=ded5106ad5490a44d912d2f03ce48c15562ba739

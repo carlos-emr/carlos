@@ -299,10 +299,17 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         # Wait for it, with a bound and a progress line so nobody thinks apt
         # has hung.
         echo "carlos-emr: waiting for the application to finish deploying (this takes a couple of minutes)..."
+        # Probe through the configured server name resolved to loopback, not by
+        # bare IP: a numeric Host header trips CRS rule 920350 on every poll
+        # and fills the brand-new audit log with noise the installer itself
+        # generated.
+        PROBE_NAME="$(sed -n 's/^CARLOS_SERVER_NAME=//p' "${ENV_FILE}" | head -1)"
+        PROBE_NAME="${PROBE_NAME:-localhost}"
         i=0
         while [ "${i}" -lt 60 ]; do
             code="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 \
-                    "https://127.0.0.1/carlos/" 2>/dev/null || echo 000)"
+                    --resolve "${PROBE_NAME}:443:127.0.0.1" \
+                    "https://${PROBE_NAME}/carlos/" 2>/dev/null || echo 000)"
             case "${code}" in
                 200|302|303) break ;;
             esac
