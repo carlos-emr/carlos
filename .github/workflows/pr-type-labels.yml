@@ -87,7 +87,9 @@ jobs:
           # The managed set: exactly the `type: *` labels release.yml
           # categorizes by. Stale managed labels are swapped out when a
           # title edit changes the mapping; labels outside this set are
-          # never touched.
+          # never touched. `type: enhancement` is a legacy alias for
+          # `type: feature`; it remains managed only so stale uses are
+          # removed rather than propagated by the automation.
           managed=("type: security" "type: feature" "type: enhancement" \
                    "type: bug" "type: performance" "type: refactor" \
                    "type: dependencies" "type: documentation" "type: tests")
