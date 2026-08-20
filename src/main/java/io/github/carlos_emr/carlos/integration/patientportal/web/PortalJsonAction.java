@@ -184,6 +184,26 @@ abstract class PortalJsonAction extends ActionSupport {
                 WRONG_METHOD);
     }
 
+    /**
+     * Answers an authorization refusal in JSON instead of letting it become an HTML error page.
+     *
+     * <p>{@code requirePrivilege} throws {@link SecurityException}, which CLAUDE.md requires and the
+     * mutator contract test accepts, but an uncaught one leaves these endpoints answering with a
+     * full HTML document — so the caller's {@code response.json()} throws on {@code <!DOCTYPE} and
+     * the receptionist gets a spinner that never resolves, for what is a clean and explainable
+     * refusal. This is the same defect {@link #methodNotAllowed(HttpServletResponse)} documents
+     * having already fixed once; it was fixed for the method check and not for the authorization
+     * check, which is by far the more frequent path.
+     *
+     * <p>The object name goes to the log rather than to the browser. Which security object a
+     * provider is missing is an administrator's business, and the staff member cannot act on it.
+     */
+    String forbidden(HttpServletResponse response, SecurityException exception) throws IOException {
+        logger.warn(exception.getMessage());
+        return failure(
+                response, HttpServletResponse.SC_FORBIDDEN, "not_permitted", PERMISSION_DENIED);
+    }
+
     String badRequest(HttpServletResponse response, String message) throws IOException {
         return failure(response, HttpServletResponse.SC_BAD_REQUEST, "bad_request", message);
     }

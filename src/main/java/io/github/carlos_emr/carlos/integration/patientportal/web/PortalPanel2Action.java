@@ -43,16 +43,22 @@ import org.apache.struts2.ServletActionContext;
 /**
  * Read-only state for the demographic portal panel: existing invitations and account status.
  *
- * <p>Read-only, so {@code GET} is permitted and only genuinely unsupported methods are refused. It
- * exists as its own action rather than as a method on the mutators so that those can be classified
- * as unconditional mutators — a class that both reads and writes needs a mutation-intent parameter
- * to tell the two apart, and that distinction is exactly the thing that gets broken later.
+ * <p>Read-only, so {@code GET} is permitted — as is {@code POST}, for callers that already post
+ * everything; only genuinely unsupported methods such as {@code DELETE} are refused. It exists as
+ * its own action rather than as a method on the mutators so that those can be classified as
+ * unconditional mutators — a class that both reads and writes needs a mutation-intent parameter to
+ * tell the two apart, and that distinction is exactly the thing that gets broken later.
  *
  * <p>Each section is included only if the provider holds its object, so the panel shows what the
  * caller may actually act on rather than rendering controls that will fail. A section the caller
  * cannot read is <em>absent</em> from the payload rather than empty: an empty invite list means "no
  * invitations", and reporting that to someone merely lacking the privilege would be a lie the UI
  * would faithfully display.
+ *
+ * <p>Absence is therefore overloaded, and a caller has to read the error markers to disambiguate: a
+ * section is also dropped when the portal read failed, in which case {@code invitesError} or
+ * {@code accountError} is present alongside. Treating a missing key as "no data" — the natural
+ * {@code payload.invites || []} idiom — reports an outage as an empty list.
  *
  * <p>One portal failure does not blank the panel. If invitations load and the account lookup fails,
  * the invitations are still returned with an error noted against the account section — a portal
@@ -90,6 +96,14 @@ public class PortalPanel2Action extends PortalJsonAction {
 
     @Override
     public String execute() throws IOException {
+        try {
+            return handle();
+        } catch (SecurityException exception) {
+            return forbidden(ServletActionContext.getResponse(), exception);
+        }
+    }
+
+    private String handle() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 

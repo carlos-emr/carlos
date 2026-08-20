@@ -36,16 +36,23 @@ import java.util.Objects;
  * <ul>
  *   <li><b>Rendering is safe by default.</b> {@link #toString()} never emits the value, so a secret
  *       cannot reach a log line through string interpolation, a collection dump, or a debugger view.
- *   <li><b>Jackson cannot serialize it.</b> There is no getter and no public field, so a DTO holding
- *       one fails to serialize rather than quietly publishing the credential the day someone returns
- *       it from a REST service or puts it on a Struts value stack. A loud failure is the correct
- *       outcome there.
+ *   <li><b>Jackson cannot serialize it.</b> There is no getter and no public field, and {@code
+ *       expose()} is not a bean accessor name, so Jackson discovers no properties: a DTO holding one
+ *       throws {@code InvalidDefinitionException} rather than quietly publishing the credential the
+ *       day someone returns it from a REST service. A loud failure is the correct outcome there.
+ *       Two limits worth knowing: with {@code FAIL_ON_EMPTY_BEANS} disabled it emits {@code {}}
+ *       instead of throwing — still safe, since the value cannot come out either way — and a
+ *       serializer that reflects over private fields, Gson among them, would defeat this entirely.
+ *       Neither is on the classpath today. OGNL reaches {@link #toString()} for {@code ${secret}},
+ *       but can call {@code expose()} explicitly, so this is not a guarantee on a value stack.
  *   <li><b>Reading it is greppable.</b> {@link #expose()} is the single audit surface. {@code
  *       secret()} and {@code inviteToken()} looked like every other accessor; {@code expose()} does
  *       not, and it gives a static-analysis rule one anchor to match on.
  * </ul>
  *
- * <p>Equality is constant-time so a comparison cannot leak the value through timing, and {@link
+ * <p>Equality uses {@link MessageDigest#isEqual}, so a comparison does not leak the value through
+ * timing — though it still leaks the length, which that method compares first. Nothing here compares
+ * secrets on an attacker-observable path; the property is kept so that stays true. {@link
  * #hashCode()} is deliberately constant — these are not sensible map keys, and a hash of a
  * credential is itself a disclosure of sorts. The trade is that a {@code HashSet} of secrets
  * degrades to linear scanning, which nothing here does.

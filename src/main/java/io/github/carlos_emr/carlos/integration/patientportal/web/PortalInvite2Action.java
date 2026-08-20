@@ -145,6 +145,14 @@ public class PortalInvite2Action extends PortalJsonAction {
 
     @Override
     public String execute() throws IOException {
+        try {
+            return handle();
+        } catch (SecurityException exception) {
+            return forbidden(ServletActionContext.getResponse(), exception);
+        }
+    }
+
+    private String handle() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
