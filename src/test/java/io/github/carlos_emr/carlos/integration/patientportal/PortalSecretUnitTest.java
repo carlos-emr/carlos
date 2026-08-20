@@ -98,6 +98,21 @@ class PortalSecretUnitTest {
     void shouldCompareByValue_whenTwoSecretsHoldTheSameCredential() {
         assertThat(PortalSecret.of(VALUE)).isEqualTo(PortalSecret.of(VALUE));
         assertThat(PortalSecret.of(VALUE)).isNotEqualTo(PortalSecret.of("different"));
-        assertThat(PortalSecret.of(VALUE)).isNotEqualTo(VALUE);
+    }
+
+    /**
+     * A wrapper must not consider itself equal to the raw credential it holds, or wrapping would
+     * be cosmetic.
+     *
+     * <p>Written as a boolean assertion rather than {@code isNotEqualTo(VALUE)}: comparing a
+     * PortalSecret to a String is a dissimilar-type comparison that passes no matter what equals
+     * does, which is an assertion that cannot fail. SonarCloud flagged the original as a bug and
+     * was right to.
+     */
+    @Test
+    @DisplayName("should not equal the bare string it wraps")
+    void shouldNotEqualRawValue_whenComparedToTheUnwrappedCredential() {
+        assertThat(PortalSecret.of(VALUE).equals(VALUE)).isFalse();
+        assertThat(PortalSecret.of(VALUE).equals(null)).isFalse();
     }
 }
