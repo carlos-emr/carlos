@@ -63,6 +63,8 @@ public class EmailData {
     private String providerNo;
     private String additionalParams;
     private List<EmailAttachment> attachments;
+    private boolean consentOverride;
+    private String consentOverrideReason;
 
     /**
      * Default constructor for creating an empty EmailData instance.
@@ -488,6 +490,25 @@ public class EmailData {
     public void setAttachments(List<EmailAttachment> attachments) {
         this.attachments = attachments != null ? attachments : Collections.emptyList();
     }
+
+    public boolean getConsentOverride() {
+        return consentOverride;
+    }
+
+    public void setConsentOverride(boolean consentOverride) {
+        this.consentOverride = consentOverride;
+    }
+
+    public void setConsentOverride(String consentOverride) {
+        this.consentOverride = "true".equals(consentOverride);
+    }
+
+    public String getConsentOverrideReason() {
+        return consentOverrideReason;
+    }
+
+    public void setConsentOverrideReason(String consentOverrideReason) {
+        String reason = consentOverrideReason != null ? consentOverrideReason.trim() : "";
+        this.consentOverrideReason = reason.length() > 255 ? reason.substring(0, 255) : reason;
+    }
 }
-
-

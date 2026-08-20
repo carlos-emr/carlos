@@ -297,6 +297,15 @@
                             <div class="card-footer">
                                 <span class="fa-solid fa-triangle-exclamation"></span> ${carlos:forHtml(emailConsentName)}: <b>${carlos:forHtml(emailConsentStatus)}</b>
                                 <input type="hidden" name="emailConsentStatus" value="${carlos:forHtmlAttribute(emailConsentStatus)}"/>
+                                <c:if test="${emailConsentStatus eq 'Unknown'}">
+                                    <div class="form-check mt-2">
+                                        <input class="form-check-input" type="checkbox" name="consentOverride" id="consentOverride" value="true"/>
+                                        <label class="form-check-label" for="consentOverride">Verbal email consent confirmed</label>
+                                    </div>
+                                    <label class="form-label mt-2" for="consentOverrideReason">Consent confirmation note</label>
+                                    <textarea class="form-control" name="consentOverrideReason" id="consentOverrideReason" rows="2"></textarea>
+                                    <div class="invalid-feedback d-block" id="consentOverrideReasonError"></div>
+                                </c:if>
                             </div>
                         </div>
                     </div>
@@ -714,6 +723,8 @@
         const hasAttachments = document.querySelectorAll('.emailAttachmentItem').length > 0;
         const hasSender = document.getElementById('totalSenderEmails') && document.getElementById('totalSenderEmails').value > 0;
         const hasRecipint = document.getElementById('totalRecipintEmails') && document.getElementById('totalRecipintEmails').value > 0;
+        const consentOverride = document.getElementById('consentOverride');
+        const consentOverrideReason = document.getElementById('consentOverrideReason');
 
         if (!hasSender || !hasRecipint) {
             return false;
@@ -734,6 +745,11 @@
                 clearError('emailPDFPasswordError');
                 clearError('emailPDFPasswordClueError');
             }
+        }
+        if (consentOverride && consentOverride.checked) {
+            validateField(consentOverrideReason, 'Consent confirmation note is required.', errors, 'consentOverrideReasonError');
+        } else if (consentOverrideReason) {
+            clearError('consentOverrideReasonError');
         }
 
         if (Object.keys(errors).length === 0) {

@@ -238,6 +238,8 @@ public class EmailSend2Action extends ActionSupport {
         String transactionType = request.getParameter("transactionType");
         String demographicNo = request.getParameter("demographicId");
         String additionalParams = request.getParameter("additionalURLParams");
+        String consentOverride = request.getParameter("consentOverride");
+        String consentOverrideReason = request.getParameter("consentOverrideReason");
         List<EmailAttachment> emailAttachmentList = (List<EmailAttachment>) request.getSession().getAttribute("emailAttachmentList");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -260,6 +262,8 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setProviderNo(providerNo);
         emailData.setAdditionalParams(additionalParams);
         emailData.setAttachments(emailAttachmentList);
+        emailData.setConsentOverride(consentOverride);
+        emailData.setConsentOverrideReason(consentOverrideReason);
 
         request.getSession().removeAttribute("emailAttachmentList");
 

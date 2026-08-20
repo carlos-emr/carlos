@@ -28,13 +28,17 @@ import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
+import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.email.util.EmailNoteUtil;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
@@ -99,6 +103,10 @@ public class EmailManager {
     private ProviderManager2 providerManager;
     @Autowired
     private SecurityInfoManager securityInfoManager;
+    @Autowired
+    private EmailConsentResolver emailConsentResolver;
+    @Autowired
+    private EmailSenderFactory emailSenderFactory;
 
     /**
      * Sends an email with optional encryption and creates a corresponding email log entry.
@@ -128,12 +136,24 @@ public class EmailManager {
         }
 
         sanitizeEmailFields(emailData);
+        EmailConsentResult consentResult = emailConsentResolver.resolve(loggedInInfo, emailData.getDemographicNo());
         EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData);
+        applyConsentSnapshot(emailLog, consentResult, emailData);
+        logPreparedEmail(loggedInInfo, emailLog);
+        if (isBlockedByConsent(consentResult, emailData)) {
+            String errorMessage = getConsentBlockMessage(consentResult);
+            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.BLOCKED, errorMessage);
+            LogAction.addLog(loggedInInfo, "EmailManager.sendEmail.blocked", "Email",
+                    "emailLogId=" + emailLog.getId() + "&consentStatus=" + consentResult.getStatus(),
+                    String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
+            return emailLog;
+        }
+
         try {
             if (emailData.getIsEncrypted()) {
                 encryptEmail(emailData);
             }
-            EmailSender emailSender = new EmailSender(loggedInInfo, emailLog.getEmailConfig(), emailData);
+            EmailSender emailSender = emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData);
             emailSender.send();
             updateEmailStatus(loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
             if (emailLog.getChartDisplayOption().equals(ChartDisplayOption.WITH_FULL_NOTE)) {
@@ -196,8 +216,6 @@ public class EmailManager {
         emailLog.setProvider(provider);
         emailLogDao.persist(emailLog);
 
-        LogAction.addLog(loggedInInfo, "EmailManager.prepareEmailForOutbox", "Email", "emailLogId=" + emailLog.getId(), String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
-
         return emailLog;
     }
 
@@ -244,7 +262,7 @@ public class EmailManager {
      */
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required security object (_email)");
+            throw new RuntimeException("missing required sec object (_email)");
         }
 
         Date newTimestamp = (!emailStatus.equals(EmailStatus.RESOLVED)) ? new Date() : emailLog.getTimestamp();
@@ -389,6 +407,45 @@ public class EmailManager {
             emailAttachmentList.add(new EmailAttachment(emailLog, emailAttachment.getFileName(), emailAttachment.getFilePath(), emailAttachment.getDocumentType(), emailAttachment.getDocumentId()));
         }
         emailLog.setEmailAttachments(emailAttachmentList);
+    }
+
+    private void applyConsentSnapshot(EmailLog emailLog, EmailConsentResult consentResult, EmailData emailData) {
+        emailLog.setConsentStatus(consentResult.getStatus());
+        emailLog.setConsentId(consentResult.getConsentId());
+        emailLog.setConsentLastUpdateDate(consentResult.getConsentLastUpdateDate());
+        emailLog.setConsentOverride(isValidUnknownConsentOverride(consentResult, emailData));
+        emailLog.setConsentOverrideReason(emailLog.getConsentOverride() ? emailData.getConsentOverrideReason() : "");
+        emailLogDao.merge(emailLog);
+    }
+
+    private void logPreparedEmail(LoggedInInfo loggedInInfo, EmailLog emailLog) {
+        String logData = "emailLogId=" + emailLog.getId()
+                + "&consentStatus=" + emailLog.getConsentStatus()
+                + "&override=" + emailLog.getConsentOverride();
+        LogAction.addLog(loggedInInfo, "EmailManager.prepareEmailForOutbox", "Email", logData,
+                String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
+    }
+
+    private boolean isBlockedByConsent(EmailConsentResult consentResult, EmailData emailData) {
+        return consentResult.getStatus() != EmailConsentStatus.OPT_IN
+                && (consentResult.getStatus() != EmailConsentStatus.UNKNOWN
+                || !isValidUnknownConsentOverride(consentResult, emailData));
+    }
+
+    private boolean isValidUnknownConsentOverride(EmailConsentResult consentResult, EmailData emailData) {
+        return consentResult.getStatus() == EmailConsentStatus.UNKNOWN
+                && emailData.getConsentOverride()
+                && !StringUtils.isNullOrEmpty(emailData.getConsentOverrideReason());
+    }
+
+    private String getConsentBlockMessage(EmailConsentResult consentResult) {
+        if (consentResult.getStatus() == EmailConsentStatus.OPT_OUT) {
+            return "Email blocked: patient has explicitly opted out of email communication.";
+        }
+        if (consentResult.getStatus() == EmailConsentStatus.NOT_CONFIGURED) {
+            return "Email blocked: patient email consent is not configured.";
+        }
+        return "Email blocked: patient email consent is unknown and no override reason was provided.";
     }
 
     /**
@@ -564,6 +621,7 @@ public class EmailManager {
                     emailConfig.getSenderLastName(), result.getFromEmail(), demographic.getFirstName(),
                     demographic.getLastName(), String.join(", ", result.getToEmail()), provider.getFirstName(), provider.getLastName(),
                     result.getIsEncrypted(), result.getPassword(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
+            emailStatusResult.applyConsentSnapshot(result);
             emailStatusResults.add(emailStatusResult);
         }
         Collections.sort(emailStatusResults);

@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import io.github.carlos_emr.carlos.commn.model.converter.EmailLogChartDisplayOptionConverter;
+import io.github.carlos_emr.carlos.commn.model.converter.EmailLogConsentStatusConverter;
 import io.github.carlos_emr.carlos.commn.model.converter.EmailLogStatusConverter;
 import io.github.carlos_emr.carlos.commn.model.converter.EmailLogTransactionTypeConverter;
 import jakarta.persistence.*;
@@ -56,7 +57,33 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
         /** Email failed to send due to an error */
         FAILED,
         /** Previously failed email was successfully resent or issue resolved */
-        RESOLVED
+        RESOLVED,
+        /** Email was blocked before transmission by a compliance control */
+        BLOCKED
+    }
+
+    /**
+     * Enumeration of the patient email consent state evaluated at send time.
+     */
+    public enum EmailConsentStatus {
+        /** Patient has explicitly opted in to email communication */
+        OPT_IN("Explicit Opt-In"),
+        /** Patient has explicitly opted out of email communication */
+        OPT_OUT("Explicit Opt-Out"),
+        /** Consent tracking is configured but no consent row exists */
+        UNKNOWN("Unknown"),
+        /** Email consent tracking is not configured with an active consent type */
+        NOT_CONFIGURED("Not Configured");
+
+        private final String displayName;
+
+        EmailConsentStatus(String displayName) {
+            this.displayName = displayName;
+        }
+
+        public String getDisplayName() {
+            return displayName;
+        }
     }
 
     /**
@@ -145,6 +172,18 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
     private TransactionType transactionType;
 
     private String additionalParams;
+
+    @Convert(converter = EmailLogConsentStatusConverter.class)
+    private EmailConsentStatus consentStatus;
+
+    private Integer consentId;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date consentLastUpdateDate;
+
+    private boolean consentOverride;
+
+    private String consentOverrideReason;
 
     @ManyToOne
     @JoinColumn(name = "DemographicNo")
@@ -552,6 +591,46 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      */
     public void setAdditionalParams(String additionalParams) {
         this.additionalParams = additionalParams;
+    }
+
+    public EmailConsentStatus getConsentStatus() {
+        return consentStatus;
+    }
+
+    public void setConsentStatus(EmailConsentStatus consentStatus) {
+        this.consentStatus = consentStatus;
+    }
+
+    public Integer getConsentId() {
+        return consentId;
+    }
+
+    public void setConsentId(Integer consentId) {
+        this.consentId = consentId;
+    }
+
+    public Date getConsentLastUpdateDate() {
+        return consentLastUpdateDate != null ? new Date(consentLastUpdateDate.getTime()) : null;
+    }
+
+    public void setConsentLastUpdateDate(Date consentLastUpdateDate) {
+        this.consentLastUpdateDate = consentLastUpdateDate != null ? new Date(consentLastUpdateDate.getTime()) : null;
+    }
+
+    public boolean getConsentOverride() {
+        return consentOverride;
+    }
+
+    public void setConsentOverride(boolean consentOverride) {
+        this.consentOverride = consentOverride;
+    }
+
+    public String getConsentOverrideReason() {
+        return consentOverrideReason;
+    }
+
+    public void setConsentOverrideReason(String consentOverrideReason) {
+        this.consentOverrideReason = consentOverrideReason;
     }
 
     /**
