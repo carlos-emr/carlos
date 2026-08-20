@@ -1,0 +1,98 @@
+#!/bin/sh
+set -eu
+
+# Files created by the dedicated delivery user must remain inaccessible to
+# users outside the carlos-mail group.
+umask 007
+
+CAPTURE_DIR="${CARLOS_MAIL_CAPTURE_DIR:-/var/log/carlos-mail-capture}"
+CAPTURE_FILE="${CARLOS_MAIL_CAPTURE_FILE:-$CAPTURE_DIR/messages.eml}"
+CAPTURE_LOCK="${CARLOS_MAIL_CAPTURE_LOCK:-$CAPTURE_DIR/.lock}"
+CAPTURE_INBOX="${CARLOS_MAIL_CAPTURE_INBOX:-/scripts/mail-capture-inbox}"
+sender="${1:-unknown-sender}"
+recipient="${2:-unknown-recipient}"
+raw_message=""
+capture_size=""
+
+# Roll back only while the caller still owns the delivery lock. Running this
+# from the EXIT trap would be too late: the shell closes the compound command's
+# lock fd before invoking that trap, allowing another delivery to append before
+# the truncate and lose its successfully captured record.
+rollback_capture() {
+  if [ -n "$capture_size" ] && [ -f "$CAPTURE_FILE" ]; then
+    truncate -s "$capture_size" "$CAPTURE_FILE" || true
+  fi
+  capture_size=""
+}
+
+# Postfix pipe(8) interprets command statuses using sysexits.h. Any capture
+# failure is temporary, so normalize it to EX_TEMPFAIL instead of allowing a
+# utility's generic status (usually 1) to turn it into a permanent failure.
+cleanup() {
+  status=$?
+  trap - EXIT HUP INT TERM
+  if [ -n "$raw_message" ]; then
+    rm -f "$raw_message" || true
+  fi
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' '4.3.0 Temporary CARLOS development mail capture failure' >&2
+    status=75
+  fi
+  exit "$status"
+}
+trap cleanup EXIT
+trap 'rollback_capture; exit 75' HUP INT TERM
+
+if [ ! -d "$CAPTURE_DIR" ] || [ ! -w "$CAPTURE_DIR" ]; then
+  echo "Mail capture directory is missing or not writable: $CAPTURE_DIR" >&2
+  exit 75
+fi
+
+# The stable lock file coordinates delivery with `mail clear`, including when
+# messages.eml was deleted and must be recreated by this unprivileged process.
+# It also covers spooling so `mail clear` can safely remove any raw temp files
+# left behind by a process that was forcibly killed.
+{
+  flock 9
+
+  # SIGKILL cannot run our rollback trap. Repair any incomplete suffix left by
+  # such a crash before appending, while the same lock excludes readers and
+  # other deliveries.
+  if [ -f "$CAPTURE_FILE" ]; then
+    "$CAPTURE_INBOX" "$CAPTURE_FILE" repair
+  fi
+
+  # Spool stdin so the record can declare its exact raw byte length. Readers
+  # skip that many bytes, so marker-looking MIME lines are never boundaries and
+  # the payload itself remains byte-for-byte unchanged.
+  raw_message="$(mktemp "$CAPTURE_DIR/.raw-message.XXXXXX")"
+  cat > "$raw_message"
+  raw_length="$(wc -c < "$raw_message" | tr -d '[:space:]')"
+  if [ -f "$CAPTURE_FILE" ]; then
+    capture_size="$(wc -c < "$CAPTURE_FILE" | tr -d '[:space:]')"
+  else
+    capture_size=0
+  fi
+
+  if {
+    printf '===== CARLOS DEV EMAIL CAPTURE v2 =====\n' &&
+      printf 'Captured-At: %s\n' "$(date -Is)" &&
+      printf 'Envelope-From: %s\n' "$sender" &&
+      printf 'Envelope-To: %s\n' "$recipient" &&
+      printf 'Raw-Length: %s\n\n' "$raw_length" &&
+      cat "$raw_message"
+  } >> "$CAPTURE_FILE" &&
+    chmod 0660 "$CAPTURE_FILE" &&
+    rm -f "$raw_message"; then
+    # From here the record is complete. Ignore termination during the tiny
+    # bookkeeping window so Postfix cannot retry a message we already kept.
+    trap '' HUP INT TERM
+    raw_message=""
+    capture_size=""
+  else
+    rollback_capture
+    exit 1
+  fi
+} 9>> "$CAPTURE_LOCK"
+
+exit 0
