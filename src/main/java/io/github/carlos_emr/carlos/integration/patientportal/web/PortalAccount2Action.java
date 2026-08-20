@@ -83,6 +83,8 @@ public class PortalAccount2Action extends PortalJsonAction {
             This patient does not have a patient portal account, so there is nothing to unlock or \
             disable. Send them an invitation first.""";
 
+    private static final String ENABLED_REQUIRED =
+            "This request must state enabled=true or enabled=false.";
     private static final String UNKNOWN_METHOD = "unsupported portal account action";
     private static final String REASON_REQUIRED =
             "a reason is required when disabling a portal account";
@@ -174,6 +176,26 @@ public class PortalAccount2Action extends PortalJsonAction {
      * "disabled, no stated reason" is the state a later reviewer cannot interpret; asking at the
      * point of action costs one field and saves reconstructing intent from an audit trail.
      */
+    /**
+     * Reads the {@code enabled} flag, or {@code null} when the caller did not state one.
+     *
+     * <p>{@code Boolean.parseBoolean} was used here and answers {@code false} for an absent
+     * parameter, for {@code "1"}, for {@code "yes"}, and for every typo — so a malformed or dropped
+     * parameter chose the destructive branch and disabled a patient's portal access, while the
+     * reply reported {@code "enabled": false} quite truthfully about something nobody asked for.
+     * A defaulted boolean must never pick between two opposite mutations.
+     */
+    private static Boolean enabledFlag(String raw) {
+        String value = raw == null ? "" : raw.strip();
+        if ("true".equals(value)) {
+            return Boolean.TRUE;
+        }
+        if ("false".equals(value)) {
+            return Boolean.FALSE;
+        }
+        return null;
+    }
+
     private String access(
             PatientPortalService portal,
             HttpServletRequest request,
@@ -181,21 +203,26 @@ public class PortalAccount2Action extends PortalJsonAction {
             int demographicNo,
             PatientPortalStaffContext staff)
             throws IOException {
-        boolean enabled = Boolean.parseBoolean(request.getParameter("enabled"));
+        Boolean enabled = enabledFlag(request.getParameter("enabled"));
+        if (enabled == null) {
+            return badRequest(response, ENABLED_REQUIRED);
+        }
         String reason = request.getParameter("reason");
         boolean reasonMissing = reason == null || reason.isBlank();
-        if (!enabled && reasonMissing) {
+        if (!enabled.booleanValue() && reasonMissing) {
             return badRequest(response, REASON_REQUIRED);
         }
         PatientPortalAccountAcknowledgementDto account =
                 portal.setAccountAccess(
-                        demographicNo, enabled, reasonMissing ? "staff_action" : reason.strip(),
+                        demographicNo,
+                        enabled.booleanValue(),
+                        reasonMissing ? "staff_action" : reason.strip(),
                         staff);
         ObjectNode payload = objectMapper().createObjectNode();
         payload.put("ok", true);
         payload.put("accountId", account.id());
         payload.put("status", account.status());
-        payload.put("enabled", enabled);
+        payload.put("enabled", enabled.booleanValue());
         return write(response, HttpServletResponse.SC_OK, payload);
     }
 }

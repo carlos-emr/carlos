@@ -33,12 +33,15 @@ import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextR
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 
 /**
@@ -66,6 +69,8 @@ public class PortalInvite2Action extends PortalJsonAction {
 
     private static final long serialVersionUID = 1L;
 
+    private static final Logger logger = MiscUtils.getLogger();
+
     static final String METHOD_CREATE = "create";
     static final String METHOD_RESEND = "resend";
     static final String METHOD_REVOKE = "revoke";
@@ -76,7 +81,39 @@ public class PortalInvite2Action extends PortalJsonAction {
     private static final String INCOMPLETE_RECORD =
             "This patient's record is missing %s. A portal invitation cannot be activated without"
                     + " it.";
+    private static final String CANNOT_CHECK =
+            """
+            CARLOS could not check this patient's existing invitations, so it cannot tell whether \
+            sending a new one would invalidate a link they already have. Confirm only if you are \
+            sure no invitation is outstanding.""";
     private static final String UNKNOWN_METHOD = "unsupported portal invite action";
+    private static final String LIST_FAILED =
+            "could not read the invite list before a create; treating the patient as at risk";
+
+    /**
+     * Statuses that mean an invitation is already finished, so replacing it costs nothing.
+     *
+     * <p>Deliberately a list of terminal states rather than a test for {@code "pending"}. Status is
+     * optional free text that the portal is not required to keep stable, and the failure this class
+     * exists to prevent is a working invitation being silently revoked. Testing for "pending" fails
+     * <em>open</em>: rename the status portal-side, change its casing, or drop the field from a
+     * payload revision, and every invite reads as not-pending, the guard stops firing, and the next
+     * create strands a link the patient is holding. Testing for terminal states fails closed, so a
+     * vocabulary change costs an extra confirmation click rather than a patient's access. Casing is
+     * not normalised for the same reason — an unexpected form should count as at risk.
+     */
+    private static final Set<String> TERMINAL_STATUSES =
+            Set.of("revoked", "accepted", "superseded");
+
+    /** What CARLOS was able to establish about invitations a create would invalidate. */
+    private enum PendingInvites {
+        /** At least one invitation may still be usable, so a create would revoke it. */
+        AT_RISK,
+        /** Every invitation is in a terminal state; nothing is lost by creating another. */
+        NONE,
+        /** The list could not be read, so CARLOS cannot tell either way. */
+        UNKNOWN
+    }
 
     private final transient SecurityInfoManager securityInfoManager;
     private final transient DemographicManager demographicManager;
@@ -164,9 +201,14 @@ public class PortalInvite2Action extends PortalJsonAction {
         }
 
         // The replace guard. See the class notes: a second create silently revokes the first.
-        if (!Boolean.parseBoolean(request.getParameter("confirmReplace"))
-                && hasPendingInvite(portal, demographicNo, staff)) {
-            return conflict(response, "confirm_replace", NEEDS_CONFIRMATION);
+        if (!Boolean.parseBoolean(request.getParameter("confirmReplace"))) {
+            PendingInvites pending = pendingInvites(portal, demographicNo, staff);
+            if (pending == PendingInvites.AT_RISK) {
+                return conflict(response, "confirm_replace", NEEDS_CONFIRMATION);
+            }
+            if (pending == PendingInvites.UNKNOWN) {
+                return conflict(response, "pending_check_failed", CANNOT_CHECK);
+            }
         }
 
         PatientPortalIssuedInviteDto issued =
@@ -180,22 +222,35 @@ public class PortalInvite2Action extends PortalJsonAction {
     }
 
     /**
-     * Reports whether a pending invite would be invalidated by a new one.
+     * Reports whether a create would invalidate an invitation the patient may still be holding.
      *
-     * <p>Fails closed on a portal error: if the list cannot be read, the create is treated as
-     * needing confirmation rather than allowed through. A portal hiccup must not be the reason a
-     * patient's working invitation is silently revoked.
+     * <p>A read failure is reported as {@link PendingInvites#UNKNOWN} rather than folded into
+     * "there is a pending invitation". Both refuse the create, which is the right direction — a
+     * portal hiccup must not be the reason a working invitation is silently revoked — but only one
+     * of them is true. Answering {@code confirm_replace} when the list could not be read asserts a
+     * fact about portal state at the exact moment that state is unknown, and it is wrong for every
+     * patient while the list endpoint is broken. Staff learn the warning is noise, click through it
+     * by reflex, and the guard is then worth nothing when a real pending invitation is at stake.
      */
-    private boolean hasPendingInvite(
+    private PendingInvites pendingInvites(
             PatientPortalService portal, int demographicNo, PatientPortalStaffContext staff) {
         try {
             List<PatientPortalInviteDto> invites =
                     portal.listInvites(
                             demographicNo, PatientPortalService.MAX_INVITE_PAGE_SIZE, staff);
-            return invites.stream().anyMatch(invite -> "pending".equals(invite.status()));
+            return invites.stream().anyMatch(PortalInvite2Action::mayStillBeUsable)
+                    ? PendingInvites.AT_RISK
+                    : PendingInvites.NONE;
         } catch (PatientPortalException exception) {
-            return true;
+            // Without this the only evidence that listInvites is broken is staff reporting that
+            // every patient shows a pending invitation.
+            logger.error(LIST_FAILED, exception);
+            return PendingInvites.UNKNOWN;
         }
+    }
+
+    private static boolean mayStillBeUsable(PatientPortalInviteDto invite) {
+        return invite.status() == null || !TERMINAL_STATUSES.contains(invite.status());
     }
 
     private String resend(
