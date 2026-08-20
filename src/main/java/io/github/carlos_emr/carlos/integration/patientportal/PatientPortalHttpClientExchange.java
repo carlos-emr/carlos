@@ -28,7 +28,9 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Set;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
@@ -43,6 +45,7 @@ import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.util.Timeout;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Sends portal requests over Apache HttpClient 5, the client CARLOS already uses for outbound HTTP.
@@ -78,6 +81,14 @@ import org.apache.hc.core5.util.Timeout;
  * @since 2026-08-19
  */
 class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Closeable {
+
+    private static final Logger logger = MiscUtils.getLogger();
+
+    private static final String PINNING_ON =
+            "patient portal transport: certificate pinning active (%d pin(s))";
+    private static final String PINNING_OFF =
+            "patient portal transport: certificate pinning NOT configured; the portal is trusted on"
+                    + " CA validation alone";
 
     /**
      * Cap on the decoded response we will hold in memory, counted in UTF-16 characters.
@@ -122,6 +133,14 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
         PoolingHttpClientConnectionManagerBuilder connectionManagerBuilder =
                 PoolingHttpClientConnectionManagerBuilder.create()
                         .setDefaultConnectionConfig(connectionConfig);
+        // Said out loud once, at construction. Whether this deployment is pinned is a security
+        // property that otherwise has no observable trace: with pinning on, nothing announces it;
+        // with pinning off through a misspelled property key, nothing complains either, and the
+        // clinic-proxy impersonation the pins exist to stop is quietly back in scope.
+        logger.info(
+                certificatePins == null || certificatePins.isEmpty()
+                        ? PINNING_OFF
+                        : String.format(Locale.ROOT, PINNING_ON, certificatePins.size()));
         if (certificatePins != null && !certificatePins.isEmpty()) {
             // Single-argument SSLConnectionSocketFactory keeps HttpClient's default hostname
             // verifier. Passing a verifier here would be the second classic way to disable a TLS

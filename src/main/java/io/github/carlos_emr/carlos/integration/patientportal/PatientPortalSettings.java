@@ -81,6 +81,8 @@ public record PatientPortalSettings(
     private static final long DEFAULT_CONNECT_TIMEOUT_MS = 5000L;
     private static final long DEFAULT_READ_TIMEOUT_MS = 15000L;
 
+    private static final String BAD_PIN_MESSAGE =
+            "%s entries must look like sha256/<base64 sha-256 of the public key>";
     private static final String MISSING_MESSAGE = "patient portal is not configured: %s is required";
     private static final String PLAINTEXT_MESSAGE =
             "%s must begin with a lowercase https:// ; refusing to send the portal token over"
@@ -184,9 +186,28 @@ public record PatientPortalSettings(
         requirePositive(connectTimeout, CONNECT_TIMEOUT_KEY);
         requirePositive(readTimeout, READ_TIMEOUT_KEY);
         certificatePins = certificatePins == null ? Set.of() : Set.copyOf(certificatePins);
+        // Format is checked here rather than only where the socket factory is built, so a typo in
+        // carlos.properties fails when the settings are read — with the deployment's other
+        // configuration errors — instead of surviving until the first handshake and surfacing as
+        // "did not match any configured pin", which reads like a rotated key rather than a typo.
+        for (String pin : certificatePins) {
+            if (!PortalCertificatePinning.isWellFormed(pin)) {
+                throw new PatientPortalConfigurationException(
+                        String.format(Locale.ROOT, BAD_PIN_MESSAGE, CERTIFICATE_PINS_KEY));
+            }
+        }
     }
 
-    /** Splits the optional pin list; an absent value means no pinning. */
+    /**
+     * Splits the optional pin list.
+     *
+     * <p>An absent, blank, or all-separator value means no pinning, and that is a real hazard
+     * rather than a neutral default: a misspelled key or a value blanked during a config merge
+     * downgrades a deployment that believes it is pinned to CA-only TLS. Every such path lands
+     * here, so nothing downstream can tell "no pins were asked for" from "the pins went missing".
+     * {@code PatientPortalService} logs which mode is active at construction so the difference is
+     * at least visible in the log.
+     */
     private static Set<String> pins(Function<String, String> lookup) {
         String configured = lookup.apply(CERTIFICATE_PINS_KEY);
         if (configured == null || configured.isBlank()) {

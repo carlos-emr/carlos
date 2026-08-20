@@ -344,4 +344,62 @@ class PatientPortalSettingsUnitTest {
                     .hasMessageNotContaining(TOKEN);
         }
     }
+
+    /**
+     * Pins are the one optional value that is a security control, so a mistake in them must not be
+     * discovered by a failed handshake.
+     */
+    @Nested
+    @DisplayName("certificate pins")
+    class CertificatePins {
+
+        @Test
+        @DisplayName("should accept a comma separated list, for a planned key rotation")
+        void shouldParseEveryPin_whenSeveralAreConfigured() {
+            Map<String, String> properties = validProperties();
+            properties.put(
+                    PatientPortalSettings.CERTIFICATE_PINS_KEY,
+                    "sha256/AAAA1111, sha256/BBBB2222");
+
+            PatientPortalSettings settings = PatientPortalSettings.fromProperties(properties);
+
+            assertThat(settings.certificatePins())
+                    .containsExactlyInAnyOrder("sha256/AAAA1111", "sha256/BBBB2222");
+        }
+
+        /**
+         * The failure this catches is mundane: an operator follows the openssl recipe and pastes
+         * the base64 without the sha256/ prefix. Rejected at construction, it appears alongside the
+         * deployment's other configuration errors. Rejected only at the socket factory, it survives
+         * to the first handshake and reads as "did not match any configured pin" — which describes
+         * a rotated key, and sends whoever is debugging it to the wrong place entirely.
+         */
+        @Test
+        @DisplayName("should reject a pin without the sha256/ prefix, at configuration time")
+        void shouldThrow_whenAPinIsMissingItsPrefix() {
+            Map<String, String> properties = validProperties();
+            properties.put(
+                    PatientPortalSettings.CERTIFICATE_PINS_KEY,
+                    "K2v8VhV0mS1QcM0kQ9x1kZ0m0Q9x1kZ0m0Q9x1kZ0m0=");
+
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(PatientPortalSettings.CERTIFICATE_PINS_KEY);
+        }
+
+        /**
+         * Absent means unpinned, which is a supported deployment — but it is also what a misspelled
+         * property key produces, so the transport says which mode it is in when it is built.
+         */
+        @Test
+        @DisplayName("should treat an absent or blank value as no pinning")
+        void shouldReturnNoPins_whenTheValueIsAbsentOrBlank() {
+            assertThat(PatientPortalSettings.fromProperties(validProperties()).certificatePins())
+                    .isEmpty();
+
+            Map<String, String> blank = validProperties();
+            blank.put(PatientPortalSettings.CERTIFICATE_PINS_KEY, " , ");
+            assertThat(PatientPortalSettings.fromProperties(blank).certificatePins()).isEmpty();
+        }
+    }
 }

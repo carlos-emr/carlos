@@ -87,6 +87,8 @@ public class PortalInvite2Action extends PortalJsonAction {
             sending a new one would invalidate a link they already have. Confirm only if you are \
             sure no invitation is outstanding.""";
     private static final String UNKNOWN_METHOD = "unsupported portal invite action";
+    private static final String NO_SUCH_PATIENT =
+            "CARLOS could not load this patient's record, so no invitation was sent.";
     private static final String LIST_FAILED =
             "could not read the invite list before a create; treating the patient as at risk";
 
@@ -199,6 +201,14 @@ public class PortalInvite2Action extends PortalJsonAction {
         }
 
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
+        if (demographic == null) {
+            // Without this, validate(null) reports all three fields as missing and staff are told
+            // "this patient's record is missing email address, date of birth, health card number"
+            // — a description of a record that exists and is incomplete, sent about a record that
+            // was not returned at all. They then open a chart to fill in fields on a patient who
+            // may not be there, and a caller branching on reason sees incomplete_record.
+            return notFound(response, "patient_not_found", NO_SUCH_PATIENT);
+        }
         PortalInviteIdentityValidator.Result identity = identityValidator.validate(demographic);
         if (!identity.isUsable()) {
             return conflict(

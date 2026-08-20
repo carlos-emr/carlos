@@ -31,13 +31,16 @@ import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffC
 import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 
 /**
@@ -56,9 +59,12 @@ import org.apache.struts2.ServletActionContext;
  * would faithfully display.
  *
  * <p>Absence is therefore overloaded, and a caller has to read the error markers to disambiguate: a
- * section is also dropped when the portal read failed, in which case {@code invitesError} or
- * {@code accountError} is present alongside. Treating a missing key as "no data" — the natural
- * {@code payload.invites || []} idiom — reports an outage as an empty list.
+ * section is also dropped when the portal read failed, in which case {@code invitesError} and
+ * {@code invitesErrorKind} (or the account equivalents) are present alongside. Treating a missing
+ * key as "no data" — the natural {@code payload.invites || []} idiom — would report an outage as an
+ * empty list, which is why {@code ok} is the guard against that: it is {@code false} whenever a
+ * section the caller asked for could not be read. It used to be hardcoded {@code true}, so the one
+ * field a client would reasonably branch on was the one field that could not be wrong.
  *
  * <p>One portal failure does not blank the panel. If invitations load and the account lookup fails,
  * the invitations are still returned with an error noted against the account section — a portal
@@ -73,6 +79,10 @@ public class PortalPanel2Action extends PortalJsonAction {
     private static final String READ = "r";
     private static final String NO_ACCOUNT = "no_portal_account";
     private static final String SECTION_UNAVAILABLE = "unavailable";
+    private static final String SECTION_FAILED_LOG =
+            "patient portal panel section %s could not be read: kind=%s";
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     private final transient SecurityInfoManager securityInfoManager;
     private final transient PortalStaffContextResolver staffContextResolver;
@@ -92,6 +102,11 @@ public class PortalPanel2Action extends PortalJsonAction {
         super(patientPortalService);
         this.securityInfoManager = securityInfoManager;
         this.staffContextResolver = staffContextResolver;
+    }
+
+    @Override
+    String allowedMethods() {
+        return "GET, POST";
     }
 
     @Override
@@ -144,13 +159,18 @@ public class PortalPanel2Action extends PortalJsonAction {
         }
         PatientPortalStaffContext staff = staffContextResolver.resolve(loggedInInfo, scope);
         ObjectNode payload = objectMapper().createObjectNode();
-        payload.put("ok", true);
+        boolean complete = true;
         if (mayReadInvites) {
-            addInvites(portal, payload, demographicNo, staff);
+            complete &= addInvites(portal, payload, demographicNo, staff);
         }
         if (mayReadAccount) {
-            addAccount(portal, payload, demographicNo, staff);
+            complete &= addAccount(portal, payload, demographicNo, staff);
         }
+        // ok is the reliable-looking signal, so it has to be the honest one. Reporting true while
+        // both sections failed let a caller doing the obvious `if (!body.ok)` render a healthy,
+        // empty panel during a total portal outage — and a receptionist reading an empty panel
+        // concludes the patient has no portal presence and issues an invitation.
+        payload.put("ok", complete);
         return write(response, HttpServletResponse.SC_OK, payload);
     }
 
@@ -161,7 +181,7 @@ public class PortalPanel2Action extends PortalJsonAction {
      * <em>issued</em>, not sent. The portal never delivers anything; presenting these as delivery
      * evidence is the single most likely misreading of this data.
      */
-    private void addInvites(
+    private boolean addInvites(
             PatientPortalService portal, ObjectNode payload, int demographicNo,
             PatientPortalStaffContext staff) {
         ArrayNode invites = payload.putArray("invites");
@@ -182,9 +202,15 @@ public class PortalPanel2Action extends PortalJsonAction {
                         "expiresAt",
                         invite.expiresAt() == null ? null : invite.expiresAt().toString());
             }
+            return true;
         } catch (PatientPortalException exception) {
             payload.remove("invites");
             payload.put("invitesError", SECTION_UNAVAILABLE);
+            payload.put("invitesErrorKind", exception.kind().name().toLowerCase(Locale.ROOT));
+            logger.error(
+                    String.format(Locale.ROOT, SECTION_FAILED_LOG, "invites", exception.kind()),
+                    exception);
+            return false;
         }
     }
 
@@ -196,7 +222,7 @@ public class PortalPanel2Action extends PortalJsonAction {
      * as unavailable, because presenting a portal outage as "this patient has no account" would
      * invite staff to issue an invitation the patient does not need.
      */
-    private void addAccount(
+    private boolean addAccount(
             PatientPortalService portal, ObjectNode payload, int demographicNo,
             PatientPortalStaffContext staff) {
         try {
@@ -211,13 +237,26 @@ public class PortalPanel2Action extends PortalJsonAction {
                     "disabledAt",
                     account.disabledAt() == null ? null : account.disabledAt().toString());
             node.put("disabledReason", account.disabledReason());
+            return true;
         } catch (PatientPortalException exception) {
             if (exception.kind() == PatientPortalException.Kind.NOT_FOUND_OR_UNAUTHENTICATED) {
                 payload.put("account", (String) null);
                 payload.put("accountState", NO_ACCOUNT);
-            } else {
-                payload.put("accountError", SECTION_UNAVAILABLE);
+                // Logged even though this is the routine reading, because 404 is three-way: it is
+                // also what a rejected service identity looks like. A rotated token that nobody
+                // updated in carlos.properties reports every patient as having no account, and
+                // without this line a clinic-wide credential outage leaves no trace at all.
+                logger.info(
+                        String.format(
+                                Locale.ROOT, SECTION_FAILED_LOG, "account", exception.kind()));
+                return true;
             }
+            payload.put("accountError", SECTION_UNAVAILABLE);
+            payload.put("accountErrorKind", exception.kind().name().toLowerCase(Locale.ROOT));
+            logger.error(
+                    String.format(Locale.ROOT, SECTION_FAILED_LOG, "account", exception.kind()),
+                    exception);
+            return false;
         }
     }
 }

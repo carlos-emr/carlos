@@ -82,7 +82,8 @@ public class PortalAccount2Action extends PortalJsonAction {
     private static final String NO_ACCOUNT_MESSAGE =
             """
             This patient does not have a patient portal account, so there is nothing to unlock or \
-            disable. Send them an invitation first.""";
+            disable. Send them an invitation first. If every patient reports this, the portal \
+            connection needs checking rather than an invitation.""";
 
     private static final String ENABLED_REQUIRED =
             "This request must state enabled=true or enabled=false.";

@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.integration.patientportal.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -242,9 +243,14 @@ class PortalAccountAndPanelActionUnitTest {
 
             accountAction().execute();
 
+            // Leads with the patient reading, because for a patient-scoped action that is the
+            // overwhelmingly common one — but no longer only that. A 404 is three-way and also
+            // covers a rejected service identity, so a rotated token that nobody updated makes
+            // every patient report this and told staff to send invitations to patients who already
+            // have working accounts. The clause is what lets them notice.
             assertThat(response.getContentAsString())
                     .contains("does not have a patient portal account")
-                    .doesNotContain("connection needs checking");
+                    .contains("connection needs checking");
         }
 
         @Test
@@ -388,6 +394,166 @@ class PortalAccountAndPanelActionUnitTest {
             assertThat(response.getContentAsString())
                     .contains("inviteId")
                     .contains("accountError");
+        }
+    }
+
+    @Nested
+    @DisplayName("panel honesty")
+    class PanelHonesty {
+
+        private PatientPortalAccountDto account() {
+            return new PatientPortalAccountDto(
+                    5L, "maplecreek", DEMOGRAPHIC_NO, "active", false, false, null, null);
+        }
+
+        /**
+         * {@code ok} is the field a client will branch on, so it has to be the honest one. It was
+         * hardcoded true before either section was attempted, which meant a total portal outage
+         * returned {@code 200 {"ok":true}} with two error markers a caller had to know to look for
+         * — and a receptionist reading an apparently empty panel concludes the patient has no
+         * portal presence and issues an invitation.
+         */
+        @Test
+        @DisplayName("should report not-ok when a section could not be read")
+        void shouldReportNotOk_whenThePortalIsUnreachable() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), anyInt(), any()))
+                    .thenThrow(
+                            PatientPortalException.ofTransportFailure(
+                                    "/x/{id}", new java.io.IOException("down")));
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(
+                            PatientPortalException.ofTransportFailure(
+                                    "/y/{id}", new java.io.IOException("down")));
+
+            panelAction().execute();
+
+            assertThat(response.getContentAsString())
+                    .contains("\"ok\":false")
+                    .contains("invitesError")
+                    .contains("accountError")
+                    // The kind is carried so a caller can tell an outage from a permission problem.
+                    .contains("transport_failure");
+        }
+
+        @Test
+        @DisplayName("should still report ok when every requested section was read")
+        void shouldReportOk_whenBothSectionsLoad() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), anyInt(), any()))
+                    .thenReturn(java.util.List.of());
+            when(patientPortalService.findAccount(anyInt(), any())).thenReturn(account());
+
+            panelAction().execute();
+
+            assertThat(response.getContentAsString()).contains("\"ok\":true");
+        }
+
+        /**
+         * A patient who never activated is the routine case, not a failure, so it must not drag
+         * {@code ok} down with it.
+         */
+        @Test
+        @DisplayName("should stay ok when the patient simply has no portal account")
+        void shouldReportOk_whenTheAccountLookupIsA404() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), anyInt(), any()))
+                    .thenReturn(java.util.List.of());
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(404, "/y/{id}", null));
+
+            panelAction().execute();
+
+            assertThat(response.getContentAsString())
+                    .contains("\"ok\":true")
+                    .contains("no_portal_account");
+        }
+
+        /**
+         * The mirror of the invite-section case, which was covered while this one was not.
+         */
+        @Test
+        @DisplayName("should omit the account section when the provider may not read it")
+        void shouldOmitAccount_whenProviderLacksTheAccountObject() throws Exception {
+            request.setMethod("GET");
+            when(securityInfoManager.hasPrivilege(
+                            any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT), anyString(),
+                            isNull()))
+                    .thenReturn(false);
+            when(patientPortalService.listInvites(anyInt(), anyInt(), any()))
+                    .thenReturn(java.util.List.of());
+
+            panelAction().execute();
+
+            assertThat(response.getContentAsString())
+                    .contains("invites")
+                    .doesNotContain("accountState")
+                    .doesNotContain("accountError");
+            verify(patientPortalService, never()).findAccount(anyInt(), any());
+        }
+
+        @Test
+        @DisplayName("should advertise the methods it accepts when refusing one")
+        void shouldSendAnAllowHeader_whenTheMethodIsUnsupported() throws Exception {
+            request.setMethod("DELETE");
+
+            panelAction().execute();
+
+            assertThat(response.getHeader("Allow")).isEqualTo("GET, POST");
+        }
+    }
+
+    @Nested
+    @DisplayName("account route gating")
+    class AccountRouteGating {
+
+        /**
+         * Only the unlock arm of the gating ternary was covered, so the other arm could have named
+         * any object at all — including one every provider holds.
+         */
+        @Test
+        @DisplayName("should gate the access route on the account object")
+        void shouldRefuse_whenTheAccountObjectIsAbsentOnTheAccessRoute() throws Exception {
+            when(securityInfoManager.hasPrivilege(
+                            any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT), anyString(),
+                            isNull()))
+                    .thenReturn(false);
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", "patient request");
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            verifyNoInteractions(patientPortalService);
+        }
+
+        @Test
+        @DisplayName("should refuse a method this action does not have")
+        void shouldRefuse_whenTheMethodParameterIsUnknown() throws Exception {
+            request.setParameter("method", "sudo");
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            verifyNoInteractions(patientPortalService);
+        }
+
+        /**
+         * An absent or malformed flag must not silently choose the destructive branch.
+         */
+        @Test
+        @DisplayName("should refuse an access request that does not state enabled")
+        void shouldRefuse_whenTheEnabledFlagIsMalformed() throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "1");
+            request.setParameter("reason", "patient request");
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            verify(patientPortalService, never()).setAccountAccess(anyInt(), anyBoolean(),
+                    anyString(), any());
         }
     }
 }
