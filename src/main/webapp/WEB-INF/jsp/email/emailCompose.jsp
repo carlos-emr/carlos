@@ -241,6 +241,7 @@
 
             <input type="hidden" name="isEmailError" id="isEmailError" value="${isEmailError}"/>
             <input type="hidden" name="emailErrorMessage" id="emailErrorMessage" value="${emailErrorMessage}"/>
+            <input type="hidden" id="emailResendWarning" value="${carlos:forHtmlAttribute(emailResendWarning)}"/>
             <input type="hidden" name="isEmailSuccessful" id="isEmailSuccessful" value="${isEmailSuccessful}"/>
             <input type="hidden" name="emailPatientChartOption" id="emailPatientChartOption"
                    value="${carlos:forHtmlAttribute(empty param.emailPatientChartOption ? emailPatientChartOption : param.emailPatientChartOption)}"/>
@@ -636,6 +637,13 @@
         document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
             new bootstrap.Tooltip(el);
         });
+
+        // Non-terminal, unlike the error path below: a PENDING resend is allowed to proceed, so
+        // this warns and leaves the compose page open rather than closing the window.
+        const resendWarning = document.getElementById('emailResendWarning');
+        if (resendWarning && resendWarning.value) {
+            alert(resendWarning.value);
+        }
 
         // Check if any error
         if (document.getElementById('isEmailError').value === 'true') {

@@ -188,7 +188,7 @@ public class EmailManager {
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, emailData.getDemographicNo());
         Provider provider = providerManager.getProvider(loggedInInfo, emailData.getProviderNo());
 
-        EmailLog emailLog = new EmailLog(emailConfig, emailConfig.getSenderEmail(), emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailStatus.FAILED);
+        EmailLog emailLog = new EmailLog(emailConfig, emailConfig.getSenderEmail(), emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailStatus.PENDING);
         setEmailAttachments(emailLog, emailData.getAttachments());
         emailLog.setEncryptedMessage(emailData.getEncryptedMessage());
         emailLog.setPassword(emailData.getPassword());
@@ -198,7 +198,10 @@ public class EmailManager {
         emailLog.setChartDisplayOption(emailData.getChartDisplayOption());
         emailLog.setInternalComment(emailData.getInternalComment());
         emailLog.setTransactionType(emailData.getTransactionType());
-        emailLog.setErrorMessage("Email was not sent successfully for unknown reasons.");
+        // Neutral by design. The row is PENDING until transport reports back, so this text must
+        // not assert failure: if the post-send status write never lands, this is what an admin
+        // reads, and "failed" would invite resending a message the patient already received.
+        emailLog.setErrorMessage("Email send is in progress; delivery has not been confirmed yet.");
         emailLog.setAdditionalParams(emailData.getAdditionalParams());
         emailLog.setDemographic(demographic);
         emailLog.setProvider(provider);
