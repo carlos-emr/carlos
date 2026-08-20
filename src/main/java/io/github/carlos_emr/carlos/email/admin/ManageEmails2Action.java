@@ -90,6 +90,17 @@ public class ManageEmails2Action extends ActionSupport {
      * @see #showEmailManager()
      */
     public String execute() {
+        // First operation, before dispatch. Every branch below reads patient email: resendEmail()
+        // loads an EmailLog and repopulates the compose page with its subject, body, encrypted
+        // message and PDF passphrase. The only check this action previously had lived inside
+        // refreshEmailAttachments(), which runs after that load and is skipped entirely when the
+        // log has no demographic -- so an authenticated caller without _email could reach patient
+        // email content. The Struts package carries no security interceptor, so this is the gate.
+        if (!securityInfoManager.hasPrivilege(
+                LoggedInInfo.getLoggedInInfoFromSession(request), "_email", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
+
         String mtd = request.getParameter("method");
         if ("fetchEmails".equals(mtd)) {
             return fetchEmails();
@@ -319,15 +330,19 @@ public class ManageEmails2Action extends ActionSupport {
      * @param emailLog EmailLog containing the list of attachments to refresh
      * @return List<EmailAttachment> the updated list of email attachments with refreshed PDF paths and sizes
      * @throws PDFGenerationException if any document cannot be rendered to PDF
-     * @throws RuntimeException if the user lacks required _email security privilege
+     * @throws SecurityException if the user lacks required _email security privilege
      * @see DocumentAttachmentManager#renderDocument
      * @see FormsManager#renderForm
      * @see DocumentType
      */
     private List<EmailAttachment> refreshEmailAttachments(HttpServletRequest request, HttpServletResponse response, EmailLog emailLog) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // Kept as defence in depth behind the execute() gate: this method renders patient
+        // documents to PDF, and is private but reachable from any future caller in this class.
+        // SecurityException rather than RuntimeException to match the project standard and the
+        // gate above -- it is a RuntimeException subtype, so existing handlers are unaffected.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         List<EmailAttachment> emailAttachmentList = emailLog.getEmailAttachments();

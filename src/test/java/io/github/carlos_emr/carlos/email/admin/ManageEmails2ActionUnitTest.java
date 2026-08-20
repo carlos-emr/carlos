@@ -15,6 +15,7 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
@@ -27,6 +28,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -101,5 +103,55 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
                 .isEqualTo("This email cannot be copied because it is not associated with a patient. Please generate a new email instead.");
         verify(emailComposeManager).prepareEmailForResend(loggedInInfo, 42);
         verifyNoInteractions(demographicManager, documentAttachmentManager, emailManager, formsManager, securityInfoManager);
+    }
+    @Test
+    @DisplayName("should refuse every dispatch without email read privilege")
+    void shouldRefuseEveryDispatch_withoutEmailReadPrivilege() {
+        // The gap this closes: resendEmail() loaded a patient EmailLog and repopulated the
+        // compose page with its subject, body, encrypted message and PDF passphrase before any
+        // privilege check ran. Asserting all three dispatch branches, because the check now sits
+        // ahead of the branch and a future refactor could easily reinstate a per-branch gate that
+        // misses one.
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(false);
+
+        for (String method : new String[]{"resendEmail", "fetchEmails", null}) {
+            if (method != null) {
+                request.setParameter("method", method);
+            }
+            request.setParameter("logId", "42");
+
+            assertThatThrownBy(() -> new ManageEmails2Action().execute())
+                    .as("dispatch method=%s must be refused", method)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_email)");
+        }
+
+        // Refused before anything reads or renders patient data.
+        verifyNoInteractions(emailComposeManager, demographicManager, emailManager,
+                documentAttachmentManager, formsManager);
+    }
+
+    @Test
+    @DisplayName("should show compose error when the resent email log has a null demographic number")
+    void shouldShowComposeError_whenResentEmailLogHasNullDemographicNumber() {
+        // Distinct from the no-demographic case above: here the log HAS a demographic, but its
+        // number is null. Both must take the same branch, because the code path that follows
+        // unboxes that number.
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        request.setParameter("logId", "42");
+        EmailLog emailLog = new EmailLog();
+        emailLog.setDemographic(new Demographic());
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(emailLog);
+
+        String result = new ManageEmails2Action().resendEmail();
+
+        assertThat(result).isEqualTo("compose");
+        assertThat(request.getAttribute("isEmailError")).isEqualTo(true);
+        verify(emailComposeManager).prepareEmailForResend(loggedInInfo, 42);
+        verifyNoInteractions(demographicManager, documentAttachmentManager, emailManager, formsManager);
     }
 }
