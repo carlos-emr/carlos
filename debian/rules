@@ -248,7 +248,11 @@ endif
 # any of them (the README/txt/xml dh_compress would otherwise pick up under
 # /usr/share) would corrupt the deployed application.
 override_dh_compress:
-	dh_compress -X/usr/share/carlos-emr
+	# README.Debian stays UNCOMPRESSED: the systemd units' Documentation=
+	# lines, the man page, and docs/install-deb.md all point at the bare
+	# path, and a .gz there would quietly break every one of those
+	# references (found by the documentation audit).
+	dh_compress -X/usr/share/carlos-emr -XREADME.Debian
 
 # The package ships no ELF objects; skip the toolchain helpers entirely so the
 # build does not spend minutes walking a 400 MB exploded webapp.
