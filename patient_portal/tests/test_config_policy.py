@@ -281,6 +281,17 @@ def test_trusted_proxy_header_and_cidrs_must_be_configured_together() -> None:
         development_settings(trusted_proxy_cidrs="10.0.0.0/8")
 
 
+def test_mistyped_prefixed_environment_variables_abort_startup() -> None:
+    """A PATIENT_PORTAL_* typo must fail loudly, not be silently ignored.
+
+    Mistyping both proxy variables is the one combination that does not fail safe:
+    validate_proxy_policy is satisfied by two Nones, so the portal starts with proxy-aware
+    client identification silently off while the operator believes it is on.
+    """
+    with pytest.raises(ValidationError, match="trusted_client_ip_headr"):
+        development_settings(trusted_client_ip_headr="x-forwarded-for")
+
+
 def test_short_audit_retention_requires_an_explicit_opt_in() -> None:
     """Retention below the regulatory default must be deliberate, not a typo."""
     with pytest.raises(ValidationError, match="ALLOW_SHORT_AUDIT_RETENTION"):

@@ -1218,6 +1218,30 @@ def test_mfa_resend_limits_email_and_sms_independently() -> None:
         ]
 
 
+def test_unknown_login_fields_are_rejected_rather_than_silently_ignored() -> None:
+    """`mfa_method` is a plausible slip for `mfa_delivery_method`.
+
+    With extra="ignore" the login succeeded and issued an *email* challenge, sending the code to
+    a destination the caller did not select, with nothing in the response to signal the drop.
+    """
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+
+    response = client.post(
+        "/auth/login",
+        json={
+            "username": "patient.user",
+            "password": STRONG_PASSWORD,
+            "mfa_method": "sms",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "mfa_method" in response.text
+    assert "mfa_challenge_token" not in response.json()
+
+
 def test_bad_mfa_attempts_lock_account() -> None:
     app = migrated_development_app(mfa_max_failed_attempts=2)
     client = TestClient(app)

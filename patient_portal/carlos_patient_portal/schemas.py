@@ -65,6 +65,8 @@ class InviteTokenResponse(InviteResponse):
 
 
 class ActivationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     invite_code: str = Field(min_length=1)
     email: str = Field(min_length=1, max_length=MAX_EMAIL_LENGTH)
     date_of_birth: date
@@ -126,6 +128,8 @@ class ActivationResponse(BaseModel):
 
 
 class LoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     username: str = Field(min_length=1)
     password: str = Field(min_length=1, max_length=MAX_PASSWORD_LENGTH, repr=False)
     mfa_delivery_method: MfaDeliveryMethod | None = None
@@ -140,6 +144,8 @@ class LoginResponse(BaseModel):
 
 
 class MfaVerifyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     mfa_challenge_token: str = Field(min_length=1)
     code: str = Field(min_length=1, max_length=16, repr=False)
 
@@ -150,6 +156,8 @@ class MfaVerifyResponse(BaseModel):
 
 
 class MfaResendRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     mfa_challenge_token: str = Field(min_length=1)
     mfa_delivery_method: MfaDeliveryMethod
 
@@ -162,6 +170,8 @@ class MfaChallengeResponse(BaseModel):
 
 
 class PasswordResetRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     username: str = Field(min_length=1)
     email: str = Field(min_length=1, max_length=MAX_EMAIL_LENGTH)
 
@@ -172,6 +182,8 @@ class PasswordResetRequestResponse(BaseModel):
 
 
 class PasswordResetCompleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     reset_token: str = Field(min_length=1)
     new_password: str = Field(min_length=1, max_length=MAX_PASSWORD_LENGTH, repr=False)
 

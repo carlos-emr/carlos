@@ -261,7 +261,14 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_prefix="PATIENT_PORTAL_",
-        extra="ignore",
+        # Most PATIENT_PORTAL_* typos fail safe, because a missing required secret aborts
+        # startup. Mistyping *both* TRUSTED_CLIENT_IP_HEADER and TRUSTED_PROXY_CIDRS does not:
+        # validate_proxy_policy is satisfied by two Nones, so the portal starts believing
+        # proxy-aware client identification is off while the operator believes it is on. Behind
+        # a reverse proxy every patient then resolves to the proxy's socket address, collapsing
+        # the activation budget and the auth limiter into one clinic-wide bucket. Forbidding
+        # unknown prefixed variables turns that into a startup error instead.
+        extra="forbid",
     )
 
     @property
