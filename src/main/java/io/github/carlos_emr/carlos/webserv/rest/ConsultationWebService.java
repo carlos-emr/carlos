@@ -45,6 +45,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -71,9 +72,11 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter;
 import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilter;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -143,6 +146,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     @Autowired
     ConsultationServiceDao consultationServiceDao;
+
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
 
     private ConsultationRequestConverter requestConverter = new ConsultationRequestConverter();
     private ConsultationRequestExtConverter consultationRequestExtConverter = new ConsultationRequestExtConverter();
@@ -342,23 +348,43 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return rp;
     }
 
+    /**
+     * Retrieves an existing consultation response or initializes data for a new response.
+     *
+     * <p>A positive {@code responseId} loads the stored response and authorizes access against
+     * that response's demographic, regardless of the caller-supplied {@code demographicNo}.
+     * A null or non-positive {@code responseId} initializes a new response for the supplied
+     * demographic.
+     *
+     * @param responseId existing response identifier, or null/non-positive to initialize a new response
+     * @param demographicNo demographic used only when initializing a new response
+     * @return populated consultation response transfer object
+     * @throws WebApplicationException with HTTP 400 when the applicable demographic is missing or
+     * non-positive, HTTP 403 when consultation read access is denied, or HTTP 404 when a positive
+     * {@code responseId} does not exist
+     * @since 2026-01-24
+     */
     @GET
     @Path("/getResponse")
     @Produces(MediaType.APPLICATION_JSON)
     public ConsultationResponseTo1 getResponse(@QueryParam("responseId") Integer responseId, @QueryParam("demographicNo") Integer demographicNo) {
         ConsultationResponseTo1 response = new ConsultationResponseTo1();
 
-        if (responseId > 0) {
-            ConsultationResponse responseD = consultationManager.getResponse(getLoggedInInfo(), responseId);
-            response = responseConverter.getAsTransferObject(getLoggedInInfo(), responseD);
-
+        // A null (omitted) responseId means "initialize a new response" — route it to the else
+        // branch rather than unboxing null into the responseId > 0 comparison.
+        if (responseId != null && responseId > 0) {
+            ConsultationResponse responseD = getAuthorizedConsultationResponse(responseId);
             demographicNo = responseD.getDemographicNo();
+
+            response = responseConverter.getAsTransferObject(getLoggedInInfo(), responseD);
 
             ProfessionalSpecialist referringDoctorD = consultationManager.getProfessionalSpecialist(responseD.getReferringDocId());
             response.setReferringDoctor(specialistConverter.getAsTransferObject(getLoggedInInfo(), referringDoctorD));
 
-            response.setAttachments(getResponseAttachments(responseId, demographicNo, ConsultationAttachmentTo1.ATTACHED));
+            response.setAttachments(getResponseAttachmentsForAuthorizedResponse(
+                    responseId, demographicNo, ConsultationAttachmentTo1.ATTACHED));
         } else {
+            requireConsultationReadPrivilege(demographicNo);
             response.setProviderNo(getLoggedInInfo().getLoggedInProviderNo());
             RxInformation rx = new RxInformation();
             String info = rx.getAllergies(getLoggedInInfo(), demographicNo.toString());
@@ -378,12 +404,39 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Retrieves the documents, eForms, and labs associated with a consultation response.
+     *
+     * <p>The response's persisted demographic is the authorization source. The
+     * {@code demographicNoInt} query parameter is retained for API compatibility and is not
+     * trusted for authorization.
+     *
+     * @param responseId positive consultation response identifier
+     * @param demographicNoInt legacy caller-supplied demographic; not used for authorization
+     * @param attached whether to return attached or available attachment candidates
+     * @return consultation attachment transfer objects for the requested response
+     * @throws WebApplicationException with HTTP 400 when {@code responseId} or the stored
+     * demographic is invalid, HTTP 403 when consultation read access is denied, or HTTP 404
+     * when the response does not exist
+     * @since 2026-01-24
+     */
     @GET
     @Path("/getResponseAttachments")
     @Produces(MediaType.APPLICATION_JSON)
     public List<ConsultationAttachmentTo1> getResponseAttachments(@QueryParam("responseId") Integer responseId, @QueryParam("demographicNo") Integer demographicNoInt, @QueryParam("attached") boolean attached) {
+        if (responseId == null || responseId <= 0) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("responseId is required").build());
+        }
+        ConsultationResponse responseD = getAuthorizedConsultationResponse(responseId);
+        return getResponseAttachmentsForAuthorizedResponse(responseId, responseD.getDemographicNo(), attached);
+    }
+
+    private List<ConsultationAttachmentTo1> getResponseAttachmentsForAuthorizedResponse(
+            Integer responseId, Integer resolvedDemographicNo, boolean attached) {
+
         List<ConsultationAttachmentTo1> attachments = new ArrayList<ConsultationAttachmentTo1>();
-        String demographicNo = demographicNoInt.toString();
+        String demographicNo = resolvedDemographicNo.toString();
 
         List<EDoc> edocList = EDocUtil.listResponseDocs(getLoggedInInfo(), demographicNo, responseId.toString(), attached);
         getDocuments(edocList, attached, attachments);
@@ -477,10 +530,24 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return RestResponse.errorResponse("Invalid or missing econsult data.");
     }
 
+    /**
+     * Retrieves recently prepared eReferral attachments for an authorized demographic.
+     *
+     * @param demographicNo demographic whose prepared attachments are requested
+     * @param httpServletRequest servlet request used by attachment rendering
+     * @param httpServletResponse servlet response used by attachment rendering
+     * @return HTTP 200 with the prepared attachments, or HTTP 500 when attachment generation fails
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing or
+     * non-positive, or HTTP 403 when consultation read access is denied
+     * @since 2026-01-24
+     */
     @GET
     @Path("/getEReferAttachments")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getEReferAttachments(@QueryParam("demographicNo") Integer demographicNo, @Context HttpServletRequest httpServletRequest, @Context HttpServletResponse httpServletResponse) {
+        // Authorize before the try block so a denial is not reclassified as a 500 by the catch.
+        requireConsultationReadPrivilege(demographicNo);
+        requireGlobalConsultationReadPrivilege();
         Response response;
         try {
             /*
@@ -501,6 +568,64 @@ public class ConsultationWebService extends AbstractServiceImpl {
     /*******************
      * private methods *
      *******************/
+
+    /**
+     * Resolves a stored response after enforcing both the manager's global consultation
+     * privilege and the response's patient-specific privilege at the REST boundary.
+     */
+    private ConsultationResponse getAuthorizedConsultationResponse(Integer responseId) {
+        requireGlobalConsultationReadPrivilege();
+
+        ConsultationResponse response = consultationManager.getResponse(getLoggedInInfo(), responseId);
+        if (response == null) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.NOT_FOUND).entity("Consultation response not found").build());
+        }
+
+        // Resolve authorization from the persisted response rather than trusting a caller-supplied
+        // demographic, so a forged responseId cannot expose another patient's consultation data.
+        requireConsultationReadPrivilege(response.getDemographicNo());
+        return response;
+    }
+
+    /**
+     * Maps the manager's global consultation read requirement to a controlled REST response.
+     */
+    private void requireGlobalConsultationReadPrivilege() {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_con", "r", (String) null)) {
+            LogAction.addLogSynchronous(getLoggedInInfo(),
+                    "ConsultationWebService.consultationReadDenied", "scope=global");
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+    }
+
+    /**
+     * Enforces patient-level read access to consultation data for the given demographic.
+     *
+     * <p>Guards the consultation response and attachment endpoints so a patient's
+     * consultation responses, attached documents and eReferral attachments cannot be
+     * read by supplying an arbitrary {@code demographicNo}.
+     *
+     * @param demographicNo the demographic whose consultation data is being requested.
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing or
+     * non-positive, or HTTP 403 when the current user lacks {@code _con} read access
+     */
+    private void requireConsultationReadPrivilege(Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("demographicNo is required").build());
+        }
+        if (demographicNo <= 0) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("demographicNo must be positive").build());
+        }
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_con", "r", demographicNo)) {
+            LogAction.addLogSynchronous(getLoggedInInfo(),
+                    "ConsultationWebService.consultationReadDenied", "demographicNo=" + demographicNo);
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+    }
+
     private Date convertJSONDate(String val) {
         try {
             return jakarta.xml.bind.DatatypeConverter.parseDateTime(val).getTime();
