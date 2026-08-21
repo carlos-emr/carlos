@@ -287,6 +287,46 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         assertThat(persisted.getValue().getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
     }
 
+    @Test
+    @DisplayName("should store the file under the EDoc's DMS-prefixed filename on successful import")
+    void shouldStoreFileUnderEdocFilename_onSuccessfulImport() throws Exception {
+        // Given: a downloadable inbound fax and a document record that persists successfully
+        FaxConfig config = createActiveConfig();
+        FaxJob inboundFax = createInboundFax(PROVIDER_JOB_ID);
+        when(faxConfigDao.findAll(null, null)).thenReturn(Collections.singletonList(config));
+        when(faxProviderClient.listInboundFaxes(config)).thenReturn(Collections.singletonList(inboundFax));
+        when(faxJobDao.findByProviderJobId(PROVIDER_JOB_ID)).thenReturn(Collections.emptyList());
+
+        FaxJob downloadedFax = new FaxJob();
+        downloadedFax.setDocument(Base64.getEncoder().encodeToString(createValidPdfBytes()));
+        when(faxProviderClient.downloadFax(config, inboundFax)).thenReturn(downloadedFax);
+
+        java.util.concurrent.atomic.AtomicReference<String> edocFileName = new java.util.concurrent.atomic.AtomicReference<>();
+        try (MockedStatic<EDocUtil> eDocUtilMock = Mockito.mockStatic(EDocUtil.class)) {
+            eDocUtilMock.when(() -> EDocUtil.addDocumentSQL(any())).thenAnswer(inv -> {
+                io.github.carlos_emr.carlos.documentManager.EDoc doc = inv.getArgument(0);
+                edocFileName.set(doc.getFileName());
+                return "4242";
+            });
+
+            // When
+            faxImporter.poll();
+        }
+
+        // Then: the physical file lives under the EXACT name recorded on the document row
+        // (EDoc prepends the DMS yyyyMMddHHmmss prefix; storing the file unprefixed left every
+        // imported fax unopenable in the document viewer).
+        assertThat(edocFileName.get()).isNotNull().matches("\\d{14}.+\\.pdf");
+        assertThat(documentDir.resolve(edocFileName.get()))
+                .as("file must be stored under the document row's filename")
+                .exists();
+
+        // And the persisted fax row references the same final name
+        ArgumentCaptor<FaxJob> persisted = ArgumentCaptor.forClass(FaxJob.class);
+        verify(faxJobDao).persist(persisted.capture());
+        assertThat(persisted.getValue().getFile_name()).isEqualTo(edocFileName.get());
+    }
+
     /**
      * Direct contract tests for {@link FaxImporter#isAlreadyImported(List)}.
      */

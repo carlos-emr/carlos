@@ -495,13 +495,10 @@ public class FaxImporter {
             // Validate PDF and count pages
             int numberOfPages = validateAndCountPages(incomingFile.toFile());
 
-            // Validate and resolve final path in DOCUMENT_DIR
-            File finalFile = PathValidationUtils.validatePath(uniqueFilename, new File(documentDir));
-
-            // Move from incoming to DOCUMENT_DIR
-            moveFile(incomingFile, finalFile.toPath());
-
-            // Create EDoc and register with EMR
+            // Create the EDoc first: its constructor prepends the DMS yyyyMMddHHmmss prefix to the
+            // filename, and the physical file MUST be stored under that final name. Moving the file
+            // under the unprefixed name (the previous behavior) produced document rows whose files
+            // could never be found by the viewer.
             EDoc newDoc = new EDoc("Received Fax", "Received Fax", uniqueFilename, "",
                     DEFAULT_USER, DEFAULT_USER, "", 'A',
                     DateFormatUtils.format(receivedFax.getStamp() != null ? receivedFax.getStamp() : new Date(), "yyyy-MM-dd"),
@@ -509,6 +506,12 @@ public class FaxImporter {
             newDoc.setDocPublic("0");
             newDoc.setContentType("application/pdf");
             newDoc.setNumberOfPages(numberOfPages);
+
+            // Validate and resolve the final (DMS-prefixed) path in DOCUMENT_DIR
+            File finalFile = PathValidationUtils.validatePath(newDoc.getFileName(), new File(documentDir));
+
+            // Move from incoming to DOCUMENT_DIR under the exact name the document row will carry
+            moveFile(incomingFile, finalFile.toPath());
 
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
             if (doc_no == null || doc_no.trim().isEmpty()) {
