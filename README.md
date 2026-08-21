@@ -24,6 +24,26 @@ Detailed installation documentation is available in the `.devcontainer` setup, w
 
 For installation instructions, see [.devcontainer/README.md](.devcontainer/README.md).
 
+## Releases
+
+Published source archives, versioned WAR files, checksums, and SBOMs are
+available on the [GitHub Releases](https://github.com/carlos-emr/carlos/releases)
+page. Signed provenance attestations are verifiable as described in the release
+process. Alpha, beta, and release-candidate builds are prereleases and should be
+evaluated before production deployment.
+
+CARLOS follows a CalVer maintenance-branch model. Maintainers and contributors
+should follow the canonical [release process](docs/release-process.md) for
+versioning, target-branch selection, tags, hotfixes, and release verification.
+
+In brief, normal work starts from and targets `develop`; high-priority fixes for
+supported releases start from and target the oldest affected `release/YYYY.MM`
+branch before they are forward-merged; and release-preparation PRs promote
+current-train exact versions to `main`. Older supported patches remain on their
+maintenance branch. Ongoing branches use
+`-SNAPSHOT` with SCM tag `HEAD`. Release tags are annotated, immutable, and
+created only on exact non-snapshot release commits.
+
 ## Contributing
 
 We welcome community involvement! Whether you're reporting bugs, improving documentation,

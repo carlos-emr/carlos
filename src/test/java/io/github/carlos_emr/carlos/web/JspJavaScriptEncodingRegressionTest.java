@@ -235,6 +235,22 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    @DisplayName("should make a symlinked antenatal risk override visibly read-only")
+    @Tag("security")
+    void shouldMakeSymlinkedAntenatalRiskOverride_readOnly() throws Exception {
+        String jsp = readJsp("decision/antenatal/obarriskedit_99_12.jsp");
+
+        assertThat(jsp)
+                .contains("Files.isSymbolicLink(configuredOverride)")
+                .contains("<% if (!readOnlyOverride) { %>")
+                .contains("readOnlyOverride ? \" readonly\" : \"\"")
+                .contains("configured through a symbolic link and is read-only here")
+                .contains("Files.exists(configuredOverride, LinkOption.NOFOLLOW_LINKS)")
+                .contains("configured risk-list target is not a readable regular file")
+                .contains("configured document directory is unavailable or not writable");
+    }
+
+    @Test
     @DisplayName("should encode billing settings custom clinic info textarea in HTML body context")
     @Tag("security")
     void shouldEncodeBillingSettingsCustomClinicInfoTextarea_inHtmlBodyContext() throws Exception {
