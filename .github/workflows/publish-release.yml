@@ -385,9 +385,14 @@ jobs:
           # build is dispatched by hand. Failure here must not unwind the
           # published release — it reports loudly and the operator retries
           # with the same dispatch (documented in deb-packages.yml).
+          # Dispatched on the TAG's own ref: workflow_dispatch requires the
+          # workflow file to exist on the dispatched ref, and deb-packages.yml
+          # lives on the release lines (and their tags), not necessarily on
+          # the default branch — a default-branch dispatch 404'd on every
+          # release. The tag is also exactly the tree the build checks out.
           if ! gh workflow run deb-packages.yml --repo "$REPO" \
-                 --ref "$(gh api "repos/$REPO" --jq .default_branch)" \
+                 --ref "refs/tags/$RELEASE_TAG" \
                  -f "tag=$RELEASE_TAG"; then
-            echo "::error::Release $RELEASE_TAG is published but the Debian package build could not be dispatched. Run it manually: gh workflow run deb-packages.yml -f tag=$RELEASE_TAG"
+            echo "::error::Release $RELEASE_TAG is published but the Debian package build could not be dispatched. Run it manually: gh workflow run deb-packages.yml --ref refs/tags/$RELEASE_TAG -f tag=$RELEASE_TAG"
             exit 1
           fi

@@ -1,4 +1,12 @@
 [Unit]
+# Bound a crash loop: with 15s restart spacing the default 5-in-10s limiter
+# never trips, and an OOM loop (each crash writing an Xmx-sized PHI heap
+# dump) ran forever. Six failures inside half an hour is a broken
+# deployment — stop, stay failed, page whoever watches the unit. These are
+# [Unit]-section options: in [Service], systemd 259 rejects the key and the
+# bound silently did not exist (live-verified with systemd-analyze).
+StartLimitIntervalSec=30min
+StartLimitBurst=6
 Description=CARLOS EMR application server (Tomcat 11)
 Documentation=file:///usr/share/doc/carlos-emr/README.Debian
 Documentation=https://github.com/carlos-emr/carlos
@@ -29,12 +37,6 @@ ExecStart=/usr/lib/carlos-emr/carlos-emr-tomcat run
 SuccessExitStatus=143
 Restart=on-failure
 RestartSec=15s
-# Bound a crash loop: with 15s spacing the default 5-in-10s limiter never
-# trips, and an OOM loop (each crash writing an Xmx-sized PHI heap dump)
-# ran forever. Six failures inside half an hour is a broken deployment —
-# stop, stay failed, page whoever watches the unit.
-StartLimitIntervalSec=30min
-StartLimitBurst=6
 # A cold start explodes no WARs but does deploy a very large application and
 # runs the Flyway boot validation against the database. Ten minutes is
 # generous on purpose; the alternative is systemd killing a healthy start.

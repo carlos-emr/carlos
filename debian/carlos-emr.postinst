@@ -157,7 +157,19 @@ case "$1" in
         # exists, the two are indistinguishable — which silently configured a
         # British Columbia clinic for Ontario migrations. Review finding,
         # confirmed by inspection.
-        if [ -e "${ENV_FILE}" ]; then FRESH_ENV=0; else FRESH_ENV=1; fi
+        # The freshness decision is PERSISTED across a configure that dies
+        # part-way: install_once lands the skeleton immediately below, so on
+        # a rerun the env file exists and a bare existence test would read
+        # "not fresh" — silently discarding the operator's province answer
+        # (and the timezone) after any early failure. The sentinel is
+        # removed only after the first-install writes actually happen.
+        FRESH_SENTINEL=/var/lib/carlos-emr/.first-configure-pending
+        if [ -e "${ENV_FILE}" ] && [ ! -e "${FRESH_SENTINEL}" ]; then
+            FRESH_ENV=0
+        else
+            FRESH_ENV=1
+            touch "${FRESH_SENTINEL}"
+        fi
         install_once "${SHARE}/skel/carlos-emr.env" "${ENV_FILE}" 0644 root:root
         install_once "${SHARE}/skel/carlos.properties" "${PROPERTIES}" 0640 root:carlos
         install_once "${SHARE}/skel/backup.env" "${BACKUP_ENV}" 0640 root:carlos-backup
@@ -210,6 +222,7 @@ case "$1" in
         if [ "${FRESH_ENV}" = 1 ]; then
             set_env_key CARLOS_TZ "${TZ_NAME}"
         fi
+        rm -f "${FRESH_SENTINEL}"
         # The province is written only on the FIRST install (as detected
         # before the skeleton landed — the skel itself carries a default that
         # would fool a grep on the file). Changing it later against an
@@ -296,7 +309,8 @@ case "$1" in
                 MIGRATION_OK=0
                 echo "carlos-emr: database provisioning FAILED; the service will not be started." >&2
                 echo "carlos-emr: fix the cause (journalctl or the messages above), then run:" >&2
-                echo "carlos-emr:   sudo carlos-ctl db-users && sudo carlos-ctl db-migrate" >&2
+                echo "carlos-emr:   sudo carlos-ctl db-apply-settings && sudo carlos-ctl db-users && \\" >&2
+                echo "carlos-emr:   sudo carlos-ctl db-migrate && sudo carlos-ctl bootstrap-admin" >&2
                 echo "carlos-emr:   sudo systemctl start carlos-emr" >&2
             fi
             # Apply the schema. On a fresh database this creates everything; on
@@ -329,7 +343,8 @@ case "$1" in
             MIGRATION_OK=0
             echo "carlos-emr: could not reach MariaDB as root over the unix socket." >&2
             echo "carlos-emr: finish setup by hand once it is running:" >&2
-            echo "carlos-emr:   sudo carlos-ctl db-users && sudo carlos-ctl db-migrate" >&2
+            echo "carlos-emr:   sudo carlos-ctl db-apply-settings && sudo carlos-ctl db-users && \\" >&2
+                echo "carlos-emr:   sudo carlos-ctl db-migrate && sudo carlos-ctl bootstrap-admin" >&2
             echo "carlos-emr:   sudo systemctl start carlos-emr" >&2
         fi
 

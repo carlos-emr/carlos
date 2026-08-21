@@ -632,7 +632,10 @@ cmd_verify() {
     # fix moved the SIGPIPE from restic to printf; reviewed and reproduced.)
     # A bash substring match on the captured variable has no pipe to kill.
     local files_list
-    files_list="$(restic ls latest --tag files 2>/dev/null || true)"
+    # --host scoping like every other restic call here: in a SHARED offsite
+    # repository, an unscoped "latest" could validate another clinic's
+    # snapshot while this host's files leg is broken.
+    files_list="$(restic ls latest --tag files --host "$(hostname -s)-carlos" 2>/dev/null || true)"
     case "${files_list}" in
         *carlos.properties*) : ;;
         *)
@@ -647,8 +650,8 @@ cmd_verify() {
             exit 1
             ;;
     esac
-    if ! restic snapshots --tag binlog >/dev/null 2>&1 || \
-            [ "$(restic snapshots --tag binlog --json 2>/dev/null | head -c 3)" = "[]" ]; then
+    if ! restic snapshots --tag binlog --host "$(hostname -s)-carlos" >/dev/null 2>&1 || \
+            [ "$(restic snapshots --tag binlog --host "$(hostname -s)-carlos" --json 2>/dev/null | head -c 3)" = "[]" ]; then
         warn "no binlog snapshots in the repository yet; point-in-time replay is unproven"
     fi
 

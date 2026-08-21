@@ -156,7 +156,17 @@ CATALINA_OPTS="${CATALINA_OPTS} -Djava.security.egd=file:/dev/urandom"
 # zoneinfo and fall back to the HOST's zone, loudly, instead.
 if [ ! -f "/usr/share/zoneinfo/${CARLOS_TZ}" ]; then
     echo "carlos-emr: WARNING: CARLOS_TZ='${CARLOS_TZ}' is not a known timezone (no /usr/share/zoneinfo entry); using the host timezone instead" >&2
-    CARLOS_TZ="$(cat /etc/timezone 2>/dev/null || echo UTC)"
+    # Same three sources as the postinst derivation (modern cloud images
+    # lack /etc/timezone), and the fallback is itself validated — an
+    # unvalidated bad fallback would put the JVM on UTC while MariaDB
+    # stays on the host zone, recreating the very split this warns about.
+    CARLOS_TZ="$(cat /etc/timezone 2>/dev/null \
+        || timedatectl show -p Timezone --value 2>/dev/null \
+        || readlink /etc/localtime 2>/dev/null | sed 's|.*/zoneinfo/||' \
+        || true)"
+    if [ -z "${CARLOS_TZ}" ] || [ ! -f "/usr/share/zoneinfo/${CARLOS_TZ}" ]; then
+        CARLOS_TZ=UTC
+    fi
 fi
 CATALINA_OPTS="${CATALINA_OPTS} -Duser.timezone=${CARLOS_TZ}"
 CATALINA_OPTS="${CATALINA_OPTS} -Dcarlos_override_properties=${PROPERTIES}"

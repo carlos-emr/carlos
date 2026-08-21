@@ -98,11 +98,19 @@ def prop_unescape(value: str) -> str:
     return value.replace("\\\\", "\\")
 
 
+# The application loads carlos.properties with java.util.Properties.load(
+# InputStream), which decodes ISO-8859-1 — so that is the encoding these
+# helpers use. latin-1 also maps every byte 1:1, so a rewrite can never
+# corrupt a value it does not touch (utf-8 with errors='replace' silently
+# and irreversibly mangled migrated Latin-1 bytes like 'Santé').
+PROPERTIES_ENCODING = "latin-1"
+
+
 def prop_get(path: str, key: str) -> Optional[str]:
     """Last active occurrence wins, mirroring java.util.Properties."""
     found = None
     try:
-        with open(path, encoding="utf-8", errors="replace") as fh:
+        with open(path, encoding=PROPERTIES_ENCODING) as fh:
             for line in fh:
                 m = re.match(rf"^\s*{re.escape(key)}\s*=\s*(.*)$", line.rstrip("\n"))
                 if m:
@@ -119,7 +127,7 @@ def _rewrite_preserving(path: str, new_lines: List[str]) -> None:
     st = os.stat(path)
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path))
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        with os.fdopen(fd, "w", encoding=PROPERTIES_ENCODING) as fh:
             fh.write("\n".join(new_lines) + "\n")
         os.chmod(tmp, st.st_mode & 0o7777)
         os.chown(tmp, st.st_uid, st.st_gid)
@@ -133,7 +141,7 @@ def _rewrite_preserving(path: str, new_lines: List[str]) -> None:
 def prop_set(path: str, key: str, value: str) -> None:
     """Replace the first active occurrence (drop any later duplicates of the
     same key), or append. The value is written verbatim — callers escape."""
-    with open(path, encoding="utf-8", errors="replace") as fh:
+    with open(path, encoding=PROPERTIES_ENCODING) as fh:
         lines = fh.read().split("\n")
     if lines and lines[-1] == "":
         lines.pop()
@@ -155,7 +163,7 @@ def prop_comment(path: str, key: str) -> None:
     """Comment out every active occurrence of a key. For properties whose code
     path is "if set, use it": commenting restores the application's own
     null-handling, which a present-but-bogus example value defeats."""
-    with open(path, encoding="utf-8", errors="replace") as fh:
+    with open(path, encoding=PROPERTIES_ENCODING) as fh:
         lines = fh.read().split("\n")
     if lines and lines[-1] == "":
         lines.pop()
@@ -175,21 +183,26 @@ def prop_comment(path: str, key: str) -> None:
 # --- env files (KEY=value read by systemd and by shell) ---------------------
 
 def env_get(path: str, key: str) -> Optional[str]:
+    """LAST occurrence wins — matching both real consumers of these files:
+    shell sourcing and systemd's EnvironmentFile both take the final
+    assignment, and first-match here made carlos-ctl disagree with what the
+    services actually run with when an operator appended an override."""
+    found = None
     try:
         with open(path, encoding="utf-8", errors="replace") as fh:
             for line in fh:
                 m = re.match(rf"^{re.escape(key)}=(.*)$", line.rstrip("\n"))
                 if m:
-                    return m.group(1).strip('"')
+                    found = m.group(1).strip('"')
     except OSError:
         return None
-    return None
+    return found
 
 
 def env_set(path: str, key: str, value: str) -> None:
     """Replace or append KEY=value. No shell quoting games: values written by
     this tool are plain identifiers/ports/hostnames."""
-    with open(path, encoding="utf-8", errors="replace") as fh:
+    with open(path, encoding=PROPERTIES_ENCODING) as fh:
         lines = fh.read().split("\n")
     if lines and lines[-1] == "":
         lines.pop()

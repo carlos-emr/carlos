@@ -136,7 +136,7 @@ def cmd_check(argv) -> int:
             _ok("AppArmor profile for mariadbd is loaded and enforcing")
         elif m:
             _bad(f"AppArmor profile for mariadbd is in {m.group(1)} mode, not enforce "
-                 "(aa-enforce usr.sbin.mariadbd)")
+                 "(sudo aa-enforce /etc/apparmor.d/mariadbd — from the apparmor-utils package)")
         else:
             _bad("no AppArmor profile loaded for mariadbd — the file-access control the "
                  "MariaDB drop-in documents is missing")

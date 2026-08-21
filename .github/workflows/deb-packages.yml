@@ -79,7 +79,18 @@ jobs:
           apt-get install -y --no-install-recommends \
             build-essential debhelper devscripts lintian fakeroot \
             maven openjdk-21-jdk-headless tomcat11 \
-            git ca-certificates curl gh xz-utils
+            git ca-certificates curl xz-utils
+          # gh comes from GitHub's own apt repository, NOT the Ubuntu
+          # archive: resolute ships gh 2.46.0, and `gh attestation` (which
+          # the WAR verification below depends on) only exists from 2.49.0 —
+          # with the archive build, every run failed at the verify step.
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+            -o /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+            > /etc/apt/sources.list.d/github-cli.list
+          apt-get update
+          apt-get install -y --no-install-recommends gh
+          gh --version
 
       - name: Checkout the tagged source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1

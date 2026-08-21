@@ -152,14 +152,25 @@ cmd_selfsigned() {
             name_changed=1
             log "host name changed (certificate is for '${cur_subject#subject=}', configuration says '${name}'); regenerating"
         fi
-        if [ "${name_changed}" = 0 ] && \
+        # A crash between the two mv's below can leave a NEW certificate
+        # paired with the OLD key — a pair nginx refuses to load. The
+        # nothing-to-do path must prove the pair actually matches, or the
+        # rerun (and the twice-daily timer) would keep declaring a broken
+        # pair healthy forever.
+        local pair_ok=1
+        if [ "$(openssl x509 -noout -pubkey -in "${FULLCHAIN}" 2>/dev/null | sha256sum)" != \
+             "$(openssl pkey -pubout -in "${PRIVKEY}" 2>/dev/null | sha256sum)" ]; then
+            pair_ok=0
+            log "certificate and private key DO NOT MATCH (interrupted regeneration?); regenerating the pair"
+        fi
+        if [ "${name_changed}" = 0 ] && [ "${pair_ok}" = 1 ] && \
            openssl x509 -checkend $((30 * 86400)) -noout -in "${FULLCHAIN}" >/dev/null 2>&1; then
             if [ "${FORCE:-0}" != 1 ]; then
                 log "self-signed certificate for ${name} is still valid for more than 30 days; nothing to do"
                 CERT_CHANGED=0
                 return 0
             fi
-        elif [ "${name_changed}" = 0 ]; then
+        elif [ "${name_changed}" = 0 ] && [ "${pair_ok}" = 1 ]; then
             expiring=1
         fi
     fi
