@@ -118,6 +118,20 @@ def cmd_db_users(argv) -> int:
     if not _re.fullmatch(r"[A-Za-z0-9_]+", verify_db):
         die(f"CARLOS_BACKUP_VERIFY_DB ('{verify_db}') must be a plain identifier (A-Za-z0-9_)")
 
+    # Preflight the credential files BEFORE any SQL runs: the ALTER USER
+    # below invalidates the live password, so discovering only afterwards
+    # that carlos.properties is missing or read-only (traceback, partial
+    # write) would leave the application locked out with no record of the
+    # new credential.
+    if not os.path.isfile(PROPERTIES):
+        die(f"{PROPERTIES} does not exist — reinstall carlos-emr or restore it from backup "
+            "before provisioning accounts")
+    for path in [PROPERTIES] + [q for q in (DRUGREF_PROPERTIES, BACKUP_ENV) if os.path.isfile(q)]:
+        if not os.access(path, os.W_OK):
+            die(f"{path} is not writable; refusing to rotate credentials it must record")
+
+    prev_app_pw = prop_unescape(prop_get(PROPERTIES, "db_password") or "")
+
     log("provisioning databases and least-privilege accounts")
     sql = f"""
 -- Account and grant DDL must NOT ride the binary log. The backup's dump and
@@ -187,6 +201,14 @@ FLUSH PRIVILEGES;
 
     prop_set(PROPERTIES, "db_password", prop_escape(app_pw))
     prop_set(PROPERTIES, "db_username", "carlos")
+    if app_pw != prev_app_pw and \
+            run(["systemctl", "is-active", "--quiet", "carlos-emr.service"]).returncode == 0:
+        # The running JVM read its properties at deploy time: the account
+        # password just changed underneath it (e.g. a placeholder was
+        # replaced), and new pool connections will start failing. Silence
+        # here turned a security fix into a slow outage.
+        warn("the application is RUNNING with the previous database credential —")
+        warn("restart it now: carlos-ctl restart")
     if os.path.isfile(DRUGREF_PROPERTIES):
         prop_set(DRUGREF_PROPERTIES, "db_password", prop_escape(drugref_pw))
         prop_set(DRUGREF_PROPERTIES, "db_user", "drugref")
@@ -352,8 +374,15 @@ def cmd_bootstrap_admin(argv) -> int:
     require_db_root()
     s = config.load()
     user = "carlosdoc"
+    # The hash the migrations seed the account with — published in the source
+    # repository (database/mysql/migration/*/V1.0.2__*_data.sql, identical
+    # across provinces). Comparing against it makes this verb idempotent:
+    # without the comparison, EVERY upgrade and dpkg-reconfigure re-randomized
+    # a credential the clinic may have long since made its own.
+    seeded_hash = "{bcrypt}$2a$10$RcoNeqhcLzkfBzAoTQ5C5.nnsOs15iOasQCp0/smjDAuTtkMQ.Uju"
     cp = db_root(["-N", "-B", "-e",
-                  f"SELECT COUNT(*) FROM `{s.db_name}`.security WHERE user_name='{user}'"],
+                  f"SELECT COUNT(*) FROM `{s.db_name}`.security "
+                  f"WHERE user_name='{user}' AND password='{sql_escape(seeded_hash)}'"],
                  capture_output=True)
     if cp.returncode != 0:
         # A failed query (security table missing because migrations have not
@@ -364,7 +393,7 @@ def cmd_bootstrap_admin(argv) -> int:
             f"(is the schema migrated? run 'carlos-ctl db-migrate' first): "
             f"{cp.stderr.strip()}")
     if cp.stdout.strip() == "0":
-        log(f"no seeded '{user}' account present; nothing to reset")
+        log(f"no '{user}' account still carrying the seeded credential; nothing to reset")
         return 0
 
     import bcrypt  # python3-bcrypt is a package dependency
@@ -509,7 +538,8 @@ DROP USER IF EXISTS 'backup'@'127.0.0.1';
 
     if include_backups:
         log("removing backups")
-        shutil.rmtree("/var/backups/carlos-emr", onerror=_collect)
+        if os.path.isdir("/var/backups/carlos-emr"):
+            shutil.rmtree("/var/backups/carlos-emr", onerror=_collect)
         # Shredded, not unlinked: these two files are the difference between a
         # retained backup being readable and being noise.
         shred_errors = []
@@ -518,7 +548,7 @@ DROP USER IF EXISTS 'backup'@'127.0.0.1';
                 continue
             cp = run(["shred", "-u", f], capture_output=True)
             if cp.returncode != 0:
-                shred_errors.append(f"{f}: {cp.stderr.decode(errors='replace').strip()}")
+                shred_errors.append(f"{f}: {cp.stderr.strip()}")
         if rm_errors or shred_errors:
             for e in (rm_errors + shred_errors)[:10]:
                 warn(f"could not destroy: {e}")

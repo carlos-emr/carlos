@@ -22,8 +22,16 @@ if [ -d "$dest/.git" ]; then
     # here meant an incremental build silently packaged whatever revision the
     # previous build fetched, even after debian/drugref.pin moved.
     echo "updating existing DrugRef2 checkout at $dest to $ref"
-    git -C "$dest" fetch --quiet "$repo" "$ref" || git -C "$dest" fetch --quiet "$repo"
-    git -C "$dest" checkout --quiet --detach "$ref"
+    # Detach to FETCH_HEAD when the scoped fetch succeeds: fetching a URL
+    # updates no local refs, so `checkout --detach <branch>` resolved the
+    # STALE clone-time branch tip and silently packaged the old revision.
+    # (A sha ref is unaffected either way; branch/tag refs need this.)
+    if git -C "$dest" fetch --quiet "$repo" "$ref"; then
+        git -C "$dest" checkout --quiet --detach FETCH_HEAD
+    else
+        git -C "$dest" fetch --quiet "$repo"
+        git -C "$dest" checkout --quiet --detach "$ref"
+    fi
     echo "drugref source at $(git -C "$dest" rev-parse HEAD)"
     exit 0
 fi

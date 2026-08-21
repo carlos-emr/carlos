@@ -106,6 +106,26 @@ def cmd_check(argv) -> int:
         _ok("nginx is listening on 443")
     else:
         _bad("nothing is listening on 443")
+    # The MariaDB drop-in leans on AppArmor as the file-access control (it is
+    # why secure_file_priv is not set there), so this check asserts the
+    # profile is actually loaded and enforcing rather than assuming it.
+    profiles = "/sys/kernel/security/apparmor/profiles"
+    try:
+        with open(profiles, encoding="utf-8", errors="replace") as fh:
+            entries = fh.read()
+    except OSError:
+        _note("AppArmor is not available on this kernel — the MariaDB profile the "
+              "drop-in relies on is not in effect (containers/VMs without AppArmor)")
+    else:
+        m = re.search(r"^(?:/usr/sbin/)?mariadbd \((\w+)\)$", entries, re.M)
+        if m and m.group(1) == "enforce":
+            _ok("AppArmor profile for mariadbd is loaded and enforcing")
+        elif m:
+            _bad(f"AppArmor profile for mariadbd is in {m.group(1)} mode, not enforce "
+                 "(aa-enforce usr.sbin.mariadbd)")
+        else:
+            _bad("no AppArmor profile loaded for mariadbd — the file-access control the "
+                 "MariaDB drop-in documents is missing")
 
     print("\nTLS")
     run([os.path.join(LIB, "carlos-emr-cert"), "status"])
@@ -122,7 +142,11 @@ def cmd_check(argv) -> int:
     # exercises SNI and the certificate a real client sees, and avoids CRS
     # rule 920350 ("Host header is a numeric IP address") filling the audit
     # log with noise this check generated.
-    resolve = ["--resolve", f"{s.server_name}:443:127.0.0.1"]
+    # Probe the address nginx actually listens on: with a non-default
+    # CARLOS_BIND_IP nothing answers on loopback and every front-door check
+    # would false-fail on a healthy install.
+    probe_ip = s.bind_ip if s.bind_ip not in ("", "0.0.0.0", "::") else "127.0.0.1"
+    resolve = ["--resolve", f"{s.server_name}:443:{probe_ip}"]
     url = f"https://{s.server_name}/carlos/"
     # Retry a while before calling it down: deploying this webapp takes about
     # two minutes from cold, and a false alarm here teaches operators to
@@ -162,13 +186,16 @@ def cmd_check(argv) -> int:
 
     print("\nWAF")
     engine = ""
-    with open(os.path.join(CONF_DIR, "modsecurity", "main.conf"),
-              encoding="utf-8", errors="replace") as fh:
-        for line in fh:
-            m = re.match(r"^SecRuleEngine\s+(\S+)", line)
-            if m:
-                engine = m.group(1)
-                break
+    try:
+        with open(os.path.join(CONF_DIR, "modsecurity", "main.conf"),
+                  encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                m = re.match(r"^SecRuleEngine\s+(\S+)", line)
+                if m:
+                    engine = m.group(1)
+                    break
+    except OSError as e:
+        _bad(f"cannot read the WAF policy: {e} — reinstall carlos-emr to restore it")
     if engine == "On":
         _ok("ModSecurity rule engine is On (blocking)")
     else:
@@ -229,16 +256,51 @@ def cmd_check(argv) -> int:
         _bad("cannot reach MariaDB as root over the unix socket")
 
     print("\nbackups")
-    stamp = "/var/backups/carlos-emr/.last-success"
+    # The docs promise FRESHNESS, not existence: a .last-success from three
+    # weeks ago is a monitoring gap, not a passing check. The nightly timer
+    # runs daily, so anything older than 2 days is a failure; a brand-new
+    # install (state directory younger than 2 days) has legitimately not had
+    # its first nightly yet and gets a note instead of a false alarm.
+    import datetime as _dt
+    def _stamp_age_days(path):
+        try:
+            with open(path) as fh:
+                when = _dt.datetime.fromisoformat(fh.read().strip())
+            return (_dt.datetime.now(when.tzinfo) - when).total_seconds() / 86400, when
+        except (OSError, ValueError):
+            return None, None
+    state_dir = "/var/backups/carlos-emr"
+    stamp = os.path.join(state_dir, ".last-success")
     if os.path.exists(stamp):
-        with open(stamp) as fh:
-            _ok(f"last successful backup: {fh.read().strip()}")
+        age, when = _stamp_age_days(stamp)
+        if age is None:
+            _bad(f"{stamp} is unreadable or malformed")
+        elif age > 2:
+            _bad(f"last successful backup is {age:.1f} days old ({when.isoformat()}) — "
+                 "check 'journalctl -u carlos-emr-backup'")
+        else:
+            _ok(f"last successful backup: {when.isoformat()}")
     else:
-        _bad("no backup has ever succeeded (systemctl start carlos-emr-backup)")
-    stamp = "/var/backups/carlos-emr/.last-verify"
+        import time as _time
+        try:
+            dir_age = (_time.time() - os.stat(state_dir).st_ctime) / 86400
+        except OSError:
+            dir_age = 99
+        if dir_age < 2:
+            _note("no backup yet (fresh install); the nightly timer runs at 01:30, or start "
+                  "one now: systemctl start carlos-emr-backup")
+        else:
+            _bad("no backup has ever succeeded (systemctl start carlos-emr-backup)")
+    stamp = os.path.join(state_dir, ".last-verify")
     if os.path.exists(stamp):
-        with open(stamp) as fh:
-            _ok(f"last restore drill: {fh.read().strip()}")
+        age, when = _stamp_age_days(stamp)
+        if age is None:
+            _bad(f"{stamp} is unreadable or malformed")
+        elif age > 9:
+            _bad(f"last restore drill is {age:.1f} days old — the weekly drill is not running "
+                 "(systemctl status carlos-emr-backup-verify.timer)")
+        else:
+            _ok(f"last restore drill: {when.isoformat()}")
     else:
         _note("no restore drill has run yet; the weekly timer will run one, or start "
               "carlos-emr-backup-verify now")

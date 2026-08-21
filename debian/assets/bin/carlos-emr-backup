@@ -320,7 +320,13 @@ ship_binlogs() {
         else
             # Stop at the first gap rather than skipping it: a binlog chain
             # with a hole cannot be replayed past the hole, and a marker
-            # advanced over a missing log would hide that forever.
+            # advanced over a missing log would hide that forever. The partial
+            # --result-file is deleted so the whole-directory restic backup
+            # below cannot ship a TRUNCATED decode — a later snapshot would
+            # hold the complete file under the same name, and a restore that
+            # happened to extract the truncated one would silently lose the
+            # tail of that log.
+            rm -f "${dir}/${name}.sql"
             stream_failed="${name}"
             break
         fi
@@ -361,6 +367,15 @@ ship_binlogs() {
 
 cmd_run() {
     acquire_lock
+    # Traps go on IMMEDIATELY after the lock (cleanup must not fire while
+    # another run owns the work directory, hence not before it): ensure_repo
+    # is the single most common failure (offsite repository unreachable), and
+    # arming the catch-all only later left exactly that failure alertless.
+    # TERM/INT are translated into an exit so the EXIT trap also runs when
+    # systemd kills the run at its timeout — otherwise the plaintext dump
+    # stays on disk and nobody is paged.
+    trap 'exit 143' TERM INT
+    trap cleanup EXIT
     ensure_repo
     # Clear STALE restic locks (an interrupted previous run leaves its
     # exclusive lock behind, and every later forget/prune then fails until a
@@ -370,7 +385,6 @@ cmd_run() {
     # repository is left alone.
     restic unlock >/dev/null 2>&1 || true
     install -d -m 0700 "${WORK_DIR}" "${WORK_DIR}/binlog"
-    trap cleanup EXIT
 
     check_engines
 
@@ -447,9 +461,10 @@ cmd_run() {
 
 cmd_verify() {
     acquire_lock
+    trap 'exit 143' TERM INT
+    trap cleanup EXIT
     restic unlock >/dev/null 2>&1 || true
     install -d -m 0700 "${WORK_DIR}"
-    trap cleanup EXIT
 
     log "restore drill: loading the newest db snapshot into ${VERIFY_DB}"
     local restore_dir="${WORK_DIR}/drill"
@@ -476,7 +491,9 @@ cmd_verify() {
 
     log "clearing ${VERIFY_DB}"
     mariadb "${MYSQL_ARGS[@]}" -N -B -e \
-        "SELECT CONCAT('DROP TABLE IF EXISTS \`',table_name,'\`;')
+        "SELECT CONCAT('DROP TABLE IF EXISTS \`',
+                        REPLACE(table_name, '\`', '\`\`'),
+                        '\`;')
            FROM information_schema.tables WHERE table_schema='${VERIFY_DB}'" \
         | { echo "SET FOREIGN_KEY_CHECKS=0;"; cat; } \
         | mariadb "${MYSQL_ARGS[@]}" "${VERIFY_DB}"

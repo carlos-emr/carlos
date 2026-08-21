@@ -194,7 +194,13 @@ case "$1" in
         set_env_key CARLOS_BIND_IP "${BIND_IP}"
         set_env_key CARLOS_JAVA_XMS "${HEAP}"
         set_env_key CARLOS_JAVA_XMX "${HEAP}"
-        set_env_key CARLOS_TZ "${TZ_NAME}"
+        # Fresh install only: CARLOS_TZ is not round-tripped through debconf
+        # like the keys above, so re-deriving it from /etc/timezone on every
+        # configure silently overwrote an operator's clinic timezone on each
+        # upgrade (a cloud VM's /etc/timezone is usually Etc/UTC).
+        if [ "${FRESH_ENV}" = 1 ]; then
+            set_env_key CARLOS_TZ "${TZ_NAME}"
+        fi
         # The province is written only on the FIRST install (as detected
         # before the skeleton landed — the skel itself carries a default that
         # would fool a grep on the file). Changing it later against an
@@ -234,7 +240,16 @@ case "$1" in
         fi
 
         # --- render, provision, migrate -------------------------------------
-        carlos-ctl init-config
+        # Guarded: init-config exits non-zero when nginx cannot be tested or
+        # reloaded — including for reasons OUTSIDE this package (another
+        # vhost's broken config). Front-door trouble is loud but must never
+        # leave the package half-configured and block the apt transaction;
+        # the same tolerance the nginx section below has always had.
+        carlos-ctl init-config || {
+            echo "carlos-emr: WARNING: init-config reported a problem applying the front-door" >&2
+            echo "carlos-emr: WARNING: configuration (see above). The install continues; fix the" >&2
+            echo "carlos-emr: WARNING: cause and re-run 'carlos-ctl init-config'." >&2
+        }
 
         if command -v mariadb >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
             # A fresh mariadb-server install may not have finished starting.
@@ -317,26 +332,46 @@ case "$1" in
             echo "carlos-emr: WARNING: TLS certificate generation FAILED — nginx cannot serve" >&2
             echo "carlos-emr: until 'carlos-ctl cert selfsigned' succeeds." >&2
         }
+        # The RECORDED mode (what carlos-ctl cert last did) can legitimately
+        # differ from the debconf answer: an operator who ran 'cert acme'
+        # after installing with selfsigned has a working Let's Encrypt pair
+        # that this block must not touch — cert selfsigned refuses exactly
+        # that, and treating its refusal as "generation FAILED" printed a
+        # false alarm (with destructive advice) on every upgrade.
+        MODE_NOW="$(cat "${CONF_DIR}/tls/mode" 2>/dev/null || echo "")"
         case "${TLS_MODE}" in
-            selfsigned) /usr/lib/carlos-emr/carlos-emr-cert selfsigned || cert_failed ;;
+            selfsigned)
+                case "${MODE_NOW}" in
+                    ""|selfsigned) /usr/lib/carlos-emr/carlos-emr-cert selfsigned || cert_failed ;;
+                    *) echo "carlos-emr: TLS is operator-managed ('${MODE_NOW}'); leaving the certificate alone." ;;
+                esac
+                ;;
             manual)
-                if [ -s "${CONF_DIR}/tls/fullchain.pem" ]; then
+                if [ -s "${CONF_DIR}/tls/fullchain.pem" ] && [ "${MODE_NOW}" != selfsigned ]; then
                     /usr/lib/carlos-emr/carlos-emr-cert manual || cert_failed
                 else
                     # Never leave the front door without a certificate: nginx
                     # would refuse to start and the EMR would be unreachable.
-                    # Generate a placeholder and say so.
-                    echo "carlos-emr: TLS mode is 'manual' but no certificate is present;" >&2
-                    echo "carlos-emr: generating a self-signed placeholder so nginx can start." >&2
+                    # A pair whose recorded mode is selfsigned is the
+                    # package's own placeholder (init-config generates one
+                    # earlier in this very configure) — adopting it as
+                    # "operator-supplied" would tell the operator their
+                    # certificate is in use when it is not.
+                    echo "carlos-emr: TLS mode is 'manual' but no operator certificate is present;" >&2
+                    echo "carlos-emr: serving a self-signed placeholder. Place your chain and key at" >&2
+                    echo "carlos-emr: ${CONF_DIR}/tls/{fullchain,privkey}.pem and run 'carlos-ctl cert manual'." >&2
                     /usr/lib/carlos-emr/carlos-emr-cert selfsigned || cert_failed
                 fi
                 ;;
             acme)
-                # Always place a self-signed pair first. certbot's HTTP-01
+                # Place a self-signed pair first — certbot's HTTP-01
                 # challenge is served BY nginx, and nginx will not start
-                # without a certificate — requesting one before that is a
-                # deadlock.
-                /usr/lib/carlos-emr/carlos-emr-cert selfsigned || cert_failed
+                # without a certificate — but only when no certificate
+                # exists yet: on an upgrade of a working ACME site the pair
+                # is the live Let's Encrypt one and must not be touched.
+                if [ ! -s "${CONF_DIR}/tls/fullchain.pem" ]; then
+                    /usr/lib/carlos-emr/carlos-emr-cert selfsigned || cert_failed
+                fi
                 ;;
         esac
 
@@ -365,6 +400,16 @@ case "$1" in
         ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
+        # The debhelper preinst snippet stops the service (and timers) at the
+        # START of an upgrade; if the upgrade then dies before our configure
+        # branch, nothing would ever start them again — a failed upgrade of
+        # an unrelated package in the same transaction left the EMR down.
+        # Best-effort, never failing the abort path itself.
+        if [ -d /run/systemd/system ]; then
+            deb-systemd-invoke start carlos-emr.service >/dev/null 2>&1 || true
+            deb-systemd-invoke start carlos-emr-backup.timer carlos-emr-backup-verify.timer \
+                carlos-emr-cert-renew.timer >/dev/null 2>&1 || true
+        fi
         ;;
     *)
         echo "postinst called with unknown argument \`$1'" >&2

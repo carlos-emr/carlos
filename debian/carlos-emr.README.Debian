@@ -356,8 +356,10 @@ sequence has been exercised end to end (DROP DATABASE and back):
   # 2. Load it. SET SESSION sql_log_bin=0 matters: without it the recovery
   #    itself is written into the binary log and becomes part of the very
   #    chain the next backup ships.
-  sudo mariadb --init-command='SET SESSION sql_log_bin=0' oscar \
-      < /var/backups/carlos-emr/dr/.../oscar.sql
+  sudo bash -c "mariadb --init-command='SET SESSION sql_log_bin=0' oscar \
+      < /var/backups/carlos-emr/dr/.../oscar.sql"
+  #    (sudo bash -c, not a bare redirect: YOUR shell opens the file before
+  #    sudo elevates, and /var/backups/carlos-emr is 0700 carlos-backup.)
   # 3. Roll forward past the dump, if recovering to later than last night.
   #    The dump records its anchor near its top:
   #      CHANGE MASTER TO MASTER_LOG_FILE='binlog.0000NN', MASTER_LOG_POS=P
@@ -378,9 +380,12 @@ sequence has been exercised end to end (DROP DATABASE and back):
   #    replay cleanly onto it. Rare edge: if the anchor position P is larger
   #    than the first event offset in NN's decoded SQL (a transaction slipped
   #    in between the rotation and the dump taking its snapshot), the slice of
-  #    NN before the "# at P" line is already inside the dump — delete the
-  #    statements above that line before replaying NN, or expect (harmless but
-  #    alarming) duplicate-key errors for that sliver.
+  #    NN before the "# at P" line is already inside the dump — you MUST
+  #    delete the statements above that line before replaying NN. Do not
+  #    replay it untrimmed: the mariadb client ABORTS at the first
+  #    duplicate-key error (there is no --force here), so everything in NN
+  #    after that error — the transactions you are trying to recover — would
+  #    silently never be applied.
   sudo carlos-ctl db-validate
   # The restored dump and decoded logs are plaintext PHI — remove them.
   sudo rm -rf /var/backups/carlos-emr/dr
@@ -391,10 +396,12 @@ sequence has been exercised end to end (DROP DATABASE and back):
 8. Upgrades
 -----------
 
-`apt upgrade` of this package replaces the webapp, then postinst re-renders the
-derived configuration, runs `carlos-ctl db-migrate`, and restarts the service.
-The application is deliberately NOT stopped during unpack, so the outage covers
-the migration and restart rather than the whole operation.
+`apt upgrade` of this package stops the application FIRST (the packaging's
+preinst stops the service and timers before unpack — replacing the exploded
+webapp underneath a running JVM is not safe), replaces the webapp, re-renders
+the derived configuration, runs `carlos-ctl db-migrate`, and starts the
+service again. Plan the maintenance window for the whole operation: unpack of
+the ~400 MB webapp plus migration plus the ~2-minute redeploy.
 
 Your conffiles are offered as three-way merges. Your credential files are left
 alone. Read /usr/share/carlos-emr/skel/ afterwards to see whether new settings

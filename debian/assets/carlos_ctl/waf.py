@@ -15,24 +15,40 @@ AUDIT = "/var/log/carlos-emr/modsec/modsec_audit.log"
 
 
 def _engine() -> str:
-    with open(MAIN, encoding="utf-8", errors="replace") as fh:
-        for line in fh:
-            m = re.match(r"^SecRuleEngine\s+(\S+)", line)
-            if m:
-                return m.group(1)
+    try:
+        with open(MAIN, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                m = re.match(r"^SecRuleEngine\s+(\S+)", line)
+                if m:
+                    return m.group(1)
+    except OSError as e:
+        die(f"cannot read the WAF policy: {e} — reinstall carlos-emr to restore it")
     return "?"
 
 
 def _set_engine(value: str) -> None:
-    with open(MAIN, encoding="utf-8", errors="replace") as fh:
-        lines = fh.read().split("\n")
+    """Atomic replace, never truncate-in-place: nginx workers (and a crash
+    between truncate and write) must only ever see the old policy or the new
+    one, not an empty or partial file guarding the front door."""
+    try:
+        with open(MAIN, encoding="utf-8", errors="replace") as fh:
+            lines = fh.read().split("\n")
+    except OSError as e:
+        die(f"cannot read the WAF policy: {e} — reinstall carlos-emr to restore it")
     out = [f"SecRuleEngine {value}" if re.match(r"^SecRuleEngine\s", line) else line
            for line in lines]
     text = "\n".join(out)
     if not text.endswith("\n"):
         text += "\n"
-    with open(MAIN, "w", encoding="utf-8") as fh:
+    st = os.stat(MAIN)
+    tmp = MAIN + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
         fh.write(text)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.chmod(tmp, st.st_mode & 0o7777)
+    os.chown(tmp, st.st_uid, st.st_gid)
+    os.replace(tmp, MAIN)
 
 
 def _reload_or_rollback(previous_engine: str, context: str) -> None:
