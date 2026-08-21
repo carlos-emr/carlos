@@ -3,8 +3,7 @@
 # release build: a branch name makes two builds weeks apart ship different
 # code under one package version.
 #
-# The current pin is the EntityManager-leak fix
-# (fix/entitymanager-connection-leaks): without it, drug searches exhaust the
-# JDBC pool after one or two calls and permanently return "None found".
-# Once that branch merges, move the pin to the merge commit on master.
-ref=66d586ea3ec0baf5a3709b26296be913ee096034
+# The current pin is the master merge commit of the EntityManager-leak fix
+# (carlos-emr/drugref2026#8): without it, drug searches exhaust the JDBC pool
+# after one or two calls and permanently return "None found".
+ref=e1d867a9a6f13cd321218fe3510de20c2e7ad61c
