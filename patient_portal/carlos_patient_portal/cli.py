@@ -281,9 +281,9 @@ def maintenance(argv: Sequence[str] | None = None) -> None:
                 # Every interpolated value is an aggregate row count, never a token or hash;
                 # `reset_records` is what draws the detector, and it is a COUNT of deleted rows.
                 print(
-                    # codeql[py/clear-text-logging-sensitive-data]
-                    "transient authentication "
-                    # codeql[py/clear-text-logging-sensitive-data]
+                    # The suppression must be a trailing comment on the line CodeQL reports as
+                    # the start of the flagged expression; on its own line it does not attach.
+                    "transient authentication "  # codeql[py/clear-text-logging-sensitive-data]
                     f"{action}: sessions={cleanup_result.sessions} "
                     f"mfa_challenges={cleanup_result.mfa_challenges} "
                     f"reset_records={cleanup_result.reset_records} "
