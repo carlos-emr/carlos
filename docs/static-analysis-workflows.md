@@ -81,8 +81,8 @@ includes a comment explaining its category.
 
 | Event | Condition |
 |-------|-----------|
-| Pull request | Targeting `develop`, `main`, or `experimental`; only when `.java` files change |
-| Push | To `develop`; only when `.java` files change |
+| Pull request | Targeting `develop`, `main`, `experimental`, or `release/*`; only when `.java` files change |
+| Push | To `develop` or `release/*`; only when `.java` files change |
 | Schedule | Weekly (Monday 5:00 UTC) |
 | Manual | `workflow_dispatch` |
 
@@ -162,8 +162,8 @@ Suppresses known false positives:
 
 | Event | Condition |
 |-------|-----------|
-| Pull request | Targeting `develop`, `main`, or `experimental`; only when `.java` or `pom.xml` changes |
-| Push | To `develop`; only when `.java` or `pom.xml` changes |
+| Pull request | Targeting `develop`, `main`, `experimental`, or `release/*`; only when `.java` or `pom.xml` changes |
+| Push | To `develop` or `release/*`; only when `.java` or `pom.xml` changes |
 | Schedule | Weekly (Monday 5:30 UTC) |
 | Manual | `workflow_dispatch` |
 

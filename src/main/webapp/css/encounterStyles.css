@@ -505,6 +505,12 @@ div.topBox-notes ul li, div.topBox-notes ul li a {
     white-space: wrap;
     background-color: inherit !important;
 }
+div.topBox-notes ul li.cpp-empty-state {
+    color: #666666;
+    font-style: italic;
+    padding: 4px 5px;
+}
+
 
 div#encMainDiv {
     display: flex;

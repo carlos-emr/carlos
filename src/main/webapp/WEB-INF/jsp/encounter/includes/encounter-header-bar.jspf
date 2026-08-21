@@ -1,6 +1,7 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%-- Encounter Header Bar: patient info, family doctor, search form --%>
 <div class="encounter-header d-flex align-items-center hidePrint">
     <%-- Left side: Encounter label + family doctor + calculator --%>
