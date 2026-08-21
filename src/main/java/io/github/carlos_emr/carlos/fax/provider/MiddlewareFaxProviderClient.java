@@ -53,8 +53,6 @@ import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuil
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpStatus;
-import org.apache.hc.core5.http.ParseException;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.util.Timeout;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
@@ -185,7 +183,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                             "This may indicate a middleware server error.");
                 }
 
-                String content = EntityUtils.toString(httpEntity);
+                String content = BoundedResponseReader.read(httpEntity);
                 if (content == null || content.trim().isEmpty()) {
                     logger.warn("Middleware returned empty content for fax list - treating as no faxes available");
                     return new java.util.ArrayList<>();
@@ -193,7 +191,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
 
                 return mapper.readValue(content, new TypeReference<List<FaxJob>>() { });
             }
-        } catch (IOException | ParseException e) {
+        } catch (IOException e) {
             throw new FaxProviderException("Middleware fax list communication failure: " + e.getMessage(), e,
                     FaxProviderException.isTransientNetworkCause(e));
         }
@@ -229,14 +227,14 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                             "Middleware returned HTTP 200 but response body is empty for fax " + fax.getFile_name());
                 }
 
-                String content = EntityUtils.toString(httpEntity);
+                String content = BoundedResponseReader.read(httpEntity);
                 FaxJob downloaded = mapper.readValue(content, FaxJob.class);
                 if (FaxJob.STATUS.ERROR.equals(downloaded.getStatus())) {
                     throw new FaxProviderException("Downloaded fax is in ERROR status: " + downloaded.getStatusString());
                 }
                 return downloaded;
             }
-        } catch (IOException | ParseException e) {
+        } catch (IOException e) {
             throw new FaxProviderException("Middleware fax download failure for " + fax.getFile_name() + ": " + e.getMessage(), e,
                     FaxProviderException.isTransientNetworkCause(e));
         }
@@ -296,10 +294,10 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                             "Middleware returned HTTP 200 but response body is empty for job " + faxJob.getJobId());
                 }
 
-                String content = EntityUtils.toString(httpEntity);
+                String content = BoundedResponseReader.read(httpEntity);
                 return mapper.readValue(content, FaxJob.class);
             }
-        } catch (IOException | ParseException e) {
+        } catch (IOException e) {
             throw new FaxProviderException("Middleware status check communication failure", e,
                     FaxProviderException.isTransientNetworkCause(e));
         }

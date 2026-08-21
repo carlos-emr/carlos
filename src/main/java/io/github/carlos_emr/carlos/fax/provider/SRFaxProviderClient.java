@@ -42,7 +42,6 @@ import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.NameValuePair;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.message.BasicNameValuePair;
 import org.apache.hc.core5.util.Timeout;
 import org.apache.logging.log4j.Logger;
@@ -624,10 +623,10 @@ public class SRFaxProviderClient implements FaxProviderClient {
                     throw new FaxProviderException("SRFax API returned null response entity");
                 }
 
-                String payload = EntityUtils.toString(entity);
+                String payload = BoundedResponseReader.read(entity);
                 return objectMapper.readTree(payload);
             }
-        } catch (IOException | org.apache.hc.core5.http.ParseException e) {
+        } catch (IOException e) {
             throw new FaxProviderException("SRFax API communication failure", e, FaxProviderException.isTransientNetworkCause(e));
         }
     }
