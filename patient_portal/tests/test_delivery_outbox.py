@@ -458,3 +458,74 @@ def test_cleanup_bounds_outbox_retention_and_reports_what_it_removes() -> None:
     assert result.total >= 1
     with app.state.session_factory() as session:
         assert session.get(PatientPortalOutboundDelivery, delivery_id) is None
+
+
+def test_rotating_the_outbox_secret_does_not_strand_queued_mail() -> None:
+    """A row encrypted under a retired key must stay deliverable across a rotation.
+
+    _decrypt_payload hard-rejected any key id but "primary" against a single SecretStr, so
+    rotating PATIENT_PORTAL_OUTBOX_ENCRYPTION_SECRET made every already-queued row permanently
+    undecryptable: each burned its full retry budget and each password-reset row then hit
+    _mark_terminal_reset_failure, revoking a token the patient was waiting on.
+    """
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(
+        email_sender=sender,
+        outbox_encryption_secret=OUTBOX_ENCRYPTION_SECRET,
+    )
+    account_id = activate_seeded_patient_account(app, TestClient(app))
+    queue_reset(app, account_id)
+
+    rotated_secret = f"rotated-{OUTBOX_ENCRYPTION_SECRET}"
+    result = process_one_delivery(
+        app.state.session_factory,
+        email_sender=sender,
+        encryption_secret=rotated_secret,
+        encryption_keys={"primary": OUTBOX_ENCRYPTION_SECRET, "next": rotated_secret},
+        max_attempts=3,
+        lease_seconds=60,
+    )
+
+    assert result is not None
+    assert result.status == OUTBOX_STATUS_DELIVERED
+    assert len(sender.messages) == 1
+
+
+def test_an_absent_outbox_key_fails_terminally_without_revoking_the_token() -> None:
+    """A key that is genuinely gone must not spend the retry budget.
+
+    Every attempt would fail identically, and the exhausted budget ends at
+    _mark_terminal_reset_failure - revoking a live reset token because of a configuration
+    fault the patient had no part in.
+    """
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(
+        email_sender=sender,
+        outbox_encryption_secret=OUTBOX_ENCRYPTION_SECRET,
+    )
+    account_id = activate_seeded_patient_account(app, TestClient(app))
+    delivery_id, reset_id = queue_reset(app, account_id)
+    with app.state.session_factory() as session:
+        with session.begin():
+            session.get(PatientPortalOutboundDelivery, delivery_id).encryption_key_id = "retired"
+
+    result = process_one_delivery(
+        app.state.session_factory,
+        email_sender=sender,
+        encryption_secret=OUTBOX_ENCRYPTION_SECRET,
+        encryption_keys={"primary": OUTBOX_ENCRYPTION_SECRET},
+        max_attempts=3,
+        lease_seconds=60,
+    )
+
+    assert result is not None
+    assert result.status == OUTBOX_STATUS_FAILED
+    assert sender.messages == []
+    with app.state.session_factory() as session:
+        row = session.get(PatientPortalOutboundDelivery, delivery_id)
+        assert row.attempt_count == 1, "a missing key must not be retried"
+        assert row.last_failure_code == delivery_outbox.OUTBOX_FAILURE_KEY_UNAVAILABLE
+        # The token is untouched: the patient can still complete the reset.
+        assert session.get(PatientPortalPasswordResetToken, reset_id).status == (
+            PASSWORD_RESET_STATUS_PENDING
+        )

@@ -139,6 +139,8 @@ class PortalRuntime:
     sms_sender: PortalSmsSender | None
     unlock_secret_encryption_keys: dict[str, str] | None = None
     unlock_secret_active_key_id: str = "primary"
+    outbox_encryption_keys: dict[str, str] | None = None
+    outbox_active_key_id: str = "primary"
     operational_metrics: PortalOperationalMetrics = field(default_factory=PortalOperationalMetrics)
 
 

@@ -346,6 +346,7 @@ def outbox_worker(argv: Sequence[str] | None = None) -> None:
                     session_factory,
                     email_sender=email_sender,
                     encryption_secret=settings.outbox_encryption_secret.get_secret_value(),
+                    encryption_keys=settings.resolved_outbox_keyring,
                     max_attempts=settings.outbox_max_attempts,
                     lease_seconds=settings.outbox_lease_seconds,
                 )

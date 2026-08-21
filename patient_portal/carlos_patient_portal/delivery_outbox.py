@@ -2,7 +2,7 @@
 
 import json
 import logging
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import timedelta
@@ -64,6 +64,11 @@ OUTBOX_MAX_RETRY_DELAY_SECONDS = 15 * 60
 # Distinct from delivery_failed: the provider call succeeded and only the audit write did
 # not, so the terminal handler must not revoke a token whose link is already in the mailbox.
 OUTBOX_FAILURE_AUDIT_UNAVAILABLE = "delivery_audit_unavailable"
+OUTBOX_FAILURE_KEY_UNAVAILABLE = "encryption_key_unavailable"
+
+
+class OutboxKeyUnavailableError(Exception):
+    """The key a queued row was encrypted under is absent from the configured keyring."""
 
 
 class OutboxMetrics(Protocol):
@@ -126,11 +131,21 @@ def _decrypt_payload(
     delivery: PatientPortalOutboundDelivery,
     *,
     encryption_secret: str,
+    encryption_keys: Mapping[str, str] | None = None,
 ) -> dict[str, object]:
-    if delivery.encryption_key_id != OUTBOX_KEY_ID:
-        raise OutboxPayloadError("outbound delivery key is unavailable")
+    keyring = dict(encryption_keys or {OUTBOX_KEY_ID: encryption_secret})
+    row_key = keyring.get(delivery.encryption_key_id)
+    if row_key is None:
+        # Distinct from a corrupt payload, and deliberately non-retrying. Burning the retry
+        # budget on a key that is not present cannot succeed, and for a password-reset row the
+        # exhausted budget ends at _mark_terminal_reset_failure, revoking a token the patient
+        # is at that moment waiting on. Rotation is now survivable - old keys stay in the
+        # keyring - and a genuinely missing key surfaces at once instead of 90 minutes later.
+        raise OutboxKeyUnavailableError(
+            f"outbound delivery key {delivery.encryption_key_id!r} is not in the keyring"
+        )
     try:
-        encoded = AESGCM(derive_outbox_key(encryption_secret)).decrypt(
+        encoded = AESGCM(derive_outbox_key(row_key)).decrypt(
             delivery.encryption_nonce,
             delivery.encrypted_payload,
             _associated_data(
@@ -158,6 +173,7 @@ def enqueue_password_reset_delivery(
     reset_url: str,
     expires_in_seconds: int,
     encryption_secret: str,
+    encryption_key_id: str = OUTBOX_KEY_ID,
 ) -> PatientPortalOutboundDelivery:
     if result.account_id is None or result.reset_token_id is None or result.recipient is None:
         raise PasswordResetTokenInvalidError()
@@ -180,7 +196,7 @@ def enqueue_password_reset_delivery(
         status=OUTBOX_STATUS_PENDING,
         encrypted_payload=ciphertext,
         encryption_nonce=nonce,
-        encryption_key_id=OUTBOX_KEY_ID,
+        encryption_key_id=encryption_key_id,
         message_id=message_id,
         attempt_count=0,
         available_at=utc_now(),
@@ -197,6 +213,7 @@ def enqueue_contact_change_delivery(
     account_id: int,
     recipient: str,
     encryption_secret: str,
+    encryption_key_id: str = OUTBOX_KEY_ID,
 ) -> PatientPortalOutboundDelivery:
     message_id = _new_message_id()
     ciphertext, nonce = _encrypt_payload(
@@ -212,7 +229,7 @@ def enqueue_contact_change_delivery(
         status=OUTBOX_STATUS_PENDING,
         encrypted_payload=ciphertext,
         encryption_nonce=nonce,
-        encryption_key_id=OUTBOX_KEY_ID,
+        encryption_key_id=encryption_key_id,
         message_id=message_id,
         attempt_count=0,
         available_at=utc_now(),
@@ -465,6 +482,12 @@ def _finish_delivery(
         succeeded = False
         failure_code = OUTBOX_FAILURE_AUDIT_UNAVAILABLE
     delivery.last_failure_code = (failure_code or "delivery_failed")[:64]
+    if failure_code == OUTBOX_FAILURE_KEY_UNAVAILABLE:
+        # Retrying cannot help: the key is not in the keyring, and every attempt would spend
+        # budget that ends at _mark_terminal_reset_failure, revoking a live token. Fail now,
+        # visibly, and leave the token alone so the patient can still complete the reset.
+        delivery.status = OUTBOX_STATUS_FAILED
+        return delivery.status
     if delivery.attempt_count >= max_attempts:
         delivery.status = OUTBOX_STATUS_FAILED
         if delivery.kind == OUTBOX_KIND_PASSWORD_RESET:
@@ -568,6 +591,7 @@ def process_one_delivery(
     lease_seconds: int,
     delivery_id: int | None = None,
     operational_metrics: OutboxMetrics | None = None,
+    encryption_keys: Mapping[str, str] | None = None,
 ) -> DeliveryRunResult | None:
     with session_factory() as session:
         with session.begin():
@@ -583,8 +607,16 @@ def process_one_delivery(
             kind = delivery.kind
             reset_token_id = delivery.reset_token_id
             message_id = delivery.message_id
+            key_unavailable = False
             try:
-                payload = _decrypt_payload(delivery, encryption_secret=encryption_secret)
+                payload = _decrypt_payload(
+                    delivery,
+                    encryption_secret=encryption_secret,
+                    encryption_keys=encryption_keys,
+                )
+            except OutboxKeyUnavailableError:
+                payload = None
+                key_unavailable = True
             except OutboxPayloadError:
                 payload = None
 
@@ -596,7 +628,9 @@ def process_one_delivery(
         expected_attempt_count=claimed_attempt_count,
         lease_seconds=lease_seconds,
     ):
-        if payload is None:
+        if key_unavailable:
+            failure_code = OUTBOX_FAILURE_KEY_UNAVAILABLE
+        elif payload is None:
             failure_code = "payload_invalid"
         elif email_sender is None:
             failure_code = "email_unconfigured"

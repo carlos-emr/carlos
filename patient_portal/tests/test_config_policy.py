@@ -187,8 +187,10 @@ def test_login_route_rejects_missing_csrf_token() -> None:
         data={"username": "patient.username", "password": "unused"},
     )
 
+    # A browser form post is answered with the portal's page, not a raw JSON body.
     assert response.status_code == 403
-    assert response.json()["detail"] == "invalid CSRF token"
+    assert response.headers["content-type"].startswith("text/html")
+    assert "Request could not be completed" in response.text
 
 
 def test_database_identifiers_fit_postgresql_limit() -> None:

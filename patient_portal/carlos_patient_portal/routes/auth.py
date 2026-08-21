@@ -721,6 +721,7 @@ def register_password_reset_routes(
                     reset_url=reset_url,
                     expires_in_seconds=deps.settings.password_reset_token_ttl_seconds,
                     encryption_secret=runtime.outbox_encryption_secret,
+                    encryption_keys=runtime.outbox_encryption_keys,
                 )
                 session.commit()
                 background_tasks.add_task(
@@ -728,6 +729,7 @@ def register_password_reset_routes(
                     runtime.session_factory,
                     email_sender=runtime.email_sender,
                     encryption_secret=runtime.outbox_encryption_secret,
+                    encryption_keys=runtime.outbox_encryption_keys,
                     max_attempts=deps.settings.outbox_max_attempts,
                     lease_seconds=deps.settings.outbox_lease_seconds,
                     delivery_id=delivery.id,
@@ -889,6 +891,7 @@ def register_email_change_routes(
                     account_id=confirmation.review_request.account_id,
                     recipient=recipient,
                     encryption_secret=runtime.outbox_encryption_secret,
+                    encryption_keys=runtime.outbox_encryption_keys,
                 )
                 for recipient in confirmation.notice_recipients
             ]
@@ -899,6 +902,7 @@ def register_email_change_routes(
                     runtime.session_factory,
                     email_sender=runtime.email_sender,
                     encryption_secret=runtime.outbox_encryption_secret,
+                    encryption_keys=runtime.outbox_encryption_keys,
                     max_attempts=deps.settings.outbox_max_attempts,
                     lease_seconds=deps.settings.outbox_lease_seconds,
                     delivery_id=delivery.id,

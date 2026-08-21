@@ -411,6 +411,7 @@ def register_portal_routes(
                     account_id=account.id,
                     recipient=recipient,
                     encryption_secret=runtime.outbox_encryption_secret,
+                    encryption_keys=runtime.outbox_encryption_keys,
                 )
                 for recipient in recipients
             ]
@@ -421,6 +422,7 @@ def register_portal_routes(
                     runtime.session_factory,
                     email_sender=runtime.email_sender,
                     encryption_secret=runtime.outbox_encryption_secret,
+                    encryption_keys=runtime.outbox_encryption_keys,
                     max_attempts=settings.outbox_max_attempts,
                     lease_seconds=settings.outbox_lease_seconds,
                     delivery_id=delivery.id,

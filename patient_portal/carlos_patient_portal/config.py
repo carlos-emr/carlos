@@ -81,32 +81,42 @@ def _validate_distinct_secret_values(configured_secrets: dict[str, str | None]) 
 
 
 def parse_unlock_secret_keyring(encoded_keyring: str) -> dict[str, str]:
+    return parse_encryption_keyring(
+        encoded_keyring,
+        variable_name="PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING",
+        label="unlock-secret",
+    )
+
+
+def parse_encryption_keyring(
+    encoded_keyring: str,
+    *,
+    variable_name: str,
+    label: str,
+) -> dict[str, str]:
+    """Parse a ``{"key-id": "secret"}`` keyring, rejecting duplicate or unusable members."""
     try:
         parsed_keyring = json.loads(
             encoded_keyring,
             object_pairs_hook=_reject_duplicate_keyring_members,
         )
     except json.JSONDecodeError as exc:
-        raise ValueError(
-            "PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING must be a JSON object"
-        ) from exc
+        raise ValueError(f"{variable_name} must be a JSON object") from exc
     if not isinstance(parsed_keyring, dict) or not parsed_keyring:
-        raise ValueError(
-            "PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING must be a non-empty JSON object"
-        )
+        raise ValueError(f"{variable_name} must be a non-empty JSON object")
 
     normalized_keyring: dict[str, str] = {}
     for key_id, secret in parsed_keyring.items():
         if not isinstance(key_id, str) or not key_id.strip() or len(key_id.strip()) > 64:
-            raise ValueError("unlock-secret key IDs must contain 1 to 64 characters")
+            raise ValueError(f"{label} key IDs must contain 1 to 64 characters")
         if not isinstance(secret, str) or len(secret.strip()) < MIN_PRODUCTION_SECRET_LENGTH:
             raise ValueError(
-                "each unlock-secret encryption key must be at least "
+                f"each {label} encryption key must be at least "
                 f"{MIN_PRODUCTION_SECRET_LENGTH} characters"
             )
         normalized_key_id = key_id.strip()
         if normalized_key_id in normalized_keyring:
-            raise ValueError("unlock-secret key IDs must be unique after trimming whitespace")
+            raise ValueError(f"{label} key IDs must be unique after trimming whitespace")
         normalized_keyring[normalized_key_id] = secret.strip()
     return normalized_keyring
 
@@ -165,6 +175,12 @@ class Settings(BaseSettings):
     identity_proof_secret: SecretStr | None = None
     audit_hash_secret: SecretStr | None = None
     outbox_encryption_secret: SecretStr | None = None
+    # unlock_secrets.py already solves rotation with a keyring plus a rotation CLI; the outbox
+    # shipped with a single secret and a hard key-id check, so rotating
+    # PATIENT_PORTAL_OUTBOX_ENCRYPTION_SECRET made every already-queued row permanently
+    # undecryptable. The asymmetry between the two modules was itself the trap.
+    outbox_encryption_keyring: SecretStr | None = None
+    outbox_active_key_id: str = Field(default="primary", min_length=1, max_length=64)
     unlock_secret_encryption_secret: SecretStr | None = None
     unlock_secret_encryption_keyring: SecretStr | None = None
     unlock_secret_active_key_id: str = Field(default="primary", min_length=1, max_length=64)
@@ -585,6 +601,32 @@ class Settings(BaseSettings):
         normalized_keyring = parse_unlock_secret_keyring(encoded_keyring)
         if self.unlock_secret_active_key_id not in normalized_keyring:
             raise ValueError("PATIENT_PORTAL_UNLOCK_SECRET_ACTIVE_KEY_ID must exist in the keyring")
+        return normalized_keyring
+
+    @property
+    def resolved_outbox_keyring(self) -> dict[str, str]:
+        """Every key the outbox may decrypt with, mirroring resolved_unlock_secret_keyring."""
+        encoded_keyring = self.secret_value("outbox_encryption_keyring")
+        if encoded_keyring is None:
+            legacy_secret = self.secret_value("outbox_encryption_secret")
+            if self.outbox_active_key_id != "primary":
+                raise ValueError(
+                    "PATIENT_PORTAL_OUTBOX_ACTIVE_KEY_ID must be primary when "
+                    "no keyring is configured"
+                )
+            return {"primary": legacy_secret} if legacy_secret is not None else {}
+        if self.secret_value("outbox_encryption_secret") is not None:
+            raise ValueError(
+                "configure either PATIENT_PORTAL_OUTBOX_ENCRYPTION_SECRET or "
+                "PATIENT_PORTAL_OUTBOX_ENCRYPTION_KEYRING, not both"
+            )
+        normalized_keyring = parse_encryption_keyring(
+            encoded_keyring,
+            variable_name="PATIENT_PORTAL_OUTBOX_ENCRYPTION_KEYRING",
+            label="outbox",
+        )
+        if self.outbox_active_key_id not in normalized_keyring:
+            raise ValueError("PATIENT_PORTAL_OUTBOX_ACTIVE_KEY_ID must exist in the keyring")
         return normalized_keyring
 
     def validate_secret_policy(self) -> None:
