@@ -311,6 +311,8 @@ public interface CaseManagementManager {
 
     public boolean isClientReferredInProgramDomain(String providerNo, String demographicNo);
 
+    public boolean isClientReferredInProgramDomain(List<ProgramProvider> providerPrograms, String demographicNo);
+
     public void updateIssue(String demographicNo, Long originalIssueId, Long newIssueId);
 
     public void setHashAuditDao(HashAuditDao dao);
