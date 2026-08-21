@@ -82,6 +82,19 @@ class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("a malformed Content-Type charset falls back to UTF-8 instead of throwing unchecked")
+    void malformedCharsetFallsBack() throws IOException {
+        byte[] body = "{\"ok\":true}".getBytes(StandardCharsets.UTF_8);
+        org.apache.hc.core5.http.HttpEntity entity =
+                org.mockito.Mockito.mock(org.apache.hc.core5.http.HttpEntity.class);
+        org.mockito.Mockito.when(entity.getContentType())
+                .thenReturn("application/json; charset=not-a-real-charset");
+        org.mockito.Mockito.when(entity.getContentLength()).thenReturn((long) body.length);
+        org.mockito.Mockito.when(entity.getContent()).thenReturn(new ByteArrayInputStream(body));
+        assertThat(BoundedResponseReader.read(entity, 1024)).isEqualTo("{\"ok\":true}");
+    }
+
+    @Test
     @DisplayName("a body whose Content-Length understates its real size is still capped")
     void lyingContentLengthIsCapped() {
         byte[] body = new byte[8192];

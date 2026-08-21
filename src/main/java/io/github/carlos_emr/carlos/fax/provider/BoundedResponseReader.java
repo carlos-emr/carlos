@@ -72,9 +72,17 @@ final class BoundedResponseReader {
         }
         Charset charset = StandardCharsets.UTF_8;
         if (entity.getContentType() != null) {
-            ContentType parsed = ContentType.parse(entity.getContentType());
-            if (parsed != null && parsed.getCharset() != null) {
-                charset = parsed.getCharset();
+            try {
+                ContentType parsed = ContentType.parse(entity.getContentType());
+                if (parsed != null && parsed.getCharset() != null) {
+                    charset = parsed.getCharset();
+                }
+            } catch (IllegalArgumentException e) {
+                // A malformed Content-Type (unknown or illegal charset name)
+                // must not escape as an unchecked exception past callers that
+                // catch IOException — that would bypass the fax pipeline's
+                // FaxProviderException handling. The reply is JSON either
+                // way; UTF-8 is the right fallback.
             }
         }
         try (InputStream in = entity.getContent()) {
