@@ -27,6 +27,7 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.ContentType;
 
@@ -46,29 +47,95 @@ import org.apache.hc.core5.http.ContentType;
  * <p>The cap is enforced on the bytes actually read, never trusted from
  * Content-Length (which chunked responses omit and a hostile server can
  * understate) — though an honest oversized declaration fails fast.
+ *
+ * <p>This is a safety net over a pipeline that still buffers the whole
+ * document in memory as base64. Streaming it to disk instead — which would
+ * make this cap a formality — is tracked in
+ * <a href="https://github.com/carlos-emr/carlos/issues/3512">#3512</a>.
  */
 final class BoundedResponseReader {
 
     /**
-     * 64 MiB. The largest legitimate payload is SRFax's Retrieve response
-     * carrying a fax file as base64 inside JSON: a ~200-page fax is a few
-     * MB of TIFF, well under 48 MB even after base64 expansion. Anything
-     * larger is not a fax; failing the one job beats risking the heap.
+     * Default ceiling, in mebibytes, on a single provider response.
+     *
+     * <p>Deliberately far above any real fax: this is a SAFETY NET against
+     * an unbounded or hostile response, not a policy limit on fax size. The
+     * cap bounds the base64 response, so 512 MiB allows a ~384 MiB PDF —
+     * orders of magnitude past a bitonal fax (tens of KB per page) and well
+     * past a provider that rasterises to greyscale (a few hundred KB per
+     * page). No legitimate inbound fax should ever reach it.
+     *
+     * <p>The trade-off it still buys: a response this large is buffered at
+     * roughly 4x its size while it is parsed and decoded, so a genuinely
+     * enormous response needs heap to match ({@code CARLOS_JAVA_XMX};
+     * {@link #warnIfCapExceedsHeap} says so at run time). Bounding it at all
+     * is what turns "the JVM dies and the scheduler crash-loops on the same
+     * item" into "one fax job fails".
+     *
+     * <p>Hitting the cap is recoverable, not destructive: the import marks
+     * the remote fax as read only after a successful local import, so an
+     * over-cap fax stays on the provider and arrives once the limit or the
+     * heap is raised.
      */
-    static final long MAX_RESPONSE_BYTES = 64L * 1024 * 1024;
+    static final long DEFAULT_MAX_RESPONSE_MB = 512L;
+
+    /** Operator override for {@link #DEFAULT_MAX_RESPONSE_MB}, in mebibytes. */
+    static final String MAX_RESPONSE_MB_PROPERTY = "fax.max_response_mb";
+
+    private static final org.slf4j.Logger logger =
+            org.slf4j.LoggerFactory.getLogger(BoundedResponseReader.class);
 
     private BoundedResponseReader() {
     }
 
+    /** The configured ceiling in bytes, falling back to the default. */
+    static long maxResponseBytes() {
+        String configured = CarlosProperties.getInstance().getProperty(MAX_RESPONSE_MB_PROPERTY);
+        if (configured != null && !configured.trim().isEmpty()) {
+            try {
+                long mb = Long.parseLong(configured.trim());
+                if (mb > 0) {
+                    return mb * 1024L * 1024L;
+                }
+                logger.warn("{}={} is not positive; using the {} MiB default",
+                        MAX_RESPONSE_MB_PROPERTY, configured, DEFAULT_MAX_RESPONSE_MB);
+            } catch (NumberFormatException e) {
+                logger.warn("{}={} is not a number; using the {} MiB default",
+                        MAX_RESPONSE_MB_PROPERTY, configured, DEFAULT_MAX_RESPONSE_MB);
+            }
+        }
+        return DEFAULT_MAX_RESPONSE_MB * 1024L * 1024L;
+    }
+
     static String read(HttpEntity entity) throws IOException {
-        return read(entity, MAX_RESPONSE_BYTES);
+        long cap = maxResponseBytes();
+        warnIfCapExceedsHeap(cap);
+        return read(entity, cap);
+    }
+
+    /**
+     * A cap the heap cannot honour is not a safety net — it just moves the
+     * failure from a clean IOException to an OOM. Buffering costs roughly 4x
+     * the response size (raw bytes, decoded String, the parser's copy, the
+     * base64-decoded document), so warn once the ceiling outgrows the heap.
+     * This never fails a fax; it tells the operator what to raise.
+     */
+    private static void warnIfCapExceedsHeap(long cap) {
+        long maxHeap = Runtime.getRuntime().maxMemory();
+        if (maxHeap != Long.MAX_VALUE && cap * 4 > maxHeap) {
+            logger.warn("{} allows a {} MiB response, which would need about {} MiB of heap to "
+                    + "buffer, but the JVM maximum is {} MiB — a response near the limit would "
+                    + "exhaust the heap instead of failing cleanly. Raise CARLOS_JAVA_XMX or "
+                    + "lower {}.",
+                    MAX_RESPONSE_MB_PROPERTY, cap / (1024 * 1024), (cap * 4) / (1024 * 1024),
+                    maxHeap / (1024 * 1024), MAX_RESPONSE_MB_PROPERTY);
+        }
     }
 
     static String read(HttpEntity entity, long maxBytes) throws IOException {
         long declared = entity.getContentLength();
         if (declared > maxBytes) {
-            throw new IOException("response body declares " + declared
-                    + " bytes, over the " + maxBytes + "-byte fax response limit");
+            throw new IOException(overLimitMessage(declared + " bytes", maxBytes));
         }
         Charset charset = StandardCharsets.UTF_8;
         if (entity.getContentType() != null) {
@@ -86,19 +153,40 @@ final class BoundedResponseReader {
             }
         }
         try (InputStream in = entity.getContent()) {
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            // Pre-sized from an honest Content-Length (already known to be
+            // within the cap): the default doubling growth would otherwise
+            // hold two copies of a large fax at once, on top of the copies
+            // the parse and decode already cost.
+            ByteArrayOutputStream buffer = declared > 0
+                    ? new ByteArrayOutputStream((int) Math.min(declared, maxBytes))
+                    : new ByteArrayOutputStream();
             byte[] chunk = new byte[8192];
             long total = 0;
             int n;
             while ((n = in.read(chunk)) != -1) {
                 total += n;
                 if (total > maxBytes) {
-                    throw new IOException("response body exceeds the "
-                            + maxBytes + "-byte fax response limit");
+                    throw new IOException(overLimitMessage("more than " + maxBytes + " bytes", maxBytes));
                 }
                 buffer.write(chunk, 0, n);
             }
             return buffer.toString(charset);
         }
+    }
+
+    /**
+     * One message for both limit paths, naming the knob: an operator whose
+     * clinic legitimately receives very large faxes must be able to act on
+     * this without reading the source.
+     */
+    private static String overLimitMessage(String actual, long maxBytes) {
+        String limit = maxBytes >= 1024 * 1024
+                ? (maxBytes / (1024 * 1024)) + " MiB"
+                : maxBytes + " byte";
+        return "fax provider response exceeds the limit: it is " + actual + ", over the "
+                + limit + " ceiling. If this clinic genuinely receives faxes this large, raise "
+                + MAX_RESPONSE_MB_PROPERTY + " in carlos.properties (and CARLOS_JAVA_XMX with "
+                + "it — the response is buffered). The fax stays on the provider and imports on "
+                + "a later poll.";
     }
 }

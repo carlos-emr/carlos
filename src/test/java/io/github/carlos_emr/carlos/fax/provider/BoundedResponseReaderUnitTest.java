@@ -63,7 +63,8 @@ class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
                 new ByteArrayInputStream(body), 10_000_000L, ContentType.APPLICATION_JSON);
         assertThatThrownBy(() -> BoundedResponseReader.read(entity, 1024))
                 .isInstanceOf(IOException.class)
-                .hasMessageContaining("declares");
+                .hasMessageContaining("exceeds the limit")
+                .hasMessageContaining(BoundedResponseReader.MAX_RESPONSE_MB_PROPERTY);
     }
 
     @Test
@@ -78,7 +79,7 @@ class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
         BasicHttpEntity entity = new BasicHttpEntity(endless, ContentType.APPLICATION_JSON, true);
         assertThatThrownBy(() -> BoundedResponseReader.read(entity, 4096))
                 .isInstanceOf(IOException.class)
-                .hasMessageContaining("exceeds");
+                .hasMessageContaining("exceeds the limit");
     }
 
     @Test
@@ -102,6 +103,6 @@ class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
                 new ByteArrayInputStream(body), 10L, ContentType.APPLICATION_JSON);
         assertThatThrownBy(() -> BoundedResponseReader.read(entity, 1024))
                 .isInstanceOf(IOException.class)
-                .hasMessageContaining("exceeds");
+                .hasMessageContaining("exceeds the limit");
     }
 }
