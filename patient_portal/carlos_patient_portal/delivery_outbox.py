@@ -6,6 +6,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import timedelta
+from random import SystemRandom
 from secrets import token_bytes
 from threading import Event, Thread
 from uuid import uuid4
@@ -58,6 +59,7 @@ MAX_OUTBOX_PAYLOAD_BYTES = 4096
 # ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE there.
 OUTBOX_REASON_DELIVERY_UNAVAILABLE = "delivery_unavailable"
 OUTBOX_AUDIT_ACTOR = "portal-outbox"
+OUTBOX_MAX_RETRY_DELAY_SECONDS = 15 * 60
 # Distinct from delivery_failed: the provider call succeeded and only the audit write did
 # not, so the terminal handler must not revoke a token whose link is already in the mailbox.
 OUTBOX_FAILURE_AUDIT_UNAVAILABLE = "delivery_audit_unavailable"
@@ -243,6 +245,19 @@ def _claim_delivery(
     delivery.lease_expires_at = now + timedelta(seconds=lease_seconds)
     session.flush()
     return delivery
+
+
+def _retry_delay_seconds(attempt_count: int) -> float:
+    """Exponential backoff, capped, with jitter.
+
+    Without jitter the delay is fully deterministic, so every row queued during an outage
+    becomes available in the same instant and stampedes the relay the moment it recovers -
+    the worst possible retry shape against a greylisting server, which will then defer the
+    burst and start the cycle again. The jitter window is the full interval ("full jitter"),
+    which is what actually decorrelates the queue rather than merely blurring it.
+    """
+    ceiling = min(OUTBOX_MAX_RETRY_DELAY_SECONDS, 2 ** min(attempt_count, 10))
+    return ceiling * (0.5 + (SystemRandom().random() / 2))
 
 
 def _mark_terminal_reset_failure(session: Session, delivery: PatientPortalOutboundDelivery) -> None:
@@ -452,8 +467,7 @@ def _finish_delivery(
             _mark_terminal_contact_change_failure(session, delivery)
         return delivery.status
     delivery.status = OUTBOX_STATUS_PENDING
-    delay_seconds = min(15 * 60, 2 ** min(delivery.attempt_count, 10))
-    delivery.available_at = now + timedelta(seconds=delay_seconds)
+    delivery.available_at = now + timedelta(seconds=_retry_delay_seconds(delivery.attempt_count))
     return delivery.status
 
 

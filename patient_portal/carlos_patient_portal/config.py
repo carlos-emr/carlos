@@ -238,7 +238,13 @@ class Settings(BaseSettings):
         ge=30,
         le=60 * 60,
     )
-    outbox_max_attempts: int = Field(default=8, ge=1, le=100)
+    # 8 attempts is 2+4+8+16+32+64+128+256 = 510 seconds, so the 15-minute backoff cap in
+    # _finish_delivery was unreachable and a commonplace ~10-minute SMTP outage terminally
+    # failed everything queued - revoking the reset token each patient was waiting on. 14
+    # attempts reach the cap at attempt 10 and spend up to ~92 minutes (~69 expected under
+    # full jitter), which outlasts an ordinary relay outage and lets the cap do the job it was
+    # written for.
+    outbox_max_attempts: int = Field(default=14, ge=1, le=100)
     outbox_lease_seconds: int = Field(default=5 * 60, ge=30, le=60 * 60)
     outbox_poll_seconds: int = Field(default=5, ge=1, le=60)
     global_rate_limit_window_seconds: int = Field(default=60, ge=1, le=60 * 60)

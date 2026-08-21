@@ -1,9 +1,11 @@
 import json
+import logging
 import os
 import sqlite3
 import stat
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal import cli
@@ -17,7 +19,11 @@ from carlos_patient_portal.maintenance import (
     restore_sqlite_database,
     sqlite_database_path,
 )
-from tests.support import upgrade_to_head
+from tests.support import (
+    OUTBOX_ENCRYPTION_SECRET,
+    development_settings,
+    upgrade_to_head,
+)
 
 
 def test_alembic_config_escapes_percent_interpolation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -260,3 +266,41 @@ def test_audit_export_cli_emits_ordered_jsonl(
     assert exported["id"] == event_id
     assert exported["event_type"] == "login"
     assert exported["clinic_id"] == "clinic-a"
+
+
+def test_outbox_worker_survives_a_transient_database_fault(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path,
+) -> None:
+    """One lock-contention event must not stop all queued security email for the clinic.
+
+    Only KeyboardInterrupt was handled, so an SQLAlchemyError out of _claim_delivery - which
+    takes with_for_update(skip_locked=True) under a 5s lock_timeout - ended the process. Every
+    queued password-reset link and contact-change notice then stopped being delivered, with no
+    service unit to restart it and nothing to detect it.
+    """
+    caplog.set_level(logging.ERROR, logger="carlos_patient_portal.cli")
+    calls: list[int] = []
+
+    def flaky_delivery(*args: object, **kwargs: object) -> object:
+        calls.append(1)
+        if len(calls) == 1:
+            raise SQLAlchemyError("lock timeout")
+        return object()  # a delivered row, so the bounded run can terminate
+
+    worker_settings = development_settings(
+        database_url=f"sqlite+pysqlite:///{tmp_path / 'worker.db'}",
+        outbox_encryption_secret=OUTBOX_ENCRYPTION_SECRET,
+    )
+    monkeypatch.setattr(cli, "get_settings", lambda: worker_settings)
+    monkeypatch.setattr(cli, "build_portal_email_sender", lambda _settings: object())
+    monkeypatch.setattr(cli, "process_one_delivery", flaky_delivery)
+    monkeypatch.setattr(cli, "sleep", lambda _seconds: None)
+
+    # Bounded at one delivery: a worker that survived the fault reaches a second iteration and
+    # returns normally, while a dying one propagates SQLAlchemyError out of this call.
+    cli.outbox_worker(["--max-deliveries", "1"])
+
+    assert len(calls) == 2
+    assert any("Outbox worker iteration failed" in record.message for record in caplog.records)

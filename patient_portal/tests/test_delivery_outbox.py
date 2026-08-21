@@ -31,6 +31,7 @@ from tests.support import (
     OUTBOX_ENCRYPTION_SECRET,
     RecordingPortalEmailSender,
     activate_seeded_patient_account,
+    development_settings,
     migrated_development_app,
 )
 
@@ -196,6 +197,30 @@ def test_reset_delivered_during_a_token_race_is_audited_as_superseded(
         )
         assert superseded is not None
         assert superseded.account_id == account_id
+
+
+def test_retry_backoff_reaches_its_cap_and_is_jittered() -> None:
+    """The retry budget must outlast an ordinary relay outage, and must not stampede it.
+
+    At the previous 8 attempts the schedule was 2+4+8+16+32+64+128+256 = 510 seconds, so the
+    15-minute cap was unreachable and a commonplace ~10-minute SMTP outage terminally failed
+    everything queued - revoking each patient's pending reset token. The delay was also fully
+    deterministic, so every queued row became available in the same instant.
+    """
+    settings = development_settings()
+    ceilings = [
+        min(delivery_outbox.OUTBOX_MAX_RETRY_DELAY_SECONDS, 2 ** min(attempt, 10))
+        for attempt in range(1, settings.outbox_max_attempts + 1)
+    ]
+
+    # The cap is actually engaged rather than being dead configuration.
+    assert delivery_outbox.OUTBOX_MAX_RETRY_DELAY_SECONDS in ceilings
+    # And the budget outlasts a long relay outage.
+    assert sum(ceilings) > 60 * 60
+
+    samples = {delivery_outbox._retry_delay_seconds(6) for _ in range(50)}
+    assert len(samples) > 1, "a deterministic delay stampedes the relay on recovery"
+    assert all(0 < sample <= 2**6 for sample in samples)
 
 
 def test_active_delivery_renews_its_lease_during_a_slow_provider_call(tmp_path) -> None:

@@ -1,4 +1,5 @@
 import json
+import logging
 from argparse import ArgumentParser
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -10,6 +11,7 @@ from alembic import command
 from alembic.config import Config
 from argon2 import PasswordHasher
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import SQLAlchemyError
 
 from carlos_patient_portal.config import get_settings
 from carlos_patient_portal.database import (
@@ -31,6 +33,8 @@ from carlos_patient_portal.maintenance import (
     restore_sqlite_database,
 )
 from carlos_patient_portal.unlock_secrets import reencrypt_unlock_secrets
+
+logger = logging.getLogger(__name__)
 
 
 def build_alembic_config() -> Config:
@@ -316,16 +320,42 @@ def outbox_worker(argv: Sequence[str] | None = None) -> None:
         sqlite_busy_timeout_ms=settings.sqlite_busy_timeout_ms,
     )
     session_factory = create_session_factory(database_engine)
+    # Built once. Rebuilding per iteration re-read configuration and re-created the provider
+    # client on every poll of an idle queue.
+    email_sender = build_portal_email_sender(settings)
     delivered = 0
     try:
         while args.max_deliveries == 0 or delivered < args.max_deliveries:
-            result = process_one_delivery(
-                session_factory,
-                email_sender=build_portal_email_sender(settings),
-                encryption_secret=settings.outbox_encryption_secret.get_secret_value(),
-                max_attempts=settings.outbox_max_attempts,
-                lease_seconds=settings.outbox_lease_seconds,
-            )
+            try:
+                result = process_one_delivery(
+                    session_factory,
+                    email_sender=email_sender,
+                    encryption_secret=settings.outbox_encryption_secret.get_secret_value(),
+                    max_attempts=settings.outbox_max_attempts,
+                    lease_seconds=settings.outbox_lease_seconds,
+                )
+            except SQLAlchemyError as exc:
+                # Only KeyboardInterrupt used to be handled, so a single lock-contention event
+                # or connection reset - _claim_delivery takes with_for_update(skip_locked=True)
+                # under a 5s lock_timeout - ended the process. Every queued password-reset link
+                # and contact-change notice for the clinic then stopped being delivered, with
+                # nothing to detect it: no service unit ships here, and the row the worker had
+                # claimed sat in `processing` until its lease expired with no worker left to
+                # reclaim it.
+                #
+                # A transient database fault is the condition this loop exists to survive.
+                # Process exit stays reserved for unrecoverable configuration faults, which are
+                # raised before the loop starts.
+                # nosemgrep: python-logger-credential-disclosure -- logs only type(exc).__name__
+                logger.error(  # NOSONAR - traceback details can contain database values
+                    "Outbox worker iteration failed, retrying after %ss: %s",
+                    settings.outbox_poll_seconds,
+                    type(exc).__name__,
+                )
+                if args.once:
+                    return
+                sleep(settings.outbox_poll_seconds)
+                continue
             if result is None:
                 if args.once:
                     return
