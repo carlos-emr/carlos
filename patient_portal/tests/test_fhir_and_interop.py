@@ -104,10 +104,17 @@ def test_fhir_patient_endpoints_are_bearer_authenticated_and_patient_scoped() ->
     unauthenticated_response = client.get("/fhir/Patient")
     search_response = client.get("/fhir/Patient", headers=auth_headers)
     read_response = client.get(f"/fhir/Patient/{patient_id}", headers=auth_headers)
+    # Patient B's *real* id, derived the same way as A's. The literal "portal-default-5678"
+    # this previously requested could never match anything - build_fhir_id returns
+    # "portal-" + sha256(...)[:56] - so despite the variable name it was the garbage-id probe
+    # already covered elsewhere, and /fhir/Patient/{id} had no IDOR test at all.
+    other_patient_id = build_fhir_patient_id("default", 5678)
+    assert other_patient_id != patient_id
     wrong_patient_response = client.get(
-        "/fhir/Patient/portal-default-5678",
+        f"/fhir/Patient/{other_patient_id}",
         headers=auth_headers,
     )
+    garbage_id_response = client.get("/fhir/Patient/portal-default-5678", headers=auth_headers)
 
     assert unauthenticated_response.status_code == 401
     assert unauthenticated_response.headers["content-type"].startswith("application/fhir+json")
@@ -137,6 +144,7 @@ def test_fhir_patient_endpoints_are_bearer_authenticated_and_patient_scoped() ->
     assert wrong_patient_response.status_code == 404
     assert wrong_patient_response.json()["resourceType"] == "OperationOutcome"
     OperationOutcome(wrong_patient_response.json())
+    assert garbage_id_response.status_code == 404
 
 
 def test_fhir_document_organization_and_practitioner_resources_are_scoped() -> None:
@@ -831,3 +839,32 @@ def test_hl7_message_control_id_respects_the_v251_bound() -> None:
             message_time=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
             message_control_id="M" * 21,
         )
+
+
+def test_document_reference_search_compartment_rejects_another_patients_subject() -> None:
+    """`subject=` and `_id=` were never sent to any FHIR endpoint by the suite.
+
+    The compartment check `subject_matches` could therefore have become `True` unconditionally
+    with a fully green suite. This drives both parameters: another patient's subject must
+    return an empty bundle, and `_id` must stay scoped to the caller's own records.
+    """
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    patient_token = sign_in_patient_api_session(client)
+    auth_headers = bearer_headers(patient_token)
+
+    own_subject = f"Patient/{build_fhir_patient_id('default', 1234)}"
+    other_subject = f"Patient/{build_fhir_patient_id('default', 5678)}"
+
+    own = client.get(f"/fhir/DocumentReference?subject={own_subject}", headers=auth_headers)
+    foreign = client.get(f"/fhir/DocumentReference?subject={other_subject}", headers=auth_headers)
+    bare_id = client.get("/fhir/DocumentReference?subject=nonsense", headers=auth_headers)
+
+    assert own.status_code == 200
+    assert own.json()["resourceType"] == "Bundle"
+    assert foreign.status_code == 200
+    assert foreign.json()["total"] == 0, "another patient's compartment must return nothing"
+    assert foreign.json().get("entry", []) == []
+    assert bare_id.json()["total"] == 0
+    Bundle(foreign.json())
