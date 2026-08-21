@@ -347,6 +347,11 @@ sequence has been exercised end to end (DROP DATABASE and back):
   # means a missed nightly fires immediately at boot on a rebuilt host —
   # exactly when you are most likely to be doing this.)
   sudo systemctl stop carlos-emr-backup.timer carlos-emr-backup-verify.timer
+  # Stopping a timer does NOT stop a run it already started (a nightly can
+  # legitimately run for hours, and on a rebuilt host Persistent=true fires
+  # the missed run seconds after boot). Stop any in-flight instance too —
+  # a no-op if none is running; if one was, expect its "aborted" alert:
+  sudo systemctl stop carlos-emr-backup.service carlos-emr-backup-verify.service
   # 1. The newest dump. The target is OUTSIDE work/ deliberately: work/ is
   #    wiped by every backup and drill run's cleanup, and a restore can
   #    outlive one of those even with the timers stopped (a manual run, a
@@ -398,7 +403,10 @@ sequence has been exercised end to end (DROP DATABASE and back):
   #    the decoded SQL (each event group is headed by a
   #    "#YYMMDD HH:MM:SS server id ..." line), DELETE from that line to the
   #    end of that file, replay the truncated file LAST, and do not replay
-  #    any later file.
+  #    any later file. Those header timestamps are in the timezone the
+  #    SERVER host was running when the log was shipped (its system zone,
+  #    often UTC on cloud images) — NOT necessarily the clinic's CARLOS_TZ;
+  #    convert your target time before cutting.
   #    One caveat on the shipped logs themselves: they are decoded with
   #    --database=oscar, which keeps every row change but can only keep
   #    statement-logged events (DDL such as ALTER/TRUNCATE) when the issuing

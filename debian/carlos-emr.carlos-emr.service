@@ -29,6 +29,12 @@ ExecStart=/usr/lib/carlos-emr/carlos-emr-tomcat run
 SuccessExitStatus=143
 Restart=on-failure
 RestartSec=15s
+# Bound a crash loop: with 15s spacing the default 5-in-10s limiter never
+# trips, and an OOM loop (each crash writing an Xmx-sized PHI heap dump)
+# ran forever. Six failures inside half an hour is a broken deployment —
+# stop, stay failed, page whoever watches the unit.
+StartLimitIntervalSec=30min
+StartLimitBurst=6
 # A cold start explodes no WARs but does deploy a very large application and
 # runs the Flyway boot validation against the database. Ten minutes is
 # generous on purpose; the alternative is systemd killing a healthy start.

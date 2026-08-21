@@ -267,6 +267,20 @@ cmd_renew() {
             certbot renew --quiet --cert-name "$(server_name)" --webroot -w "${ACME_WEBROOT}"
             ;;
         selfsigned)
+            # Two guards for the OPERATOR-MID-ADOPTION window: placing a CA
+            # certificate is a two-step flow (copy the pair, then `carlos-ctl
+            # cert manual`), and until the second step the mode file still
+            # says selfsigned — a renewal firing in between must not
+            # regenerate over the operator's freshly placed pair. (A
+            # half-copied pair is already caught earlier by the loud
+            # half-placed-certificate refusal.)
+            cert_subj="$(openssl x509 -in "${TLS_DIR}/fullchain.pem" -noout -subject 2>/dev/null | sed 's/^subject=//')"
+            cert_iss="$(openssl x509 -in "${TLS_DIR}/fullchain.pem" -noout -issuer 2>/dev/null | sed 's/^issuer=//')"
+            if [ -n "${cert_subj}" ] && [ "${cert_subj}" != "${cert_iss}" ]; then
+                log "a certificate that is not self-issued is in place but the mode is still selfsigned;"
+                log "leaving it alone — run 'carlos-ctl cert manual' to adopt it."
+                return 0
+            fi
             # CERT_CHANGED tells us whether a new pair was actually written;
             # reloading nginx twice a day for nothing would churn worker
             # processes and drop keepalive connections mid-consultation.

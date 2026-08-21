@@ -61,6 +61,7 @@
       servlet container version either.
     -->
     <Connector port="18080" protocol="HTTP/1.1"
+               maxHttpHeaderSize="16384"
                address="127.0.0.1"
                connectionTimeout="20000"
                maxPostSize="52428800"

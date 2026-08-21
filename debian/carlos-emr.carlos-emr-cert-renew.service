@@ -1,6 +1,11 @@
 [Unit]
 Description=CARLOS EMR TLS certificate renewal
 Documentation=file:///usr/share/doc/carlos-emr/README.Debian
+# The ACME HTTP-01 challenge needs the network up and nginx serving; the
+# boot-time catch-up (Persistent=true) otherwise raced both and failed a
+# renewal that was genuinely due.
+After=network-online.target nginx.service
+Wants=network-online.target
 
 [Service]
 Type=oneshot

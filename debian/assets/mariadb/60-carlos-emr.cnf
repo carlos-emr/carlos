@@ -113,6 +113,14 @@ symbolic-links = 0
 # package targets.
 server_id = 1
 log_bin = binlog
+# The weekly restore drill loads a FULL copy of the clinical database into
+# the scratch schema as an unprivileged account (which cannot suppress
+# binary logging for its session), so without this filter every drill
+# appended ~1x the dataset to the binlogs — steady-state datadir growth of
+# 3-4x the live database. Row events for this schema are excluded here
+# instead. If you change CARLOS_BACKUP_VERIFY_DB in backup.env, change this
+# line to match.
+binlog_ignore_db = carlos_restore_drill
 binlog_format = ROW
 sync_binlog = 1
 innodb_flush_log_at_trx_commit = 1

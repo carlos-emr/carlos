@@ -142,9 +142,29 @@ acquire_lock() {
     fi
 }
 
+# The marker lives in TWO places: STATE_DIR — which, on the dedicated-disk
+# topology, is the very volume whose unmount this guard exists to catch —
+# and a root-filesystem copy that survives the unmount. Either copy naming
+# the current repository path arms the refusal.
+ROOT_MARKER=/var/log/carlos-emr/backup-state/.repo-known
+
+_mark_repo_known() {
+    printf '%s\n' "${RESTIC_REPOSITORY}" > "${STATE_DIR}/.repo-known"
+    if [ -d "$(dirname "${ROOT_MARKER}")" ]; then
+        printf '%s\n' "${RESTIC_REPOSITORY}" > "${ROOT_MARKER}" 2>/dev/null || true
+    fi
+}
+
+_repo_was_known() {
+    { [ -r "${STATE_DIR}/.repo-known" ] && \
+        [ "$(cat "${STATE_DIR}/.repo-known")" = "${RESTIC_REPOSITORY}" ]; } || \
+    { [ -r "${ROOT_MARKER}" ] && \
+        [ "$(cat "${ROOT_MARKER}")" = "${RESTIC_REPOSITORY}" ]; }
+}
+
 ensure_repo() {
     if restic cat config >/dev/null 2>&1; then
-        printf '%s\n' "${RESTIC_REPOSITORY}" > "${STATE_DIR}/.repo-known"
+        _mark_repo_known
         return 0
     fi
     # A repository this host has successfully used before that suddenly has
@@ -153,15 +173,14 @@ ensure_repo() {
     # there started a fresh EMPTY history while every old snapshot sat
     # elsewhere, and the night went green. First-run initialisation only
     # happens for a repository path this host has never recorded.
-    if [ -r "${STATE_DIR}/.repo-known" ] && \
-            [ "$(cat "${STATE_DIR}/.repo-known")" = "${RESTIC_REPOSITORY}" ]; then
+    if _repo_was_known; then
         alert "backup repository is unreachable or damaged — NOT re-initialising" \
-              "restic cannot open the repository at ${RESTIC_REPOSITORY} that this host has used before (unmounted disk? wiped store? credentials?). Refusing to start a fresh empty history over it. Fix the repository, or change RESTIC_REPOSITORY and remove ${STATE_DIR}/.repo-known to genuinely start over."
+              "restic cannot open the repository at ${RESTIC_REPOSITORY} that this host has used before (unmounted disk? wiped store? credentials?). Refusing to start a fresh empty history over it. Fix the repository, or change RESTIC_REPOSITORY and remove ${STATE_DIR}/.repo-known AND ${ROOT_MARKER} to genuinely start over."
         exit 1
     fi
     log "initialising restic repository at ${RESTIC_REPOSITORY}"
     restic init
-    printf '%s\n' "${RESTIC_REPOSITORY}" > "${STATE_DIR}/.repo-known"
+    _mark_repo_known
 }
 
 cleanup() {
@@ -290,15 +309,20 @@ ship_binlogs() {
     # to; shipping it would capture a half-written event. Everything before it
     # is closed and complete, and closed binlogs are immutable — so each one is
     # shipped exactly once and the marker records how far we got.
-    local logs last previous="" shipped="" logs_raw
-    if ! logs_raw="$(mariadb "${MYSQL_ARGS[@]}" -N -B -e 'SHOW BINARY LOGS' 2>&1)"; then
+    # stderr goes to its own file, never into the parsed list: 2>&1 folded
+    # SUCCESS-PATH client warnings (option-file deprecations print before
+    # the result set) into logs_raw, and awk then minted phantom "log
+    # names" the shipping loop tripped over.
+    local logs last previous="" shipped="" logs_raw show_err="${WORK_DIR}/.show-binlogs.err"
+    if ! logs_raw="$(mariadb "${MYSQL_ARGS[@]}" -N -B -e 'SHOW BINARY LOGS' 2>"${show_err}")"; then
         # A client/privilege failure is not the same finding as "logging is
         # off" — the old path collapsed both into the OFF alert and threw
         # the real error text away.
         alert "cannot list binary logs" \
-              "SHOW BINARY LOGS failed as the backup account: ${logs_raw}. Check the account's grants ('carlos-ctl db-users') and that MariaDB is running."
+              "SHOW BINARY LOGS failed as the backup account: $(cat "${show_err}" 2>/dev/null). Check the account's grants ('carlos-ctl db-users') and that MariaDB is running."
         return 1
     fi
+    rm -f "${show_err}"
     logs="$(printf '%s\n' "${logs_raw}" | awk '{print $1}')"
     if [ -z "${logs}" ]; then
         # An alert, not a warn-and-succeed: with the binary log off, the code
@@ -436,6 +460,11 @@ cmd_run() {
     # repository is left alone.
     restic unlock >/dev/null 2>&1 || true
     install -d -m 0700 "${WORK_DIR}" "${WORK_DIR}/binlog"
+    # A crash or power loss defeats the EXIT trap, leaving last night's
+    # PLAINTEXT dump and decoded binlogs on disk until someone removes
+    # them. Every run starts from an empty work directory (tmpfiles also
+    # purges it at boot).
+    rm -rf "${WORK_DIR:?}"/binlog/* "${WORK_DIR:?}"/*.sql 2>/dev/null || true
 
     check_engines
 
@@ -596,20 +625,28 @@ cmd_verify() {
     # get their presence and content-shape asserted, so a green drill can no
     # longer coexist with a files snapshot that silently stopped carrying
     # the documents or the configuration.
-    # Captured once, tested from the variable: `restic ls | grep -q` under
-    # pipefail kills restic with SIGPIPE on the FIRST match and the pipeline
-    # "fails" precisely because the file was found. (Same bug class as the
-    # tr|head SIGPIPE this package fixed at birth.)
+    # NO pipeline anywhere in this test: `... | grep -q` under pipefail dies
+    # of SIGPIPE on the FIRST match once the listing exceeds the 64KB pipe
+    # buffer — a production-sized document store made the drill false-page
+    # "NOT being backed up" about files that were right there. (The first
+    # fix moved the SIGPIPE from restic to printf; reviewed and reproduced.)
+    # A bash substring match on the captured variable has no pipe to kill.
     local files_list
     files_list="$(restic ls latest --tag files 2>/dev/null || true)"
-    if ! printf '%s' "${files_list}" | grep -q "carlos.properties"; then
-        alert "restore drill failed" "the newest files snapshot does not contain carlos.properties — configuration (and the AES key) is NOT being backed up."
-        exit 1
-    fi
-    if ! printf '%s' "${files_list}" | grep -q "OscarDocument"; then
-        alert "restore drill failed" "the newest files snapshot contains no OscarDocument paths — patient documents are NOT being backed up."
-        exit 1
-    fi
+    case "${files_list}" in
+        *carlos.properties*) : ;;
+        *)
+            alert "restore drill failed" "the newest files snapshot does not contain carlos.properties — configuration (and the AES key) is NOT being backed up."
+            exit 1
+            ;;
+    esac
+    case "${files_list}" in
+        *OscarDocument*) : ;;
+        *)
+            alert "restore drill failed" "the newest files snapshot contains no OscarDocument paths — patient documents are NOT being backed up."
+            exit 1
+            ;;
+    esac
     if ! restic snapshots --tag binlog >/dev/null 2>&1 || \
             [ "$(restic snapshots --tag binlog --json 2>/dev/null | head -c 3)" = "[]" ]; then
         warn "no binlog snapshots in the repository yet; point-in-time replay is unproven"

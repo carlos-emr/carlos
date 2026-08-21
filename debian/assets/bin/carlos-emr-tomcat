@@ -134,6 +134,15 @@ fi
 # -Djava.util.prefs.userRoot keeps java.util.prefs off the service account's
 #   home directory, which is root-owned; without it the JVM logs a warning
 #   about a preferences directory it cannot create on every single start.
+# Heap dumps accumulate one Xmx-sized PHI file per OOM crash (HotSpot names
+# them by pid, so nothing overwrites) and nothing else expires them; an OOM
+# loop filled the disk. The two newest are plenty to diagnose with.
+if ls /var/lib/carlos-emr/heapdumps/*.hprof >/dev/null 2>&1; then
+    ls -t /var/lib/carlos-emr/heapdumps/*.hprof | tail -n +3 | while IFS= read -r old_dump; do
+        rm -f -- "${old_dump}"
+    done
+fi
+
 CATALINA_OPTS="-Xms${CARLOS_JAVA_XMS} -Xmx${CARLOS_JAVA_XMX}"
 CATALINA_OPTS="${CATALINA_OPTS} -XX:+UseG1GC"
 CATALINA_OPTS="${CATALINA_OPTS} -XX:+ExitOnOutOfMemoryError"
@@ -142,6 +151,13 @@ CATALINA_OPTS="${CATALINA_OPTS} -XX:HeapDumpPath=/var/lib/carlos-emr/heapdumps"
 CATALINA_OPTS="${CATALINA_OPTS} -Djava.awt.headless=true"
 CATALINA_OPTS="${CATALINA_OPTS} -Djava.util.prefs.userRoot=${CATALINA_BASE}/prefs"
 CATALINA_OPTS="${CATALINA_OPTS} -Djava.security.egd=file:/dev/urandom"
+# An unknown zone name silently ran the whole EMR on GMT (the JVM's
+# fallback for an unparseable user.timezone): validate against the system
+# zoneinfo and fall back to the HOST's zone, loudly, instead.
+if [ ! -f "/usr/share/zoneinfo/${CARLOS_TZ}" ]; then
+    echo "carlos-emr: WARNING: CARLOS_TZ='${CARLOS_TZ}' is not a known timezone (no /usr/share/zoneinfo entry); using the host timezone instead" >&2
+    CARLOS_TZ="$(cat /etc/timezone 2>/dev/null || echo UTC)"
+fi
 CATALINA_OPTS="${CATALINA_OPTS} -Duser.timezone=${CARLOS_TZ}"
 CATALINA_OPTS="${CATALINA_OPTS} -Dcarlos_override_properties=${PROPERTIES}"
 CATALINA_OPTS="${CATALINA_OPTS} --add-opens java.base/java.net=ALL-UNNAMED"

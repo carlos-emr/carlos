@@ -23,6 +23,11 @@
 name: Debian Packages
 
 on:
+  # The release trigger only fires for releases published by a HUMAN (or a
+  # PAT/app): releases published by publish-release.yml use the
+  # workflow-scoped GITHUB_TOKEN, whose events GitHub suppresses — that
+  # pipeline therefore dispatches this workflow explicitly as its final
+  # step. Both paths land in the same build.
   release:
     types: [published]
   workflow_dispatch:
@@ -82,18 +87,37 @@ jobs:
           ref: refs/tags/${{ env.RELEASE_TAG }}
           persist-credentials: false
 
+      - name: Refuse tags that predate the packaging
+        run: |
+          set -euo pipefail
+          # Backfill builds FROM THE TAG'S OWN TREE — a tag cut before
+          # debian/ existed has nothing to build, and without this guard the
+          # run died later on a bare "No such file or directory" from the
+          # changelog stamp.
+          if [ ! -d debian ]; then
+            echo "::error::tag $RELEASE_TAG contains no debian/ directory — it predates the packaging and cannot be backfilled. Only tags cut after the packaging merged can build deb assets."
+            exit 1
+          fi
+
       - name: Download and verify the release WAR
         run: |
           set -euo pipefail
-          # The deb ships the exact WAR the release published (and attested):
-          # verifying the .sha256 here means a tampered or partial download
-          # can never become a package payload.
+          # The deb ships the exact WAR the release published: the .sha256
+          # catches corrupt/partial downloads, and the attestation check
+          # below is what makes the stronger claim true — a swapped WAR
+          # (even one with a matching swapped .sha256) fails provenance
+          # verification and never becomes a package payload.
           gh release download "$RELEASE_TAG" --repo "$REPO" \
             --pattern "carlos-$RELEASE_TAG.war" \
             --pattern "carlos-$RELEASE_TAG.war.sha256" \
             --dir /tmp/release-war
           cd /tmp/release-war
           sha256sum -c "carlos-$RELEASE_TAG.war.sha256"
+          # The .sha256 travels with the WAR, so it only catches corrupt or
+          # partial downloads. The ATTESTATION is the tamper control: it
+          # binds these exact bytes to the publish-release workflow run that
+          # built them, and nobody with mere contents:write can forge it.
+          gh attestation verify "carlos-$RELEASE_TAG.war" --repo "$REPO"
           echo "CARLOS_WAR=/tmp/release-war/carlos-$RELEASE_TAG.war" >> "$GITHUB_ENV"
 
       - name: Stamp the package version from the release tag

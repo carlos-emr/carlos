@@ -1,8 +1,12 @@
 [Unit]
 Description=CARLOS EMR nightly backup (database dump, documents, configuration)
 Documentation=file:///usr/share/doc/carlos-emr/README.Debian
-After=mariadb.service
-Wants=mariadb.service
+After=mariadb.service network-online.target
+Wants=mariadb.service network-online.target
+# network-online matters for the boot-time catch-up: Persistent=true
+# fires a missed run right after boot, and against an offsite
+# repository a start before the WAN is up failed the run with the
+# alert equally undeliverable.
 
 [Service]
 Type=oneshot

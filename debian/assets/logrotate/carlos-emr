@@ -26,6 +26,12 @@
 
 /var/log/carlos-emr/modsec/*.log {
     daily
+    # daily alone let an internet scanner write unbounded JSON between
+    # rotations (every blocked request appends a multi-KB record and only
+    # the login routes are rate-limited); maxsize rotates early on the next
+    # logrotate pass once the file passes this. For an internet-exposed
+    # host, pair the WAF with fail2ban or upstream filtering.
+    maxsize 512M
     rotate 30
     missingok
     notifempty

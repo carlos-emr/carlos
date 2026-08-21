@@ -84,6 +84,14 @@ z /var/log/carlos-emr/modsec/modsec_debug.log      0640 root          adm    -
 # 0700 and owned by carlos-backup: the application uid must not be able to
 # read, alter or delete the backups it would be recovered from.
 d /var/backups/carlos-emr                         0700 carlos-backup carlos-backup -
+# Root-filesystem copy of the backup repository marker: the copy inside
+# /var/backups sits on the (possibly dedicated, possibly unmounted) backup
+# volume, and an unmounted volume must not erase the evidence that a
+# repository existed there.
+d /var/log/carlos-emr/backup-state                0700 carlos-backup adm    -
+# A crash defeats the backup's EXIT trap; whatever plaintext dump it left in
+# the work directory is removed at boot (the script also purges at run start).
+R! /var/backups/carlos-emr/work
 
 # --- TLS --------------------------------------------------------------------
 # The private key is 0640 root:www-data. nginx reads it as root before dropping
