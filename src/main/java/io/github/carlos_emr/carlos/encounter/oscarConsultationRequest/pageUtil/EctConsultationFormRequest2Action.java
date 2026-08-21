@@ -166,6 +166,26 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Parses an optional numeric form id, returning {@code null} when the field was left blank.
+     *
+     * <p>{@code consultationRequests.serviceId} and {@code .specId} are both nullable, so "not
+     * chosen" is a legitimate stored state. Parsing these with {@code Integer.valueOf} threw
+     * {@link NumberFormatException} on the empty string, and because the enclosing catch only
+     * handles {@link java.text.ParseException} the request died in the Struts global
+     * {@code Exception -> error} mapping: no log, no saved consultation, and a blank page for the
+     * clinician. Blank must therefore be a value here, not an exception.</p>
+     *
+     * @param rawValue the submitted field value; may be {@code null}, empty, or blank
+     * @return the parsed id, or {@code null} when no value was submitted
+     * @throws NumberFormatException if a non-blank value is not a valid integer, which is a
+     *         genuinely malformed request rather than an unfilled field
+     */
+    private static Integer parseOptionalId(String rawValue) {
+        String trimmed = StringUtils.trimToNull(rawValue);
+        return trimmed == null ? null : Integer.valueOf(trimmed);
+    }
+
     private Integer parseUpdateInteger(String rawValue, String logMessage, String actionErrorMessage) {
         try {
             return Integer.parseInt(rawValue);
@@ -392,7 +412,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     date = DateUtils.parseDate(dateString, format);
                 }
                 consult.setReferralDate(date);
-                consult.setServiceId(Integer.valueOf(this.getService()));
+                consult.setServiceId(parseOptionalId(this.getService()));
 
                 consult.setSignatureImg(signatureId);
 
@@ -454,7 +474,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
 
                     // when this is enabled the demographicContactId is being posted as a specId variable.
-                    Integer demographicContactId = Integer.valueOf(specId);
+                    // Kept as an Integer: specId is null whenever the consultant field was left blank, and
+                    // unboxing it here threw NPE before the (null-tolerant) lookup below ever ran. The
+                    // update branch already passes the Integer through untouched.
+                    Integer demographicContactId = specId;
 
                     // specId is reset to unknown.
                     specId = 0;
@@ -588,7 +611,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 }
 
                 consult.setReferralDate(date);
-                consult.setServiceId(Integer.valueOf(this.getService()));
+                consult.setServiceId(parseOptionalId(this.getService()));
                 consult.setSignatureImg(signatureId);
                 consult.setProviderNo(this.getProviderNo());
                 consult.setLetterheadName(this.getLetterheadName());
