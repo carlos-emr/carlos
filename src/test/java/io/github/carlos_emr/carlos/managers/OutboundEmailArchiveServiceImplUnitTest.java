@@ -140,6 +140,20 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should use UNKNOWN provider when email config provider is missing")
+    void shouldUseUnknownProvider_whenEmailConfigProviderMissing() throws Exception {
+        EmailLog emailLog = emailLog();
+        emailLog.getEmailConfig().setEmailProvider(null);
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                .thenReturn(savedDocument());
+
+        OutboundEmailArchive archive = service.archive(loggedInInfo, request);
+
+        assertThat(archive.getProviderName()).isEqualTo("UNKNOWN");
+    }
+
+    @Test
     @DisplayName("should load persisted email log before deriving archive demographics")
     void shouldLoadPersistedEmailLog_beforeDerivingArchiveDemographics() throws Exception {
         EmailLog requestedEmailLog = emailLog();
@@ -672,7 +686,10 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(() -> service.recordControlledDeletion(loggedInInfo, 888, "cleanup"))
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("_admin.edocdelete w");
+                // Exact match, not "contains": the message is the only thing a caller
+                // sees, and it previously claimed admin-only while the condition still
+                // admitted _edoc w. Pinning it whole keeps the two from drifting again.
+                .hasMessage("missing required sec object (_admin.edocdelete w)");
 
         // findForUpdate issues SELECT ... FOR UPDATE. An unauthorized caller must not be
         // able to take that row lock, nor probe archive ids via the "not found" message.

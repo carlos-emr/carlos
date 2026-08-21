@@ -23,7 +23,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
-import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Repository;
 
@@ -44,7 +44,7 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
     @Override
     public List<OutboundEmailArchive> findByEmailLogId(Integer emailLogId) {
         TypedQuery<OutboundEmailArchive> query = entityManager.createQuery(
-                "SELECT archive FROM OutboundEmailArchive archive WHERE archive.emailLog.id = :emailLogId ORDER BY archive.archivedAt DESC",
+                "SELECT archive FROM OutboundEmailArchive archive WHERE archive.emailLog.id = :emailLogId ORDER BY archive.archivedAt DESC, archive.id DESC",
                 OutboundEmailArchive.class);
         query.setParameter("emailLogId", emailLogId);
         return query.getResultList();
@@ -55,10 +55,11 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
         if (archiveId == null) {
             return null;
         }
-        Query query = entityManager.createNativeQuery(
-                "SELECT * FROM outboundEmailArchive WHERE id = ?1 FOR UPDATE",
+        TypedQuery<OutboundEmailArchive> query = entityManager.createQuery(
+                "SELECT archive FROM OutboundEmailArchive archive WHERE archive.id = :archiveId",
                 OutboundEmailArchive.class);
-        query.setParameter(1, archiveId);
+        query.setParameter("archiveId", archiveId);
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
         List<OutboundEmailArchive> rows = query.getResultList();
         return rows.isEmpty() ? null : rows.get(0);
     }
@@ -82,7 +83,7 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
     @Override
     public List<OutboundEmailArchive> findByDemographicNo(Integer demographicNo) {
         TypedQuery<OutboundEmailArchive> query = entityManager.createQuery(
-                "SELECT archive FROM OutboundEmailArchive archive WHERE archive.demographic.demographicNo = :demographicNo ORDER BY archive.archivedAt DESC",
+                "SELECT archive FROM OutboundEmailArchive archive WHERE archive.demographic.demographicNo = :demographicNo ORDER BY archive.archivedAt DESC, archive.id DESC",
                 OutboundEmailArchive.class);
         query.setParameter("demographicNo", demographicNo);
         return query.getResultList();
