@@ -26,6 +26,8 @@ import org.junit.jupiter.api.Test;
  * with no guard, threw a {@link NumberFormatException}, and showed up as a 500 error
  * instead of a validation message. The too-large (overflow) case is the one a plain
  * {@code matches("\\d+")} check misses, so it is checked here too.
+ *
+ * @since 2026-07-31
  */
 @Tag("unit")
 class AddPrevention2ActionParseDemographicNoUnitTest {
