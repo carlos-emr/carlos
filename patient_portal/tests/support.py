@@ -165,6 +165,33 @@ def migrated_development_app(
     return app
 
 
+def migrated_staging_app(
+    *,
+    email_sender: PortalEmailSender | None = None,
+    sms_sender: PortalSmsSender | None = None,
+    **overrides: object,
+) -> main.FastAPI:
+    """An app on non-development settings, so the durable-outbox branches are reachable.
+
+    The password-reset and contact-change routes send inline only when `is_development`; the
+    durable enqueue path - the one the outbox exists for - is the `else`. Every other helper
+    builds a development app, so no route-level test ever entered it. Staging is used rather
+    than production because only production requires a postgresql+psycopg URL.
+    """
+    settings_values = {
+        **non_development_settings_values("staging"),
+        "database_url": "sqlite+pysqlite:///:memory:",
+        **overrides,
+    }
+    app = main.create_app(
+        Settings(**settings_values),
+        email_sender=email_sender,
+        sms_sender=sms_sender,
+    )
+    upgrade_to_head(app.state.database_engine)
+    return app
+
+
 def alembic_config_for_tests() -> Config:
     alembic_config = Config()
     alembic_config.set_main_option("script_location", str(web_support.PACKAGE_DIR / "migrations"))

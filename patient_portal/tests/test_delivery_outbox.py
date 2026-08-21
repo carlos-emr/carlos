@@ -19,6 +19,7 @@ from carlos_patient_portal.email_delivery import PortalEmailDeliveryError
 from carlos_patient_portal.maintenance import cleanup_transient_auth_rows, summarize_outbox
 from carlos_patient_portal.models import (
     AUDIT_EVENT_PASSWORD_RESET_DELIVERY,
+    OUTBOX_KIND_PASSWORD_RESET,
     OUTBOX_STATUS_DELIVERED,
     OUTBOX_STATUS_FAILED,
     OUTBOX_STATUS_PENDING,
@@ -32,11 +33,17 @@ from carlos_patient_portal.models import (
 )
 from carlos_patient_portal.runtime import PortalOperationalMetrics
 from tests.support import (
+    INTERNAL_API_TOKEN,
     OUTBOX_ENCRYPTION_SECRET,
+    SEEDED_INVITE_EMAIL,
+    TEST_CLINIC_ID,
     RecordingPortalEmailSender,
     activate_seeded_patient_account,
+    activation_request,
     development_settings,
     migrated_development_app,
+    migrated_staging_app,
+    seeded_invite_request,
 )
 
 
@@ -529,3 +536,50 @@ def test_an_absent_outbox_key_fails_terminally_without_revoking_the_token() -> N
         assert session.get(PatientPortalPasswordResetToken, reset_id).status == (
             PASSWORD_RESET_STATUS_PENDING
         )
+
+
+def test_password_reset_route_enqueues_through_the_outbox_outside_development() -> None:
+    """The durable enqueue path had no route-level coverage at all.
+
+    Both routes send inline when `is_development` and enqueue otherwise, and every test helper
+    built a development app - so the branch the outbox exists for was never entered from a
+    route. A wrong keyword argument in that call reached the branch as a runtime TypeError
+    with a fully green suite.
+    """
+    sender = RecordingPortalEmailSender()
+    app = migrated_staging_app(email_sender=sender)
+    # TrustedHostMiddleware allows the configured public base URL, not "testserver".
+    client = TestClient(app, base_url="https://portal.example.test")
+
+    # /dev/admin is development-only, so the account is seeded the way a real staging
+    # deployment would: through the authenticated internal API.
+    invite = client.post(
+        "/internal/carlos/patients/1234/invites",
+        headers={
+            "Authorization": f"Bearer {INTERNAL_API_TOKEN}",
+            "X-CARLOS-Provider-ID": "provider-42",
+            "X-CARLOS-Provider-Name": "CarlosDoc",
+            "X-CARLOS-Clinic-ID": TEST_CLINIC_ID,
+            "X-CARLOS-Permissions": "portal.invite.manage",
+        },
+        json=seeded_invite_request(),
+    )
+    assert invite.status_code == 201, invite.text
+    activation = client.post(
+        "/auth/activate",
+        json=activation_request(invite.json()["invite_token"]),
+    )
+    assert activation.status_code in {200, 201}, activation.text
+
+    response = client.post(
+        "/auth/password-reset/request",
+        json={"username": "patient.user", "email": SEEDED_INVITE_EMAIL},
+    )
+
+    assert response.status_code == 202
+    with app.state.session_factory() as session:
+        queued = session.scalars(select(PatientPortalOutboundDelivery)).all()
+    assert len(queued) == 1
+    assert queued[0].kind == OUTBOX_KIND_PASSWORD_RESET
+    # Stamped with the configured active key, so a later rotation can still read it.
+    assert queued[0].encryption_key_id == app.state.settings.outbox_active_key_id

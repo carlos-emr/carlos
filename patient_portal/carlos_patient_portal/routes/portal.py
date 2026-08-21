@@ -430,7 +430,7 @@ def register_portal_routes(
                     account_id=account.id,
                     recipient=recipient,
                     encryption_secret=runtime.outbox_encryption_secret,
-                    encryption_keys=runtime.outbox_encryption_keys,
+                    encryption_key_id=runtime.outbox_active_key_id,
                 )
                 for recipient in recipients
             ]

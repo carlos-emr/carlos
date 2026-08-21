@@ -740,7 +740,7 @@ def register_password_reset_routes(
                     reset_url=reset_url,
                     expires_in_seconds=deps.settings.password_reset_token_ttl_seconds,
                     encryption_secret=runtime.outbox_encryption_secret,
-                    encryption_keys=runtime.outbox_encryption_keys,
+                    encryption_key_id=runtime.outbox_active_key_id,
                 )
                 session.commit()
                 background_tasks.add_task(
@@ -910,7 +910,7 @@ def register_email_change_routes(
                     account_id=confirmation.review_request.account_id,
                     recipient=recipient,
                     encryption_secret=runtime.outbox_encryption_secret,
-                    encryption_keys=runtime.outbox_encryption_keys,
+                    encryption_key_id=runtime.outbox_active_key_id,
                 )
                 for recipient in confirmation.notice_recipients
             ]

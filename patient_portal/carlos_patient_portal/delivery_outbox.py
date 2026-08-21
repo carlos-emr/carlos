@@ -97,7 +97,8 @@ class OutboxMetrics(Protocol):
     for a single method.
     """
 
-    def record_failure(self, category: str) -> None: ...
+    def record_failure(self, category: str) -> None:
+        """Increment the counter for one failure category."""
 
 
 class OutboxPayloadError(Exception):
@@ -431,8 +432,8 @@ def _record_reset_delivery_outcome_best_effort(
                 _record_reset_delivery_superseded(session, delivery, outcome=outcome)
                 session.flush()
         except SQLAlchemyError as exc:
+            # nosemgrep: python-logger-credential-disclosure -- identifiers and class only
             logger.error(  # NOSONAR - traceback details can contain database values
-                # nosemgrep: python-logger-credential-disclosure -- identifiers and class only
                 "Password-reset superseded audit write failed for delivery %s: %s",
                 delivery.id,
                 type(exc).__name__,
@@ -498,7 +499,6 @@ def _finish_delivery(
         # what produced a delivered reset link with no durable record, so the optimistic
         # completion is rolled back and the row goes for another attempt instead.
         delivery.delivered_at = None
-        succeeded = False
         failure_code = OUTBOX_FAILURE_AUDIT_UNAVAILABLE
     delivery.last_failure_code = (failure_code or "delivery_failed")[:64]
     if failure_code == OUTBOX_FAILURE_KEY_UNAVAILABLE:

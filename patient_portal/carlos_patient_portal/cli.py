@@ -278,10 +278,12 @@ def maintenance(argv: Sequence[str] | None = None) -> None:
                     dry_run=args.dry_run,
                 )
                 action = "dry run completed" if args.dry_run else "cleanup completed"
+                # Every interpolated value is an aggregate row count, never a token or hash;
+                # `reset_records` is what draws the detector, and it is a COUNT of deleted rows.
                 print(
-                    # Every interpolated value is an aggregate row count, never a token or hash.
                     # codeql[py/clear-text-logging-sensitive-data]
                     "transient authentication "
+                    # codeql[py/clear-text-logging-sensitive-data]
                     f"{action}: sessions={cleanup_result.sessions} "
                     f"mfa_challenges={cleanup_result.mfa_challenges} "
                     f"reset_records={cleanup_result.reset_records} "
