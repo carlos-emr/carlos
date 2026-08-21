@@ -7,4 +7,4 @@
 # (fix/entitymanager-connection-leaks): without it, drug searches exhaust the
 # JDBC pool after one or two calls and permanently return "None found".
 # Once that branch merges, move the pin to the merge commit on master.
-ref=87b64444c691e3fcaa3bcf1ef92147b685afa076
+ref=66d586ea3ec0baf5a3709b26296be913ee096034
