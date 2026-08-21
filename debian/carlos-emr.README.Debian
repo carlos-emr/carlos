@@ -370,10 +370,12 @@ sequence has been exercised end to end (DROP DATABASE and back):
   #    Restore the AES key line into the freshly-generated carlos.properties
   #    (copy encryption.util.secret.key from the restored copy, or restore the
   #    whole file if this host has no newer local settings):
-  sudo sh -c 'grep "^encryption.util.secret.key=" \
-      /var/backups/carlos-emr/dr-files/etc/carlos-emr/carlos.properties'
-  #    ...then set that exact value in /etc/carlos-emr/carlos.properties and
-  #    run: sudo carlos-ctl init-config
+  #    (the package writes this line as "key = value", with spaces):
+  sudo grep -E '^encryption\.util\.secret\.key[[:space:]]*=' \
+      /var/backups/carlos-emr/dr-files/etc/carlos-emr/carlos.properties
+  #    ...then set that exact line in /etc/carlos-emr/carlos.properties
+  #    (replacing the freshly-generated one) and run:
+  #      sudo carlos-ctl init-config
   # 1. The newest dump. The target is OUTSIDE work/ deliberately: work/ is
   #    wiped by every backup and drill run's cleanup, and a restore can
   #    outlive one of those even with the timers stopped (a manual run, a
