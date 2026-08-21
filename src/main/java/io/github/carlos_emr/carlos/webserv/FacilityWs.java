@@ -60,6 +60,7 @@ public class FacilityWs extends AbstractWs {
     }
 
     public FacilityTransfer[] getAllFacilities(Boolean active) {
+        requirePrivilege("_admin", "r");
         List<Facility> results = facilityManager.getAllFacilities(getLoggedInInfo(), active);
         return (FacilityTransfer.toTransfers(results));
     }
