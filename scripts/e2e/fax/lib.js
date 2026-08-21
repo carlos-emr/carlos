@@ -12,8 +12,25 @@ function env(name, required = true) {
   return v;
 }
 
+// Validate BASE_URL and refuse a non-local target unless explicitly allowed —
+// these tests drive a real deployment and send real faxes, so an accidental
+// run against the wrong host must be hard, matching scripts/login-playwright-checks.js.
+function validateBaseUrl(raw) {
+  const u = new URL(raw);
+  if (!['http:', 'https:'].includes(u.protocol)) {
+    throw new Error(`BASE_URL must be http/https, got ${u.protocol}`);
+  }
+  const host = u.hostname.toLowerCase();
+  const local = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'carlos', 'carlos-ubuntu26']);
+  const privateIp = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  if (!local.has(host) && !privateIp && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+    throw new Error(`refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional target`);
+  }
+  return u.toString().replace(/\/$/, '');
+}
+
 const cfg = () => ({
-  base: env('BASE_URL'),
+  base: validateBaseUrl(env('BASE_URL')),
   user: env('TEST_USER'),
   pass: env('TEST_PASSWORD'),
   pin: env('TEST_PIN'),
@@ -37,6 +54,7 @@ async function launch() {
 // Log in, completing a forced password reset if the account is in that state.
 async function login(ctx, c) {
   const p = await ctx.newPage();
+  // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- URL is validated base + constant path, no user input
   await p.goto(c.base + '/', { waitUntil: 'domcontentloaded' });
   await p.locator('#username').fill(c.user);
   await p.locator('#password').fill(c.pass);
@@ -54,6 +72,7 @@ async function login(ctx, c) {
 
 // Ensure the SRFax provider is configured and active. Idempotent.
 async function ensureSrfaxConfigured(p, c) {
+  // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validated base + constant path
   await p.goto(c.base + '/admin/ViewConfigureFax', { waitUntil: 'domcontentloaded' });
   await p.waitForTimeout(500);
   const already = await p.locator('#faxUser').inputValue().catch(() => '');
@@ -80,6 +99,7 @@ async function ensureSrfaxConfigured(p, c) {
 async function waitForInboundFax(p, c, { sinceCount = 0, timeoutMs = 480000 } = {}) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validated base + constant path
     await p.goto(c.base + '/admin/ViewManageFaxes', { waitUntil: 'domcontentloaded' });
     await p.waitForTimeout(800);
     const rows = await p.locator('table tr').count().catch(() => 0);

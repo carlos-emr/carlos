@@ -11,17 +11,22 @@
 // or the admin UI). DB access is via the mariadb CLI as root (local socket),
 // matching how the deployment is administered; pass MARIADB="sudo mariadb" etc.
 'use strict';
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const { cfg } = require('./lib');
 
-const MARIADB = process.env.MARIADB || 'mariadb';
+// MARIADB may be a multi-word launcher (e.g. "sudo mariadb"); split into argv
+// so nothing is ever parsed by a shell. execFileSync takes an argv array — no
+// shell, so DB names/queries cannot be shell-injected.
+const MARIADB = (process.env.MARIADB || 'mariadb').split(/\s+/);
 const DB = process.env.CARLOS_DB_NAME || 'oscar';
 const DOCDIR = process.env.CARLOS_DOCUMENT_DIR
   || '/var/lib/carlos-emr/OscarDocument/carlos/document';
 
 function sql(q) {
-  return execSync(`${MARIADB} -N ${DB} -e ${JSON.stringify(q)}`, { encoding: 'utf8' }).trim();
+  const [cmd, ...pre] = MARIADB;
+  return execFileSync(cmd, [...pre, '-N', DB, '-e', q], { encoding: 'utf8' }).trim();
 }
+function sh(cmd, args, opts) { return execFileSync(cmd, args, opts); }
 
 async function main() {
   const c = cfg();
@@ -37,20 +42,22 @@ async function main() {
     + '5 0 obj<</Length 60>>stream\nBT /F1 18 Tf 72 700 Td (CARLOS E2E loopback) Tj ET\n'
     + 'endstream endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF';
   const fname = 'e2e-backbone-loopback.pdf';
-  execSync(`install -m 0644 /dev/stdin ${DOCDIR}/${fname}`, { input: pdf });
+  sh('install', ['-m', '0644', '/dev/stdin', `${DOCDIR}/${fname}`], { input: pdf });
 
+  const demo = sql(`SELECT demographic_no FROM demographic WHERE last_name='Loopback' AND first_name='Faxtest' ORDER BY demographic_no LIMIT 1`);
+  if (!demo) throw new Error('fixture demographic Loopback/Faxtest not found — load fixtures.sql first');
   const before = parseInt(sql(`SELECT COUNT(*) FROM faxes WHERE direction='IN'`), 10) || 0;
   sql(`INSERT INTO faxes (filename,faxline,destination,recipient,status,statusString,`
     + `numPages,stamp,user,oscarUser,demographicNo,sender,direction) VALUES `
     + `('${fname}','${faxNo}','${loopbackDial}','E2E loopback','WAITING',`
-    + `'queued by backbone-loopback',1,NOW(),'999998','999998',1,'${faxNo}','OUT')`);
+    + `'queued by backbone-loopback',1,NOW(),'999998','999998',${demo},'${faxNo}','OUT')`);
   const id = sql(`SELECT id FROM faxes WHERE filename='${fname}' ORDER BY id DESC LIMIT 1`);
   console.log(`injected WAITING outbound fax id=${id} -> ${loopbackDial}`);
 
   // Wait for the scheduler (60s poll) to send it via the real SRFax API.
   let sent = false;
   for (let i = 0; i < 10 && !sent; i++) {
-    execSync('sleep 15');
+    sh('sleep', ['15']);
     const st = sql(`SELECT status FROM faxes WHERE id=${id}`);
     const job = sql(`SELECT COALESCE(jobId,'') FROM faxes WHERE id=${id}`);
     console.log(`  t+${(i + 1) * 15}s status=${st} jobId=${job || '(none)'}`);
@@ -63,7 +70,7 @@ async function main() {
   console.log('waiting for the inbound loopback copy to import (several minutes)...');
   let imported = false;
   for (let i = 0; i < 40 && !imported; i++) {
-    execSync('sleep 15');
+    sh('sleep', ['15']);
     const inCount = parseInt(sql(`SELECT COUNT(*) FROM faxes WHERE direction='IN'`), 10) || 0;
     if (inCount > before) {
       const unclaimed = parseInt(sql(`SELECT COUNT(*) FROM providerLabRouting WHERE provider_no='0' AND status='N'`), 10) || 0;

@@ -29,7 +29,7 @@ deployment against a real (non-PHI, development) SRFax account.
 Never commit real values. Source them from a file outside the repo:
 
     set -a; . /secure/path/srfax.env; set +a
-    node scripts/e2e/fax/run-all.js
+    node scripts/e2e/fax/backbone-loopback.js
 
 ## Loopback
 
