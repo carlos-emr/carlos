@@ -39,12 +39,12 @@ Depends:
 # deb-systemd-invoke, used by the maintainer scripts so that policy-rc.d is
 # honoured in chroots and image builds.
  init-system-helpers (>= 1.54),
-# curl: the postinst readiness probe, `carlosctl check`, and the backup job's
+# curl: the postinst readiness probe, `carlos-ctl check`, and the backup job's
 # failure webhook.
  curl,
-# ss, for the listening-socket assertions in `carlosctl check`.
+# ss, for the listening-socket assertions in `carlos-ctl check`.
  iproute2,
-# ps, for the "no component runs as root" assertion in `carlosctl check`.
+# ps, for the "no component runs as root" assertion in `carlos-ctl check`.
  procps,
 # python3-bcrypt hashes the replacement for the seeded administrator password.
  python3,
@@ -60,7 +60,7 @@ Recommends:
 # audit log grows unbounded, so this is a strong recommendation rather than a
 # suggestion.
  logrotate,
-# jq makes `carlosctl waf tail` readable; it degrades to raw JSON without it.
+# jq makes `carlos-ctl waf tail` readable; it degrades to raw JSON without it.
  jq
 Suggests:
  fail2ban,
@@ -92,7 +92,7 @@ Depends:
  ${misc:Depends},
 # Exact version: the two packages ship one Tomcat instance and one set of
 # database accounts between them, and carlos-emr-drugref's postinst calls
-# carlosctl from carlos-emr.
+# carlos-ctl from carlos-emr.
  carlos-emr (= ${binary:Version}),
 # mariadb-client (not -core) for the schema load; the -core package has the
 # client but not the tooling the rest of this deployment uses.

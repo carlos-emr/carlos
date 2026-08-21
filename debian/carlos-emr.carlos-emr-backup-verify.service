@@ -1,6 +1,11 @@
 [Unit]
 Description=CARLOS EMR weekly restore drill
 Documentation=file:///usr/share/doc/carlos-emr/README.Debian
+# The drill loads a dump INTO MariaDB. Persistent=true on the timer means a
+# missed Sunday run fires shortly after boot — potentially before the
+# database accepts connections — so order it the same way the backup is.
+After=mariadb.service
+Wants=mariadb.service
 
 [Service]
 Type=oneshot
@@ -23,6 +28,8 @@ PrivateTmp=yes
 PrivateDevices=yes
 ProtectSystem=strict
 ProtectHome=yes
+ProtectProc=invisible
+ProtectKernelLogs=yes
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes

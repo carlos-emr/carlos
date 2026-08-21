@@ -29,3 +29,8 @@ codeless-jar
 # upstream change, not something to patch in at package time.
 package-contains-xvpics-dir
 national-encoding
+
+# carlosctl is the deprecated compatibility name for carlos-ctl (renamed to
+# match the carlos-podman tool); both resolve to the same binary and the man
+# page is carlos-ctl(8).
+no-manual-page usr/sbin/carlosctl

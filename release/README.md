@@ -13,13 +13,21 @@ package at the repository root:
 
     debian/
 
-Build it the normal way:
+Release builds are published automatically: the `Debian Packages` workflow
+(`.github/workflows/deb-packages.yml`) runs when a release is published,
+builds both packages inside an `ubuntu:26.04` container from that release's
+own attested WAR, and attaches the `.deb`s, checksums and provenance
+attestations to the release.
+
+Build it locally the normal way:
 
     sudo apt build-dep .          # or: apt install debhelper maven openjdk-21-jdk-headless tomcat11
     dpkg-buildpackage -us -uc -b
 
-That produces `carlos-emr` and `carlos-emr-drugref` targeting Ubuntu 24.04 LTS
-and newer. See `debian/README.Debian` for what the packages install and how to
+That produces `carlos-emr` and `carlos-emr-drugref` targeting Ubuntu 26.04 LTS
+(the release whose Tomcat 11 and OpenJDK 21 packages satisfy the build
+dependencies). See `debian/carlos-emr.README.Debian` for what the packages
+install and how to
 operate the result, and `debian/rules` for the build inputs (including how to
 skip the Maven compile by supplying a prebuilt WAR).
 
@@ -43,8 +51,8 @@ unprivileged account behind an nginx/ModSecurity front door.
 | `make_CARLOS_deb.sh`                   | `debian/rules`                                        |
 | `control`, `config`, `templates`       | `debian/control`, `debian/carlos-emr.{config,templates}` |
 | `postinst`, `prerm`, `postrm`, `rules` | `debian/carlos-emr.{postinst,prerm,postrm}`           |
-| `carlos_backup.sh`, `restore.sh`       | `carlosctl backup` (restic, systemd timers)           |
-| `letsencrypt.cron`, `gateway.sh`       | `carlosctl cert` (certbot + nginx)                    |
+| `carlos_backup.sh`, `restore.sh`       | `carlos-ctl backup` (restic, systemd timers)           |
+| `letsencrypt.cron`, `gateway.sh`       | `carlos-ctl cert` (certbot + nginx)                    |
 | `reOscar.sh`                           | `systemctl restart carlos-emr`                        |
 | `tomcat9server.xml`, `tomcat9LEserver.xml` | `debian/assets/tomcat/server.xml`                 |
 
@@ -67,4 +75,4 @@ unprivileged account behind an nginx/ModSecurity front door.
 These are not installed by the `carlos-emr` package: they are optional
 site-by-site data loads. Apply one with, for example:
 
-    sudo carlosctl db shell < release/ontarioLab.sql
+    sudo carlos-ctl db < release/ontarioLab.sql

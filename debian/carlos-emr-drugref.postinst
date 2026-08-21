@@ -30,11 +30,14 @@ case "$1" in
         install -m 0644 "${SHARE}/tomcat/Catalina/localhost/drugref2.xml" \
             "${CONF_DIR}/tomcat/Catalina/localhost/drugref2.xml"
 
-        # Provision the account and password (carlosctl handles both packages'
-        # accounts in one place, and is idempotent).
-        carlosctl provision-db || true
-
         if mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
+            # Provision the account and password (carlos-ctl handles both
+            # packages' accounts in one place, and is idempotent). No `|| true`
+            # here: everything below assumes the drugref account exists with
+            # the password now recorded in drugref2.properties, so a
+            # provisioning failure must fail configure loudly rather than
+            # continue into grants for an account that was never created.
+            carlos-ctl db-users
             mariadb --protocol=socket --user=root -e \
                 "CREATE DATABASE IF NOT EXISTS \`drugref2\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
             mariadb --protocol=socket --user=root -e \
@@ -87,7 +90,10 @@ case "$1" in
         # right tool for it; the restart itself goes through deb-systemd-invoke
         # so policy-rc.d is honoured.
         if [ -d /run/systemd/system ] && systemctl is-active --quiet carlos-emr.service; then
-            deb-systemd-invoke restart carlos-emr.service || true
+            deb-systemd-invoke restart carlos-emr.service || {
+                echo "carlos-emr-drugref: WARNING: the EMR did not restart — DrugRef will not" >&2
+                echo "carlos-emr-drugref: serve until it does (journalctl -u carlos-emr)." >&2
+            }
         fi
         ;;
     abort-upgrade|abort-remove|abort-deconfigure)

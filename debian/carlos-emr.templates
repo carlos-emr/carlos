@@ -7,10 +7,10 @@ Description: Host name clinicians will use to reach CARLOS EMR:
  .
  It becomes the nginx server_name and the subject of the TLS certificate. If
  you intend to use a Let's Encrypt certificate, this name must resolve in
- public DNS to this machine before you run "carlosctl cert acme".
+ public DNS to this machine before you run "carlos-ctl cert acme".
  .
  You can change it later in /etc/carlos-emr/carlos-emr.env followed by
- "carlosctl init-config".
+ "carlos-ctl init-config".
 
 Template: carlos-emr/bind-ip
 Type: string
@@ -53,7 +53,7 @@ Description: TLS certificate for the front door:
  .
  manual leaves the certificate to you: place the chain and key at
  /etc/carlos-emr/tls/fullchain.pem and privkey.pem and run
- "carlosctl cert manual". Until you do, the front door will not start.
+ "carlos-ctl cert manual". Until you do, the front door will not start.
 
 Template: carlos-emr/acme-email
 Type: string
@@ -63,7 +63,7 @@ Description: Email address for Let's Encrypt registration:
  expire and has not renewed. It is not published.
  .
  Leave it empty to skip requesting a certificate now; you can run
- "carlosctl cert acme <email>" at any time.
+ "carlos-ctl cert acme <email>" at any time.
 
 Template: carlos-emr/java-heap
 Type: string
@@ -99,7 +99,7 @@ Description: CARLOS EMR is installed
  password, create real accounts, disable the seeded one, and then delete that
  file.
  .
- Run "sudo carlosctl check" to verify the deployment, and read
+ Run "sudo carlos-ctl check" to verify the deployment, and read
  /usr/share/doc/carlos-emr/README.Debian before putting patient data on this
  system — in particular the sections on backups, which are stored on this host
  only until you configure an offsite repository.

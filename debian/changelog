@@ -15,5 +15,11 @@ carlos-emr (2026.09.0~snapshot1) resolute; urgency=medium
     carlos.flyway.onBoot=validate.
   * Nightly restic backups plus a weekly restore drill run as the separate
     unprivileged `carlos-backup` user.
+  * Administration is `carlos-ctl` — a Python package mirroring the
+    carlos-podman tool's name, language, layout and verb set wherever the two
+    deployments share a concept (check, db, db-migrate, db-users, db-dump,
+    backup full/verify/status, cert-renew, rotate, status), so operators move
+    between the two deployment styles without relearning the tool.
+    `carlosctl` remains as a deprecated alias.
 
  -- CARLOS EMR Maintainers <maintainers@carlos-emr.invalid>  Thu, 20 Aug 2026 19:00:00 +0000

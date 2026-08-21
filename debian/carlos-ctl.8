@@ -1,13 +1,13 @@
-.TH CARLOSCTL 8 "2026-08-20" "carlos-emr" "System Administration"
+.TH CARLOS-CTL 8 "2026-08-20" "carlos-emr" "System Administration"
 .SH NAME
-carlosctl \- administer a CARLOS EMR host installed from the carlos\-emr package
+carlos\-ctl \- administer a CARLOS EMR host installed from the carlos\-emr package
 .SH SYNOPSIS
-.B carlosctl
+.B carlos\-ctl
 .I command
 .RI [ subcommand ]
 .RI [ arguments ]
 .SH DESCRIPTION
-.B carlosctl
+.B carlos\-ctl
 is the administration interface for a single\-host CARLOS EMR deployment
 installed from the
 .B carlos\-emr
@@ -37,35 +37,39 @@ Systemd status of the EMR, nginx, MariaDB and the package's timers.
 Application server log.
 .SS Schema
 .TP
-.B db info
+.B db-info
 Show which migrations are applied and which are pending.
 .TP
-.B db validate
+.B db-validate
 Verify the schema matches the migrations shipped in the deployed WAR. This is
 the same check the application performs at boot.
 .TP
-.B db migrate
+.B db-migrate
 Apply pending migrations.
 .B Take a verified backup first:
 DDL is not transactional in MariaDB and a failed migration can leave a
 partially\-changed schema.
 .TP
-.B db baseline
+.B db-baseline
 Adopt an existing pre\-Flyway (OSCAR 19 / OpenO) schema by stamping the history
 at the full genesis, version 1.0.2. Follow it with
-.BR "db migrate" .
+.BR db-migrate .
 Never stamp at 1: Flyway would re\-run the province migrations, which DROP and
 recreate province tables.
 .TP
-.B db repair
+.B db-repair
 Repair
 .I flyway_schema_history
 after a failed migration.
 .TP
-.BR "db shell" " [\fIargs\fR]"
-Interactive SQL shell on the EMR database as root over the unix socket.
+.BR "db" " [\fIargs\fR]"
+Raw mariadb client on the EMR database as root over the unix socket:
+interactive with no arguments; client arguments and redirects pass through
+(the same contract as the carlos\-podman tool's
+.B db
+verb).
 .TP
-.B db dump
+.B db-dump
 Write a consistent dump to standard output. It is never written to a default
 path: a dump is the entire clinical record in one file and the operator must
 choose, and secure, where it lands.
@@ -107,8 +111,10 @@ this state.
 Resume blocking.
 .SS Backups
 .TP
-.B backup run
-Take a backup now. Always executed as the
+.B backup full
+Take a backup now, by starting the same systemd unit the nightly timer runs —
+so a manual run and a timer run are the identical code path, with the unit's
+sandbox and its read capability. The job itself executes as the
 .B carlos\-backup
 user, never as root.
 .TP
@@ -123,10 +129,12 @@ List the contents of the restic repository.
 .SS Provisioning
 .TP
 .B init-config
-Re\-render the derived configuration from
-.IR /etc/carlos\-emr/carlos\-emr.env .
-Run it after changing the host name, the listen address or the heap size. Only
-keys this package owns are touched; every other line of
+Re\-render AND APPLY the derived configuration from
+.IR /etc/carlos\-emr/carlos\-emr.env :
+the nginx fragments are regenerated, a stale self\-signed certificate is
+refreshed, nginx is config\-tested and reloaded, and the tool states whether
+an application restart is also needed. Only keys this package owns are
+touched; every other line of
 .I carlos.properties
 is left alone.
 .TP
@@ -138,9 +146,10 @@ administrator password and PIN with random values and write them to
 The migrations seed that account with a hash published in the CARLOS source
 repository, so this runs at install time by default.
 .TP
-.B provision-db
-Create the databases and the least\-privilege accounts. Idempotent, and it
-preserves any password already configured.
+.B db-users
+Create the databases and the least\-privilege accounts (the verb name
+matches carlos\-podman). Idempotent, and it preserves any password already
+configured.
 .TP
 .B rotate
 Rotate every generated database password and restart the application.

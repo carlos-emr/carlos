@@ -123,7 +123,7 @@ override_dh_auto_install:
 	install -d $(STAGE)/$(SHAREDIR)/webapp/carlos; \
 	cd $(STAGE)/$(SHAREDIR)/webapp/carlos && $(JAVA_HOME)/bin/jar xf $(BUILDDIR)/carlos.war
 	# Ship the migration set outside the WAR too, so an operator can read and
-	# diff the SQL that carlosctl applies without unpacking a webapp.
+	# diff the SQL that carlos-ctl applies without unpacking a webapp.
 	install -d $(STAGE)/$(SHAREDIR)/schema
 	cp -a database/mysql/migration $(STAGE)/$(SHAREDIR)/schema/
 	install -d $(STAGE)/$(SHAREDIR)/lib
@@ -161,13 +161,21 @@ override_dh_auto_install:
 	# MariaDB tuning drop-in
 	install -d $(STAGE)/etc/mysql/mariadb.conf.d
 	install -m 0644 debian/assets/mariadb/60-carlos-emr.cnf $(STAGE)/etc/mysql/mariadb.conf.d/60-carlos-emr.cnf
-	# Administrative tooling
-	install -d $(STAGE)/$(LIBDIR) $(STAGE)/usr/sbin
-	install -m 0755 debian/assets/bin/carlosctl $(STAGE)/$(LIBDIR)/carlosctl
+	# Administrative tooling. carlos-ctl is a Python package (mirroring
+	# carlos-podman's carlos_ctl in name, language and verb set) behind a
+	# tiny shim; the three shell helpers remain the systemd units' direct
+	# workhorses. `carlosctl` stays as a compatibility symlink that prints a
+	# rename note.
+	install -d $(STAGE)/$(LIBDIR)/carlos_ctl $(STAGE)/usr/sbin
+	install -m 0644 debian/assets/carlos_ctl/*.py $(STAGE)/$(LIBDIR)/carlos_ctl/
+	install -m 0755 debian/assets/bin/carlos-ctl $(STAGE)/$(LIBDIR)/carlos-ctl
 	install -m 0755 debian/assets/bin/carlos-emr-backup $(STAGE)/$(LIBDIR)/carlos-emr-backup
 	install -m 0755 debian/assets/bin/carlos-emr-cert $(STAGE)/$(LIBDIR)/carlos-emr-cert
 	install -m 0755 debian/assets/bin/carlos-emr-tomcat $(STAGE)/$(LIBDIR)/carlos-emr-tomcat
-	ln -sf ../lib/carlos-emr/carlosctl $(STAGE)/usr/sbin/carlosctl
+	ln -sf ../lib/carlos-emr/carlos-ctl $(STAGE)/usr/sbin/carlos-ctl
+	ln -sf ../lib/carlos-emr/carlos-ctl $(STAGE)/usr/sbin/carlosctl
+	install -d $(STAGE)/usr/share/man/man8
+	ln -sf carlos-ctl.8.gz $(STAGE)/usr/share/man/man8/carlosctl.8.gz
 	# Config skeletons the maintainer scripts instantiate (never conffiles:
 	# they carry generated credentials).
 	install -d $(STAGE)/$(SHAREDIR)/skel
@@ -186,7 +194,16 @@ override_dh_auto_install:
 	install -m 0644 debian/assets/skel/carlos-emr.env $(STAGE)/$(SHAREDIR)/skel/carlos-emr.env
 	install -m 0644 debian/assets/skel/backup.env $(STAGE)/$(SHAREDIR)/skel/backup.env
 	install -m 0644 debian/assets/nginx/proxy-params.conf $(STAGE)/$(SHAREDIR)/skel/proxy-params.conf
-	# OscarDocument skeleton
+	# OscarDocument skeleton. Every directory that a property SET by carlos-ctl
+	# names must be here: Startup.checkAndSetProperty only auto-creates
+	# directories for properties it derives itself (i.e. UNSET ones), so a
+	# configured INVOICE_DIR or ONEDT_INBOX pointing at a missing directory is
+	# a runtime failure the first time that feature writes — billing/invoices
+	# was exactly that bug on a live install. The app-derived set (export/,
+	# document_cache/, billing/download/, form/records/, hrm/,
+	# encounter/oscarMeasurements/styles/) is included too, so the whole tree
+	# exists deterministically with package-controlled modes rather than
+	# appearing piecemeal at first boot under whatever the JVM's umask gives.
 	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/incomingdocs/1/Fax
 	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/incomingdocs/1/File
 	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/incomingdocs/1/Mail
@@ -194,6 +211,17 @@ override_dh_auto_install:
 	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/fax-incoming
 	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/eform/images
 	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/document
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/document_cache
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/export
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/billing/invoices
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/billing/download
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/form/records
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/hrm/sftp_downloads
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/encounter/oscarMeasurements/styles
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/onEDTDocs/inbox
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/onEDTDocs/outbox
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/onEDTDocs/sent
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/onEDTDocs/archive
 	# logrotate
 	install -d $(STAGE)/etc/logrotate.d
 	install -m 0644 debian/assets/logrotate/carlos-emr $(STAGE)/etc/logrotate.d/carlos-emr

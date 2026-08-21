@@ -38,15 +38,27 @@ CARLOS_JAVA_OPTS="${CARLOS_JAVA_OPTS:-}"
 # taking default-java, which on Ubuntu 26.04 is Java 25. A newer JVM is not a
 # free upgrade for an application this old — removed internal APIs and changed
 # defaults surface as class-loading failures halfway through a clinical page.
+# A candidate only qualifies if it actually IS Java 21 — the JDK's own
+# release file says so without spawning a JVM. An operator-set JAVA_HOME or a
+# default-java pointing at 17 or 25 would otherwise start CARLOS on a runtime
+# it was never tested on, and the failures that produces are class-loading
+# errors halfway through clinical pages, not a clean refusal at startup.
+is_java_21() {
+    [ -x "$1/bin/java" ] && grep -q '^JAVA_VERSION="21' "$1/release" 2>/dev/null
+}
+
 find_java_home() {
-    if [ -n "${JAVA_HOME:-}" ] && [ -x "${JAVA_HOME}/bin/java" ]; then
-        printf '%s' "${JAVA_HOME}"
-        return 0
+    if [ -n "${JAVA_HOME:-}" ]; then
+        if is_java_21 "${JAVA_HOME}"; then
+            printf '%s' "${JAVA_HOME}"
+            return 0
+        fi
+        echo "carlos-emr: JAVA_HOME (${JAVA_HOME}) is not a Java 21 runtime; ignoring it" >&2
     fi
     local d
     for d in /usr/lib/jvm/java-21-openjdk-* /usr/lib/jvm/java-21-openjdk \
              /usr/lib/jvm/default-java; do
-        if [ -x "${d}/bin/java" ]; then
+        if is_java_21 "${d}"; then
             printf '%s' "${d}"
             return 0
         fi

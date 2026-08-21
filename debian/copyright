@@ -37,10 +37,12 @@ Files: debian/assets/tomcat/server.xml
        debian/assets/tomcat/tomcat-users.xml
        debian/assets/tomcat/Catalina/*
 Copyright: 2026 CARLOS Contributors
-License: Apache-2.0
+License: GPL-2+
 Comment:
- Derived from the configuration templates shipped with Apache Tomcat 11 and
- from the CARLOS devcontainer configuration.
+ Matches the SPDX-License-Identifier headers inside the files. They are
+ derived from the CARLOS devcontainer's Tomcat configuration (GPL-2+ like the
+ application) with structure informed by the Apache-2.0 templates shipped with
+ Apache Tomcat 11; the derivative as a whole is distributed under GPL-2+.
 
 License: GPL-2+
  This program is free software; you can redistribute it and/or modify it
@@ -68,11 +70,3 @@ License: AGPL-3.0-only
  .
  On Debian systems, the complete text of the GNU Affero General Public License
  version 3 can be found in "/usr/share/common-licenses/AGPL-3".
-
-License: Apache-2.0
- Licensed under the Apache License, Version 2.0 (the "License"); you may not
- use these files except in compliance with the License. You may obtain a copy
- of the License at http://www.apache.org/licenses/LICENSE-2.0
- .
- On Debian systems, the complete text of the Apache License version 2.0 can be
- found in "/usr/share/common-licenses/Apache-2.0".

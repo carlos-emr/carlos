@@ -2,6 +2,7 @@
 # repository (local_repo/) and node_modules/ that must never enter the source
 # package. dpkg-source's default tarball would otherwise be ~2 GB.
 tar-ignore = "target"
+tar-ignore = "local_repo"
 tar-ignore = "node_modules"
 tar-ignore = ".git"
 tar-ignore = ".git/*"

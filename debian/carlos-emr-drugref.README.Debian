@@ -24,7 +24,7 @@ load-bearing on its own:
   2. A RemoteCIDRValve in /etc/carlos-emr/tomcat/Catalina/localhost/drugref2.xml
      refuses any client whose address is not the host loopback.
 
-`carlosctl check` probes the first of these from outside and fails if the
+`carlos-ctl check` probes the first of these from outside and fails if the
 service is reachable through the front door.
 
 Database

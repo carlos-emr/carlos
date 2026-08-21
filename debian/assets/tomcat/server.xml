@@ -77,7 +77,9 @@
       </Realm>
 
       <!--
-        appBase is empty on purpose. Both applications are deployed from
+        The appBase DIRECTORY stays empty on purpose — the attribute still
+        names one, because Tomcat requires it to exist. Both applications are
+        deployed from
         context descriptors in conf/Catalina/localhost/ whose docBase points
         into /usr/share/carlos-emr/webapp/, which is root-owned and read-only
         to the `carlos` uid. A compromised application therefore cannot write

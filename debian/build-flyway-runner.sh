@@ -1,5 +1,5 @@
 #!/bin/sh
-# Compile the Flyway launcher used by `carlosctl db` against the jars the
+# Compile the Flyway launcher used by `carlos-ctl db-*` against the jars the
 # CARLOS WAR already ships, so the package needs no separate Flyway CLI.
 #
 #   debian/build-flyway-runner.sh <carlos.war> <outdir>
@@ -24,12 +24,16 @@ for jar in flyway-core flyway-mysql mysql-connector-j; do
             ( cd "$work/libs" && "$javahome/bin/jar" xf "$war" "$entry" )
         done
 done
-found=$(find "$work/libs" -name '*.jar' | wc -l)
-if [ "$found" -lt 2 ]; then
-    echo "ERROR: expected flyway-core and flyway-mysql inside $war, found $found jar(s)" >&2
-    echo "       the WAR no longer ships Flyway; carlosctl db would have no engine." >&2
-    exit 1
-fi
+# Each artifact checked BY NAME: a bare count passed when flyway-core and the
+# JDBC driver were present but flyway-mysql was missing — and that absence
+# only surfaces at runtime, as `carlos-ctl db-*` failing to load MariaDB support.
+for jar in flyway-core flyway-mysql mysql-connector-j; do
+    if ! find "$work/libs" -name "${jar}-*.jar" | grep -q .; then
+        echo "ERROR: ${jar} is missing from $war (WEB-INF/lib)" >&2
+        echo "       carlos-ctl db-* needs all of: flyway-core, flyway-mysql, mysql-connector-j." >&2
+        exit 1
+    fi
+done
 
 cp="$(find "$work/libs" -name '*.jar' | tr '\n' ':')"
 "$javahome/bin/javac" -nowarn -encoding UTF-8 -source 21 -target 21 \

@@ -20,7 +20,7 @@ import org.flywaydb.core.api.MigrationInfo;
 import org.flywaydb.core.api.output.MigrateResult;
 
 /**
- * Minimal Flyway front end for the Debian package's {@code carlosctl db} verbs.
+ * Minimal Flyway front end for the Debian package's {@code carlos-ctl db-*} verbs.
  *
  * <p>The package deliberately does <em>not</em> ship the Flyway command-line
  * distribution. Flyway core, the MySQL/MariaDB module and the JDBC driver are
@@ -37,7 +37,9 @@ import org.flywaydb.core.api.output.MigrateResult;
  * any local user can read {@code /proc/&lt;pid&gt;/cmdline} while the process
  * runs, and this one connects to a database holding PHI.</p>
  *
- * <p>Usage: {@code FlywayRunner <info|validate|migrate|baseline|repair> <locations></p>
+ * <p>Usage: {@code FlywayRunner (info|validate|migrate|baseline|repair) locations}</p>
+ *
+ * @since 2026-08-20
  */
 public final class FlywayRunner {
 
@@ -54,6 +56,14 @@ public final class FlywayRunner {
     private FlywayRunner() {
     }
 
+    /**
+     * Entry point invoked by {@code carlos-ctl db-migrate}.
+     *
+     * @param args {@code args[0]} is the Flyway command (info, validate,
+     *             migrate, baseline or repair); {@code args[1]} is the
+     *             comma-separated migration location list, restricted to the
+     *             classpath locations this package ships.
+     */
     public static void main(String[] args) {
         if (args.length < 2) {
             System.err.println("usage: FlywayRunner <info|validate|migrate|baseline|repair> <locations>");
@@ -61,6 +71,22 @@ public final class FlywayRunner {
         }
         final String command = args[0];
         final String[] locations = args[1].split(",");
+        // Only the migration sets this package ships. carlos-ctl passes
+        // exactly these; refusing anything else (a filesystem: location above
+        // all) means a compromised or confused caller cannot point a
+        // root-credentialed migration run at arbitrary SQL on disk.
+        for (String location : locations) {
+            switch (location) {
+                case "classpath:db/migration/common":
+                case "classpath:db/migration/on":
+                case "classpath:db/migration/bc":
+                    break;
+                default:
+                    System.err.println("refusing migration location outside the packaged set: "
+                            + location.replaceAll("[^\\x20-\\x7e]", "?"));
+                    System.exit(2);
+            }
+        }
 
         final String url = requireEnv("FLYWAY_URL");
         final String user = requireEnv("FLYWAY_USER");
@@ -103,7 +129,11 @@ public final class FlywayRunner {
                     System.out.println("repaired flyway_schema_history");
                     break;
                 default:
-                    System.err.println("unknown command: " + command);
+                    // The raw argument is process input; strip anything
+                    // non-printable rather than echoing it verbatim into a
+                    // log a terminal will render.
+                    System.err.println("unknown command: "
+                            + command.replaceAll("[^\\x20-\\x7e]", "?"));
                     System.exit(2);
             }
         } catch (RuntimeException e) {

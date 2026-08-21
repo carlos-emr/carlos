@@ -27,6 +27,23 @@ Contents
  11. Troubleshooting
 
 
+0. Getting the packages
+-----------------------
+
+Release builds of both packages are attached to every CARLOS GitHub release
+(https://github.com/carlos-emr/carlos/releases) by the "Debian Packages"
+workflow, alongside their .sha256 checksums and build-provenance
+attestations. The carlos-emr package on a release ships that release's own
+published WAR byte for byte. Verify, then install:
+
+  sha256sum -c carlos-emr_<version>_all.deb.sha256
+  sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
+  sudo apt install ./carlos-emr_<version>_all.deb ./carlos-emr-drugref_<version>_all.deb
+
+Building from source instead: see debian/rules (the header documents the
+inputs, including how to skip the Maven compile with a prebuilt WAR).
+
+
 1. What gets installed and where
 --------------------------------
 
@@ -35,7 +52,7 @@ Contents
   /usr/share/carlos-emr/webapp/drugref2/ DrugRef2 (carlos-emr-drugref)
   /usr/share/carlos-emr/schema/          the Flyway migration set, readable
   /usr/lib/carlos-emr/                   the administrative helpers
-  /usr/sbin/carlosctl                    the administration command
+  /usr/sbin/carlos-ctl                    the administration command
 
   /etc/carlos-emr/carlos-emr.env         site settings; yours to edit
   /etc/carlos-emr/carlos.properties      application configuration + credentials
@@ -64,6 +81,23 @@ A heap dump written by -XX:+HeapDumpOnOutOfMemoryError contains whatever
 clinical data was in memory when the JVM ran out. It lands in
 /var/lib/carlos-emr/heapdumps (0750 carlos:carlos), never /tmp. Treat one as
 you would a database dump.
+
+Day-two administration is one loop: edit the file, run the verb beside it.
+
+  carlos-emr.env      -> sudo carlos-ctl init-config   (re-renders the nginx
+                         fragments, refreshes a stale self-signed certificate,
+                         config-tests and reloads nginx, and says whether an
+                         application restart is also needed)
+  carlos.properties   -> sudo carlos-ctl restart
+  backup.env          -> nothing; the next timer run reads it. Prove it early
+                         with: sudo carlos-ctl backup full
+  modsecurity/*       -> sudo carlos-ctl waf reload    (config-tested first; a
+                         typo cannot take the front door down)
+  tomcat/*            -> sudo carlos-ctl restart
+
+`carlos-ctl restart` is a passthrough to systemd; expect about two minutes for
+the webapp to redeploy. `sudo carlos-ctl check` after any change confirms the
+whole system end to end.
 
 Which files are conffiles matters. Anything listed above as a conffile is
 yours to edit and dpkg will offer a three-way merge on upgrade. The four files
@@ -95,13 +129,13 @@ nginx's master process starts as root in order to bind ports 80 and 443 and
 immediately drops to www-data for every worker. That is the distribution's own
 design and this package does not change it.
 
-Verify all of this on a running system with:  sudo carlosctl check
+Verify all of this on a running system with:  sudo carlos-ctl check
 
 
 3. First run
 ------------
 
-  sudo carlosctl check
+  sudo carlos-ctl check
 
 runs the full deployment check: services, process ownership, what is listening
 where, certificate validity, the security headers, whether the WAF actually
@@ -132,20 +166,20 @@ delete /etc/carlos-emr/initial-admin.txt.
 -------------------
 
 nginx always reads /etc/carlos-emr/tls/fullchain.pem and privkey.pem. What is
-behind those two paths is managed by carlosctl, so switching certificate
+behind those two paths is managed by carlos-ctl, so switching certificate
 providers never involves editing nginx configuration.
 
-  sudo carlosctl cert status          what is being served now
-  sudo carlosctl cert selfsigned      regenerate the self-signed pair
-  sudo carlosctl cert acme you@clinic.ca
+  sudo carlos-ctl cert status          what is being served now
+  sudo carlos-ctl cert selfsigned      regenerate the self-signed pair
+  sudo carlos-ctl cert acme you@clinic.ca
                                       switch to Let's Encrypt
-  sudo carlosctl cert manual          adopt files you placed yourself
+  sudo carlos-ctl cert manual          adopt files you placed yourself
 
 The default is self-signed, on purpose: it means the EMR is served over TLS
 from the first minute rather than sitting on plain HTTP "until we get the
 certificate sorted out". Browsers will warn until you replace it.
 
-`carlosctl cert acme` needs the host name in /etc/carlos-emr/carlos-emr.env to
+`carlos-ctl cert acme` needs the host name in /etc/carlos-emr/carlos-emr.env to
 resolve in public DNS to this machine, and port 80 reachable from the internet
 for the HTTP-01 challenge. It uses certbot's webroot method rather than the
 nginx plugin, because the plugin rewrites the site file — a dpkg conffile —
@@ -167,8 +201,8 @@ scores 5, so one clean SQL-injection, cross-site-scripting or
 remote-code-execution hit blocks. The widely-copied 10/5 pair would log such an
 attack and let it through.
 
-  sudo carlosctl waf status           engine state and file locations
-  sudo carlosctl waf tail 200         recent blocks, in readable form
+  sudo carlos-ctl waf status           engine state and file locations
+  sudo carlos-ctl waf tail 200         recent blocks, in readable form
 
 The audit log is /var/log/carlos-emr/modsec/modsec_audit.log, mode 0640
 root:adm inside a 0750 directory — readable by root and group adm, and by
@@ -176,12 +210,12 @@ nothing else. Records are JSON carrying headers and matched rules but NOT
 request or response bodies (SecAuditLogParts ABFHKZ). That is the PHI decision
 described under "Log retention", and it is checkable on a running system:
 every record has `request.headers` and no `request.body`.
-  sudo carlosctl waf detect-only      stop blocking, for triage only
-  sudo carlosctl waf blocking         resume blocking
+  sudo carlos-ctl waf detect-only      stop blocking, for triage only
+  sudo carlos-ctl waf blocking         resume blocking
 
 CARLOS is a large application of OSCAR lineage and a clinical workflow you use
 may trip a rule the packaged exclusions do not cover. The supported response
-is: reproduce it, read `carlosctl waf tail` for the rule id and the matched
+is: reproduce it, read `carlos-ctl waf tail` for the rule id and the matched
 variable, and add the NARROWEST exclusion that works to
 
   /etc/carlos-emr/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf
@@ -203,7 +237,7 @@ mariadb-server is already running by the time this package is configured — so
 without the restart the deployment silently runs on distribution defaults:
 STRICT sql_mode (which the OSCAR-lineage application does not expect) and no
 binary log, meaning no point-in-time recovery and a nightly backup that fails.
-`carlosctl db apply-settings` compares the RUNNING values against the file and
+`carlos-ctl db-apply-settings` compares the RUNNING values against the file and
 restarts only when they disagree, so an upgrade that changes nothing never
 bounces your database.
 
@@ -233,9 +267,9 @@ The schema is managed with Flyway. The application boots with
 not built for rather than failing later with a column-not-found error in the
 middle of a consultation. Migrations are applied explicitly:
 
-  sudo carlosctl db info              what is applied and what is pending
-  sudo carlosctl db validate          does the schema match the deployed WAR
-  sudo carlosctl db migrate           apply pending migrations
+  sudo carlos-ctl db-info              what is applied and what is pending
+  sudo carlos-ctl db-validate          does the schema match the deployed WAR
+  sudo carlos-ctl db-migrate           apply pending migrations
 
 TAKE A BACKUP YOU HAVE VERIFIED BEFORE MIGRATING. DDL is not transactional in
 MariaDB: a migration that fails part way can leave a partially-changed schema.
@@ -247,10 +281,10 @@ STRICT_TRANS_TABLES is a genuine data-integrity improvement and a genuine
 application-compatibility risk; validate it on a copy of your data first.
 
 Adopting an existing pre-Flyway (OSCAR 19 / OpenO) database is a two-step
-operation and NOT what `db migrate` does on its own:
+operation and NOT what `db-migrate` does on its own:
 
-  sudo carlosctl db baseline          stamp the history at the full genesis
-  sudo carlosctl db migrate           apply only the forward deltas
+  sudo carlos-ctl db-baseline          stamp the history at the full genesis
+  sudo carlos-ctl db-migrate           apply only the forward deltas
 
 The baseline is stamped at 1.0.2, not 1. Stamping at 1 would make Flyway re-run
 the province migrations, and those DROP and recreate province tables — data
@@ -272,11 +306,13 @@ The nightly timer produces three encrypted restic snapshots:
 
 Together those support point-in-time recovery, not just "last night".
 
-  sudo carlosctl backup status        when the last backup and drill succeeded
-  sudo carlosctl backup run           take one now
-  sudo carlosctl backup verify        restore the newest dump into a scratch
+  sudo carlos-ctl backup status       when the last backup and drill succeeded
+  sudo carlos-ctl backup full         take one now (drives the same systemd
+                                      unit as the nightly timer, so manual and
+                                      scheduled runs are the same code path)
+  sudo carlos-ctl backup verify        restore the newest dump into a scratch
                                       database and check it loaded
-  sudo carlosctl backup snapshots     list the repository
+  sudo carlos-ctl backup snapshots     list the repository
 
 The weekly restore drill is the part that matters. A backup nobody has restored
 is a hypothesis; the drill is what distinguishes "backups ran" from "backups
@@ -302,7 +338,7 @@ To restore a live system (this stops the EMR, so it needs root):
   sudo -u carlos-backup restic restore <id> --target /var/backups/carlos-emr/work
   sudo mariadb oscar < /var/backups/carlos-emr/work/.../oscar.sql
   # then replay binary logs past the dump's coordinates if recovering forward
-  sudo carlosctl db validate
+  sudo carlos-ctl db-validate
   sudo systemctl start carlos-emr
 
 
@@ -310,7 +346,7 @@ To restore a live system (this stops the EMR, so it needs root):
 -----------
 
 `apt upgrade` of this package replaces the webapp, then postinst re-renders the
-derived configuration, runs `carlosctl db migrate`, and restarts the service.
+derived configuration, runs `carlos-ctl db-migrate`, and restarts the service.
 The application is deliberately NOT stopped during unpack, so the outage covers
 the migration and restart rather than the whole operation.
 
@@ -319,7 +355,7 @@ alone. Read /usr/share/carlos-emr/skel/ afterwards to see whether new settings
 are available that your files predate.
 
 If a migration fails, the service will not start (the boot-time validate gate
-is doing its job). Fix the cause, run `carlosctl db migrate`, then
+is doing its job). Fix the cause, run `carlos-ctl db-migrate`, then
 `systemctl start carlos-emr`.
 
 
@@ -356,7 +392,7 @@ and in backup.env, to your own obligations.
     which one a site uses, and what else the machine serves, is not something
     a package should decide. Allow 22, 80 and 443 and deny the rest.
   - It does not set up an observability stack. Use the journal
-    (`carlosctl logs`), or the carlos-podman deployment if you want metrics
+    (`carlos-ctl logs`), or the carlos-podman deployment if you want metrics
     and log search.
   - It does not run the EMR on more than one host, and must not be used that
     way: several nodes against one database would each run the boot-time
@@ -370,17 +406,17 @@ and in backup.env, to your own obligations.
 11. Troubleshooting
 -------------------
 
-  sudo carlosctl check                start here; it names the failure
-  sudo carlosctl logs -n 200          application server log
+  sudo carlos-ctl check                start here; it names the failure
+  sudo carlos-ctl logs -n 200          application server log
   sudo journalctl -u nginx -n 100     front door
   sudo tail -f /var/log/carlos-emr/modsec/modsec_audit.log
 
 The application will not start
-  Almost always the schema gate or the database. `carlosctl db info` shows the
+  Almost always the schema gate or the database. `carlos-ctl db-info` shows the
   migration state; `systemctl status mariadb` shows the database.
 
 A page returns 403 and the application log shows nothing
-  That is the WAF, not the application. `carlosctl waf tail` shows why.
+  That is the WAF, not the application. `carlos-ctl waf tail` shows why.
 
 Login redirects to http:// or the session is lost
   Tomcat's RemoteIpValve has stopped trusting nginx, so the application no
@@ -390,4 +426,4 @@ Login redirects to http:// or the session is lost
 
 Drug lookups return nothing when prescribing
   Install carlos-emr-drugref, or check that it deployed:
-  `carlosctl logs | grep drugref2`.
+  `carlos-ctl logs | grep drugref2`.

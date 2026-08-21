@@ -1,0 +1,219 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
+"""Site settings (carlos-emr.env) and the init-config apply step.
+
+Counterpart of carlos-podman carlos_ctl/config.py: there, configuration is
+rendered by Ansible from host_vars; here, the single source of site truth is
+/etc/carlos-emr/carlos-emr.env and this module derives everything else from it
+— and APPLIES it, so the operator loop is "edit the file, run
+carlos-ctl init-config" with nothing further to remember.
+"""
+
+import os
+import re
+
+from . import util
+from .util import (
+    CONF_DIR, ENV_FILE, LIB, PROPERTIES, SHARE, STATE,
+    die, env_get, log, prop_comment, prop_get, prop_set, run, warn,
+)
+
+
+class Settings:
+    """The carlos-emr.env values every verb needs, validated once."""
+
+    def __init__(self) -> None:
+        self.server_name = env_get(ENV_FILE, "CARLOS_SERVER_NAME") or "localhost"
+        self.bind_ip = env_get(ENV_FILE, "CARLOS_BIND_IP") or "0.0.0.0"
+        self.province = (env_get(ENV_FILE, "CARLOS_PROVINCE") or "on").lower()
+        self.db_host = env_get(ENV_FILE, "CARLOS_DB_HOST") or "127.0.0.1"
+        self.db_port = env_get(ENV_FILE, "CARLOS_DB_PORT") or "3306"
+        self.db_name = env_get(ENV_FILE, "CARLOS_DB_NAME") or "oscar"
+        # The database name is interpolated into backtick-quoted DDL run as
+        # database root (db-users, destroy-data). The file it comes from is
+        # root-owned, so this is hardening rather than a live injection path —
+        # but the blast radius of a stray backtick there is a DROP on a PHI
+        # host, so refuse anything that is not a plain identifier, once, for
+        # every command.
+        if not re.fullmatch(r"[A-Za-z0-9_]+", self.db_name):
+            die(f"CARLOS_DB_NAME ('{self.db_name}') must be a plain identifier (A-Za-z0-9_)")
+        if self.province not in ("on", "bc"):
+            die(f"CARLOS_PROVINCE ('{self.province}') must be 'on' or 'bc'")
+
+    @property
+    def flyway_locations(self) -> str:
+        return f"classpath:db/migration/common,classpath:db/migration/{self.province}"
+
+
+def load() -> Settings:
+    return Settings()
+
+
+def cmd_init_config(argv) -> int:
+    util.need_root("init-config")
+    s = load()
+    if not os.path.isfile(PROPERTIES):
+        die(f"{PROPERTIES} does not exist; reinstall the package")
+
+    doc = f"{STATE}/OscarDocument/carlos"
+    province_uc = s.province.upper()
+
+    # JDBC parameters, and why each one is here:
+    #   zeroDateTimeBehavior=round        the OSCAR-lineage schema contains
+    #       0000-00-00 dates; the driver's default throws on read, which makes
+    #       whole clinical screens fail. `round` returns 0001-01-01 — a
+    #       FABRICATED date, not a null; it is upstream's long-standing choice
+    #       and the application expects it.
+    #   useOldAliasMetadataBehavior=true  legacy DAOs read columns by their
+    #       pre-alias names.
+    #   jdbcCompliantTruncation=false     matches the server's non-strict
+    #       sql_mode; without it the driver rejects what the server accepts.
+    #   characterEncoding/connectionCollation  keep the connection utf8mb4 so
+    #       the server-side default is not silently downgraded.
+    prop_set(PROPERTIES, "db_name",
+             f"{s.db_name}?zeroDateTimeBehavior=round&useOldAliasMetadataBehavior=true"
+             f"&jdbcCompliantTruncation=false&characterEncoding=UTF-8"
+             f"&connectionCollation=utf8mb4_general_ci")
+    prop_set(PROPERTIES, "db_uri", f"jdbc:mysql://{s.db_host}:{s.db_port}/")
+    prop_set(PROPERTIES, "db_type", "mysql")
+    prop_set(PROPERTIES, "db_driver", "com.mysql.cj.jdbc.Driver")
+
+    # Document storage. 2750 carlos:carlos with the backup user reading
+    # through group membership; see debian/carlos-emr.tmpfiles.
+    prop_set(PROPERTIES, "BASE_DOCUMENT_DIR", f"{STATE}/OscarDocument/")
+    prop_set(PROPERTIES, "DOCUMENT_DIR", f"{doc}/document/")
+    prop_set(PROPERTIES, "INCOMINGDOCUMENT_DIR", f"{doc}/incomingdocs")
+    prop_set(PROPERTIES, "INVOICE_DIR", f"{doc}/billing/invoices")
+    prop_set(PROPERTIES, "FAX_INCOMING_DIR", f"{doc}/fax-incoming")
+    prop_set(PROPERTIES, "tomcat_path", f"{STATE}/catalina/")
+
+    prop_set(PROPERTIES, "billregion", province_uc)
+    prop_set(PROPERTIES, "buildtag", "carlos-emr-deb")
+    # project_home is a legacy OSCAR name used two ways: as the OscarDocument
+    # subdirectory, and as a fallback URL context prefix when the eForm PDF
+    # composer and the MOH billing views cannot see a real context path. Both
+    # are "carlos" in this layout; the upstream default of "oscar_mcmaster"
+    # would send both down a path that does not exist here.
+    prop_set(PROPERTIES, "project_home", "carlos")
+
+    # Belt and braces for the build stamp: the skeleton comes from the built
+    # WAR (already substituted), but if a future build ever ships the raw
+    # ${...} placeholders the application renders them on the LOGIN page, to
+    # every unauthenticated visitor.
+    pkg_version = util.out(["dpkg-query", "-f", "${Version}", "-W", "carlos-emr"]) or "unknown"
+    for key, fallback in (("buildDate", util.out(["date", "-I"])),
+                          ("buildVersion", f"carlos-emr {pkg_version}")):
+        cur = prop_get(PROPERTIES, key) or ""
+        if "${" in cur:
+            prop_set(PROPERTIES, key, fallback)
+
+    # The schema gate. `validate` is the production posture: the application
+    # refuses to start against a schema it was not built for, instead of
+    # failing later with a column-not-found error mid-consultation.
+    # Migrations are applied by the explicit `carlos-ctl db-migrate`.
+    prop_set(PROPERTIES, "carlos.flyway.onBoot", "validate")
+    prop_set(PROPERTIES, "carlos.flyway.locations", s.flyway_locations)
+
+    # DrugRef is co-deployed in this Tomcat, loopback-only.
+    prop_set(PROPERTIES, "drugref_url", "http://127.0.0.1:18080/drugref2/DrugrefService")
+
+    # The shipped image carries no Chromium; the boot-time browser probe for
+    # the eForm-to-PDF renderer can only fail and log an error burst.
+    prop_set(PROPERTIES, "eform_pdf_browser_startup_check", "off")
+
+    # --- paths the upstream skeleton still aims at the OLD FHS location -----
+    # The stock carlos.properties predates this packaging and carries several
+    # path defaults under /var/lib/OscarDocument, which does not exist here.
+    # Each of the following is READ by live code (verified in the source), so
+    # a stale value is a runtime failure in that feature, not cosmetics.
+    prop_set(PROPERTIES, "log.purge.outputdir", f"{doc}/document/")
+    prop_set(PROPERTIES, "ONEDT_INBOX", f"{doc}/onEDTDocs/inbox/")
+    prop_set(PROPERTIES, "ONEDT_OUTBOX", f"{doc}/onEDTDocs/outbox/")
+    prop_set(PROPERTIES, "ONEDT_SENT", f"{doc}/onEDTDocs/sent/")
+    prop_set(PROPERTIES, "ONEDT_ARCHIVE", f"{doc}/onEDTDocs/archive/")
+
+    # The two clinic-logo examples point at an image that exists on no system.
+    # The code paths guard on the property being UNSET (ConsultationPDFCreator
+    # checks != null before touching the file), so a present-but-bogus value
+    # is strictly worse than no value. Guarded so a value an operator has
+    # customised is never touched.
+    for logo in ("clinicLetterheadLogo", "faxLogoInConsultation"):
+        cur = prop_get(PROPERTIES, logo) or ""
+        if cur.startswith("/var/lib/OscarDocument/"):
+            prop_comment(PROPERTIES, logo)
+
+    # AES-256 key for credentials the app encrypts at rest (fax provider
+    # passwords). Generated once and NEVER rotated automatically: rotating it
+    # orphans everything already encrypted under the old key. It is inside
+    # the backup; escrow it off-host too.
+    if not (prop_get(PROPERTIES, "encryption.util.secret.key") or "").strip():
+        prop_set(PROPERTIES, "encryption.util.secret.key",
+                 util.out(["openssl", "rand", "-base64", "32"]))
+        log("generated encryption.util.secret.key — it is in the backup; escrow it off-host too")
+
+    os.chmod(PROPERTIES, 0o640)
+    import grp
+    os.chown(PROPERTIES, 0, grp.getgrnam("carlos").gr_gid)
+
+    # nginx site fragments: generated, not conffiles, so changing the host
+    # name or listen address is one edit plus this verb, with no conffile
+    # prompt on the next upgrade.
+    ngx = os.path.join(CONF_DIR, "nginx")
+    os.makedirs(ngx, exist_ok=True)
+    os.chmod(ngx, 0o755)
+    listen6_http = "listen [::]:80;" if s.bind_ip == "0.0.0.0" else ""
+    listen6_https = "listen [::]:443 ssl;" if s.bind_ip == "0.0.0.0" else ""
+    _write(os.path.join(ngx, "server-name.conf"),
+           f"# Generated by carlos-ctl from CARLOS_SERVER_NAME in {ENV_FILE}. Do not edit.\n"
+           f"server_name {s.server_name};\n")
+    _write(os.path.join(ngx, "listen-http.conf"),
+           f"# Generated by carlos-ctl from CARLOS_BIND_IP in {ENV_FILE}. Do not edit.\n"
+           "# Plain HTTP exists only to redirect to HTTPS and to answer ACME challenges.\n"
+           f"listen {s.bind_ip}:80;\n{listen6_http}\n")
+    _write(os.path.join(ngx, "listen-https.conf"),
+           f"# Generated by carlos-ctl from CARLOS_BIND_IP in {ENV_FILE}. Do not edit.\n"
+           f"listen {s.bind_ip}:443 ssl;\n{listen6_https}\nhttp2 on;\n")
+    if not os.path.exists(os.path.join(ngx, "proxy-params.conf")):
+        import shutil
+        shutil.copy(os.path.join(SHARE, "skel", "proxy-params.conf"),
+                    os.path.join(ngx, "proxy-params.conf"))
+        os.chmod(os.path.join(ngx, "proxy-params.conf"), 0o644)
+    if not os.path.exists(os.path.join(ngx, "stapling.conf")):
+        _write(os.path.join(ngx, "stapling.conf"), "# Managed by carlos-emr-cert.\n")
+    log(f"configuration rendered for {s.server_name} (province {province_uc})")
+
+    # RENDERING IS NOT APPLYING — finish the job so the operator loop is
+    # simply "edit carlos-emr.env, run carlos-ctl init-config":
+    #  * selfsigned mode regenerates the certificate when the host name
+    #    changed (carlos-emr-cert's own guards keep operator-placed and ACME
+    #    certificates untouched; no-op when nothing changed);
+    #  * nginx is config-tested and reloaded so front-door changes serve now;
+    #  * the one thing that needs a restart — application-side settings — is
+    #    called out explicitly instead of left for the operator to discover.
+    cert = os.path.join(LIB, "carlos-emr-cert")
+    mode = ""
+    st = run([cert, "status"], capture_output=True)
+    for line in st.stdout.splitlines():
+        if line.startswith("mode:"):
+            mode = line.split(":", 1)[1].strip()
+    if mode == "selfsigned":
+        if run([cert, "selfsigned"]).returncode != 0:
+            warn("certificate refresh failed; run 'carlos-ctl cert status'")
+    if os.path.isdir("/run/systemd/system") and \
+            run(["systemctl", "is-active", "--quiet", "nginx.service"]).returncode == 0:
+        if run(["nginx", "-t"], capture_output=True).returncode == 0:
+            if run(["systemctl", "reload", "nginx.service"]).returncode == 0:
+                log("nginx reloaded — front-door changes are live")
+        else:
+            warn("the rendered nginx configuration FAILS its test; nginx was NOT reloaded")
+            warn("(the running config keeps serving). Details:")
+            run(["nginx", "-t"])
+    if run(["systemctl", "is-active", "--quiet", "carlos-emr.service"]).returncode == 0:
+        log("application-side settings (heap, timezone, database) need: carlos-ctl restart")
+    return 0
+
+
+def _write(path: str, content: str) -> None:
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(content)
+    os.chmod(path, 0o644)

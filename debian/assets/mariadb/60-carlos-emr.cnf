@@ -71,7 +71,7 @@ skip-name-resolve
 #     (/etc/apparmor.d/mariadbd) whose file rules are essentially the datadir
 #     and a short allow-list. LOAD_FILE('/etc/shadow') is refused by the
 #     kernel, which is a stronger control than a server-side setting the
-#     server itself could be talked out of. `carlosctl check` asserts the
+#     server itself could be talked out of. `carlos-ctl check` asserts the
 #     profile is loaded and enforcing.
 #   * The profile allows no path outside the datadir that a
 #     secure_file_priv directory could live in, so setting it would either
