@@ -527,9 +527,12 @@ The remaining secrets have deliberately different rotation behavior:
 
 - Rotating `PATIENT_PORTAL_SESSION_SECRET` invalidates all sessions, MFA challenges, reset tokens,
   and CSRF tokens. Schedule it as a patient sign-out event. The portal does not use this value as a
-  key directly: `token_keys.py` derives four independent HKDF keys from it, one each for CSRF
-  signatures, session tokens, MFA challenge/code hashes, and password-reset tokens, so a value
-  minted for one purpose cannot be valid in another. All four rotate together with the secret.
+  key directly: `token_keys.py` derives five independent HKDF keys from it, one each for CSRF
+  signatures, session tokens, MFA challenge/code hashes, password-reset tokens, and email-change
+  tokens, so a value minted for one purpose cannot be valid in another. All five rotate together
+  with the secret. The email-change key also protects phone-ownership proof codes, so rotating
+  this secret additionally invalidates any contact change waiting on its confirmation — plan for
+  patients having to restart those.
 - Rotating `PATIENT_PORTAL_IDENTITY_PROOF_SECRET` invalidates pending invitations; reissue them
   after cutover.
 - Rotating `PATIENT_PORTAL_AUDIT_HASH_SECRET` changes pseudonymous client/invite correlations;
@@ -763,15 +766,20 @@ addresses, and creates the immutable CARLOS demographic-sync review.
 The confirmation link expires after `PATIENT_PORTAL_EMAIL_CHANGE_TOKEN_TTL_SECONDS` (24 hours by
 default) and is one-time. Requesting another change revokes the previous link, so a corrected typo
 cannot leave the mistyped address able to take the account. A request whose confirmation email
-cannot be delivered is revoked rather than left pending. A change that only touches the phone
-number still applies immediately and opens its review straight away; **phone numbers are not
-separately proven, so an SMS MFA destination can still be moved by a patient holding the password
-alone** — closing that gap needs an SMS confirmation step and is outstanding work.
+cannot be delivered is revoked rather than left pending. A new or changed phone number must prove ownership
+before it becomes an MFA destination: `account_settings` sets `phone_confirmation_required`,
+stores `phone_confirmed_at = None`, sends a six-digit code, verifies it with `compare_digest`,
+and fails closed unless both the email and phone confirmations are present. Migration 0008 and
+four columns back this.
+
+Removing a phone number is the one contact change that still applies immediately without
+confirmation, which is deliberate: it withdraws an MFA destination rather than adding one.
 
 CARLOS must update eChart first and then confirm the exact review `revision`; repeat
 confirmations are idempotent and stale revisions return a conflict. Contact-change notices are sent
-only after the database commit, but their delivery is not yet backed by a durable outbox; clinics
-must treat the notice delivery metric as a pilot blocker until retryable delivery is wired.
+only after the database commit, and their delivery is backed by the durable outbox:
+`enqueue_contact_change_delivery` queues an `OUTBOX_KIND_CONTACT_CHANGE` row from both routes,
+which the worker retries with leases and terminal failure auditing.
 
 ## Unlock Secret Storage
 

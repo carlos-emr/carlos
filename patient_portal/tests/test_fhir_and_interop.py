@@ -775,3 +775,59 @@ def test_unexpected_fhir_failures_render_an_operation_outcome() -> None:
     assert body["resourceType"] == "OperationOutcome"
     # The exception text is PHI-adjacent and must not be echoed to the patient.
     assert "stored value is unusable" not in response.text
+
+
+def test_hl7_conformance_errors_report_shape_never_patient_values() -> None:
+    """Conformance errors must not carry PID values.
+
+    check_hl7_fixed_fields embedded them verbatim: for PID-5.1, PID-7, PID-13.4 and the JHN
+    identifier those are patient family name, date of birth, email and health card number.
+    Harmless only while nothing calls this pipeline - the moment it is wired to a route or a
+    logger it emits PHI into an error body or the application log, against CLAUDE.md's rule on
+    browser-visible exception messages.
+    """
+    identity = PortalPatientInteroperabilityIdentity(
+        clinic_id="default",
+        demographic_no=1234,
+        email=SEEDED_INVITE_EMAIL,
+        date_of_birth=datetime.fromisoformat(SEEDED_INVITE_DOB).date(),
+        health_card_number=SEEDED_INVITE_HCN,
+        family_name="Patient",
+        given_name="Example",
+    )
+    hl7_message = build_hl7_v251_patient_registration(
+        identity,
+        message_time=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
+        message_control_id="MSG0001",
+    )
+    tampered = hl7_message.replace("CARLOSPORTAL", "OTHERAPP", 1)
+
+    with pytest.raises(Hl7ConformanceProfileError) as raised:
+        validate_hl7_v251_patient_registration_profile(tampered)
+
+    reported = str(raised.value)
+    assert "MSH-5" in reported, "the failing path must still be named"
+    for patient_value in ("OTHERAPP", "CARLOSPORTAL", SEEDED_INVITE_EMAIL, SEEDED_INVITE_HCN):
+        assert patient_value not in reported
+    assert "characters" in reported
+
+
+def test_hl7_message_control_id_respects_the_v251_bound() -> None:
+    """MSH-10 is bounded at 20 in v2.5.1; borrowing the 128-char name limit certified a
+    message a conforming receiver truncates."""
+    identity = PortalPatientInteroperabilityIdentity(
+        clinic_id="default",
+        demographic_no=1234,
+        email=SEEDED_INVITE_EMAIL,
+        date_of_birth=datetime.fromisoformat(SEEDED_INVITE_DOB).date(),
+        health_card_number=SEEDED_INVITE_HCN,
+        family_name="Patient",
+        given_name="Example",
+    )
+
+    with pytest.raises(ValueError, match="20 characters or fewer"):
+        build_hl7_v251_patient_registration(
+            identity,
+            message_time=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
+            message_control_id="M" * 21,
+        )

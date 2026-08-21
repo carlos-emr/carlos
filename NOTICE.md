@@ -44,6 +44,10 @@ Dates are mostly taken from the copyright notices and may not reflect contributi
 All original copyright notices are preserved in source files as required by
 the GNU General Public License.
 
+The standalone patient portal under `patient_portal/` is new CARLOS Contributors work rather
+than inherited code. It carries the same GPL-2.0-or-later header as the rest of the project in
+every source file, and is licensed on the same terms.
+
 ## Data Attribution
 
 - Email PDF passphrase generation uses an English wordlist derived in part from

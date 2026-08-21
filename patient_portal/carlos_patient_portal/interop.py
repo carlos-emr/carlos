@@ -1,3 +1,22 @@
+# Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+#
+# This software is published under the GPL GNU General Public License.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+# CARLOS EMR Project
+
 import json
 import re
 from collections.abc import Callable
@@ -53,6 +72,9 @@ HL7_HEALTH_CARD_ASSIGNING_AUTHORITY = "CARLOSHCN"
 HL7_EMAIL_USE_CODE = "NET"
 HL7_EMAIL_EQUIPMENT_TYPE = "Internet"
 MAX_PATIENT_NAME_LENGTH = 128
+# HL7 v2.5.1 bounds MSH-10 at 20 characters. Borrowing the 128-character name limit let
+# the profile validator certify a message a conforming receiver truncates.
+MAX_MESSAGE_CONTROL_ID_LENGTH = 20
 MAX_HL7_NAMESPACE_ID_LENGTH = 20
 HL7_SEPARATOR_PATTERN = re.compile(r"[|^~\\&\r\n]")
 HL7_NAMESPACE_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
@@ -541,6 +563,20 @@ def check_hl7_required_segments(message: Message, profile_payload: dict[str, obj
     return errors
 
 
+def describe_hl7_value_shape(value: str) -> str:
+    """Describe a field value without reproducing it.
+
+    These conformance errors are returned to callers and are a logger call away from the
+    application log. PID-5.1, PID-7, PID-13.4 and the JHN identifier are patient family name,
+    date of birth, email and health card number, so the values themselves must never appear -
+    CLAUDE.md forbids PHI in browser-visible exception messages, and the moment this pipeline
+    is wired to a route or a logger the shape is all a diagnosing maintainer legitimately needs.
+    """
+    if not value:
+        return "empty"
+    return f"{len(value)} characters"
+
+
 def check_hl7_fixed_fields(message: Message, profile_payload: dict[str, object]) -> list[str]:
     """Every repetition of each pinned path carries the value the profile fixes it to."""
     errors: list[str] = []
@@ -554,7 +590,11 @@ def check_hl7_fixed_fields(message: Message, profile_payload: dict[str, object])
         # vouch for whatever follows it.
         for actual_value in get_hl7_profile_path_values(message, path) or [""]:
             if actual_value != expected_value:
-                errors.append(f"{path} expected {expected_value!r}, got {actual_value!r}")
+                errors.append(
+                    f"{path} does not match the profile "
+                    f"(expected {describe_hl7_value_shape(expected_value)}, "
+                    f"got {describe_hl7_value_shape(actual_value)})"
+                )
     return errors
 
 
@@ -704,6 +744,10 @@ def build_hl7_v251_patient_registration(
         message_control_id,
         "message_control_id",
     )
+    if len(normalized_message_control_id) > MAX_MESSAGE_CONTROL_ID_LENGTH:
+        raise ValueError(
+            f"message_control_id must be {MAX_MESSAGE_CONTROL_ID_LENGTH} characters or fewer"
+        )
     message_timestamp = format_hl7_timestamp(message_time)
     message = Message(
         HL7_MESSAGE_STRUCTURE,
