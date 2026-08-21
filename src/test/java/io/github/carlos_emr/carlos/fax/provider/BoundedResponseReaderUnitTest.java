@@ -34,6 +34,7 @@ import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.io.entity.BasicHttpEntity;
 import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -44,11 +45,13 @@ import org.junit.jupiter.api.Test;
  * that an oversized body — declared, chunked, or lying about its length —
  * fails as an IOException on that one request instead.
  */
+@Tag("unit")
+@Tag("fax")
 class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("body under the cap is returned intact with its declared charset")
-    void underCapReturnsBody() throws IOException {
+    void shouldReturnBody_whenUnderCap() throws IOException {
         byte[] body = "{\"Status\":\"Success\"}".getBytes(StandardCharsets.UTF_8);
         assertThat(BoundedResponseReader.read(
                 new ByteArrayEntity(body, ContentType.APPLICATION_JSON), 1024))
@@ -57,7 +60,7 @@ class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("an honestly-declared oversized body fails fast, before any read")
-    void declaredOversizeFailsFast() {
+    void shouldFailFast_whenDeclaredContentLengthOversized() {
         byte[] body = new byte[64];
         BasicHttpEntity entity = new BasicHttpEntity(
                 new ByteArrayInputStream(body), 10_000_000L, ContentType.APPLICATION_JSON);
@@ -69,7 +72,7 @@ class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("a chunked body (no Content-Length) is capped on the bytes actually read")
-    void chunkedOversizeIsCapped() {
+    void shouldCap_whenChunkedBodyExceedsLimit() {
         InputStream endless = new InputStream() {
             @Override
             public int read() {
@@ -84,7 +87,7 @@ class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("readBytes returns the raw bytes intact, so JAXB can honour the XML prolog")
-    void readBytesRoundTrips() throws IOException {
+    void shouldReturnRawBytes_whenReadingForXmlPrologDetection() throws IOException {
         // Latin-1 bytes: proves readBytes does NOT decode/re-encode (the
         // regression was decoding to a String against an absent charset).
         byte[] body = new byte[]{'<', 'x', '>', (byte) 0xE9, '<', '/', 'x', '>'};
@@ -95,7 +98,7 @@ class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("a malformed Content-Type charset falls back to UTF-8 instead of throwing unchecked")
-    void malformedCharsetFallsBack() throws IOException {
+    void shouldFallBackToUtf8_whenContentTypeCharsetMalformed() throws IOException {
         byte[] body = "{\"ok\":true}".getBytes(StandardCharsets.UTF_8);
         org.apache.hc.core5.http.HttpEntity entity =
                 org.mockito.Mockito.mock(org.apache.hc.core5.http.HttpEntity.class);
@@ -108,7 +111,7 @@ class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("an overstated Content-Length does not pre-allocate the cap (tiny body, huge header)")
-    void overstatedContentLengthDoesNotPreallocate() throws IOException {
+    void shouldNotPreallocateCap_whenContentLengthOverstated() throws IOException {
         // 10-byte body claiming 256 MiB: must read fine and allocate for the
         // body, never for the header. (Regression: the pre-size once trusted
         // this header and reserved the whole cap.)
@@ -127,7 +130,7 @@ class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("a body whose Content-Length understates its real size is still capped")
-    void lyingContentLengthIsCapped() {
+    void shouldCap_whenContentLengthUnderstatesBody() {
         byte[] body = new byte[8192];
         BasicHttpEntity entity = new BasicHttpEntity(
                 new ByteArrayInputStream(body), 10L, ContentType.APPLICATION_JSON);
