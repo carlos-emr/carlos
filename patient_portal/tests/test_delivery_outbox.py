@@ -18,6 +18,7 @@ from carlos_patient_portal.models import (
     AUDIT_EVENT_PASSWORD_RESET_DELIVERY,
     OUTBOX_STATUS_DELIVERED,
     OUTBOX_STATUS_FAILED,
+    OUTBOX_STATUS_PENDING,
     OUTBOX_STATUS_PROCESSING,
     PASSWORD_RESET_STATUS_PENDING,
     PASSWORD_RESET_STATUS_REVOKED,
@@ -99,9 +100,15 @@ def test_outbox_encrypts_and_delivers_reset_with_stable_message_id() -> None:
         ) is not None
 
 
-def test_successful_delivery_survives_audit_insert_failure(
+def test_delivery_retries_when_its_audit_row_cannot_be_written(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """An unwritable audit row must send the delivery back, not close it as delivered.
+
+    Falling through to `delivered` meant a live password-reset link reached the patient with
+    neither a SUCCESS nor a FAILURE row behind it - the exact condition a breach review cannot
+    reconstruct. Retrying risks a duplicate email, which is the cheaper failure.
+    """
     sender = RecordingPortalEmailSender()
     app = migrated_development_app(
         email_sender=sender,
@@ -127,14 +134,68 @@ def test_successful_delivery_survives_audit_insert_failure(
     )
 
     assert result is not None
+    assert result.status == OUTBOX_STATUS_PENDING
+    with app.state.session_factory() as session:
+        delivery = session.get(PatientPortalOutboundDelivery, delivery_id)
+        assert delivery.status == OUTBOX_STATUS_PENDING
+        assert delivery.delivered_at is None
+        # The token stays usable: the message did go out, and the patient must still be able
+        # to complete the reset while the row is retried.
+        assert session.get(PatientPortalPasswordResetToken, reset_id).status == (
+            PASSWORD_RESET_STATUS_PENDING
+        )
+
+
+def test_reset_delivered_during_a_token_race_is_audited_as_superseded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A reset email that went out must never be recorded as a delivery failure.
+
+    If the patient completes the reset, or requests another, between the send and
+    _finish_delivery, record_password_reset_delivery_outcome raises. That previously set the
+    row to `failed` - terminal, so the terminal handler never ran either - leaving a link that
+    physically landed in the mailbox with neither a SUCCESS nor a FAILURE audit row, and
+    sending operators after an SMTP problem that never happened.
+    """
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(
+        email_sender=sender,
+        outbox_encryption_secret=OUTBOX_ENCRYPTION_SECRET,
+    )
+    account_id = activate_seeded_patient_account(app, TestClient(app))
+    delivery_id, reset_id = queue_reset(app, account_id)
+
+    def token_already_consumed(*args: object, **kwargs: object) -> None:
+        raise delivery_outbox.PasswordResetTokenInvalidError()
+
+    monkeypatch.setattr(
+        delivery_outbox,
+        "record_password_reset_delivery_outcome",
+        token_already_consumed,
+    )
+    result = process_one_delivery(
+        app.state.session_factory,
+        email_sender=sender,
+        encryption_secret=OUTBOX_ENCRYPTION_SECRET,
+        max_attempts=3,
+        lease_seconds=60,
+    )
+
+    assert result is not None
     assert result.status == OUTBOX_STATUS_DELIVERED
+    assert len(sender.messages) == 1
     with app.state.session_factory() as session:
         assert session.get(PatientPortalOutboundDelivery, delivery_id).status == (
             OUTBOX_STATUS_DELIVERED
         )
-        assert session.get(PatientPortalPasswordResetToken, reset_id).status == (
-            PASSWORD_RESET_STATUS_PENDING
+        superseded = session.scalar(
+            select(PatientPortalAuditEvent).where(
+                PatientPortalAuditEvent.event_type == AUDIT_EVENT_PASSWORD_RESET_DELIVERY,
+                PatientPortalAuditEvent.reason == "password_reset:superseded",
+            )
         )
+        assert superseded is not None
+        assert superseded.account_id == account_id
 
 
 def test_active_delivery_renews_its_lease_during_a_slow_provider_call(tmp_path) -> None:

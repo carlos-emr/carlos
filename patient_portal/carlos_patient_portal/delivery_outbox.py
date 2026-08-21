@@ -26,8 +26,10 @@ from carlos_patient_portal.auth import (
 )
 from carlos_patient_portal.email_delivery import PortalEmailDeliveryError, PortalEmailSender
 from carlos_patient_portal.models import (
+    AUDIT_ACTOR_TYPE_PATIENT,
     AUDIT_ACTOR_TYPE_SYSTEM,
     AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+    AUDIT_EVENT_PASSWORD_RESET_DELIVERY,
     AUDIT_OUTCOME_FAILURE,
     AUDIT_OUTCOME_SUCCESS,
     OUTBOX_KIND_CONTACT_CHANGE,
@@ -56,6 +58,9 @@ MAX_OUTBOX_PAYLOAD_BYTES = 4096
 # ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE there.
 OUTBOX_REASON_DELIVERY_UNAVAILABLE = "delivery_unavailable"
 OUTBOX_AUDIT_ACTOR = "portal-outbox"
+# Distinct from delivery_failed: the provider call succeeded and only the audit write did
+# not, so the terminal handler must not revoke a token whose link is already in the mailbox.
+OUTBOX_FAILURE_AUDIT_UNAVAILABLE = "delivery_audit_unavailable"
 
 
 class OutboxPayloadError(Exception):
@@ -297,13 +302,51 @@ def _mark_terminal_contact_change_failure(
     session.flush()
 
 
+def _record_reset_delivery_superseded(
+    session: Session,
+    delivery: PatientPortalOutboundDelivery,
+    *,
+    outcome: str,
+) -> None:
+    """Audit a delivery whose reset token was consumed or replaced while the send was in flight.
+
+    The message physically left; the token it carried simply no longer owns the flow. Recording
+    nothing here is what produced the gap this replaces - neither a SUCCESS nor a FAILURE row for
+    an email that reached the patient's mailbox. record_mfa_delivery_outcome already resolves the
+    equivalent MFA race this way, down to the ``:superseded`` reason suffix.
+    """
+    account = session.scalar(
+        select(PatientPortalAccount).where(PatientPortalAccount.id == delivery.account_id)
+    )
+    if account is None:
+        return
+    record_audit_event(
+        session,
+        event_type=AUDIT_EVENT_PASSWORD_RESET_DELIVERY,
+        outcome=outcome,
+        actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+        actor=account.username,
+        clinic_id=account.clinic_id,
+        demographic_no=account.demographic_no,
+        account_id=account.id,
+        reason="password_reset:superseded",
+    )
+
+
 def _record_reset_delivery_outcome_best_effort(
     session: Session,
     delivery: PatientPortalOutboundDelivery,
     *,
     outcome: str,
 ) -> bool:
-    """Keep append-only audit failure from replacing the already-known delivery outcome."""
+    """Record the delivery outcome; report whether the row may be completed as-is.
+
+    Returning False no longer means "mark this failed". It means the outcome could not be
+    recorded, so the row must go back for another attempt rather than close with no audit
+    trail. Duplicate delivery is the accepted cost: an unaudited password-reset email is the
+    condition a breach review cannot reconstruct, and it is the one this function exists to
+    prevent.
+    """
     try:
         with session.begin_nested():
             record_password_reset_delivery_outcome(
@@ -318,14 +361,34 @@ def _record_reset_delivery_outcome_best_effort(
             )
             session.flush()
     except PasswordResetTokenInvalidError:
-        return False
+        # The patient completed the reset, or asked for another, between the send and this
+        # write. The email still went out, so it is audited as superseded rather than recorded
+        # as a delivery failure that would send operators after a nonexistent SMTP problem.
+        try:
+            with session.begin_nested():
+                _record_reset_delivery_superseded(session, delivery, outcome=outcome)
+                session.flush()
+        except SQLAlchemyError as exc:
+            logger.error(  # NOSONAR - traceback details can contain database values
+                # nosemgrep: python-logger-credential-disclosure -- identifiers and class only
+                "Password-reset superseded audit write failed for delivery %s: %s",
+                delivery.id,
+                type(exc).__name__,
+            )
+            return False
+        return True
     except SQLAlchemyError as exc:
-        # Only the exception class is logged; no credential or exception message is emitted.
-        # nosemgrep: python-logger-credential-disclosure -- logs only type(exc).__name__
+        # Previously this fell through to `return True`, so an audit-write failure still closed
+        # the row as delivered: a live reset link reached the patient with no durable record.
+        # Retrying keeps the invariant that every delivery carries an outcome row.
+        # nosemgrep: python-logger-credential-disclosure -- identifiers and class only
         logger.error(  # NOSONAR - traceback details can contain database values
-            "Password-reset delivery audit write failed: %s",
+            "Password-reset delivery audit write failed for delivery %s (account %s): %s",
+            delivery.id,
+            delivery.account_id,
             type(exc).__name__,
         )
+        return False
     return True
 
 
@@ -354,24 +417,37 @@ def _finish_delivery(
     now = utc_now()
     delivery.lease_expires_at = None
     if succeeded:
+        # Completion is written optimistically before the audit call because the audit write
+        # flushes, and ck_pp_outbound_delivery_lease_matches_status rejects a `processing` row
+        # whose lease has just been cleared.
         delivery.status = OUTBOX_STATUS_DELIVERED
         delivery.delivered_at = now
         delivery.last_failure_code = None
+        audit_recorded = True
         if delivery.kind == OUTBOX_KIND_PASSWORD_RESET and delivery.reset_token_id is not None:
-            if not _record_reset_delivery_outcome_best_effort(
+            audit_recorded = _record_reset_delivery_outcome_best_effort(
                 session,
                 delivery,
                 outcome=AUDIT_OUTCOME_SUCCESS,
-            ):
-                delivery.status = OUTBOX_STATUS_FAILED
-                delivery.delivered_at = None
-                delivery.last_failure_code = "reset_token_invalid"
-        return delivery.status
+            )
+        if audit_recorded:
+            return delivery.status
+        # The message left, but its outcome row could not be written. Closing the row here is
+        # what produced a delivered reset link with no durable record, so the optimistic
+        # completion is rolled back and the row goes for another attempt instead.
+        delivery.delivered_at = None
+        succeeded = False
+        failure_code = OUTBOX_FAILURE_AUDIT_UNAVAILABLE
     delivery.last_failure_code = (failure_code or "delivery_failed")[:64]
     if delivery.attempt_count >= max_attempts:
         delivery.status = OUTBOX_STATUS_FAILED
         if delivery.kind == OUTBOX_KIND_PASSWORD_RESET:
-            _mark_terminal_reset_failure(session, delivery)
+            # Exhausting attempts because the *audit* store was unreachable is not evidence the
+            # patient never got the link - the send succeeded every time. Revoking the token
+            # here would lock a patient out of a reset they can see in their mailbox, so the
+            # terminal handler is skipped and the distinct failure code carries the reason.
+            if failure_code != OUTBOX_FAILURE_AUDIT_UNAVAILABLE:
+                _mark_terminal_reset_failure(session, delivery)
         elif delivery.kind == OUTBOX_KIND_CONTACT_CHANGE:
             _mark_terminal_contact_change_failure(session, delivery)
         return delivery.status
