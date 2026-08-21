@@ -718,7 +718,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                         %>
                         <div class="preventionProcedure" <%=hider%>
-                             onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(measure))%>&amp;id=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(demographic_no))%>&amp;template=<%= SafeEncode.forJavaScriptAttribute(URLEncoder.encode(temp,"UTF-8")) %>','addMeasurementData')">
+                             onclick="javascript:openMeasurementPopup(465,635,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(measure))%>&amp;id=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(demographic_no))%>&amp;template=<%= SafeEncode.forJavaScriptAttribute(URLEncoder.encode(temp,"UTF-8")) %>','addMeasurementData')">
 
                             <p <%=indColour%>
                                     title="Entered By: <carlos:encode value='<%= mdb.getProviderFirstName() %>' context="htmlAttribute"/> <carlos:encode value='<%= mdb.getProviderLastName() %>' context="htmlAttribute"/>">
@@ -1008,6 +1008,15 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
     <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
     <script type="text/javascript">
+
+        function openMeasurementPopup(height, width, url, windowName) {
+            var measurementPopup = popup(height, width, url, windowName);
+            if (measurementPopup != null && window.opener != null && !window.opener.closed
+                    && typeof window.opener.registerNestedMeasurementWindow === "function") {
+                window.opener.registerNestedMeasurementWindow(window, measurementPopup);
+            }
+            return measurementPopup;
+        }
 
         $(".preview").on("click", function () {
 

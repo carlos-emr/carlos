@@ -51,6 +51,11 @@ trap 'rm -f "${LOAD_SQL}"' EXIT
   cat "${MIG}/common/V1__baseline_schema.sql" \
       "${MIG}/on/V1.0.1__on_schema.sql" \
       "${MIG}/on/V1.0.2__on_data.sql"
+  # The genesis files issue a bare SET NAMES utf8mb4, whose default collation is
+  # uca1400 on current MariaDB images. Re-pin the connection before the forward
+  # chain so the checksum-frozen V1.0.7 migration can compare against its
+  # utf8mb4_general_ci table and the later repair migration remains reachable.
+  echo "SET NAMES utf8mb4 COLLATE utf8mb4_general_ci;"
   if [ -n "${FORWARD}" ]; then
     for f in ${FORWARD}; do
       echo "-- including $(basename "$f")" >&2
@@ -79,6 +84,8 @@ $SQL drugref2 < /database/mysql/drugref/2026-04-19-drugref-tc-atc-f.sql
 # the baseline reference rows with the demo dataset (patients, appointments, notes, etc.).
 echo 'Loading demo data for development...'
 $SQL oscar < /scripts/development.sql
+echo 'Restoring current Administration privileges...'
+$SQL oscar < /scripts/development_privileges.sql
 echo 'Preparing demographic names for development environment...'
 $SQL oscar < /database/mysql/updates/update-2025-11-06-demo-name-sanitization.sql
 echo 'Seeding Rich Text Letter eForm...'

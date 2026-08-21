@@ -219,12 +219,33 @@ class EFormBrowserPdfServiceUnitTest {
                 // onload; without a DOM-quiet window the capture raced the editor and sometimes
                 // printed half-built chrome. Bounded so a perpetual animation cannot stall renders.
                 .contains("MutationObserver")
+                .contains("PerformanceObserver")
+                .contains("resourceObserver.observe({ type: 'resource', buffered: true })")
+                // The pending-request count is published once per navigation by
+                // INSTALL_NETWORK_ACTIVITY_TRACKING_JS, before this script or stored form code ever
+                // runs; this settle script only polls it, so an already-in-flight request started
+                // before this script began executing is still seen on the first check.
+                .contains("window.__carlosRendererPendingNetworkRequests")
+                .contains("pendingNetworkRequestCount()")
+                .contains("networkPollInterval")
+                .contains("if (pendingNetworkRequestCount() > 0) { return; }")
+                .contains("clearInterval(networkPollInterval);")
                 .contains("quietWindowMillis = 500")
                 .contains("maxWaitMillis = 5000")
                 // Cap-exit is signalled distinctly from a quiet settle ('CAPPED' vs null) so the JVM
                 // can WARN that a still-mutating page was captured as-is rather than logging it clean.
                 .contains("'CAPPED'")
                 .contains("requestAnimationFrame");
+    }
+
+    @Test
+    @DisplayName("should wrap fetch and XHR before any stored form code runs, publishing a pending-request count")
+    void shouldInstallNetworkActivityTracking_beforeStoredFormCode() {
+        assertThat(EFormBrowserPdfService.INSTALL_NETWORK_ACTIVITY_TRACKING_JS)
+                .contains("__carlosRendererPendingNetworkRequests")
+                .contains("window.fetch = function()")
+                .contains("XMLHttpRequest.prototype.send = function()")
+                .contains("this.addEventListener('loadend', finished, { once: true })");
     }
 
     @Test

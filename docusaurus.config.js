@@ -27,6 +27,25 @@ const config = {
     locales: ['en'],
   },
 
+  markdown: {
+    // Parse .md as CommonMark and reserve MDX for .mdx files.
+    //
+    // Docusaurus 3 defaults to compiling every .md file as MDX, which is far
+    // stricter than CommonMark: raw XML/XSD samples, `<?xml ... ?>` prologues,
+    // `<https://...>` autolinks, HTML comments, and unclosed `<br>` all become
+    // hard build errors. Most of docs/ is verbatim imported material -- OHIP and
+    // MOH technical specifications under docs/billing/external/ plus archived
+    // API notes under docs/archive/ -- where those constructs are the content,
+    // not markup we control. Under MDX, 25 of 135 files failed to compile and
+    // the docs build could not run at all.
+    //
+    // 'detect' keeps that content byte-for-byte intact while leaving full MDX
+    // available to anything that opts in by using the .mdx extension. No file
+    // in docs/ currently uses MDX features (no imports, exports, or JSX
+    // components), so nothing loses capability.
+    format: 'detect',
+  },
+
   presets: [
     [
       'classic',
@@ -135,7 +154,7 @@ const config = {
       prism: {
         theme: lightTheme,
         darkTheme: darkTheme,
-        additionalLanguages: ['java', 'xml', 'sql', 'bash'],
+        additionalLanguages: ['java', 'markup', 'sql', 'bash'],
       },
     }),
 };
