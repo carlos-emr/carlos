@@ -143,8 +143,8 @@
             Official title is band number. Left key value as status number so that
             older users can roll back.
          --%>
-        <input type="text" id="statusNum" name="statusNum" maxlength="10" size="10" value="${ demoExt["statusNum"] }">
-        <input type="hidden" name="statusNumOrig" value="${ demoExt["statusNum"] }">
+        <input type="text" id="statusNum" name="statusNum" maxlength="10" size="10" value="${carlos:forHtmlAttribute(demoExt['statusNum'])}">
+        <input type="hidden" name="statusNumOrig" value="${carlos:forHtmlAttribute(demoExt['statusNum'])}">
     </td>
     <% if (!CarlosProperties.getInstance().isPropertyActive("showBandNumberOnly")) { %>
     <td align="right" class="label disableStyle">
@@ -153,7 +153,7 @@
     <td align="left">
         <select id="fNationCom" name="fNationCom">
             <c:forEach items="${firstNationCommunities.items}" var="firstNationCommunity">
-                <option value="${firstNationCommunity.value}" ${firstNationCommunity.value eq demoExt["fNationCom"] ? 'selected' : '' }>
+                <option value="${carlos:forHtmlAttribute(firstNationCommunity.value)}" ${firstNationCommunity.value eq demoExt["fNationCom"] ? 'selected' : '' }>
                     ${carlos:forHtml(firstNationCommunity.label)}
                 </option>
             </c:forEach>
@@ -169,16 +169,16 @@
     </td>
     <td align="left">
         <input type="text" id="fNationFamilyNumber" name="fNationFamilyNumber"
-               value="${ demoExt["fNationFamilyNumber"] }">
-        <%--	    	<input type="hidden" name="fNationFamilyNumberOrig" value="${ demoExt["fNationFamilyNumber"] }">--%>
+               value="${carlos:forHtmlAttribute(demoExt['fNationFamilyNumber'])}">
+        <%--	    	<input type="hidden" name="fNationFamilyNumberOrig" value="${carlos:forHtmlAttribute(demoExt['fNationFamilyNumber'])}">--%>
     </td>
     <td align="right" class="label disableStyle">
         <strong>Family Position:</strong>
     </td>
     <td align="left">
         <input type="text" id="fNationFamilyPosition" name="fNationFamilyPosition"
-               value="${ demoExt["fNationFamilyPosition"] }">
-        <%--	    	<input type="hidden" name="fNationFamilyPositionOrig" value="${ demoExt["fNationFamilyPosition"] }">--%>
+               value="${carlos:forHtmlAttribute(demoExt['fNationFamilyPosition'])}">
+        <%--	    	<input type="hidden" name="fNationFamilyPositionOrig" value="${carlos:forHtmlAttribute(demoExt['fNationFamilyPosition'])}">--%>
     </td>
 </tr>
 
@@ -198,7 +198,7 @@
             <option value="12" ${ demoExt['ethnicity'] eq 12 ? 'selected' : '' } >Out of Country Residents</option>
             <option value="13" ${ demoExt['ethnicity'] eq 13 ? 'selected' : '' } >Other</option>
         </select>
-        <input type="hidden" name="ethnicityOrig" value="${ demoExt["ethnicity"] }"/>
+        <input type="hidden" name="ethnicityOrig" value="${carlos:forHtmlAttribute(demoExt['ethnicity'])}"/>
     </td>
     <td><!-- padding --></td>
     <td><!-- padding --></td>
