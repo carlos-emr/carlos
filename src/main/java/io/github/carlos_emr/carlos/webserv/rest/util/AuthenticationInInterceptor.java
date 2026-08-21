@@ -41,6 +41,7 @@ import org.apache.cxf.phase.Phase;
 import org.apache.cxf.transport.http.AbstractHTTPDestination;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -88,7 +89,8 @@ public class AuthenticationInInterceptor extends AbstractPhaseInterceptor<Messag
         if (request != null) {
             oscarLog.setIp(request.getRemoteAddr());
             oscarLog.setContent(request.getRequestURL().toString());
-            oscarLog.setData(request.getParameterMap().toString());
+            String consumerKey = request.getParameter("oauth_consumer_key");
+            oscarLog.setData("consumer_key=" + (consumerKey == null ? "" : LogSafe.sanitize(consumerKey)));
         }
 
         LogAction.addLogSynchronous(oscarLog);
