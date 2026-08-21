@@ -160,6 +160,102 @@ class PortalTlsTrustUnitTest {
         return Duration.ofSeconds(5);
     }
 
+    /**
+     * Reads the versions a ClientHello offers, from the {@code supported_versions} extension.
+     *
+     * <p>Parsed from the wire rather than asserted against configuration, because the question is
+     * what this client will actually negotiate with a portal, not what the builder was told.
+     * Returns an empty set if the extension is absent, which is itself a failure for a TLS 1.3
+     * capable client.
+     */
+    private static Set<Integer> offeredTlsVersions(byte[] clientHello) {
+        // Record header: type(1) legacyVersion(2) length(2); handshake header: type(1) length(3).
+        int cursor = 5 + 4;
+        cursor += 2; // legacy client_version
+        cursor += 32; // random
+        cursor += 1 + (clientHello[cursor] & 0xFF); // legacy_session_id
+        int cipherSuitesLength = ((clientHello[cursor] & 0xFF) << 8) | (clientHello[cursor + 1] & 0xFF);
+        cursor += 2 + cipherSuitesLength;
+        cursor += 1 + (clientHello[cursor] & 0xFF); // legacy_compression_methods
+        int extensionsEnd =
+                cursor + 2 + (((clientHello[cursor] & 0xFF) << 8) | (clientHello[cursor + 1] & 0xFF));
+        cursor += 2;
+        Set<Integer> offered = new java.util.LinkedHashSet<>();
+        while (cursor + 4 <= extensionsEnd) {
+            int type = ((clientHello[cursor] & 0xFF) << 8) | (clientHello[cursor + 1] & 0xFF);
+            int length = ((clientHello[cursor + 2] & 0xFF) << 8) | (clientHello[cursor + 3] & 0xFF);
+            int body = cursor + 4;
+            if (type == 0x002b) { // supported_versions
+                int listEnd = body + 1 + (clientHello[body] & 0xFF);
+                for (int at = body + 1; at + 1 < listEnd; at += 2) {
+                    offered.add(((clientHello[at] & 0xFF) << 8) | (clientHello[at + 1] & 0xFF));
+                }
+            }
+            cursor = body + length;
+        }
+        return offered;
+    }
+
+    /**
+     * The floor is a property of what goes on the wire, so it is read off the wire.
+     *
+     * <p>A TLS 1.1 server cannot be stood up to test this from the other side: Java 21 disables
+     * TLS 1.0 and 1.1 through {@code jdk.tls.disabledAlgorithms}, so {@code setEnabledProtocols}
+     * rejects them. Inspecting the ClientHello asks the question directly instead.
+     *
+     * <p>This does not pin who enforces the floor, and two layers currently do: httpcore5's
+     * {@code TLS.excludeWeak} strips 1.0/1.1 by default, and the socket factory names 1.2/1.3
+     * explicitly. Run against a JVM with {@code TLSv1}/{@code TLSv1.1} removed from
+     * {@code jdk.tls.disabledAlgorithms}, the code passes with either layer alone — so treat
+     * this as a guard on the observable outcome, not as evidence for one mechanism.
+     */
+    @Test
+    @DisplayName("should offer only TLS 1.2 and 1.3, on both the pinned and unpinned paths")
+    void shouldOfferOnlyModernTlsVersions_onEveryPath() throws Exception {
+        for (Set<String> pins : java.util.List.of(Set.<String>of(), Set.of("sha256/" + "A".repeat(43) + "="))) {
+            try (java.net.ServerSocket listener =
+                    new java.net.ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+                byte[][] captured = new byte[1][];
+                Thread accepter =
+                        new Thread(
+                                () -> {
+                                    try (java.net.Socket accepted = listener.accept()) {
+                                        byte[] buffer = new byte[4096];
+                                        int read = accepted.getInputStream().read(buffer);
+                                        captured[0] = java.util.Arrays.copyOf(buffer, Math.max(read, 0));
+                                    } catch (IOException ignored) {
+                                        // The client tears the connection down once we never reply.
+                                    }
+                                });
+                accepter.start();
+
+                String origin = "https://127.0.0.1:" + listener.getLocalPort();
+                try (PatientPortalHttpClientExchange transport =
+                        pins.isEmpty()
+                                ? new PatientPortalHttpClientExchange(quick(), quick())
+                                : new PatientPortalHttpClientExchange(quick(), quick(), pins)) {
+                    assertThatThrownBy(() -> transport.send(request(origin)))
+                            .isInstanceOf(IOException.class);
+                }
+                accepter.join(Duration.ofSeconds(10).toMillis());
+
+                assertThat(captured[0]).isNotNull();
+                assertThat(captured[0][0])
+                        .withFailMessage("expected a TLS handshake record")
+                        .isEqualTo((byte) 0x16);
+                Set<Integer> offered = offeredTlsVersions(captured[0]);
+                assertThat(offered)
+                        .withFailMessage(
+                                "ClientHello offered %s; the portal channel must not negotiate"
+                                        + " below TLS 1.2",
+                                offered)
+                        .isNotEmpty()
+                        .allMatch(version -> version >= 0x0303);
+                assertThat(offered).contains(0x0304); // TLS 1.3 still available
+            }
+        }
+    }
+
     @Test
     @DisplayName("should refuse a portal whose certificate no trusted CA issued")
     void shouldRefuseUntrustedCertificate_andSendNothingToIt() throws Exception {

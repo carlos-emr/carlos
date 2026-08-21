@@ -40,10 +40,11 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
-import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.ssl.TLS;
 import org.apache.hc.core5.util.Timeout;
 import org.apache.logging.log4j.Logger;
 
@@ -141,13 +142,29 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
                 certificatePins == null || certificatePins.isEmpty()
                         ? PINNING_OFF
                         : String.format(Locale.ROOT, PINNING_ON, certificatePins.size()));
+        // States the TLS floor rather than inheriting it. This is deliberately NOT a fix for a
+        // hole: httpcore5's TLS.excludeWeak strips TLSv1 and TLSv1.1 from whatever the JVM
+        // enables, and HttpClient applies it by default, so this client already offered only
+        // 1.2/1.3 -- verified by driving the pre-change code on a JVM whose
+        // jdk.tls.disabledAlgorithms had TLSv1/TLSv1.1 removed and reading the ClientHello off
+        // the wire. Semgrep's two findings here (weak-ssl-context, disallow-old-tls-versions1)
+        // are false positives on this stack.
+        //
+        // Naming the versions anyway makes the guarantee ours instead of a transitive
+        // dependency's default, and clears the findings without a suppression. The floor is set
+        // on both paths because a socket factory was previously installed only when pins were
+        // configured, which left the property stated in one branch and implicit in the other.
+        //
+        // No hostname verifier is passed. The builder keeps HttpClient's default, and supplying
+        // one here is the second classic way to disable a TLS check while appearing to configure
+        // one -- the first being a permissive trust manager.
+        SSLConnectionSocketFactoryBuilder socketFactoryBuilder =
+                SSLConnectionSocketFactoryBuilder.create()
+                        .setTlsVersions(TLS.V_1_2, TLS.V_1_3);
         if (certificatePins != null && !certificatePins.isEmpty()) {
-            // Single-argument SSLConnectionSocketFactory keeps HttpClient's default hostname
-            // verifier. Passing a verifier here would be the second classic way to disable a TLS
-            // check while appearing to configure one.
-            connectionManagerBuilder.setSSLSocketFactory(
-                    new SSLConnectionSocketFactory(pinnedContext(certificatePins)));
+            socketFactoryBuilder.setSslContext(pinnedContext(certificatePins));
         }
+        connectionManagerBuilder.setSSLSocketFactory(socketFactoryBuilder.build());
         PoolingHttpClientConnectionManager connectionManager = connectionManagerBuilder.build();
         RequestConfig requestConfig =
                 RequestConfig.custom()
@@ -185,6 +202,9 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
      */
     private static SSLContext pinnedContext(Set<String> certificatePins) {
         try {
+            // "TLS" means "the provider's best supported version". Naming a fixed version here
+            // would freeze this channel at it; the floor is expressed on the socket factory above
+            // via setTlsVersions, which is where it belongs.
             SSLContext context = SSLContext.getInstance("TLS");
             context.init(
                     null, new TrustManager[] {PortalCertificatePinning.over(certificatePins)}, null);

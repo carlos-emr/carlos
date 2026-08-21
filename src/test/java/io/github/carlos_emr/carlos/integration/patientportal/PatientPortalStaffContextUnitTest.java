@@ -232,5 +232,30 @@ class PatientPortalStaffContextUnitTest {
             assertThat(staff.permissions()).hasSize(1);
             assertThat(staff.permissionHeaderValue()).isEqualTo("portal.invite.manage");
         }
+
+        /**
+         * The outbound half of the same property, which nothing pinned.
+         *
+         * <p>The inbound test above shows the caller's set is copied. Static analysis flags the
+         * generated accessor as exposing internal representation, which would be true if the
+         * compact constructor kept a mutable set. It assigns {@code Set.copyOf}, so a caller that
+         * reaches for the permission set cannot add a privilege the provider does not hold.
+         */
+        @Test
+        @DisplayName("should refuse mutation through the accessor it hands out")
+        void shouldExposeAnUnmodifiableSet_toEveryCaller() {
+            PatientPortalStaffContext staff =
+                    new PatientPortalStaffContext(PROVIDER_ID, PROVIDER_NAME, ONE_PERMISSION);
+
+            Set<String> exposed = staff.permissions();
+
+            assertThatThrownBy(
+                            () -> exposed.add(PatientPortalStaffContext.PERMISSION_SECRET_MANAGE))
+                    .isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> exposed.clear())
+                    .isInstanceOf(UnsupportedOperationException.class);
+            assertThat(staff.permissions()).containsExactly(
+                    PatientPortalStaffContext.PERMISSION_INVITE_MANAGE);
+        }
     }
 }

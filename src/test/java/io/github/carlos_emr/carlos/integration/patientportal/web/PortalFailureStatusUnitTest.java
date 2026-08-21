@@ -80,6 +80,38 @@ class PortalFailureStatusUnitTest {
                 .isEqualTo(expected);
     }
 
+    /**
+     * Why {@code PrintWriter.write} here is not the XSS_SERVLET the scanner reports.
+     *
+     * <p>Three things have to hold, and none was pinned: the body is produced by Jackson, so a
+     * hostile value is a JSON string rather than markup and survives a round trip byte for byte;
+     * the content type is {@code application/json}, so a browser has no reason to parse it as a
+     * document; and {@code ResponseDefaultsFilter} — mapped to {@code /*} and ordered ahead of
+     * Struts — adds {@code X-Content-Type-Options: nosniff}, which removes the sniffing path
+     * this detector is really about. The filter is out of scope for a unit test, so the first
+     * two are asserted here and the third is named.
+     */
+    @Test
+    @DisplayName("should emit hostile values as JSON data, never as markup")
+    void shouldSerializeHostileValues_asEscapedJson() throws Exception {
+        String hostile = "</script><script>alert(document.cookie)</script>";
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        TestAction action = new TestAction();
+        com.fasterxml.jackson.databind.node.ObjectNode payload =
+                new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
+        payload.put("reason", hostile);
+
+        action.write(response, 200, payload);
+
+        assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+        com.fasterxml.jackson.databind.JsonNode parsed =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(response.getContentAsString());
+        assertThat(parsed.get("reason").asText()).isEqualTo(hostile);
+        // The document is one JSON object; the payload never becomes a second element in it.
+        assertThat(response.getContentAsString()).startsWith("{").endsWith("}");
+    }
+
     @Test
     @DisplayName("should answer 504 when the portal could not be reached at all")
     void shouldAnswerGatewayTimeout_whenTheCallNeverReachedThePortal() throws IOException {

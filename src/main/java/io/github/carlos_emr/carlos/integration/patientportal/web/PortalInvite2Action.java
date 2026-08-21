@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalInviteDto;
@@ -154,6 +155,21 @@ public class PortalInvite2Action extends PortalJsonAction {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: this compares an HTTP method token, matching
+    // HttpMethodGuardFilter, which fronts these actions and uses equalsIgnoreCase for the
+    // same purpose. String.equalsIgnoreCase is locale-independent, so the Turkish-I class the
+    // detector is named for does not arise; and it is informational regardless of Locale, so
+    // it cannot be cleared by adding Locale.ROOT. It is a gate rather than a display value, so
+    // the boilerplate "not a security decision" justification would be untrue here: a
+    // permissive fold would admit an oddly-cased token as the method. That grants nothing --
+    // hasPrivilege runs on every path below regardless -- and the request still has to have
+    // arrived as a mutation. See docs/static-analysis-workflows.md.
+    @SuppressFBWarnings(
+            value = "IMPROPER_UNICODE",
+            justification =
+                    "HTTP method token comparison, consistent with HttpMethodGuardFilter;"
+                            + " equalsIgnoreCase is locale-independent and every path below"
+                            + " still runs its own hasPrivilege check")
     private String handle() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
