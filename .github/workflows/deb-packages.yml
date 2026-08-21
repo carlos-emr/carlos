@@ -148,9 +148,13 @@ jobs:
             printf '    The carlos-emr package ships the WAR published (and attested) by\n'
             printf '    that release, byte for byte; DrugRef is built from the revision\n'
             printf '    pinned in debian/drugref.pin.\n\n'
-            printf ' -- CARLOS Release CI <releases@carlos-emr.invalid>  %s\n\n' "$(date -R)"
-            cat debian/changelog
+            printf ' -- CARLOS Release CI <releases@carlos-emr.invalid>  %s\n' "$(date -R)"
           } > debian/changelog.new
+          # Replace, do NOT prepend: the in-tree changelog's top stanza is a
+          # development snapshot (e.g. 2026.09.0~snapshot1) whose version is
+          # HIGHER than the release being built, so keeping it below the
+          # release entry would present a higher version as older history and
+          # trip lintian's ordering check. The authoritative history is git.
           mv debian/changelog.new debian/changelog
           echo "DEB_VERSION=$deb_version" >> "$GITHUB_ENV"
 
@@ -189,13 +193,16 @@ jobs:
           gh release upload "$RELEASE_TAG" release-assets/* --repo "$REPO" --clobber
           # Same digest verification contract as the WAR upload in
           # publish-release.yml: what GitHub stores must be what we hashed.
+          # Matched by DIGEST, not by name: GitHub normalises the stored
+          # asset name (it rewrites the '~' in a Debian pre-release version
+          # to '.'), so a name-equality lookup never matched and the check
+          # failed on every alpha/rc tag. The digest is invariant.
+          stored_digests="$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" --jq '.assets[].digest')"
           for asset in release-assets/*.deb; do
             name="$(basename "$asset")"
             expected="sha256:$(sha256sum "$asset" | awk '{print $1}')"
-            actual="$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" \
-              --jq ".assets[] | select(.name == \"$name\") | .digest")"
-            if [ "$actual" != "$expected" ]; then
-              echo "::error::GitHub digest mismatch for $name: expected $expected, got $actual"
+            if ! printf '%s\n' "$stored_digests" | grep -qxF "$expected"; then
+              echo "::error::no uploaded asset on $RELEASE_TAG matches the digest of $name ($expected)"
               exit 1
             fi
           done

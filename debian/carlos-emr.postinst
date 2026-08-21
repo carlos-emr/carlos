@@ -222,7 +222,6 @@ case "$1" in
         if [ "${FRESH_ENV}" = 1 ]; then
             set_env_key CARLOS_TZ "${TZ_NAME}"
         fi
-        rm -f "${FRESH_SENTINEL}"
         # The province is written only on the FIRST install (as detected
         # before the skeleton landed — the skel itself carries a default that
         # would fool a grep on the file). Changing it later against an
@@ -232,6 +231,11 @@ case "$1" in
         if [ "${FRESH_ENV}" = 1 ]; then
             set_env_key CARLOS_PROVINCE "${PROVINCE}"
         fi
+        # Cleared ONLY after every first-install-only write has landed: an
+        # install interrupted between clearing it and writing the province
+        # used to reset FRESH_ENV to 0 on the rerun and silently keep the
+        # skeleton default (Ontario) over the operator's answer.
+        rm -f "${FRESH_SENTINEL}"
 
         # Generate the restic passphrase once, if the operator has not set one.
         if ! grep -qE '^RESTIC_PASSWORD=.+' "${BACKUP_ENV}"; then

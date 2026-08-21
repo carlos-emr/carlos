@@ -63,7 +63,7 @@ class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
                 new ByteArrayInputStream(body), 10_000_000L, ContentType.APPLICATION_JSON);
         assertThatThrownBy(() -> BoundedResponseReader.read(entity, 1024))
                 .isInstanceOf(IOException.class)
-                .hasMessageContaining("exceeds the limit")
+                .hasMessageContaining("fax response over")
                 .hasMessageContaining(BoundedResponseReader.MAX_RESPONSE_MB_PROPERTY);
     }
 
@@ -79,7 +79,7 @@ class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
         BasicHttpEntity entity = new BasicHttpEntity(endless, ContentType.APPLICATION_JSON, true);
         assertThatThrownBy(() -> BoundedResponseReader.read(entity, 4096))
                 .isInstanceOf(IOException.class)
-                .hasMessageContaining("exceeds the limit");
+                .hasMessageContaining("fax response over");
     }
 
     @Test
@@ -96,6 +96,25 @@ class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("an overstated Content-Length does not pre-allocate the cap (tiny body, huge header)")
+    void overstatedContentLengthDoesNotPreallocate() throws IOException {
+        // 10-byte body claiming 256 MiB: must read fine and allocate for the
+        // body, never for the header. (Regression: the pre-size once trusted
+        // this header and reserved the whole cap.)
+        byte[] body = "{\"ok\":1}".getBytes(StandardCharsets.UTF_8);
+        org.apache.hc.core5.http.HttpEntity entity =
+                org.mockito.Mockito.mock(org.apache.hc.core5.http.HttpEntity.class);
+        org.mockito.Mockito.when(entity.getContentType())
+                .thenReturn("application/json");
+        org.mockito.Mockito.when(entity.getContentLength()).thenReturn(256L * 1024 * 1024);
+        org.mockito.Mockito.when(entity.getContent()).thenReturn(new ByteArrayInputStream(body));
+        // cap comfortably above the (false) declared length; the point is the
+        // read succeeds without OOM despite the header, on a small heap.
+        assertThat(BoundedResponseReader.read(entity, 512L * 1024 * 1024))
+                .isEqualTo("{\"ok\":1}");
+    }
+
+    @Test
     @DisplayName("a body whose Content-Length understates its real size is still capped")
     void lyingContentLengthIsCapped() {
         byte[] body = new byte[8192];
@@ -103,6 +122,6 @@ class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
                 new ByteArrayInputStream(body), 10L, ContentType.APPLICATION_JSON);
         assertThatThrownBy(() -> BoundedResponseReader.read(entity, 1024))
                 .isInstanceOf(IOException.class)
-                .hasMessageContaining("exceeds the limit");
+                .hasMessageContaining("fax response over");
     }
 }

@@ -59,7 +59,11 @@ d /var/lib/carlos-emr/acme/.well-known/acme-challenge 0755 root      root   -
 # them without being handed either service account.
 d /var/log/carlos-emr                             0755 root          root   -
 # Tomcat's access and container logs, and the application's own Log4j2 files.
-d /var/log/carlos-emr/tomcat                      0750 carlos        adm    -
+# 2750, not 0750: Tomcat (owner carlos) creates access/JULI logs here, and
+# without the setgid bit they inherit group carlos — unreadable by the adm
+# group this directory is grouped to for log access. setgid makes new files
+# inherit adm so `journalctl`-style log readers in group adm can read them.
+d /var/log/carlos-emr/tomcat                      2750 carlos        adm    -
 # ModSecurity's audit and debug logs. Named modsec/, not waf/, because the
 # application's Log4j2 configuration already writes a waf.log of its own (its
 # request rate-limit logger) into the directory above.

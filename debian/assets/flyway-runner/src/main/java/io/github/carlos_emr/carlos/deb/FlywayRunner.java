@@ -102,6 +102,17 @@ public final class FlywayRunner {
                 // `baseline` verb is the explicit, operator-chosen path.
                 .baselineOnMigrate(false)
                 .validateOnMigrate(true)
+                // Parity with the application's boot-time FlywaySchemaValidator
+                // (src/.../db/FlywaySchemaValidator.java): without these, this
+                // tool would ACCEPT a schema the boot gate then REJECTS —
+                // carlos-ctl db-migrate/db-validate reporting success while the
+                // service refuses to start. ignoreMigrationPatterns(empty)
+                // makes validate fail when an older WAR meets a newer-migrated
+                // database; failOnMissingLocations catches a truncated
+                // classpath instead of silently validating against fewer
+                // migrations.
+                .ignoreMigrationPatterns(new String[0])
+                .failOnMissingLocations(true)
                 .cleanDisabled(true)
                 .load();
 

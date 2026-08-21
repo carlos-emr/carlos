@@ -95,7 +95,17 @@ final class BoundedResponseReader {
             try {
                 long mb = Long.parseLong(configured.trim());
                 if (mb > 0) {
-                    return mb * 1024L * 1024L;
+                    // Clamp to what a single in-memory buffer can actually
+                    // hold (ByteArrayOutputStream tops out near
+                    // Integer.MAX_VALUE); this also makes mb*1024*1024
+                    // overflow-proof for an absurd configured value.
+                    long bytes = mb * 1024L * 1024L;
+                    if (bytes <= 0 || bytes > Integer.MAX_VALUE - 8) {
+                        logger.warn("{}={} exceeds the buffer limit; capping at ~2 GiB",
+                                MAX_RESPONSE_MB_PROPERTY, configured);
+                        return Integer.MAX_VALUE - 8;
+                    }
+                    return bytes;
                 }
                 logger.warn("{}={} is not positive; using the {} MiB default",
                         MAX_RESPONSE_MB_PROPERTY, configured, DEFAULT_MAX_RESPONSE_MB);
@@ -153,13 +163,14 @@ final class BoundedResponseReader {
             }
         }
         try (InputStream in = entity.getContent()) {
-            // Pre-sized from an honest Content-Length (already known to be
-            // within the cap): the default doubling growth would otherwise
-            // hold two copies of a large fax at once, on top of the copies
-            // the parse and decode already cost.
-            ByteArrayOutputStream buffer = declared > 0
-                    ? new ByteArrayOutputStream((int) Math.min(declared, maxBytes))
-                    : new ByteArrayOutputStream();
+            // Initial capacity is a small FIXED value, never the declared
+            // Content-Length: a hostile header (huge declared, tiny body)
+            // would otherwise reserve the whole cap up front — the exact
+            // unbounded allocation this class exists to prevent, and one an
+            // int cast could overflow past 2 GiB. ByteArrayOutputStream's
+            // doubling growth is itself bounded by the read-loop cap below,
+            // so growth reflects bytes ACTUALLY received.
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream(64 * 1024);
             byte[] chunk = new byte[8192];
             long total = 0;
             int n;
@@ -183,10 +194,11 @@ final class BoundedResponseReader {
         String limit = maxBytes >= 1024 * 1024
                 ? (maxBytes / (1024 * 1024)) + " MiB"
                 : maxBytes + " byte";
-        return "fax provider response exceeds the limit: it is " + actual + ", over the "
-                + limit + " ceiling. If this clinic genuinely receives faxes this large, raise "
-                + MAX_RESPONSE_MB_PROPERTY + " in carlos.properties (and CARLOS_JAVA_XMX with "
-                + "it — the response is buffered). The fax stays on the provider and imports on "
-                + "a later poll.";
+        // Kept short and front-loaded: it is surfaced through
+        // faxes.statusString (varchar 255). Property name first so the
+        // actionable part survives any clamp.
+        return "fax response over " + limit + " (" + actual + "); raise "
+                + MAX_RESPONSE_MB_PROPERTY + " + CARLOS_JAVA_XMX if faxes are truly this large. "
+                + "It stays on the provider for a later poll.";
     }
 }

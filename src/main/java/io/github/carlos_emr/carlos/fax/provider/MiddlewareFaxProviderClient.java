@@ -132,9 +132,17 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                 if (entity == null) {
                     throw new FaxProviderException("Middleware returned an empty fax response");
                 }
+                // Bounded read BEFORE unmarshalling: unmarshalling straight
+                // from entity.getContent() let a malfunctioning or hostile
+                // middleware stream an endless <document> element into the
+                // heap (a mapped String property, no JAXP limit on PCDATA)
+                // and, under -XX:+ExitOnOutOfMemoryError, crash-loop the EMR
+                // — the fifth provider-read path the other four's cap missed.
+                String responseXml = BoundedResponseReader.read(entity);
                 Object result = JAXBContext.newInstance(FaxJob.class)
                         .createUnmarshaller()
-                        .unmarshal(entity.getContent());
+                        .unmarshal(new javax.xml.transform.stream.StreamSource(
+                                new java.io.StringReader(responseXml)));
                 if (!(result instanceof FaxJob returnedJob)) {
                     throw new FaxProviderException("Middleware returned an invalid fax response");
                 }

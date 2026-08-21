@@ -957,8 +957,19 @@ public class FaxImporter {
      * @param saveFax FaxJob to persist
      * @return FaxJob ID from database
      */
+    /** faxes.statusString is varchar(255) and the deployment runs MariaDB in
+     *  strict sql_mode, where an over-length value throws (Data too long)
+     *  rather than truncating — which would abandon the rest of the import
+     *  batch. Provider messages (a bounded-reader remedy, a stack detail)
+     *  can exceed 255, so clamp here, the single persistence choke point. */
+    private static final int STATUS_STRING_MAX = 255;
+
     private Integer saveFaxJob(FaxJob saveFax) {
         saveFax.setUser(DEFAULT_USER);
+        String status = saveFax.getStatusString();
+        if (status != null && status.length() > STATUS_STRING_MAX) {
+            saveFax.setStatusString(status.substring(0, STATUS_STRING_MAX));
+        }
         faxJobDao.persist(saveFax);
         return saveFax.getId();
     }

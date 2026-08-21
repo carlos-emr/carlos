@@ -82,7 +82,25 @@ public class SRFaxProviderClient implements FaxProviderClient {
 
     private static final Logger logger = MiscUtils.getLogger();
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = buildObjectMapper();
+
+    /**
+     * SRFax returns the inbound document as one base64 String inside JSON.
+     * Jackson caps a single string at 20,000,000 chars by default (~14 MiB
+     * of PDF after base64), which would reject a large fax LONG before the
+     * fax.max_response_mb transport cap — and with a raw StreamConstraints
+     * error, not the actionable FaxProviderException. Lift the parser limit
+     * so the documented ceiling is the one that actually governs; the
+     * BoundedResponseReader cap and the JVM heap remain the real bounds.
+     */
+    private static ObjectMapper buildObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.getFactory().setStreamReadConstraints(
+                com.fasterxml.jackson.core.StreamReadConstraints.builder()
+                        .maxStringLength(Integer.MAX_VALUE)
+                        .build());
+        return mapper;
+    }
 
     /**
      * Test-only endpoint override. Production resolution stays in {@link #getSrfaxApiUrl()},
