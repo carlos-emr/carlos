@@ -56,6 +56,7 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.rendering.ImageType;
 import javax.imageio.ImageIO;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -119,23 +120,28 @@ public class NioFileManagerImpl implements NioFileManager {
             return null;
         }
 
-        // Sanitize the filename to prevent path traversal
-        String sanitizedFilename = sanitizeFileName(filename);
-        
-        // Additional validation after sanitization
-        if (sanitizedFilename.isEmpty() || "invalid_filename".equals(sanitizedFilename)) {
-            log.error("Filename failed sanitization: {}", LogSafe.sanitize(filename));
+        // Validate the filename as a single path component. Reading an existing cache entry must
+        // preserve the caller's exact filename, so validatePathComponent (which rejects rather than
+        // rewrites) is used instead of the normalizing validateFileName. Invalid input returns null
+        // per this method's existing preview-unavailable contract instead of minting a sentinel name.
+        String sanitizedFilename;
+        try {
+            sanitizedFilename = PathValidationUtils.validatePathComponent(filename, "cache filename");
+        } catch (FileValidationException e) {
+            log.error("Filename failed validation: {}", LogSafe.sanitize(filename));
             return null;
         }
 
         Path documentCacheDir = getDocumentCacheDirectory(loggedInInfo);
         Path normalizedCacheDir = documentCacheDir.normalize().toAbsolutePath();
-        
+
         // Construct the cache filename securely
         String cacheFileName = sanitizedFilename + "_" + pageNum + ".png";
-        
-        // Validate the cache filename doesn't contain any path separators
-        if (cacheFileName.contains("/") || cacheFileName.contains("\\") || cacheFileName.contains("..")) {
+
+        // Defense in depth: validatePathComponent already guarantees sanitizedFilename is a single
+        // component with no separators, and pageNum is an integer, so this can no longer fire for a
+        // valid name. A stray separator here would still be caught below by validateExistingPath.
+        if (cacheFileName.contains("/") || cacheFileName.contains("\\")) {
             log.error("Invalid characters in cache filename: {}", LogSafe.sanitize(cacheFileName));
             return null;
         }
@@ -228,8 +234,17 @@ public class NioFileManagerImpl implements NioFileManager {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
-        // Sanitize the filename to prevent path traversal
-        String sanitizedFilename = sanitizeFileName(filename);
+        // Opening the existing source PDF requires its exact filename, so validate it as a single
+        // path component (no normalization — normalizing could rewrite the name away from the file
+        // actually on disk). Honor this method's preview-unavailable contract by returning null on
+        // invalid input rather than minting a sentinel name.
+        String sanitizedFilename;
+        try {
+            sanitizedFilename = PathValidationUtils.validatePathComponent(filename, "source filename");
+        } catch (FileValidationException e) {
+            log.error("Filename failed validation: {}", LogSafe.sanitize(filename));
+            return null;
+        }
 
         // Validate the source directory up front. The cache entry is scoped to the canonical source
         // directory below, so resolving it first is required to build the lookup key — and it means
@@ -385,9 +400,12 @@ public class NioFileManagerImpl implements NioFileManager {
             return false;
         }
 
-        // Sanitize the filename - remove any path traversal attempts
-        String sanitizedFileName = sanitizeFileName(fileName);
-        
+        // Deleting an existing cache entry must target the caller's exact filename, so validate it as
+        // a single path component (no normalization). An invalid (non-blank) name fails loudly here —
+        // via FileValidationException, a SecurityException — rather than degrading to a silent no-op
+        // that could imply a PHI preview image was cleared when it was not.
+        String sanitizedFileName = PathValidationUtils.validatePathComponent(fileName, "cache filename");
+
         Path documentCacheDir = getDocumentCacheDirectory(loggedInInfo);
         
         try {
@@ -462,7 +480,13 @@ public class NioFileManagerImpl implements NioFileManager {
             // PHI preview pages are gone. Fail loudly rather than return a misleading 0.
             throw new IllegalArgumentException("source directory is not an allowed preview source");
         }
-        String scopedBase = scopedCacheBaseName(sanitizeFileName(filename), normalizedSourceDir);
+        // Preserve the caller's exact filename (the flush must match the page images the writer
+        // produced) by validating it as a single path component. An invalid name fails loudly for the
+        // same reason an unkeyable source does: we must not report "0 removed" as if the PHI preview
+        // pages were cleared when we could not even derive their prefix. FileValidationException is a
+        // SecurityException, so it surfaces to the caller rather than being swallowed as a no-op.
+        String scopedBase = scopedCacheBaseName(
+                PathValidationUtils.validatePathComponent(filename, "preview filename"), normalizedSourceDir);
         String scopedPrefix = scopedBase + "_";
 
         Path normalizedCacheDir = resolveDocumentCacheDirectory().normalize().toAbsolutePath();
@@ -515,40 +539,6 @@ public class NioFileManagerImpl implements NioFileManager {
             throw new IOException(failedRemovals + " preview cache page image(s) could not be removed");
         }
         return removed;
-    }
-
-    /**
-     * Sanitize filename to prevent path traversal attacks.
-     * Removes any directory separators and path traversal sequences.
-     *
-     * @param fileName the filename to sanitize
-     * @return sanitized filename with only the base name
-     */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    private String sanitizeFileName(String fileName) {
-        if (fileName == null) {
-            return "";
-        }
-        
-        // First, get just the filename component (removes any path)
-        Path path = Paths.get(fileName);
-        String baseName = path.getFileName() != null ? path.getFileName().toString() : "";
-        
-        // Remove any remaining path traversal sequences or special characters
-        // that could be used maliciously
-        baseName = baseName.replaceAll("\\.\\.", "")  // Remove ..
-                          .replaceAll("[\\\\/]", "")   // Remove any slashes
-                          .replaceAll("\\$", "")        // Remove $
-                          .replaceAll("~", "");         // Remove ~
-        
-        // Additional validation - ensure the filename is not empty after sanitization
-        if (baseName.trim().isEmpty()) {
-            log.warn("Filename became empty after sanitization: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            return "invalid_filename";
-        }
-
-        return baseName;
     }
 
     /**
@@ -611,7 +601,8 @@ public class NioFileManagerImpl implements NioFileManager {
      * Having a single formula means {@code flush()} deletes exactly the page images the writer produced,
      * even after the filename/source-key scoping changed the on-disk names.
      *
-     * @param sanitizedFilename filename already run through {@link #sanitizeFileName}
+     * @param sanitizedFilename filename already validated as a single path component via
+     *        {@link PathValidationUtils#validatePathComponent(String, String)}
      * @param normalizedSourceDir source directory normalized identically on both the write and remove paths
      */
     private static String scopedCacheBaseName(String sanitizedFilename, Path normalizedSourceDir) {
@@ -782,7 +773,11 @@ public class NioFileManagerImpl implements NioFileManager {
         if (fileType == null) {
             fileType = DEFAULT_FILE_SUFFIX;
         }
-        String sanitizedName = sanitizeFileName(fileName);
+        // A freshly created temp file: normalizing the caller-supplied base name is intentional here
+        // (nothing on disk needs to match it exactly), so validateFileName — which normalizes and then
+        // rejects unusable names — is the right fit. It fails loudly rather than constructing a
+        // sentinel filename such as "invalid_filename".
+        String sanitizedName = PathValidationUtils.validateFileName(fileName);
         // Sanitize fileType to only allow safe alphanumeric extension characters
         String sanitizedType = fileType.replaceAll("[^a-zA-Z0-9]", "");
         if (sanitizedType.isEmpty()) {
@@ -876,9 +871,17 @@ public class NioFileManagerImpl implements NioFileManager {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public File getOscarDocument(String fileName) {
-        // Sanitize the filename to prevent path traversal
-        String sanitizedFileName = sanitizeFileName(fileName);
-        
+        // Retrieving an existing document requires its exact filename, so validate it as a single
+        // path component (no normalization). Fail loudly on an invalid name rather than coercing it
+        // into a sentinel that could resolve to the wrong file.
+        String sanitizedFileName;
+        try {
+            sanitizedFileName = PathValidationUtils.validatePathComponent(fileName, "document filename");
+        } catch (FileValidationException e) {
+            log.error("Invalid filename in getOscarDocument: {}", LogSafe.sanitize(fileName));
+            throw new SecurityException("Invalid document filename");
+        }
+
         Path documentDir = Paths.get(getDocumentDirectory()).normalize().toAbsolutePath();
         Path oscarDocument = documentDir.resolve(sanitizedFileName).normalize().toAbsolutePath();
         

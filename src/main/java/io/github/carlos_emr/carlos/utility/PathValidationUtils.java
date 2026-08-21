@@ -364,7 +364,23 @@ public final class PathValidationUtils {
      * the on-disk name is the contract and a silent rename permanently breaks the form referencing
      * it.</p>
      */
-    static String normalizeFileNameCharacters(String fileName) {
+    /**
+     * Applies the legacy filename character normalization used across CARLOS: runs of whitespace
+     * become a single underscore, characters outside {@code [a-zA-Z0-9._-]} are removed, and repeated
+     * dots collapse to a single dot. This performs normalization ONLY — it does not strip path
+     * components, reject hidden or blocked names, or otherwise validate; callers that need those
+     * guarantees should use {@link #validateFileName(String)} or
+     * {@link #validatePathComponent(String, String)}.
+     *
+     * <p>This is the single centralized home for the normalization the deprecated
+     * {@link MiscUtils#sanitizeFileName(String)} delegates to, so callers can point here directly
+     * instead of at the deprecated indirection.</p>
+     *
+     * @param fileName the filename to normalize; must not be {@code null}
+     * @return the normalized filename
+     * @throws NullPointerException if {@code fileName} is {@code null}
+     */
+    public static String normalizeFileNameCharacters(String fileName) {
         return fileName.replaceAll("\\s+", "_")
                 .replaceAll("[^a-zA-Z0-9._-]", "")
                 .replaceAll("\\.+", ".");
