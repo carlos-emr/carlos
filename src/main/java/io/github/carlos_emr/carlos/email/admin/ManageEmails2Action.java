@@ -118,7 +118,7 @@ public class ManageEmails2Action extends ActionSupport {
      * Displays the email management interface with available email statuses and sender accounts.
      *
      * This method prepares the initial view for the email management page by populating
-     * request attributes with all possible email statuses (SENT, FAILED, PENDING, RESOLVED)
+     * request attributes with all possible email statuses (PENDING, SUCCESS, FAILED, RESOLVED)
      * and the list of configured sender email accounts. This data is used to populate
      * the filter dropdowns on the email management interface.
      *
