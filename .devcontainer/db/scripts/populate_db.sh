@@ -84,6 +84,8 @@ $SQL drugref2 < /database/mysql/drugref/2026-04-19-drugref-tc-atc-f.sql
 # the baseline reference rows with the demo dataset (patients, appointments, notes, etc.).
 echo 'Loading demo data for development...'
 $SQL oscar < /scripts/development.sql
+echo 'Removing HRM rows whose source fixtures are not distributed...'
+$SQL oscar < /scripts/development_hrm_cleanup.sql
 echo 'Restoring current Administration privileges...'
 $SQL oscar < /scripts/development_privileges.sql
 echo 'Preparing demographic names for development environment...'
