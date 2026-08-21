@@ -7,9 +7,10 @@ in CARLOS, with emphasis on SRFax behavior and admin configuration UX.
 ## Provider Routing Model
 - Fax transport is selected per `FaxConfig` via `providerType`.
 - Supported values:
-  - `SRFAX` (direct SRFax API) — **the supported provider and the default for new configurations**.
-  - `MIDDLEWARE` (legacy relay) — transport code is retained, but the admin UI only offers this
-    option for a grandfathered row that is already stored with `providerType=MIDDLEWARE`.
+  - `SRFAX` (direct SRFax API) — **the supported provider, and the only one shown/used in the admin UI**.
+  - `MIDDLEWARE` (legacy relay) — hidden from the admin UI. Its transport code and enum are
+    retained and remain selectable only via direct configuration/DB for legacy relay deployments.
+    A stored MIDDLEWARE row shows SRFAX in the UI and migrates to SRFAX on the next save.
 - Routing is resolved by `FaxProviderClientFactory`; every core service
   (`FaxImporter`, `FaxSender`, `FaxStatusUpdater`, and the Manage Faxes cancel path) resolves the
   client per config and never branches on provider type itself.
@@ -94,7 +95,7 @@ When provider type is `SRFAX`:
 - "Poll incoming faxes" maps to `FaxConfig.download`; the Inbox Queue selects the document
   review queue incoming faxes are filed into.
 
-When provider type is `MIDDLEWARE` (grandfathered rows only):
+When provider type is `MIDDLEWARE` (configured only outside the admin UI):
 - existing relay behavior and URL conventions remain unchanged, including cancel via HTTP PUT
   through the endpoint allow-list (`carlos.fax.middleware.allowedHosts`).
 
