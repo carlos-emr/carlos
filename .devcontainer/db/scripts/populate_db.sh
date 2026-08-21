@@ -93,4 +93,6 @@ $SQL oscar < /database/mysql/updates/update-2012-07-12.sql
 echo 'Modernizing Rich Text Letter eForm to 2026.3.0...'
 $SQL oscar < /database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql
 $SQL oscar < /database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
+echo 'Loading Administration test fixtures...'
+$SQL oscar < /scripts/admin_test_data.sql
 echo 'Database initialization complete!'
