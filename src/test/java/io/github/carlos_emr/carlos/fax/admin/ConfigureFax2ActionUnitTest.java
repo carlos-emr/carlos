@@ -397,4 +397,41 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(body).doesNotContain("test-secret-pw");
         }
     }
+
+    @Test
+    @DisplayName("should default the provider type to SRFAX when none is submitted")
+    void shouldDefaultProviderType_toSrfaxWhenNoneSubmitted() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+
+        // A stored MIDDLEWARE row saved through the (SRFax-only) admin UI: the form posts no
+        // usable MIDDLEWARE option any more, so the resolve fallback decides the stored value.
+        FaxConfig stored = new FaxConfig();
+        stored.setId(1);
+        stored.setProviderType(FaxConfig.ProviderType.MIDDLEWARE);
+        stored.setFaxUser("srfax-account-1");
+        stored.setFaxNumber("4165550100");
+        stored.setActive(true);
+
+        when(faxConfigDao.findAll(isNull(), isNull())).thenReturn(new ArrayList<>(List.of(stored)));
+        when(faxConfigDao.getCountAll()).thenReturn(1);
+
+        request.setMethod("POST");
+        setSrfaxAccountRowParams("1", "4165550100", "test-secret-pw");
+        request.removeParameter("providerType");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            ArgumentCaptor<FaxConfig> savedCaptor = ArgumentCaptor.forClass(FaxConfig.class);
+            verify(faxConfigDao).saveEntity(savedCaptor.capture());
+            // SRFAX is the documented default: a MIDDLEWARE row re-saved through the UI migrates.
+            assertThat(savedCaptor.getValue().getProviderType()).isEqualTo(FaxConfig.ProviderType.SRFAX);
+            assertThat(response.getContentAsString()).contains("\"success\":true");
+        }
+    }
+
 }

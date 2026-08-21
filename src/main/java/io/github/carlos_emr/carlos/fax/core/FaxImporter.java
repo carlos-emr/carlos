@@ -278,12 +278,22 @@ public class FaxImporter {
                     // Skip the download entirely and just retry clearing the unread flag.
                     if (receivedFax.getJobId() != null
                             && isAlreadyImported(faxJobDao.findByProviderJobId(receivedFax.getJobId()))) {
-                        log.info("Skipping already-imported fax with provider job id {} - retrying mark-as-read",
+                        log.info("Skipping already-imported fax with provider job id {} - retrying provider acknowledgement",
                                 receivedFax.getJobId());
                         try {
                             providerClient.markFaxAsRead(faxConfig, receivedFax);
                         } catch (FaxProviderException e) {
                             log.warn("Failed to mark already-imported fax as read - will retry next poll", e);
+                        }
+                        // Acknowledge per provider policy, mirroring the main import path: SRFax
+                        // acknowledges via mark-as-read (deleteFax is its no-op) while the middleware
+                        // relay acknowledges via delete (markFaxAsRead is ITS no-op). Retrying only
+                        // mark-as-read here would leave a middleware fax whose relay delete once
+                        // failed re-listed - and skipped - forever.
+                        try {
+                            providerClient.deleteFax(faxConfig, receivedFax);
+                        } catch (FaxProviderException e) {
+                            log.warn("Failed to acknowledge already-imported fax at provider - will retry next poll", e);
                         }
                         continue;
                     }
@@ -513,7 +523,28 @@ public class FaxImporter {
             // Move from incoming to DOCUMENT_DIR under the exact name the document row will carry
             moveFile(incomingFile, finalFile.toPath());
 
-            String doc_no = EDocUtil.addDocumentSQL(newDoc);
+            String doc_no;
+            try {
+                doc_no = EDocUtil.addDocumentSQL(newDoc);
+            } catch (RuntimeException e) {
+                // The DAO persist path throws unchecked (PersistenceException, NPE on a null id)
+                // rather than returning null, and at this point the PDF has already been moved out
+                // of the incoming directory. Without this compensation the exception would escape
+                // to poll()'s log-only account catch with the file stranded in DOCUMENT_DIR: no
+                // document row, no fax row, and (mark-as-read having already run) no re-download —
+                // the fax would become permanently invisible. Move the file back so
+                // retryPendingImports can recover it next cycle.
+                log.error("Failed to persist document record for fax - moving file back to incoming directory", e);
+                receivedFax.setStatus(FaxJob.STATUS.ERROR);
+                receivedFax.setStatusString("Downloaded but import failed - pending retry from incoming directory");
+                try {
+                    moveFile(finalFile.toPath(), incomingFile);
+                } catch (IOException moveBackEx) {
+                    log.error("CRITICAL: Cannot move fax back to incoming directory. File at: {}",
+                            finalFile.getAbsolutePath(), moveBackEx);
+                }
+                return null;
+            }
             if (doc_no == null || doc_no.trim().isEmpty()) {
                 log.error("Failed to create document record for fax - moving file back to incoming directory");
                 receivedFax.setStatus(FaxJob.STATUS.ERROR);
@@ -665,6 +696,7 @@ public class FaxImporter {
                                 }
                                 retryFax.setFile_name(edoc.getFileName());
                                 saveFaxJob(retryFax);
+                                resolvePendingRetryRows(pdfFile.getFileName().toString(), edoc.getFileName());
                                 log.info("Successfully imported pending fax on retry: {}", pdfFile.getFileName());
                             } else {
                                 // Still failing - leave for next cycle, don't create duplicate FaxJob records
@@ -853,8 +885,14 @@ public class FaxImporter {
      * <p>Pre-download failures ("Download failed...", "Download or save to incoming directory
      * failed") do NOT count: no local copy exists, so a re-download is the correct retry.</p>
      *
+     * <p>Outbound rows never count: provider job ids from different sources (an old middleware
+     * relay's local ids, SRFax FaxDetailsIDs) share the {@code jobId} column, so an OUT row
+     * that merely collides on the number must not suppress importing a genuinely new inbound
+     * fax — a false positive here means the fax is marked read and silently never imported.
+     * Legacy rows with a null direction are still considered (pre-direction inbound rows).</p>
+     *
      * @param priorRows previously persisted rows sharing the provider job id
-     * @return true when any prior row proves the document is already held locally
+     * @return true when any prior inbound row proves the document is already held locally
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -863,6 +901,9 @@ public class FaxImporter {
             return false;
         }
         for (FaxJob prior : priorRows) {
+            if (FaxJob.Direction.OUT.equals(prior.getDirection())) {
+                continue;
+            }
             if (FaxJob.STATUS.RECEIVED.equals(prior.getStatus())) {
                 return true;
             }
@@ -876,6 +917,38 @@ public class FaxImporter {
             }
         }
         return false;
+    }
+
+    /**
+     * Marks the original "Downloaded but import failed - pending retry" rows as imported once
+     * the pending-file retry has succeeded.
+     *
+     * <p>The retry row created by {@code retryPendingImports} carries no provider job id and no
+     * linkage to the original failed row, so without this the queue view keeps a permanent ERROR
+     * row promising a retry that already happened. The original row was persisted under the
+     * quarantined file's name, which is how it is found here. RECEIVED keeps the row matching
+     * {@link #isAlreadyImported} (dedup unaffected) and removes it from the action-button paths.</p>
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    private void resolvePendingRetryRows(String quarantinedFileName, String importedFileName) {
+        try {
+            for (FaxJob prior : faxJobDao.findByFileName(quarantinedFileName)) {
+                if (FaxJob.Direction.OUT.equals(prior.getDirection())) {
+                    continue;
+                }
+                String statusString = prior.getStatusString();
+                if (statusString != null
+                        && statusString.trim().toLowerCase().startsWith("downloaded but import failed")) {
+                    prior.setStatus(FaxJob.STATUS.RECEIVED);
+                    prior.setStatusString("Imported from incoming directory by retry as " + importedFileName);
+                    faxJobDao.merge(prior);
+                }
+            }
+        } catch (RuntimeException e) {
+            log.warn("Could not resolve pending-retry fax rows for {} - queue view may show a stale retry row",
+                    quarantinedFileName, e);
+        }
     }
 
     /**

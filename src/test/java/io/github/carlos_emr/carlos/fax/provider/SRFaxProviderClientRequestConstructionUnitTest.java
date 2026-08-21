@@ -381,12 +381,26 @@ class SRFaxProviderClientRequestConstructionUnitTest extends CarlosUnitTestBase 
                 "19055559999,         19055559999",
                 "905-555-9999,        19055559999",
                 "(905) 555-9999,      19055559999",
+                "+1 905 555 9999,     19055559999",
                 "442071234567,        442071234567",
-                "+44 20 7123 4567,    442071234567",
                 "011442071234567,     011442071234567"
         })
-        @DisplayName("should normalize NA destinations and pass through international digit strings")
+        @DisplayName("should normalize NA destinations and pass through dialed digit strings")
         void shouldNormalizeDestination_withInternationalPassThrough(String raw, String expected) throws Exception {
+            assertThat(client.toDialableNumber(raw)).isEqualTo(expected);
+        }
+
+        @ParameterizedTest(name = "\"{0}\" -> \"{1}\"")
+        @CsvSource({
+                "+44 20 7123 4567,    011442071234567",
+                "+7 495 123 4567,     01174951234567",
+                "+61 2 9876 5432,     01161298765432"
+        })
+        @DisplayName("should convert E.164 international destinations to the 011-dialed form")
+        void shouldConvertPlusPrefixedDestination_toDialedInternationalForm(String raw, String expected) throws Exception {
+            // SRFax requires international numbers dialed as from a land line (011 + CC + number);
+            // a bare +CC digit string is a format the provider rejects regardless of account
+            // international enablement, so the '+' must become the 011 prefix, not be discarded.
             assertThat(client.toDialableNumber(raw)).isEqualTo(expected);
         }
 
@@ -397,6 +411,15 @@ class SRFaxProviderClientRequestConstructionUnitTest extends CarlosUnitTestBase 
             assertThatThrownBy(() -> client.toDialableNumber(raw))
                     .isInstanceOf(FaxProviderException.class)
                     .hasMessageContaining("10-15 digits");
+        }
+
+        @ParameterizedTest(name = "\"{0}\" rejected")
+        @ValueSource(strings = {"+1234", "+1234567890123456"})
+        @DisplayName("should throw FaxProviderException for E.164 destination outside the international digit range")
+        void shouldThrowFaxProviderException_forUnnormalizableInternationalDestination(String raw) {
+            assertThatThrownBy(() -> client.toDialableNumber(raw))
+                    .isInstanceOf(FaxProviderException.class)
+                    .hasMessageContaining("8-15 digits");
         }
 
         @Test

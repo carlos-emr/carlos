@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderClient;
+import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderClientFactory;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -337,6 +338,107 @@ class ManageFaxes2ActionUnitTest extends CarlosUnitTestBase {
             verify(faxJobDao).merge(mergedCaptor.capture());
             assertThat(mergedCaptor.getValue().getStatus()).isEqualTo(FaxJob.STATUS.CANCELLED);
             assertThat(response.getContentAsString()).contains("\"success\":true");
+        }
+    }
+
+    @Test
+    @DisplayName("should route a SENT job with a provider id through the provider cancel")
+    void shouldCancelAtProvider_forSentJobWithProviderId() throws Exception {
+        setUpCommonMocks();
+        grantAdminFaxWrite(true);
+
+        // The headline behavior change of this PR: a SENT job is no longer silently marked
+        // cancelled locally - it goes to the provider (SRFax Stop_Fax) and the provider's
+        // outcome is what gets persisted.
+        FaxJob faxJob = waitingFaxJob(11, 456L);
+        faxJob.setStatus(FaxJob.STATUS.SENT);
+        FaxConfig faxConfig = activeSrfaxConfig();
+        // CancelFax passes an Integer, binding the find(Object) overload.
+        when(faxJobDao.find((Object) Integer.valueOf(11))).thenReturn(faxJob);
+        when(faxConfigDao.getConfigByNumber("4165550100")).thenReturn(faxConfig);
+
+        FaxProviderClient providerClient = mock(FaxProviderClient.class);
+        when(faxProviderClientFactory.getClient(faxConfig)).thenReturn(providerClient);
+        FaxJob cancelled = new FaxJob();
+        cancelled.setId(11);
+        cancelled.setStatus(FaxJob.STATUS.CANCELLED);
+        cancelled.setStatusString("Fax cancelled but partially sent");
+        when(providerClient.cancelFax(faxConfig, faxJob)).thenReturn(cancelled);
+
+        request.setMethod("POST");
+        request.setParameter("method", "CancelFax");
+        request.setParameter("jobId", "11");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ManageFaxes2Action().execute();
+
+            verify(providerClient).cancelFax(faxConfig, faxJob);
+            ArgumentCaptor<FaxJob> mergedCaptor = ArgumentCaptor.forClass(FaxJob.class);
+            verify(faxJobDao).merge(mergedCaptor.capture());
+            assertThat(mergedCaptor.getValue().getStatus()).isEqualTo(FaxJob.STATUS.CANCELLED);
+            assertThat(response.getContentAsString())
+                    .contains("\"success\":true")
+                    .contains("Fax cancelled but partially sent");
+        }
+    }
+
+    @Test
+    @DisplayName("should report failure without persisting when the provider cancel throws")
+    void shouldReportFailureWithoutMerge_whenProviderCancelThrows() throws Exception {
+        setUpCommonMocks();
+        grantAdminFaxWrite(true);
+
+        FaxJob faxJob = waitingFaxJob(12, 789L);
+        FaxConfig faxConfig = activeSrfaxConfig();
+        // CancelFax passes an Integer, binding the find(Object) overload.
+        when(faxJobDao.find((Object) Integer.valueOf(12))).thenReturn(faxJob);
+        when(faxConfigDao.getConfigByNumber("4165550100")).thenReturn(faxConfig);
+
+        FaxProviderClient providerClient = mock(FaxProviderClient.class);
+        when(faxProviderClientFactory.getClient(faxConfig)).thenReturn(providerClient);
+        when(providerClient.cancelFax(faxConfig, faxJob))
+                .thenThrow(new FaxProviderException("Unable to Cancel Fax"));
+
+        request.setMethod("POST");
+        request.setParameter("method", "CancelFax");
+        request.setParameter("jobId", "12");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ManageFaxes2Action().execute();
+
+            // A failed provider cancel must not rewrite the job's state.
+            verify(faxJobDao, never()).merge(any());
+            assertThat(response.getContentAsString())
+                    .contains("\"success\":false")
+                    .contains("Unable to Cancel Fax");
+        }
+    }
+
+    @Test
+    @DisplayName("should send 400 for a non-numeric jobId on SetCompleted")
+    void shouldSend400_forNonNumericSetCompletedJobId() throws Exception {
+        setUpCommonMocks();
+        grantAdminFaxWrite(true);
+
+        request.setMethod("POST");
+        request.setParameter("method", "SetCompleted");
+        request.setParameter("jobId", "abc");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ManageFaxes2Action().execute();
+
+            // Malformed input is a 400 like the sibling CancelFax, not a 500 through the error page.
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            verify(faxJobDao, never()).merge(any());
         }
     }
 

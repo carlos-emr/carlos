@@ -492,16 +492,35 @@ public class SRFaxProviderClient implements FaxProviderClient {
      * Normalizes a destination fax number to a dialable digit string for SRFax.
      *
      * <p>North American numbers are normalized to the 11-digit form the API documents
-     * (a 10-digit value gets the country code prepended). Longer digit strings (12-15)
-     * are passed through unchanged so international destinations — which the legacy send
-     * path always forwarded — still reach the provider, where account-level international
-     * enablement decides the outcome. Anything under 10 digits cannot be a dialable fax
-     * number and is rejected before transmission.</p>
+     * (a 10-digit value gets the country code prepended). SRFax expects international
+     * destinations dialed as from a land line: {@code 011} + country code + number —
+     * a bare {@code +CC} E.164 form is not a valid API value. A leading {@code '+'} is
+     * therefore the internationality signal: {@code +1...} is treated as NANP, and any
+     * other {@code +CC} number gets the {@code 011} prefix prepended (stripping the
+     * {@code '+'} alone would silently emit a format the provider rejects). Digit
+     * strings without a {@code '+'} that are 11-15 digits long are passed through
+     * unchanged so destinations already stored in dialed form — which the legacy send
+     * path always forwarded — still reach the provider, where account-level
+     * international enablement decides the outcome. Anything under 10 digits cannot be
+     * a dialable fax number and is rejected before transmission.</p>
      *
-     * @throws FaxProviderException when the value has fewer than 10 or more than 15 digits
+     * @throws FaxProviderException when the value cannot be normalized to a dialable number
      */
     String toDialableNumber(String rawNumber) throws FaxProviderException {
-        String digits = rawNumber == null ? "" : rawNumber.replaceAll("\\D", "");
+        String trimmed = rawNumber == null ? "" : rawNumber.trim();
+        boolean explicitInternational = trimmed.startsWith("+");
+        String digits = trimmed.replaceAll("\\D", "");
+        if (explicitInternational) {
+            if (digits.length() == 11 && digits.startsWith("1")) {
+                return digits;
+            }
+            if (digits.length() >= 8 && digits.length() <= 15) {
+                return "011" + digits;
+            }
+            throw new FaxProviderException(
+                    "International destination fax number must contain 8-15 digits after '+' for SRFax (got "
+                            + digits.length() + " digits)");
+        }
         if (digits.length() == 10) {
             return "1" + digits;
         }

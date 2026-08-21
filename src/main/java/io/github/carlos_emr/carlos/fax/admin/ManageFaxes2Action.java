@@ -341,7 +341,15 @@ public class ManageFaxes2Action extends Fax2Action {
         String id = request.getParameter("jobId");
         FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
 
-        FaxJob faxJob = id == null ? null : faxJobDao.find(Integer.parseInt(id.trim()));
+        FaxJob faxJob;
+        try {
+            faxJob = id == null ? null : faxJobDao.find(Integer.parseInt(id.trim()));
+        } catch (NumberFormatException e) {
+            // Same malformed-input contract as the sibling CancelFax: a non-numeric id is a bad
+            // request, not a 500 through the global error page.
+            sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
+            return;
+        }
         if (faxJob == null) {
             sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Unknown fax job");
             return;

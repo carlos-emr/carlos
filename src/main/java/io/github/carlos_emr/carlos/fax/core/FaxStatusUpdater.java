@@ -207,6 +207,16 @@ public class FaxStatusUpdater {
                     try {
                         FaxProviderClient providerClient = faxProviderClientFactory.getClient(faxConfig);
                         FaxJob faxJobUpdated = providerClient.fetchFaxStatus(faxConfig, faxJob);
+                        if (FaxJob.STATUS.UNKNOWN.equals(faxJobUpdated.getStatus())) {
+                            // An unrecognized/missing provider status is transient response noise, not a
+                            // delivery state. Persisting UNKNOWN would permanently drop the job out of
+                            // getInprogressFaxesByJobId (which selects only SENT/WAITING), ending status
+                            // tracking after a single malformed response. Keep the current in-progress
+                            // status so the job is re-polled next cycle.
+                            log.warn("Provider returned unrecognized status '{}' for fax id {} - keeping status {} for re-poll",
+                                    faxJobUpdated.getStatusString(), faxJob.getId(), faxJob.getStatus());
+                            continue;
+                        }
                         faxJob.setStatus(faxJobUpdated.getStatus());
                         faxJob.setStatusString(faxJobUpdated.getStatusString());
                         log.info("UPDATED FAX JOB ID {} WITH STATUS {}", faxJob.getJobId(), faxJob.getStatus());

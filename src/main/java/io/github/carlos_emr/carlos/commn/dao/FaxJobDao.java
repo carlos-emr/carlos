@@ -55,4 +55,17 @@ public interface FaxJobDao extends AbstractDao<FaxJob> {
      */
     public List<FaxJob> findByProviderJobId(Long jobId);
 
+    /**
+     * Finds fax rows by their stored file name.
+     *
+     * Used by the inbound importer's pending-file retry to resolve the original
+     * "Downloaded but import failed" row (persisted under the quarantined file's name) once
+     * the retry import succeeds, so the queue view does not keep advertising a retry that
+     * already happened.
+     *
+     * @param fileName exact stored file name; never null
+     * @return all rows carrying that file name; empty when none
+     */
+    public List<FaxJob> findByFileName(String fileName);
+
 }

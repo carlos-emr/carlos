@@ -150,9 +150,11 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         // When
         faxImporter.poll();
 
-        // Then: no re-download, no new row; only the unread flag is retried on the provider
+        // Then: no re-download, no new row; the provider acknowledgement is retried both ways
+        // (mark-as-read for SRFax, delete for the middleware relay - each is the other's no-op)
         verify(faxProviderClient, never()).downloadFax(any(), any());
         verify(faxProviderClient).markFaxAsRead(config, inboundFax);
+        verify(faxProviderClient).deleteFax(config, inboundFax);
         verify(faxJobDao, never()).persist(any());
     }
 
@@ -288,6 +290,51 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should move the file back to incoming when the document persist throws")
+    void shouldMoveFileBackToIncoming_whenDocumentPersistThrows() throws Exception {
+        // Given: download and quarantine succeed but the document persist throws unchecked
+        // (the DAO path throws PersistenceException rather than returning null). The file has
+        // already been moved into DOCUMENT_DIR at that point; without compensation it would be
+        // stranded there - invisible to retryPendingImports and, mark-as-read having run,
+        // never re-downloaded either.
+        FaxConfig config = createActiveConfig();
+        FaxJob inboundFax = createInboundFax(PROVIDER_JOB_ID);
+        when(faxConfigDao.findAll(null, null)).thenReturn(Collections.singletonList(config));
+        when(faxProviderClient.listInboundFaxes(config)).thenReturn(Collections.singletonList(inboundFax));
+        when(faxJobDao.findByProviderJobId(PROVIDER_JOB_ID)).thenReturn(Collections.emptyList());
+
+        FaxJob downloadedFax = new FaxJob();
+        downloadedFax.setDocument(Base64.getEncoder().encodeToString(createValidPdfBytes()));
+        when(faxProviderClient.downloadFax(config, inboundFax)).thenReturn(downloadedFax);
+
+        try (MockedStatic<EDocUtil> eDocUtilMock = Mockito.mockStatic(EDocUtil.class)) {
+            eDocUtilMock.when(() -> EDocUtil.addDocumentSQL(any()))
+                    .thenThrow(new RuntimeException("simulated persistence failure"));
+
+            // When
+            faxImporter.poll();
+        }
+
+        // Then: an ERROR row marks the fax pending retry, and the PDF is back under the
+        // incoming directory (config subdirectory) where retryPendingImports scans.
+        ArgumentCaptor<FaxJob> persisted = ArgumentCaptor.forClass(FaxJob.class);
+        verify(faxJobDao).persist(persisted.capture());
+        assertThat(persisted.getValue().getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+        assertThat(persisted.getValue().getStatusString())
+                .startsWith("Downloaded but import failed");
+        try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.walk(faxIncomingDir)) {
+            assertThat(files.filter(f -> f.toString().endsWith(".pdf")).count())
+                    .as("the quarantined PDF must be back in the incoming directory for retry")
+                    .isEqualTo(1);
+        }
+        try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.walk(documentDir)) {
+            assertThat(files.filter(f -> f.toString().endsWith(".pdf")).count())
+                    .as("no orphan file may remain in DOCUMENT_DIR after the failed persist")
+                    .isEqualTo(0);
+        }
+    }
+
+    @Test
     @DisplayName("should store the file under the EDoc's DMS-prefixed filename on successful import")
     void shouldStoreFileUnderEdocFilename_onSuccessfulImport() throws Exception {
         // Given: a downloadable inbound fax and a document record that persists successfully
@@ -321,10 +368,12 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
                 .as("file must be stored under the document row's filename")
                 .exists();
 
-        // And the persisted fax row references the same final name
+        // And the persisted fax row references the same final name and is stamped inbound
+        // (direction drives both the queue view's type label and the dedup scoping)
         ArgumentCaptor<FaxJob> persisted = ArgumentCaptor.forClass(FaxJob.class);
         verify(faxJobDao).persist(persisted.capture());
         assertThat(persisted.getValue().getFile_name()).isEqualTo(edocFileName.get());
+        assertThat(persisted.getValue().getDirection()).isEqualTo(FaxJob.Direction.IN);
     }
 
     /**
@@ -344,6 +393,27 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         @DisplayName("should return false for empty prior rows")
         void shouldReturnFalse_forEmptyPriorRows() {
             assertThat(faxImporter.isAlreadyImported(Collections.emptyList())).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return false when only an outbound row shares the provider job id")
+        void shouldReturnFalse_whenOnlyOutboundRowSharesJobId() {
+            // Provider job ids from different sources share the jobId column; an OUT row that
+            // merely collides on the number must not suppress importing a new inbound fax.
+            FaxJob outbound = priorRow(FaxJob.STATUS.RECEIVED, "Imported");
+            outbound.setDirection(FaxJob.Direction.OUT);
+            FaxJob outboundComplete = priorRow(FaxJob.STATUS.COMPLETE, "Sent");
+            outboundComplete.setDirection(FaxJob.Direction.OUT);
+            assertThat(faxImporter.isAlreadyImported(java.util.Arrays.asList(outbound, outboundComplete))).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return true for a legacy inbound row with a null direction")
+        void shouldReturnTrue_forLegacyRowWithNullDirection() {
+            // Pre-direction rows (before the V1.0.15 backfill ran) must keep deduplicating.
+            FaxJob legacy = priorRow(FaxJob.STATUS.RECEIVED, null);
+            legacy.setDirection(null);
+            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(legacy))).isTrue();
         }
 
         @Test
