@@ -616,6 +616,51 @@ def test_internal_retry_still_reads_its_own_pending_unlock_secret() -> None:
     assert retried.json()["status"] == "pending"
 
 
+@pytest.mark.parametrize("force_integrity_race", [False, True])
+def test_internal_create_will_not_redisclose_a_published_unlock_secret(
+    monkeypatch: pytest.MonkeyPatch,
+    force_integrity_race: bool,
+) -> None:
+    """Re-POSTing a published source_reference must 409, not return the live passphrase.
+
+    Both create branches reach `disclose_unlock_secret`: the direct lookup and the
+    IntegrityError race. The race branch is exercised by forcing the pre-check to miss.
+    """
+    app = internal_app()
+    client = TestClient(app)
+    headers = carlos_headers("portal.secret.manage")
+    payload = {"source_reference": "published-doc-1", "secret_type": "email"}
+    created = client.post(
+        "/internal/carlos/patients/1234/unlock-secrets",
+        headers=headers,
+        json=payload,
+    )
+    assert created.status_code == 201
+    published = client.post(
+        f"/internal/carlos/unlock-secrets/{created.json()['id']}/publish",
+        headers=headers,
+    )
+    assert published.status_code == 200
+
+    if force_integrity_race:
+        monkeypatch.setattr(
+            internal_routes,
+            "get_unlock_secret_by_source_reference",
+            lambda *args, **kwargs: None,
+        )
+
+    replayed = client.post(
+        "/internal/carlos/patients/1234/unlock-secrets",
+        headers=headers,
+        json=payload,
+    )
+
+    assert replayed.status_code == 409
+    assert replayed.json()["detail"] == "source reference was already published"
+    assert "secret" not in replayed.json()
+    assert created.json()["secret"] not in replayed.text
+
+
 def test_foreign_clinic_invite_cannot_be_activated_through_this_runtime() -> None:
     """A Clinic B invite must not be redeemable under Clinic A branding/origin."""
     app = internal_app()

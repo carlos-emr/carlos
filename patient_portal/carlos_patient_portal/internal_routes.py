@@ -264,6 +264,27 @@ def require_permission(principal: StaffPrincipal, permission: str) -> None:
         raise HTTPException(status_code=403, detail="permission denied") from exc  # NOSONAR
 
 
+def require_pending_for_disclosure(unlock_secret: PatientPortalUnlockSecret) -> None:
+    """Confine idempotent re-disclosure to the create-then-publish window.
+
+    CARLOS creates a passphrase, sends the correspondence, then publishes; a retry inside that
+    window legitimately reads back the record it just created, which is why `read_unlock_secret`
+    is called with `allow_pending=True`. Nothing previously tied disclosure to that window, so
+    re-POSTing the same `source_reference` a year later returned the live passphrase of an
+    already-published record over the internal API.
+
+    Publication is the boundary: once the patient can see the passphrase, a repeat create is no
+    longer a retry, and answering it with the plaintext would make the internal token a standing
+    read capability over every passphrase ever issued. 409 makes that case visible to CARLOS
+    instead of silently re-disclosing.
+    """
+    if unlock_secret.status != UNLOCK_SECRET_STATUS_PENDING:
+        raise HTTPException(
+            status_code=409,
+            detail="source reference was already published",
+        ) from None
+
+
 def invite_payload(
     invite: PatientPortalInvite,
     *,
@@ -448,6 +469,8 @@ def build_internal_dependencies(runtime: InternalRuntime) -> InternalRouteDepend
                 actor_id=principal.provider_id,
                 demographic_no=unlock_secret.demographic_no,
                 # CARLOS retries read back the record it just created, before publishing it.
+                # `require_pending_for_disclosure` is what confines this to that window: every
+                # caller of this helper has already rejected a non-pending record.
                 allow_pending=True,
             )
         except UnlockSecretDecryptionError as exc:
@@ -752,6 +775,7 @@ def register_internal_unlock_secret_routes(
         if existing_secret is not None:
             if existing_secret.status == UNLOCK_SECRET_STATUS_REVOKED:
                 raise HTTPException(status_code=409, detail="source reference was revoked")
+            require_pending_for_disclosure(existing_secret)
             plaintext = deps.disclose_unlock_secret(session, existing_secret, principal)
             return {
                 "id": existing_secret.id,
@@ -797,6 +821,7 @@ def register_internal_unlock_secret_routes(
                     status_code=409,
                     detail="source reference was revoked",
                 ) from None
+            require_pending_for_disclosure(existing_secret)
             plaintext = deps.disclose_unlock_secret(session, existing_secret, principal)
             return {
                 "id": existing_secret.id,
