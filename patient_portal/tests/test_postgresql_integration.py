@@ -1,13 +1,14 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
-from threading import Barrier, Event
+from threading import Barrier, Event, Lock
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, inspect, select, text
+from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.exc import DBAPIError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from carlos_patient_portal.account_settings import (
     CONTACT_UPDATE_OUTCOME_CONFIRMATION_REQUIRED,
@@ -22,14 +23,21 @@ from carlos_patient_portal.auth import create_patient_session, hash_auth_token
 from carlos_patient_portal.config import Settings
 from carlos_patient_portal.credentials import hash_password
 from carlos_patient_portal.database import create_portal_engine
+from carlos_patient_portal.delivery_outbox import (
+    enqueue_contact_change_delivery,
+    process_one_delivery,
+)
 from carlos_patient_portal.main import auth_policy_from_settings, create_app
 from carlos_patient_portal.models import (
     ACCOUNT_STATUS_ACTIVE,
     CONTACT_REVIEW_STATUS_PENDING,
     EMAIL_CHANGE_STATUS_PENDING,
+    OUTBOX_STATUS_DELIVERED,
+    OUTBOX_STATUS_PENDING,
     PatientPortalAccount,
     PatientPortalContactReviewRequest,
     PatientPortalEmailChangeRequest,
+    PatientPortalOutboundDelivery,
     PatientPortalSession,
     utc_now,
 )
@@ -911,3 +919,82 @@ def test_postgresql_concurrent_fresh_logins_leave_one_usable_mfa_challenge() -> 
         assert len(verifiable) == len(accepted)
     finally:
         engine.dispose()
+
+
+def test_postgresql_outbox_claim_is_exclusive_under_concurrent_workers() -> None:
+    """Row locking must actually exclude a second worker.
+
+    Every outbox test runs on SQLite, where SQLAlchemy compiles
+    `select(...).with_for_update(skip_locked=True)` to a plain SELECT - so `skip_locked` could be
+    deleted with a green suite. The single two-worker SQLite test passes via the lease predicate
+    rather than the lock, because the claim transaction commits before the sender is called.
+    PatientPortalOutboundDelivery appeared zero times in this file.
+
+    The failure mode this leaves uncovered is duplicate delivery of PHI-bearing patient email.
+    """
+    assert POSTGRES_URL is not None
+    clean_postgresql_database()
+    account_id = insert_postgres_account(username="outbox.patient", demographic_no=8821)
+    engine = create_portal_engine(POSTGRES_URL)
+    session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+    try:
+        with Session(engine) as session:
+            with session.begin():
+                enqueue_contact_change_delivery(
+                    session,
+                    account_id=account_id,
+                    recipient="outbox.patient@example.com",
+                    encryption_secret="o" * 32,
+                )
+
+        started = Barrier(2)
+        senders: list[str] = []
+        sender_lock = Lock()
+
+        class CountingSender:
+            def send_contact_change_notice(self, **kwargs: object) -> None:
+                with sender_lock:
+                    senders.append(str(kwargs.get("message_id")))
+
+        def claim_one() -> object:
+            started.wait(timeout=10)
+            return process_one_delivery(
+                session_factory,
+                email_sender=CountingSender(),
+                encryption_secret="o" * 32,
+                max_attempts=3,
+                lease_seconds=60,
+            )
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = [future.result(timeout=30) for future in
+                       [executor.submit(claim_one), executor.submit(claim_one)]]
+
+        claimed = [result for result in results if result is not None]
+        assert len(claimed) == 1, "both workers claimed the same row"
+        assert len(senders) == 1, "the message was delivered twice"
+        with Session(engine) as session:
+            total = session.scalar(select(func.count(PatientPortalOutboundDelivery.id)))
+            assert total == 1
+            assert session.scalar(select(PatientPortalOutboundDelivery)).status == (
+                OUTBOX_STATUS_DELIVERED
+            )
+    finally:
+        engine.dispose()
+
+
+def test_postgresql_outbox_claim_compiles_to_for_update_skip_locked() -> None:
+    """Pin the dialect behaviour the test above depends on.
+
+    On SQLite the same statement compiles without any locking clause, which is exactly why the
+    concurrency guarantee cannot be demonstrated there.
+    """
+    statement = (
+        select(PatientPortalOutboundDelivery)
+        .where(PatientPortalOutboundDelivery.status == OUTBOX_STATUS_PENDING)
+        .with_for_update(skip_locked=True)
+    )
+    compiled = str(statement.compile(dialect=postgresql.dialect()))
+
+    assert "FOR UPDATE SKIP LOCKED" in compiled
+    assert "FOR UPDATE SKIP LOCKED" not in str(statement.compile(dialect=sqlite.dialect()))
