@@ -171,7 +171,16 @@ case "$1" in
         db_get carlos-emr/acme-email;  ACME_EMAIL="${RET:-}"
         db_get carlos-emr/reset-seed-admin; RESET_ADMIN="${RET:-true}"
 
-        TZ_NAME="$(cat /etc/timezone 2>/dev/null || echo America/Toronto)"
+        # Three sources in order of authority: /etc/timezone (Debian
+        # tradition), timedatectl, the /etc/localtime symlink target. Modern
+        # Ubuntu cloud images can lack /etc/timezone entirely — live-caught:
+        # the old single-source fallback silently picked America/Toronto on
+        # a UTC host.
+        TZ_NAME="$(cat /etc/timezone 2>/dev/null \
+            || timedatectl show -p Timezone --value 2>/dev/null \
+            || readlink /etc/localtime 2>/dev/null | sed 's|.*/zoneinfo/||' \
+            || true)"
+        TZ_NAME="${TZ_NAME:-America/Toronto}"
 
         # The value travels through the ENVIRONMENT into awk, never through a
         # sed replacement: sed treats |, & and \ specially there, so a host
