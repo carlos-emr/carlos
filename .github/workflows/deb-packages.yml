@@ -1,0 +1,209 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 CARLOS Contributors
+#
+# Build and publish the Debian packages (carlos-emr, carlos-emr-drugref) as
+# assets of a CARLOS release.
+#
+# DESIGN — deliberately a SEPARATE workflow from publish-release.yml, running
+# after the release is published, rather than a job spliced into that
+# carefully-serialized pipeline:
+#
+#   * The deb ships the release's OWN published WAR, downloaded from the
+#     release and verified against its .sha256 — the same bytes the WAR
+#     attestation covers, with no second Maven compile that could drift.
+#     That is only possible after the WAR asset exists, i.e. post-publish.
+#   * A failure here can never wedge or roll back the release itself; the
+#     workflow_dispatch input exists to retry (or backfill an older release)
+#     without touching the release pipeline.
+#
+# The build runs inside an ubuntu:26.04 container so the toolchain and the
+# runtime dependency versions are exactly the target distribution's,
+# independent of which runner labels GitHub offers this month.
+
+name: Debian Packages
+
+on:
+  # The release trigger only fires for releases published by a HUMAN (or a
+  # PAT/app): releases published by publish-release.yml use the
+  # workflow-scoped GITHUB_TOKEN, whose events GitHub suppresses — that
+  # pipeline therefore dispatches this workflow explicitly as its final
+  # step. Both paths land in the same build.
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release tag to build .deb assets for
+        required: true
+        type: string
+
+# Per-tag serialization: a retry racing the original run would upload the
+# same asset names concurrently.
+concurrency:
+  group: deb-packages-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-debs:
+    name: Build and attach .deb packages
+    runs-on: ubuntu-latest
+    container:
+      # Digest-pinned like every third-party artefact in this repository's
+      # workflows: a re-pushed tag must never change what runs with release
+      # and attestation permissions. Re-resolve on deliberate base bumps
+      # (skopeo inspect docker://ubuntu:26.04).
+      image: ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
+    permissions:
+      # Upload assets to the release.
+      contents: write
+      # Provenance attestation for the .debs, matching the WAR's.
+      id-token: write
+      attestations: write
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
+      REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          apt-get update
+          # The list mirrors debian/control Build-Depends plus the release
+          # tooling (gh, curl, git for the DrugRef fetch). Maven is still
+          # installed for the DrugRef build; the CARLOS WAR itself is NOT
+          # compiled here (see CARLOS_WAR below).
+          apt-get install -y --no-install-recommends \
+            build-essential debhelper devscripts lintian fakeroot \
+            maven openjdk-21-jdk-headless tomcat11 \
+            git ca-certificates curl xz-utils
+          # gh comes from GitHub's own apt repository, NOT the Ubuntu
+          # archive: resolute ships gh 2.46.0, and `gh attestation` (which
+          # the WAR verification below depends on) only exists from 2.49.0 —
+          # with the archive build, every run failed at the verify step.
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+            -o /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+            > /etc/apt/sources.list.d/github-cli.list
+          apt-get update
+          apt-get install -y --no-install-recommends gh
+          gh --version
+
+      - name: Checkout the tagged source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - name: Refuse tags that predate the packaging
+        run: |
+          set -euo pipefail
+          # Backfill builds FROM THE TAG'S OWN TREE — a tag cut before
+          # debian/ existed has nothing to build, and without this guard the
+          # run died later on a bare "No such file or directory" from the
+          # changelog stamp.
+          if [ ! -d debian ]; then
+            echo "::error::tag $RELEASE_TAG contains no debian/ directory — it predates the packaging and cannot be backfilled. Only tags cut after the packaging merged can build deb assets."
+            exit 1
+          fi
+
+      - name: Download and verify the release WAR
+        run: |
+          set -euo pipefail
+          # The deb ships the exact WAR the release published: the .sha256
+          # catches corrupt/partial downloads, and the attestation check
+          # below is what makes the stronger claim true — a swapped WAR
+          # (even one with a matching swapped .sha256) fails provenance
+          # verification and never becomes a package payload.
+          gh release download "$RELEASE_TAG" --repo "$REPO" \
+            --pattern "carlos-$RELEASE_TAG.war" \
+            --pattern "carlos-$RELEASE_TAG.war.sha256" \
+            --dir /tmp/release-war
+          cd /tmp/release-war
+          sha256sum -c "carlos-$RELEASE_TAG.war.sha256"
+          # The .sha256 travels with the WAR, so it only catches corrupt or
+          # partial downloads. The ATTESTATION is the tamper control: it
+          # binds these exact bytes to the publish-release workflow run that
+          # built them, and nobody with mere contents:write can forge it.
+          gh attestation verify "carlos-$RELEASE_TAG.war" --repo "$REPO"
+          echo "CARLOS_WAR=/tmp/release-war/carlos-$RELEASE_TAG.war" >> "$GITHUB_ENV"
+
+      - name: Stamp the package version from the release tag
+        run: |
+          set -euo pipefail
+          # CalVer tag -> Debian version. Pre-release suffixes swap '-' for
+          # '~' (2026.08.0-alpha4 -> 2026.08.0~alpha4-1): '~' sorts BEFORE
+          # the empty string in dpkg, so alphas and rcs correctly upgrade to
+          # the final release, and the hyphen stops colliding with the
+          # Debian revision separator.
+          deb_version="$(printf '%s' "$RELEASE_TAG" | sed 's/-/~/')-1"
+          # git identity for dch-less changelog editing is not needed; write
+          # the stanza directly, keeping the existing changelog as history.
+          {
+            printf 'carlos-emr (%s) resolute; urgency=medium\n\n' "$deb_version"
+            printf '  * Automated package build of the %s release.\n' "$RELEASE_TAG"
+            printf '    The carlos-emr package ships the WAR published (and attested) by\n'
+            printf '    that release, byte for byte; DrugRef is built from the revision\n'
+            printf '    pinned in debian/drugref.pin.\n\n'
+            printf ' -- CARLOS Release CI <releases@carlos-emr.invalid>  %s\n' "$(date -R)"
+          } > debian/changelog.new
+          # Replace, do NOT prepend: the in-tree changelog's top stanza is a
+          # development snapshot (e.g. 2026.09.0~snapshot1) whose version is
+          # HIGHER than the release being built, so keeping it below the
+          # release entry would present a higher version as older history and
+          # trip lintian's ordering check. The authoritative history is git.
+          mv debian/changelog.new debian/changelog
+          echo "DEB_VERSION=$deb_version" >> "$GITHUB_ENV"
+
+      - name: Build the packages
+        run: |
+          set -euo pipefail
+          # CARLOS_WAR skips the in-tree Maven compile; DrugRef builds from
+          # the pinned revision via debian/fetch-drugref.sh. dpkg-buildpackage
+          # runs the whole debhelper pipeline including our install-time
+          # staging checks.
+          dpkg-buildpackage -us -uc -b
+          mkdir -p release-assets
+          for deb in ../carlos-emr_"${DEB_VERSION}"_all.deb ../carlos-emr-drugref_"${DEB_VERSION}"_all.deb; do
+            cp "$deb" release-assets/
+          done
+          cd release-assets
+          for f in *.deb; do sha256sum "$f" > "$f.sha256"; done
+          ls -la
+
+      - name: Lintian gate
+        run: |
+          set -euo pipefail
+          # Errors fail the build. The overrides files in debian/ carry the
+          # documented, deliberate exceptions; anything NEW is a regression.
+          lintian --fail-on error ../carlos-emr_*.changes
+
+      - name: Attest package provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: |
+            release-assets/*.deb
+
+      - name: Upload and verify the release assets
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" release-assets/* --repo "$REPO" --clobber
+          # Same digest verification contract as the WAR upload in
+          # publish-release.yml: what GitHub stores must be what we hashed.
+          # Matched by DIGEST, not by name: GitHub normalises the stored
+          # asset name (it rewrites the '~' in a Debian pre-release version
+          # to '.'), so a name-equality lookup never matched and the check
+          # failed on every alpha/rc tag. The digest is invariant.
+          stored_digests="$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" --jq '.assets[].digest')"
+          for asset in release-assets/*.deb; do
+            name="$(basename "$asset")"
+            expected="sha256:$(sha256sum "$asset" | awk '{print $1}')"
+            if ! printf '%s\n' "$stored_digests" | grep -qxF "$expected"; then
+              echo "::error::no uploaded asset on $RELEASE_TAG matches the digest of $name ($expected)"
+              exit 1
+            fi
+          done
+          echo "Published: $(cd release-assets && ls *.deb | tr '\n' ' ')"

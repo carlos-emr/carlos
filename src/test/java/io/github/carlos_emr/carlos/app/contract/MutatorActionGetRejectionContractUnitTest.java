@@ -288,6 +288,12 @@ class MutatorActionGetRejectionContractUnitTest {
         // Fax: queue/cancel (including the no-method fall-through to cancel) mutate and reject
         // GET/HEAD; getPreview/getPageCount/prepareFax stay verb-open (see Fax2ActionMethodGateUnitTest).
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
+        // Fax admin queue: CancelFax/ResendFax/SetCompleted mutate and reject GET/HEAD before
+        // dispatch; viewFax/fetchFaxStatus stay verb-open (see ManageFaxes2ActionUnitTest).
+        "io.github.carlos_emr.carlos.fax.admin.ManageFaxes2Action",
+        // Fax admin config: configure/restartFaxScheduler mutate and reject GET/HEAD;
+        // getFaxSchedularStatus/getPendingIncomingFaxes stay verb-open (see ConfigureFax2ActionUnitTest).
+        "io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action",
         // Security/MFA: execute() renders a view on a bare GET; only the method=resetMfa dispatch
         // (a privileged reset of another account's MFA) is POST-only (see MfaActions2ActionUnitTest).
         "io.github.carlos_emr.carlos.security.MfaActions2Action",
@@ -382,9 +388,11 @@ class MutatorActionGetRejectionContractUnitTest {
         // eform slice: only these are registered; broader slice audit tracked in issue #2828.
         "io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
         "io.github.carlos_emr.carlos.eform.actions.SaveEFormAsEDoc2Action",
-        // Fax slice: only Fax2Action is registered; the fax package is not in
-        // IN_SCOPE_PACKAGE_PREFIXES, so this single migrated mutator registers explicitly.
+        // Fax slice: the fax package is not in IN_SCOPE_PACKAGE_PREFIXES, so its gated
+        // mutators register explicitly (clinician queue/cancel plus the two admin actions).
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
+        "io.github.carlos_emr.carlos.fax.admin.ManageFaxes2Action",
+        "io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action",
         // providers slice: ProEditPhoneNum2Action persists the provider's rxPhone; the providers
         // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly here.
         "io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action",

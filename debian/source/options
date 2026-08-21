@@ -1,0 +1,16 @@
+# The CARLOS working tree carries build output (target/), a Maven side
+# repository (local_repo/) and node_modules/ that must never enter the source
+# package. dpkg-source's default tarball would otherwise be ~2 GB.
+tar-ignore = "target"
+tar-ignore = "local_repo"
+tar-ignore = "node_modules"
+tar-ignore = ".git"
+tar-ignore = ".git/*"
+tar-ignore = "debian/build"
+tar-ignore = "debian/.debhelper"
+tar-ignore = "debian/carlos-emr"
+tar-ignore = "debian/carlos-emr-drugref"
+tar-ignore = "debian/tmp"
+tar-ignore = "debian/files"
+tar-ignore = "debian/*.substvars"
+tar-ignore = "debian/*.debhelper.log"
