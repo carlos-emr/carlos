@@ -26,8 +26,8 @@ def _engine() -> str:
 def _set_engine(value: str) -> None:
     with open(MAIN, encoding="utf-8", errors="replace") as fh:
         lines = fh.read().split("\n")
-    out = [f"SecRuleEngine {value}" if re.match(r"^SecRuleEngine\s", l) else l
-           for l in lines]
+    out = [f"SecRuleEngine {value}" if re.match(r"^SecRuleEngine\s", line) else line
+           for line in lines]
     text = "\n".join(out)
     if not text.endswith("\n"):
         text += "\n"

@@ -16,8 +16,14 @@ from .util import (
 _failures = 0
 
 
-def _ok(msg):   print(f"  {GREEN}OK{RESET}      {msg}")
-def _note(msg): print(f"  {YELLOW}NOTE{RESET}    {msg}")
+def _ok(msg):
+    print(f"  {GREEN}OK{RESET}      {msg}")
+
+
+def _note(msg):
+    print(f"  {YELLOW}NOTE{RESET}    {msg}")
+
+
 def _bad(msg):
     global _failures
     _failures += 1
