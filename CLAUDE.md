@@ -43,6 +43,8 @@
 ## Fax Provider Feature Context (AI + Dev)
 
 - Provider-specific fax transport is now selected by `FaxConfig.providerType` (`MIDDLEWARE` or `SRFAX`).
+  SRFax is the supported provider and the default; the admin UI offers `MIDDLEWARE` only for
+  grandfathered rows already stored with it (the middleware transport code is retained).
 - Admin configuration path is the existing UI: **Administration > Faxes > Configure Fax**.
 - Fax configuration requires `_admin.fax` write rights; scheduler controls use `_admin.fax.restart`.
 - SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.

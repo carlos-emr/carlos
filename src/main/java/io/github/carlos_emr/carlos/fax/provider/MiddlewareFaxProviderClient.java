@@ -45,6 +45,7 @@ import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.classic.methods.HttpDelete;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.classic.methods.HttpPut;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
@@ -300,6 +301,44 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             }
         } catch (IOException | ParseException e) {
             throw new FaxProviderException("Middleware status check communication failure", e,
+                    FaxProviderException.isTransientNetworkCause(e));
+        }
+    }
+
+    /**
+     * Cancels a queued outbound fax on the middleware relay via HTTP PUT.
+     *
+     * <p>Replaces the ad-hoc client formerly inlined in the Manage Faxes admin action: this
+     * path now goes through the same endpoint allow-list validation, pinned DNS resolution,
+     * timeouts, and disabled redirects as every other middleware operation.</p>
+     */
+    @Override
+    public FaxJob cancelFax(FaxConfig faxConfig, FaxJob faxJob) throws FaxProviderException {
+        requireMatchingProviderType(faxConfig);
+        if (faxJob.getJobId() == null) {
+            throw new FaxProviderException("Cannot cancel fax: job has no provider job id");
+        }
+        ValidatedHttpEndpoint endpoint = validateMiddlewareConfig(faxConfig);
+        try (CloseableHttpClient client = createHttpClient(faxConfig, endpoint)) {
+            HttpPut put = new HttpPut(endpointUri(endpoint, PATH + "/" + faxJob.getJobId()));
+            put.setHeader("accept", "application/json");
+            put.setHeader("user", faxConfig.getFaxUser());
+            put.setHeader("passwd", faxConfig.getFaxPasswd());
+
+            try (var response = client.execute(put)) {
+                int statusCode = response.getCode();
+                if (statusCode != HttpStatus.SC_OK) {
+                    throw new FaxProviderException(
+                            "Middleware cancel failed for job " + faxJob.getJobId() +
+                            " with HTTP " + statusCode + ": " + response.getReasonPhrase());
+                }
+                FaxJob cancelled = new FaxJob(faxJob);
+                cancelled.setStatus(FaxJob.STATUS.CANCELLED);
+                cancelled.setStatusString("Cancelled on middleware relay");
+                return cancelled;
+            }
+        } catch (IOException e) {
+            throw new FaxProviderException("Middleware fax cancel communication failure", e,
                     FaxProviderException.isTransientNetworkCause(e));
         }
     }

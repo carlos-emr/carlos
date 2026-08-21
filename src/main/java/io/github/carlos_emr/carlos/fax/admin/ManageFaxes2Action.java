@@ -42,16 +42,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import org.apache.hc.core5.http.HttpStatus;
 import org.apache.commons.lang3.time.DateUtils;
-import org.apache.hc.core5.http.HttpEntity;
-import org.apache.hc.client5.http.auth.AuthScope;
-import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
-import org.apache.hc.client5.http.classic.methods.HttpPut;
-import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.FaxClientLogDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
@@ -59,6 +50,9 @@ import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.model.FaxClientLog;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
+import io.github.carlos_emr.carlos.fax.provider.FaxProviderClient;
+import io.github.carlos_emr.carlos.fax.provider.FaxProviderClientFactory;
+import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -78,12 +72,25 @@ public class ManageFaxes2Action extends Fax2Action {
 
     private final Logger log = MiscUtils.getLogger();
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final FaxProviderClientFactory faxProviderClientFactory = SpringUtils.getBean(FaxProviderClientFactory.class);
 
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity")
     @Override
     public String execute() {
         String method = request.getParameter("method");
+        // CancelFax/ResendFax/SetCompleted mutate fax jobs (and CancelFax reaches the provider);
+        // they must never ride a GET/HEAD. This gate has to run HERE because these methods
+        // dispatch before the parent's verb gate in super.execute() is ever reached.
+        // manageFaxes.jsp issues all three via POST, so no UI change is required.
+        boolean mutator = "CancelFax".equals(method) || "ResendFax".equals(method) || "SetCompleted".equals(method);
+        String httpMethod = request.getMethod();
+        if (mutator && ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod))) {
+            sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
+            return NONE;
+        }
         if ("CancelFax".equals(method)) {
             return CancelFax();
         } else if ("ResendFax".equals(method)) {
@@ -104,67 +111,83 @@ public class ManageFaxes2Action extends Fax2Action {
     }
 
 
+    /**
+     * Cancels an outbound fax through the provider-abstracted {@code cancelFax} operation.
+     *
+     * <p>Behavior change from the legacy implementation: a SENT (in-progress at provider) job
+     * with a provider job id is now cancelled AT THE PROVIDER (SRFax {@code Stop_Fax},
+     * middleware HTTP PUT) instead of being silently marked cancelled locally, and the
+     * provider's own outcome — including "already transmitted, could not cancel" — is
+     * reflected back. A WAITING job that never reached the provider is cancelled locally.</p>
+     */
     @SuppressWarnings("unused")
     public String CancelFax() {
 
-        String jobId = request.getParameter("jobId");
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.fax", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.fax)");
+        }
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+        ObjectNode result = objectMapper.createObjectNode();
+        result.put("success", false);
+
+        String jobIdParam = request.getParameter("jobId");
+        Integer faxJobRowId = null;
+        if (jobIdParam != null) {
+            try {
+                faxJobRowId = Integer.valueOf(jobIdParam.trim());
+            } catch (NumberFormatException e) {
+                // fall through to the bad-request response below
+            }
+        }
+        if (faxJobRowId == null) {
+            sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
+            return NONE;
         }
 
         FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
         FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
-        FaxJob faxJob = faxJobDao.find(Integer.parseInt(jobId));
-        FaxConfig faxConfig = faxConfigDao.getConfigByNumber(faxJob.getFax_line());
-        ObjectNode result = objectMapper.createObjectNode();
-        result.put("success", false);
+        FaxJob faxJob = faxJobDao.find(faxJobRowId);
+        if (faxJob == null) {
+            sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Unknown fax job");
+            return NONE;
+        }
 
-        log.info("TRYING TO CANCEL FAXJOB " + faxJob.getJobId());
+        FaxConfig faxConfig = faxConfigDao.getConfigByNumber(faxJob.getFax_line());
+        log.info("Cancel requested for fax row id {} (provider job id {})", faxJob.getId(), faxJob.getJobId());
 
         if (faxConfig == null) {
-            log.error("Could not find faxConfig while processing fax id: " + faxJob.getId() + " Has the fax number changed?");
+            log.error("Could not find faxConfig while processing fax id: {} Has the fax number changed?", faxJob.getId());
         } else if (faxConfig.isActive()) {
 
-            if (faxJob.getStatus().equals(FaxJob.STATUS.SENT)) {
+            boolean cancellableStatus = FaxJob.STATUS.WAITING.equals(faxJob.getStatus())
+                    || FaxJob.STATUS.SENT.equals(faxJob.getStatus());
+
+            if (faxJob.getJobId() == null && FaxJob.STATUS.WAITING.equals(faxJob.getStatus())) {
+                // Never reached the provider: safe to cancel locally.
                 faxJob.setStatus(FaxJob.STATUS.CANCELLED);
+                faxJob.setStatusString("Cancelled before transmission");
                 faxJobDao.merge(faxJob);
-                result = objectMapper.createObjectNode();
                 result.put("success", true);
-
-            }
-
-            if (faxJob.getJobId() != null) {
-
-                if (faxJob.getStatus().equals(FaxJob.STATUS.WAITING)) {
-                    BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-                    credentialsProvider.setCredentials(new AuthScope(null, -1),
-                            new UsernamePasswordCredentials(faxConfig.getSiteUser(), faxConfig.getPasswd().toCharArray()));
-
-                    try (CloseableHttpClient client = HttpClients.custom()
-                            .setDefaultCredentialsProvider(credentialsProvider).build()) {
-
-                        HttpPut mPut = new HttpPut(faxConfig.getUrl() + "/fax/" + faxJob.getJobId());
-                        mPut.setHeader("accept", "application/json");
-                        mPut.setHeader("user", faxConfig.getFaxUser());
-                        mPut.setHeader("passwd", faxConfig.getFaxPasswd());
-
-                        var httpResponse = client.execute(mPut);
-
-                        if (httpResponse.getCode() == HttpStatus.SC_OK) {
-
-                            HttpEntity httpEntity = httpResponse.getEntity();
-                            result = objectMapper.createObjectNode();
-                            result = (ObjectNode) objectMapper.readTree(EntityUtils.toString(httpEntity));
-
-                            faxJob.setStatus(FaxJob.STATUS.CANCELLED);
-                            faxJobDao.merge(faxJob);
-                        }
-
-                    } catch (IOException | org.apache.hc.core5.http.ParseException e) {
-                        log.error("PROBLEM COMM WITH WEB SERVICE");
+            } else if (faxJob.getJobId() != null && cancellableStatus) {
+                try {
+                    FaxProviderClient providerClient = faxProviderClientFactory.getClient(faxConfig);
+                    FaxJob cancelled = providerClient.cancelFax(faxConfig, faxJob);
+                    faxJob.setStatus(cancelled.getStatus());
+                    if (cancelled.getStatusString() != null) {
+                        faxJob.setStatusString(cancelled.getStatusString());
                     }
+                    faxJobDao.merge(faxJob);
+                    result.put("success", FaxJob.STATUS.CANCELLED.equals(faxJob.getStatus()));
+                    if (faxJob.getStatusString() != null) {
+                        result.put("message", faxJob.getStatusString());
+                    }
+                } catch (FaxProviderException e) {
+                    // Provider exception messages never carry credentials (provider-client contract).
+                    log.error("Provider cancel failed for fax row id {}", faxJob.getId(), e);
+                    result.put("message", e.getMessage() == null ? "Cancel failed" : e.getMessage());
                 }
+            } else {
+                log.info("Fax row id {} not in a cancellable state ({})", faxJob.getId(), faxJob.getStatus());
             }
         }
 
@@ -172,6 +195,17 @@ public class ManageFaxes2Action extends Fax2Action {
 
         return null;
 
+    }
+
+    /**
+     * Sends an HTTP error response, quietly logging (rather than propagating) any IO failure.
+     */
+    private void sendErrorQuietly(int statusCode, String message) {
+        try {
+            response.sendError(statusCode, message);
+        } catch (IOException ex) {
+            log.error("Error sending error response", ex);
+        }
     }
 
     @SuppressWarnings("unused")
@@ -183,8 +217,8 @@ public class ManageFaxes2Action extends Fax2Action {
         String faxNumber = request.getParameter("faxNumber");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.fax)");
         }
 
         boolean success = false;
@@ -219,6 +253,12 @@ public class ManageFaxes2Action extends Fax2Action {
     @SuppressWarnings("unused")
     public String fetchFaxStatus() {
 
+        // Returns fax rows carrying demographic and destination identifiers plus audit log
+        // entries — must be gated like the rest of the fax admin surface.
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.fax", "r", null)) {
+            throw new SecurityException("missing required sec object (_admin.fax)");
+        }
+
         String statusStr = request.getParameter("status");
         String teamStr = request.getParameter("team");
         String dateBeginStr = request.getParameter("dateBegin");
@@ -226,15 +266,16 @@ public class ManageFaxes2Action extends Fax2Action {
         String provider_no = request.getParameter("oscarUser");
         String demographic_no = request.getParameter("demographic_no");
 
-        if (provider_no.equalsIgnoreCase("-1")) {
+        // Constant-first comparisons: absent request params are null filters, not NPEs.
+        if ("-1".equalsIgnoreCase(provider_no)) {
             provider_no = null;
         }
 
-        if (statusStr.equalsIgnoreCase("-1")) {
+        if ("-1".equalsIgnoreCase(statusStr)) {
             statusStr = null;
         }
 
-        if (teamStr.equalsIgnoreCase("-1")) {
+        if ("-1".equalsIgnoreCase(teamStr)) {
             teamStr = null;
         }
 
@@ -294,15 +335,19 @@ public class ManageFaxes2Action extends Fax2Action {
     @SuppressWarnings("unused")
     public void SetCompleted() {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.fax", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.fax)");
         }
 
 
         String id = request.getParameter("jobId");
         FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
 
-        FaxJob faxJob = faxJobDao.find(Integer.parseInt(id));
+        FaxJob faxJob = id == null ? null : faxJobDao.find(Integer.parseInt(id.trim()));
+        if (faxJob == null) {
+            sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Unknown fax job");
+            return;
+        }
         faxJob.setStatus(FaxJob.STATUS.RESOLVED);
         faxJobDao.merge(faxJob);
     }

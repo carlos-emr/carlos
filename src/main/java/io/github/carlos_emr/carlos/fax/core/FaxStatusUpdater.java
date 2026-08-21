@@ -128,7 +128,7 @@ public class FaxStatusUpdater {
      * <p><strong>Provider API Calls:</strong></p>
      * <p>For each in-progress fax, the service makes one API call to the provider:
      * <ul>
-     *   <li><strong>SRFax:</strong> Get_Fax_Status with sFaxDetailsID parameter</li>
+     *   <li><strong>SRFax:</strong> Get_FaxStatus with sFaxDetailsID parameter</li>
      *   <li><strong>Middleware:</strong> Provider-specific status endpoint</li>
      * </ul>
      * Provider responses include status code (e.g., "Success", "Failed") and human-readable

@@ -139,7 +139,8 @@ public class FaxSchedulerJob {
         }
     }
 
-    private void runCycle() {
+    // Package-private as a test seam: in production this runs only from the Timer task.
+    void runCycle() {
         try {
             faxImporter.poll();
             faxSender.send();

@@ -47,7 +47,9 @@ import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.fax.core.FaxImporter;
+import java.io.IOException;
 
 /**
  * Admin action for fax configuration and scheduler controls.
@@ -71,8 +73,21 @@ public class ConfigureFax2Action extends ActionSupport {
     /**
      * Dispatches request methods for configure/scheduler endpoints.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity")
     public String execute() {
         String method = request.getParameter("method");
+
+        // configure() rewrites fax_config rows (credentials included) and restartFaxScheduler()
+        // restarts the polling scheduler — both are mutations and must never ride a GET/HEAD.
+        // getFaxSchedularStatus/getPendingIncomingFaxes are read-only and stay verb-open.
+        // configureFax.jsp issues all four calls via POST, so no UI change is required.
+        boolean mutator = "configure".equals(method) || "restartFaxScheduler".equals(method);
+        String httpMethod = request.getMethod();
+        if (mutator && ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod))) {
+            sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
+            return null;
+        }
 
         if ("getFaxSchedularStatus".equals(method)) {
             getFaxSchedularStatus();
@@ -196,11 +211,7 @@ public class ConfigureFax2Action extends ActionSupport {
                             faxPasswds[idx] = null;
                         }
 
-                        String faxNumber = faxNumbers[idx];
-                        if (faxNumber != null) {
-                            faxNumber = faxNumber.trim().replaceAll("\\D", "");
-                        }
-                        savedFaxConfig.setFaxNumber(faxNumber);
+                        savedFaxConfig.setFaxNumber(normalizeFaxNumber(faxNumbers[idx], idx + 1));
                         savedFaxConfig.setSenderEmail(senderEmails[idx]);
                         savedFaxConfig.setQueue(Integer.parseInt(inboxQueues[idx]));
                         savedFaxConfig.setAccountName(accountNames[idx]);
@@ -227,11 +238,7 @@ public class ConfigureFax2Action extends ActionSupport {
                             faxPasswds[idx] = null;
                         }
 
-                        String newFaxNumber = faxNumbers[idx];
-                        if (newFaxNumber != null) {
-                            newFaxNumber = newFaxNumber.trim().replaceAll("\\D", "");
-                        }
-                        faxConfig.setFaxNumber(newFaxNumber);
+                        faxConfig.setFaxNumber(normalizeFaxNumber(faxNumbers[idx], idx + 1));
                         faxConfig.setSenderEmail(senderEmails[idx]);
                         faxConfig.setQueue(Integer.parseInt(inboxQueues[idx]));
                         faxConfig.setAccountName(accountNames[idx]);
@@ -266,7 +273,9 @@ public class ConfigureFax2Action extends ActionSupport {
                 if (sitePasswd != null && !isPasswordUnchanged(sitePasswd)) {
                     faxConfig.setPasswd(sitePasswd.trim());
                 }
-                faxConfig.setProviderType(FaxConfig.ProviderType.MIDDLEWARE);
+                // SRFax is the supported provider for new configurations; middleware remains
+                // only for grandfathered rows that already carry providerType=MIDDLEWARE.
+                faxConfig.setProviderType(FaxConfig.ProviderType.SRFAX);
                 faxConfigDao.saveEntity(faxConfig);
             }
 
@@ -314,6 +323,42 @@ public class ConfigureFax2Action extends ActionSupport {
     }
 
     /**
+     * Normalizes an admin-entered fax number to the 10-digit form stored in fax_config.
+     *
+     * <p>Strips formatting characters and drops a leading North American country code from an
+     * 11-digit entry. Rejects anything that does not normalize to exactly 10 digits — the
+     * column is varchar(10), so an unvalidated longer value would be silently truncated and
+     * then fail to match {@code faxes.fax_line} in the sender/status-updater joins.</p>
+     *
+     * @param rawFaxNumber admin-entered fax number (may carry punctuation/spaces)
+     * @param rowNumber 1-based account row index for the error message
+     * @return exactly 10 digits
+     * @throws IllegalArgumentException when the value cannot be normalized to 10 digits
+     */
+    static String normalizeFaxNumber(String rawFaxNumber, int rowNumber) {
+        String digits = rawFaxNumber == null ? "" : rawFaxNumber.trim().replaceAll("\\D", "");
+        if (digits.length() == 11 && digits.startsWith("1")) {
+            digits = digits.substring(1);
+        }
+        if (digits.length() != 10) {
+            throw new IllegalArgumentException(
+                    "Fax number must be a 10-digit North American number for account row " + rowNumber + ".");
+        }
+        return digits;
+    }
+
+    /**
+     * Sends an HTTP error response, quietly logging (rather than propagating) any IO failure.
+     */
+    private void sendErrorQuietly(int statusCode, String message) {
+        try {
+            response.sendError(statusCode, message);
+        } catch (IOException ex) {
+            MiscUtils.getLogger().error("Error sending error response", ex);
+        }
+    }
+
+    /**
      * Returns {@code true} when the submitted password value is the UI mask sentinel,
      * indicating that the admin left the password field unchanged and the stored
      * credential should be preserved as-is.
@@ -358,14 +403,15 @@ public class ConfigureFax2Action extends ActionSupport {
      * @param providerTypes provider type request values (may be null for legacy configs)
      * @param idx row index currently being processed
      * @param faxConfigId persisted identifier for logging context
-     * @return resolved provider type, defaulting to {@link FaxConfig.ProviderType#MIDDLEWARE} when absent
+     * @return resolved provider type, defaulting to {@link FaxConfig.ProviderType#SRFAX} when absent
      * @throws IllegalArgumentException if the provider type value is present but not a valid enum constant
      */
     private FaxConfig.ProviderType resolveProviderType(String[] providerTypes, int idx, Integer faxConfigId) {
-        // Default to MIDDLEWARE only if provider type is not specified (null or missing)
+        // Default to SRFAX when provider type is not specified: SRFax is the supported provider;
+        // existing MIDDLEWARE rows always post their explicit value from the (grandfathered) select.
         if (providerTypes == null || idx >= providerTypes.length || providerTypes[idx] == null) {
-            MiscUtils.getLogger().info("Provider type not specified for fax config id {}. Using default MIDDLEWARE.", faxConfigId);
-            return FaxConfig.ProviderType.MIDDLEWARE;
+            MiscUtils.getLogger().info("Provider type not specified for fax config id {}. Using default SRFAX.", faxConfigId);
+            return FaxConfig.ProviderType.SRFAX;
         }
 
         // Validate and parse provider type - throw exception for invalid values to notify user

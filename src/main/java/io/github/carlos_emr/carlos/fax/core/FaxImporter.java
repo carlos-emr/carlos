@@ -270,6 +270,24 @@ public class FaxImporter {
 
                 for (FaxJob receivedFax : faxList) {
 
+                    receivedFax.setDirection(FaxJob.Direction.IN);
+
+                    // Duplicate-import prevention keyed on the provider job id (SRFax FaxDetailsID):
+                    // when mark-as-read failed on a previous cycle the fax stays in the UNREAD pull,
+                    // and generateUniqueFilename() would happily file it as a brand-new document.
+                    // Skip the download entirely and just retry clearing the unread flag.
+                    if (receivedFax.getJobId() != null
+                            && isAlreadyImported(faxJobDao.findByProviderJobId(receivedFax.getJobId()))) {
+                        log.info("Skipping already-imported fax with provider job id {} - retrying mark-as-read",
+                                receivedFax.getJobId());
+                        try {
+                            providerClient.markFaxAsRead(faxConfig, receivedFax);
+                        } catch (FaxProviderException e) {
+                            log.warn("Failed to mark already-imported fax as read - will retry next poll", e);
+                        }
+                        continue;
+                    }
+
                     FaxJob faxFile = null;
 
                     if (!FaxJob.STATUS.ERROR.equals(receivedFax.getStatus())) {
@@ -349,7 +367,13 @@ public class FaxImporter {
                         receivedFax.setStatusString("Downloaded but import failed - pending retry from incoming directory");
                     }
 
-                    receivedFax.setFile_name(fileName);
+                    if (fileName != null) {
+                        receivedFax.setFile_name(fileName);
+                    } else {
+                        // Import failed: keep a usable reference (the quarantined file) instead of
+                        // persisting a row with a null filename.
+                        receivedFax.setFile_name(incomingFile.getFileName().toString());
+                    }
                     saveFaxJob(new FaxJob(receivedFax));
                 }
 
@@ -808,6 +832,37 @@ public class FaxImporter {
                 reader.close();
             }
         }
+    }
+
+    /**
+     * Decides whether a remote fax (matched by provider job id) has already made it into the
+     * EMR and must not be downloaded again.
+     *
+     * <p>A successful import leaves the persisted row at status RECEIVED; a routing failure
+     * after import leaves an ERROR row whose statusString starts with "imported" (two casings
+     * exist in this class — the comparison is case-insensitive). Pre-import failures
+     * ("Download failed...", "Downloaded but import failed...") do NOT count: the document
+     * never reached the EMR, so a re-download is the correct retry.</p>
+     *
+     * @param priorRows previously persisted rows sharing the provider job id
+     * @return true when any prior row proves the document is already in the EMR
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    boolean isAlreadyImported(List<FaxJob> priorRows) {
+        if (priorRows == null) {
+            return false;
+        }
+        for (FaxJob prior : priorRows) {
+            if (FaxJob.STATUS.RECEIVED.equals(prior.getStatus())) {
+                return true;
+            }
+            String statusString = prior.getStatusString();
+            if (statusString != null && statusString.trim().toLowerCase().startsWith("imported")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

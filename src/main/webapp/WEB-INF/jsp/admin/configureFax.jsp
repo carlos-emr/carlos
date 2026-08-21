@@ -375,7 +375,10 @@
 <body>
 <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 <div class="container-fluid fax-page">
-    <form id="configFrm" method="post">
+    <%-- A real action URL is required for CSRFGuard to inject the CSRF-TOKEN input into this
+         form (action-less forms are skipped; see CLAUDE.md "CSRF Token Bootstrapping"). The
+         form is submitted via $.ajax serialize(), never natively. --%>
+    <form id="configFrm" method="post" action="<%= request.getContextPath() %>/admin/ManageFax">
         <input type="hidden" name="method" value="configure"/>
 
         <!-- Scheduler Health Status - Top of Page -->
@@ -457,7 +460,8 @@
                             String senderEmail = faxCfg != null ? faxCfg.getSenderEmail() : "";
                             String accountName = faxCfg != null ? faxCfg.getAccountName() : "";
                             Integer queueId = (faxCfg != null && faxCfg.getQueue() != null && faxCfg.getQueue() > 0) ? faxCfg.getQueue() : defaultQueueId;
-                            FaxConfig.ProviderType providerType = faxCfg != null ? faxCfg.getProviderType() : FaxConfig.ProviderType.MIDDLEWARE;
+                            // SRFax is the supported provider; new/blank configurations default to it.
+                            FaxConfig.ProviderType providerType = faxCfg != null ? faxCfg.getProviderType() : FaxConfig.ProviderType.SRFAX;
                             boolean isActive = faxCfg != null && faxCfg.isActive();
                             boolean isDownload = faxCfg != null && faxCfg.isDownload();
                             String faxUrl = faxCfg != null ? faxCfg.getUrl() : "";
@@ -470,7 +474,13 @@
                             <div class="col-md-6">
                                 <label for="providerType"><fmt:message key="admin.configureFax.faxProvider"/></label>
                                 <select class="form-select" id="providerType" name="providerType">
-                                    <option value="MIDDLEWARE" <%=providerType == FaxConfig.ProviderType.MIDDLEWARE ? "selected" : ""%>><fmt:message key="admin.configureFax.provider.middlewareRelay"/></option>
+                                    <%-- SRFax is the only selectable provider. The MIDDLEWARE option is
+                                         rendered ONLY for a grandfathered row already stored with that
+                                         type, so an existing relay site can still re-save its config;
+                                         the middleware transport code itself is retained for later use. --%>
+                                    <% if (providerType == FaxConfig.ProviderType.MIDDLEWARE) { %>
+                                    <option value="MIDDLEWARE" selected><fmt:message key="admin.configureFax.provider.middlewareRelay"/></option>
+                                    <% } %>
                                     <option value="SRFAX" <%=providerType == FaxConfig.ProviderType.SRFAX ? "selected" : ""%>><fmt:message key="admin.configureFax.provider.srfaxDirectApi"/></option>
                                 </select>
                                 <small class="fax-muted"><i class="fas fa-info-circle"></i> <fmt:message key="admin.configureFax.chooseConnection"/></small>
