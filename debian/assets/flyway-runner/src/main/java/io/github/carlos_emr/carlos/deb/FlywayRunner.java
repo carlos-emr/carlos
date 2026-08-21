@@ -138,8 +138,13 @@ public final class FlywayRunner {
             }
         } catch (RuntimeException e) {
             // Flyway's own message is the useful part; a stack trace here only
-            // buries it in the postinst output an operator has to read.
-            System.err.println("flyway " + command + " failed: " + e.getMessage());
+            // buries it in the postinst output an operator has to read. The
+            // command echo gets the same printable-ASCII filter as the
+            // unknown-command branch — by the time execution reaches this
+            // catch the switch has vetted it, but every stderr message that
+            // includes process input follows one rule.
+            System.err.println("flyway " + command.replaceAll("[^\\x20-\\x7e]", "?")
+                    + " failed: " + e.getMessage());
             System.exit(1);
         }
     }
