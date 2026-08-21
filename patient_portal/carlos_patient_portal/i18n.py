@@ -271,6 +271,11 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
             "Clinic staff must unlock this account before another sign-in or password reset. "
             "Contact the clinic for help."
         ),
+        "request_failed_heading": "Request could not be completed",
+        "request_failed_details": (
+            "The portal could not complete that request. This usually means the page was open "
+            "for a while - return to the portal and try again."
+        ),
         "service_busy_heading": "Too many requests",
         "service_busy_details": (
             "The portal received too many requests from this connection. Wait a moment and try "

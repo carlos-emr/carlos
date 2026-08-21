@@ -22,6 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import Engine
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response
 
@@ -349,6 +350,47 @@ def register_exception_handlers(app: FastAPI, runtime: PortalRuntime) -> None:
             headers={"Retry-After": "1"},
         )
 
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(
+        request: Request,
+        exc: StarletteHTTPException,
+    ) -> Response:
+        """Answer an aborted request in the medium the caller is actually using.
+
+        No handler was registered for HTTPException, so Starlette's default rendered
+        {"detail": ...} as raw JSON. A patient who left the account page open past the
+        60-minute CSRF token TTL and then submitted got that JSON in their browser window,
+        with no way back to the portal - the most reachable instance of a broad gap.
+        """
+        if request.url.path.startswith(FHIR_PATH_PREFIX):
+            return fhir_operation_outcome_response(
+                status_code=exc.status_code,
+                code="processing",
+                diagnostics=str(exc.detail),
+            )
+        # Path alone is the wrong discriminator: /auth/activate serves a browser form *and*
+        # accepts a JSON body. A caller that declared JSON gets JSON back; a browser form post
+        # or a navigation gets the page.
+        declared_json = "application/json" in (request.headers.get("content-type") or "").lower()
+        if (
+            wants_html_response(request.url.path)
+            and not declared_json
+            and request.method != "HEAD"
+        ):
+            return service_notice_response(
+                request,
+                settings=runtime.settings,
+                status_code=exc.status_code,
+                heading_key="request_failed_heading",
+                message_key="request_failed_details",
+                retry_after_seconds=0,
+            )
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+            headers=getattr(exc, "headers", None) or {},
+        )
+
     @app.exception_handler(OperationalError)
     async def database_operational_error_handler(
         request: Request,
@@ -372,7 +414,6 @@ def register_exception_handlers(app: FastAPI, runtime: PortalRuntime) -> None:
 def register_security_middleware(app: FastAPI, runtime: PortalRuntime) -> None:
     settings = runtime.settings
 
-    @app.middleware("http")
     async def record_operational_signal(
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
@@ -412,7 +453,6 @@ def register_security_middleware(app: FastAPI, runtime: PortalRuntime) -> None:
                 ),
             )
 
-    @app.middleware("http")
     async def add_security_headers(
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
@@ -496,6 +536,18 @@ def register_security_middleware(app: FastAPI, runtime: PortalRuntime) -> None:
                 "max-age=31536000; includeSubDomains",
             )
         return response
+
+    # Registration order is nesting order, and it is inverted: add_middleware inserts at
+    # position 0, so the LAST registered middleware is the outermost. record_operational_signal
+    # must therefore be registered after add_security_headers, not before.
+    #
+    # add_security_headers short-circuits maintenance and rate-limit responses without calling
+    # call_next. With the metrics middleware inside it, those responses were the ones that never
+    # got counted: a credential-stuffing burst tripping auth_rate_limiter produced 429s that
+    # were absent from operational_metrics, emitted no http_request log line and carried no
+    # X-Request-ID, so /internal/metrics showed a quiet service for the duration of the attack.
+    app.middleware("http")(add_security_headers)
+    app.middleware("http")(record_operational_signal)
 
 
 def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:

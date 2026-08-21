@@ -102,6 +102,48 @@ def test_operational_metrics_are_protected_and_request_logs_are_phi_safe(
     assert all("?" not in message and "portal-check-123" in message for message in request_logs[:1])
 
 
+def test_throttled_responses_are_counted_logged_and_traceable(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A 429 must not be invisible to metrics, logs and tracing.
+
+    add_security_headers short-circuits the limiter without calling call_next. While the metrics
+    middleware sat *inside* it, a credential-stuffing burst produced 429s that were absent from
+    operational_metrics, emitted no http_request line and carried no X-Request-ID - so
+    /internal/metrics showed a quiet service for the duration of the attack.
+    """
+    caplog.set_level(logging.INFO, logger="carlos_patient_portal.main")
+    app = migrated_development_app(
+        internal_health_token=INTERNAL_HEALTH_TOKEN,
+        auth_rate_limit_max_requests=1,
+    )
+    client = TestClient(app)
+
+    for _ in range(4):
+        throttled = client.post(
+            "/auth/login",
+            json={"username": "patient.user", "password": "wrong-password"},
+        )
+        if throttled.status_code == 429:
+            break
+    else:  # pragma: no cover - the limiter is configured to trip on the second request
+        pytest.fail("the auth limiter never tripped")
+
+    metrics = client.get(
+        "/internal/metrics",
+        headers={"Authorization": f"Bearer {INTERNAL_HEALTH_TOKEN}"},
+    )
+
+    assert throttled.status_code == 429
+    assert throttled.headers.get("X-Request-ID")
+    assert metrics.json()["requests"]["4xx"] >= 1
+    assert any(
+        '"status":429' in record.message
+        for record in caplog.records
+        if '"event":"http_request"' in record.message
+    )
+
+
 def test_transient_auth_cleanup_is_batched_and_preserves_current_credentials() -> None:
     app = migrated_development_app()
     client = TestClient(app)

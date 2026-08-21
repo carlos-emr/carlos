@@ -76,6 +76,20 @@ from tests.support import (
 )
 
 
+def assert_browser_notice(response, *, status_code: int, leaked_detail: str) -> None:
+    """A rejected browser form must render the portal's page, not a raw JSON body.
+
+    Registering an HTTPException handler changed these responses deliberately: a patient who
+    left a page open past the 60-minute CSRF TTL previously got {"detail": ...} in their
+    browser window with no way back. The rejection itself is unchanged - same status, same
+    refusal - so each caller still asserts its own security consequence separately.
+    """
+    assert response.status_code == status_code
+    assert response.headers["content-type"].startswith("text/html")
+    assert "Request could not be completed" in response.text
+    assert f'"{leaked_detail}"' not in response.text
+
+
 def test_file_sqlite_concurrent_login_failures_do_not_return_raw_500(tmp_path) -> None:
     database_path = tmp_path / "concurrent-login.db"
     app = migrated_development_app(
@@ -623,8 +637,7 @@ def test_form_mfa_resend_rejects_tampered_csrf_token() -> None:
         },
     )
 
-    assert response.status_code == 403
-    assert response.json()["detail"] == "invalid CSRF token"
+    assert_browser_notice(response, status_code=403, leaked_detail="invalid CSRF token")
 
 
 def test_dashboard_shell_requires_session_cookie() -> None:
@@ -946,8 +959,9 @@ def test_portal_logout_rejects_invalid_csrf_without_revoking_session() -> None:
     still_authenticated_response = client.get("/portal")
 
     assert dashboard_response.status_code == 200
-    assert logout_response.status_code == 403
-    assert logout_response.json()["detail"] == "logout could not be completed"
+    assert_browser_notice(
+        logout_response, status_code=403, leaked_detail="logout could not be completed"
+    )
     assert still_authenticated_response.status_code == 200
     with app.state.session_factory() as session:
         portal_session = session.scalar(
@@ -1036,8 +1050,7 @@ def test_login_route_rejects_tampered_csrf_token() -> None:
         },
     )
 
-    assert response.status_code == 403
-    assert response.json()["detail"] == "invalid CSRF token"
+    assert_browser_notice(response, status_code=403, leaked_detail="invalid CSRF token")
 
 
 def test_login_route_rejects_csrf_token_without_matching_cookie() -> None:
@@ -1054,8 +1067,7 @@ def test_login_route_rejects_csrf_token_without_matching_cookie() -> None:
         },
     )
 
-    assert response.status_code == 403
-    assert response.json()["detail"] == "invalid CSRF token"
+    assert_browser_notice(response, status_code=403, leaked_detail="invalid CSRF token")
 
 
 def test_login_route_rejects_oversized_form_body() -> None:
@@ -1071,8 +1083,7 @@ def test_login_route_rejects_oversized_form_body() -> None:
         },
     )
 
-    assert response.status_code == 413
-    assert response.json()["detail"] == "request body too large"
+    assert_browser_notice(response, status_code=413, leaked_detail="request body too large")
 
 
 def test_login_route_rejects_malformed_urlencoded_form_body() -> None:
@@ -1085,8 +1096,7 @@ def test_login_route_rejects_malformed_urlencoded_form_body() -> None:
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "invalid form body"
+    assert_browser_notice(response, status_code=400, leaked_detail="invalid form body")
 
 
 def test_login_route_rejects_invalid_utf8_form_body() -> None:
@@ -1097,8 +1107,7 @@ def test_login_route_rejects_invalid_utf8_form_body() -> None:
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "invalid form body"
+    assert_browser_notice(response, status_code=400, leaked_detail="invalid form body")
 
 
 def test_login_route_rejects_too_many_form_fields() -> None:
@@ -1114,8 +1123,7 @@ def test_login_route_rejects_too_many_form_fields() -> None:
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "invalid form body"
+    assert_browser_notice(response, status_code=400, leaked_detail="invalid form body")
 
 
 def test_login_rejects_bad_password_with_generic_error_and_audit() -> None:

@@ -374,8 +374,11 @@ def test_patient_activation_requires_json_body() -> None:
         data={"invite_code": "unused"},
     )
 
+    # A urlencoded post is a browser form submission, so the rejection renders the portal's
+    # page rather than a raw JSON body.
     assert response.status_code == 403
-    assert response.json()["detail"] == "invalid CSRF token"
+    assert response.headers["content-type"].startswith("text/html")
+    assert "Request could not be completed" in response.text
 
 
 def test_patient_activation_validation_does_not_echo_health_card_number() -> None:
