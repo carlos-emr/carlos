@@ -154,4 +154,67 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         verify(emailComposeManager).prepareEmailForResend(loggedInInfo, 42);
         verifyNoInteractions(demographicManager, documentAttachmentManager, emailManager, formsManager);
     }
+    @Test
+    @DisplayName("should warn but still compose when resending an email still recorded as pending")
+    void shouldWarnButStillCompose_whenResendingPendingEmail() {
+        // Warn, not block. A PENDING row means transport never reported back, so the message may
+        // already have reached the patient -- or may have died before sending. The admin decides.
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        stubComposeLookups(loggedInInfo);
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(pendingEmailLog());
+
+        String result = new ManageEmails2Action().resendEmail();
+
+        assertThat(result).isEqualTo("compose");
+        assertThat(request.getAttribute("emailResendWarning")).asString()
+                .contains("may already have reached the patient")
+                .contains("duplicate");
+        // Warning only: this must not take the terminal error path, which closes the window.
+        assertThat(request.getAttribute("isEmailError")).isNull();
+    }
+
+    @Test
+    @DisplayName("should not warn when resending an email already recorded as failed")
+    void shouldNotWarn_whenResendingFailedEmail() {
+        // The whole point of PENDING is that it is distinguishable from FAILED. A genuinely failed
+        // send is the normal resend case and must stay friction-free.
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        EmailLog failed = pendingEmailLog();
+        failed.setStatus(EmailLog.EmailStatus.FAILED);
+        stubComposeLookups(loggedInInfo);
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(failed);
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
+        assertThat(request.getAttribute("emailResendWarning")).isNull();
+    }
+
+    /** Stubs the lookups resendEmail() fans out to once it has a usable log. */
+    private void stubComposeLookups(LoggedInInfo loggedInInfo) {
+        when(emailComposeManager.getEmailConsentStatus(loggedInInfo, 123)).thenReturn(new String[]{"consent", "GRANTED"});
+        when(emailComposeManager.getRecipients(loggedInInfo, 123))
+                .thenReturn(new java.util.List<?>[]{java.util.List.of(), java.util.List.of()});
+        when(emailComposeManager.getAllSenderAccounts()).thenReturn(java.util.List.of());
+    }
+
+    private EmailLog pendingEmailLog() {
+        EmailLog emailLog = new EmailLog();
+        emailLog.setStatus(EmailLog.EmailStatus.PENDING);
+        Demographic demographic = new Demographic();
+        demographic.setDemographicNo(123);
+        emailLog.setDemographic(demographic);
+        emailLog.setChartDisplayOption(EmailLog.ChartDisplayOption.WITHOUT_NOTE);
+        emailLog.setEmailAttachments(new java.util.ArrayList<>());
+        // Body and encrypted message are stored as bytes and decoded unconditionally on read.
+        emailLog.setBody("body");
+        emailLog.setEncryptedMessage("");
+        return emailLog;
+    }
 }

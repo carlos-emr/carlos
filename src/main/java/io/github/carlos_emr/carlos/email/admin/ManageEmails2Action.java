@@ -62,6 +62,9 @@ public class ManageEmails2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String EMAIL_RESEND_PENDING_WARNING =
+            "This email is still recorded as in progress, so it may already have reached the patient. "
+            + "Resending it could deliver a duplicate. Confirm what was received before sending again.";
     private static final String EMAIL_RESEND_MISSING_PATIENT_ERROR = "This email cannot be copied because it is not associated with a patient. Please generate a new email instead.";
 
     private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -115,7 +118,7 @@ public class ManageEmails2Action extends ActionSupport {
      * Displays the email management interface with available email statuses and sender accounts.
      *
      * This method prepares the initial view for the email management page by populating
-     * request attributes with all possible email statuses (SENT, FAILED, PENDING, RESOLVED)
+     * request attributes with all possible email statuses (PENDING, SUCCESS, FAILED, RESOLVED)
      * and the list of configured sender email accounts. This data is used to populate
      * the filter dropdowns on the email management interface.
      *
@@ -254,6 +257,13 @@ public class ManageEmails2Action extends ActionSupport {
         EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
         if (emailLog == null || emailLog.getDemographic() == null || emailLog.getDemographic().getDemographicNo() == null) {
             return showEmailComposeError(EMAIL_RESEND_MISSING_PATIENT_ERROR);
+        }
+
+        // Warn, do not block. PENDING means transport never reported back, so this message may
+        // already have reached the patient -- but it may equally have died before sending, and the
+        // admin is the only one positioned to tell. Blocking would strand a genuinely failed send.
+        if (EmailStatus.PENDING.equals(emailLog.getStatus())) {
+            request.setAttribute("emailResendWarning", EMAIL_RESEND_PENDING_WARNING);
         }
 
         int demographicNo = emailLog.getDemographic().getDemographicNo();

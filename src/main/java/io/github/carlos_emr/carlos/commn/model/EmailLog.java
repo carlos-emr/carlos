@@ -51,6 +51,21 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * Used for tracking the lifecycle and delivery state of email communications.
      */
     public enum EmailStatus {
+        /**
+         * Send is in flight: the log row exists but transport has not reported back yet.
+         *
+         * <p>The initial state of every send. It exists so an interrupted send is not recorded as
+         * a failed one -- if the status write after transport never lands, the row stays PENDING
+         * rather than claiming a delivered message failed, which previously invited an admin to
+         * resend and deliver the patient a duplicate.</p>
+         *
+         * <p>A row stuck in PENDING is cleared by an admin marking it RESOLVED. Deliberately not
+         * aged out automatically: a sweep would have to guess whether the message reached the
+         * patient, and only a human can establish that.</p>
+         *
+         * @since 2026-08-20
+         */
+        PENDING,
         /** Email was successfully sent and delivered */
         SUCCESS,
         /** Email failed to send due to an error */

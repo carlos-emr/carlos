@@ -109,10 +109,13 @@ public class EmailManager {
      * Sends an email with optional encryption and returns the email send result.
      *
      * This method validates access, sanitizes the email data, resolves the active sender
-     * configuration, persists a FAILED outbox log for valid sender configurations, optionally
-     * encrypts the content, sends the message, and updates the persisted log to SUCCESS or
-     * FAILED. If configured to display in the patient chart, it also creates a case management
-     * note documenting the email communication.
+     * configuration, persists a {@code PENDING} outbox log for valid sender configurations,
+     * optionally encrypts the content, sends the message, and updates the persisted log to
+     * {@code SUCCESS} or {@code FAILED}. A log still {@code PENDING} after this method returns
+     * means transport never reported back; that is deliberately distinct from {@code FAILED},
+     * so an interrupted send is not mistaken for one that definitely did not reach the patient.
+     * If configured to display in the patient chart, it also creates a case management note
+     * documenting the email communication.
      *
      * If the sender configuration is missing or inactive, this method returns a transient
      * FAILED EmailLog with a safe error message. That failure result is not persisted and does
@@ -157,8 +160,11 @@ public class EmailManager {
      * Prepares an email for sending by creating and persisting an email log entry in the outbox.
      *
      * This method creates a comprehensive email log record that captures all email metadata,
-     * configuration, and content. The email log is initially created with FAILED status and
-     * a default error message, which is updated to SUCCESS after successful transmission.
+     * configuration, and content. The email log is initially created with {@code PENDING} status
+     * and neutral placeholder text, then updated to {@code SUCCESS} once transport confirms
+     * delivery, or to {@code FAILED} if the send raises. The initial state is deliberately not
+     * {@code FAILED}: the post-send status write can itself fail, and a row left saying FAILED
+     * for a message that actually went out invites a duplicate resend.
      *
      * The method:
      * 1. Retrieves active email configuration for the sender
@@ -188,7 +194,7 @@ public class EmailManager {
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, emailData.getDemographicNo());
         Provider provider = providerManager.getProvider(loggedInInfo, emailData.getProviderNo());
 
-        EmailLog emailLog = new EmailLog(emailConfig, emailConfig.getSenderEmail(), emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailStatus.FAILED);
+        EmailLog emailLog = new EmailLog(emailConfig, emailConfig.getSenderEmail(), emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailStatus.PENDING);
         setEmailAttachments(emailLog, emailData.getAttachments());
         emailLog.setEncryptedMessage(emailData.getEncryptedMessage());
         emailLog.setPassword(emailData.getPassword());
@@ -198,7 +204,10 @@ public class EmailManager {
         emailLog.setChartDisplayOption(emailData.getChartDisplayOption());
         emailLog.setInternalComment(emailData.getInternalComment());
         emailLog.setTransactionType(emailData.getTransactionType());
-        emailLog.setErrorMessage("Email was not sent successfully for unknown reasons.");
+        // Neutral by design. The row is PENDING until transport reports back, so this text must
+        // not assert failure: if the post-send status write never lands, this is what an admin
+        // reads, and "failed" would invite resending a message the patient already received.
+        emailLog.setErrorMessage("Email send is in progress; delivery has not been confirmed yet.");
         emailLog.setAdditionalParams(emailData.getAdditionalParams());
         emailLog.setDemographic(demographic);
         emailLog.setProvider(provider);
