@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
@@ -159,6 +160,17 @@ abstract class PortalJsonAction extends ActionSupport {
         }
     }
 
+    // FindSecBugs XSS_SERVLET: the body is produced by Jackson, so a hostile value is a JSON
+    // string that round-trips byte for byte rather than markup; the content type is
+    // application/json; and ResponseDefaultsFilter -- mapped to /* and ordered ahead of Struts --
+    // adds X-Content-Type-Options: nosniff, which removes the sniffing path this detector is
+    // about. PortalFailureStatusUnitTest pins the first two. The pattern is excluded elsewhere
+    // only for a narrowly scoped BC billing Match, so it is suppressed here at the site.
+    @SuppressFBWarnings(
+            value = "XSS_SERVLET",
+            justification =
+                    "Jackson-serialized JSON body with application/json content type; nosniff is"
+                            + " set globally by ResponseDefaultsFilter")
     String write(HttpServletResponse response, int status, ObjectNode payload) throws IOException {
         response.setStatus(status);
         response.setContentType(JSON);

@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
@@ -455,6 +456,16 @@ public class PatientPortalService implements Closeable {
      * @throws PatientPortalException mapped from the portal's status, or reporting a transport or
      *     contract failure; never carrying a credential or a patient identifier in its message
      */
+    // FindSecBugs FORMAT_STRING_MANIPULATION: the format is a parameter, but of a *private*
+    // method whose twelve call sites all pass a private static final *_PATH constant, so it is
+    // never caller-chosen. Every one of those formats takes only %d, so no caller-supplied string
+    // can reach a format position at all; PatientPortalServiceUnitTest asserts that reflectively,
+    // and adding a %s fails there rather than shipping. See docs/static-analysis-workflows.md.
+    @SuppressFBWarnings(
+            value = "FORMAT_STRING_MANIPULATION",
+            justification =
+                    "format is a private-method parameter fixed at every call site to a *_PATH"
+                            + " constant; all such formats take only %d, asserted by test")
     private Parsed send(
             String method,
             String pathFormat,
