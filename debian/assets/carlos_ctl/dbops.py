@@ -461,7 +461,11 @@ def cmd_db_apply_settings(argv) -> int:
     # SELECT @@GLOBAL renders booleans as 1/0; accept either spelling.
     checks = {"log_bin": ("1", "ON"), "sql_mode": ("",),
               "character_set_server": ("utf8mb4",), "bind_address": ("127.0.0.1",)}
-    if tz and os.path.isfile(f"/usr/share/zoneinfo/{tz}"):
+    if tz_ok:
+        # tz_ok (not mere file existence): only assert time_zone when a
+        # default-time-zone drop-in was actually written, i.e. the server can
+        # resolve the zone. Gating on the file alone demanded a setting no
+        # drop-in provides — a perpetual "stale" restart loop and exit 1.
         checks["time_zone"] = (tz,)
     stale = [v for v, want in checks.items() if _global(v) not in want]
     # binlog_ignore_db is a server option, not a system variable: it shows

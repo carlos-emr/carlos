@@ -352,6 +352,28 @@ sequence has been exercised end to end (DROP DATABASE and back):
   # the missed run seconds after boot). Stop any in-flight instance too —
   # a no-op if none is running; if one was, expect its "aborted" alert:
   sudo systemctl stop carlos-emr-backup.service carlos-emr-backup-verify.service
+  # 0. ON A REBUILT/REPLACEMENT HOST ONLY (skip if you are restoring in place
+  #    and the documents + /etc/carlos-emr are intact): restore the FILES
+  #    snapshot — the scanned patient documents under OscarDocument AND
+  #    /etc/carlos-emr/carlos.properties, which carries encryption.util.secret.key.
+  #    This MUST precede the database load: the DB holds third-party credentials
+  #    encrypted under that AES key, so a fresh key (which the package generates
+  #    on install) would leave them permanently undecryptable. If you escrowed
+  #    the key separately (you were told to), putting that copy in place is
+  #    equivalent to this step.
+  sudo carlos-ctl backup restic restore latest --tag files \
+      --target /var/backups/carlos-emr/dr-files
+  #    Move the documents into place (owned by the application user):
+  sudo rsync -a /var/backups/carlos-emr/dr-files/var/lib/carlos-emr/OscarDocument/ \
+      /var/lib/carlos-emr/OscarDocument/
+  sudo chown -R carlos:carlos /var/lib/carlos-emr/OscarDocument
+  #    Restore the AES key line into the freshly-generated carlos.properties
+  #    (copy encryption.util.secret.key from the restored copy, or restore the
+  #    whole file if this host has no newer local settings):
+  sudo sh -c 'grep "^encryption.util.secret.key=" \
+      /var/backups/carlos-emr/dr-files/etc/carlos-emr/carlos.properties'
+  #    ...then set that exact value in /etc/carlos-emr/carlos.properties and
+  #    run: sudo carlos-ctl init-config
   # 1. The newest dump. The target is OUTSIDE work/ deliberately: work/ is
   #    wiped by every backup and drill run's cleanup, and a restore can
   #    outlive one of those even with the timers stopped (a manual run, a
@@ -420,8 +442,9 @@ sequence has been exercised end to end (DROP DATABASE and back):
   #   sudo dpkg-reconfigure carlos-emr-drugref
   # (Live-tested: until you do, drug lookups fail and 'carlos-ctl check'
   # reports DrugRef not answering.)
-  # The restored dump and decoded logs are plaintext PHI — remove them.
-  sudo rm -rf /var/backups/carlos-emr/dr
+  # The restored dump and decoded logs are plaintext PHI — remove them
+  # (and the files-restore staging, if you used step 0).
+  sudo rm -rf /var/backups/carlos-emr/dr /var/backups/carlos-emr/dr-files
   sudo systemctl start carlos-emr-backup.timer carlos-emr-backup-verify.timer
   sudo systemctl start carlos-emr
 

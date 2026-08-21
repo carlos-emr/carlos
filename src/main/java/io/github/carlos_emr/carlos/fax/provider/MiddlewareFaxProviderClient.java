@@ -80,7 +80,24 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
 
     private static final String PATH = "/fax";
     private static final Logger logger = MiscUtils.getLogger();
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = buildMapper();
+
+    /**
+     * The middleware download response carries the inbound document as base64
+     * inside JSON; Jackson's default 20,000,000-char string cap (~14 MiB PDF)
+     * would reject a large fax before the BoundedResponseReader transport cap
+     * and with an opaque error. Lift it so the documented cap governs — the
+     * reader cap and JVM heap remain the real bounds. (Matches
+     * SRFaxProviderClient.)
+     */
+    private static ObjectMapper buildMapper() {
+        ObjectMapper m = new ObjectMapper();
+        m.getFactory().setStreamReadConstraints(
+                com.fasterxml.jackson.core.StreamReadConstraints.builder()
+                        .maxStringLength(Integer.MAX_VALUE)
+                        .build());
+        return m;
+    }
 
     /**
      * {@inheritDoc}

@@ -106,8 +106,14 @@ case "$1" in
             install -d -m 0700 -o www-data -g www-data \
                 "${STATE}/modsecurity/tmp" "${STATE}/modsecurity/data"
             install -d -m 0755 -o root -g root "${STATE}/acme/.well-known/acme-challenge"
-            install -d -m 0750 -o carlos -g adm /var/log/carlos-emr/tomcat
+            # 2750 (setgid) so Tomcat's logs inherit group adm and stay
+            # readable by the log-reading group — matching the tmpfiles entry.
+            install -d -m 2750 -o carlos -g adm /var/log/carlos-emr/tomcat
             install -d -m 0750 -o root -g adm /var/log/carlos-emr/modsec
+            # Root-filesystem twin of the backup repo marker, so an unmounted
+            # backup disk cannot erase the evidence a repository existed
+            # (mirrors the tmpfiles entry).
+            install -d -m 0700 -o carlos-backup -g adm /var/log/carlos-emr/backup-state
             install -d -m 0700 -o carlos-backup -g carlos-backup /var/backups/carlos-emr
             install -d -m 0750 -o root -g www-data "${CONF_DIR}/tls"
         fi
