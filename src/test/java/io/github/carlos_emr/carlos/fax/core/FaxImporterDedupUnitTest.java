@@ -20,6 +20,7 @@ package io.github.carlos_emr.carlos.fax.core;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -82,6 +83,7 @@ import org.openpdf.text.pdf.PdfWriter;
 class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
 
     private static final Long PROVIDER_JOB_ID = 777L;
+    private static final String ACCOUNT_FAX_NUMBER = "15551230000";
 
     private FaxConfigDao faxConfigDao;
     private FaxJobDao faxJobDao;
@@ -144,7 +146,7 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         FaxJob inboundFax = createInboundFax(PROVIDER_JOB_ID);
         when(faxConfigDao.findAll(null, null)).thenReturn(Collections.singletonList(config));
         when(faxProviderClient.listInboundFaxes(config)).thenReturn(Collections.singletonList(inboundFax));
-        when(faxJobDao.findByProviderJobId(PROVIDER_JOB_ID))
+        when(faxJobDao.findByProviderJobIdAndFaxLine(PROVIDER_JOB_ID, ACCOUNT_FAX_NUMBER))
                 .thenReturn(Collections.singletonList(priorRow(FaxJob.STATUS.RECEIVED, null)));
 
         // When
@@ -166,7 +168,7 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         FaxJob inboundFax = createInboundFax(PROVIDER_JOB_ID);
         when(faxConfigDao.findAll(null, null)).thenReturn(Collections.singletonList(config));
         when(faxProviderClient.listInboundFaxes(config)).thenReturn(Collections.singletonList(inboundFax));
-        when(faxJobDao.findByProviderJobId(PROVIDER_JOB_ID)).thenReturn(Collections.singletonList(
+        when(faxJobDao.findByProviderJobIdAndFaxLine(PROVIDER_JOB_ID, ACCOUNT_FAX_NUMBER)).thenReturn(Collections.singletonList(
                 priorRow(FaxJob.STATUS.ERROR, "IMPORTED BUT ROUTING FAILED - NEEDS MANUAL ASSIGNMENT")));
 
         // When
@@ -186,7 +188,7 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         FaxJob inboundFax = createInboundFax(PROVIDER_JOB_ID);
         when(faxConfigDao.findAll(null, null)).thenReturn(Collections.singletonList(config));
         when(faxProviderClient.listInboundFaxes(config)).thenReturn(Collections.singletonList(inboundFax));
-        when(faxJobDao.findByProviderJobId(PROVIDER_JOB_ID)).thenReturn(Collections.singletonList(
+        when(faxJobDao.findByProviderJobIdAndFaxLine(PROVIDER_JOB_ID, ACCOUNT_FAX_NUMBER)).thenReturn(Collections.singletonList(
                 priorRow(FaxJob.STATUS.ERROR, "Imported but routing failed - manual assignment required")));
 
         // When
@@ -206,7 +208,7 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         FaxJob inboundFax = createInboundFax(PROVIDER_JOB_ID);
         when(faxConfigDao.findAll(null, null)).thenReturn(Collections.singletonList(config));
         when(faxProviderClient.listInboundFaxes(config)).thenReturn(Collections.singletonList(inboundFax));
-        when(faxJobDao.findByProviderJobId(PROVIDER_JOB_ID)).thenReturn(Collections.singletonList(
+        when(faxJobDao.findByProviderJobIdAndFaxLine(PROVIDER_JOB_ID, ACCOUNT_FAX_NUMBER)).thenReturn(Collections.singletonList(
                 priorRow(FaxJob.STATUS.ERROR, "Download failed: x")));
         when(faxProviderClient.downloadFax(config, inboundFax))
                 .thenThrow(new FaxProviderException("transient network error"));
@@ -226,7 +228,7 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         FaxJob inboundFax = createInboundFax(PROVIDER_JOB_ID);
         when(faxConfigDao.findAll(null, null)).thenReturn(Collections.singletonList(config));
         when(faxProviderClient.listInboundFaxes(config)).thenReturn(Collections.singletonList(inboundFax));
-        when(faxJobDao.findByProviderJobId(PROVIDER_JOB_ID)).thenReturn(Collections.emptyList());
+        when(faxJobDao.findByProviderJobIdAndFaxLine(PROVIDER_JOB_ID, ACCOUNT_FAX_NUMBER)).thenReturn(Collections.emptyList());
         when(faxProviderClient.downloadFax(config, inboundFax))
                 .thenThrow(new FaxProviderException("transient network error"));
 
@@ -252,7 +254,7 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         faxImporter.poll();
 
         // Then: no dedup lookup, download proceeds
-        verify(faxJobDao, never()).findByProviderJobId(anyLong());
+        verify(faxJobDao, never()).findByProviderJobIdAndFaxLine(anyLong(), anyString());
         verify(faxProviderClient).downloadFax(config, inboundFax);
     }
 
@@ -264,7 +266,7 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         FaxJob inboundFax = createInboundFax(PROVIDER_JOB_ID);
         when(faxConfigDao.findAll(null, null)).thenReturn(Collections.singletonList(config));
         when(faxProviderClient.listInboundFaxes(config)).thenReturn(Collections.singletonList(inboundFax));
-        when(faxJobDao.findByProviderJobId(PROVIDER_JOB_ID)).thenReturn(Collections.emptyList());
+        when(faxJobDao.findByProviderJobIdAndFaxLine(PROVIDER_JOB_ID, ACCOUNT_FAX_NUMBER)).thenReturn(Collections.emptyList());
 
         FaxJob downloadedFax = new FaxJob();
         downloadedFax.setDocument(Base64.getEncoder().encodeToString(createValidPdfBytes()));
@@ -301,7 +303,7 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         FaxJob inboundFax = createInboundFax(PROVIDER_JOB_ID);
         when(faxConfigDao.findAll(null, null)).thenReturn(Collections.singletonList(config));
         when(faxProviderClient.listInboundFaxes(config)).thenReturn(Collections.singletonList(inboundFax));
-        when(faxJobDao.findByProviderJobId(PROVIDER_JOB_ID)).thenReturn(Collections.emptyList());
+        when(faxJobDao.findByProviderJobIdAndFaxLine(PROVIDER_JOB_ID, ACCOUNT_FAX_NUMBER)).thenReturn(Collections.emptyList());
 
         FaxJob downloadedFax = new FaxJob();
         downloadedFax.setDocument(Base64.getEncoder().encodeToString(createValidPdfBytes()));
@@ -342,7 +344,7 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         FaxJob inboundFax = createInboundFax(PROVIDER_JOB_ID);
         when(faxConfigDao.findAll(null, null)).thenReturn(Collections.singletonList(config));
         when(faxProviderClient.listInboundFaxes(config)).thenReturn(Collections.singletonList(inboundFax));
-        when(faxJobDao.findByProviderJobId(PROVIDER_JOB_ID)).thenReturn(Collections.emptyList());
+        when(faxJobDao.findByProviderJobIdAndFaxLine(PROVIDER_JOB_ID, ACCOUNT_FAX_NUMBER)).thenReturn(Collections.emptyList());
 
         FaxJob downloadedFax = new FaxJob();
         downloadedFax.setDocument(Base64.getEncoder().encodeToString(createValidPdfBytes()));
@@ -468,6 +470,7 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         config.setActive(true);
         config.setDownload(true);
         config.setFaxUser("test-access-id");
+        config.setFaxNumber(ACCOUNT_FAX_NUMBER);
         config.setProviderType(FaxConfig.ProviderType.SRFAX);
         config.setQueue(1);
         return config;

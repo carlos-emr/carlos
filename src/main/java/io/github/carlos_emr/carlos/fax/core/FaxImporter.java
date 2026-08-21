@@ -271,13 +271,22 @@ public class FaxImporter {
                 for (FaxJob receivedFax : faxList) {
 
                     receivedFax.setDirection(FaxJob.Direction.IN);
+                    // Stamp the receiving account (its fax line) so duplicate
+                    // detection can scope to this account and the row is
+                    // attributable later. Providers do not set this on the
+                    // listing.
+                    receivedFax.setFax_line(faxConfig.getFaxNumber());
 
                     // Duplicate-import prevention keyed on the provider job id (SRFax FaxDetailsID):
                     // when mark-as-read failed on a previous cycle the fax stays in the UNREAD pull,
                     // and generateUniqueFilename() would happily file it as a brand-new document.
                     // Skip the download entirely and just retry clearing the unread flag.
+                    // Scoped to THIS account's fax line: two accounts/backends can reuse the same
+                    // numeric job id, and a global lookup would wrongly treat this fax as a
+                    // duplicate of the other account's row and drop it.
                     if (receivedFax.getJobId() != null
-                            && isAlreadyImported(faxJobDao.findByProviderJobId(receivedFax.getJobId()))) {
+                            && isAlreadyImported(faxJobDao.findByProviderJobIdAndFaxLine(
+                                    receivedFax.getJobId(), faxConfig.getFaxNumber()))) {
                         log.info("Skipping already-imported fax with provider job id {} - retrying provider acknowledgement",
                                 receivedFax.getJobId());
                         try {
