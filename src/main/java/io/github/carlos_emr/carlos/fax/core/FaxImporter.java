@@ -968,7 +968,15 @@ public class FaxImporter {
         saveFax.setUser(DEFAULT_USER);
         String status = saveFax.getStatusString();
         if (status != null && status.length() > STATUS_STRING_MAX) {
-            saveFax.setStatusString(status.substring(0, STATUS_STRING_MAX));
+            // Truncate on a CODE-POINT boundary: a plain substring(0,255) can
+            // split a surrogate pair, and utf8mb4 has no encoding for a lone
+            // surrogate — under strict sql_mode that INSERT throws "Incorrect
+            // string value" and abandons the batch, the very failure this
+            // clamp exists to avoid. offsetByCodePoints backs off to the last
+            // whole code point at or before the limit.
+            int end = status.offsetByCodePoints(0,
+                    Math.min(STATUS_STRING_MAX, status.codePointCount(0, status.length())));
+            saveFax.setStatusString(status.substring(0, end));
         }
         faxJobDao.persist(saveFax);
         return saveFax.getId();

@@ -124,6 +124,36 @@ final class BoundedResponseReader {
     }
 
     /**
+     * Bounded read that returns the RAW BYTES, for a consumer that must do
+     * its own charset detection — an XML unmarshaller honours the
+     * {@code <?xml encoding=...?>} prolog, which is lost once the bytes are
+     * decoded to a String against the (possibly absent) Content-Type
+     * charset. Same cap and same fail-fast as {@link #read(HttpEntity)}.
+     */
+    static byte[] readBytes(HttpEntity entity) throws IOException {
+        long maxBytes = maxResponseBytes();
+        warnIfCapExceedsHeap(maxBytes);
+        long declared = entity.getContentLength();
+        if (declared > maxBytes) {
+            throw new IOException(overLimitMessage(declared + " bytes", maxBytes));
+        }
+        try (InputStream in = entity.getContent()) {
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream(64 * 1024);
+            byte[] chunk = new byte[8192];
+            long total = 0;
+            int n;
+            while ((n = in.read(chunk)) != -1) {
+                total += n;
+                if (total > maxBytes) {
+                    throw new IOException(overLimitMessage("more than " + maxBytes + " bytes", maxBytes));
+                }
+                buffer.write(chunk, 0, n);
+            }
+            return buffer.toByteArray();
+        }
+    }
+
+    /**
      * A cap the heap cannot honour is not a safety net — it just moves the
      * failure from a clean IOException to an OOM. Buffering costs roughly 4x
      * the response size (raw bytes, decoded String, the parser's copy, the

@@ -138,11 +138,15 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                 // heap (a mapped String property, no JAXP limit on PCDATA)
                 // and, under -XX:+ExitOnOutOfMemoryError, crash-loop the EMR
                 // — the fifth provider-read path the other four's cap missed.
-                String responseXml = BoundedResponseReader.read(entity);
+                // Bounded as BYTES, not a String: JAXB then still honours the
+                // response's <?xml encoding=...?> prolog (a String decoded
+                // against an absent Content-Type charset would be mojibake
+                // for a non-UTF-8 XML reply).
+                byte[] responseXml = BoundedResponseReader.readBytes(entity);
                 Object result = JAXBContext.newInstance(FaxJob.class)
                         .createUnmarshaller()
                         .unmarshal(new javax.xml.transform.stream.StreamSource(
-                                new java.io.StringReader(responseXml)));
+                                new java.io.ByteArrayInputStream(responseXml)));
                 if (!(result instanceof FaxJob returnedJob)) {
                     throw new FaxProviderException("Middleware returned an invalid fax response");
                 }

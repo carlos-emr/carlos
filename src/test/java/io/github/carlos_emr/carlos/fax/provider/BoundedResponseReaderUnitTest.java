@@ -83,6 +83,17 @@ class BoundedResponseReaderUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("readBytes returns the raw bytes intact, so JAXB can honour the XML prolog")
+    void readBytesRoundTrips() throws IOException {
+        // Latin-1 bytes: proves readBytes does NOT decode/re-encode (the
+        // regression was decoding to a String against an absent charset).
+        byte[] body = new byte[]{'<', 'x', '>', (byte) 0xE9, '<', '/', 'x', '>'};
+        assertThat(BoundedResponseReader.readBytes(
+                new ByteArrayEntity(body, ContentType.APPLICATION_XML)))
+                .isEqualTo(body);
+    }
+
+    @Test
     @DisplayName("a malformed Content-Type charset falls back to UTF-8 instead of throwing unchecked")
     void malformedCharsetFallsBack() throws IOException {
         byte[] body = "{\"ok\":true}".getBytes(StandardCharsets.UTF_8);
