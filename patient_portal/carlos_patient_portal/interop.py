@@ -19,6 +19,7 @@ from hl7apy.exceptions import HL7apyException
 from hl7apy.parser import parse_message
 
 from carlos_patient_portal.identity import (
+    CONTROL_CHARACTER_PATTERN,
     normalize_date_of_birth,
     normalize_email,
     normalize_health_card_number,
@@ -59,7 +60,7 @@ HL7_NAMESPACE_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
 # not see them, but NUL terminates a string in a C-based HL7 receiver — silently truncating PID-5
 # and everything after it in that field — and the same value is rejected outright by PostgreSQL
 # `text` columns on the FHIR side. Whitespace controls are already collapsed before this runs.
-HL7_CONTROL_CHARACTER_PATTERN = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+HL7_CONTROL_CHARACTER_PATTERN = CONTROL_CHARACTER_PATTERN
 
 
 @dataclass(frozen=True)

@@ -2,6 +2,7 @@
 
 import json
 from datetime import UTC, datetime
+from unittest import mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -32,11 +33,13 @@ from carlos_patient_portal.interop import (
     validate_hl7_v251_message,
     validate_hl7_v251_patient_registration_profile,
 )
+from carlos_patient_portal.invites import normalize_staff_actor
 from carlos_patient_portal.models import (
     UNLOCK_SECRET_TYPE_EMAIL,
     PatientPortalAccount,
     PatientPortalAuditEvent,
 )
+from carlos_patient_portal.routes import fhir as fhir_routes
 from carlos_patient_portal.unlock_secrets import (
     MAX_UNLOCK_SECRET_PROVIDER_OPTIONS,
     create_unlock_secret,
@@ -725,3 +728,50 @@ def test_oversized_and_malformed_resource_ids_are_audited_not_five_hundreds() ->
         # Every rejected probe still leaves a trace; over-length ids used to lose the event.
         assert len(read_events) == 5
         assert all(len(event.resource_id or "") <= 128 for event in read_events)
+
+
+def test_control_characters_are_rejected_on_the_way_in_not_on_every_read() -> None:
+    """A provider name with a C1 byte must fail at the write boundary, not poison the reads.
+
+    Starlette decodes header bytes as latin-1, so byte 0x92 - the Windows-1252 right single
+    quote, pervasive in legacy EMR name data - arrives as U+0092, a C1 control character.
+    normalize_staff_actor accepted it (strip + length only) while the FHIR read path called
+    reject_control_characters and raised, so one bad row permanently 500'd that patient's
+    entire DocumentReference bundle and every Practitioner read, with no patient-side recovery.
+
+    \\x85 and \\x0b slipped through harmlessly because str.split() treats them as whitespace,
+    which is what made the failure intermittent and hard to diagnose.
+    """
+    with pytest.raises(ValueError, match="control characters"):
+        normalize_staff_actor("O\x92Brien")
+
+    # \x85 and \x0b previously slipped past the *read* path only because
+    # normalize_patient_name_part collapses them via str.split(); normalize_staff_actor does not
+    # split, so at this boundary they are rejected consistently with every other C1 byte.
+    for control_character in ("\x85", "\x0b"):
+        with pytest.raises(ValueError, match="control characters"):
+            normalize_staff_actor(f"Dana{control_character}Brien")
+
+    # Ordinary names, including apostrophes and accents, are unaffected.
+    assert normalize_staff_actor("  O'Brien, Dana  ") == "O'Brien, Dana"
+    assert normalize_staff_actor("Renée Ó Súilleabháin") == "Renée Ó Súilleabháin"
+
+
+def test_unexpected_fhir_failures_render_an_operation_outcome() -> None:
+    """The CapabilityStatement promises OperationOutcome; a bare 500 is not one."""
+    app = migrated_development_app()
+    client = TestClient(app, raise_server_exceptions=False)
+
+    # Patched where the route resolves it: routes.fhir imports the name directly.
+    with mock.patch.object(
+        fhir_routes,
+        "build_fhir_r4_capability_statement",
+        side_effect=ValueError("stored value is unusable"),
+    ):
+        response = client.get("/fhir/metadata")
+
+    assert response.status_code == 500
+    body = response.json()
+    assert body["resourceType"] == "OperationOutcome"
+    # The exception text is PHI-adjacent and must not be echoed to the patient.
+    assert "stored value is unusable" not in response.text

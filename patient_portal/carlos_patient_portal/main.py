@@ -393,6 +393,31 @@ def register_exception_handlers(app: FastAPI, runtime: PortalRuntime) -> None:
             headers=getattr(exc, "headers", None) or {},
         )
 
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(
+        request: Request,
+        exc: Exception,
+    ) -> Response:
+        """Keep an unexpected fault inside the contract the endpoint advertises.
+
+        register_exception_handlers covered four exception types, so anything else surfaced as a
+        bare 500 - not even an OperationOutcome, which the CapabilityStatement promises for
+        /fhir/**. The exception is not echoed: these bodies are patient-visible, and the values
+        that reach them are PHI.
+        """
+        request.app.state.operational_metrics.record_failure("unhandled_exception")
+        logger.exception("Unhandled portal error: %s", type(exc).__name__)
+        if request.url.path.startswith(FHIR_PATH_PREFIX):
+            return fhir_operation_outcome_response(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                code="exception",
+                diagnostics="the request could not be completed",
+            )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "the request could not be completed"},
+        )
+
     @app.exception_handler(OperationalError)
     async def database_operational_error_handler(
         request: Request,

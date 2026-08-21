@@ -7,7 +7,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal.audit import record_audit_event
-from carlos_patient_portal.identity import IdentityProof, build_identity_hashes
+from carlos_patient_portal.identity import (
+    IdentityProof,
+    build_identity_hashes,
+    reject_control_characters,
+)
 from carlos_patient_portal.models import (
     AUDIT_ACTOR_TYPE_STAFF,
     AUDIT_EVENT_INVITE_CREATE,
@@ -80,6 +84,12 @@ def normalize_staff_actor(actor: str) -> str:
         raise ValueError("actor must not be blank")
     if len(normalized_actor) > MAX_ACTOR_LENGTH:
         raise ValueError(f"actor must be {MAX_ACTOR_LENGTH} characters or fewer")
+    # Rejected here, on the way in, rather than only on the FHIR read path. The asymmetry was a
+    # poison pill: this function accepted "O\x92Brien" from a CARLOS header, and
+    # build_fhir_r4_document_reference then raised on every read, permanently 500ing that
+    # patient's entire DocumentReference bundle and every Practitioner read with no
+    # patient-side recovery. Failing at the write boundary makes it a 422 CARLOS can act on.
+    reject_control_characters(normalized_actor, "actor")
     return normalized_actor
 
 

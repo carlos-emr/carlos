@@ -26,6 +26,17 @@ class IdentityProof:
     health_card_number: str
 
 
+# C0 and C1 control characters. C1 matters as much as C0 here: Starlette decodes header bytes
+# as latin-1, so byte 0x92 - the Windows-1252 right single quote, pervasive in legacy EMR name
+# data - arrives as U+0092, a C1 control character.
+CONTROL_CHARACTER_PATTERN = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+
+def reject_control_characters(value: str, field_name: str) -> None:
+    if CONTROL_CHARACTER_PATTERN.search(value) is not None:
+        raise ValueError(f"{field_name} must not contain control characters")
+
+
 def normalize_email(email: str) -> str:
     normalized_email = email.strip().casefold()
     if (
