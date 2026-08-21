@@ -835,17 +835,23 @@ public class FaxImporter {
     }
 
     /**
-     * Decides whether a remote fax (matched by provider job id) has already made it into the
-     * EMR and must not be downloaded again.
+     * Decides whether a remote fax (matched by provider job id) is already held locally —
+     * imported into the EMR or safely quarantined for the retry path — and therefore must
+     * not be downloaded again.
      *
-     * <p>A successful import leaves the persisted row at status RECEIVED; a routing failure
-     * after import leaves an ERROR row whose statusString starts with "imported" (two casings
-     * exist in this class — the comparison is case-insensitive). Pre-import failures
-     * ("Download failed...", "Downloaded but import failed...") do NOT count: the document
-     * never reached the EMR, so a re-download is the correct retry.</p>
+     * <p>Rows that count as "already held": a successful import (status RECEIVED); a routing
+     * failure after import (statusString starts with "imported" — two casings exist in this
+     * class, so the comparison is case-insensitive); and a download that quarantined the file
+     * but failed the EMR import (statusString starts with "downloaded but import failed").
+     * The quarantined file belongs to {@code retryPendingImports}, whose retry row carries no
+     * provider job id — re-pulling from the provider here would file a duplicate document once
+     * that retry succeeds.</p>
+     *
+     * <p>Pre-download failures ("Download failed...", "Download or save to incoming directory
+     * failed") do NOT count: no local copy exists, so a re-download is the correct retry.</p>
      *
      * @param priorRows previously persisted rows sharing the provider job id
-     * @return true when any prior row proves the document is already in the EMR
+     * @return true when any prior row proves the document is already held locally
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -858,7 +864,11 @@ public class FaxImporter {
                 return true;
             }
             String statusString = prior.getStatusString();
-            if (statusString != null && statusString.trim().toLowerCase().startsWith("imported")) {
+            if (statusString == null) {
+                continue;
+            }
+            String normalized = statusString.trim().toLowerCase();
+            if (normalized.startsWith("imported") || normalized.startsWith("downloaded but import failed")) {
                 return true;
             }
         }

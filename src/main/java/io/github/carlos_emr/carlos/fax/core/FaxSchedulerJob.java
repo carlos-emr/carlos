@@ -133,6 +133,10 @@ public class FaxSchedulerJob {
             List<FaxConfig> configs = faxConfigDao.findAll(null, null);
             return configs.stream().anyMatch(FaxConfig::isActive);
         } catch (Exception e) {
+            // Record the failure so the admin status page reports a fatal stop instead of the
+            // benign "no active fax accounts" idle state — active accounts may well exist.
+            lastError.set("Failed to check fax configurations at startup: "
+                    + e.getClass().getSimpleName() + (e.getMessage() == null ? "" : (": " + e.getMessage())));
             logger.error("Failed to check fax configurations at startup - scheduler will NOT start. "
                     + "It will start automatically when a fax account is activated via admin UI.", e);
             return false;

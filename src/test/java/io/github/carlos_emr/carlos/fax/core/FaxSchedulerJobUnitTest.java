@@ -97,6 +97,23 @@ class FaxSchedulerJobUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should record last error when the startup config lookup fails")
+    void shouldRecordLastError_whenStartupConfigLookupFails() {
+        // Given: the configuration lookup itself fails (e.g. database outage at startup)
+        when(faxConfigDao.findAll(null, null)).thenThrow(new RuntimeException("db down"));
+
+        // When
+        schedulerJob.initialize();
+
+        // Then: not running, and the failure is recorded so the admin status page reports a
+        // fatal stop instead of the benign "no active fax accounts" idle state
+        assertThat(schedulerJob.isRunning()).isFalse();
+        assertThat(schedulerJob.getLastError())
+                .contains("Failed to check fax configurations at startup")
+                .contains("db down");
+    }
+
+    @Test
     @DisplayName("should start timer when an active config exists at initialize")
     void shouldStartTimer_whenActiveConfigExistsAtInitialize() {
         // Given: one active fax account among inactive ones

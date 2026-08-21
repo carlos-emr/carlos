@@ -337,8 +337,9 @@ class SRFaxProviderClientRequestConstructionUnitTest extends CarlosUnitTestBase 
 
     /**
      * Direct tests of the package-visible normalization helpers used by sendFax():
-     * {@code toCallerId10} (SRFax requires a 10-digit caller ID) and {@code toDialable11}
-     * (SRFax requires an 11-digit dialable destination).
+     * {@code toCallerId10} (SRFax requires a 10-digit caller ID) and {@code toDialableNumber}
+     * (North American destinations normalize to 11 digits; longer international digit
+     * strings pass through for provider-side validation).
      */
     @Nested
     @DisplayName("number normalization helpers")
@@ -376,31 +377,34 @@ class SRFaxProviderClientRequestConstructionUnitTest extends CarlosUnitTestBase 
 
         @ParameterizedTest(name = "\"{0}\" -> \"{1}\"")
         @CsvSource({
-                "9055559999,      19055559999",
-                "19055559999,     19055559999",
-                "905-555-9999,    19055559999",
-                "(905) 555-9999,  19055559999"
+                "9055559999,          19055559999",
+                "19055559999,         19055559999",
+                "905-555-9999,        19055559999",
+                "(905) 555-9999,      19055559999",
+                "442071234567,        442071234567",
+                "+44 20 7123 4567,    442071234567",
+                "011442071234567,     011442071234567"
         })
-        @DisplayName("should normalize destination to eleven dialable digits")
-        void shouldNormalizeDestination_toElevenDigits(String raw, String expected) throws Exception {
-            assertThat(client.toDialable11(raw)).isEqualTo(expected);
+        @DisplayName("should normalize NA destinations and pass through international digit strings")
+        void shouldNormalizeDestination_withInternationalPassThrough(String raw, String expected) throws Exception {
+            assertThat(client.toDialableNumber(raw)).isEqualTo(expected);
         }
 
         @ParameterizedTest(name = "\"{0}\" rejected")
-        @ValueSource(strings = {"905555", "123456789012", "", "abc"})
-        @DisplayName("should throw FaxProviderException for destination that cannot normalize to eleven digits")
+        @ValueSource(strings = {"905555", "1234567890123456", "", "abc"})
+        @DisplayName("should throw FaxProviderException for destination outside the dialable digit range")
         void shouldThrowFaxProviderException_forUnnormalizableDestination(String raw) {
-            assertThatThrownBy(() -> client.toDialable11(raw))
+            assertThatThrownBy(() -> client.toDialableNumber(raw))
                     .isInstanceOf(FaxProviderException.class)
-                    .hasMessageContaining("11 digits");
+                    .hasMessageContaining("10-15 digits");
         }
 
         @Test
         @DisplayName("should throw FaxProviderException for null destination")
         void shouldThrowFaxProviderException_forNullDestination() {
-            assertThatThrownBy(() -> client.toDialable11(null))
+            assertThatThrownBy(() -> client.toDialableNumber(null))
                     .isInstanceOf(FaxProviderException.class)
-                    .hasMessageContaining("11 digits");
+                    .hasMessageContaining("10-15 digits");
         }
     }
 }

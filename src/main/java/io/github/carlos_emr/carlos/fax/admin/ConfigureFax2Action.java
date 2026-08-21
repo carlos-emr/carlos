@@ -86,7 +86,9 @@ public class ConfigureFax2Action extends ActionSupport {
         String httpMethod = request.getMethod();
         if (mutator && ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod))) {
             sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
-            return null;
+            // Direct-response contract: NONE stops Struts result resolution after the
+            // error response has been written.
+            return NONE;
         }
 
         if ("getFaxSchedularStatus".equals(method)) {

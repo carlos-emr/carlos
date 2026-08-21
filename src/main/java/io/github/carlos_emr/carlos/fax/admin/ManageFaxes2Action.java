@@ -28,7 +28,6 @@
  */
 package io.github.carlos_emr.carlos.fax.admin;
 
-import java.io.IOException;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -97,12 +96,14 @@ public class ManageFaxes2Action extends Fax2Action {
             return ResendFax();
         } else if ("viewFax".equals(method)) {
             viewFax();
-            return null;
+            // Direct-response paths return NONE so Struts never attempts result
+            // resolution after the response has been written (direct-response contract).
+            return NONE;
         } else if ("fetchFaxStatus".equals(method)) {
             return fetchFaxStatus();
         } else if ("SetCompleted".equals(method)) {
             SetCompleted();
-            return null;
+            return NONE;
         }
 
         // Delegate to parent for getPageCount, getPreview, etc.
@@ -123,9 +124,7 @@ public class ManageFaxes2Action extends Fax2Action {
     @SuppressWarnings("unused")
     public String CancelFax() {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.fax", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.fax)");
-        }
+        requireFaxAdminPrivilege("w");
 
         ObjectNode result = objectMapper.createObjectNode();
         result.put("success", false);
@@ -193,18 +192,23 @@ public class ManageFaxes2Action extends Fax2Action {
 
         JSONUtil.jsonResponse(response, result);
 
-        return null;
+        return NONE;
 
     }
 
     /**
-     * Sends an HTTP error response, quietly logging (rather than propagating) any IO failure.
+     * Requires fax queue admin rights, accepting either {@code _admin.fax} or the broader
+     * {@code _admin} — mirroring the {@code ViewManageFaxes} gate and manageFaxes.jsp, so a
+     * user who can open the Manage Faxes page can also drive its endpoints.
+     *
+     * @param rights privilege letter required ("r" or "w")
+     * @throws SecurityException when the session holds neither security object
      */
-    private void sendErrorQuietly(int statusCode, String message) {
-        try {
-            response.sendError(statusCode, message);
-        } catch (IOException ex) {
-            log.error("Error sending error response", ex);
+    private void requireFaxAdminPrivilege(String rights) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax", rights, null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin", rights, null)) {
+            throw new SecurityException("missing required sec object (_admin.fax)");
         }
     }
 
@@ -217,9 +221,7 @@ public class ManageFaxes2Action extends Fax2Action {
         String faxNumber = request.getParameter("faxNumber");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.fax)");
-        }
+        requireFaxAdminPrivilege("w");
 
         boolean success = false;
 
@@ -235,7 +237,7 @@ public class ManageFaxes2Action extends Fax2Action {
 
         JSONUtil.jsonResponse(response, jsonObjectResponse);
 
-        return null;
+        return NONE;
     }
 
     @SuppressWarnings("unused")
@@ -255,9 +257,7 @@ public class ManageFaxes2Action extends Fax2Action {
 
         // Returns fax rows carrying demographic and destination identifiers plus audit log
         // entries — must be gated like the rest of the fax admin surface.
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.fax", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin.fax)");
-        }
+        requireFaxAdminPrivilege("r");
 
         String statusStr = request.getParameter("status");
         String teamStr = request.getParameter("team");
@@ -335,9 +335,7 @@ public class ManageFaxes2Action extends Fax2Action {
     @SuppressWarnings("unused")
     public void SetCompleted() {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.fax", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.fax)");
-        }
+        requireFaxAdminPrivilege("w");
 
 
         String id = request.getParameter("jobId");

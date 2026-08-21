@@ -202,6 +202,30 @@ class ManageFaxes2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should permit CancelFax for a user holding only the broader admin privilege")
+    void shouldPermitCancelFax_forBroaderAdminPrivilege() {
+        // Mirrors the ViewManageFaxes gate and manageFaxes.jsp: _admin OR _admin.fax opens the
+        // page, so either object must also drive its endpoints (review finding on privilege drift).
+        setUpCommonMocks();
+        grantAdminFaxWrite(false);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(true);
+        request.setMethod("POST");
+        request.setParameter("method", "CancelFax");
+        // No jobId: the request passes the privilege gate and stops at the 400 validation.
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            ManageFaxes2Action action = new ManageFaxes2Action();
+            action.execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        }
+    }
+
+    @Test
     @DisplayName("should send 400 without any DAO lookup when the CancelFax jobId parameter is missing")
     void shouldSend400_whenCancelFaxJobIdMissing() {
         setUpCommonMocks();

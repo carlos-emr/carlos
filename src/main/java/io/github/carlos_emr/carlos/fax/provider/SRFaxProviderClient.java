@@ -188,12 +188,12 @@ public class SRFaxProviderClient implements FaxProviderClient {
 
             List<NameValuePair> params = createAuthParams(faxConfig);
             params.add(new BasicNameValuePair("action", ACTION_QUEUE_FAX));
-            // SRFax requires a 10-digit caller ID and an 11-digit dialable destination;
-            // stored values may carry formatting or a leading country code, so normalize here.
+            // SRFax requires a 10-digit caller ID; destinations are normalized to the documented
+            // 11-digit North American form, with longer international numbers passed through.
             params.add(new BasicNameValuePair("sCallerID", toCallerId10(faxConfig.getFaxNumber())));
             params.add(new BasicNameValuePair("sSenderEmail", faxConfig.getSenderEmail()));
             params.add(new BasicNameValuePair("sFaxType", "SINGLE"));
-            params.add(new BasicNameValuePair("sToFaxNumber", toDialable11(faxJob.getDestination())));
+            params.add(new BasicNameValuePair("sToFaxNumber", toDialableNumber(faxJob.getDestination())));
             params.add(new BasicNameValuePair("sFileName_1", faxJob.getFile_name()));
             params.add(new BasicNameValuePair("sFileContent_1", faxJob.getDocument()));
 
@@ -489,21 +489,27 @@ public class SRFaxProviderClient implements FaxProviderClient {
     }
 
     /**
-     * Normalizes a destination fax number to the 11-digit dialable form SRFax requires.
-     * Strips non-digits and prepends the North American country code to a 10-digit value.
+     * Normalizes a destination fax number to a dialable digit string for SRFax.
      *
-     * @throws FaxProviderException when the value cannot be normalized to exactly 11 digits
+     * <p>North American numbers are normalized to the 11-digit form the API documents
+     * (a 10-digit value gets the country code prepended). Longer digit strings (12-15)
+     * are passed through unchanged so international destinations — which the legacy send
+     * path always forwarded — still reach the provider, where account-level international
+     * enablement decides the outcome. Anything under 10 digits cannot be a dialable fax
+     * number and is rejected before transmission.</p>
+     *
+     * @throws FaxProviderException when the value has fewer than 10 or more than 15 digits
      */
-    String toDialable11(String rawNumber) throws FaxProviderException {
+    String toDialableNumber(String rawNumber) throws FaxProviderException {
         String digits = rawNumber == null ? "" : rawNumber.replaceAll("\\D", "");
         if (digits.length() == 10) {
-            digits = "1" + digits;
+            return "1" + digits;
         }
-        if (digits.length() != 11) {
-            throw new FaxProviderException(
-                    "Destination fax number must normalize to 11 digits for SRFax (got " + digits.length() + " digits)");
+        if (digits.length() >= 11 && digits.length() <= 15) {
+            return digits;
         }
-        return digits;
+        throw new FaxProviderException(
+                "Destination fax number must contain 10-15 digits for SRFax (got " + digits.length() + " digits)");
     }
 
     /**

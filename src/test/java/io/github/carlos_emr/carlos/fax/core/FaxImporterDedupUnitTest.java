@@ -328,12 +328,22 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should return true when the file is quarantined pending the import retry path")
+        void shouldReturnTrue_whenFileQuarantinedPendingRetry() {
+            // The quarantined file is owned by retryPendingImports, whose retry row carries no
+            // provider job id — re-downloading here would duplicate the document post-retry.
+            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(
+                    priorRow(FaxJob.STATUS.ERROR, "Downloaded but import failed - pending retry from incoming directory"))))
+                    .isTrue();
+        }
+
+        @Test
         @DisplayName("should return false for other error status strings")
         void shouldReturnFalse_forOtherErrorStatusStrings() {
             assertThat(faxImporter.isAlreadyImported(Collections.singletonList(
                     priorRow(FaxJob.STATUS.ERROR, "Download failed: timeout")))).isFalse();
             assertThat(faxImporter.isAlreadyImported(Collections.singletonList(
-                    priorRow(FaxJob.STATUS.ERROR, "Downloaded but import failed - pending retry from incoming directory"))))
+                    priorRow(FaxJob.STATUS.ERROR, "Download or save to incoming directory failed"))))
                     .isFalse();
             assertThat(faxImporter.isAlreadyImported(Collections.singletonList(
                     priorRow(FaxJob.STATUS.ERROR, null)))).isFalse();
