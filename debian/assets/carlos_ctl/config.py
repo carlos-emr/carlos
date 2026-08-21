@@ -162,9 +162,12 @@ def cmd_init_config(argv) -> int:
     # prompt on the next upgrade.
     ngx = os.path.join(CONF_DIR, "nginx")
     os.makedirs(ngx, exist_ok=True)
-    # World-readable on purpose: these fragments hold listen addresses and a
-    # server_name — public facts nginx serves — and nothing secret ever lands
-    # in this directory.
+    # World-readable on purpose: this is a DIRECTORY of nginx include
+    # fragments holding listen addresses and a server_name — public facts
+    # nginx serves — and the www-data worker must traverse it; nothing secret
+    # ever lands here (the 0644-file advice the scanners give does not apply
+    # to a directory, where 0644 would break traversal outright).
+    # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
     os.chmod(ngx, 0o755)  # nosec B103
     listen6_http = "listen [::]:80;" if s.bind_ip == "0.0.0.0" else ""  # nosec B104
     listen6_https = "listen [::]:443 ssl;" if s.bind_ip == "0.0.0.0" else ""  # nosec B104
