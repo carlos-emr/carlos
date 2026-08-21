@@ -274,6 +274,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action",
         // Admin API clients: list methods permit GET; add/delete are POST-only.
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
+        // Provider roles: GET renders the provider/role roster; only the add/delete,
+        // role-update and primary-role-update intents are gated (see
+        // ProviderRole2ActionUnitTest for the focused GET-rejection coverage).
+        "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action",
         // Schedule: all below reject GET on Save/Delete/mutation-intent params.
         "io.github.carlos_emr.carlos.schedule.web.ScheduleCreateDate2Action",
         "io.github.carlos_emr.carlos.schedule.web.ScheduleEditTemplate2Action",
@@ -362,6 +366,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         "io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
+        "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
