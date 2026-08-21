@@ -379,7 +379,9 @@ def cmd_bootstrap_admin(argv) -> int:
     # across provinces). Comparing against it makes this verb idempotent:
     # without the comparison, EVERY upgrade and dpkg-reconfigure re-randomized
     # a credential the clinic may have long since made its own.
-    seeded_hash = "{bcrypt}$2a$10$RcoNeqhcLzkfBzAoTQ5C5.nnsOs15iOasQCp0/smjDAuTtkMQ.Uju"
+    # This is NOT a leaked secret: it is the already-public value this verb
+    # exists to hunt down and replace.
+    seeded_hash = "{bcrypt}$2a$10$RcoNeqhcLzkfBzAoTQ5C5.nnsOs15iOasQCp0/smjDAuTtkMQ.Uju"  # nosemgrep: generic.secrets.security.detected-bcrypt-hash.detected-bcrypt-hash
     cp = db_root(["-N", "-B", "-e",
                   f"SELECT COUNT(*) FROM `{s.db_name}`.security "
                   f"WHERE user_name='{user}' AND password='{sql_escape(seeded_hash)}'"],
