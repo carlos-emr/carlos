@@ -53,7 +53,9 @@ Description: TLS certificate for the front door:
  .
  manual leaves the certificate to you: place the chain and key at
  /etc/carlos-emr/tls/fullchain.pem and privkey.pem and run
- "carlos-ctl cert manual". Until you do, the front door will not start.
+ "carlos-ctl cert manual". Until you do, the front door serves a self-signed
+ placeholder certificate (generated so nginx can start), which browsers will
+ warn about.
 
 Template: carlos-emr/acme-email
 Type: string

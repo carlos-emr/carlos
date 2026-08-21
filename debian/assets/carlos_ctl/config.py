@@ -212,10 +212,17 @@ def cmd_init_config(argv) -> int:
         if run(["nginx", "-t"], capture_output=True).returncode == 0:
             if run(["systemctl", "reload", "nginx.service"]).returncode == 0:
                 log("nginx reloaded — front-door changes are live")
+            else:
+                # The config passed its test but the reload job failed (nginx
+                # died in between, ExecReload error). Silence here meant the
+                # operator's front-door change never served, with exit 0.
+                die("nginx reload FAILED — front-door changes are NOT live; "
+                    "run 'systemctl status nginx'")
         else:
             warn("the rendered nginx configuration FAILS its test; nginx was NOT reloaded")
             warn("(the running config keeps serving). Details:")
             run(["nginx", "-t"])
+            return 1
     if run(["systemctl", "is-active", "--quiet", "carlos-emr.service"]).returncode == 0:
         log("application-side settings (heap, timezone, database) need: carlos-ctl restart")
     return 0

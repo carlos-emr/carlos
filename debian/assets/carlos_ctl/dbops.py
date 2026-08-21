@@ -85,6 +85,12 @@ def cmd_db_dump(argv) -> int:
     raise AssertionError("unreachable: execvp replaces the process")
 
 
+# Passwords that ship in the upstream source trees (carlos.properties in the
+# WAR, drugref2's defaults). Treated as "not set" everywhere a password is
+# re-used, so they can never become a live credential.
+UPSTREAM_PLACEHOLDER_PASSWORDS = frozenset({"liyi", "yessum", "xxxx", "password", "changeme"})
+
+
 # --- least-privilege accounts (verb: db-users) ------------------------------
 
 def cmd_db_users(argv) -> int:
@@ -93,10 +99,18 @@ def cmd_db_users(argv) -> int:
     s = config.load()
 
     # Re-use existing passwords so a reconfigure or upgrade never invalidates
-    # the credential a running service is holding.
-    app_pw = prop_unescape(prop_get(PROPERTIES, "db_password") or "") or genpw()
-    drugref_pw = prop_unescape(prop_get(DRUGREF_PROPERTIES, "db_password") or "") or genpw()
-    backup_pw = (env_get(BACKUP_ENV, "CARLOS_BACKUP_DB_PASSWORD") or "") or genpw()
+    # the credential a running service is holding. But NEVER adopt the
+    # placeholder passwords published in the upstream source repositories:
+    # the properties skeleton is taken from the built WAR, so on a fresh
+    # install "existing" is upstream's world-known default, and reusing it
+    # would provision the live database account with a password anyone can
+    # read on GitHub. Review finding, confirmed on a live install.
+    def _usable(pw: str) -> str:
+        return "" if pw in UPSTREAM_PLACEHOLDER_PASSWORDS else pw
+
+    app_pw = _usable(prop_unescape(prop_get(PROPERTIES, "db_password") or "")) or genpw()
+    drugref_pw = _usable(prop_unescape(prop_get(DRUGREF_PROPERTIES, "db_password") or "")) or genpw()
+    backup_pw = _usable(env_get(BACKUP_ENV, "CARLOS_BACKUP_DB_PASSWORD") or "") or genpw()
     import re as _re
     verify_db = env_get(BACKUP_ENV, "CARLOS_BACKUP_VERIFY_DB") or "carlos_restore_drill"
     # Same rule as the settings loader applies to CARLOS_DB_NAME — one
@@ -202,7 +216,11 @@ def cmd_rotate(argv) -> int:
     if os.path.isfile(BACKUP_ENV):
         util.env_set(BACKUP_ENV, "CARLOS_BACKUP_DB_PASSWORD", "")
     cmd_db_users([])
-    run(["systemctl", "restart", "carlos-emr.service"])
+    if run(["systemctl", "restart", "carlos-emr.service"]).returncode != 0:
+        # The new credential is provisioned and written out, but the service
+        # did not come back — saying "restarted" here would hide an outage.
+        die("passwords rotated, but carlos-emr FAILED to restart — "
+            "run 'journalctl -u carlos-emr -n 50'")
     log("rotated; carlos-emr restarted")
     return 0
 
@@ -337,7 +355,15 @@ def cmd_bootstrap_admin(argv) -> int:
     cp = db_root(["-N", "-B", "-e",
                   f"SELECT COUNT(*) FROM `{s.db_name}`.security WHERE user_name='{user}'"],
                  capture_output=True)
-    if cp.returncode != 0 or cp.stdout.strip() == "0":
+    if cp.returncode != 0:
+        # A failed query (security table missing because migrations have not
+        # run, server gone away) is NOT the same as "account absent": exiting
+        # 0 here left the credential PUBLISHED in the source repository
+        # active while the tool reported there was nothing to do.
+        die(f"could not check for the seeded '{user}' account "
+            f"(is the schema migrated? run 'carlos-ctl db-migrate' first): "
+            f"{cp.stderr.strip()}")
+    if cp.stdout.strip() == "0":
         log(f"no seeded '{user}' account present; nothing to reset")
         return 0
 
@@ -444,7 +470,7 @@ instance whose backups are gone is not decommissioned, it is lost.""", file=sys.
 
     if db_root_ok():
         log("dropping databases")
-        db_root([], input=f"""
+        cp = db_root([], input=f"""
 SET SESSION sql_log_bin = 0;
 DROP DATABASE IF EXISTS `{s.db_name}`;
 DROP DATABASE IF EXISTS `drugref2`;
@@ -455,6 +481,13 @@ DROP USER IF EXISTS 'drugref'@'127.0.0.1';
 DROP USER IF EXISTS 'backup'@'localhost';
 DROP USER IF EXISTS 'backup'@'127.0.0.1';
 """)
+        if cp.returncode != 0:
+            # Batch mode aborts at the first failing statement, so a failure
+            # here can leave databases AND every later DROP un-executed.
+            # This verb's report must be exact — never claim destruction that
+            # did not happen.
+            die("DROP DATABASE batch FAILED — the clinical databases may "
+                "still exist; nothing was reported destroyed")
     else:
         warn("MariaDB is not reachable; the databases were NOT dropped")
 
@@ -476,11 +509,20 @@ DROP USER IF EXISTS 'backup'@'127.0.0.1';
 
     if include_backups:
         log("removing backups")
-        shutil.rmtree("/var/backups/carlos-emr", ignore_errors=True)
+        shutil.rmtree("/var/backups/carlos-emr", onerror=_collect)
         # Shredded, not unlinked: these two files are the difference between a
         # retained backup being readable and being noise.
+        shred_errors = []
         for f in (BACKUP_ENV, PROPERTIES):
-            run(["shred", "-u", f], capture_output=True)
+            if not os.path.exists(f):
+                continue
+            cp = run(["shred", "-u", f], capture_output=True)
+            if cp.returncode != 0:
+                shred_errors.append(f"{f}: {cp.stderr.decode(errors='replace').strip()}")
+        if rm_errors or shred_errors:
+            for e in (rm_errors + shred_errors)[:10]:
+                warn(f"could not destroy: {e}")
+            die("key material may STILL BE READABLE — destruction is incomplete")
         log("backups and key material destroyed")
     else:
         warn("backups in /var/backups/carlos-emr were KEPT.")

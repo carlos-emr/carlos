@@ -51,8 +51,20 @@ case "$1" in
             # with hbm2ddl.auto=validate, so the tables must exist before it
             # deploys; re-loading over a populated database would discard drug
             # data a site has updated since.
+            #
+            # The _carlos_seed_complete marker table distinguishes "populated
+            # by a finished seed load" from "populated by a seed load that was
+            # KILLED part-way": without it, a retry after an interrupted load
+            # saw tables present, skipped the load, and reported success over
+            # a half-loaded database that Hibernate then failed to validate on
+            # every start. A populated database WITHOUT the marker is either
+            # that, or a pre-existing dataset from before this package — both
+            # are left alone, but loudly.
             tables="$(mariadb --protocol=socket --user=root -N -B -e \
                 "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='drugref2'")"
+            seeded="$(mariadb --protocol=socket --user=root -N -B -e \
+                "SELECT COUNT(*) FROM information_schema.tables
+                  WHERE table_schema='drugref2' AND table_name='_carlos_seed_complete'")"
             if [ "${tables}" = 0 ]; then
                 echo "carlos-emr-drugref: loading the drug reference dataset (this takes a minute)"
                 for f in "${SHARE}/schema/drugref/development-drugref.sql" \
@@ -85,9 +97,19 @@ case "$1" in
                 if [ -n "${alter_sql}" ]; then
                     printf '%s\n' "${alter_sql}" | mariadb --protocol=socket --user=root drugref2
                 fi
+                mariadb --protocol=socket --user=root drugref2 -e \
+                    "SET SESSION sql_log_bin = 0;
+                     CREATE TABLE _carlos_seed_complete (loaded_at DATETIME NOT NULL) ENGINE=InnoDB;
+                     INSERT INTO _carlos_seed_complete VALUES (NOW());"
                 echo "carlos-emr-drugref: drug reference dataset loaded"
-            else
+            elif [ "${seeded}" != 0 ]; then
                 echo "carlos-emr-drugref: drugref2 already has ${tables} tables; leaving the data alone"
+            else
+                echo "carlos-emr-drugref: WARNING: drugref2 has ${tables} tables but no seed-completion marker." >&2
+                echo "carlos-emr-drugref: WARNING: either this is a pre-existing dataset (fine — leaving it alone)," >&2
+                echo "carlos-emr-drugref: WARNING: or a previous seed load was interrupted and the data is INCOMPLETE." >&2
+                echo "carlos-emr-drugref: WARNING: if DrugRef fails to deploy or lookups return nothing, reload with:" >&2
+                echo "carlos-emr-drugref: WARNING:   sudo mariadb -e 'DROP DATABASE drugref2' && sudo dpkg-reconfigure carlos-emr-drugref" >&2
             fi
         else
             echo "carlos-emr-drugref: MariaDB is not reachable; finish with:" >&2

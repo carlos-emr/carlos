@@ -341,32 +341,50 @@ not load the repository location and passphrase from backup.env. This exact
 sequence has been exercised end to end (DROP DATABASE and back):
 
   sudo systemctl stop carlos-emr
-  # 1. The newest dump:
+  # Also stop the backup timers for the duration: a nightly or drill run
+  # firing mid-restore would wipe its work directory, take a "backup" of the
+  # half-loaded database, and fight for the repository lock. (Persistent=true
+  # means a missed nightly fires immediately at boot on a rebuilt host —
+  # exactly when you are most likely to be doing this.)
+  sudo systemctl stop carlos-emr-backup.timer carlos-emr-backup-verify.timer
+  # 1. The newest dump. The target is OUTSIDE work/ deliberately: work/ is
+  #    wiped by every backup and drill run's cleanup, and a restore can
+  #    outlive one of those even with the timers stopped (a manual run, a
+  #    second operator).
   sudo carlos-ctl backup restic restore latest --tag db \
-      --target /var/backups/carlos-emr/work/dr
+      --target /var/backups/carlos-emr/dr
   # 2. Load it. SET SESSION sql_log_bin=0 matters: without it the recovery
   #    itself is written into the binary log and becomes part of the very
   #    chain the next backup ships.
   sudo mariadb --init-command='SET SESSION sql_log_bin=0' oscar \
-      < /var/backups/carlos-emr/work/dr/.../oscar.sql
+      < /var/backups/carlos-emr/dr/.../oscar.sql
   # 3. Roll forward past the dump, if recovering to later than last night.
   #    The dump records its anchor near its top:
-  #      CHANGE MASTER TO MASTER_LOG_FILE='binlog.0000NN', MASTER_LOG_POS=...
+  #      CHANGE MASTER TO MASTER_LOG_FILE='binlog.0000NN', MASTER_LOG_POS=P
+  #    The run rotates the binary log immediately before dumping, so the
+  #    anchor sits at the START of file NN: the dump holds everything before
+  #    the anchor, and file NN onward holds everything after it — including
+  #    transactions committed while the dump itself was running.
   #    Each nightly run ships ONE binlog snapshot holding only that run's
   #    newly-closed logs, so the window may span several snapshots — restore
   #    every one taken since the dump, then replay, in order, the files whose
-  #    number is GREATER than the anchor's NN:
+  #    number is GREATER THAN OR EQUAL TO the anchor's NN:
   sudo carlos-ctl backup restic snapshots --tag binlog
   sudo carlos-ctl backup restic restore <each-id> \
-      --target /var/backups/carlos-emr/work/dr
+      --target /var/backups/carlos-emr/dr
   sudo bash -c "mariadb --init-command='SET SESSION sql_log_bin=0' oscar \
-      < /var/backups/carlos-emr/work/dr/.../binlog.0000MM.sql"  # each MM > NN
+      < /var/backups/carlos-emr/dr/.../binlog.0000MM.sql"  # each MM >= NN
   #    Shipped logs are decoded SQL scoped to the oscar database, so they
-  #    replay cleanly onto it. The anchor file NN itself is already inside
-  #    the dump: the run rotates the log immediately before dumping, so the
-  #    anchor sits at NN's start and files > NN are exactly the post-dump
-  #    changes.
+  #    replay cleanly onto it. Rare edge: if the anchor position P is larger
+  #    than the first event offset in NN's decoded SQL (a transaction slipped
+  #    in between the rotation and the dump taking its snapshot), the slice of
+  #    NN before the "# at P" line is already inside the dump — delete the
+  #    statements above that line before replaying NN, or expect (harmless but
+  #    alarming) duplicate-key errors for that sliver.
   sudo carlos-ctl db-validate
+  # The restored dump and decoded logs are plaintext PHI — remove them.
+  sudo rm -rf /var/backups/carlos-emr/dr
+  sudo systemctl start carlos-emr-backup.timer carlos-emr-backup-verify.timer
   sudo systemctl start carlos-emr
 
 

@@ -16,7 +16,7 @@
 #
 # RETENTION IS A COMPLIANCE DECISION. The ModSecurity audit log records the
 # request line, headers and matched rule for every blocked request. It is
-# configured with SecAuditLogParts ABFHKZ, which excludes request and response
+# configured with SecAuditLogParts ABFHZ, which excludes request and response
 # BODIES — those are where clinical free text and health-card numbers would
 # land on each false positive — but the request line and cookies still make it
 # PHI-adjacent. Thirty days keeps it useful for incident triage without

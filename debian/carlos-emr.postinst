@@ -75,7 +75,10 @@ case "$1" in
         # Read-only reach into the application's data. See debian/carlos-emr.sysusers
         # for why this direction and not the other. Guarded on membership
         # rather than `|| true`: the old form also swallowed real failures.
-        if ! id -nG carlos-backup | grep -qw carlos; then
+        # Exact match, one group per line: `grep -qw carlos` word-matched
+        # inside the primary group "carlos-backup" (hyphen is a non-word
+        # character), so the guard was always true and this fallback dead.
+        if ! id -nG carlos-backup | tr ' ' '\n' | grep -qx carlos; then
             adduser --quiet carlos-backup carlos
         fi
 
@@ -212,12 +215,17 @@ case "$1" in
             # nothing in that case and left the backups locked to a passphrase
             # recorded nowhere).
             RESTIC_PW="$(head -c 128 /dev/urandom | base64 | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-40)"
-            SEK_KEY=RESTIC_PASSWORD SEK_VALUE="${RESTIC_PW}" awk '
+            # The .tmp is created under umask 077: dpkg runs maintainer
+            # scripts at umask 022, which made the temp file 0644 — the new
+            # passphrase world-readable (in a 0755 directory) for the moment
+            # it existed. The subshell keeps the umask change local.
+            ( umask 077
+              SEK_KEY=RESTIC_PASSWORD SEK_VALUE="${RESTIC_PW}" awk '
                 BEGIN { k = ENVIRON["SEK_KEY"]; v = ENVIRON["SEK_VALUE"] }
                 index($0, k "=") == 1 { print k "=" v; done = 1; next }
                 { print }
                 END { if (!done) print k "=" v }
-            ' "${BACKUP_ENV}" > "${BACKUP_ENV}.tmp"
+              ' "${BACKUP_ENV}" > "${BACKUP_ENV}.tmp" )
             cat "${BACKUP_ENV}.tmp" > "${BACKUP_ENV}"
             rm -f "${BACKUP_ENV}.tmp"
             unset RESTIC_PW
@@ -387,10 +395,16 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         # generated.
         PROBE_NAME="$(sed -n 's/^CARLOS_SERVER_NAME=//p' "${ENV_FILE}" | head -1)"
         PROBE_NAME="${PROBE_NAME:-localhost}"
+        # Probe the address nginx actually listens on: with a non-default
+        # CARLOS_BIND_IP (a LAN address) nothing answers on loopback, and a
+        # healthy install used to sit through the whole five-minute loop and
+        # then blame the application.
+        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | head -1)"
+        case "${PROBE_IP}" in ""|0.0.0.0|::) PROBE_IP=127.0.0.1 ;; esac
         i=0
         while [ "${i}" -lt 60 ]; do
             code="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 \
-                    --resolve "${PROBE_NAME}:443:127.0.0.1" \
+                    --resolve "${PROBE_NAME}:443:${PROBE_IP}" \
                     "https://${PROBE_NAME}/carlos/" 2>/dev/null || echo 000)"
             case "${code}" in
                 200|302|303) break ;;

@@ -31,3 +31,11 @@ fi
 echo "fetching DrugRef2 $ref from $repo"
 # Guard the recursive delete: an empty or root-ish $dest from a caller bug
 # must fail here, not become an rm -rf of something that matters.
+if [ -z "$dest" ] || [ "$dest" = "/" ] || [ ! -d "$(dirname "$dest")" ]; then
+    echo "fetch-drugref: refusing to delete suspicious destination '$dest'" >&2
+    exit 1
+fi
+rm -rf "$dest"
+git clone --quiet "$repo" "$dest"
+git -C "$dest" checkout --quiet --detach "$ref"
+echo "drugref source at $(git -C "$dest" rev-parse HEAD)"

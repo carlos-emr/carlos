@@ -35,6 +35,9 @@ set -euo pipefail
 CONF_DIR=/etc/carlos-emr
 ENV_FILE="${CONF_DIR}/backup.env"
 STATE_DIR=/var/backups/carlos-emr
+# Set by alert(); the cleanup trap uses it to fire a catch-all alert for
+# failures that aborted without one.
+ALERTED=0
 WORK_DIR="${STATE_DIR}/work"
 DOCS_DIR=/var/lib/carlos-emr/OscarDocument
 LOG_TAG=carlos-emr-backup
@@ -87,6 +90,7 @@ MYSQL_ARGS=(--user="${DB_USER}" --protocol=socket)
 
 alert() {
     local subject="$1" body="$2"
+    ALERTED=1
     warn "${subject}"
     if [ -n "${CARLOS_BACKUP_ALERT_WEBHOOK:-}" ]; then
         # The payload is built by a real JSON encoder (python3 is a package
@@ -125,7 +129,7 @@ print(json.dumps({
 acquire_lock() {
     exec 9>"${STATE_DIR}/.lock"
     if ! flock -w 7200 9; then
-        echo "${LOG_TAG}: could not acquire the backup lock within 2h — another run is wedged (fuser -v ${STATE_DIR}/.lock)" >&2
+        alert "could not acquire the backup lock within 2h"               "another run is wedged (fuser -v ${STATE_DIR}/.lock). No backup was taken tonight."
         exit 1
     fi
 }
@@ -139,16 +143,38 @@ ensure_repo() {
 }
 
 cleanup() {
+    local status=$?
     # The dump and the streamed binlogs are plaintext PHI on local disk. They
     # exist only between being written and being handed to restic, and they are
     # removed even when the run fails part-way.
     rm -rf "${WORK_DIR:?}"/* 2>/dev/null || true
+    # backup.env promises "a backup failure that nobody hears about is the
+    # same as no backup" — but only a handful of hand-coded paths used to
+    # alert. Everything else (mariadb-dump exiting non-zero, restic unable to
+    # reach the repository, forget/prune/check failures) aborted through
+    # errexit in silence. This is the catch-all: any non-zero exit that has
+    # not already produced an alert produces one here.
+    if [ "${status}" -ne 0 ] && [ "${ALERTED:-0}" != 1 ]; then
+        alert "backup run aborted unexpectedly (exit ${status})"               "an error aborted the run before completion — run 'journalctl -u carlos-emr-backup -n 50' (or -u carlos-emr-backup-verify for the drill). No .last-success stamp was written, so freshness monitoring will also flag this."
+    fi
 }
 
 # --- backup -----------------------------------------------------------------
 
 dump_database() {
     local out="$1"
+    # Rotate the binary log FIRST, so the --master-data anchor recorded in
+    # the dump header lands at the very start of a fresh log file. Without
+    # this the anchor sits mid-file: the documented replay ("files after the
+    # anchor") would skip the rest of that file — and with it every
+    # transaction committed while the dump was running. The later rotation
+    # in ship_binlogs then closes this fresh file so the same run ships it.
+    # A flush failure only degrades the anchor position, so it warns loudly
+    # rather than failing the dump.
+    if ! mariadb "${MYSQL_ARGS[@]}" -e 'FLUSH BINARY LOGS' 2>/dev/null; then
+        warn "pre-dump FLUSH BINARY LOGS failed; the recovery anchor will sit mid-file —"
+        warn "follow the anchor-position trim step in README.Debian if this dump is restored."
+    fi
     log "dumping ${DB_NAME}"
     # --single-transaction   consistent snapshot without locking clinicians out
     # --master-data=2        record the binlog coordinates as a comment; this
@@ -301,7 +327,14 @@ ship_binlogs() {
     done
 
     if [ "${any}" = 1 ]; then
-        restic backup --tag binlog --host "$(hostname -s)-carlos" "${dir}"
+        # Checked explicitly: this function is called as `ship_binlogs || …`,
+        # which suppresses errexit for its whole body — an unchecked failure
+        # here advanced the marker over logs that were never stored and then
+        # deleted the local copies, a permanent silent hole in the PITR chain.
+        if ! restic backup --tag binlog --host "$(hostname -s)-carlos" "${dir}"; then
+            alert "binlog upload failed"                   "restic could not store the decoded binary logs (repository unreachable or locked?). The marker was NOT advanced; the next run re-ships the same logs."
+            return 1
+        fi
         printf '%s\n' "${shipped}" > "${marker}"
         log "shipped closed binary logs through ${shipped}"
         # The decoded logs are plaintext PHI on local disk; they exist only
