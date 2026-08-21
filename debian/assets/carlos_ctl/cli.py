@@ -96,12 +96,14 @@ def _cmd_lifecycle(verb: str, argv) -> int:
     # expect ~2 minutes for the webapp to redeploy.
     need_root(verb)
     os.execvp("systemctl", ["systemctl", verb, "carlos-emr.service"])
+    raise AssertionError("unreachable: execvp replaces the process")
 
 
 def _cmd_cert(argv) -> int:
     need_root("cert")
     os.execv(os.path.join(LIB, "carlos-emr-cert"),
              [os.path.join(LIB, "carlos-emr-cert")] + list(argv))
+    raise AssertionError("unreachable: execv replaces the process")
 
 
 def _cmd_cert_renew(argv) -> int:
@@ -109,6 +111,7 @@ def _cmd_cert_renew(argv) -> int:
     need_root("cert-renew")
     os.execv(os.path.join(LIB, "carlos-emr-cert"),
              [os.path.join(LIB, "carlos-emr-cert"), "renew"])
+    raise AssertionError("unreachable: execv replaces the process")
 
 
 def _cmd_backup(argv) -> int:
@@ -143,10 +146,12 @@ def _cmd_backup(argv) -> int:
         return rc
     os.execvp("runuser", ["runuser", "-u", "carlos-backup", "--",
                           os.path.join(LIB, "carlos-emr-backup")] + sub)
+    raise AssertionError("unreachable: execvp replaces the process")
 
 
 def _cmd_logs(argv) -> int:
     os.execvp("journalctl", ["journalctl", "-u", "carlos-emr.service"] + list(argv))
+    raise AssertionError("unreachable: execvp replaces the process")
 
 
 _VERBS = {

@@ -66,6 +66,7 @@ def cmd_db(argv) -> int:
     require_db_root()
     s = config.load()
     os.execvp("mariadb", _MARIADB + [s.db_name] + list(argv))
+    raise AssertionError("unreachable: execvp replaces the process")
 
 
 def cmd_db_dump(argv) -> int:
@@ -81,6 +82,7 @@ def cmd_db_dump(argv) -> int:
         "--triggers", "--no-tablespaces", "--default-character-set=utf8mb4",
         s.db_name,
     ])
+    raise AssertionError("unreachable: execvp replaces the process")
 
 
 # --- least-privilege accounts (verb: db-users) ------------------------------

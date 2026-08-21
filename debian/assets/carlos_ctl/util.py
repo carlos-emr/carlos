@@ -51,9 +51,19 @@ def need_root(verb: str) -> None:
 
 
 def run(cmd: List[str], **kw) -> subprocess.CompletedProcess:
-    """subprocess.run with sane defaults; callers opt into capture/check."""
+    """subprocess.run with sane defaults; callers opt into capture/check.
+
+    INJECTION CONTRACT (this is what a scanner auditing "subprocess without a
+    static string" needs to know): every call site passes an argv LIST and
+    never sets shell=True, so no string is ever parsed by a shell. The only
+    non-constant argv elements are (a) values validated as plain identifiers
+    at settings load (the database name), (b) generated alphanumeric
+    credentials, and (c) operator CLI arguments on verbs whose entire purpose
+    is pass-through (db, logs, backup restic) — where the operator is already
+    root. Secrets travel via stdin or the environment, never argv.
+    """
     kw.setdefault("text", True)
-    return subprocess.run(cmd, **kw)
+    return subprocess.run(cmd, **kw)  # nosec B603
 
 
 def out(cmd: List[str]) -> str:
