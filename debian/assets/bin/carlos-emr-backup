@@ -271,10 +271,20 @@ ship_binlogs() {
         # default-character-set line this package's own MariaDB drop-in puts
         # there ("unknown variable"), killing every stream. The credential
         # still arrives via MYSQL_PWD, which is environment, not option-file.
-        # 2>&1 into the journal rather than /dev/null: when this DOES fail,
-        # the tool's own message is the diagnosis.
+        #
+        # --database scopes the decode to the clinical schema, and that is a
+        # RESTORE-CORRECTNESS decision proven by a live drill, not a size
+        # optimisation: an unfiltered decode also carries the weekly
+        # restore-drill's scratch-db load, any root restore replayed into the
+        # server, and drugref2 reference churn — so replaying it against a
+        # recovered database re-executed foreign events (up to and including
+        # the DDL of a previous recovery). Filtered, every shipped statement
+        # belongs to ${DB_NAME} and replays cleanly onto a restored copy of
+        # it. DrugRef needs no binlog leg — its dataset rebuilds from the
+        # packaged seed.
         if mariadb-binlog --no-defaults --read-from-remote-server \
                 --host="${DB_HOST}" --port="${DB_PORT}" --user="${DB_USER}" \
+                --database="${DB_NAME}" \
                 --result-file="${dir}/${name}.sql" "${name}"; then
             any=1
             shipped="${name}"

@@ -206,15 +206,16 @@ attack and let it through.
 
   sudo carlos-ctl waf status           engine state and file locations
   sudo carlos-ctl waf tail 200         recent blocks, in readable form
+  sudo carlos-ctl waf reload           apply edited exclusion/policy files
+  sudo carlos-ctl waf detect-only      stop blocking, for triage only
+  sudo carlos-ctl waf blocking         resume blocking
 
 The audit log is /var/log/carlos-emr/modsec/modsec_audit.log, mode 0640
 root:adm inside a 0750 directory — readable by root and group adm, and by
 nothing else. Records are JSON carrying headers and matched rules but NOT
-request or response bodies (SecAuditLogParts ABFHKZ). That is the PHI decision
+request or response bodies (SecAuditLogParts ABFHZ). That is the PHI decision
 described under "Log retention", and it is checkable on a running system:
 every record has `request.headers` and no `request.body`.
-  sudo carlos-ctl waf detect-only      stop blocking, for triage only
-  sudo carlos-ctl waf blocking         resume blocking
 
 CARLOS is a large application of OSCAR lineage and a clinical workflow you use
 may trip a rule the packaged exclusions do not cover. The supported response
@@ -334,13 +335,37 @@ backup, and it must also be escrowed separately.
 Set CARLOS_BACKUP_ALERT_WEBHOOK or CARLOS_BACKUP_ALERT_EMAIL. A backup failure
 nobody hears about is the same as no backup.
 
-To restore a live system (this stops the EMR, so it needs root):
+To restore a live system (this stops the EMR, so it needs root). Every restic
+invocation goes through the wrapper's restic passthrough — a bare restic would
+not load the repository location and passphrase from backup.env. This exact
+sequence has been exercised end to end (DROP DATABASE and back):
 
   sudo systemctl stop carlos-emr
-  sudo -u carlos-backup /usr/lib/carlos-emr/carlos-emr-backup snapshots
-  sudo -u carlos-backup restic restore <id> --target /var/backups/carlos-emr/work
-  sudo mariadb oscar < /var/backups/carlos-emr/work/.../oscar.sql
-  # then replay binary logs past the dump's coordinates if recovering forward
+  # 1. The newest dump:
+  sudo carlos-ctl backup restic restore latest --tag db \
+      --target /var/backups/carlos-emr/work/dr
+  # 2. Load it. SET SESSION sql_log_bin=0 matters: without it the recovery
+  #    itself is written into the binary log and becomes part of the very
+  #    chain the next backup ships.
+  sudo mariadb --init-command='SET SESSION sql_log_bin=0' oscar \
+      < /var/backups/carlos-emr/work/dr/.../oscar.sql
+  # 3. Roll forward past the dump, if recovering to later than last night.
+  #    The dump records its anchor near its top:
+  #      CHANGE MASTER TO MASTER_LOG_FILE='binlog.0000NN', MASTER_LOG_POS=...
+  #    Each nightly run ships ONE binlog snapshot holding only that run's
+  #    newly-closed logs, so the window may span several snapshots — restore
+  #    every one taken since the dump, then replay, in order, the files whose
+  #    number is GREATER than the anchor's NN:
+  sudo carlos-ctl backup restic snapshots --tag binlog
+  sudo carlos-ctl backup restic restore <each-id> \
+      --target /var/backups/carlos-emr/work/dr
+  sudo bash -c "mariadb --init-command='SET SESSION sql_log_bin=0' oscar \
+      < /var/backups/carlos-emr/work/dr/.../binlog.0000MM.sql"  # each MM > NN
+  #    Shipped logs are decoded SQL scoped to the oscar database, so they
+  #    replay cleanly onto it. The anchor file NN itself is already inside
+  #    the dump: the run rotates the log immediately before dumping, so the
+  #    anchor sits at NN's start and files > NN are exactly the post-dump
+  #    changes.
   sudo carlos-ctl db-validate
   sudo systemctl start carlos-emr
 
@@ -373,7 +398,7 @@ is doing its job). Fix the cause, run `carlos-ctl db-migrate`, then
     carry PHI-correlating identifiers.
   - the ModSecurity audit log (/var/log/carlos-emr/modsec/) records the
     request line, headers and matched rule for blocked requests. It is
-    configured with SecAuditLogParts ABFHKZ, which excludes request and
+    configured with SecAuditLogParts ABFHZ, which excludes request and
     response BODIES — those are where clinical free text and health-card
     numbers would land on every false positive.
 
