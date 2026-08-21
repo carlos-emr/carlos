@@ -33,6 +33,12 @@ that the schema has a Flyway history, and that backups are fresh. Start here.
 .B status
 Systemd status of the EMR, nginx, MariaDB and the package's timers.
 .TP
+.BR restart ", " start ", " stop
+Service lifecycle passthroughs.
+.B restart
+is what applies configuration changes; expect about two minutes for the
+webapp to redeploy.
+.TP
 .BR logs " [\fIjournalctl-args\fR]"
 Application server log.
 .SS Schema
@@ -61,6 +67,11 @@ recreate province tables.
 Repair
 .I flyway_schema_history
 after a failed migration.
+.TP
+.B db-apply-settings
+Restart MariaDB if — and only if — its running values disagree with the
+packaged drop\-in (checked first, so an upgrade that changes nothing never
+bounces the database).
 .TP
 .BR "db" " [\fIargs\fR]"
 Raw mariadb client on the EMR database as root over the unix socket:
@@ -109,6 +120,10 @@ this state.
 .TP
 .B waf blocking
 Resume blocking.
+.TP
+.B waf reload
+Apply hand\-edited policy or exclusion files. Config\-tested first; on
+failure the running rules keep serving and the command says so.
 .SS Backups
 .TP
 .B backup full
@@ -153,6 +168,15 @@ configured.
 .TP
 .B rotate
 Rotate every generated database password and restart the application.
+.SS Decommissioning
+.TP
+.BI "destroy-data --confirm " server-name
+The ONLY supported way this software destroys clinical data. It DROPs the
+EMR and DrugRef databases and deletes patient documents, heap dumps and
+application logs; backups survive unless
+.B --including-backups
+is also given. Removing or purging the packages never does any of this. The
+command refuses unless the host's own configured name is typed back to it.
 .SH FILES
 .TP
 .I /etc/carlos-emr/carlos-emr.env

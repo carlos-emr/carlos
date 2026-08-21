@@ -97,9 +97,12 @@ def cmd_db_users(argv) -> int:
     app_pw = prop_unescape(prop_get(PROPERTIES, "db_password") or "") or genpw()
     drugref_pw = prop_unescape(prop_get(DRUGREF_PROPERTIES, "db_password") or "") or genpw()
     backup_pw = (env_get(BACKUP_ENV, "CARLOS_BACKUP_DB_PASSWORD") or "") or genpw()
+    import re as _re
     verify_db = env_get(BACKUP_ENV, "CARLOS_BACKUP_VERIFY_DB") or "carlos_restore_drill"
-    if not verify_db.replace("_", "").isalnum():
-        die(f"CARLOS_BACKUP_VERIFY_DB ('{verify_db}') must be a plain identifier")
+    # Same rule as the settings loader applies to CARLOS_DB_NAME — one
+    # identifier policy, not two subtly different ones.
+    if not _re.fullmatch(r"[A-Za-z0-9_]+", verify_db):
+        die(f"CARLOS_BACKUP_VERIFY_DB ('{verify_db}') must be a plain identifier (A-Za-z0-9_)")
 
     log("provisioning databases and least-privilege accounts")
     sql = f"""
@@ -178,6 +181,11 @@ FLUSH PRIVILEGES;
         # above has already rotated the account, so a substitute-only write
         # would leave backup.env without the one password that now works.
         util.env_set(BACKUP_ENV, "CARLOS_BACKUP_DB_PASSWORD", backup_pw)
+        # And the database NAME stays in lockstep with CARLOS_DB_NAME: the
+        # grants above target s.db_name, so a site running a non-default name
+        # would otherwise have a backup account authorized for one schema
+        # while the dump targeted the skeleton default.
+        util.env_set(BACKUP_ENV, "CARLOS_BACKUP_DB_NAME", s.db_name)
     log(f"accounts provisioned: carlos (read/write on {s.db_name}), drugref, backup (read-only)")
     return 0
 

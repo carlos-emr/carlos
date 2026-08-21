@@ -69,11 +69,22 @@ case "$1" in
                 # instant — and the nightly backup reports it every night.
                 # Convert once, here, rather than leaving it as a documented
                 # manual step nobody performs.
-                mariadb --protocol=socket --user=root -N -B -e \
-                    "SELECT CONCAT('ALTER TABLE \`drugref2\`.\`',table_name,'\` ENGINE=InnoDB;')
+                # Two review findings, both applied: the generated SQL is
+                # captured BEFORE execution (in a pipe, only the consumer's
+                # exit status counted, so a failed metadata query fed the
+                # consumer empty input and the load reported success without
+                # converting anything), and table identifiers are
+                # backtick-escaped (REPLACE doubles any \` in a name) before
+                # root executes them.
+                alter_sql="$(mariadb --protocol=socket --user=root -N -B -e \
+                    "SELECT CONCAT('ALTER TABLE \`drugref2\`.\`',
+                                   REPLACE(table_name, '\`', '\`\`'),
+                                   '\` ENGINE=InnoDB;')
                        FROM information_schema.tables
-                      WHERE table_schema='drugref2' AND engine <> 'InnoDB'" \
-                    | mariadb --protocol=socket --user=root drugref2
+                      WHERE table_schema='drugref2' AND engine <> 'InnoDB'")"
+                if [ -n "${alter_sql}" ]; then
+                    printf '%s\n' "${alter_sql}" | mariadb --protocol=socket --user=root drugref2
+                fi
                 echo "carlos-emr-drugref: drug reference dataset loaded"
             else
                 echo "carlos-emr-drugref: drugref2 already has ${tables} tables; leaving the data alone"

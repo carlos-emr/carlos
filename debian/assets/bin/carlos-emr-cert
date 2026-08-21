@@ -128,9 +128,11 @@ cmd_selfsigned() {
         fi
         if [ "$(current_mode)" != selfsigned ] && [ "${FORCE:-0}" = 1 ]; then
             log "forcing self-signed mode over '$(current_mode)' as requested"
-            # Symlinks from acme mode would otherwise be written THROUGH into
-            # /etc/letsencrypt; remove them so the new pair lands here.
-            rm -f "${FULLCHAIN}" "${PRIVKEY}"
+            # No pre-deletion: generation writes to .new files and mv -f
+            # REPLACES a symlink path (it does not write through it), so acme
+            # symlinks are displaced atomically only once openssl has
+            # succeeded — deleting first left the front door certificate-less
+            # when generation failed. Review finding, confirmed.
         fi
         # Two reasons to regenerate, both guarded so an operator-placed
         # certificate is never clobbered:
@@ -258,8 +260,11 @@ cmd_renew() {
             # `renew` selects every certificate on the host and the
             # command-line webroot would override the stored authenticator
             # config of unrelated certificates an operator manages separately.
+            # No unconditional reload here: the deploy hook installed at
+            # issuance (/etc/letsencrypt/renewal-hooks/deploy/carlos-emr)
+            # reloads nginx exactly when a renewal actually happened —
+            # reloading on every no-op check bounced workers twice a day.
             certbot renew --quiet --cert-name "$(server_name)" --webroot -w "${ACME_WEBROOT}"
-            reload_nginx
             ;;
         selfsigned)
             # CERT_CHANGED tells us whether a new pair was actually written;

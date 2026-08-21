@@ -52,7 +52,7 @@ unprivileged account behind an nginx/ModSecurity front door.
 | `control`, `config`, `templates`       | `debian/control`, `debian/carlos-emr.{config,templates}` |
 | `postinst`, `prerm`, `postrm`, `rules` | `debian/carlos-emr.{postinst,prerm,postrm}`           |
 | `carlos_backup.sh`, `restore.sh`       | `carlos-ctl backup` (restic, systemd timers)           |
-| `letsencrypt.cron`, `gateway.sh`       | `carlos-ctl cert` (certbot + nginx)                    |
+| `letsencrypt.cron`, `gateway.sh`       | `carlos-ctl cert acme` / `cert-renew` (certbot + nginx)                    |
 | `reOscar.sh`                           | `systemctl restart carlos-emr`                        |
 | `tomcat9server.xml`, `tomcat9LEserver.xml` | `debian/assets/tomcat/server.xml`                 |
 

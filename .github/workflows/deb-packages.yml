@@ -46,7 +46,11 @@ jobs:
     name: Build and attach .deb packages
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:26.04
+      # Digest-pinned like every third-party artefact in this repository's
+      # workflows: a re-pushed tag must never change what runs with release
+      # and attestation permissions. Re-resolve on deliberate base bumps
+      # (skopeo inspect docker://ubuntu:26.04).
+      image: ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
     permissions:
       # Upload assets to the release.
       contents: write

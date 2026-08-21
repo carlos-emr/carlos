@@ -148,6 +148,13 @@ case "$1" in
         ln -sfn /var/log/carlos-emr/tomcat "${STATE}/catalina/logs"
 
         # --- configuration files --------------------------------------------
+        # Recorded BEFORE install_once lays down the skeleton: the province
+        # guard below must distinguish "fresh install" from "operator already
+        # chose", and once the skel (whose default is CARLOS_PROVINCE=on)
+        # exists, the two are indistinguishable — which silently configured a
+        # British Columbia clinic for Ontario migrations. Review finding,
+        # confirmed by inspection.
+        if [ -e "${ENV_FILE}" ]; then FRESH_ENV=0; else FRESH_ENV=1; fi
         install_once "${SHARE}/skel/carlos-emr.env" "${ENV_FILE}" 0644 root:root
         install_once "${SHARE}/skel/carlos.properties" "${PROPERTIES}" 0640 root:carlos
         install_once "${SHARE}/skel/backup.env" "${BACKUP_ENV}" 0640 root:carlos-backup
@@ -185,11 +192,13 @@ case "$1" in
         set_env_key CARLOS_JAVA_XMS "${HEAP}"
         set_env_key CARLOS_JAVA_XMX "${HEAP}"
         set_env_key CARLOS_TZ "${TZ_NAME}"
-        # The province is written only on the FIRST install. Changing it later
-        # against an existing schema would point Flyway at migrations that
-        # create a different set of tables, and the application would fail its
+        # The province is written only on the FIRST install (as detected
+        # before the skeleton landed — the skel itself carries a default that
+        # would fool a grep on the file). Changing it later against an
+        # existing schema would point Flyway at migrations that create a
+        # different set of tables, and the application would fail its
         # boot-time validation with no obvious way back.
-        if ! grep -qE '^CARLOS_PROVINCE=[a-z]' "${ENV_FILE}"; then
+        if [ "${FRESH_ENV}" = 1 ]; then
             set_env_key CARLOS_PROVINCE "${PROVINCE}"
         fi
 

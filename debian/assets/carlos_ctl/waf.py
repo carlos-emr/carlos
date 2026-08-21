@@ -35,15 +35,19 @@ def _set_engine(value: str) -> None:
         fh.write(text)
 
 
-def _reload_or_die(context: str) -> None:
-    # Config-test first so a typo cannot take the front door down, and NEVER
-    # fail silently: the file saying one thing while the running engine does
-    # another is the worst outcome this tool can produce.
+def _reload_or_rollback(previous_engine: str, context: str) -> None:
+    """Config-test first so a typo cannot take the front door down — and on
+    failure ROLL THE FILE BACK to the engine value that is actually running,
+    so file and engine can never disagree (the file claiming On while the
+    workers run DetectionOnly is the worst state this tool can produce)."""
     if run(["nginx", "-t"]).returncode != 0:
-        die(f"nginx rejects the policy file; the RUNNING engine is UNCHANGED — {context}")
+        _set_engine(previous_engine)
+        die(f"nginx rejects the policy; the file was ROLLED BACK to "
+            f"SecRuleEngine {previous_engine} (matching the running engine) — {context}")
     if run(["systemctl", "reload", "nginx"]).returncode != 0:
-        die("nginx accepted the file but the reload FAILED — the running engine is "
-            "unchanged (systemctl status nginx)")
+        _set_engine(previous_engine)
+        die(f"nginx accepted the file but the reload FAILED; the file was rolled back "
+            f"to SecRuleEngine {previous_engine} (systemctl status nginx)")
 
 
 def cmd_waf(argv) -> int:
@@ -59,8 +63,9 @@ def cmd_waf(argv) -> int:
 
     if sub == "detect-only":
         need_root("waf detect-only")
+        prev = _engine()
         _set_engine("DetectionOnly")
-        _reload_or_die("still blocking. Fix the file and re-run.")
+        _reload_or_rollback(prev, "still blocking. Fix the file and re-run.")
         warn("the WAF is now LOGGING ONLY and blocks nothing. This is a triage mode.")
         warn("collect the false positives with 'carlos-ctl waf tail', add exclusions to")
         warn(f"{CONF_DIR}/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf, then run")
@@ -69,15 +74,21 @@ def cmd_waf(argv) -> int:
 
     if sub == "blocking":
         need_root("waf blocking")
+        prev = _engine()
         _set_engine("On")
-        _reload_or_die("the WAF is still in DetectionOnly. Fix the file and re-run "
-                       "'carlos-ctl waf blocking'.")
+        _reload_or_rollback(prev, "the WAF is still in DetectionOnly. Fix the file "
+                            "and re-run 'carlos-ctl waf blocking'.")
         log("the WAF is blocking again")
         return 0
 
     if sub == "reload":
         need_root("waf reload")
-        _reload_or_die("the running rules still serve. Fix the edited file and re-run.")
+        # No engine edit to roll back here; a failed test just leaves the
+        # operator's hand-edit in place with the old rules still serving.
+        if run(["nginx", "-t"]).returncode != 0:
+            die("nginx rejects the edited files; the running rules still serve — fix and re-run")
+        if run(["systemctl", "reload", "nginx"]).returncode != 0:
+            die("nginx accepted the files but the reload failed (systemctl status nginx)")
         log("WAF rules reloaded")
         return 0
 
@@ -101,7 +112,14 @@ def cmd_waf(argv) -> int:
             uri = (t.get("request", {}).get("uri") or "?").split("?")[0]
             for m in t.get("messages", []):
                 det = m.get("details", {})
-                print(f"{det.get('ruleId', '?')}  {(det.get('match') or '')[:120]}")
+                match = det.get("match") or ""
+                # Redact the matched VALUE: on a false positive it is the
+                # content of a clinical field. Rule id + variable name +
+                # message are what an exclusion needs; the value stays in the
+                # root-only audit file for the rare case it matters.
+                match = re.sub(r"\(Value: .*$", "(value redacted — see the audit file)",
+                               match)[:160]
+                print(f"{det.get('ruleId', '?')}  {match}")
                 print(f"      uri: {uri}")
                 print(f"      msg: {m.get('message', '')}")
         return 0

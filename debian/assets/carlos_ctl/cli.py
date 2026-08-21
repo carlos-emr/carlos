@@ -83,11 +83,13 @@ Full documentation: /usr/share/doc/carlos-emr/README.Debian
 
 
 def _cmd_status(argv) -> int:
-    util.run(["systemctl", "--no-pager", "--lines=0", "status",
-              "carlos-emr.service", "nginx.service", "mariadb.service"])
+    # Propagate systemctl's own verdict: an inactive service must not read as
+    # exit 0 to a script wrapping this verb.
+    rc = util.run(["systemctl", "--no-pager", "--lines=0", "status",
+                   "carlos-emr.service", "nginx.service", "mariadb.service"]).returncode
     print("\ntimers:")
     util.run(["systemctl", "--no-pager", "list-timers", "carlos-emr*"])
-    return 0
+    return rc
 
 
 def _cmd_lifecycle(verb: str, argv) -> int:

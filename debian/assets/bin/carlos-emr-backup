@@ -69,7 +69,10 @@ CHECK_DOW="${CARLOS_BACKUP_CHECK_READ_DATA_DOW:-7}"
 # full of PHI. MYSQL_PWD is inherited only by our own children.
 export MYSQL_PWD="${DB_PASS}"
 
-# The unix socket, not loopback TCP, for everything that can use it. It is one
+# The unix socket, not loopback TCP, for everything that can use it —
+# CARLOS_BACKUP_DB_HOST/PORT therefore apply ONLY to the binlog streaming leg
+# (documented in backup.env): on this single-host package the dump and drill
+# always talk to the local server. It is one
 # fewer thing to get wrong (no port, no address family, no TLS question about a
 # connection that never leaves the kernel), and it silences MariaDB 11.4+'s
 # misleading "--ssl-verify-server-cert is disabled, because of an insecure
@@ -342,7 +345,14 @@ cmd_run() {
     dump_database "${dump}"
     restic backup --tag db --host "$(hostname -s)-carlos" "${dump}"
 
-    ship_binlogs "${WORK_DIR}/binlog"
+    # The binlog leg may fail (grant revoked, logging off) — it alerts and
+    # must fail the UNIT, but it must not starve the legs after it: while a
+    # grant stayed broken, every nightly stopped here and OscarDocument and
+    # carlos.properties (the AES key a restore depends on) were never
+    # shipped. Remember the failure, finish the run, exit non-zero at the
+    # end. Review finding, confirmed by inspection.
+    run_failed=0
+    ship_binlogs "${WORK_DIR}/binlog" || run_failed=1
 
     # Documents and the configuration that is not a secret. carlos.properties
     # IS included: it carries the AES key the application uses to encrypt
@@ -390,6 +400,12 @@ cmd_run() {
         restic check
     fi
 
+    if [ "${run_failed}" = 1 ]; then
+        # No .last-success stamp: freshness monitoring must see this run as
+        # the failure the alert already described.
+        log "backup FINISHED WITH ERRORS (see the alert above); db and files snapshots are in the repository"
+        return 1
+    fi
     date -Is > "${STATE_DIR}/.last-success"
     log "backup complete"
 }

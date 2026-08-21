@@ -29,9 +29,5 @@ if [ -d "$dest/.git" ]; then
 fi
 
 echo "fetching DrugRef2 $ref from $repo"
-rm -rf "$dest"
-# A full clone, then an explicit checkout: --depth 1 --branch only accepts a
-# branch or tag, and the pin is expected to be a commit SHA for release builds.
-git clone --quiet "$repo" "$dest"
-git -C "$dest" checkout --quiet --detach "$ref"
-echo "drugref source at $(git -C "$dest" rev-parse HEAD)"
+# Guard the recursive delete: an empty or root-ish $dest from a caller bug
+# must fail here, not become an rm -rf of something that matters.
