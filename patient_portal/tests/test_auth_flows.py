@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from carlos_patient_portal import main, web_support
+from carlos_patient_portal import auth, main, web_support
 from carlos_patient_portal.account_settings import update_account_mfa_method
 from carlos_patient_portal.auth import (
     MFA_DELIVERY_FAILURE_RETRY_GRACE,
@@ -39,6 +39,7 @@ from carlos_patient_portal.models import (
     AUDIT_OUTCOME_SUCCESS,
     AUDIT_OUTCOME_THROTTLED,
     EMAIL_CHANGE_STATUS_REVOKED,
+    PASSWORD_RESET_STATUS_USED,
     SESSION_REVOKED_REASON_PASSWORD_CHANGE,
     PatientPortalAccount,
     PatientPortalAuditEvent,
@@ -2128,3 +2129,170 @@ def test_email_change_confirmation_is_refused_for_a_locked_account() -> None:
         assert account.email == SEEDED_INVITE_EMAIL
         assert pending is not None
         assert pending.status == EMAIL_CHANGE_STATUS_REVOKED
+
+
+def _reset_token_for(app, client) -> str:
+    """Request a reset and return the raw token from the development response."""
+    response = client.post(
+        "/auth/password-reset/request",
+        json={"username": "patient.user", "email": SEEDED_INVITE_EMAIL},
+    )
+    assert response.status_code == 202
+    return response.json()["development_reset_token"]
+
+
+def test_expired_mfa_challenge_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The entire expiry column was untested: no test ever expired an MFA challenge."""
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    login = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": STRONG_PASSWORD},
+    )
+    payload = login.json()
+    started_at = utc_now()
+    monkeypatch.setattr(auth, "utc_now", lambda: started_at + timedelta(minutes=11))
+
+    response = client.post(
+        "/auth/mfa/verify",
+        json={
+            "mfa_challenge_token": payload["mfa_challenge_token"],
+            "code": payload["development_mfa_code"],
+        },
+    )
+
+    assert response.status_code in {400, 401}
+    assert "session_token" not in response.json()
+
+
+def test_expired_password_reset_token_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An expired reset token that still works is account takeover."""
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    reset_token = _reset_token_for(app, client)
+    started_at = utc_now()
+    monkeypatch.setattr(auth, "utc_now", lambda: started_at + timedelta(hours=2))
+
+    response = client.post(
+        "/auth/password-reset/complete",
+        json={"reset_token": reset_token, "new_password": "Rotated2026!x"},
+    )
+
+    assert response.status_code in {400, 401}
+    # And the old password still works, so nothing was changed by the rejected request.
+    assert (
+        client.post(
+            "/auth/login",
+            json={"username": "patient.user", "password": STRONG_PASSWORD},
+        ).status_code
+        == 200
+    )
+
+
+def test_consumed_password_reset_token_cannot_be_replayed() -> None:
+    """Replay was tested only for status == "revoked", never for status == "used"."""
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    reset_token = _reset_token_for(app, client)
+
+    first = client.post(
+        "/auth/password-reset/complete",
+        json={"reset_token": reset_token, "new_password": "Rotated2026!x"},
+    )
+    replay = client.post(
+        "/auth/password-reset/complete",
+        json={"reset_token": reset_token, "new_password": "Attacker2026!x"},
+    )
+
+    assert first.status_code == 200
+    with app.state.session_factory() as session:
+        record = session.scalar(select(PatientPortalPasswordResetToken))
+        assert record.status == PASSWORD_RESET_STATUS_USED
+    assert replay.status_code in {400, 401}
+    # The replay's password must not have taken effect.
+    assert (
+        client.post(
+            "/auth/login",
+            json={"username": "patient.user", "password": "Attacker2026!x"},
+        ).status_code
+        == 401
+    )
+
+
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        ("/auth/mfa/verify", {"mfa_challenge_token": "f" * 43, "code": "000000"}),
+        (
+            "/auth/password-reset/complete",
+            {"reset_token": "f" * 43, "new_password": "Forged2026!x"},
+        ),
+    ],
+)
+def test_well_formed_but_forged_tokens_are_rejected(path: str, body: dict) -> None:
+    """The entire forged column was untested: no test ever sent a well-formed random token."""
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+
+    response = client.post(path, json=body)
+
+    assert response.status_code in {400, 401}
+    assert "session_token" not in response.text
+
+
+def test_a_reset_token_cannot_be_used_against_another_account() -> None:
+    """Cross-account was untested everywhere, including reset_record.account_id != account.id."""
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    reset_token = _reset_token_for(app, client)
+
+    # Re-point the token at a second account, which is what a mix-up in the lookup would allow.
+    with app.state.session_factory() as session:
+        with session.begin():
+            victim = session.scalar(
+                select(PatientPortalAccount).where(
+                    PatientPortalAccount.username == "patient.user"
+                )
+            )
+            other = PatientPortalAccount(
+                clinic_id=victim.clinic_id,
+                demographic_no=9911,
+                username="other.patient",
+                email="other.patient@example.com",
+                preferred_mfa_method="email",
+                password_hash=victim.password_hash,
+                status=victim.status,
+                created_at=utc_now(),
+                updated_at=utc_now(),
+            )
+            session.add(other)
+            session.flush()
+            other_id = other.id
+
+    response = client.post(
+        "/auth/password-reset/complete",
+        json={"reset_token": reset_token, "new_password": "CrossAccount2026!x"},
+    )
+
+    # The token belongs to patient.user, so it may only ever change patient.user's password.
+    assert response.status_code == 200
+    with app.state.session_factory() as session:
+        assert session.get(PatientPortalAccount, other_id).password_hash == (
+            session.scalar(
+                select(PatientPortalAccount).where(
+                    PatientPortalAccount.username == "other.patient"
+                )
+            ).password_hash
+        )
+    assert (
+        client.post(
+            "/auth/login",
+            json={"username": "other.patient", "password": "CrossAccount2026!x"},
+        ).status_code
+        == 401
+    )

@@ -65,6 +65,7 @@ from tests.support import (
     confirm_seeded_email_change,
     csrf_token_from_response,
     development_settings,
+    expire_email_mfa_cooldown,
     migrated_development_app,
     request_seeded_email_change,
     run_with_email_sender,
@@ -1225,3 +1226,107 @@ def test_email_change_confirmation_rejects_an_unknown_token() -> None:
 
     assert forged.status_code == 400
     assert "no longer valid" in forged.text
+
+
+PORTAL_MUTATING_ROUTES = (
+    ("/portal/account/password", {"current_password": "x", "new_password": "y"}),
+    ("/portal/account/contact", {"email": "a@b.test", "current_password": "x"}),
+    ("/portal/account/contact/confirm-phone", {"code": "000000"}),
+    ("/portal/account/contact/resend-phone", {}),
+    ("/portal/account/mfa", {"preferred_mfa_method": "email"}),
+    ("/portal/email-passwords/1/reveal", {}),
+)
+
+
+@pytest.mark.parametrize(("path", "body"), PORTAL_MUTATING_ROUTES)
+def test_portal_mutators_reject_a_missing_csrf_token(path: str, body: dict) -> None:
+    """CSRF negative coverage was 4 of 15 mutating routes.
+
+    Tested were /auth/login, /auth/mfa/resend, /portal/logout and /auth/activate. Every
+    /portal/account/* mutator was untested, and so was
+    POST /portal/email-passwords/{id}/reveal - the one route that returns a decrypted
+    passphrase, and whose CSRF gate is its first statement.
+    """
+    app = migrated_development_app()
+    client = TestClient(app)
+    browser_sign_in_seeded_patient(app, client)
+
+    response = client.post(path, data=body, follow_redirects=False)
+
+    assert response.status_code == 403, f"{path} accepted a request with no CSRF token"
+
+
+def test_reveal_route_csrf_gate_precedes_authentication() -> None:
+    """The gate is the route's first statement; an unauthenticated caller must still 403."""
+    app = migrated_development_app()
+    client = TestClient(app)
+
+    response = client.post("/portal/email-passwords/1/reveal", data={})
+
+    assert response.status_code == 403
+
+
+def test_reveal_route_audits_and_404s_an_out_of_scope_email_password() -> None:
+    """The route had no 404 test at all.
+
+    Its entire not-found/revoked handler - including the failure audit write - was deletable,
+    and an out-of-scope id would then become an unaudited 500.
+    """
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = browser_sign_in_seeded_patient(app, client)
+    page = client.get("/portal/email-passwords")
+    csrf_token_match = CSRF_TOKEN_PATTERN.search(page.text)
+    assert csrf_token_match is not None
+
+    response = client.post(
+        "/portal/email-passwords/424242/reveal",
+        data={"csrf_token": csrf_token_match.group(1)},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "email password not found"
+    with app.state.session_factory() as session:
+        audited = session.scalar(
+            select(PatientPortalAuditEvent).where(
+                PatientPortalAuditEvent.event_type == AUDIT_EVENT_UNLOCK_SECRET_READ,
+                PatientPortalAuditEvent.outcome == AUDIT_OUTCOME_FAILURE,
+                PatientPortalAuditEvent.account_id == account_id,
+            )
+        )
+    assert audited is not None, "a failed reveal must leave an audit row"
+    assert audited.reason == "not_available"
+
+
+def test_csrf_enforcement_splits_on_content_type_only_for_auth_routes() -> None:
+    """Pin where the urlencoded/JSON split actually is, because no test said so.
+
+    /auth/login checks CSRF only when the body is urlencoded: a JSON caller is an API client,
+    not a browser form, and has no ambiently-attached cookie to forge with. The /portal/*
+    mutators are the opposite and enforce unconditionally - a JSON body simply yields no form
+    values, so the token is empty and the request is refused. Both halves are load-bearing and
+    neither was pinned.
+    """
+    # The browser sign-in below spends auth-limiter budget; this test is about the CSRF gate.
+    app = migrated_development_app(auth_rate_limit_max_requests=50)
+    client = TestClient(app)
+    browser_sign_in_seeded_patient(app, client)
+
+    portal_form = client.post("/portal/account/mfa", data={"preferred_mfa_method": "email"})
+    portal_json = client.post("/portal/account/mfa", json={"preferred_mfa_method": "email"})
+    auth_form = client.post(
+        "/auth/login",
+        data={"username": "patient.user", "password": STRONG_PASSWORD},
+    )
+    # The sign-in above already sent an MFA code, and a fresh login is refused while that
+    # cooldown holds - which is a 429 about delivery, not about CSRF.
+    expire_email_mfa_cooldown(app)
+    auth_json = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": STRONG_PASSWORD},
+    )
+
+    assert portal_form.status_code == 403
+    assert portal_json.status_code == 403, "portal mutators must not be bypassable with JSON"
+    assert auth_form.status_code == 403
+    assert auth_json.status_code == 200, "the JSON API path is deliberately exempt"
