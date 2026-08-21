@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="{{ locale }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ service_name }}</title>
+  {% include "_head_assets.jinja" %}
+  <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+  <script src="{{ url_for('static', path='/portal.js') }}" defer></script>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="portal-screen" aria-label="{{ text.email_change_complete_heading }}">
+      {% include "_public_header.jinja" %}
+      <div class="auth-layout">
+        <section class="auth-panel" aria-labelledby="email-change-title">
+          <h1 id="email-change-title">{{ text.email_change_complete_heading }}</h1>
+          <p>{{ text.email_change_complete_intro }}</p>
+          {% if error_message %}
+            <p class="form-error" role="alert">{{ error_message }}</p>
+          {% endif %}
+          {# Same fragment-carried token mechanism as the password reset page: the token never
+             appears in the request line, so it cannot reach an access log. #}
+          <p class="form-error" role="alert" tabindex="-1" data-reset-token-error hidden>
+            {{ text.email_change_complete_error }}
+          </p>
+          <form
+            class="form-stack"
+            method="post"
+            action="{{ url_for('confirm_email_change_submission') }}"
+            data-reset-token-form
+          >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="reset_token" value="{{ reset_token or '' }}" data-reset-token>
+            <button class="primary-action" type="submit">{{ text.email_change_confirm }}</button>
+          </form>
+          <a class="auth-back-link" href="{{ url_for('index').path }}">{{ text.back_to_sign_in }}</a>
+        </section>
+      </div>
+      {% include "_public_modal.jinja" %}
+    </section>
+  </main>
+</body>
+</html>

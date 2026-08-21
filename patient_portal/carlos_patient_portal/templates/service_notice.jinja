@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="{{ locale }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ service_name }}</title>
+  {% include "_head_assets.jinja" %}
+  <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+  <script src="{{ url_for('static', path='/portal.js') }}" defer></script>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="portal-screen" aria-label="{{ notice_heading }}">
+      {% include "_public_header.jinja" %}
+      <div class="auth-layout">
+        <section class="auth-panel auth-result" aria-labelledby="notice-title">
+          <h1 id="notice-title">{{ notice_heading }}</h1>
+          <p class="form-error" role="alert">{{ notice_message }}</p>
+          <button
+            class="secondary-action modal-trigger"
+            type="button"
+            data-modal-title="{{ text.clinic_help }}"
+            data-modal-message="{{ text.clinic_help_message }}"
+          >{{ text.clinic_help }}</button>
+          <a class="auth-back-link" href="{{ url_for('index').path }}">{{ text.back_to_sign_in }}</a>
+        </section>
+      </div>
+      {% include "_public_modal.jinja" %}
+    </section>
+  </main>
+</body>
+</html>

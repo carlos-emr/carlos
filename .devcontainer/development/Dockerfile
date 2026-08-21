@@ -186,6 +186,12 @@ RUN postconf -e 'myhostname=openo-dev.local' && \
     postconf -e 'smtpd_sasl_auth_enable=no' && \
     postconf -e 'smtpd_use_tls=no' && \
     postconf -e 'smtpd_tls_security_level=none' && \
+    # Capture every loopback-submitted destination in root's local mbox instead of relaying it.
+    postconf -e 'relay_domains=*' && \
+    postconf -e 'default_transport=local' && \
+    postconf -e 'relay_transport=local' && \
+    postconf -e 'local_recipient_maps=' && \
+    postconf -e 'luser_relay=root' && \
     # Allow local connections without auth
     postconf -e 'smtpd_client_restrictions=permit_mynetworks,reject'
 

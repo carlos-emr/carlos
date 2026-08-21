@@ -1,0 +1,99 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "carlos-patient-portal"
+version = "0.1.0"
+description = "Patient credential portal foundation for CARLOS EMR"
+requires-python = ">=3.11"
+dependencies = [
+  "alembic>=1.14,<2",
+  "argon2-cffi>=25.1,<26",
+  # 48.x carries PYSEC-2026-3552/3553/3554; 3552 is only fixed in 50.0.0.
+  "cryptography>=50.0.0,<51",
+  # Dependency scope="function" was added in FastAPI 0.121.0 and is required by runtime.py.
+  "fastapi>=0.121,<1",
+  # Version 5.1.1 models FHIR R4 4.0.1; newer major versions omit exact R4.
+  "fhir.resources==5.1.1",
+  "hl7apy>=1.3.5,<2",
+  "jinja2>=3.1,<4",
+  # Keep the self-contained driver until a managed production image is defined.
+  "psycopg[binary]>=3.2,<4",
+  "pydantic-settings>=2.6,<3",
+  "sqlalchemy>=2.0,<3",
+  "uvicorn>=0.32,<1",
+]
+
+[project.scripts]
+carlos-patient-portal-migrate = "carlos_patient_portal.cli:migrate"
+carlos-patient-portal-maintenance = "carlos_patient_portal.cli:maintenance"
+carlos-patient-portal-outbox-worker = "carlos_patient_portal.cli:outbox_worker"
+
+[project.optional-dependencies]
+dev = [
+  "httpx2>=2.9,<3",
+  "pip-audit>=2.10,<3",
+  "pip-tools>=7,<8",
+  "pytest>=9.0.3,<10",
+  "pytest-cov>=7,<8",
+  "ruff>=0.8,<1",
+  "uvicorn[standard]>=0.32,<1",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["carlos_patient_portal*"]
+
+[tool.setuptools.package-data]
+carlos_patient_portal = [
+  "static/*.css",
+  "static/*.js",
+  "static/*.png",
+  "static/*.svg",
+  "templates/*.jinja",
+  "wordlists/*.txt",
+  "interop_profiles/*.json",
+  "migrations/README",
+  "migrations/script.py.mako",
+  "migrations/versions/*.py",
+  "migrations/versions/.gitkeep",
+  "deploy/*.conf",
+  "deploy/*.sql",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+relative_files = true
+# Alembic scripts are exercised by the dedicated SQLite/PostgreSQL migration
+# jobs; keeping them in unit coverage makes results interpreter-dependent.
+omit = ["carlos_patient_portal/migrations/*"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+# S (flake8-bandit) and ASYNC run in the fast PR job so security-relevant defects — unsafe
+# subprocess/tempfile use, weak hashes, requests without timeouts, blocking calls inside async
+# handlers — are caught before review rather than post-merge by SonarCloud.
+# ANN is on for the package so a PHI-handling service keeps its signatures explicit; the review
+# thread asking for it noted the package was already almost fully annotated, which the nine fixes
+# it required confirmed.
+select = ["E", "F", "I", "UP", "B", "S", "ASYNC", "ANN"]
+# S105 flags string constants whose *variable name* contains PASSWORD/SECRET/TOKEN. Every hit in
+# this package is a workflow status, audit event type, permission name, or URL path — the same
+# false-positive class already annotated for Sonar in models.py. Real credentials are read from
+# the environment as SecretStr and never appear as literals.
+ignore = ["S105"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert (S101) and use fixture credentials as literals (S106); both are the point. ANN is
+# off here too: a test function's signature is its parameters, and pytest supplies those.
+"tests/**" = ["S101", "S106", "ANN"]

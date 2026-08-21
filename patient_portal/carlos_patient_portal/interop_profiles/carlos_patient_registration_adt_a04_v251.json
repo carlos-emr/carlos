@@ -1,0 +1,55 @@
+{
+  "id": "carlos.portal.patient-registration.adt-a04.v251",
+  "name": "CARLOS Patient Portal ADT A04 Patient Registration",
+  "status": "draft",
+  "version": "2026.07.23",
+  "hl7_version": "2.5.1",
+  "message_type": "ADT",
+  "trigger_event": "A04",
+  "message_structure": "ADT_A01",
+  "description": "CARLOS-owned HL7 v2.5.1 profile for patient portal identity registration events.",
+  "segments": [
+    {"id": "MSH", "usage": "R"},
+    {"id": "EVN", "usage": "R"},
+    {"id": "PID", "usage": "R"},
+    {"id": "PV1", "usage": "R"}
+  ],
+  "fixed_fields": [
+    {"path": "MSH-3", "value": "CARLOS", "description": "Sending application"},
+    {"path": "MSH-5", "value": "CARLOSPORTAL", "description": "Receiving application"},
+    {"path": "MSH-9.1", "value": "ADT", "description": "Message code"},
+    {"path": "MSH-9.2", "value": "A04", "description": "Trigger event"},
+    {"path": "MSH-9.3", "value": "ADT_A01", "description": "Message structure"},
+    {"path": "MSH-11", "value": "P", "description": "Production processing id"},
+    {"path": "MSH-12", "value": "2.5.1", "description": "HL7 version"},
+    {"path": "PID-13.2", "value": "NET", "description": "Email use code"},
+    {"path": "PID-13.3", "value": "Internet", "description": "Email equipment type"},
+    {"path": "PV1-2", "value": "O", "description": "Outpatient patient class"}
+  ],
+  "single_valued_fields": ["PID-5", "PID-13", "PID-7"],
+  "required_fields": [
+    {"path": "MSH-4", "description": "Sending facility/clinic id"},
+    {"path": "MSH-6", "description": "Receiving facility/clinic id"},
+    {"path": "MSH-7", "description": "Message timestamp"},
+    {"path": "MSH-10", "description": "Message control id"},
+    {"path": "EVN-2", "description": "Recorded event timestamp"},
+    {"path": "PID-5.1", "description": "Patient family name"},
+    {"path": "PID-5.2", "description": "Patient given name"},
+    {"path": "PID-7", "description": "Patient date of birth"},
+    {"path": "PID-13.4", "description": "Patient email address"}
+  ],
+  "required_identifiers": [
+    {
+      "field": "PID-3",
+      "identifier_type": "MR",
+      "assigning_authority": "${MSH-4}",
+      "description": "CARLOS demographic number"
+    },
+    {
+      "field": "PID-3",
+      "identifier_type": "JHN",
+      "assigning_authority": "CARLOSHCN",
+      "description": "Patient HCN/HIN"
+    }
+  ]
+}

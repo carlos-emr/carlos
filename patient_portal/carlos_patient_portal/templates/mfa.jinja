@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="{{ locale }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ service_name }}</title>
+  {% include "_head_assets.jinja" %}
+  <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+  <script src="{{ url_for('static', path='/portal.js') }}" defer></script>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="portal-screen" aria-label="{{ text.mfa_heading }}">
+      <header class="patient-topbar mfa-topbar">
+        <div class="brand-lockup">
+          <img src="{{ url_for('static', path='/carlos-logo.png') }}" alt="{{ text.logo_alt }}" class="brand-logo">
+          <div>
+            <strong>{{ service_name }}</strong>
+            <span>{{ clinic_name }}</span>
+          </div>
+        </div>
+        <button
+          class="link-action modal-trigger topbar-help"
+          type="button"
+          data-modal-title="{{ text.clinic_help }}"
+          data-modal-message="{{ text.mfa_help_message.format(clinic_name=clinic_name) }}"
+        >{{ text.help }}</button>
+      </header>
+
+      <div class="auth-layout">
+        <section class="auth-panel" aria-labelledby="mfa-title">
+          <h1 id="mfa-title">{{ text.mfa_heading }}</h1>
+          {% if error_message %}
+            <p class="form-error" role="alert">{{ error_message }}</p>
+          {% endif %}
+          {% if notice_message %}
+            <p class="form-notice" role="status">{{ notice_message }}</p>
+          {% endif %}
+          <p class="mfa-destination" aria-live="polite">
+            {{ text.mfa_code_sent.format(destination=masked_mfa_destination, method=mfa_delivery_method|upper) }}
+          </p>
+          <form class="form-stack" method="post" action="{{ url_for('verify_mfa') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="mfa_challenge_token" value="{{ mfa_challenge_token }}">
+            <label>
+              <span>{{ text.mfa_code }}</span>
+              <input
+                type="text"
+                name="code"
+                  inputmode="numeric"
+                  required
+                autocomplete="one-time-code"
+                maxlength="16"
+              >
+            </label>
+            <button class="primary-action" type="submit">{{ text.mfa_verify }}</button>
+          </form>
+
+          <form class="mfa-resend-form" method="post" action="{{ url_for('resend_mfa') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="mfa_challenge_token" value="{{ mfa_challenge_token }}">
+            <fieldset class="mfa-method-switch">
+              <legend>{{ text.mfa_send_by }}</legend>
+              <div class="segmented-control">
+                <label class="segmented-option">
+                  <input
+                    type="radio"
+                    name="mfa_delivery_method"
+                    value="email"
+                    {% if mfa_email_selected %}checked{% endif %}
+                    {% if not mfa_email_available %}disabled{% endif %}
+                  >
+                  <span>{{ text.mfa_email }}</span>
+                </label>
+                <label class="segmented-option{% if not mfa_sms_available %} disabled{% endif %}">
+                  <input
+                    type="radio"
+                    name="mfa_delivery_method"
+                    value="sms"
+                    {% if mfa_sms_selected %}checked{% endif %}
+                    {% if not mfa_sms_available %}disabled{% endif %}
+                  >
+                  <span>{{ text.mfa_sms }}</span>
+                </label>
+              </div>
+            </fieldset>
+            <button class="secondary-action" type="submit">{{ text.mfa_resend }}</button>
+            <p class="clinic-help-line">{{ mfa_rate_limit_message }}</p>
+            {% if development_mfa_code %}
+              <p class="clinic-help-line" data-development-mfa-code="{{ development_mfa_code }}">{{ text.development_mfa_code }} {{ development_mfa_code }}</p>
+            {% endif %}
+          </form>
+          <a class="auth-back-link" href="{{ url_for('index').path }}">{{ text.back_to_sign_in }}</a>
+        </section>
+      </div>
+
+      <div class="modal-backdrop" id="portal-message-modal" hidden>
+        <section
+          class="portal-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="portal-message-title"
+          aria-describedby="portal-message-body"
+        >
+          <h2 id="portal-message-title"></h2>
+          <p id="portal-message-body"></p>
+          <button class="primary-action" type="button" data-modal-close>{{ text.modal_close }}</button>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

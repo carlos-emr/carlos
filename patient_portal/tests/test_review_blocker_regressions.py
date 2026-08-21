@@ -1,0 +1,466 @@
+"""Regression cover for the blocking defects found in the PR #3220 review.
+
+Each test here pins a control that was either absent or defeated, and would fail again if the
+corresponding fix were reverted. Grouped in one module deliberately: they share no theme beyond
+being the security regressions that review turned up, and keeping them together makes it obvious
+which behaviour is load-bearing for that review.
+"""
+
+from datetime import timedelta
+
+import pytest
+from alembic.autogenerate import compare_metadata
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, select
+from sqlalchemy.pool import StaticPool
+
+from carlos_patient_portal import auth
+from carlos_patient_portal.auth import (
+    AUTH_LOCKED_BY_AUTOMATION,
+    MfaChallengeDelivery,
+    PasswordResetRequestResult,
+    hash_auth_token,
+    hash_mfa_code,
+)
+from carlos_patient_portal.config import DEFAULT_PROBE_ALLOWED_HOSTS
+from carlos_patient_portal.database import Base
+from carlos_patient_portal.delivery_outbox import (
+    enqueue_contact_change_delivery,
+    process_one_delivery,
+)
+from carlos_patient_portal.email_delivery import PortalEmailDeliveryError
+from carlos_patient_portal.models import (
+    AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+    AUDIT_EVENT_ACCOUNT_UNLOCK,
+    AUDIT_OUTCOME_FAILURE,
+    OUTBOX_KIND_CONTACT_CHANGE,
+    OUTBOX_STATUS_FAILED,
+    PatientPortalAccount,
+    PatientPortalAuditEvent,
+    PatientPortalOutboundDelivery,
+    PatientPortalPasswordResetToken,
+    utc_now,
+)
+from carlos_patient_portal.token_keys import PortalTokenKeys
+from carlos_patient_portal.web_support import is_rate_limited_path
+from tests.support import (
+    INTERNAL_API_TOKEN,
+    OUTBOX_ENCRYPTION_SECRET,
+    SEEDED_INVITE_EMAIL,
+    STRONG_PASSWORD,
+    STRONG_RESET_PASSWORD,
+    activate_seeded_patient_account,
+    alembic_config_for_tests,
+    migrated_development_app,
+    upgrade_to_head,
+)
+
+SECRET = "regression-secret-value-32-characters"
+SEEDED_USERNAME = "patient.user"
+# Alembic creates alembic_version.version_num as VARCHAR(32) and never widens it.
+ALEMBIC_VERSION_NUM_LENGTH = 32
+
+
+# --------------------------------------------------------------------------------------
+# Schema drift - the migrations are the only source of schema, and they must match the models
+# --------------------------------------------------------------------------------------
+
+
+def test_migrated_schema_matches_the_models_exactly() -> None:
+    """Fail the build when a migration and `models.py` drift apart.
+
+    The suite used to build its schema with `create_all` and then *stamp* the Alembic head, so no
+    test ever executed migrations 0003+ and a migration that forgot a column would pass pytest,
+    pass `alembic upgrade head`, and pass the readiness probe. The harness now migrates, and this
+    asserts the end state is what the models describe.
+    """
+    engine = create_engine("sqlite+pysqlite:///:memory:", poolclass=StaticPool)
+    try:
+        upgrade_to_head(engine)
+        with engine.connect() as connection:
+            differences = compare_metadata(MigrationContext.configure(connection), Base.metadata)
+    finally:
+        engine.dispose()
+
+    assert differences == [], f"migrations and models.py disagree: {differences}"
+
+
+# --------------------------------------------------------------------------------------
+# Revision identifiers - a revision id that overflows alembic_version strands every PostgreSQL
+# --------------------------------------------------------------------------------------
+
+
+def test_every_revision_id_fits_the_alembic_version_column() -> None:
+    """Fail the build when a revision id cannot be written to `alembic_version`.
+
+    Alembic creates `alembic_version.version_num` as VARCHAR(32). SQLite ignores a declared width,
+    so an over-long id migrates cleanly there and raises StringDataRightTruncation only on
+    PostgreSQL -- leaving pytest, the SQLite round trip, and the whole 3.11 matrix leg green while
+    no PostgreSQL database could reach head at all. Measuring the ids puts that on every leg.
+    """
+    script_directory = ScriptDirectory.from_config(alembic_config_for_tests())
+    over_limit = {
+        script.revision: len(script.revision)
+        for script in script_directory.walk_revisions()
+        if len(script.revision) > ALEMBIC_VERSION_NUM_LENGTH
+    }
+
+    assert over_limit == {}, f"revision ids exceed alembic_version.version_num: {over_limit}"
+
+
+# --------------------------------------------------------------------------------------
+# Probe hosts - IPv6 literals cannot be allowlisted, so we must not claim they can
+# --------------------------------------------------------------------------------------
+
+
+def test_ipv6_literal_host_is_rejected_and_no_longer_advertised_as_a_default() -> None:
+    """Pin the IPv6 limitation instead of shipping a default that silently never matches.
+
+    TrustedHostMiddleware derives the host as `headers["host"].split(":")[0]`, which yields "[" for
+    a bracketed literal and "" for a bare one. `[::1]` therefore sat in the defaults implying IPv6
+    probes worked when they always got 400 -- which on a dual-stack cluster reads as an unhealthy
+    pod. The only pattern that would match is "[", which would accept every IPv6 host.
+    """
+    assert "[::1]" not in DEFAULT_PROBE_ALLOWED_HOSTS
+    assert "::1" not in DEFAULT_PROBE_ALLOWED_HOSTS
+
+    app = migrated_development_app()
+    client = TestClient(app)
+
+    assert client.get("/health", headers={"Host": "127.0.0.1:8000"}).status_code == 200
+    assert client.get("/health", headers={"Host": "[::1]:8000"}).status_code == 400
+
+
+# --------------------------------------------------------------------------------------
+# Secret material must never reach a log line through a default dataclass repr
+# --------------------------------------------------------------------------------------
+
+
+def test_secret_bearing_dataclasses_keep_their_material_out_of_repr() -> None:
+    """One `logger.warning("... %s", delivery)` should not write a live MFA code to the log."""
+    delivery = MfaChallengeDelivery(
+        challenge_id=1,
+        challenge_token="CHALLENGE-TOKEN-SECRET",
+        code="123456",
+        delivery_method="email",
+        destination="patient@example.test",
+        available_delivery_methods=("email",),
+        expires_at=utc_now(),
+        expected_code_hash="EXPECTED-HASH-SECRET",
+    )
+    rendered = repr(delivery)
+    for secret in ("CHALLENGE-TOKEN-SECRET", "123456", "EXPECTED-HASH-SECRET"):
+        assert secret not in rendered
+    # Fields that are useful for diagnosis are deliberately still shown.
+    assert "email" in rendered
+
+    keys = PortalTokenKeys(
+        csrf="CSRF-KEY", session="SESSION-KEY", mfa="MFA-KEY",
+        password_reset="RESET-KEY", email_change="CHANGE-KEY",
+    )
+    assert not any(
+        key in repr(keys)
+        for key in ("CSRF-KEY", "SESSION-KEY", "MFA-KEY", "RESET-KEY", "CHANGE-KEY")
+    )
+
+    assert "RESET-TOKEN-SECRET" not in repr(
+        PasswordResetRequestResult(reset_token="RESET-TOKEN-SECRET", recipient="p@example.test")
+    )
+
+
+# --------------------------------------------------------------------------------------
+# Blocker 4 - MFA challenge-token normalization asymmetry
+# --------------------------------------------------------------------------------------
+
+
+def test_mfa_code_hash_normalizes_the_challenge_token_like_the_lookup_hash() -> None:
+    """A padded challenge token must not produce a code hash the clean token can never match.
+
+    hash_auth_token strips before hashing, so a padded token still resolved to a real challenge. If
+    hash_mfa_code does not strip identically, that challenge's code_hash is keyed on the padded form
+    and the correct code can never verify -- while every rejected attempt spends the MFA failure
+    budget toward a lockout.
+    """
+    padded = " abc123\n"
+    clean = "abc123"
+
+    assert hash_auth_token(SECRET, "mfa_challenge", padded) == hash_auth_token(
+        SECRET, "mfa_challenge", clean
+    )
+    assert hash_mfa_code(SECRET, padded, "123456") == hash_mfa_code(SECRET, clean, "123456")
+
+
+def test_mfa_code_hash_rejects_a_blank_challenge_token() -> None:
+    with pytest.raises(ValueError):
+        hash_mfa_code(SECRET, "   ", "123456")
+
+
+# --------------------------------------------------------------------------------------
+# Blocker 2 - unauthenticated write amplification against the internal API
+# --------------------------------------------------------------------------------------
+
+
+def test_internal_carlos_prefix_is_rate_limited_but_probe_endpoints_are_not() -> None:
+    """Every failed /internal/carlos/** request writes an audit row, so it must be throttled.
+
+    The probe endpoints must stay unthrottled: an orchestrator polls them on a fixed interval and a
+    429 there turns a healthy service into a failing liveness check.
+    """
+    assert is_rate_limited_path("/internal/carlos/patients/1/unlock-secrets")
+    assert is_rate_limited_path("/internal/carlos/contact-reviews")
+
+    assert not is_rate_limited_path("/internal/health/db")
+    assert not is_rate_limited_path("/internal/readiness")
+    assert not is_rate_limited_path("/internal/metrics")
+
+    # The patient-facing surface is unchanged.
+    assert is_rate_limited_path("/auth/login")
+    assert is_rate_limited_path("/portal/account")
+
+
+def test_unauthenticated_internal_failures_are_attributable_to_a_client() -> None:
+    """Without a client reference every unauthenticated failure row is identical.
+
+    A flood then cannot be told apart from one misconfigured caller, which is precisely the signal
+    the middleware exists to preserve.
+    """
+    # The internal router is only mounted when a service token is configured.
+    app = migrated_development_app(internal_api_token=INTERNAL_API_TOKEN)
+    client = TestClient(app)
+
+    # Asserted so this cannot pass vacuously against an unmounted router: the audit middleware keys
+    # off the path prefix, so a genuinely missing route would still produce a row.
+    assert "/internal/carlos/contact-reviews" in {
+        getattr(route, "path", "") for route in app.routes
+    }
+
+    response = client.get("/internal/carlos/contact-reviews")
+    # 404, not 401: service-auth failure deliberately fails closed without confirming the endpoint
+    # exists to an unauthenticated caller.
+    assert response.status_code == 404
+
+    with app.state.session_factory() as session:
+        events = list(
+            session.scalars(
+                select(PatientPortalAuditEvent).where(
+                    PatientPortalAuditEvent.resource_type == "internal_api"
+                )
+            )
+        )
+
+    assert events, "a failed internal request must leave an audit row"
+    assert all(event.client_reference_hash is not None for event in events)
+
+
+# --------------------------------------------------------------------------------------
+# Blocker 3 - permanent, remotely triggerable account lockout
+# --------------------------------------------------------------------------------------
+
+
+def drive_account_into_lockout(client: TestClient, attempts: int) -> None:
+    for _ in range(attempts):
+        client.post(
+            "/auth/login",
+            json={"username": SEEDED_USERNAME, "password": "Wrong1!password"},
+        )
+
+
+def test_automated_lockout_expires_and_restores_self_service_sign_in(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An automated lockout is time-boxed, so a remote attacker cannot permanently deny access.
+
+    Ten wrong passwords against a known username used to set locked_at with nothing in the system
+    able to clear it except clinic staff.
+    """
+    app = migrated_development_app(auth_max_failed_password_attempts=2)
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+
+    drive_account_into_lockout(client, attempts=2)
+    locked_response = client.post(
+        "/auth/login",
+        json={"username": SEEDED_USERNAME, "password": STRONG_PASSWORD},
+    )
+    assert locked_response.status_code == 423
+
+    started_at = utc_now()
+    monkeypatch.setattr(auth, "utc_now", lambda: started_at + timedelta(seconds=901))
+    recovered_response = client.post(
+        "/auth/login",
+        json={"username": SEEDED_USERNAME, "password": STRONG_PASSWORD},
+    )
+
+    # 423 (locked, staff-only exit) has become 403 password_reset_required, which is recoverable
+    # in-band. force_password_reset is deliberately left set: the lock cannot distinguish "attacker
+    # never had the password" from an MFA-failure lock where they did, so a credential refresh stays
+    # the conservative default. What matters is that the patient can now complete it themselves.
+    assert recovered_response.status_code == 403
+    assert recovered_response.json() == {"status": "password_reset_required"}
+
+    reset_request_response = client.post(
+        "/auth/password-reset/request",
+        json={"username": SEEDED_USERNAME, "email": SEEDED_INVITE_EMAIL},
+    )
+    assert reset_request_response.status_code == 202
+    complete_reset_response = client.post(
+        "/auth/password-reset/complete",
+        json={
+            "reset_token": reset_request_response.json()["development_reset_token"],
+            "new_password": STRONG_RESET_PASSWORD,
+        },
+    )
+    assert complete_reset_response.status_code == 200
+    final_login_response = client.post(
+        "/auth/login",
+        json={"username": SEEDED_USERNAME, "password": STRONG_RESET_PASSWORD},
+    )
+    assert final_login_response.status_code == 200
+    assert final_login_response.json()["status"] == "mfa_required"
+
+    with app.state.session_factory() as session:
+        stored = session.get(PatientPortalAccount, account_id)
+        assert stored is not None
+        assert stored.locked_at is None
+        assert stored.failed_login_count == 0
+        unlock_events = list(
+            session.scalars(
+                select(PatientPortalAuditEvent).where(
+                    PatientPortalAuditEvent.event_type == AUDIT_EVENT_ACCOUNT_UNLOCK
+                )
+            )
+        )
+    assert unlock_events, "an expired lockout must leave an audit record of the release"
+
+
+def test_staff_initiated_lock_is_never_released_by_the_expiry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only automation-stamped locks are time-boxed; a deliberate staff lock must survive."""
+    app = migrated_development_app(auth_max_failed_password_attempts=2)
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+
+    with app.state.session_factory() as session:
+        with session.begin():
+            stored = session.get(PatientPortalAccount, account_id)
+            assert stored is not None
+            stored.locked_at = utc_now() - timedelta(days=30)
+            stored.locked_by = "provider-42"
+            stored.locked_by_id = "provider-42"
+
+    response = client.post(
+        "/auth/login",
+        json={"username": SEEDED_USERNAME, "password": STRONG_PASSWORD},
+    )
+
+    assert response.status_code == 423
+    with app.state.session_factory() as session:
+        stored = session.get(PatientPortalAccount, account_id)
+        assert stored is not None
+        assert stored.locked_at is not None
+
+
+def test_locked_out_account_can_still_request_a_password_reset() -> None:
+    """The reset path is the patient's only self-service route back in.
+
+    Eligibility previously required locked_at to be null, so the endpoint answered 202 "reset link
+    sent" and sent nothing at all.
+    """
+    app = migrated_development_app(auth_max_failed_password_attempts=2)
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+
+    drive_account_into_lockout(client, attempts=2)
+    response = client.post(
+        "/auth/password-reset/request",
+        json={"username": SEEDED_USERNAME, "email": SEEDED_INVITE_EMAIL},
+    )
+
+    assert response.status_code == 202
+    with app.state.session_factory() as session:
+        stored = session.get(PatientPortalAccount, account_id)
+        assert stored is not None
+        assert stored.locked_by == AUTH_LOCKED_BY_AUTOMATION
+        issued = list(
+            session.scalars(
+                select(PatientPortalPasswordResetToken).where(
+                    PatientPortalPasswordResetToken.account_id == account_id
+                )
+            )
+        )
+    assert issued, "a locked-out patient must still be issued a reset token"
+
+
+# --------------------------------------------------------------------------------------
+# Blocker 5 - contact-change delivery failure left no audit evidence
+# --------------------------------------------------------------------------------------
+
+
+class AlwaysFailingEmailSender:
+    """Stands in for an SMTP outage across every send the outbox can attempt."""
+
+    def send_password_reset(self, *args: object, **kwargs: object) -> None:
+        raise PortalEmailDeliveryError("smtp unavailable")
+
+    def send_contact_change_notice(self, *args: object, **kwargs: object) -> None:
+        raise PortalEmailDeliveryError("smtp unavailable")
+
+
+def test_exhausted_contact_change_notice_records_a_failure_audit_event() -> None:
+    """The notice to the address a change moved away from is the only out-of-band alarm a patient
+    gets. Exhausting the retry budget previously produced a `failed` row and nothing else, so a
+    breach review could not enumerate the patients who were never warned.
+    """
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+
+    with app.state.session_factory() as session:
+        with session.begin():
+            delivery = enqueue_contact_change_delivery(
+                session,
+                account_id=account_id,
+                recipient="previous@example.test",
+                encryption_secret=OUTBOX_ENCRYPTION_SECRET,
+            )
+            session.flush()
+            delivery_id = delivery.id
+
+    for _ in range(8):
+        process_one_delivery(
+            app.state.session_factory,
+            email_sender=AlwaysFailingEmailSender(),
+            encryption_secret=OUTBOX_ENCRYPTION_SECRET,
+            max_attempts=8,
+            lease_seconds=30,
+            delivery_id=delivery_id,
+        )
+        # Each failure pushes available_at out by the retry backoff, and a row is only claimable
+        # once it is due. Pull it back rather than sleeping so the test exercises the full retry
+        # budget without wall-clock delay.
+        with app.state.session_factory() as session:
+            with session.begin():
+                queued = session.get(PatientPortalOutboundDelivery, delivery_id)
+                if queued is not None:
+                    queued.available_at = utc_now() - timedelta(seconds=1)
+
+    with app.state.session_factory() as session:
+        stored = session.get(PatientPortalOutboundDelivery, delivery_id)
+        assert stored is not None
+        assert stored.status == OUTBOX_STATUS_FAILED
+        assert stored.kind == OUTBOX_KIND_CONTACT_CHANGE
+
+        failures = list(
+            session.scalars(
+                select(PatientPortalAuditEvent).where(
+                    PatientPortalAuditEvent.event_type == AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+                    PatientPortalAuditEvent.outcome == AUDIT_OUTCOME_FAILURE,
+                )
+            )
+        )
+
+    assert failures, "a terminally failed contact-change notice must leave a failure audit row"
+    assert failures[0].account_id == account_id

@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="{{ locale }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ service_name }}</title>
+  {% include "_head_assets.jinja" %}
+  <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+  <script src="{{ url_for('static', path='/portal.js') }}" defer></script>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="portal-screen dashboard-screen" aria-label="{{ text.patient_dashboard }}">
+      <header class="patient-topbar portal-topbar">
+        <div class="brand-lockup">
+          <img src="{{ url_for('static', path='/carlos-logo.png') }}" alt="{{ text.logo_alt }}" class="brand-logo">
+          <div>
+            <strong>{{ service_name }}</strong>
+            <span>{{ clinic_name }}</span>
+          </div>
+        </div>
+        <div class="portal-user-actions">
+          <span class="signed-in-user">{{ account.username }}</span>
+          <form class="logout-form" method="post" action="{{ url_for('portal_logout') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="secondary-action" type="submit">{{ text.logout }}</button>
+          </form>
+        </div>
+      </header>
+
+      <div class="dashboard-layout" data-active-module="{{ active_module }}">
+        <nav class="module-nav" aria-label="{{ text.module_navigation }}">
+          {% for module in modules %}
+            <a
+              class="module-link{% if module.is_active %} selected{% endif %}"
+              href="{{ module.href }}"
+              {% if module.is_active %}aria-current="page"{% endif %}
+            >{{ module.label }}</a>
+          {% endfor %}
+        </nav>
+
+        <section class="module-workspace" aria-live="polite">
+          {% if active_module == "dashboard" %}
+            <header class="module-header dashboard-heading">
+              <div>
+                <h1>{{ text.dashboard_greeting }}</h1>
+                <p>{{ clinic_name }}</p>
+              </div>
+            </header>
+            <div class="module-grid">
+              <a class="module-tile" href="{{ url_for('portal_account') }}">
+                <h2>{{ text.account }}</h2>
+                <p>{{ text.dashboard_account_description }}</p>
+                <span>{{ text.view_module }}</span>
+              </a>
+              <a class="module-tile" href="{{ url_for('portal_email_passwords') }}">
+                <h2>{{ text.email_passwords }}</h2>
+                <p>{{ text.dashboard_email_passwords_description }}</p>
+                <span>{{ text.view_module }}</span>
+              </a>
+              <a class="module-tile" href="{{ url_for('portal_help') }}">
+                <h2>{{ text.help }}</h2>
+                <p>{{ text.dashboard_help_description }}</p>
+                <span>{{ text.view_module }}</span>
+              </a>
+              <section class="module-tile disabled" aria-disabled="true">
+                <div class="module-tile-heading">
+                  <h2>{{ text.documents }}</h2>
+                  <span>{{ text.future }}</span>
+                </div>
+                <p>{{ text.dashboard_documents_description }}</p>
+              </section>
+              <section class="module-tile disabled" aria-disabled="true">
+                <div class="module-tile-heading">
+                  <h2>{{ text.messages }}</h2>
+                  <span>{{ text.future }}</span>
+                </div>
+                <p>{{ text.dashboard_messages_description }}</p>
+              </section>
+            </div>
+          {% elif active_module == "account" %}
+            <header class="module-header">
+              <h1>{{ text.account }}</h1>
+            </header>
+            {% if account_notice %}
+              <p class="form-notice" role="status">{{ account_notice }}</p>
+            {% endif %}
+            {% if account_error %}
+              <p class="form-error" role="alert">{{ account_error }}</p>
+            {% endif %}
+            <dl class="detail-list">
+              <div>
+                <dt>{{ text.username }}</dt>
+                <dd>{{ account.username }}</dd>
+              </div>
+              <div>
+                <dt>{{ text.email }}</dt>
+                <dd>{{ account.email }}</dd>
+              </div>
+              <div>
+                <dt>{{ text.mfa }}</dt>
+                <dd>{{ account.preferred_mfa_method|upper }}</dd>
+              </div>
+              <div>
+                <dt>{{ text.password_updated }}</dt>
+                <dd>{{ password_updated_date }}</dd>
+              </div>
+            </dl>
+            <div class="settings-sections">
+              <section class="settings-section">
+                <h2>{{ text.change_password }}</h2>
+                <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_password') }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <label>
+                    {{ text.current_password }}
+                    <input type="password" name="current_password" autocomplete="current-password" required>
+                  </label>
+                  <label>
+                    {{ text.new_password }}
+                    <input type="password" name="new_password" autocomplete="new-password" required>
+                  </label>
+                  <label>
+                    {{ text.new_password_confirmation }}
+                    <input type="password" name="new_password_confirmation" autocomplete="new-password" required>
+                  </label>
+                  <button class="primary-action" type="submit">{{ text.update_password }}</button>
+                </form>
+              </section>
+
+              <section class="settings-section">
+                <h2>{{ text.contact_info }}</h2>
+                <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_contact') }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <label>
+                    {{ text.email }}
+                    <input type="email" name="email" value="{{ account.email }}" maxlength="254" autocomplete="email">
+                  </label>
+                  <label>
+                    {{ text.phone }}
+                    <input
+                      type="tel"
+                      name="phone_number"
+                      value="{{ account.phone_number or '' }}"
+                      maxlength="32"
+                      autocomplete="tel"
+                    >
+                  </label>
+                  <label>
+                    {{ text.current_password }}
+                    <input type="password" name="current_password" autocomplete="current-password" required>
+                  </label>
+                  <button class="primary-action" type="submit">{{ text.update_contact }}</button>
+                </form>
+                <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_confirm_phone') }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <label>
+                    {{ text.phone_confirmation_code }}
+                    <input
+                      type="text"
+                      name="phone_confirmation_code"
+                      inputmode="numeric"
+                      autocomplete="one-time-code"
+                      minlength="6"
+                      maxlength="6"
+                      pattern="[0-9]{6}"
+                      required
+                    >
+                  </label>
+                  <button class="primary-action" type="submit">{{ text.confirm_phone }}</button>
+                </form>
+                <form method="post" action="{{ url_for('portal_account_resend_phone') }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button class="secondary-action" type="submit">{{ text.resend_phone_confirmation }}</button>
+                </form>
+              </section>
+
+              <section class="settings-section">
+                <h2>{{ text.mfa_settings }}</h2>
+                <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_mfa') }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <label>
+                    {{ text.mfa_method }}
+                    <select name="preferred_mfa_method">
+                      <option value="email"{% if account.preferred_mfa_method == "email" %} selected{% endif %}>{{ text.mfa_email }}</option>
+                      <option
+                        value="sms"
+                        {% if account.preferred_mfa_method == "sms" %}selected{% endif %}
+                        {% if not sms_mfa_available %}disabled{% endif %}
+                      >{{ text.mfa_sms }}</option>
+                    </select>
+                  </label>
+                  <label>
+                    {{ text.current_password }}
+                    <input type="password" name="current_password" autocomplete="current-password" required>
+                  </label>
+                  <button class="primary-action" type="submit">{{ text.update_mfa }}</button>
+                </form>
+              </section>
+            </div>
+          {% elif active_module == "email-passwords" %}
+            <header class="module-header">
+              <h1>{{ text.email_passwords }}</h1>
+            </header>
+            <form class="module-toolbar" method="get" action="{{ url_for('portal_email_passwords') }}" role="search">
+              <label class="search-field" for="email-password-search">
+                <span>{{ text.search }}</span>
+                <input
+                  id="email-password-search"
+                  name="q"
+                  type="search"
+                  maxlength="128"
+                  value="{{ email_passwords.search }}"
+                  autocomplete="off"
+                >
+              </label>
+              <label class="filter-field" for="email-password-provider">
+                <span>{{ text.provider }}</span>
+                <select id="email-password-provider" name="provider">
+                  <option value="">{{ text.all_providers }}</option>
+                  {% if email_passwords.provider and email_passwords.provider not in email_passwords.provider_option_values %}
+                    <option value="{{ email_passwords.provider }}" selected>{{ email_passwords.provider }}</option>
+                  {% endif %}
+                  {% for provider in email_passwords.provider_options %}
+                    <option value="{{ provider.value }}"{% if provider.value == email_passwords.provider %} selected{% endif %}>{{ provider.label }}</option>
+                  {% endfor %}
+                </select>
+                {% if email_passwords.provider_options_truncated %}
+                  <small class="filter-hint">{{ text.provider_options_truncated }}</small>
+                {% endif %}
+              </label>
+              <label class="filter-field" for="email-password-date-from">
+                <span>{{ text.date_from }}</span>
+                <input id="email-password-date-from" name="date_from" type="date" value="{{ email_passwords.date_from }}">
+              </label>
+              <label class="filter-field" for="email-password-date-to">
+                <span>{{ text.date_to }}</span>
+                <input id="email-password-date-to" name="date_to" type="date" value="{{ email_passwords.date_to }}">
+              </label>
+              <button class="secondary-action" type="submit">{{ text.search }}</button>
+              {% if email_passwords.has_filters or email_passwords.filter_error %}
+                <a class="secondary-action" href="{{ url_for('portal_email_passwords') }}">{{ text.reset_filters }}</a>
+              {% endif %}
+            </form>
+            {% if email_passwords.filter_error %}
+              <p class="form-error filter-error" role="alert">{{ email_passwords.filter_error }}</p>
+            {% endif %}
+            <div class="table-shell" role="region" aria-label="{{ text.email_passwords_region }}">
+              <table class="email-password-table">
+                <thead>
+                  <tr>
+                    <th scope="col">{{ text.subject }}</th>
+                    <th scope="col">{{ text.provider }}</th>
+                    <th scope="col">{{ text.sent }}</th>
+                    <th scope="col">{{ text.password_label }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if email_passwords.rows %}
+                    {% for row in email_passwords.rows %}
+                      <tr{% if not row.is_available %} class="unavailable-row"{% endif %}>
+                        <td data-label="{{ text.subject }}">
+                          <span class="cell-primary">{{ row.subject }}</span>
+                          {% if row.source_reference %}
+                            <span class="cell-secondary">{{ row.source_reference }}</span>
+                          {% endif %}
+                        </td>
+                        <td data-label="{{ text.provider }}">{{ row.provider }}</td>
+                        <td data-label="{{ text.sent }}">{{ row.sent_at }}</td>
+                        <td data-label="{{ text.password_label }}">
+                          {% if row.is_available %}
+                            <div class="password-copy-group">
+                              <code
+                                id="email-password-{{ row.id }}"
+                                class="copyable-password"
+                                tabindex="0"
+                                aria-label="{{ text.password_for.format(subject=row.subject) }}"
+                              >{{ text.password_hidden }}</code>
+                              <button
+                                class="secondary-action reveal-action"
+                                type="button"
+                                data-reveal-url="{{ url_for('reveal_portal_email_password', email_password_id=row.id).path }}"
+                                data-reveal-target="email-password-{{ row.id }}"
+                                data-csrf-token="{{ csrf_token }}"
+                                data-reveal-label="{{ text.reveal }}"
+                                data-revealing-label="{{ text.revealing }}"
+                                data-reveal-failed-label="{{ text.reveal_failed }}"
+                              >{{ text.reveal }}</button>
+                              <button
+                                class="secondary-action copy-action"
+                                type="button"
+                                data-copy-target="email-password-{{ row.id }}"
+                                data-copy-label="{{ text['copy'] }}"
+                                data-copied-label="{{ text.copied }}"
+                                data-copy-failed-label="{{ text.copy_failed }}"
+                                hidden
+                              >{{ text['copy'] }}</button>
+                            </div>
+                          {% else %}
+                            <span class="unavailable-state">{{ text.unavailable }}</span>
+                          {% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  {% else %}
+                    <tr>
+                      <td colspan="4" class="empty-state">{{ email_passwords.empty_message }}</td>
+                    </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+            <nav class="pagination-bar" aria-label="{{ text.email_password_pages }}">
+              {% if email_passwords.previous_href %}
+                <a class="secondary-action" href="{{ email_passwords.previous_href }}">{{ text.previous }}</a>
+              {% else %}
+                <span class="pagination-disabled">{{ text.previous }}</span>
+              {% endif %}
+              <span class="page-indicator">
+                {{ text.page }} {{ email_passwords.page }} {{ text.of }} {{ email_passwords.total_pages }}
+              </span>
+              {% if email_passwords.next_href %}
+                <a class="secondary-action" href="{{ email_passwords.next_href }}">{{ text.next }}</a>
+              {% else %}
+                <span class="pagination-disabled">{{ text.next }}</span>
+              {% endif %}
+            </nav>
+          {% else %}
+            <header class="module-header">
+              <h1>{{ text.help }}</h1>
+            </header>
+            <dl class="detail-list">
+              <div>
+                <dt>{{ text.clinic }}</dt>
+                <dd>{{ clinic_name }}</dd>
+              </div>
+              <div>
+                <dt>{{ text.account_help }}</dt>
+                <dd>{{ text.contact_the_clinic }}</dd>
+              </div>
+            </dl>
+          {% endif %}
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

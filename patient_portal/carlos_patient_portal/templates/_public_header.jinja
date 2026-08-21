@@ -1,0 +1,28 @@
+<header class="patient-topbar">
+  <div class="brand-lockup">
+    <img src="{{ url_for('static', path='/carlos-logo.png') }}" alt="{{ text.logo_alt }}" class="brand-logo">
+    <div>
+      <strong>{{ service_name }}</strong>
+      <span>{{ clinic_name }}</span>
+    </div>
+  </div>
+  <nav class="language-switch" aria-label="{{ text.language_aria_label }}">
+    {# Real links, not modal triggers. Translations are not written yet, so a non-English locale
+       renders English strings via the per-key fallback in i18n.portal_text — but the choice is
+       genuinely applied and persisted, so adding a catalog is the only work left. #}
+    {% for language in supported_locales %}
+      {% if language.is_selected %}
+        <span class="text-tab selected" aria-current="true" lang="{{ language.code }}"
+        >{{ language.short_label }}</span>
+      {% else %}
+        <a
+          class="text-tab"
+          href="{{ url_for('select_locale', locale_code=language.code).path }}?next={{ locale_switch_target | urlencode }}"
+          rel="nofollow"
+          lang="{{ language.code }}"
+          title="{{ language.label }}"
+        >{{ language.short_label }}</a>
+      {% endif %}
+    {% endfor %}
+  </nav>
+</header>

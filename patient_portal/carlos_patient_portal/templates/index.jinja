@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="{{ locale }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ service_name }}</title>
+  {% include "_head_assets.jinja" %}
+  <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+  <script src="{{ url_for('static', path='/portal.js') }}" defer></script>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="portal-screen" aria-label="{{ text.sign_in_aria_label }}">
+      {# Was a byte-for-byte copy of the shared partial, which is how the language switch here
+         drifted out of step with every other public page. #}
+      {% include "_public_header.jinja" %}
+
+      <div class="auth-layout">
+        <section class="auth-panel" aria-labelledby="signin-title">
+          <h1 id="signin-title">{{ text.sign_in_heading }}</h1>
+          <form class="form-stack" method="post" action="{{ url_for('login') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            {% if error_message %}
+              <p class="form-error" role="alert">{{ error_message }}</p>
+            {% endif %}
+            <label>
+              <span>{{ text.username_label }}</span>
+              <input
+                type="text"
+                name="username"
+                placeholder="{{ text.username_placeholder }}"
+                autocomplete="username"
+                required
+              >
+            </label>
+            <label>
+              <span>{{ text.password_label }}</span>
+              <input
+                type="password"
+                name="password"
+                placeholder="{{ text.password_placeholder }}"
+                autocomplete="current-password"
+                required
+                data-password-input
+              >
+            </label>
+            <button
+              class="link-action"
+              type="button"
+              data-password-toggle
+              data-show-label="{{ text.show_password }}"
+              data-hide-label="{{ text.hide_password }}"
+              aria-pressed="false"
+            >{{ text.show_password }}</button>
+            <button class="primary-action" type="submit">{{ text.sign_in_button }}</button>
+            <div class="auth-link-group">
+              <a class="link-action" href="{{ url_for('password_reset_request_page') }}">{{ text.forgot_username_password }}</a>
+              <a class="link-action" href="{{ url_for('activation_page') }}">{{ text.activate_account }}</a>
+              <button
+                class="link-action modal-trigger"
+                type="button"
+                data-modal-title="{{ text.clinic_help }}"
+                data-modal-message="{{ text.clinic_help_message }}"
+              >{{ text.clinic_help }}</button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      {% include "_public_modal.jinja" %}
+    </section>
+  </main>
+</body>
+</html>

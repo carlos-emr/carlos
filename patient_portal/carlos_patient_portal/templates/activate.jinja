@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="{{ locale }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ service_name }}</title>
+  {% include "_head_assets.jinja" %}
+  <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+  <script src="{{ url_for('static', path='/portal.js') }}" defer></script>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="portal-screen" aria-label="{{ text.activation_heading }}">
+      {% include "_public_header.jinja" %}
+      <div class="auth-layout auth-layout-wide">
+        <section class="auth-panel" aria-labelledby="activation-title">
+          <h1 id="activation-title">{{ text.activation_heading }}</h1>
+          <p class="auth-intro">{{ text.activation_details }}</p>
+          {% if error_message %}
+            <p class="form-error" role="alert">{{ error_message }}</p>
+          {% endif %}
+          <form class="form-stack" method="post" action="{{ url_for('activate_invite') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <label>
+              <span>{{ text.invite_code }}</span>
+              <input type="text" name="invite_code" value="" autocomplete="off" required>
+            </label>
+            <label>
+              <span>{{ text.email }}</span>
+              <input
+                type="email"
+                name="email"
+                value="{{ form_values.email or '' }}"
+                maxlength="254"
+                autocomplete="email"
+                required
+              >
+            </label>
+            <label>
+              <span>{{ text.date_of_birth }}</span>
+              <input
+                type="date"
+                name="date_of_birth"
+                value="{{ form_values.date_of_birth or '' }}"
+                autocomplete="bday"
+                required
+              >
+            </label>
+            <label>
+              <span>{{ text.health_card_number }}</span>
+              <input type="text" name="health_card_number" value="" maxlength="64" autocomplete="off" required>
+            </label>
+            <label>
+              <span>{{ text.username }}</span>
+              <input
+                type="text"
+                name="username"
+                value="{{ form_values.username or '' }}"
+                autocomplete="username"
+                required
+              >
+            </label>
+            <label>
+              <span>{{ text.password_label }}</span>
+              <input type="password" name="password" autocomplete="new-password" required>
+            </label>
+            <label>
+              <span>{{ text.password_confirmation }}</span>
+              <input type="password" name="password_confirmation" autocomplete="new-password" required>
+            </label>
+            <label>
+              <span>{{ text.mfa_method }}</span>
+              <select name="mfa_delivery_method" data-activation-mfa-method>
+                <option value="email">{{ text.mfa_email }}</option>
+                <option value="sms"{% if not sms_mfa_available %} disabled{% endif %}>{{ text.mfa_sms }}</option>
+              </select>
+            </label>
+            <label>
+              <span>{{ text.phone }}</span>
+              <input
+                type="tel"
+                name="phone_number"
+                value="{{ form_values.phone_number or '' }}"
+                maxlength="32"
+                autocomplete="tel"
+                data-activation-phone
+              >
+              <small>{{ text.phone_required_for_sms }}</small>
+            </label>
+            <p class="clinic-help-line">{{ text.password_requirements }}</p>
+            <button class="primary-action" type="submit">{{ text.activate_account }}</button>
+          </form>
+          <a class="auth-back-link" href="{{ url_for('index').path }}">{{ text.back_to_sign_in }}</a>
+        </section>
+      </div>
+      {% include "_public_modal.jinja" %}
+    </section>
+  </main>
+</body>
+</html>

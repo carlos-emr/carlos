@@ -1,0 +1,122 @@
+# Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+#
+# This software is published under the GPL GNU General Public License.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+# CARLOS EMR Project
+
+import json
+import ssl
+from http.client import HTTPConnection, HTTPException, HTTPSConnection
+from typing import Protocol
+from urllib.parse import urlsplit
+
+from carlos_patient_portal.config import Settings
+from carlos_patient_portal.outbound_messages import mfa_sms_message
+
+MAX_SMS_GATEWAY_RESPONSE_BYTES = 4096
+
+
+class PortalSmsDeliveryError(Exception):
+    """Raised when a portal authentication SMS cannot be delivered."""
+
+
+class PortalSmsSender(Protocol):
+    def send_code(
+        self,
+        *,
+        recipient: str,
+        code: str,
+        expires_in_seconds: int,
+    ) -> None:
+        raise NotImplementedError
+
+
+class WebhookPortalSmsSender:
+    """Provider-neutral JSON webhook used by the deployment's SMS gateway."""
+
+    def __init__(self, settings: Settings) -> None:
+        if settings.sms_webhook_url is None or settings.sms_webhook_token is None:
+            raise ValueError("SMS webhook URL and token are required")
+        self.url = settings.sms_webhook_url
+        self.token = settings.sms_webhook_token.get_secret_value()
+        self.timeout_seconds = settings.sms_timeout_seconds
+        self.sender_id = settings.sms_sender_id
+        self.service_name = settings.service_name
+        self.clinic_name = settings.clinic_name
+        parsed_url = urlsplit(self.url)
+        self.connection_type = HTTPSConnection if parsed_url.scheme == "https" else HTTPConnection
+        self.connection_host = parsed_url.hostname
+        self.connection_port = parsed_url.port
+        self.request_path = parsed_url.path or "/"
+
+    def send_code(
+        self,
+        *,
+        recipient: str,
+        code: str,
+        expires_in_seconds: int,
+    ) -> None:
+        body = json.dumps(
+            {
+                "to": recipient,
+                "sender_id": self.sender_id,
+                "message": mfa_sms_message(
+                    service_name=self.service_name,
+                    clinic_name=self.clinic_name,
+                    code=code,
+                    expires_in_seconds=expires_in_seconds,
+                ),
+            }
+        ).encode()
+        connection = self.connection_type(
+            self.connection_host,
+            self.connection_port,
+            timeout=self.timeout_seconds,
+            **(
+                {"context": ssl.create_default_context()}
+                if self.connection_type is HTTPSConnection
+                else {}
+            ),
+        )
+        try:
+            connection.request(
+                "POST",
+                self.request_path,
+                body=body,
+                headers={
+                    "Authorization": f"Bearer {self.token}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "carlos-patient-portal/0.1",
+                },
+            )
+            response = connection.getresponse()
+            response_body = response.read(MAX_SMS_GATEWAY_RESPONSE_BYTES + 1)
+            if len(response_body) > MAX_SMS_GATEWAY_RESPONSE_BYTES:
+                raise PortalSmsDeliveryError("portal SMS gateway response was too large")
+            if not 200 <= response.status < 300:
+                raise PortalSmsDeliveryError("portal SMS delivery failed")
+        except PortalSmsDeliveryError:
+            raise
+        except (HTTPException, OSError, ValueError):
+            raise PortalSmsDeliveryError("portal SMS delivery failed") from None
+        finally:
+            connection.close()
+
+
+def build_portal_sms_sender(settings: Settings) -> PortalSmsSender | None:
+    if settings.sms_webhook_url is None:
+        return None
+    return WebhookPortalSmsSender(settings)
