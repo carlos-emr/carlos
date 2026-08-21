@@ -29,6 +29,7 @@
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <table width="100%" border="2" valign="top">
 	<% 
@@ -78,13 +79,13 @@
 		<TD align="center" width="10%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><%=apptTime==null?"00:00:00":apptTime%></font></b></TD>
 		<TD align="center" width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=demoName%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= demoName %>' context="html"/></font></b></TD>
 		<TD align="center" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=reason%> </font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= reason %>' context="html"/> </font></b></TD>
 		<TD align="center" width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
 			onClick='popupPage(700,1000, "<%= request.getContextPath() %>/billing?billRegion=<%=URLEncoder.encode(oscarVariables.getProperty("billregion"))%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"))%>&hotclick=&appointment_no=<%=apptNo%>&demographic_name=<%=URLEncoder.encode(demoName)%>&status=<%=apptStatus%>&demographic_no=<%=demoNo%>&user_no=<%=userno%>&apptProvider_no=<%=providerview%>&appointment_date=<%=apptDate%>&start_time=<%=apptTime==null?"00:00:00":apptTime%>&bNewForm=1")'
-			title="<%=reason%>">Bill |$|</a></font></b></TD>
+			title="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>">Bill |$|</a></font></b></TD>
 	</tr>
 	<%  rowCount = rowCount + 1;
     }
