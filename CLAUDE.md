@@ -103,7 +103,7 @@ For login/password-reset work, keep documentation aligned with these invariants:
   Devcontainer-only defaults are `TEST_USER=carlosdoc`, `TEST_PASSWORD=carlos2026`, and
   `TEST_PIN=2026`; these are not production defaults. Use the dev database password from
   `.devcontainer/development/config/shared/local.env` and the seeded `carlosdoc` hash from
-  `database/mysql/oscardata.sql` for `TEST_PASSWORD_HASH`.
+  `database/mysql/migration/on/V1.0.2__on_data.sql` (the `security` table seed) for `TEST_PASSWORD_HASH`.
 
 **What counts as PHI vs. internal identifiers:**
 - **PHI** (treat as sensitive): HIN/health card number, patient name, DOB, address, phone, diagnosis text, clinical notes, lab values, medication details — anything that identifies a real person or their care.
@@ -276,7 +276,7 @@ Any `*2Action` that performs a mutation MUST reject `GET`/`HEAD` before any
 side-effect fires (DAO persist, manager call, event publish, file write).
 The aggregated contract test that pins this for the in-scope slices is:
 
-`src/test/java/io/github/carlos_emr/carlos/app/contract/MutatorActionGetRejectionContractTest.java`
+`src/test/java/io/github/carlos_emr/carlos/app/contract/MutatorActionGetRejectionContractUnitTest.java`
 
 **When you add a new mutator 2Action**, the contract test's discovery scan
 will fail the build until you register the class in one of three lists at
@@ -605,7 +605,7 @@ public Example2Action(SomeManager someManager) {
   - Upgraded from 6.8.0 (March 2026) - Jakarta EE namespace migration
   - `*2Action` classes migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
   - Requires Caffeine 3.2.3 cache dependency for internal caching
-- **Apache CXF 4.1.5**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
+- **Apache CXF 4.1.8**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
 - **JSP/JSTL**: View layer with extensive medical form templates
 - **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
 - **JavaScript/CSS/jQuery**: Frontend with healthcare-specific UI components
@@ -897,27 +897,28 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 ## Database Schema & Migration System
 
 **Database**: MariaDB/MySQL with comprehensive healthcare schema dating back to 2006
-**Migration Pattern**: Date-based SQL scripts (`update-YYYY-MM-DD-description.sql`)
+**Schema management**: **Flyway** — a consolidated `V1` genesis baseline plus forward-only migrations.
+See [`docs/database-schema-management.md`](docs/database-schema-management.md). The legacy script build
+(`createdatabase_*.sh`, `oscarinit*.sql`, `oscardata*.sql`, `icd*.sql`, `measurementMapData.sql`,
+`caisi/initcaisi*.sql`, `olis/olisinit.sql`, `bc_*.sql`) has been **retired** — recover from git history.
 
 ### Core Database Files (`database/mysql/`)
 ```bash
-# Initial Schema Setup
-oscarinit.sql          # Core database schema
-oscarinit_2025.sql     # Current 2025 schema version
-oscardata.sql          # Initial reference data
-oscarinit_bc.sql       # British Columbia specific
-oscarinit_on.sql       # Ontario specific
+# Flyway migration set (single source of truth) — see migration/README.md
+migration/common/V1__baseline_schema.sql   # province-neutral schema (structure)
+migration/on/V1.0.1__on_schema.sql         # Ontario-only tables
+migration/on/V1.0.2__on_data.sql           # Ontario reference data (incl. carlosdoc seed, ICD, OLIS)
+migration/bc/V1.0.1__bc_schema.sql         # BC-only tables
+migration/bc/V1.0.2__bc_data.sql           # BC reference data (carlosdoc seed, ICD, + billing/specialist/pharmacy catalogs)
+migration/pruned-tables.txt                # dead tables excluded from the baseline
 
-# Medical Coding Systems
-icd9.sql / icd10.sql   # Diagnosis codes (ICD-9/ICD-10)
-measurementMapData.sql # Clinical measurements mapping
-SnomedCore/           # SNOMED CT clinical terminology
-olis/                 # Ontario Labs Information System
+# Forward schema changes: migration/<common|on|bc>/V1.0.N__desc.sql (sequential, next free number; idempotent)
+updates/                # FROZEN legacy dated patches (historical; a few still used for demo seeding)
 
-# Provincial Healthcare Data
-bc_billingServiceCodes.sql     # BC medical service codes
-bc_pharmacies.sql              # BC pharmacy directory
-firstNationCommunities_lu_list.sql # First Nations communities
+# Other
+SnomedCore/             # SNOMED CT clinical terminology (licensed, loaded separately)
+build-demo.sh           # filters the dev demo dataset to the live (pruned) schema; its output
+                        #   development.sql lives at .devcontainer/db/scripts/, not under database/mysql/
 ```
 
 **Development Database**:
@@ -1015,7 +1016,7 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - **Security**: `SecurityInfoManager.hasPrivilege()` + OWASP encoding required
 - **Actions**: `*2Action.java` pattern for Struts2 migration
 - **Packages**: `io.github.carlos_emr.carlos.*` (new) vs `org.oscarehr.*` (legacy)
-- **Database**: Date-based migrations, audit trails (`lastUpdateUser`, `lastUpdateDate`)
+- **Database**: Flyway V1 baseline + sequential V1.0.N forward migrations, audit trails (`lastUpdateUser`, `lastUpdateDate`)
 
 ---
 
@@ -1029,8 +1030,10 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 3. **Complex Changes**: Ask clarifying questions first, create implementation plan, proceed after approval
 
 ### Branch Protection
-- **Protected Branches**: `develop`, `main`, `experimental` - direct commits prohibited
+- **Protected Branches**: `develop`, `main`, `experimental`, and `release/*` - direct commits prohibited
 - **All changes** must go through pull requests with review
+- **Release policy**: `docs/release-process.md` is authoritative for target branches, CalVer, snapshots, tags, maintenance fixes, and forward merges
+- **Release flow**: Start normal work from and target `develop`. Start a supported fix from and target the oldest affected `release/YYYY.MM`; maintainers then forward-merge it into newer lines while preserving target version/SCM metadata. Target `main` only for current-train release preparation or a necessary, narrowly scoped release-infrastructure correction. Never tag a snapshot, move, delete, or reuse a release tag, or edit a Flyway migration present in a published tag
 - Claude creates feature branches: `claude/issue-<number>-<timestamp>`
 
 ### Security Checklist (Every Code Change)
@@ -1041,7 +1044,8 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - [ ] No PHI in logs or error messages
 
 ### PR Requirements
-- ✅ Target `develop` branch (not `main`)
+- ✅ Target `develop` for normal work; target `release/YYYY.MM` only for an approved supported-release fix; use `main` only for current-train release preparation or a necessary release-infrastructure correction
+- ✅ Preserve the target branch snapshot/SCM metadata during forward merges; use merge ancestry rather than routine cherry-picks
 - ✅ Include tests for new functionality
 - ✅ Reference related issues (`fixes #123`)
 - ✅ Add "Generated with Claude Code" signature
@@ -1105,7 +1109,7 @@ Commands in the ASK tier include:
 
 **Safety Guardrails:**
 - **Repository scoped** - Operations run within the checked-out `carlos-emr/carlos` repository context
-- Branch protection rules prevent direct pushes to `develop`, `main`, `experimental`
+- Branch protection rules prevent direct pushes to `develop`, `main`, `experimental`, and `release/*`
 - All PRs require human review before merge
 - Destructive operations are blocked:
   - File deletion: `rm -rf`, `rm -fr`, `rm -r`, `rm --recursive`
@@ -1167,8 +1171,8 @@ src/main/java/io/github/carlos_emr/carlos/*/web/*2Action.java # 2Action implemen
 
 # Database Configuration
 src/main/resources/OscarDatabaseBase.xml           # Hibernate configuration
-database/mysql/oscarinit_2025.sql                 # Current database schema
-database/mysql/updates/update-2025-*.sql          # Recent migration patterns
+database/mysql/migration/common/V1__baseline_schema.sql  # Flyway V1 genesis schema
+database/mysql/migration/<common|on|bc>/V1.0.N__*.sql # Forward schema migrations (sequential)
 ```
 
 ### Security Implementation Examples
@@ -1229,10 +1233,10 @@ src/main/java/io/github/carlos_emr/carlos/commn/dao/*Dao.java               # DA
 ### Database Schema References
 ```bash
 # Database Structure Examples
-database/mysql/oscardata.sql                      # Reference data examples
-database/mysql/caisi/initcaisi.sql               # Community integration schema
-database/mysql/olis/olisinit.sql                 # Provincial lab integration schema
-database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integration
+database/mysql/migration/on/V1.0.2__on_data.sql   # Reference data (carlosdoc seed, ICD, OLIS, ...)
+database/mysql/migration/common/V1__baseline_schema.sql # Province-neutral schema
+database/mysql/migration/bc/V1.0.2__bc_data.sql   # BC reference data (billing/specialist/pharmacy)
+database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integration (licensed)
 ```
 
 ### Testing Patterns

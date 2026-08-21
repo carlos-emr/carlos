@@ -16,25 +16,27 @@
 
 # --- Script Constants
 
-# Derive Tomcat package name from the running process command (not the process owner)
-_TOMCAT_CMD=$(ps aux | grep org.apache.catalina.startup.Bootstrap | grep -v grep | awk '{print $11}')
-if echo "$_TOMCAT_CMD" | grep -q 'tomcat9'; then
-    TOMCAT=tomcat9
-elif echo "$_TOMCAT_CMD" | grep -q 'tomcat8'; then
-    TOMCAT=tomcat8
-elif echo "$_TOMCAT_CMD" | grep -q 'tomcat7'; then
-    TOMCAT=tomcat7
-fi
-
-# Fall back to installed-version checks if process detection did not yield a name
-if [ -z "$TOMCAT" ]; then
-    if [ -f /usr/share/tomcat9/bin/version.sh ]; then
-        TOMCAT=tomcat9
-    elif [ -f /usr/share/tomcat8/bin/version.sh ]; then
-        TOMCAT=tomcat8
-    elif [ -f /usr/share/tomcat7/bin/version.sh ]; then
-        TOMCAT=tomcat7
+# Derive Tomcat package name from the running process command (not the process owner).
+_TOMCAT_CMD=$(ps -eo args= | grep org.apache.catalina.startup.Bootstrap | grep -v grep || true)
+for TOMCAT_CANDIDATE in tomcat11 tomcat10 tomcat9 tomcat8 tomcat7; do
+    if echo "$_TOMCAT_CMD" | grep -q "${TOMCAT_CANDIDATE}"; then
+        TOMCAT=${TOMCAT_CANDIDATE}
+        break
     fi
+done
+
+# Fall back to installed-version checks if process detection did not yield a name.
+if [ -z "$TOMCAT" ]; then
+    for TOMCAT_CANDIDATE in tomcat11 tomcat10 tomcat9 tomcat8 tomcat7; do
+        if [ -f "/usr/share/${TOMCAT_CANDIDATE}/bin/version.sh" ]; then
+            TOMCAT=${TOMCAT_CANDIDATE}
+            break
+        fi
+    done
+fi
+if [ -z "$TOMCAT" ]; then
+    echo "ERROR: No supported Tomcat installation found (expected tomcat11, tomcat10, tomcat9, tomcat8, or tomcat7)." >&2
+    exit 1
 fi
 
 TMP=/tmp/${TOMCAT}-${TOMCAT}-tmp
@@ -43,7 +45,8 @@ PROGRAM=carlos
 LOG_FILE=${data_path}/${PROGRAM}.log
 LOG_ERR=${data_path}/${PROGRAM}.err
 C_HOME=/usr/share/${TOMCAT}/
-DOCS=${data_path}/OscarDocument/${PROGRAM}/
+DOC_ROOT=${data_path}/OscarDocument
+DOCS=${DOC_ROOT}/${PROGRAM}/
 SCRIPT_FILE=$(basename "$0")
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 LOCKDIR=/tmp/${SCRIPT_FILE}.lock
@@ -90,30 +93,68 @@ export DB_PASSWORD="${db_password}"
 
 # --- prevent *.enc to be run through if there are no files in the directory
 shopt -s nullglob
+PROCESSED_DIR="${SCRIPT_DIR}/restored-inputs"
 
 for f in "${SCRIPT_DIR}"/*.tar.gz.enc
 do
+	decrypted="${f%.enc}"
 	echo "Decrypting file - $f"
-        openssl enc -d -aes-256-cbc -salt -in "$f" -out "${f%%.*}" -pass env:DB_PASSWORD
-	echo "Expanding contents of file - ${f%%.*}"
+	openssl enc -d -aes-256-cbc -salt -in "$f" -out "$decrypted" -pass env:DB_PASSWORD 		|| { echo "Decryption failed for $f" >&2; exit 1; }
+	if tar -tzf "$decrypted" | grep -q '^carlos/'; then
+		extract_target="$DOC_ROOT"
+	else
+		extract_target="$DOCS"
+	fi
+	echo "Expanding contents of file - $decrypted"
 	# --- use p to preserve permissions in the untarring
-	tar -pxzf "${f%%.*}" -C "$DOCS" && echo "Extraction successful." || { echo "Extraction failed." >> /dev/stderr; exit 1; }
-	echo "Cleanup, deleting files - $f and ${f%%.*}"
-	rm "$f"
-	rm "${f%%.*}"
+	tar -pxzf "$decrypted" -C "$extract_target" && echo "Extraction successful." || { echo "Extraction failed." >> /dev/stderr; exit 1; }
+	echo "Cleanup, deleting decrypted file - $decrypted"
+	rm "$decrypted"
+	mkdir -p "$PROCESSED_DIR"
+	processed_input="${PROCESSED_DIR}/$(date +%Y%m%d%H%M%S)-$$-$(basename "$f")"
+	echo "Moving processed encrypted input to $processed_input"
+	mv "$f" "$processed_input"
 done
 
 echo "Changing directories to ${DOCS}"
 # --- thats where all the files have been extracted including the OscarBackup.sql
 cd "${DOCS}" || { echo "Failed to change to ${DOCS}" >&2; exit 1; }
 
-if [ -f CarlosBackup.sql.gz ] ; then
-	gunzip CarlosBackup.sql.gz
-	echo "Loading backup database into mysql... you might have time for a coffee"
-	MYSQL_PWD="${db_password}" mysql -uroot ${db_name} < CarlosBackup.sql
-	echo "Cleanup, deleting CarlosBackup.sql... its huge"
-	rm CarlosBackup.sql
+if command -v mariadb >/dev/null 2>&1; then
+	DB_CLIENT=mariadb
 else
-	echo "Failed, unable to find the Backup sql"
-
+	echo "ERROR: mariadb client is required but was not found; install mariadb-client." >&2
+	exit 1
 fi
+
+restore_sql_dump() {
+	dump_file="$1"
+	dump_label="$2"
+	required="$3"
+	if [ -f "${dump_file}.gz" ] ; then
+		gunzip -f "${dump_file}.gz" || { echo "ERROR: gunzip of ${dump_file}.gz failed" >&2; exit 1; }
+	fi
+	if [ ! -f "${dump_file}" ] ; then
+		if [ "${required}" = "required" ] ; then
+			echo "Failed, unable to find ${dump_label}" >&2
+			exit 1
+		fi
+		return 0
+	fi
+	if [ ! -s "${dump_file}" ] ; then
+		echo "Skipping empty ${dump_label}"
+		rm -f "${dump_file}"
+		return 0
+	fi
+	echo "Loading ${dump_label} into MariaDB... you might have time for a coffee"
+	# Gate the restore: if the load fails, leave the SQL file in place for a retry and abort.
+	if ! MYSQL_PWD="${db_password}" "${DB_CLIENT}" -uroot "${db_name}" < "${dump_file}"; then
+		echo "ERROR: restore of ${dump_label} into ${db_name} failed — leaving ${dump_file} in place for retry" >&2
+		exit 1
+	fi
+	echo "Cleanup, deleting ${dump_file}... it is huge"
+	rm "${dump_file}"
+}
+
+restore_sql_dump CarlosBackup.sql "backup database" required
+restore_sql_dump MyISAMBackup.sql "MyISAM table backup" optional
