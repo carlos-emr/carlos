@@ -18,7 +18,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV CATALINA_HOME /usr/local/tomcat
 ENV PATH $CATALINA_HOME/bin:$PATH
 # ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -agentlib:jdwp=transport=dt_socket,address=8000,server=y,suspend=n"
-ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -Djava.awt.headless=true -Dcarlos_override_properties=/root/carlos.properties"
+ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -Djava.awt.headless=true -Dcarlos_override_properties=/root/carlos.properties -Djavamelody.system-actions-enabled=true"
 # The eForm browser PDF renderer runs headless Chromium unsandboxed by default (Tomcat runs as root
 # here and Chromium refuses to start its OS-level sandbox as root); this container IS the isolation
 # boundary. No env var is needed for that default. To exercise Chromium's OS sandbox in a container
@@ -212,6 +212,19 @@ COPY ./setup/setup-hot-reload.sh /setup-dir/setup-hot-reload.sh
 COPY ./config/tomcat/conf/server.xml $TOMCAT_PATH/conf/server.xml
 COPY ./config/shared/volumes/*.properties /root/
 
+# Generate a self-signed certificate for the development-only HTTPS connector.
+RUN keytool -genkeypair -noprompt \
+    -alias localhost \
+    -keyalg RSA \
+    -keysize 2048 \
+    -validity 3650 \
+    -dname "CN=localhost, OU=Development, O=CARLOS, C=CA" \
+    -ext "SAN=dns:localhost,ip:127.0.0.1" \
+    -storetype PKCS12 \
+    -keystore "$TOMCAT_PATH/conf/dev-localhost.p12" \
+    -storepass changeit \
+    -keypass changeit
+
 # Copy configuration files
 COPY ./openosp_files/index.jsp $TOMCAT_PATH/webapps/ROOT/index.jsp
 COPY ./openosp_files/openosp_favicon.ico $TOMCAT_PATH/webapps/ROOT/openosp_favicon.ico
@@ -257,8 +270,8 @@ RUN dos2unix /scripts/* /setup-dir/*.sh \
     && /setup-dir/setup.sh
 ENV PATH="/scripts:${PATH}"
 
-# Expose Tomcat port
-EXPOSE 8080
+# Expose Tomcat HTTP and development HTTPS ports
+EXPOSE 8080 8443
 
 # Clean up
 RUN apt-get autoclean && apt-get clean && apt-get autoremove
