@@ -1,3 +1,4 @@
+import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
@@ -14,6 +15,8 @@ from carlos_patient_portal.delivery_outbox import (
     enqueue_password_reset_delivery,
     process_one_delivery,
 )
+from carlos_patient_portal.email_delivery import PortalEmailDeliveryError
+from carlos_patient_portal.maintenance import cleanup_transient_auth_rows, summarize_outbox
 from carlos_patient_portal.models import (
     AUDIT_EVENT_PASSWORD_RESET_DELIVERY,
     OUTBOX_STATUS_DELIVERED,
@@ -27,6 +30,7 @@ from carlos_patient_portal.models import (
     PatientPortalPasswordResetToken,
     utc_now,
 )
+from carlos_patient_portal.runtime import PortalOperationalMetrics
 from tests.support import (
     OUTBOX_ENCRYPTION_SECRET,
     RecordingPortalEmailSender,
@@ -375,3 +379,82 @@ def test_reset_and_outbox_rollback_together_when_the_source_transaction_fails() 
             )
         ) is None
         assert session.scalar(select(PatientPortalOutboundDelivery)) is None
+
+
+def test_failed_delivery_is_identifiable_counted_and_queryable(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A failure must name the row, raise a counter, and be findable afterwards.
+
+    All three outbox log calls previously interpolated only a failure code or an exception
+    class, so "Outbound delivery attempt failed: SMTPException" could not tell an operator
+    whether this was one message or ten thousand. No metric was recorded at all - the worker is
+    a separate process with no metrics endpoint - and rows piled up in `failed` were invisible:
+    readiness checks only connectivity and the schema head.
+    """
+    caplog.set_level(logging.ERROR, logger="carlos_patient_portal.delivery_outbox")
+
+    class FailingSender:
+        def send_password_reset(self, **kwargs: object) -> None:
+            raise PortalEmailDeliveryError("relay refused")
+
+    metrics = PortalOperationalMetrics()
+    app = migrated_development_app(outbox_encryption_secret=OUTBOX_ENCRYPTION_SECRET)
+    account_id = activate_seeded_patient_account(app, TestClient(app))
+    delivery_id, _reset_id = queue_reset(app, account_id)
+
+    result = process_one_delivery(
+        app.state.session_factory,
+        email_sender=FailingSender(),
+        encryption_secret=OUTBOX_ENCRYPTION_SECRET,
+        max_attempts=3,
+        lease_seconds=60,
+        operational_metrics=metrics,
+    )
+
+    assert result is not None
+    logged = [r.message for r in caplog.records if "outbox_delivery_failed" in r.message]
+    assert logged, "the failure carried no identity"
+    assert f'"delivery_id":{delivery_id}' in logged[0]
+    assert '"kind":"password_reset"' in logged[0]
+    assert '"attempt_count":1' in logged[0]
+    assert metrics.snapshot()["failures"].get("outbox_password_reset") == 1
+
+    # And the row is queryable rather than invisible.
+    with app.state.session_factory() as session:
+        summary = summarize_outbox(session)
+    assert summary
+    assert summary[0]["kind"] == "password_reset"
+    assert summary[0]["count"] == 1
+
+
+def test_cleanup_bounds_outbox_retention_and_reports_what_it_removes() -> None:
+    """The outbox must have retention, and the report must not understate the deletion.
+
+    PatientPortalOutboundDelivery appeared in no cleanup predicate. Contact-change rows carry
+    reset_token_id = NULL so nothing cascaded them either, and the table grew without bound
+    holding encrypted recipient addresses and reset URLs. Reset-linked rows were cascaded away
+    by the reset-token delete without the report ever mentioning it, so deliveries are now
+    removed first, under their own predicate, and counted.
+    """
+    app = migrated_development_app(outbox_encryption_secret=OUTBOX_ENCRYPTION_SECRET)
+    account_id = activate_seeded_patient_account(app, TestClient(app))
+    delivery_id, _reset_id = queue_reset(app, account_id)
+
+    stale = utc_now() - timedelta(days=90)
+    with app.state.session_factory() as session:
+        with session.begin():
+            delivery = session.get(PatientPortalOutboundDelivery, delivery_id)
+            delivery.status = OUTBOX_STATUS_DELIVERED
+            delivery.delivered_at = stale
+            delivery.lease_expires_at = None
+            delivery.created_at = stale
+
+    with app.state.session_factory() as session:
+        with session.begin():
+            result = cleanup_transient_auth_rows(session, before=utc_now() - timedelta(days=30))
+
+    assert result.outbound_deliveries == 1
+    assert result.total >= 1
+    with app.state.session_factory() as session:
+        assert session.get(PatientPortalOutboundDelivery, delivery_id) is None

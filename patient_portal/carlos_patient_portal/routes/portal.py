@@ -424,6 +424,7 @@ def register_portal_routes(
                     max_attempts=settings.outbox_max_attempts,
                     lease_seconds=settings.outbox_lease_seconds,
                     delivery_id=delivery.id,
+                    operational_metrics=runtime.operational_metrics,
                 )
             return redirect_to_account_status(request, success_status_key)
 

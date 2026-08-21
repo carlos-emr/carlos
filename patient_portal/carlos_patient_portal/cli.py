@@ -31,6 +31,7 @@ from carlos_patient_portal.maintenance import (
     export_audit_events,
     prune_audit_events,
     restore_sqlite_database,
+    summarize_outbox,
 )
 from carlos_patient_portal.unlock_secrets import reencrypt_unlock_secrets
 
@@ -140,6 +141,10 @@ def maintenance(argv: Sequence[str] | None = None) -> None:
         type=int,
         default=DEFAULT_AUDIT_PRUNE_BATCH_SIZE,
     )
+    subparsers.add_parser(
+        "outbox-status",
+        help="Report queued outbound deliveries by kind and status.",
+    )
     benchmark_parser = subparsers.add_parser(
         "benchmark-password-hashing",
         help="Measure configured Argon2 capacity on the deployment host.",
@@ -237,6 +242,14 @@ def maintenance(argv: Sequence[str] | None = None) -> None:
                 )
                 print(f"rotated {rotated_count} unlock secrets")
                 return
+            if args.command == "outbox-status":
+                summary = summarize_outbox(session)
+                if not summary:
+                    print("outbox is empty")
+                    return
+                for row in summary:
+                    print(json.dumps(row, separators=(",", ":"), sort_keys=True))
+                return
             if args.command == "cleanup-transient-auth":
                 cutoff = audit_retention_cutoff(args.retention_days)
                 cleanup_result = cleanup_transient_auth_rows(
@@ -254,7 +267,9 @@ def maintenance(argv: Sequence[str] | None = None) -> None:
                     f"mfa_challenges={cleanup_result.mfa_challenges} "
                     f"reset_records={cleanup_result.reset_records} "
                     f"email_change_requests={cleanup_result.email_change_requests} "
-                    f"invites={cleanup_result.invites} total={cleanup_result.total}"
+                    f"invites={cleanup_result.invites} "
+                    f"outbound_deliveries={cleanup_result.outbound_deliveries} "
+                    f"total={cleanup_result.total}"
                 )
                 return
 

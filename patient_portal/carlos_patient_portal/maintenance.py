@@ -16,10 +16,13 @@ from carlos_patient_portal.models import (
     INVITE_STATUS_PENDING,
     INVITE_STATUS_REVOKED,
     INVITE_STATUS_SUPERSEDED,
+    OUTBOX_STATUS_DELIVERED,
+    OUTBOX_STATUS_FAILED,
     PatientPortalAuditEvent,
     PatientPortalEmailChangeRequest,
     PatientPortalInvite,
     PatientPortalMfaChallenge,
+    PatientPortalOutboundDelivery,
     PatientPortalPasswordResetToken,
     PatientPortalSession,
     utc_now,
@@ -40,6 +43,7 @@ class TransientCleanupResult:
     reset_records: int
     email_change_requests: int
     invites: int
+    outbound_deliveries: int
 
     @property
     def total(self) -> int:
@@ -49,6 +53,7 @@ class TransientCleanupResult:
             + self.reset_records
             + self.email_change_requests
             + self.invites
+            + self.outbound_deliveries
         )
 
 
@@ -159,6 +164,30 @@ def cleanup_transient_auth_rows(
 ) -> TransientCleanupResult:
     normalized_batch_size = normalize_prune_batch_size(batch_size)
     predicates = (
+        # Ordered deliberately: outbound deliveries are removed before reset tokens, because
+        # PatientPortalOutboundDelivery.reset_token_id is ON DELETE CASCADE. Deleting reset
+        # tokens first destroyed delivery history the report never mentioned - it counted only
+        # its own rowcounts while the database quietly removed more.
+        (
+            PatientPortalOutboundDelivery,
+            or_(
+                # Settled work, retained for the same window as the rows it delivered.
+                and_(
+                    PatientPortalOutboundDelivery.status.in_(
+                        (OUTBOX_STATUS_DELIVERED, OUTBOX_STATUS_FAILED)
+                    ),
+                    PatientPortalOutboundDelivery.created_at < before,
+                ),
+                # Contact-change rows carry reset_token_id = NULL, so nothing ever cascaded
+                # them either. Without this the table grew without bound holding encrypted
+                # recipient addresses and reset URLs - a PHI-adjacent retention gap in the one
+                # module whose premise is bounded retention.
+                and_(
+                    PatientPortalOutboundDelivery.reset_token_id.is_(None),
+                    PatientPortalOutboundDelivery.created_at < before,
+                ),
+            ),
+        ),
         (
             PatientPortalSession,
             or_(
@@ -189,6 +218,7 @@ def cleanup_transient_auth_rows(
     counts: dict[str, int] = {}
     for field_name, (model, predicate) in zip(
         (
+            "outbound_deliveries",
             "sessions",
             "mfa_challenges",
             "reset_records",
@@ -216,6 +246,40 @@ def cleanup_transient_auth_rows(
         )
         counts[field_name] = int(result.rowcount or 0)
     return TransientCleanupResult(**counts)
+
+
+def summarize_outbox(session: Session) -> list[dict[str, object]]:
+    """Aggregate the outbox by kind and status, with the age of the oldest waiting row.
+
+    Rows piled up in `failed` were previously invisible: /internal/readiness checks only
+    connectivity and the schema head, the worker is a separate process with no metrics
+    endpoint, and no CLI could answer "is anything stuck?". Every value here is a count, a
+    status or a timestamp - never a recipient, a payload or a message id.
+    """
+    rows = session.execute(
+        select(
+            PatientPortalOutboundDelivery.kind,
+            PatientPortalOutboundDelivery.status,
+            func.count(PatientPortalOutboundDelivery.id),
+            func.min(PatientPortalOutboundDelivery.available_at),
+            func.max(PatientPortalOutboundDelivery.attempt_count),
+        ).group_by(
+            PatientPortalOutboundDelivery.kind,
+            PatientPortalOutboundDelivery.status,
+        )
+    ).all()
+    return [
+        {
+            "kind": kind,
+            "status": status,
+            "count": int(count),
+            "oldest_available_at": (
+                oldest_available_at.isoformat() if oldest_available_at is not None else None
+            ),
+            "max_attempt_count": int(max_attempt_count or 0),
+        }
+        for kind, status, count, oldest_available_at, max_attempt_count in rows
+    ]
 
 
 def sqlite_database_path(database_url: str) -> Path:

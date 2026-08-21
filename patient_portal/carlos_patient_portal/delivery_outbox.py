@@ -9,6 +9,7 @@ from datetime import timedelta
 from random import SystemRandom
 from secrets import token_bytes
 from threading import Event, Thread
+from typing import Protocol
 from uuid import uuid4
 
 from cryptography.exceptions import InvalidTag
@@ -63,6 +64,16 @@ OUTBOX_MAX_RETRY_DELAY_SECONDS = 15 * 60
 # Distinct from delivery_failed: the provider call succeeded and only the audit write did
 # not, so the terminal handler must not revoke a token whose link is already in the mailbox.
 OUTBOX_FAILURE_AUDIT_UNAVAILABLE = "delivery_audit_unavailable"
+
+
+class OutboxMetrics(Protocol):
+    """The failure counter surface the outbox needs, structurally typed.
+
+    Declared here rather than imported so the worker process does not pull the web runtime in
+    for a single method.
+    """
+
+    def record_failure(self, category: str) -> None: ...
 
 
 class OutboxPayloadError(Exception):
@@ -512,7 +523,8 @@ def _renew_delivery_lease_until_stopped(
         except SQLAlchemyError as exc:
             # Keep database statement and parameter values out of logs.
             logger.error(  # NOSONAR - traceback details can contain database values
-                "Outbound delivery lease renewal failed: %s",
+                "Outbound delivery lease renewal failed for delivery %s: %s",
+                delivery_id,
                 type(exc).__name__,
             )
             return
@@ -555,6 +567,7 @@ def process_one_delivery(
     max_attempts: int,
     lease_seconds: int,
     delivery_id: int | None = None,
+    operational_metrics: OutboxMetrics | None = None,
 ) -> DeliveryRunResult | None:
     with session_factory() as session:
         with session.begin():
@@ -638,5 +651,28 @@ def process_one_delivery(
                 failure_code=failure_code,
             )
     if not succeeded:
-        logger.error("Outbound delivery attempt failed: %s", failure_code or "delivery_failed")
+        # Every field an operator needs to tell one stuck message from a clinic-wide outage,
+        # and to find the row afterwards. The previous line carried only the failure code:
+        # "Outbound delivery attempt failed: SMTPException" cannot distinguish one message
+        # from ten thousand.
+        logger.error(
+            "Outbound delivery attempt failed: %s",
+            json.dumps(
+                {
+                    "event": "outbox_delivery_failed",
+                    "delivery_id": claimed_id,
+                    "kind": kind,
+                    "attempt_count": claimed_attempt_count,
+                    "status": final_status,
+                    "failure_code": failure_code or "delivery_failed",
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        )
+        if operational_metrics is not None:
+            # The development path recorded mfa_delivery/password_reset_delivery failures while
+            # the durable path recorded nothing, so production had strictly less signal than
+            # development for the same failure.
+            operational_metrics.record_failure(f"outbox_{kind}")
     return DeliveryRunResult(delivery_id=claimed_id, status=final_status)

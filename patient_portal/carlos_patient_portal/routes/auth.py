@@ -731,6 +731,7 @@ def register_password_reset_routes(
                     max_attempts=deps.settings.outbox_max_attempts,
                     lease_seconds=deps.settings.outbox_lease_seconds,
                     delivery_id=delivery.id,
+                    operational_metrics=runtime.operational_metrics,
                 )
         if is_browser_form:
             return deps.render_password_reset_request(
@@ -901,6 +902,7 @@ def register_email_change_routes(
                     max_attempts=deps.settings.outbox_max_attempts,
                     lease_seconds=deps.settings.outbox_lease_seconds,
                     delivery_id=delivery.id,
+                    operational_metrics=runtime.operational_metrics,
                 )
         return render_public_auth_template(
             request,
