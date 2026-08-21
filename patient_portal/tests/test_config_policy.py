@@ -5,6 +5,7 @@ missing or weak secret has to be pinned individually or a regression silently sh
 that starts without it.
 """
 
+import os
 import re
 
 import pytest
@@ -18,6 +19,7 @@ from carlos_patient_portal.config import (
     DEFAULT_AUDIT_RETENTION_DAYS,
     DEFAULT_DATABASE_URL,
     Settings,
+    get_migration_database_url,
 )
 from carlos_patient_portal.database import (
     Base,
@@ -290,6 +292,42 @@ def test_mistyped_prefixed_environment_variables_abort_startup() -> None:
     """
     with pytest.raises(ValidationError, match="trusted_client_ip_headr"):
         development_settings(trusted_client_ip_headr="x-forwarded-for")
+
+
+def test_migrations_resolve_their_target_without_the_production_secret_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`alembic upgrade head` must need the database URL and nothing else.
+
+    Reaching the URL through Settings ran reject_unsafe_runtime_policy, so a migration Job
+    provisioned with only the URL crashed - and the workaround operators reach for is copying
+    the whole secret bundle, including the unlock keyring, into the Job.
+    """
+    for name in list(os.environ):
+        if name.startswith("PATIENT_PORTAL_"):
+            monkeypatch.delenv(name, raising=False)
+    # The default environment is production, which is where the policy suite bites.
+    monkeypatch.setenv("PATIENT_PORTAL_DATABASE_URL", DEFAULT_DATABASE_URL)
+
+    assert get_migration_database_url() == DEFAULT_DATABASE_URL
+
+    # Settings, given the identical environment, still demands the whole secret set.
+    with pytest.raises(ValidationError, match="SESSION_SECRET"):
+        Settings()
+
+
+def test_migration_settings_still_enforce_the_production_transport(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dropping the policy suite must not drop the transport check on the URL itself."""
+    for name in list(os.environ):
+        if name.startswith("PATIENT_PORTAL_"):
+            monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("PATIENT_PORTAL_ENVIRONMENT", "production")
+    monkeypatch.setenv("PATIENT_PORTAL_DATABASE_URL", "sqlite:///./not-postgres.db")
+
+    with pytest.raises(ValidationError, match="postgresql\\+psycopg"):
+        get_migration_database_url()
 
 
 def test_short_audit_retention_requires_an_explicit_opt_in() -> None:

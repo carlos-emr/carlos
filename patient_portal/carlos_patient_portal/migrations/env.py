@@ -4,7 +4,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from carlos_patient_portal import models
-from carlos_patient_portal.config import get_settings
+from carlos_patient_portal.config import get_migration_database_url
 
 config = context.config
 
@@ -18,7 +18,7 @@ def get_url() -> str:
     configured_url = config.get_main_option("sqlalchemy.url")
     if configured_url:
         return configured_url
-    return get_settings().database_url
+    return get_migration_database_url()
 
 
 def run_migrations_offline() -> None:

@@ -864,3 +864,46 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+class MigrationDatabaseSettings(BaseSettings):
+    """The database URL alone, for callers that must not require the full secret set.
+
+    `alembic upgrade head` needs one value: where the database is. Reaching it through
+    `Settings` instead ran the whole `reject_unsafe_runtime_policy` suite, so a migration
+    with only PATIENT_PORTAL_DATABASE_URL set aborted on SESSION_SECRET and then demanded
+    SMTP_HOST, the SMS webhook pair, both internal tokens, IDENTITY_PROOF_SECRET,
+    AUDIT_HASH_SECRET, the unlock keyring and a non-default clinic identity.
+
+    That is a security problem rather than an ergonomic one: a migration Job provisioned
+    with just the database URL crashes, and the workaround an operator reaches for is
+    copying the entire secret bundle into the Job - including the keyring protecting
+    patient passphrases - widening exposure of the most sensitive material in the
+    deployment for no functional reason.
+
+    The production transport check is kept, because it is a property of the connection
+    being opened rather than of the runtime policy.
+    """
+
+    environment: Environment = "production"
+    database_url: str = DEFAULT_DATABASE_URL
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_prefix="PATIENT_PORTAL_",
+        extra="ignore",
+    )
+
+    @model_validator(mode="after")
+    def validate_transport(self) -> "MigrationDatabaseSettings":
+        if self.environment == "production":
+            Settings.validate_database_transport_url(
+                self.database_url,
+                environment_name="PATIENT_PORTAL_DATABASE_URL",
+            )
+        return self
+
+
+def get_migration_database_url() -> str:
+    """Resolve the migration target without instantiating the policy-validated Settings."""
+    return MigrationDatabaseSettings().database_url
