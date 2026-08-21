@@ -237,4 +237,44 @@ class PatientPortalServiceUnitTest {
             assertThat(exception.getMessage()).doesNotContain(TOKEN);
         }
     }
+
+    /**
+     * Why the non-constant format string in {@code send} is not the injection it looks like.
+     *
+     * <p>SpotBugs reports FORMAT_STRING_MANIPULATION because the format passed to
+     * {@code String.format} is a parameter rather than a literal. It is a parameter of a
+     * <em>private</em> method, and every one of its call sites passes one of the
+     * {@code *_PATH} constants, so no caller outside this class can choose it.
+     *
+     * <p>What the detector is really guarding is a caller-supplied string reaching a format
+     * position. That is impossible here for a second, stronger reason: every path format takes
+     * only {@code %d}. This asserts that reflectively, so adding a {@code %s} — the change that
+     * would make the finding real — fails here rather than shipping.
+     */
+    @Test
+    @DisplayName("should keep every portal path format numeric-only")
+    void shouldAcceptOnlyNumericArguments_inEveryPathFormat() throws Exception {
+        java.util.List<String> pathFormats = new java.util.ArrayList<>();
+        for (java.lang.reflect.Field field : PatientPortalService.class.getDeclaredFields()) {
+            if (!field.getName().endsWith("_PATH") || field.getName().equals("INVALID_PATH")) {
+                continue;
+            }
+            assertThat(java.lang.reflect.Modifier.isStatic(field.getModifiers())).isTrue();
+            assertThat(java.lang.reflect.Modifier.isFinal(field.getModifiers())).isTrue();
+            field.setAccessible(true);
+            pathFormats.add((String) field.get(null));
+        }
+
+        assertThat(pathFormats).isNotEmpty();
+        for (String pathFormat : pathFormats) {
+            assertThat(pathFormat)
+                    .withFailMessage(
+                            "%s takes a string argument; a caller-supplied value would then reach"
+                                    + " a format position",
+                            pathFormat)
+                    .doesNotContain("%s");
+            // Every remaining directive is %d, so only numbers are ever interpolated.
+            assertThat(pathFormat.replace("%d", "")).doesNotContain("%");
+        }
+    }
 }
