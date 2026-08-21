@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
@@ -242,12 +243,19 @@ public class EformDataManagerImpl implements EformDataManager {
                     eFormBrowserPdfService.renderSavedEformPdf(loggedInInfo, fdid, approval);
             path = rendered.path();
             completeness = rendered.completeness();
-        } catch (PDFGenerationException e) {
-            // The renderer already logged a redacted cause. Record which fdid failed and the exception
-            // TYPE only for correlation — not e.getMessage(), which can re-emit unredacted renderer
-            // text (a page-generated error, URL, or path). The message still propagates to callers/UI.
-            logger.warn("EForm PDF generation failed during browser rendering: fdid={} type={}", fdid, e.getClass().getName());
+        } catch (EformContentUnavailableException e) {
             throw e;
+        } catch (PDFGenerationException e) {
+            // The renderer owns detailed diagnostics. Its message can contain page-generated text,
+            // URLs, or paths, so callers receive a stable message with no original cause chain.
+            // Retryable transient failures (renderer at capacity, render never started) are
+            // recognized structurally via isRetryable() rather than by matching the renderer's
+            // message text, which is free to be reworded without keeping this guard in sync.
+            if (e.isRetryable()) {
+                throw new PDFGenerationException(e.getMessage(), true);
+            }
+            logger.warn("EForm PDF generation failed during browser rendering");
+            throw new PDFGenerationException("EForm PDF generation failed during browser rendering.");
         } catch (RuntimeException e) {
             // Only genuinely-unexpected non-renderer errors (NPE/Spring/etc.) reach here — the renderer
             // de-chains WebDriver exceptions internally, so this carries no PHI; keep the stack for triage.
@@ -263,7 +271,7 @@ public class EformDataManagerImpl implements EformDataManager {
             throw new PDFGenerationException("EForm PDF generation produced an unreadable temporary file.");
         }
 
-        return new EformPdfRender(path, completeness);
+        return new EformPdfRender(path, completeness, Map.of(fdid, completeness));
     }
 
 
@@ -294,6 +302,12 @@ public class EformDataManagerImpl implements EformDataManager {
         }
 
         List<String> attachedHRMDocumentIds = documentAttachmentManager.getEFormAttachments(loggedInInfo, Integer.parseInt(fdid), DocumentType.HRM, Integer.parseInt(demographicId));
+        // Do not enumerate the patient's full HRM history merely to filter it down to an empty
+        // attachment set. Fax preparation calls this for every eForm packet, and most packets have
+        // no HRM attachments at all.
+        if (attachedHRMDocumentIds.isEmpty()) {
+            return new ArrayList<>();
+        }
         ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicId, false);
         ArrayList<HashMap<String, ? extends Object>> filteredHRMDocuments = new ArrayList<>(attachedHRMDocumentIds.size());
         for (String hrmId : attachedHRMDocumentIds) {
@@ -313,6 +327,10 @@ public class EformDataManagerImpl implements EformDataManager {
         }
 
         List<String> attachedForms = documentAttachmentManager.getEFormAttachments(loggedInInfo, Integer.parseInt(fdid), DocumentType.FORM, Integer.parseInt(demographicId));
+        // As with HRMs, avoid loading every encounter form when this eForm has none attached.
+        if (attachedForms.isEmpty()) {
+            return List.of();
+        }
         List<EctFormData.PatientForm> filteredForms = new ArrayList<>(attachedForms.size());
         List<EctFormData.PatientForm> allForms = formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, Integer.parseInt(demographicId), true, true);
         for (String formId : attachedForms) {

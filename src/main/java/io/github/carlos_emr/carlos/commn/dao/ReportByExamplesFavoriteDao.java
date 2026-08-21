@@ -36,7 +36,15 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.ReportByExamplesFavorite;
 
 public interface ReportByExamplesFavoriteDao extends AbstractDao<ReportByExamplesFavorite> {
-    List<ReportByExamplesFavorite> findByQuery(String query);
+    /**
+     * Finds favorites owned by one provider whose saved SQL exactly matches the supplied query.
+     *
+     * @param providerNo owner provider number
+     * @param query exact saved query text
+     * @return matching favorites owned by the provider, or an empty list when none exist
+     * @since 2026-08-06
+     */
+    List<ReportByExamplesFavorite> findByProviderAndQuery(String providerNo, String query);
 
     List<ReportByExamplesFavorite> findByEverything(String providerNo, String favoriteName, String queryString);
 

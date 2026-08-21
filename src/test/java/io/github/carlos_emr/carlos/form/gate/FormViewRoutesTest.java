@@ -48,6 +48,14 @@ class FormViewRoutesTest {
     }
 
     @Test
+    void shouldResolveLegacyFormXmlUploadJsp_toExplicitPageRoute() {
+        assertThat(FormViewRoutes.resolveActionPath("/form/formXmlUpload.jsp"))
+                .isEqualTo("/form/formXmlUpload");
+        assertThat(FormViewRoutes.resolveActionPath("/form/formXmlUpload.jsp?source=legacy"))
+                .isEqualTo("/form/formXmlUpload?source=legacy");
+    }
+
+    @Test
     void shouldResolveSpecialLegacyRoutes() {
         assertThat(FormViewRoutes.resolveActionPath("../form/forwardshortcutname.jsp?formname=Rourke"))
                 .isEqualTo("/form/forwardshortcutname?formname=Rourke");
@@ -73,6 +81,7 @@ class FormViewRoutesTest {
         assertThat(FormViewRoutes.resolveActionPath("/form/eCARES/sections/info.jsp")).isNull();
         assertThat(FormViewRoutes.resolveActionPath("/form/formSaveAndExit.jsp")).isNull();
         assertThat(FormViewRoutes.isAllowedWildcardFormView("formannual")).isTrue();
+        assertThat(FormViewRoutes.isAllowedWildcardFormView("formXmlUpload")).isFalse();
         assertThat(FormViewRoutes.isAllowedWildcardFormView("eCARES/sections/info")).isFalse();
     }
 

@@ -28,85 +28,80 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
-import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentCommentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
-import io.github.carlos_emr.carlos.log.LogAction;
-import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for demographic export request method handling.
+ * Shared unit-test fixture for {@link DemographicExportAction42Action}.
  *
- * @since 2026-05-03
+ * <p>The action resolves a dozen collaborators through {@code SpringUtils} and reads the servlet
+ * request/response from {@code ServletActionContext} statics, so every unit test of it needs the
+ * same substantial setup. Centralising it here keeps the per-behaviour test classes focused and
+ * stops the two suites from drifting apart.</p>
+ *
+ * <p>Both export privileges are granted by default; a test that exercises authorization should
+ * re-stub {@link #securityInfoManager} for the case it needs.</p>
+ *
+ * @since 2026-08-11
  */
-@Tag("unit")
-@Tag("demographic")
-@DisplayName("DemographicExportAction42Action request method handling")
-class DemographicExportAction42ActionRequestMethodTest extends CarlosUnitTestBase {
+abstract class DemographicExportActionUnitTestBase extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private AutoCloseable mocks;
 
     @Mock
-    private SecurityInfoManager securityInfoManager;
+    protected SecurityInfoManager securityInfoManager;
     @Mock
-    private LoggedInInfo loggedInInfo;
+    protected LoggedInInfo loggedInInfo;
     @Mock
-    private HttpServletRequest request;
+    protected HttpServletRequest request;
     @Mock
-    private HttpServletResponse response;
+    protected HttpServletResponse response;
     @Mock
-    private DemographicArchiveDao demographicArchiveDao;
+    protected DemographicArchiveDao demographicArchiveDao;
     @Mock
-    private DemographicContactDao demographicContactDao;
+    protected DemographicContactDao demographicContactDao;
     @Mock
-    private PartialDateDao partialDateDao;
+    protected PartialDateDao partialDateDao;
     @Mock
-    private HRMDocumentToDemographicDao hrmDocumentToDemographicDao;
+    protected HRMDocumentToDemographicDao hrmDocumentToDemographicDao;
     @Mock
-    private HRMDocumentDao hrmDocumentDao;
+    protected HRMDocumentDao hrmDocumentDao;
     @Mock
-    private HRMDocumentCommentDao hrmDocumentCommentDao;
+    protected HRMDocumentCommentDao hrmDocumentCommentDao;
     @Mock
-    private CaseManagementManager caseManagementManager;
+    protected CaseManagementManager caseManagementManager;
     @Mock
-    private Hl7TextInfoDao hl7TextInfoDao;
+    protected Hl7TextInfoDao hl7TextInfoDao;
     @Mock
-    private Hl7TextMessageDao hl7TextMessageDao;
+    protected Hl7TextMessageDao hl7TextMessageDao;
     @Mock
-    private DemographicExtDao demographicExtDao;
+    protected DemographicExtDao demographicExtDao;
 
-    private DemographicExportAction42Action action;
+    /** Action under test, rebuilt for each test method. */
+    protected DemographicExportAction42Action action;
 
     @BeforeEach
-    void setUp() {
+    void setUpExportAction() {
         mocks = MockitoAnnotations.openMocks(this);
 
         registerMock(DemographicArchiveDao.class, demographicArchiveDao);
@@ -138,7 +133,7 @@ class DemographicExportAction42ActionRequestMethodTest extends CarlosUnitTestBas
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDownExportAction() throws Exception {
         if (loggedInInfoMock != null) {
             loggedInInfoMock.close();
         }
@@ -148,38 +143,5 @@ class DemographicExportAction42ActionRequestMethodTest extends CarlosUnitTestBas
         if (mocks != null) {
             mocks.close();
         }
-    }
-
-    @Test
-    @DisplayName("should display export UI for GET requests")
-    void shouldReturnSuccess_whenRequestMethodIsGet() throws Exception {
-        when(request.getMethod()).thenReturn("GET");
-
-        String result = action.execute();
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull());
-        verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographicExport"), eq("r"), isNull());
-        verifyNoInteractions(response);
-    }
-
-    @Test
-    @DisplayName("should audit unsupported template for POST requests")
-    void shouldAuditExportAttempt_whenPostingUnsupportedTemplate() throws Exception {
-        when(request.getMethod()).thenReturn("POST");
-        action.setDemographicNo("123");
-        action.setTemplate(String.valueOf(DemographicExportAction42Action.E2E));
-
-        String result = action.execute();
-
-        assertThat(result).isNotEqualTo(ActionSupport.SUCCESS);
-        ArgumentCaptor<OscarLog> auditLogCaptor = ArgumentCaptor.forClass(OscarLog.class);
-        logActionMock.verify(() -> LogAction.addLogSynchronous(auditLogCaptor.capture()));
-        OscarLog auditLog = auditLogCaptor.getValue();
-        assertThat(auditLog.getAction()).isEqualTo(LogConst.EXPORT);
-        assertThat(auditLog.getContent()).isEqualTo(LogConst.CON_DEMOGRAPHIC);
-        assertThat(auditLog.getData()).contains("Exported 1 records", "outcome=fail", "ids=123");
-        verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull());
-        verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographicExport"), eq("r"), isNull());
     }
 }

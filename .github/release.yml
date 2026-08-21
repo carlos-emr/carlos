@@ -1,0 +1,35 @@
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+  categories:
+    - title: Security
+      labels:
+        - "type: security"
+    - title: Features and enhancements
+      labels:
+        - "type: feature"
+        - "type: enhancement"
+    - title: Bug fixes
+      labels:
+        - "type: bug"
+        - bug
+        - "Bug fix"
+    - title: Performance and refactoring
+      labels:
+        - "type: performance"
+        - "type: refactor"
+    - title: Dependencies
+      labels:
+        - "type: dependencies"
+    - title: Documentation
+      labels:
+        - "type: documentation"
+        - Documentation
+    - title: Tests
+      labels:
+        - "type: tests"
+        - Tests
+    - title: Other changes
+      labels:
+        - "*"

@@ -16,6 +16,8 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
+ *   TEST_PROVIDER_LAST_NAME=optional provider last-name prefix; blank lists active providers
+ *   TEST_PROVIDER_SEARCH_ONLY=true to skip the pre-existing schedule-link checks
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
@@ -26,6 +28,11 @@ const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
+const testProviderLastName = process.env.TEST_PROVIDER_LAST_NAME || '';
+const testProviderSearchOnly = process.env.TEST_PROVIDER_SEARCH_ONLY === 'true';
+
+// Mirrors org.owasp.csrfguard.TokenName; used only when the rendered name cannot be read.
+const DEFAULT_CSRF_TOKEN_NAME = 'CSRF-TOKEN';
 
 const findings = [];
 const visited = [];
@@ -67,6 +74,20 @@ function appUrl(appPath) {
 
 function safeGoto(page, appPath, options) {
   return page.goto(appUrl(appPath), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
+}
+
+async function responseWithTimeout(request, timeoutMs) {
+  let timeoutId;
+  try {
+    return await Promise.race([
+      request.response(),
+      new Promise((resolve) => {
+        timeoutId = setTimeout(() => resolve(null), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function isExpectedMissingAsset(status, responseUrl) {
@@ -166,6 +187,110 @@ async function clickScheduleLink(context, schedulePage, linkSpec) {
   await assertNoErrorPage(targetPage, linkSpec.label);
 }
 
+async function selectProviderFromLastNameSearch(context, schedulePage) {
+  const searchInput = schedulePage.locator('form[name="findprovider"] input[name="providername"]');
+  if (!await searchInput.count()) {
+    findings.push({ label: 'schedule-provider-search', type: 'missing-search-input' });
+    return;
+  }
+
+  const requestPromise = context.waitForEvent('request', {
+    predicate: (request) => request.method() === 'POST'
+      && /\/provider\/providercontrol(?:\?|$)/.test(request.url()),
+    timeout: 30000,
+  }).catch(() => null);
+  const providerSearchPath = new URL(appUrl('/provider/ViewReceptionistFindProvider')).pathname;
+  const tokenNamePromise = context.waitForEvent('response', {
+    predicate: (response) => response.request().resourceType() === 'document'
+      && response.status() === 200
+      && new URL(response.url()).pathname === providerSearchPath,
+    timeout: 30000,
+  }).then((response) => response.text())
+    .then((html) => {
+      const match = /id="providerSelectionCsrfToken"[^>]*\sname="([^"]+)"/.exec(html);
+      return match ? match[1] : null;
+    })
+    .catch(() => null);
+  const popupPromise = context.waitForEvent('page', { timeout: 10000 }).catch(() => null);
+  await searchInput.fill(testProviderLastName);
+  await searchInput.press('Enter');
+  const resultPage = await popupPromise;
+  if (!resultPage) {
+    findings.push({ label: 'schedule-provider-search', type: 'missing-search-popup' });
+    return;
+  }
+  wirePage(resultPage, 'schedule-provider-search');
+
+  const resultLoadedPromise = resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 })
+    .then(() => true)
+    .catch(() => false);
+  let providerRequest = await Promise.race([
+    requestPromise,
+    resultLoadedPromise.then(() => null),
+  ]);
+  if (!providerRequest) {
+    const resultLoaded = await resultLoadedPromise;
+    if (resultLoaded) {
+      await resultPage.locator('a[onclick*="selectProvider("]').first()
+        .click({ timeout: 5000 })
+        .catch(() => {});
+    }
+    providerRequest = await requestPromise;
+    if (!providerRequest && !resultLoaded) {
+      findings.push({ label: 'schedule-provider-search', type: 'search-popup-load-failure' });
+    }
+  }
+
+  if (!providerRequest) {
+    if (!findings.some((finding) => finding.label === 'schedule-provider-search'
+        && finding.type === 'search-popup-load-failure')) {
+      findings.push({ label: 'schedule-provider-search', type: 'missing-provider-result' });
+    }
+    await resultPage.close();
+    return;
+  }
+  const response = await responseWithTimeout(providerRequest, 30000);
+  const requestBody = providerRequest.postData() || '';
+
+  // The page event is emitted only after the initial response starts loading, and every
+  // selection navigates the popup by submitting the generated form. The context response
+  // wait above is therefore registered before the search and preserves the result HTML.
+  const capturedTokenName = await tokenNamePromise;
+  const observedTokenName = capturedTokenName
+    || await resultPage.locator('#providerSelectionCsrfToken')
+      .getAttribute('name', { timeout: 2000 })
+      .catch(() => null);
+  if (!observedTokenName) {
+    findings.push({ label: 'schedule-provider-search', type: 'csrf-token-name-unresolved' });
+  }
+  const tokenName = observedTokenName || DEFAULT_CSRF_TOKEN_NAME;
+
+  visited.push({
+    label: 'schedule-provider-search',
+    url: providerRequest.url(),
+    status: response ? response.status() : null,
+  });
+  if (!response) {
+    findings.push({ label: 'schedule-provider-search', type: 'provider-post-no-response' });
+  } else if (response.status() >= 400
+      && !isExpectedMissingAsset(response.status(), response.url())
+      && !findings.some((finding) => finding.label === 'schedule-provider-search'
+        && finding.type === 'http' && finding.url === response.url())) {
+    findings.push({
+      label: 'schedule-provider-search',
+      type: 'http',
+      status: response.status(),
+      url: response.url(),
+    });
+  }
+  if (!new URLSearchParams(requestBody).get(tokenName)) {
+    findings.push({ label: 'schedule-provider-search', type: 'missing-csrf-token', tokenName });
+  }
+  await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
+  await assertNoErrorPage(resultPage, 'schedule-provider-search');
+  await resultPage.close();
+}
+
 (async () => {
   const launchOptions = {
     headless: true,
@@ -180,8 +305,12 @@ async function clickScheduleLink(context, schedulePage, linkSpec) {
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
     const schedulePage = await login(context);
 
-    for (const linkSpec of scheduleLinks) {
-      await clickScheduleLink(context, schedulePage, linkSpec);
+    await selectProviderFromLastNameSearch(context, schedulePage);
+
+    if (!testProviderSearchOnly) {
+      for (const linkSpec of scheduleLinks) {
+        await clickScheduleLink(context, schedulePage, linkSpec);
+      }
     }
 
     console.log(JSON.stringify({ visited, findings }, null, 2));
@@ -191,7 +320,9 @@ async function clickScheduleLink(context, schedulePage, linkSpec) {
       throw new Error(`schedule link browser check found ${blockingFindings.length} issue(s)`);
     }
 
-    console.log('PASS schedule links rendered without HTTP or browser console failures');
+    console.log(testProviderSearchOnly
+      ? 'PASS schedule provider search submitted a CSRF-protected selection'
+      : 'PASS schedule links rendered without HTTP or browser console failures');
   } finally {
     await browser.close();
   }
