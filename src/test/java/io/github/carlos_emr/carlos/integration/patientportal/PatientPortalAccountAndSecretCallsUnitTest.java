@@ -533,4 +533,27 @@ class PatientPortalAccountAndSecretCallsUnitTest {
             assertThat(failure.getMessage()).doesNotContain("patient@example.com");
         }
     }
+
+    /**
+     * The review page was the one record in this package that did not copy its collection.
+     *
+     * <p>{@code fromJson} passed {@code List.copyOf}, so the parsed path was safe, but the
+     * canonical constructor is public: a caller building one directly handed over a list it could
+     * still mutate, and the accessor handed that same list back. Its three sibling records all
+     * copy in a compact constructor. SpotBugs reported this (EI_EXPOSE_REP / EI_EXPOSE_REP2) and
+     * it was not among the review threads.
+     */
+    @Test
+    @DisplayName("should copy the item list rather than trusting its caller")
+    void shouldCopyItems_whenConstructedDirectly() {
+        List<PatientPortalContactReviewDto> mutable = new ArrayList<>();
+        PatientPortalContactReviewPageDto page =
+                new PatientPortalContactReviewPageDto(mutable, 20, 0, 0, null);
+
+        mutable.add(null);
+
+        assertThat(page.items()).isEmpty();
+        assertThatThrownBy(() -> page.items().add(null))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
 }

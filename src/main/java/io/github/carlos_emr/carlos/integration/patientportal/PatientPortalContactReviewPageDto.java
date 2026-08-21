@@ -46,6 +46,19 @@ public record PatientPortalContactReviewPageDto(
         int total,
         Integer nextOffset) {
 
+    /**
+     * Copies the item list, matching every sibling record in this package.
+     *
+     * <p>{@code fromJson} already passed {@code List.copyOf}, but the canonical constructor is
+     * public, so a caller building this directly handed over a list it could still mutate — and
+     * the accessor handed that same list back. {@code PatientPortalStaffContext},
+     * {@code PatientPortalSettings} and {@code PortalInviteIdentityValidator.Result} all copy in
+     * a compact constructor; this record was the one that relied on its factory instead.
+     */
+    public PatientPortalContactReviewPageDto {
+        items = items == null ? List.of() : List.copyOf(items);
+    }
+
     private static final String MISSING_ITEMS = "portal review page is missing its items array";
 
     static PatientPortalContactReviewPageDto fromJson(JsonNode node) {
