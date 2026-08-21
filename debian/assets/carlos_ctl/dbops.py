@@ -96,6 +96,10 @@ UPSTREAM_PLACEHOLDER_PASSWORDS = frozenset({"liyi", "yessum", "xxxx", "password"
 def cmd_db_users(argv) -> int:
     need_root("db-users")
     require_db_root()
+    force_new = "--new-passwords" in argv
+    for a in argv:
+        if a != "--new-passwords":
+            die(f"unknown option: {a}")
     s = config.load()
 
     # Re-use existing passwords so a reconfigure or upgrade never invalidates
@@ -108,15 +112,29 @@ def cmd_db_users(argv) -> int:
     def _usable(pw: str) -> str:
         return "" if pw in UPSTREAM_PLACEHOLDER_PASSWORDS else pw
 
-    app_pw = _usable(prop_unescape(prop_get(PROPERTIES, "db_password") or "")) or genpw()
-    drugref_pw = _usable(prop_unescape(prop_get(DRUGREF_PROPERTIES, "db_password") or "")) or genpw()
-    backup_pw = _usable(env_get(BACKUP_ENV, "CARLOS_BACKUP_DB_PASSWORD") or "") or genpw()
+    def _keep(pw: str) -> str:
+        return "" if force_new else _usable(pw)
+
+    app_pw = _keep(prop_unescape(prop_get(PROPERTIES, "db_password") or "")) or genpw()
+    drugref_pw = _keep(prop_unescape(prop_get(DRUGREF_PROPERTIES, "db_password") or "")) or genpw()
+    backup_pw = _keep(env_get(BACKUP_ENV, "CARLOS_BACKUP_DB_PASSWORD") or "") or genpw()
     import re as _re
     verify_db = env_get(BACKUP_ENV, "CARLOS_BACKUP_VERIFY_DB") or "carlos_restore_drill"
     # Same rule as the settings loader applies to CARLOS_DB_NAME — one
     # identifier policy, not two subtly different ones.
     if not _re.fullmatch(r"[A-Za-z0-9_]+", verify_db):
         die(f"CARLOS_BACKUP_VERIFY_DB ('{verify_db}') must be a plain identifier (A-Za-z0-9_)")
+    # The drill DROPs every table in this schema and reloads it from the
+    # dump. The read-only contract on the live database holds ONLY because
+    # the grant below is scoped to a throwaway schema — this check is the
+    # enforcement of that. Without it, verify_db=oscar armed the weekly
+    # drill to roll the live clinical record back to last night's backup,
+    # with ALL PRIVILEGES granted here making it possible.
+    if verify_db.lower() in (s.db_name.lower(), "drugref2", "mysql",
+                             "information_schema", "performance_schema", "sys"):
+        die(f"CARLOS_BACKUP_VERIFY_DB ('{verify_db}') must be a THROWAWAY schema — "
+            "the restore drill drops and reloads it. It can never be the live "
+            "database, drugref2, or a system schema.")
 
     # Preflight the credential files BEFORE any SQL runs: the ALTER USER
     # below invalidates the live password, so discovering only afterwards
@@ -232,12 +250,13 @@ def cmd_rotate(argv) -> int:
     need_root("rotate")
     require_db_root()
     log("rotating database passwords")
-    prop_set(PROPERTIES, "db_password", "")
-    if os.path.isfile(DRUGREF_PROPERTIES):
-        prop_set(DRUGREF_PROPERTIES, "db_password", "")
-    if os.path.isfile(BACKUP_ENV):
-        util.env_set(BACKUP_ENV, "CARLOS_BACKUP_DB_PASSWORD", "")
-    cmd_db_users([])
+    # The passwords are forced fresh INSIDE db-users, not by blanking the
+    # credential files first: a failure between the old blanking step and
+    # the provisioning left all three files EMPTY while the database kept
+    # the old passwords — the worst possible record. Now a failure at any
+    # point leaves the files holding complete (at worst stale) credentials,
+    # and the recovery for every partial state is the same: re-run rotate.
+    cmd_db_users(["--new-passwords"])
     if run(["systemctl", "restart", "carlos-emr.service"]).returncode != 0:
         # The new credential is provisioned and written out, but the service
         # did not come back — saying "restarted" here would hide an outage.
@@ -354,7 +373,7 @@ def cmd_db_apply_settings(argv) -> int:
         time.sleep(1)
     else:
         die("MariaDB did not come back after the restart")
-    still = [v for v in ("log_bin", "sql_mode") if _global(v) not in checks[v]]
+    still = [v for v, want in checks.items() if _global(v) not in want]
     if still:
         warn("MariaDB restarted but is STILL not running the CARLOS settings.")
         warn("Something later in /etc/mysql/ overrides the drop-in — option files are "
@@ -406,6 +425,18 @@ def cmd_bootstrap_admin(argv) -> int:
     # into, with a message blaming the password. Verified live.
     pin = genrandom(4, "0123456789")
     hashed = "{bcrypt}" + bcrypt.hashpw(password.encode(), bcrypt.gensalt(12)).decode()
+
+    # FILE FIRST, database second — the same discipline db-users applies to
+    # its credential files. The old order ran the UPDATE and only then wrote
+    # initial-admin.txt: a failed write (full root filesystem, damaged
+    # /etc/carlos-emr) lost the only copy of the new password, and because
+    # the seeded hash was already replaced, a re-run said "nothing to
+    # reset" — the account was recoverable only by hand-written SQL. If the
+    # UPDATE below fails instead, the file merely holds an unused credential
+    # and the next run regenerates it.
+    outfile = os.path.join(CONF_DIR, "initial-admin.txt")
+    if not os.path.isdir(CONF_DIR):
+        die(f"{CONF_DIR} does not exist — reinstall carlos-emr before resetting the seeded credential")
     sql = f"""
 SET SESSION sql_log_bin = 0;
 UPDATE `{s.db_name}`.security
@@ -416,11 +447,6 @@ UPDATE `{s.db_name}`.security
        lastUpdateUser='carlos-ctl'
  WHERE user_name='{user}';
 """
-    cp = db_root([], input=sql, capture_output=True)
-    if cp.returncode != 0:
-        die(f"could not reset the seeded credential:\n{cp.stderr.strip()}")
-
-    outfile = os.path.join(CONF_DIR, "initial-admin.txt")
     content = f"""CARLOS EMR initial administrator credentials
 ============================================
 Generated by the carlos-emr package on {util.out(['date', '-Is'])}.
@@ -451,10 +477,21 @@ DO THIS NOW, IN THIS ORDER:
 This file is mode 0600 and readable only by root. It is NOT included in the
 backup.
 """
-    fd = os.open(outfile, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as fh:
-        fh.write(content)
-    os.chown(outfile, 0, 0)
+    try:
+        fd = os.open(outfile, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as fh:
+            fh.write(content)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.chown(outfile, 0, 0)
+    except OSError as e:
+        die(f"could not write {outfile} ({e}); the seeded credential was NOT touched — "
+            "fix the cause and re-run 'carlos-ctl bootstrap-admin'")
+
+    cp = db_root([], input=sql, capture_output=True)
+    if cp.returncode != 0:
+        # The file holds an unused credential; the next run regenerates it.
+        die(f"could not reset the seeded credential:\n{cp.stderr.strip()}")
     log(f"reset the seeded '{user}' credential; the new password and PIN are in {outfile}")
     return 0
 
@@ -495,6 +532,17 @@ backups survive, which is almost always what you want — a decommissioned
 instance whose backups are gone is not decommissioned, it is lost.""", file=sys.stderr)
         return 2
 
+    # Reachability is checked BEFORE anything is destroyed: continuing past
+    # an unreachable MariaDB removed the documents and (with
+    # --including-backups) shredded the key material while the clinical
+    # DATABASES survived intact on disk — and still printed "done." with
+    # exit 0. The report must be exact; a partial destruction that cannot
+    # even start its most important leg refuses instead.
+    if not db_root_ok():
+        die("MariaDB is not reachable, so the clinical databases CANNOT be dropped — "
+            "refusing to start a destruction that would be incomplete. Start MariaDB "
+            "(systemctl start mariadb) and re-run.")
+
     warn(f"destroying the CARLOS clinical data on {s.server_name}")
     if os.path.isdir("/run/systemd/system"):
         run(["systemctl", "stop", "carlos-emr.service"], capture_output=True)
@@ -519,9 +567,6 @@ DROP USER IF EXISTS 'backup'@'127.0.0.1';
             # did not happen.
             die("DROP DATABASE batch FAILED — the clinical databases may "
                 "still exist; nothing was reported destroyed")
-    else:
-        warn("MariaDB is not reachable; the databases were NOT dropped")
-
     import shutil
     log("removing patient documents, heap dumps and logs")
     # Errors are collected and REPORTED, never ignored: this command's whole
@@ -537,6 +582,16 @@ DROP USER IF EXISTS 'backup'@'127.0.0.1';
         for e in rm_errors[:10]:
             warn(f"could not remove: {e}")
         die("destruction is INCOMPLETE — the paths above still hold data")
+    # Recreate the EMPTY directory skeleton: the rmtree above removed the
+    # directories themselves, and the still-installed services need them —
+    # live-tested: with modsec/ gone, the running nginx kept serving on its
+    # open descriptors but every later `nginx -t` (and therefore every
+    # reload and cert operation) failed until the tmpfiles skeleton was
+    # restored. Data stays destroyed; the empty, correctly-owned directories
+    # come back.
+    if os.path.isdir("/run/systemd/system"):
+        run(["systemd-tmpfiles", "--create", "/usr/lib/tmpfiles.d/carlos-emr.conf"],
+            capture_output=True)
 
     if include_backups:
         log("removing backups")

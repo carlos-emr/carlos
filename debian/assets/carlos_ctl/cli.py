@@ -96,6 +96,11 @@ def _cmd_lifecycle(verb: str, argv) -> int:
     # Thin passthroughs so day-two administration has one entry point.
     # `restart` is what applies carlos-emr.env and carlos.properties changes;
     # expect ~2 minutes for the webapp to redeploy.
+    if argv:
+        # Silently discarding arguments turned 'carlos-ctl restart nginx'
+        # into a restart of the EMR — the opposite of what was asked.
+        die(f"'{verb}' takes no arguments; it manages carlos-emr.service only "
+            f"(for other units use systemctl directly)")
     need_root(verb)
     os.execvp("systemctl", ["systemctl", verb, "carlos-emr.service"])
     raise AssertionError("unreachable: execvp replaces the process")

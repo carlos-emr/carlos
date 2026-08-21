@@ -141,6 +141,16 @@ When the last backup and the last restore drill succeeded.
 .TP
 .BR "backup snapshots" " [\fIargs\fR]"
 List the contents of the restic repository.
+.TP
+.BR "backup restic " \fIargs\fR
+Raw restic passthrough with the repository location and passphrase loaded
+from backup.env, running as the
+.B carlos\-backup
+user. This is what the documented restore procedure is built on
+(\fBrestic restore latest \-\-tag db \-\-target ...\fR); a bare
+.B restic
+would not see the repository. Runs outside the timer unit's sandbox, so it
+can also restore to paths the unit itself may not write.
 .SS Provisioning
 .TP
 .B init-config
@@ -173,9 +183,16 @@ Rotate every generated database password and restart the application.
 .BI "destroy-data --confirm " server-name
 The ONLY supported way this software destroys clinical data. It DROPs the
 EMR and DrugRef databases and deletes patient documents, heap dumps and
-application logs; backups survive unless
+application logs (the empty directory skeleton is recreated so the still-
+installed services keep working); backups survive unless
 .B --including-backups
-is also given. Removing or purging the packages never does any of this. The
+is also given, which additionally deletes /var/backups/carlos-emr and
+SHREDS backup.env and carlos.properties \(em the restic passphrase and the
+application AES key, precisely so a copied-off repository cannot be read.
+After it, a reinstall (or restored escrow copies of those two files) is
+required before the host can run the EMR or read any remaining backup.
+It refuses to run while MariaDB is unreachable: a destruction that cannot
+drop the databases does not start. Removing or purging the packages never does any of this. The
 command refuses unless the host's own configured name is typed back to it.
 .SH FILES
 .TP

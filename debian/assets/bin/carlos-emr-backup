@@ -64,8 +64,16 @@ DB_HOST="${CARLOS_BACKUP_DB_HOST:-127.0.0.1}"
 DB_PORT="${CARLOS_BACKUP_DB_PORT:-3306}"
 DB_NAME="${CARLOS_BACKUP_DB_NAME:-oscar}"
 KEEP="${CARLOS_BACKUP_KEEP:---keep-daily 7 --keep-weekly 5 --keep-monthly 12}"
+# How long shipped binary logs stay restorable. This bounds the
+# point-in-time window: a dump OLDER than this can still be restored, but
+# only to its own instant (no roll-forward). KEEP above does not govern it.
+BINLOG_KEEP="${CARLOS_BACKUP_BINLOG_KEEP:-9d}"
 VERIFY_DB="${CARLOS_BACKUP_VERIFY_DB:-carlos_restore_drill}"
-CHECK_DOW="${CARLOS_BACKUP_CHECK_READ_DATA_DOW:-7}"
+# Saturday, NOT Sunday: the Sunday-morning drill (04:30) waits at most 2h
+# for the backup lock, and the read-data check on a large repository can
+# hold Sunday's 01:30 nightly well past that — the drill then failed weekly
+# with a misleading "wedged" alert.
+CHECK_DOW="${CARLOS_BACKUP_CHECK_READ_DATA_DOW:-6}"
 
 # The password never appears on a command line: any local user can read
 # /proc/<pid>/cmdline while the process runs, and this one opens a database
@@ -129,17 +137,31 @@ print(json.dumps({
 acquire_lock() {
     exec 9>"${STATE_DIR}/.lock"
     if ! flock -w 7200 9; then
-        alert "could not acquire the backup lock within 2h"               "another run is wedged (fuser -v ${STATE_DIR}/.lock). No backup was taken tonight."
+        alert "could not acquire the backup lock within 2h"               "another run still holds it — most likely a long weekly read-data check or an initial offsite seed, otherwise a wedged run (fuser -v ${STATE_DIR}/.lock). Nothing was taken this run."
         exit 1
     fi
 }
 
 ensure_repo() {
     if restic cat config >/dev/null 2>&1; then
+        printf '%s\n' "${RESTIC_REPOSITORY}" > "${STATE_DIR}/.repo-known"
         return 0
+    fi
+    # A repository this host has successfully used before that suddenly has
+    # no config is NOT a first run — it is an unmounted mountpoint, a wiped
+    # or damaged store, or the wrong target. Quietly running `restic init`
+    # there started a fresh EMPTY history while every old snapshot sat
+    # elsewhere, and the night went green. First-run initialisation only
+    # happens for a repository path this host has never recorded.
+    if [ -r "${STATE_DIR}/.repo-known" ] && \
+            [ "$(cat "${STATE_DIR}/.repo-known")" = "${RESTIC_REPOSITORY}" ]; then
+        alert "backup repository is unreachable or damaged — NOT re-initialising" \
+              "restic cannot open the repository at ${RESTIC_REPOSITORY} that this host has used before (unmounted disk? wiped store? credentials?). Refusing to start a fresh empty history over it. Fix the repository, or change RESTIC_REPOSITORY and remove ${STATE_DIR}/.repo-known to genuinely start over."
+        exit 1
     fi
     log "initialising restic repository at ${RESTIC_REPOSITORY}"
     restic init
+    printf '%s\n' "${RESTIC_REPOSITORY}" > "${STATE_DIR}/.repo-known"
 }
 
 cleanup() {
@@ -188,11 +210,27 @@ dump_database() {
     # --no-tablespaces       keeps mariadb-dump away from INFORMATION_SCHEMA.FILES,
     #                        which would need the PROCESS privilege this account
     #                        deliberately does not have
-    mariadb-dump "${MYSQL_ARGS[@]}" \
+    # Checked explicitly so the failure ALERTS with a diagnosis instead of
+    # aborting through errexit into the generic catch-all. The binlog-off
+    # case matters most: --master-data itself requires binary logging, so
+    # with logging off the DUMP is what fails — live-tested, and the generic
+    # "aborted unexpectedly (exit 2)" it used to produce sent the operator
+    # hunting in entirely the wrong direction.
+    if ! mariadb-dump "${MYSQL_ARGS[@]}" \
         --single-transaction --master-data=2 --hex-blob \
         --routines --events --triggers --no-tablespaces \
         --default-character-set=utf8mb4 \
-        "${DB_NAME}" > "${out}"
+        "${DB_NAME}" > "${out}"; then
+        rm -f "${out}"
+        if [ "$(mariadb "${MYSQL_ARGS[@]}" -N -B -e "SHOW VARIABLES LIKE 'log_bin'" 2>/dev/null | awk '{print $2}')" = "OFF" ]; then
+            alert "binary logging is OFF — no dump was taken" \
+                  "mariadb-dump needs binary logging for its --master-data recovery anchor, and point-in-time recovery needs it full stop. Check log_bin in /etc/mysql/mariadb.conf.d/60-carlos-emr.cnf ('carlos-ctl db-apply-settings' restarts MariaDB with it)."
+        else
+            alert "database dump FAILED" \
+                  "mariadb-dump of ${DB_NAME} exited with an error (server down? credential revoked? disk full?). No dump was shipped tonight — run 'journalctl -u carlos-emr-backup -n 50'."
+        fi
+        return 1
+    fi
     # A dump that ends without the completion marker was truncated — by a
     # killed connection, a full disk, a max_allowed_packet ceiling. Shipping it
     # would produce a backup that restores into a silently incomplete database.
@@ -239,16 +277,29 @@ ship_binlogs() {
     # own — the run then ships whatever is already closed — but it is loud,
     # because a persistent failure means the PITR window has stopped moving.
     if ! mariadb "${MYSQL_ARGS[@]}" -e 'FLUSH BINARY LOGS' 2>/dev/null; then
-        warn "FLUSH BINARY LOGS failed (does the backup account still have RELOAD?);"
-        warn "shipping only binlogs that were already closed."
+        # An alert AND a failed run, not a journal-only warn: on a quiet
+        # site a persistently failing rotation ships nothing while every
+        # night stays green — the point-in-time window silently stops
+        # moving, which is exactly the state this job exists to prevent.
+        alert "FLUSH BINARY LOGS failed — the point-in-time window is not advancing" \
+              "the backup account has likely lost RELOAD ('carlos-ctl db-users' restores it). This run ships only binlogs that were already closed and the unit is FAILED so someone hears about it."
+        FLUSH_FAILED=1
     fi
 
     # The LAST name in SHOW BINARY LOGS is the file the server is now writing
     # to; shipping it would capture a half-written event. Everything before it
     # is closed and complete, and closed binlogs are immutable — so each one is
     # shipped exactly once and the marker records how far we got.
-    local logs last previous="" shipped=""
-    logs="$(mariadb "${MYSQL_ARGS[@]}" -N -B -e 'SHOW BINARY LOGS' 2>/dev/null | awk '{print $1}' || true)"
+    local logs last previous="" shipped="" logs_raw
+    if ! logs_raw="$(mariadb "${MYSQL_ARGS[@]}" -N -B -e 'SHOW BINARY LOGS' 2>&1)"; then
+        # A client/privilege failure is not the same finding as "logging is
+        # off" — the old path collapsed both into the OFF alert and threw
+        # the real error text away.
+        alert "cannot list binary logs" \
+              "SHOW BINARY LOGS failed as the backup account: ${logs_raw}. Check the account's grants ('carlos-ctl db-users') and that MariaDB is running."
+        return 1
+    fi
+    logs="$(printf '%s\n' "${logs_raw}" | awk '{print $1}')"
     if [ -z "${logs}" ]; then
         # An alert, not a warn-and-succeed: with the binary log off, the code
         # comments' whole recovery story is fiction, and a green nightly unit
@@ -399,7 +450,9 @@ cmd_run() {
     # shipped. Remember the failure, finish the run, exit non-zero at the
     # end. Review finding, confirmed by inspection.
     run_failed=0
+    FLUSH_FAILED=0
     ship_binlogs "${WORK_DIR}/binlog" || run_failed=1
+    [ "${FLUSH_FAILED}" = 1 ] && run_failed=1
 
     # Documents and the configuration that is not a secret. carlos.properties
     # IS included: it carries the AES key the application uses to encrypt
@@ -437,7 +490,7 @@ cmd_run() {
         restic forget --tag "${tag}" --host "$(hostname -s)-carlos" ${KEEP}
     done
     # Binary logs only matter within reach of a full dump to replay them onto.
-    restic forget --tag binlog --host "$(hostname -s)-carlos" --keep-within 9d
+    restic forget --tag binlog --host "$(hostname -s)-carlos" --keep-within "${BINLOG_KEEP}"
     restic prune
 
     if [ "${CHECK_DOW}" != 0 ] && [ "$(date +%u)" = "${CHECK_DOW}" ]; then
@@ -499,7 +552,13 @@ cmd_verify() {
         | mariadb "${MYSQL_ARGS[@]}" "${VERIFY_DB}"
 
     log "loading the dump (this is the part that proves the backup is real)"
-    if ! mariadb "${MYSQL_ARGS[@]}" --default-character-set=utf8mb4 "${VERIFY_DB}" < "${dump}"; then
+    # DEFINER clauses are stripped for the DRILL only: the dump carries
+    # DEFINER=`root`@`localhost` on triggers/routines the moment a site adds
+    # one, and the unprivileged backup account cannot create objects with a
+    # foreign definer — the drill would then page "NOT restorable" about a
+    # dump that restores fine under the documented root procedure.
+    if ! sed -E 's|/\*!5001[37] DEFINER=`[^`]+`@`[^`]+`\s*\*/||g; s|DEFINER=`[^`]+`@`[^`]+`||g' "${dump}" \
+            | mariadb "${MYSQL_ARGS[@]}" --default-character-set=utf8mb4 "${VERIFY_DB}"; then
         alert "restore drill failed" "the newest database dump did not load into ${VERIFY_DB}. The backups are NOT restorable."
         exit 1
     fi
@@ -521,8 +580,42 @@ cmd_verify() {
         exit 1
     fi
 
+    # Existence is not enough — a structurally-complete but DATA-LESS
+    # restore must not pass. The live table is the yardstick: a fresh
+    # clinic with zero patients passes with zero rows, but the moment the
+    # live record has patients, a restore that comes back empty pages.
     n="$(mariadb "${MYSQL_ARGS[@]}" -N -B -e "SELECT COUNT(*) FROM \`${VERIFY_DB}\`.demographic")"
-    log "restore drill passed: ${n} demographic row(s) restored from the newest backup"
+    live_n="$(mariadb "${MYSQL_ARGS[@]}" -N -B -e "SELECT COUNT(*) FROM \`${DB_NAME}\`.demographic" 2>/dev/null || echo "${n}")"
+    if [ "${n}" = 0 ] && [ "${live_n}" != 0 ]; then
+        alert "restore drill failed" \
+              "the restored database loaded but holds ZERO demographic rows while the live database has ${live_n} — the newest dump is structurally intact and clinically EMPTY."
+        exit 1
+    fi
+
+    # The db leg is proven by loading it; the files and binlog legs at least
+    # get their presence and content-shape asserted, so a green drill can no
+    # longer coexist with a files snapshot that silently stopped carrying
+    # the documents or the configuration.
+    # Captured once, tested from the variable: `restic ls | grep -q` under
+    # pipefail kills restic with SIGPIPE on the FIRST match and the pipeline
+    # "fails" precisely because the file was found. (Same bug class as the
+    # tr|head SIGPIPE this package fixed at birth.)
+    local files_list
+    files_list="$(restic ls latest --tag files 2>/dev/null || true)"
+    if ! printf '%s' "${files_list}" | grep -q "carlos.properties"; then
+        alert "restore drill failed" "the newest files snapshot does not contain carlos.properties — configuration (and the AES key) is NOT being backed up."
+        exit 1
+    fi
+    if ! printf '%s' "${files_list}" | grep -q "OscarDocument"; then
+        alert "restore drill failed" "the newest files snapshot contains no OscarDocument paths — patient documents are NOT being backed up."
+        exit 1
+    fi
+    if ! restic snapshots --tag binlog >/dev/null 2>&1 || \
+            [ "$(restic snapshots --tag binlog --json 2>/dev/null | head -c 3)" = "[]" ]; then
+        warn "no binlog snapshots in the repository yet; point-in-time replay is unproven"
+    fi
+
+    log "restore drill passed: ${n} demographic row(s) restored from the newest backup; files snapshot carries configuration and documents"
     date -Is > "${STATE_DIR}/.last-verify"
 }
 

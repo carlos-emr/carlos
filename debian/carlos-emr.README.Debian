@@ -353,9 +353,15 @@ sequence has been exercised end to end (DROP DATABASE and back):
   #    second operator).
   sudo carlos-ctl backup restic restore latest --tag db \
       --target /var/backups/carlos-emr/dr
-  # 2. Load it. SET SESSION sql_log_bin=0 matters: without it the recovery
-  #    itself is written into the binary log and becomes part of the very
-  #    chain the next backup ships.
+  # 2. Re-create the database, then load. The dump deliberately carries no
+  #    CREATE DATABASE (it is scoped to the schema's contents), so after a
+  #    DROP DATABASE this step fails with "Unknown database" without it —
+  #    live-tested:
+  sudo mariadb -e "CREATE DATABASE oscar
+      CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
+  #    SET SESSION sql_log_bin=0 matters: without it the recovery itself is
+  #    written into the binary log and becomes part of the very chain the
+  #    next backup ships.
   sudo bash -c "mariadb --init-command='SET SESSION sql_log_bin=0' oscar \
       < /var/backups/carlos-emr/dr/.../oscar.sql"
   #    (sudo bash -c, not a bare redirect: YOUR shell opens the file before
@@ -386,7 +392,26 @@ sequence has been exercised end to end (DROP DATABASE and back):
   #    duplicate-key error (there is no --force here), so everything in NN
   #    after that error — the transactions you are trying to recover — would
   #    silently never be applied.
+  #    RECOVERING TO A POINT, not to now (you are restoring because
+  #    something BAD was written — replaying everything would faithfully
+  #    replay the bad change too): find the first event past your target in
+  #    the decoded SQL (each event group is headed by a
+  #    "#YYMMDD HH:MM:SS server id ..." line), DELETE from that line to the
+  #    end of that file, replay the truncated file LAST, and do not replay
+  #    any later file.
+  #    One caveat on the shipped logs themselves: they are decoded with
+  #    --database=oscar, which keeps every row change but can only keep
+  #    statement-logged events (DDL such as ALTER/TRUNCATE) when the issuing
+  #    session had oscar as its default database. carlos-ctl db-migrate does;
+  #    run any manual DDL as `mariadb oscar` (not cross-schema) or it will be
+  #    absent from the replay.
   sudo carlos-ctl db-validate
+  # If drugref2 is also gone (a decommissioned host, a fresh rebuild): it has
+  # no backup leg BY DESIGN — the dataset rebuilds from the packaged seed:
+  #   sudo mariadb -e 'DROP DATABASE IF EXISTS drugref2'   # only if half-present
+  #   sudo dpkg-reconfigure carlos-emr-drugref
+  # (Live-tested: until you do, drug lookups fail and 'carlos-ctl check'
+  # reports DrugRef not answering.)
   # The restored dump and decoded logs are plaintext PHI — remove them.
   sudo rm -rf /var/backups/carlos-emr/dr
   sudo systemctl start carlos-emr-backup.timer carlos-emr-backup-verify.timer

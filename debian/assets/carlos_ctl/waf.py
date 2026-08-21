@@ -35,6 +35,12 @@ def _set_engine(value: str) -> None:
             lines = fh.read().split("\n")
     except OSError as e:
         die(f"cannot read the WAF policy: {e} — reinstall carlos-emr to restore it")
+    hits = sum(1 for line in lines if re.match(r"^SecRuleEngine\s", line))
+    if hits == 0:
+        # Rewriting nothing and then reporting the new mode would leave the
+        # file and this tool's claim disagreeing with the running policy.
+        die(f"no active SecRuleEngine directive found in {MAIN} — the policy file "
+            "is damaged; reinstall carlos-emr or restore it from backup")
     out = [f"SecRuleEngine {value}" if re.match(r"^SecRuleEngine\s", line) else line
            for line in lines]
     text = "\n".join(out)
@@ -113,7 +119,13 @@ def cmd_waf(argv) -> int:
         # carry PHI-correlating identifiers, and the point of this verb is to
         # be safe to read over a shoulder. The full record stays in the
         # root-only audit file.
-        n = int(rest[0]) if rest and rest[0].isdigit() else 200
+        # Validated, not guessed at: 'tail abc' used to silently show 200
+        # lines, and 'tail 0' dumped [-0:] — the ENTIRE audit log.
+        n = 200
+        if rest:
+            if not rest[0].isdigit() or int(rest[0]) < 1:
+                die(f"waf tail takes a positive line count, got '{rest[0]}'")
+            n = int(rest[0])
         try:
             with open(AUDIT, encoding="utf-8", errors="replace") as fh:
                 lines = fh.readlines()[-n:]

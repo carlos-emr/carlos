@@ -10,7 +10,7 @@ import time
 
 from . import config, dbops, util
 from .util import (
-    BACKUP_ENV, CONF_DIR, GREEN, LIB, RED, RESET, YELLOW, out, run,
+    BACKUP_ENV, CONF_DIR, GREEN, LIB, RED, RESET, YELLOW, need_root, out, run,
 )
 
 _failures = 0
@@ -38,15 +38,24 @@ def _is_loopback(addr: str) -> bool:
     return a.startswith("127.") or a == "::1" or a.startswith("::ffff:127.")
 
 
-def _listener(port: str):
-    """First listener bound to exactly this port. Split on the LAST colon —
-    a plain endswith(":443") also matched ":8443" and would have reported
-    the front door up when only some other service was."""
+def _listeners(port: str):
+    """EVERY listener bound to exactly this port — a service can bind
+    loopback and a public address at once, and checking only the first
+    line of ss output missed the second. Split on the LAST colon: a plain
+    endswith(":443") also matched ":8443" and would have reported the
+    front door up when only some other service was."""
+    found = []
     for line in out(["ss", "-ltnH"]).splitlines():
         cols = line.split()
         if len(cols) >= 4 and cols[3].rsplit(":", 1)[-1] == port:
-            return cols[3]
-    return None
+            found.append(cols[3])
+    return found
+
+
+def _listener(port: str):
+    """First listener on the port, for is-anything-there checks."""
+    ls = _listeners(port)
+    return ls[0] if ls else None
 
 
 def _curl(args, timeout=20):
@@ -57,6 +66,10 @@ def _curl(args, timeout=20):
 def cmd_check(argv) -> int:
     global _failures
     _failures = 0
+    # Root is required for what check READS (credential files, TLS pair,
+    # the WAF policy): without it half the probes false-failed with
+    # misleading diagnoses instead of one clear message.
+    need_root("check")
     s = config.load()
     print(f"\nCARLOS EMR deployment check ({s.server_name})\n")
 
@@ -88,20 +101,21 @@ def cmd_check(argv) -> int:
     # Tomcat must not be reachable except on loopback: anything else is a
     # path around the WAF — and therefore around TLS, the headers and the
     # rate limit in one step.
-    addr = _listener("18080")
-    if addr is None:
+    addrs = _listeners("18080")
+    exposed = [a for a in addrs if not _is_loopback(a.rsplit(":", 1)[0])]
+    if not addrs:
         _bad("nothing is listening on 18080 — is carlos-emr running?")
-    elif _is_loopback(addr.rsplit(":", 1)[0]):
-        _ok(f"Tomcat listens on loopback only ({addr})")
+    elif exposed:
+        _bad(f"Tomcat is listening on {', '.join(exposed)} — requests can bypass the WAF")
     else:
-        _bad(f"Tomcat is listening on {addr} — requests can bypass the WAF")
-    addr = _listener("3306")
-    if addr is not None:
-        if _is_loopback(addr.rsplit(":", 1)[0]):
-            _ok(f"MariaDB listens on loopback only ({addr})")
-        else:
-            _bad(f"MariaDB is listening on {addr} — check bind-address in "
-                 "/etc/mysql/mariadb.conf.d/60-carlos-emr.cnf")
+        _ok(f"Tomcat listens on loopback only ({', '.join(addrs)})")
+    addrs = _listeners("3306")
+    exposed = [a for a in addrs if not _is_loopback(a.rsplit(":", 1)[0])]
+    if exposed:
+        _bad(f"MariaDB is listening on {', '.join(exposed)} — check bind-address in "
+             "/etc/mysql/mariadb.conf.d/60-carlos-emr.cnf")
+    elif addrs:
+        _ok(f"MariaDB listens on loopback only ({', '.join(addrs)})")
     if _listener("443"):
         _ok("nginx is listening on 443")
     else:
