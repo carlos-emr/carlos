@@ -229,7 +229,12 @@ class MutatorActionGetRejectionContractUnitTest {
             // saveDocument. Registered explicitly for the same reason DelEForm2Action is: the eform
             // package is not in IN_SCOPE_PACKAGE_PREFIXES, so the discovery scan does not find it.
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.SaveEFormAsEDoc2Action",
-                    "_eform", "u")
+                    "_eform", "u"),
+            // Replaces the shared antenatal risk-list configuration file. The HTTP
+            // method is checked before authorization, so a GET rejects without any
+            // hasPrivilege call — the declared tuple below is the POST-path bar.
+            Arguments.of("io.github.carlos_emr.carlos.decision.gate.SaveAntenatalRiskConfig2Action",
+                    "_form", "w")
         );
     }
 
