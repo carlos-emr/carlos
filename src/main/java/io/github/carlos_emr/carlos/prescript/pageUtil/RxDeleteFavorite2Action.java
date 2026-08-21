@@ -63,7 +63,11 @@ public final class RxDeleteFavorite2Action extends ActionSupport {
 
 
         int favoriteId = Integer.parseInt(this.getFavoriteId());
-        new RxPrescriptionData().deleteFavorite(favoriteId);
+        String sessionProvider = (String) request.getSession().getAttribute("user");
+        if (!new RxPrescriptionData().deleteFavorite(favoriteId, sessionProvider)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return null;
+        }
 
         // Setup variables
         return SUCCESS;
