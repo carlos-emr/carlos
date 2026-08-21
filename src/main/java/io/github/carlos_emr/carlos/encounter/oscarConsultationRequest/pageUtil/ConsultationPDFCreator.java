@@ -35,13 +35,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
 
 import jakarta.servlet.http.HttpServletRequest;
-import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -323,7 +323,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         PdfPTable datelineborder = new PdfPTable(1);
         datelineborder.setWidthPercentage(100f);
         PdfPCell datecell = new PdfPCell();
-        datecell.setPhrase(new Phrase(String.format("%s %s", getResource("msgDate"), reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.referalDate)));
+        datecell.setPhrase(new Phrase(String.format("%s %s", getResource("msgDate"), "1".equals(reqFrm.pwb) ? getResource("pwb") : reqFrm.referalDate)));
         datecell.setBorder(0);
         datecell.setColspan(1);
         datecell.setPaddingTop(5f);
@@ -501,7 +501,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             Integer programNo = Integer.parseInt(reqFrm.letterheadName.substring(5));
             letterheadName = programDao.getProgramName(programNo);
 
-        } else if (!"-1".equals(reqFrm.letterheadName) && !reqFrm.letterheadName.equals(clinic.getClinicName())) {
+        } else if (!"-1".equals(reqFrm.letterheadName) && !StringUtils.noNull(reqFrm.letterheadName).equals(clinic.getClinicName())) {
 
             Provider letterheadNameProvider = null;
 
@@ -593,9 +593,9 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         }
 
         infoTable.addCell(setInfoCell(cell, getResource("msgUrgency")));
-        infoTable.addCell(setDataCell(cell, (reqFrm.urgency.equals("1") ? getResource("msgUrgent") :
-                (reqFrm.urgency.equals("2") ? getResource("msgNUrgent") :
-                        (reqFrm.urgency.equals("3")) ? getResource("msgReturn")
+        infoTable.addCell(setDataCell(cell, ("1".equals(reqFrm.urgency) ? getResource("msgUrgent") :
+                ("2".equals(reqFrm.urgency) ? getResource("msgNUrgent") :
+                        ("3".equals(reqFrm.urgency)) ? getResource("msgReturn")
                                 : "  "))));
 
         infoTable.addCell(setInfoCell(cell, getResource("msgService")));
@@ -686,14 +686,12 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
                 reqFrm.patientHealthNum,
                 reqFrm.patientHealthCardVersionCode)));
 
-        if (!reqFrm.pwb.equals("1")) {
+        if (!"1".equals(reqFrm.pwb)) {
             infoTable.addCell(setInfoCell(cell, getResource("msgappDate")));
-            infoTable.addCell(setDataCell(cell, reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.appointmentDate));
+            infoTable.addCell(setDataCell(cell, reqFrm.appointmentDate));
             infoTable.addCell(setInfoCell(cell, getResource("msgTime")));
-            infoTable.addCell(setDataCell(cell, String.format("%s%s%s %s", reqFrm.appointmentHour,
-                    !reqFrm.appointmentMinute.equals("") ? ":" : "",
-                    reqFrm.appointmentMinute,
-                    reqFrm.appointmentPm)));
+            infoTable.addCell(setDataCell(cell, formatAppointmentTime(reqFrm.appointmentHour,
+                    reqFrm.appointmentMinute, reqFrm.appointmentPm)));
         }
 
         infoTable.addCell(setInfoCell(cell, getResource("msgChart")));
@@ -773,6 +771,17 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
                 logger.error("An error occurred while trying to create an image from the signature", e);
             }
         }
+    }
+
+    static String formatAppointmentTime(String appointmentHour, String appointmentMinute, String appointmentPm) {
+        String safeHour = StringUtils.noNull(appointmentHour);
+        String safeMinute = StringUtils.noNull(appointmentMinute);
+        String safePm = StringUtils.noNull(appointmentPm);
+        if (safeHour.isEmpty()) {
+            return "";
+        }
+        String separator = safeMinute.isEmpty() ? "" : ":";
+        return String.format("%s%s%s %s", safeHour, separator, safeMinute, safePm).trim();
     }
 
     static Image createScaledSignatureImage(byte[] signatureImage) throws BadElementException, IOException {
@@ -888,7 +897,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             return false;
         }
         return (signatureImageOverride != null && signatureImageOverride.length > 0)
-                || StringUtils.isNotBlank(signatureImageId);
+                || org.apache.commons.lang3.StringUtils.isNotBlank(signatureImageId);
     }
 
     /**

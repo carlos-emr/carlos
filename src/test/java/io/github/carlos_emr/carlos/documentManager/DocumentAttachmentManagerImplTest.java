@@ -21,6 +21,7 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.managers.LabManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -60,11 +61,14 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
     @Mock
     private LoggedInInfo loggedInInfo;
 
+    @Mock
+    private LabManager labManager;
+
     private DocumentAttachmentManagerImpl manager;
 
     @BeforeEach
     void setUp() {
-        manager = new DocumentAttachmentManagerImpl();
+        manager = new DocumentAttachmentManagerImpl(labManager);
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "consultDocsDao", consultDocsDao);
         registerMock(ConsultDocsDao.class, consultDocsDao);
