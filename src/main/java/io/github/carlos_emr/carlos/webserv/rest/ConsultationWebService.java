@@ -50,6 +50,9 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import org.apache.commons.lang3.StringUtils;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import java.util.Objects;
+import java.util.Set;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
@@ -119,6 +122,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     @Autowired
     ConsultationManager consultationManager;
+
+    @Autowired
+    OutboundEmailArchiveDao outboundEmailArchiveDao;
 
     @Autowired
     CaseManagementManager caseManagementManager;
@@ -253,6 +259,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (data.getReferralDate() == null || data.getServiceId() == null || data.getUrgency() == null || data.getStatus() == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("required fields: \"referralDate\", \"serviceId\", \"urgency\", \"status\"").build();
         }
+        assertNoOutboundEmailArchiveAttachments(data.getAttachments());
 
         ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data);
 
@@ -285,6 +292,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (data.getReferralDate() == null || data.getServiceId() == null || data.getUrgency() == null || data.getStatus() == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("required fields: \"referralDate\" \"serviceId\" \"urgency\" \"status\"").build();
         }
+        assertNoOutboundEmailArchiveAttachments(data.getAttachments());
 
         ConsultationRequest request = requestConverter.getAsDomainObject(loggedInInfo, data, consultationManager.getRequest(loggedInInfo, data.getId()));
 
@@ -403,6 +411,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Produces(MediaType.APPLICATION_JSON)
     public ConsultationResponseTo1 saveResponse(ConsultationResponseTo1 data) {
         ConsultationResponse response = null;
+        assertNoOutboundEmailArchiveAttachments(data.getAttachments());
 
         if (data.getId() == null) { //new consultation response
             response = responseConverter.getAsDomainObject(getLoggedInInfo(), data);
@@ -847,5 +856,34 @@ public class ConsultationWebService extends AbstractServiceImpl {
             throwable = throwable.getCause();
         }
         return false;
+    }
+    /**
+     * Refuses an attempt to attach an outbound email archive eDoc to a consultation.
+     *
+     * <p>Consultation attachments are stored as links to eDocs, so an archive artifact can be
+     * named here like any other document. Attaching one puts a legal record of patient email into
+     * a referral package that is then faxed or printed to a third party, outside the access
+     * controls and audit trail the archive workflow enforces.</p>
+     *
+     * <p>Only {@code TYPE_DOC} attachments name an eDoc; other types cannot be archives and are
+     * filtered out before the query.</p>
+     */
+    private void assertNoOutboundEmailArchiveAttachments(List<ConsultationAttachmentTo1> attachments) {
+        if (attachments == null || attachments.isEmpty()) {
+            return;
+        }
+        List<Integer> documentNos = attachments.stream()
+                .filter(Objects::nonNull)
+                .filter(attachment -> ConsultationAttachmentTo1.TYPE_DOC.equals(attachment.getDocumentType()))
+                .map(ConsultationAttachmentTo1::getDocumentNo)
+                .toList();
+        if (documentNos.isEmpty()) {
+            return;
+        }
+        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(documentNos);
+        if (archiveDocumentNos != null && !archiveDocumentNos.isEmpty()) {
+            throw new SecurityException(
+                    "Outbound email archive eDocs must be managed through the controlled archive workflow");
+        }
     }
 }

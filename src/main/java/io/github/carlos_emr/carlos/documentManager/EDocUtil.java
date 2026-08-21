@@ -66,6 +66,7 @@ import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao.Module;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.CtlDocType;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
@@ -236,6 +237,7 @@ public final class EDocUtil {
     private static CtlDocTypeDao ctldoctypedao() { return SpringUtils.getBean(CtlDocTypeDao.class); }
     private static DemographicManager demographicManager() { return SpringUtils.getBean(DemographicManager.class); }
     private static CtlDocumentDao ctlDocumentDao() { return SpringUtils.getBean(CtlDocumentDao.class); }
+    private static OutboundEmailArchiveDao outboundEmailArchiveDao() { return SpringUtils.getBean(OutboundEmailArchiveDao.class); }
 
     public static String getProviderName(String providerNo) {
         if (providerNo == null || providerNo.length() == 0) {
@@ -302,6 +304,7 @@ public final class EDocUtil {
      * @return the new documentId
      */
     public static String addDocumentSQL(EDoc newDocument) {
+        assertNotOutboundEmailArchiveFileName(newDocument != null ? newDocument.getFileName() : null);
         Document doc = new Document();
         doc.setDoctype(newDocument.getType());
         doc.setDocClass(newDocument.getDocClass());
@@ -367,6 +370,7 @@ public final class EDocUtil {
     }
 
     public static void detachDocConsult(String docNo, String consultId) {
+        assertNotOutboundEmailArchiveDocument(docNo);
         List<ConsultDocs> consultDocs = getConsultDocsDao().findByRequestIdDocNoDocType(ConversionUtils.fromIntString(consultId), ConversionUtils.fromIntString(docNo), ConsultDocs.DOCTYPE_DOC);
         for (ConsultDocs consultDoc : consultDocs) {
             consultDoc.setDeleted("Y");
@@ -375,6 +379,7 @@ public final class EDocUtil {
     }
 
     public static void detachDocEForm(String docNo, String consultId) {
+        assertNotOutboundEmailArchiveDocument(docNo);
         List<EFormDocs> eformDocs = getEformDocsDao().findByFdidIdDocNoDocType(ConversionUtils.fromIntString(consultId), ConversionUtils.fromIntString(docNo), EFormDocs.DOCTYPE_DOC);
         for (EFormDocs eformDoc : eformDocs) {
             eformDoc.setDeleted("Y");
@@ -383,6 +388,7 @@ public final class EDocUtil {
     }
 
     public static void attachDocConsult(String providerNo, String docNo, String consultId) {
+        assertNotOutboundEmailArchiveDocument(docNo);
         ConsultDocs consultDoc = new ConsultDocs();
         consultDoc.setRequestId(ConversionUtils.fromIntString(consultId));
         consultDoc.setDocumentNo(ConversionUtils.fromIntString(docNo));
@@ -393,6 +399,7 @@ public final class EDocUtil {
     }
 
     public static void attachDocEForm(String providerNo, String docNo, String consultId) {
+        assertNotOutboundEmailArchiveDocument(docNo);
         EFormDocs eformDoc = new EFormDocs();
         eformDoc.setFdid(ConversionUtils.fromIntString(consultId));
         eformDoc.setDocumentNo(ConversionUtils.fromIntString(docNo));
@@ -403,6 +410,7 @@ public final class EDocUtil {
     }
 
     public static void editDocumentSQL(EDoc newDocument, boolean doReview) {
+        assertNotOutboundEmailArchiveDocument(newDocument != null ? newDocument.getDocId() : null);
 
         Document doc = getDocumentDao().find(ConversionUtils.fromIntString(newDocument.getDocId()));
         if (doc != null) {
@@ -887,6 +895,7 @@ public final class EDocUtil {
     }
 
     public static void undeleteDocument(String documentNo) {
+        assertNotOutboundEmailArchiveDocument(documentNo);
         CtlDocument cd = ctlDocumentDao().getCtrlDocument(ConversionUtils.fromIntString(documentNo));
         String status = "";
         if (cd != null) {
@@ -940,6 +949,7 @@ public final class EDocUtil {
 
         File sourceBaseDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         int parsedDocumentNo = parsePositiveId(documentNo, "documentNo");
+        assertNotOutboundEmailArchiveDocument(parsedDocumentNo);
         Document d = getDocumentDao().find(parsedDocumentNo);
         if (d == null) {
             throw new FileNotFoundException("Document not found");
@@ -1174,6 +1184,7 @@ public final class EDocUtil {
     }
 
     public static void subtractOnePage(String docId) {
+        assertNotOutboundEmailArchiveDocument(docId);
         Document doc = getDocumentDao().find(ConversionUtils.fromIntString(docId));
         doc.setNumberofpages(doc.getNumberofpages() - 1);
 
@@ -1181,6 +1192,7 @@ public final class EDocUtil {
     }
 
     public static String getHtmlTicklers(LoggedInInfo loggedInInfo, String docId) {
+        assertNotOutboundEmailArchiveDocument(docId);
 
         Long table_id = Long.valueOf(docId);
         List<TicklerLink> linkList = ticklerLinkDao().getLinkByTableId("DOC", table_id);
@@ -1198,6 +1210,7 @@ public final class EDocUtil {
     }
 
     public static String getHtmlAcknowledgement(Locale locale, String docId) {
+        assertNotOutboundEmailArchiveDocument(docId);
 
         ArrayList<ReportStatus> ackList = AcknowledgementData.getAcknowledgements("DOC", docId);
         String HtmlAcknowledgement = "";
@@ -1230,6 +1243,7 @@ public final class EDocUtil {
     }
 
     public static String getHtmlAnnotation(String docId) {
+        assertNotOutboundEmailArchiveDocument(docId);
 
         Long tableId = 0L;
         String note = "";
@@ -1269,6 +1283,10 @@ public final class EDocUtil {
         try {
             is = new BufferedInputStream(new FileInputStream(validateResolvedDocumentOrTempFile(fileName)));
             return IOUtils.toByteArray(is);
+        } catch (OutboundEmailArchiveSecurityException e) {
+            // Not folded into IOException below: an archive refusal is an authorization outcome, not a
+            // missing file. A caller seeing IOException would report and audit the wrong thing.
+            throw e;
         } catch (SecurityException e) {
             // Honour the declared throws IOException: a rejected document path surfaces as a checked
             // IOException rather than an unchecked SecurityException callers are not expecting. Throwing
@@ -1289,14 +1307,21 @@ public final class EDocUtil {
         File resolvedFile = new File(resolvePath(fileName));
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(
                 CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        File trustedFile;
         try {
-            return PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
+            trustedFile = PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
         } catch (SecurityException e) {
             if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
-                return PathValidationUtils.resolveTrustedPath(resolvedFile);
+                trustedFile = PathValidationUtils.resolveTrustedPath(resolvedFile);
+            } else {
+                throw e;
             }
-            throw e;
         }
+        // Guarded here rather than in each caller: this resolver is the single point every raw
+        // document-file read passes through, and the name is only trustworthy once it has been
+        // resolved and containment-checked above.
+        assertNotOutboundEmailArchiveFileName(trustedFile.getName());
+        return trustedFile;
     }
 
     /**
@@ -1311,6 +1336,7 @@ public final class EDocUtil {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void writeDocContent(String fileName, byte[] content) throws IOException {
+        assertNotOutboundEmailArchiveFileName(fileName);
         String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDirFile = new File(docDir);
         File file = PathValidationUtils.validatePath(fileName, docDirFile);
@@ -1527,4 +1553,49 @@ public final class EDocUtil {
 		}
 	}
 
+    // --- outbound email archive guard -----------------------------------------------------------
+    // EDocUtil is the legacy static gateway to nearly every eDoc operation, so an archived patient
+    // email is reachable from most of it. These helpers let the operations below refuse one.
+
+    private static final String OUTBOUND_ARCHIVE_MESSAGE =
+            "Outbound email archive eDocs must be managed through the controlled archive workflow";
+
+    /**
+     * Marks an archive refusal so it survives handlers that translate SecurityException.
+     *
+     * <p>{@link #readContent(String)} historically converts a rejected filesystem path from
+     * SecurityException into IOException. An archive refusal must not be folded into that: it is
+     * an authorization outcome, not a missing file, and a caller that sees IOException would
+     * report the wrong thing to the user and log the wrong thing for audit. The distinct subtype
+     * lets that handler rethrow this while still converting genuine path rejections.</p>
+     */
+    private static final class OutboundEmailArchiveSecurityException extends SecurityException {
+        private static final long serialVersionUID = 1L;
+
+        private OutboundEmailArchiveSecurityException(String message) {
+            super(message);
+        }
+    }
+
+    private static void assertNotOutboundEmailArchiveDocument(Integer documentNo) {
+        if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao(), documentNo)) {
+            throw new OutboundEmailArchiveSecurityException(OUTBOUND_ARCHIVE_MESSAGE);
+        }
+    }
+
+    private static void assertNotOutboundEmailArchiveDocument(String documentId) {
+        if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao(), documentId)) {
+            throw new OutboundEmailArchiveSecurityException(OUTBOUND_ARCHIVE_MESSAGE);
+        }
+    }
+
+    private static void assertNotOutboundEmailArchiveFileName(String fileName) {
+        if (OutboundEmailArchiveDocumentGuard.isArchiveFileName(outboundEmailArchiveDao(), fileName)) {
+            throw new OutboundEmailArchiveSecurityException(OUTBOUND_ARCHIVE_MESSAGE);
+        }
+    }
+
+    private static boolean isOutboundEmailArchiveDocumentId(String documentId) {
+        return OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao(), documentId);
+    }
 }

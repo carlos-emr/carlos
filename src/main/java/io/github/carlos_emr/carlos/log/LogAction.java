@@ -219,6 +219,48 @@ public class LogAction {
     /**
      * This method will add a log entry in the same thread and can participate in the same transaction if one exists.
      */
+    /**
+     * Adds a fully attributed audit entry in the calling thread and transaction.
+     *
+     * <p>The synchronous counterpart of
+     * {@link #addLog(LoggedInInfo, String, String, String, String, String)}. Use it for audit
+     * rows that must survive the failure they describe: an after-commit hook on a transaction
+     * that is about to roll back never runs, which loses precisely the security events worth
+     * keeping.</p>
+     *
+     * @param demographicNo patient identifier for the audited record, may be null or blank
+     * @since 2026-08-19
+     */
+    public static void addLogSynchronous(
+            LoggedInInfo loggedInInfo,
+            String action,
+            String content,
+            String contentId,
+            String demographicNo,
+            String data) {
+        OscarLog logEntry = new OscarLog();
+        if (loggedInInfo.getLoggedInSecurity() != null) {
+            logEntry.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+        }
+        if (loggedInInfo.getLoggedInProvider() != null) {
+            logEntry.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        }
+        logEntry.setAction(action);
+        logEntry.setContent(content);
+        logEntry.setContentId(contentId);
+        logEntry.setIp(loggedInInfo.getIp());
+        try {
+            String normalizedDemographicNo = StringUtils.trimToNull(demographicNo);
+            if (normalizedDemographicNo != null) {
+                logEntry.setDemographicId(Integer.parseInt(normalizedDemographicNo));
+            }
+        } catch (NumberFormatException e) {
+            logger.error("Unexpected demographic number in audit log", e);
+        }
+        logEntry.setData(data);
+        addLogSynchronous(logEntry);
+    }
+
     public static void addLogSynchronous(String provider_no, String action, String content, String contentId, String ip) {
         OscarLog oscarLog = new OscarLog();
 

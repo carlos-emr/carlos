@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import org.openpdf.text.pdf.PdfReader;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -127,6 +128,7 @@ public class ManageDocument2Action extends ActionSupport {
     private final DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
     private final QueueDao queueDao = SpringUtils.getBean(QueueDao.class);
     private final CtlDocumentDao ctlDocumentDao = SpringUtils.getBean(CtlDocumentDao.class);
+    private final transient OutboundEmailArchiveDao outboundEmailArchiveDao = SpringUtils.getBean(OutboundEmailArchiveDao.class);
     private final ProviderInboxRoutingDao providerInboxRoutingDAO = SpringUtils.getBean(ProviderInboxRoutingDao.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -275,6 +277,7 @@ public class ManageDocument2Action extends ActionSupport {
             log.warn("documentUpdateAjax: invalid or missing demog");
             return;
         }
+        assertNotOutboundEmailArchiveDocument(documentId);
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr(), demog);
 
@@ -424,6 +427,8 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        assertNotOutboundEmailArchiveDocument(docId);
+
         providerInboxRoutingDAO.removeLinkFromDocument(docType, Integer.parseInt(docId), providerNo);
         HashMap hm = new HashMap();
         hm.put("linkedProviders", providerInboxRoutingDAO.getProvidersWithRoutingForDocument(docType, Integer.parseInt(docId)));
@@ -488,6 +493,8 @@ public class ManageDocument2Action extends ActionSupport {
             }
             return NONE;
         }
+
+        assertNotOutboundEmailArchiveDocument(documentId);
 
         try {
             EDocUtil.refileDocument(documentId, queueId);
@@ -1983,5 +1990,19 @@ public class ManageDocument2Action extends ActionSupport {
         response.setContentType("application/json;charset=UTF-8");
         response.getWriter().print(jsonArray.toString());
         response.getWriter().flush();
+    }
+    /**
+     * Refuses document operations on an outbound email archive eDoc.
+     *
+     * <p>These routes edit, re-file and unlink ordinary clinical documents. An archive artifact
+     * is a legal record of what was sent to a patient, and the only sanctioned way to retire one
+     * is {@code OutboundEmailArchiveService.recordControlledDeletion}, which requires
+     * {@code _admin.edocdelete}, a released legal hold, a reason and a tombstone.</p>
+     */
+    private void assertNotOutboundEmailArchiveDocument(String documentId) {
+        if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao, documentId)) {
+            throw new SecurityException(
+                    "Outbound email archive eDocs must be managed through the controlled archive workflow");
+        }
     }
 }

@@ -57,6 +57,49 @@ public interface OutboundEmailArchiveService {
     OutboundEmailArchive archive(LoggedInInfo loggedInInfo, OutboundEmailArchiveDto request) throws IOException;
 
     /**
+     * Returns an archive's metadata for an authorized caller, refusing deleted archives.
+     *
+     * <p>Metadata only. The stored artifact is read through
+     * {@link #readArchivedArtifact(LoggedInInfo, Integer)}, which additionally verifies the
+     * bytes against the recorded size and hash.</p>
+     *
+     * <p>Access is audited: a successful read records who looked at which archive, because the
+     * archive holds retained patient email.</p>
+     *
+     * @param loggedInInfo current user context
+     * @param archiveId persisted archive identifier
+     * @return the archive, with its demographic and document hydrated
+     * @throws IllegalArgumentException when the identifier is null or names no archive
+     * @throws IllegalStateException when the archive, or the eDoc behind it, has been deleted
+     * @throws SecurityException when the caller lacks {@code _edoc r} or access to the patient
+     * @since 2026-08-19
+     */
+    OutboundEmailArchive getActiveArchive(LoggedInInfo loggedInInfo, Integer archiveId);
+
+    /**
+     * Reads a stored archive artifact, verifying it still matches what was archived.
+     *
+     * <p>The archive is the record of what was actually sent to a patient, so bytes that no
+     * longer match the recorded size and SHA-256 are treated as a security event rather than a
+     * read error: the mismatch is audited before the failure propagates. Callers get an
+     * {@link IOException} and no bytes, never partially-verified content.</p>
+     *
+     * <p>The row is read under a write lock so a controlled deletion cannot remove the stored
+     * file between the integrity check and the read.</p>
+     *
+     * @param loggedInInfo current user context
+     * @param archiveId persisted archive identifier
+     * @return the verified artifact bytes
+     * @throws IllegalArgumentException when the identifier is null or names no archive
+     * @throws IllegalStateException when the archive, or the eDoc behind it, has been deleted
+     * @throws SecurityException when the caller lacks {@code _edoc r} or access to the patient
+     * @throws IOException when metadata is missing, the file is absent or unreadable, or the
+     *         bytes do not match the recorded size or hash
+     * @since 2026-08-19
+     */
+    byte[] readArchivedArtifact(LoggedInInfo loggedInInfo, Integer archiveId) throws IOException;
+
+    /**
      * Marks an archive as deleted and persists a permanent tombstone.
      *
      * <p><b>This is a logical retire, not an erasure, and that is deliberate.</b> An

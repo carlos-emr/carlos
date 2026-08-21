@@ -7,6 +7,7 @@ import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
@@ -83,6 +84,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
 
     @Mock
     private CtlDocumentDao ctlDocumentDao;
+    private OutboundEmailArchiveDao outboundEmailArchiveDao;
 
     @Mock
     private ProviderInboxRoutingDao providerInboxRoutingDao;
@@ -136,9 +138,14 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         mocks = MockitoAnnotations.openMocks(this);
         previousIncomingDocumentDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        outboundEmailArchiveDao = Mockito.mock(OutboundEmailArchiveDao.class);
         registerMock(DocumentDao.class, documentDao);
         registerMock(QueueDao.class, queueDao);
         registerMock(CtlDocumentDao.class, ctlDocumentDao);
+        // Default false: these tests are about path validation, not archive recognition, and an
+        // unstubbed mock would answer false anyway. Registered explicitly so the reason is on the
+        // record rather than relying on Mockito's default.
+        registerMock(OutboundEmailArchiveDao.class, outboundEmailArchiveDao);
         registerMock(ProviderInboxRoutingDao.class, providerInboxRoutingDao);
         registerMock(PatientLabRoutingDao.class, patientLabRoutingDao);
         registerMock(ProgramManager2.class, programManager);
