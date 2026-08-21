@@ -2667,11 +2667,12 @@ function updateCPPNote() {
         $("newIssueId").value = "";
         //notifyIssueUpdate();
 
-        // Refresh the encounter window's "Unresolved Issues" navbar section
-        var demographicNo = $("demographicNo").value;
-
+        // demographicNo is the module-level variable declared at the top of this file and
+        // assigned by both loaders of it (newEncounterLayout.jsp and ChartNotes.jsp).
+        // Do not read it back off the form: the chart form does not always render an
+        // element with that id, which is what broke CPP saves in #3422.
         if (typeof loadDiv === 'function' && demographicNo) {
-            var reloadUrl = ctx + "/encounter/displayIssues?demographicNo=" + demographicNo + "&cmd=unresolvedIssues&reloadURL=" + encodeURIComponent(ctx + "/encounter/displayIssues");
+            var reloadUrl = ctx + "/encounter/displayIssues?demographicNo=" + encodeURIComponent(demographicNo) + "&cmd=unresolvedIssues&reloadURL=" + encodeURIComponent(ctx + "/encounter/displayIssues");
             loadDiv('unresolvedIssueslist', reloadUrl, 0);
         }
     }

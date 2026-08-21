@@ -9,8 +9,8 @@
 # all local_repo dependencies are available for the build.
 #
 # Usage:
-# - Triggered on pushes to the develop branch
-# - Triggered on pull requests targeting the develop branch
+# - Triggered on pushes to main, develop, and release/* branches
+# - Triggered on pull requests targeting main, develop, and release/*
 #
 # Requirements:
 # - SONAR_TOKEN secret must be configured in repository settings
@@ -22,18 +22,26 @@
 # to the licensing terms outlined in the repository's LICENSE file.
 #
 # Last Updated:
-# April 2026
+# August 2026
 
 name: SonarCloud Analysis
 
 on:
   push:
     branches:
+      - main
       - develop
+      - release/*
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
+      - main
       - develop
+      - release/*
+
+concurrency:
+  group: sonarcloud-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
@@ -171,7 +179,7 @@ jobs:
             git config --global --add safe.directory /workspace
           "
 
-      - name: Build and analyze (Push to develop)
+      - name: Build and analyze (Push branch)
         if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -184,7 +192,7 @@ jobs:
               echo '========================================='
               echo 'Running SonarCloud Analysis (Branch)'
               echo '========================================='
-              mvn -B verify sonar:sonar \
+              mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
                 -Pskip-dependency-lock \
                 -Dmaven.test.failure.ignore=true \
                 -Dsonar.host.url=https://sonarcloud.io \
@@ -214,7 +222,7 @@ jobs:
               echo \"PR Branch: \$PR_BRANCH\"
               echo \"PR Base: \$PR_BASE\"
               echo '========================================='
-              mvn -B verify sonar:sonar \
+              mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
                 -Pskip-dependency-lock \
                 -Dmaven.test.failure.ignore=true \
                 -Dsonar.host.url=https://sonarcloud.io \
@@ -223,3 +231,15 @@ jobs:
                 \"-Dsonar.pullrequest.branch=\$PR_BRANCH\" \
                 \"-Dsonar.pullrequest.base=\$PR_BASE\" \
                             "
+
+      # The dev container runs as root and leaves root-owned files in the
+      # mounted workspace (.m2-cache, .sonar-cache, target/**). The post-job
+      # cache save runs as the runner user: it re-evaluates the cache key's
+      # hashFiles('**/pom.xml', ...) across the workspace and tars the cache
+      # directories, so unreadable root-owned paths fail the job even after a
+      # successful analysis. Only cold-cache runs hit this — an exact-key
+      # cache hit skips the save step entirely, which is why warm-cache runs
+      # never saw it. Restore runner ownership before the post steps run.
+      - name: Fix workspace ownership for cache save
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
