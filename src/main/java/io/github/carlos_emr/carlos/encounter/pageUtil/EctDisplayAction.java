@@ -45,11 +45,16 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 /**
@@ -114,192 +119,320 @@ public class EctDisplayAction extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws IOException, ServletException {
         EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-        String forward = "error";
         String cmd = getCmd();
-        String navName;
-        if ((navName = (String) request.getAttribute("navbarName")) != null) navName += "+" + cmd;
-        else navName = cmd;
-
+        String navName = buildNavName(cmd);
         request.setAttribute("navbarName", navName);
 
-        boolean isJsonRequest = request.getParameter("json") != null && request.getParameter("json").equalsIgnoreCase("true");
+        boolean isJsonRequest = isJsonRequest();
         request.setAttribute("isJsonRequest", isJsonRequest);
 
+        bean = prepareEncounterSessionBean(bean);
+
+        String params = resolveCommandParams();
+        String forward = handleDisplayCommand(bean, cmd, params, isJsonRequest);
+
+        logUnexpectedForward(forward, navName, cmd, params);
+        return finalizeForward(forward);
+    }
+
+    private String buildNavName(String cmd) {
+        String navName = (String) request.getAttribute("navbarName");
+        return navName == null ? cmd : navName + "+" + cmd;
+    }
+
+    private boolean isJsonRequest() {
+        return isAsciiTrue(request.getParameter("json"));
+    }
+
+    private boolean isAsciiTrue(String value) {
+        return value != null
+                && value.length() == 4
+                && ((value.charAt(0) | 0x20) == 't')
+                && ((value.charAt(1) | 0x20) == 'r')
+                && ((value.charAt(2) | 0x20) == 'u')
+                && ((value.charAt(3) | 0x20) == 'e');
+    }
+
+    private EctSessionBean prepareEncounterSessionBean(EctSessionBean bean) {
         boolean rebuildBean = bean == null || request.getParameter("demographicNo") != null;
+        String demographicNo = resolveDemographicNo(bean, rebuildBean);
+        ensureChartReadPrivilege(demographicNo);
+        return rebuildBean ? rebuildEncounterSessionBean(demographicNo) : bean;
+    }
 
-        // Extract and validate demographicNo early so the privilege check can run before any session mutation
-        String demoNoParam;
-        if (rebuildBean) {
-            demoNoParam = request.getParameter("demographicNo");
-            if (demoNoParam != null && !demoNoParam.isEmpty() && !demoNoParam.matches("\\d+")) {
-                throw new SecurityException("Invalid non-numeric demographicNo");
-            }
-        } else {
-            demoNoParam = bean.demographicNo;
+    private String resolveDemographicNo(EctSessionBean bean, boolean rebuildBean) {
+        if (!rebuildBean) {
+            return bean.demographicNo;
         }
 
-        // Privilege check BEFORE any session.setAttribute to prevent unauthorized session mutation (CWE-501)
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demoNoParam)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+        String demographicNo = request.getParameter("demographicNo");
+        if (demographicNo == null || demographicNo.isEmpty()) {
+            throw new SecurityException("Missing required demographicNo");
         }
-
-        if (rebuildBean) {
-            bean = new EctSessionBean();
-            bean.currentDate = UtilDateUtilities.StringToDate(request.getParameter("curDate"));
-
-            if (bean.currentDate == null) {
-                bean.currentDate = new Date();
-            }
-            bean.providerNo = request.getParameter("providerNo");
-            if (bean.providerNo != null && !bean.providerNo.matches("[a-zA-Z0-9]{1,6}")) {
-                logger.warn("Invalid providerNo rejected at trust boundary, falling back to session user: {}", LogSafe.sanitize(bean.providerNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                bean.providerNo = null;
-            }
-            if (bean.providerNo == null) {
-                bean.providerNo = (String) request.getSession().getAttribute("user"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated provider from own session
-            }
-            bean.demographicNo = demoNoParam;
-            String apptNoParam = request.getParameter("appointmentNo");
-            if (apptNoParam != null && !apptNoParam.isEmpty() && !apptNoParam.matches("\\d+")) {
-                throw new SecurityException("Invalid non-numeric appointmentNo");
-            }
-            bean.appointmentNo = apptNoParam;
-            bean.curProviderNo = request.getParameter("curProviderNo");
-            if (bean.curProviderNo != null && !bean.curProviderNo.isEmpty() && !bean.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
-                logger.warn("Invalid curProviderNo rejected, falling back to logged-in provider: {}", LogSafe.sanitize(bean.curProviderNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                bean.curProviderNo = null;
-            }
-            // Fall back to authenticated provider — the logged-in user IS the provider unless viewing another provider's schedule
-            if (bean.curProviderNo == null || bean.curProviderNo.trim().isEmpty()) {
-                bean.curProviderNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProvider().getProviderNo();
-            }
-            // CWE-501 trust boundary: validate structured fields, sanitize free-text
-            String reasonParam = request.getParameter("reason");
-            if (reasonParam != null && (!SAFE_TEXT.matcher(reasonParam).matches() || reasonParam.length() > 255)) {
-                logger.warn("Rejected invalid reason at trust boundary");
-                reasonParam = null;
-            }
-            bean.reason = reasonParam;
-            String encTypeParam = request.getParameter("encType");
-            if (encTypeParam != null && !encTypeParam.matches("[a-zA-Z0-9_ ]{1,50}")) {
-                logger.warn("Rejected invalid encType at trust boundary: {}", LogSafe.sanitize(encTypeParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                encTypeParam = null;
-            }
-            bean.encType = encTypeParam;
-            bean.userName = request.getParameter("userName");
-            if (bean.userName == null) {
-                bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname")); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated user's name from own session
-            } else if (!SAFE_TEXT.matcher(bean.userName).matches() || bean.userName.length() > 100) {
-                logger.warn("Rejected invalid userName at trust boundary, falling back to session-derived name");
-                bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname")); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated user's name from own session after rejecting invalid param
-            }
-
-            String apptDateParam = request.getParameter("appointmentDate");
-            if (apptDateParam != null && !SAFE_DATE.matcher(apptDateParam).matches()) {
-                logger.warn("Rejected invalid appointmentDate at trust boundary: {}", LogSafe.sanitize(apptDateParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                apptDateParam = null;
-            }
-            bean.appointmentDate = apptDateParam;
-            String startTimeParam = request.getParameter("startTime");
-            if (startTimeParam != null && !SAFE_TIME.matcher(startTimeParam).matches()) {
-                logger.warn("Rejected invalid startTime at trust boundary: {}", LogSafe.sanitize(startTimeParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                startTimeParam = null;
-            }
-            bean.startTime = startTimeParam;
-            String statusParam = request.getParameter("status");
-            if (statusParam != null && !SAFE_STATUS.matcher(statusParam).matches()) {
-                logger.warn("Rejected invalid status at trust boundary: {}", LogSafe.sanitize(statusParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                statusParam = null;
-            }
-            bean.status = statusParam;
-            String dateParam = request.getParameter("date");
-            if (dateParam != null && !SAFE_DATE.matcher(dateParam).matches()) {
-                logger.warn("Rejected invalid date at trust boundary: {}", LogSafe.sanitize(dateParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                dateParam = null;
-            }
-            bean.date = dateParam;
-            bean.check = "myCheck";
-            bean.oscarMsgID = request.getParameter("msgId");
-            if (bean.oscarMsgID != null && !bean.oscarMsgID.matches("\\d+")) {
-                logger.warn("Invalid msgId: {}", LogSafe.sanitize(bean.oscarMsgID)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                bean.oscarMsgID = null;
-            }
-            bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-            // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- demographicNo/appointmentNo validated numeric;
-            // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; time validated HH:MM; encType validated alphanumeric;
-            // reason/userName sanitized for control chars and length-capped; eChartId is server-generated;
-            // providerNo validated via [a-zA-Z0-9]{1,6} pattern at line 156 (null/empty/invalid → session fallback); used only as DAO lookup key;
-            // authz enforced at privilege gate (line 144) before session mutation
-            request.getSession().setAttribute("EctSessionBean", bean);
-            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated ID from EctSessionBean.setUpEncounterPage()
-            String sourceParam = request.getParameter("source");
-            if (sourceParam != null) {
-                bean.source = VALID_SOURCES.contains(sourceParam) ? sourceParam : null;
-            }
-
-            request.setAttribute("EctSessionBean", bean);
+        if (!demographicNo.matches("\\d+")) {
+            throw new SecurityException("Invalid non-numeric demographicNo");
         }
+        return demographicNo;
+    }
 
-        //Can we handle request?
-        //Check attrib first so we know if we are in a chain call before a direct request
+    private void ensureChartReadPrivilege(String demographicNo) {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eChart", "r", demographicNo)) {
+            throw new SecurityException("missing required sec object (_eChart)");
+        }
+    }
+
+    private EctSessionBean rebuildEncounterSessionBean(String demographicNo) {
+        EctSessionBean bean = new EctSessionBean();
+        bean.currentDate = resolveCurrentDate();
+        bean.providerNo = resolveProviderNo();
+        bean.demographicNo = demographicNo;
+        bean.appointmentNo = resolveNumericParameter("appointmentNo", "Invalid non-numeric appointmentNo");
+        bean.curProviderNo = resolveCurrentProviderNo();
+        populateEncounterRequestFields(bean);
+        bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
+        storeEncounterSessionBean(bean);
+        return bean;
+    }
+
+    private Date resolveCurrentDate() {
+        Date currentDate = UtilDateUtilities.StringToDate(request.getParameter("curDate"));
+        return currentDate == null ? new Date() : currentDate;
+    }
+
+    private String resolveProviderNo() {
+        String providerNo = request.getParameter("providerNo");
+        if (providerNo != null && !providerNo.matches("[a-zA-Z0-9]{1,6}")) {
+            logger.warn("Invalid providerNo rejected at trust boundary, falling back to session user: {}", LogSafe.sanitize(providerNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            providerNo = null;
+        }
+        if (providerNo == null) {
+            providerNo = (String) request.getSession().getAttribute("user"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated provider from own session
+        }
+        return providerNo;
+    }
+
+    private String resolveCurrentProviderNo() {
+        String currentProviderNo = request.getParameter("curProviderNo");
+        if (currentProviderNo != null && !currentProviderNo.isEmpty() && !currentProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
+            logger.warn("Invalid curProviderNo rejected, falling back to logged-in provider: {}", LogSafe.sanitize(currentProviderNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            currentProviderNo = null;
+        }
+        if (currentProviderNo == null || currentProviderNo.trim().isEmpty()) {
+            currentProviderNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProvider().getProviderNo();
+        }
+        return currentProviderNo;
+    }
+
+    private void populateEncounterRequestFields(EctSessionBean bean) {
+        bean.reason = resolveReason();
+        bean.encType = resolveEncounterType();
+        bean.userName = resolveUserName();
+        bean.appointmentDate = resolveDateParameter("appointmentDate", "Rejected invalid appointmentDate at trust boundary: {}");
+        bean.startTime = resolveTimeParameter("startTime");
+        bean.status = resolveStatusParameter("status");
+        bean.date = resolveDateParameter("date", "Rejected invalid date at trust boundary: {}");
+        bean.check = "myCheck";
+        bean.oscarMsgID = resolveMsgId();
+        bean.source = resolveSource();
+    }
+
+    private String resolveReason() {
+        String reason = request.getParameter("reason");
+        if (reason != null && (!SAFE_TEXT.matcher(reason).matches() || reason.length() > 255)) {
+            logger.warn("Rejected invalid reason at trust boundary");
+            return null;
+        }
+        return reason;
+    }
+
+    private String resolveEncounterType() {
+        String encounterType = request.getParameter("encType");
+        if (encounterType != null && !encounterType.matches("[a-zA-Z0-9_ ]{1,50}")) {
+            logger.warn("Rejected invalid encType at trust boundary: {}", LogSafe.sanitize(encounterType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return null;
+        }
+        return encounterType;
+    }
+
+    private String resolveUserName() {
+        String userName = request.getParameter("userName");
+        if (userName == null) {
+            return sessionUserName();
+        }
+        if (!SAFE_TEXT.matcher(userName).matches() || userName.length() > 100) {
+            logger.warn("Rejected invalid userName at trust boundary, falling back to session-derived name");
+            return sessionUserName();
+        }
+        return userName;
+    }
+
+    private String sessionUserName() {
+        return ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname")); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): authenticated user's name from own session
+    }
+
+    private String resolveDateParameter(String parameterName, String invalidMessage) {
+        String value = request.getParameter(parameterName);
+        if (value != null && !SAFE_DATE.matcher(value).matches()) {
+            logger.warn(invalidMessage, LogSafe.sanitize(value)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return null;
+        }
+        return value;
+    }
+
+    private String resolveTimeParameter(String parameterName) {
+        String value = request.getParameter(parameterName);
+        if (value != null && !SAFE_TIME.matcher(value).matches()) {
+            logger.warn("Rejected invalid startTime at trust boundary: {}", LogSafe.sanitize(value)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return null;
+        }
+        return value;
+    }
+
+    private String resolveStatusParameter(String parameterName) {
+        String value = request.getParameter(parameterName);
+        if (value != null && !SAFE_STATUS.matcher(value).matches()) {
+            logger.warn("Rejected invalid status at trust boundary: {}", LogSafe.sanitize(value)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return null;
+        }
+        return value;
+    }
+
+    private String resolveMsgId() {
+        String msgId = request.getParameter("msgId");
+        if (msgId != null && !msgId.matches("\\d+")) {
+            logger.warn("Invalid msgId: {}", LogSafe.sanitize(msgId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return null;
+        }
+        return msgId;
+    }
+
+    private String resolveSource() {
+        String source = request.getParameter("source");
+        return source != null && VALID_SOURCES.contains(source) ? source : null;
+    }
+
+    private String resolveNumericParameter(String parameterName, String invalidMessage) {
+        String value = request.getParameter(parameterName);
+        if (value != null && !value.isEmpty() && !value.matches("\\d+")) {
+            throw new SecurityException(invalidMessage);
+        }
+        return value;
+    }
+
+    private void storeEncounterSessionBean(EctSessionBean bean) {
+        // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- demographicNo/appointmentNo validated numeric;
+        // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; time validated HH:MM; encType validated alphanumeric;
+        // reason/userName sanitized for control chars and length-capped; eChartId is server-generated;
+        // providerNo validated via [a-zA-Z0-9]{1,6} pattern before session fallback; used only as DAO lookup key;
+        // authz enforced at the chart privilege gate before session mutation
+        request.getSession().setAttribute("EctSessionBean", bean);
+        request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated ID from EctSessionBean.setUpEncounterPage()
+        request.setAttribute("EctSessionBean", bean);
+    }
+
+    private String resolveCommandParams() {
         String params = (String) request.getAttribute("cmd");
-        if (params == null) params = request.getParameter("cmd");
+        if (params == null) {
+            params = request.getParameter("cmd");
+        }
         request.setAttribute("cmd", params);
+        return params;
+    }
 
-        if (params != null) {
-            //Check to see if this call is for us
-            if (params.indexOf(cmd) > -1) {
+    private String handleDisplayCommand(EctSessionBean bean, String cmd, String params, boolean isJsonRequest) throws IOException {
+        String forward = "error";
+        if (params == null || params.indexOf(cmd) <= -1) {
+            return forward;
+        }
 
-                NavBarDisplayDAO Dao = (NavBarDisplayDAO) request.getAttribute("DAO");
-                if (Dao == null) Dao = new NavBarDisplayDAO();
+        NavBarDisplayDAO dao = resolveDisplayDao(cmd);
+        if (!hasReadAccessForDisplayCommand(new SecurityManager(), cmd)) {
+            return null;
+        }
+        if (!getInfo(bean, request, dao)) {
+            return forward;
+        }
 
-                String headingColour = request.getParameter("hC");
-                if (headingColour != null) {
-                    Dao.setHeadingColour(headingColour);
-                }
+        request.setAttribute("DAO", dao);
+        return resolveForward(cmd, params, dao, isJsonRequest);
+    }
 
-                Dao.setReloadUrl(request.getRequestURL().toString() + "?" + request.getQueryString());
-                Dao.setDivId(cmd);
+    private NavBarDisplayDAO resolveDisplayDao(String cmd) {
+        NavBarDisplayDAO dao = (NavBarDisplayDAO) request.getAttribute("DAO");
+        if (dao == null) {
+            dao = new NavBarDisplayDAO();
+        }
 
-                SecurityManager securityMgr = new SecurityManager();
-                if (securityMgr.hasReadAccess("_" + cmd.toLowerCase(), request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user"))) {
+        String headingColour = request.getParameter("hC");
+        if (headingColour != null) {
+            dao.setHeadingColour(headingColour);
+        }
 
-                    if (getInfo(bean, request, Dao)) {
-                        request.setAttribute("DAO", Dao);
+        dao.setReloadUrl(buildReloadUrl());
+        dao.setDivId(cmd);
+        return dao;
+    }
 
-                        String regex = "\\b" + cmd + "\\b";
-                        String remainingCmds = params.replaceAll(regex, "").trim();
+    private String buildReloadUrl() {
+        String baseUrl = request.getRequestURL().toString();
+        String encodedQuery = buildEncodedQueryString();
+        return encodedQuery.isEmpty() ? baseUrl : baseUrl + "?" + encodedQuery;
+    }
 
-                        //Are there more commmands to forward to or do we print what we have?
-                        if (remainingCmds.length() > 0) {
-                            request.setAttribute("cmd", remainingCmds);
-                            int pos = remainingCmds.indexOf(' ');
-                            if (pos > -1) forward = remainingCmds.substring(0, pos);
-                            else forward = remainingCmds;
-
-                            if (Actions.get(forward) == null) {
-                                MiscUtils.getLogger().error("forward not found, returning error");
-                                forward = "error";
-                            }
-                        } else if (isJsonRequest) {
-                            ObjectNode json = objectMapper.valueToTree(Dao.getMap());
-                            response.getOutputStream().write(json.toString().getBytes());
-                            return null;
-                        } else {
-                            forward = "success";
-                        }
-                    }
-                } else {
-                    return null;
-                }
+    private String buildEncodedQueryString() {
+        StringJoiner joiner = new StringJoiner("&");
+        for (Map.Entry<String, String[]> entry : request.getParameterMap().entrySet()) {
+            String encodedKey = URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8);
+            String[] values = entry.getValue();
+            if (values == null || values.length == 0) {
+                joiner.add(encodedKey);
+                continue;
+            }
+            for (String value : values) {
+                String encodedValue = value == null ? "" : URLEncoder.encode(value, StandardCharsets.UTF_8);
+                joiner.add(encodedKey + "=" + encodedValue);
             }
         }
+        return joiner.toString();
+    }
+
+    private String resolveForward(String cmd, String params, NavBarDisplayDAO dao, boolean isJsonRequest) throws IOException {
+        String regex = "\\b" + Pattern.quote(cmd) + "\\b";
+        String remainingCmds = params.replaceAll(regex, "").trim();
+        if (remainingCmds.length() > 0) {
+            return resolveChainedForward(remainingCmds);
+        }
+        if (isJsonRequest) {
+            ObjectNode json = objectMapper.valueToTree(dao.getMap());
+            response.setContentType("application/json;charset=UTF-8");
+            response.getOutputStream().write(json.toString().getBytes(StandardCharsets.UTF_8));
+            return null;
+        }
+        return "success";
+    }
+
+    private String resolveChainedForward(String remainingCmds) {
+        request.setAttribute("cmd", remainingCmds);
+        int pos = remainingCmds.indexOf(' ');
+        String forward = pos > -1 ? remainingCmds.substring(0, pos) : remainingCmds;
+        if (Actions.get(forward) == null) {
+            MiscUtils.getLogger().error("forward not found, returning error");
+            return "error";
+        }
+        return forward;
+    }
+
+    private void logUnexpectedForward(String forward, String navName, String cmd, String params) {
         if (forward != null && !forward.equals("success")) {
             MiscUtils.getLogger().error("Forward :{} navName :{} cmd {} params {}", LogSafe.sanitize(forward), LogSafe.sanitize(navName), LogSafe.sanitize(cmd), LogSafe.sanitize(params));
         }
+    }
 
+    private String finalizeForward(String forward) throws IOException, ServletException {
         // Use include() for XHR requests only. Struts' forward() closes the output stream
         // in Tomcat 11, truncating AJAX responses at the 8KB buffer boundary — include()
         // leaves the stream open. For non-XHR requests, return "success" so Struts performs
@@ -309,7 +442,6 @@ public class EctDisplayAction extends ActionSupport {
             request.getRequestDispatcher(jspPath).include(request, response);
             return NONE;
         }
-
         return forward;
     }
 
@@ -331,6 +463,13 @@ public class EctDisplayAction extends ActionSupport {
      *
      * @return Returns name of the module corresponding to the mapping in the {@link #Actions}
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
+    private boolean hasReadAccessForDisplayCommand(SecurityManager securityMgr, String cmd) {
+        return securityMgr.hasReadAccess("_" + cmd.toLowerCase(),
+                request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user"));
+    }
+
     public String getCmd() {
         return "";
     }

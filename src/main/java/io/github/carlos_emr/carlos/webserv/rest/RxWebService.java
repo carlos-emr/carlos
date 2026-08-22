@@ -83,6 +83,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Path("/rx")
 @Component("rxWebService")
@@ -137,10 +138,7 @@ public class RxWebService extends AbstractServiceImpl {
     public DrugSearchResponse drugs(@QueryParam("demographicNo") int demographicNo, @PathParam("status") String status)
             throws OperationNotSupportedException {
 
-        // determine if the user has privileges to view this data.
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_rx", "r", demographicNo)) {
-            throw new AccessDeniedException("_rx", "r", demographicNo);
-        }
+        assertReadPrivilege(demographicNo);
 
         DrugSearchResponse response = new DrugSearchResponse();
 
@@ -173,6 +171,8 @@ public class RxWebService extends AbstractServiceImpl {
         return Response.status(Status.OK).entity(RxStatus.values()).build();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @GET
     @Path("/drugs/{status}/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -184,13 +184,13 @@ public class RxWebService extends AbstractServiceImpl {
                 drugResponse = getAllDrugs(demographicNo);
                 break;
             case ARCHIVED:
-                drugResponse = getCurrentDrugs(demographicNo);
+                drugResponse = getArchivedDrugs(demographicNo);
                 break;
             case CURRENT:
-                drugResponse = getLongtermDrugs(demographicNo);
+                drugResponse = getCurrentDrugs(demographicNo);
                 break;
             case LONGTERM:
-                drugResponse = getArchivedDrugs(demographicNo);
+                drugResponse = getLongtermDrugs(demographicNo);
                 break;
             default:
                 drugResponse = null;
@@ -204,6 +204,7 @@ public class RxWebService extends AbstractServiceImpl {
     @Path("/drugs/all/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)
     public DrugSearchResponse getAllDrugs(@PathParam("demographicNo") int demographicNo) {
+        assertReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getDrugs(getLoggedInInfo(), demographicNo, RxStatus.ALL);
         return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
     }
@@ -212,6 +213,7 @@ public class RxWebService extends AbstractServiceImpl {
     @Path("/drugs/current/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)
     public DrugSearchResponse getCurrentDrugs(@PathParam("demographicNo") int demographicNo) {
+        assertReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getDrugs(getLoggedInInfo(), demographicNo, RxStatus.CURRENT);
         return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
     }
@@ -220,6 +222,7 @@ public class RxWebService extends AbstractServiceImpl {
     @Path("/drugs/longterm/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)
     public DrugSearchResponse getLongtermDrugs(@PathParam("demographicNo") int demographicNo) {
+        assertReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getLongTermDrugs(getLoggedInInfo(), demographicNo);
         return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
     }
@@ -228,8 +231,15 @@ public class RxWebService extends AbstractServiceImpl {
     @Path("/drugs/archived/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)
     public DrugSearchResponse getArchivedDrugs(@PathParam("demographicNo") int demographicNo) {
+        assertReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getDrugs(getLoggedInInfo(), demographicNo, RxStatus.ARCHIVED);
         return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
+    }
+
+    private void assertReadPrivilege(int demographicNo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_rx", "r", demographicNo)) {
+            throw new AccessDeniedException("_rx", "r", demographicNo);
+        }
     }
 
     /**

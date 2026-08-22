@@ -28,13 +28,12 @@ import org.springframework.mock.web.MockHttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@DisplayName("WebUtils")
 @Tag("unit")
 @Tag("encoding")
-@DisplayName("WebUtils message rendering")
 class WebUtilsUnitTest {
 
     @Test
-    @DisplayName("renderMessagesAsHtml should HTML-encode session messages")
     void shouldEncodeSessionMessages_whenRenderingHtmlList() {
         MockHttpSession session = new MockHttpSession();
         String message = "<script>alert('xss')</script>";
@@ -52,5 +51,48 @@ class WebUtilsUnitTest {
                 .contains("<li>" + SafeEncode.forHtmlContent(message) + "</li>")
                 .doesNotContain(message);
         assertThat(WebUtils.popMessages(session, WebUtils.ERROR_MESSAGE_SESSION_KEY)).isNull();
+    }
+
+    @Test
+    void shouldEscapeMessages_whenRenderedAsHtml() {
+        MockHttpSession session = new MockHttpSession();
+        WebUtils.addErrorMessage(session, "<script>alert(1)</script>");
+
+        String html = WebUtils.popErrorMessagesAsHtml(session);
+
+        assertThat(html).contains("&lt;script&gt;alert(1)&lt;/script&gt;");
+        assertThat(html).doesNotContain("<script>");
+        assertThat(html).contains("</li>");
+        assertThat(html).doesNotContain("</il>");
+    }
+
+    @Test
+    void shouldEscapeInfoMessages_whenRenderedAsHtml() {
+        MockHttpSession session = new MockHttpSession();
+        WebUtils.addInfoMessage(session, "saved <b>file</b>");
+
+        String html = WebUtils.popInfoMessagesAsHtml(session);
+
+        assertThat(html).contains("saved &lt;b&gt;file&lt;/b&gt;");
+        assertThat(html).doesNotContain("<b>file</b>");
+        assertThat(html).contains("</li>");
+        assertThat(html).doesNotContain("</il>");
+    }
+
+    @Test
+    void shouldEscapeStyledMessages_whenRenderedAsHtml() {
+        MockHttpSession session = new MockHttpSession();
+        WebUtils.addErrorMessage(session, "failed <b>claim</b>");
+
+        String html = WebUtils.popErrorMessagesAsHtml(session, "alert", "color:red", "err", "errName");
+
+        assertThat(html).contains("id=\"err\"");
+        assertThat(html).contains("name=\"errName\"");
+        assertThat(html).contains("class=\"alert\"");
+        assertThat(html).contains("style=\"color:red\"");
+        assertThat(html).contains("failed &lt;b&gt;claim&lt;/b&gt;");
+        assertThat(html).doesNotContain("<b>claim</b>");
+        assertThat(html).contains("</li>");
+        assertThat(html).doesNotContain("</il>");
     }
 }

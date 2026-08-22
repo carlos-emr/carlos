@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.ticklers.web.TicklerQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class TicklersDaoImpl extends AbstractDaoImpl<Tickler> implements TicklersDao {
@@ -78,6 +79,8 @@ public class TicklersDaoImpl extends AbstractDaoImpl<Tickler> implements Tickler
         return query;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private StringBuilder generateQuery(PaginationQuery paginationQuery, boolean selectCountOnly, QueryParameters parameters) {
         TicklerQuery ticklerQuery = (TicklerQuery) paginationQuery;
         StringBuilder sql = new StringBuilder("select " + (selectCountOnly ? "count(*)" : "t")

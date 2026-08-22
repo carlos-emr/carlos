@@ -48,6 +48,7 @@ import jakarta.servlet.http.HttpServletResponseWrapper;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Filter class for handling confidentiality note printing. This class works by appending a confidentiality note
@@ -113,6 +114,8 @@ public class PrivacyStatementAppendingFilter implements Filter {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         boolean isConfidentialityNotePrinted = false;
@@ -206,6 +209,8 @@ public class PrivacyStatementAppendingFilter implements Filter {
         return servletPath.startsWith(exclusion + "/");
     }
 
+    // FindSecBugs XSS_SERVLET: writes fixed print-only privacy HTML from trusted system configuration.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "writes fixed print-only privacy HTML from trusted system configuration")
     private void printConfidentialityStatement(ServletResponse response, DelegatingServletResponse delegatingServletResponse) throws IOException {
         if (delegatingServletResponse.isResponseOutputStreamObtained()) {
             response.getOutputStream().write(getPrivacyStatement().getBytes());

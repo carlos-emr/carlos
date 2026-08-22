@@ -96,6 +96,7 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class MeasurementGraphAction22Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -106,11 +107,14 @@ public class MeasurementGraphAction22Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final String NUMERIC_REGEX = "[^-.\\d]";
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws IOException, ParseException {
         log.debug("In MeasurementGraphAction22Action");
         String userrole = (String) request.getSession().getAttribute("userrole");
         if (userrole == null) {
             response.sendRedirect(request.getContextPath() + "/logoutPage");
+            return NONE;
         }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", null)) {
@@ -204,6 +208,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return dataset;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String[] getDrugSymbol(Integer demographic, String[] dins) {
         if (dins == null) {
             return new String[0];

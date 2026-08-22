@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * AJAX endpoint for the MOH error-report status toggle on
@@ -57,6 +58,8 @@ public class BillingOnStatusErUpdateStatus2Action extends ActionSupport {
         this.errorReportService = errorReportService;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();

@@ -54,6 +54,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
@@ -486,7 +487,7 @@
     <form name="ReProcessBillingForm" method="post" action="reprocessBill">
 
         <input type="hidden" id="hiddenFilterType" name="hiddenFilterType"
-               value="<carlos:encode value='<%= request.getParameter("billTypes") != null ? request.getParameter("billTypes") : "" %>' context="htmlAttribute"/>">
+               value="<carlos:encode value='<%= request.getParameter("billTypes") != null ? request.getParameter("billTypes") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
 
 
         <table class="table table-striped table-sm sortable" id="resultsTable">
@@ -589,12 +590,13 @@
                 <%
                     if (!"true".equals(readonly)) {
                 %>
-                <td><a href="javascript: setDemographic('<%=b.demoNo%>');"><%=b.demoName%>
+                <td><a href="javascript: setDemographic('<%=SafeEncode.forJavaScriptAttribute(b.demoNo)%>');"><%=SafeEncode.forHtml(b.demoName)%>
                 </a></td>
                 <%}%>
-                <td><%=b.providerLastName%>,<%=b.providerFirstName%>
+                <td><%=SafeEncode.forHtml(b.providerLastName)%>,<%=SafeEncode.forHtml(b.providerFirstName)%>
                 </td>
-                <td title="<%=msp.getStatusDesc(b.reason)%>"><%=msp.getStatusDesc(b.reason) == null ? "&nbsp" : msp.getStatusDesc(b.reason)%>
+                <% String statusDesc = msp.getStatusDesc(b.reason); %>
+                <td title="<%=SafeEncode.forHtmlAttribute(statusDesc)%>"><%=statusDesc == null ? "&nbsp;" : SafeEncode.forHtml(statusDesc)%>
                 </td>
 
 

@@ -60,7 +60,7 @@ public class WebServiceLoggingAdvice {
 
     @Pointcut("execution(public * io.github.carlos_emr.carlos.webserv.rest.*.*(..))")
     public void pointcut() {
-        logger.info("called pointcut");
+        // Pointcut marker only; AspectJ never executes this body.
     }
 
     private String getServiceCallDescription(ProceedingJoinPoint joinpoint) {
@@ -72,14 +72,16 @@ public class WebServiceLoggingAdvice {
 
     @Around("execution(public * io.github.carlos_emr.carlos.webserv.rest.*.*(..))")
     public Object logAccess(ProceedingJoinPoint joinpoint) throws Throwable {
-        if (logger.isInfoEnabled()) {
-            logger.info("Logging access for " + joinpoint);
+        // Log only the service.method name (never the joinpoint argument values, which can
+        // carry PHI or OAuth-derived context) and only at DEBUG so this diagnostic logging is
+        // disabled in production by default. The access record itself is still captured in the
+        // OscarLog audit store below.
+        if (logger.isDebugEnabled()) {
+            logger.debug("REST WS access: {}", getServiceCallDescription(joinpoint));
         }
 
         try {
-            long duration = System.currentTimeMillis();
             Object result = joinpoint.proceed();
-            duration = System.currentTimeMillis() - duration;
 
             logAccess("REST WS: " + getServiceCallDescription(joinpoint));
             return result;
