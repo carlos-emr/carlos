@@ -37,3 +37,53 @@ A fax sent to the account's own `SRFAX_FAX_NUMBER` is delivered back to the
 same account's inbox, so send and receive can be validated with one account.
 The provider `Queue_Fax` returns a job id immediately; the inbound copy arrives
 minutes later and the scheduler (60s poll) imports it.
+
+## Database + staging access (for the tests that assert on the DB)
+
+Some tests read and assert against the live database and stage files into the
+service-owned document directory. On a hardened deployment those need
+privilege; pass a launcher via the environment (nothing is shell-parsed — argv
+only):
+
+| Variable             | Meaning                                                           |
+|----------------------|------------------------------------------------------------------|
+| `MARIADB`            | mariadb launcher, e.g. `sudo mariadb` (default `mariadb`)         |
+| `CARLOS_DB_NAME`     | application schema (default `oscar`)                              |
+| `CARLOS_DOCUMENT_DIR`| document dir for staged outbound PDFs                             |
+| `STAGE_AS`           | launcher to write into a dir the runner does not own, e.g. `sudo -u carlos` |
+| `DEDUP_WAIT_MS`      | how long `dedup-no-reimport.js` watches for a re-import (default 150000) |
+
+## The tests
+
+Run them in this order against a freshly provisioned deployment with
+`fixtures.sql` loaded:
+
+    sudo mariadb oscar < scripts/e2e/fax/fixtures.sql
+    set -a; . /secure/path/srfax.env; set +a
+    export MARIADB="sudo mariadb" STAGE_AS="sudo -u carlos"
+
+1. **`backbone-loopback.js`** — the shared send/receive backbone every clinical
+   outbound entry point funnels into: injects a WAITING outbound fax to the
+   account's own number, confirms the scheduler sends it via the real SRFax
+   `Queue_Fax` (WAITING → SENT + provider job id), then confirms the inbound
+   copy is downloaded, imported (RECEIVED), and routed to the UNCLAIMED inbox.
+   *Needs SRFax credentials.*
+
+2. **`inbox-lifecycle.js`** — picks up an imported inbound fax left UNCLAIMED by
+   the backbone test and drives the provider workflow through the real server
+   actions, asserting each DB transition: redirected-to-inbox → attached to a
+   patient (`documentUpdate`, `demog`) → attached to a provider
+   (`documentUpdate`, `flagproviders`) → provider files it (`fileLabAjax`,
+   status → `F`). *No SRFax credentials needed.*
+
+3. **`dedup-no-reimport.js`** — the live counterpart to
+   `FaxImporterDedupUnitTest`: every inbound fax is stamped with the account's
+   fax line (the dedup key), no two inbound faxes share a file name, and the
+   inbound count does not grow across more than two scheduler poll cycles (an
+   already-held fax is recognised and not re-imported). *No SRFax credentials.*
+
+4. **`prescription-drugref.js`** — proves the DrugRef2 lookup the prescription
+   module depends on is live: a common drug returns real reference results, a
+   nonsense term returns none, and a second common drug also resolves. The fax
+   transmission of the resulting prescription funnels into the same outbound
+   backbone proven by `backbone-loopback.js`. *No SRFax credentials.*

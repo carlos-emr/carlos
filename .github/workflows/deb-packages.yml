@@ -1,20 +1,23 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 CARLOS Contributors
 #
-# Build and publish the Debian packages (carlos-emr, carlos-emr-drugref) as
-# assets of a CARLOS release.
+# Build the Debian packages (carlos-emr, carlos-emr-drugref), attach them to
+# the release, and PUBLISH the release as the final step.
 #
-# DESIGN — deliberately a SEPARATE workflow from publish-release.yml, running
-# after the release is published, rather than a job spliced into that
-# carefully-serialized pipeline:
+# DESIGN — a SEPARATE workflow from publish-release.yml, but it FINALIZES the
+# release: publish-release.yml leaves the release as a DRAFT carrying the WAR +
+# SBOM, and this workflow downloads that WAR, builds the .debs, attaches them,
+# and only then flips the release to published. The order matters because the
+# repository enables immutable releases — assets cannot be added once a release
+# is published, so every asset (WAR, SBOM, both .debs) must be in place while it
+# is still a draft.
 #
-#   * The deb ships the release's OWN published WAR, downloaded from the
-#     release and verified against its .sha256 — the same bytes the WAR
-#     attestation covers, with no second Maven compile that could drift.
-#     That is only possible after the WAR asset exists, i.e. post-publish.
-#   * A failure here can never wedge or roll back the release itself; the
-#     workflow_dispatch input exists to retry (or backfill an older release)
-#     without touching the release pipeline.
+#   * The deb ships the release's OWN WAR, downloaded from the draft and
+#     verified against its .sha256 and provenance attestation — the same bytes,
+#     with no second Maven compile that could drift.
+#   * If this workflow fails, the release simply stays a draft (nothing is
+#     half-published); the workflow_dispatch input re-runs it to finish the job
+#     (or to backfill an older release).
 #
 # The build runs inside an ubuntu:26.04 container so the toolchain and the
 # runtime dependency versions are exactly the target distribution's,
@@ -37,10 +40,16 @@ on:
         required: true
         type: string
 
-# Per-tag serialization: a retry racing the original run would upload the
-# same asset names concurrently.
+# ONE GLOBAL group (not per-tag): this workflow now publishes the release and
+# makes the latest-pointer decision, which reads the set of already-published
+# stable releases. Two releases finalizing concurrently could each query while
+# the other is still a draft and both claim --latest, letting the one that
+# publishes last win even if it is older. Global serialization removes that
+# race; it also still prevents a retry racing the original run (which would
+# upload the same asset names at once). Releases are rare and deliberate, so
+# serializing all deb builds costs nothing.
 concurrency:
-  group: deb-packages-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
+  group: deb-packages
   cancel-in-progress: false
 
 permissions:
@@ -110,11 +119,38 @@ jobs:
             exit 1
           fi
 
-      - name: Download and verify the release WAR
+      - name: Skip if the release is already finalized
         run: |
           set -euo pipefail
-          # The deb ships the exact WAR the release published: the .sha256
-          # catches corrupt/partial downloads, and the attestation check
+          # A completed release is published (non-draft) AND already carries the
+          # two .deb assets. Immutable releases forbid re-uploading, so a re-run
+          # against a finished release would 422 — detect that and stop cleanly.
+          # Uses gh's built-in --jq (system jq is not installed in the image).
+          draft=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" --jq '.draft' 2>/dev/null || echo "")
+          debs=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" \
+            --jq '[.assets[].name | select(endswith(".deb"))] | length' 2>/dev/null || echo 0)
+          if [ "$draft" = "true" ] || [ -z "$draft" ]; then
+            # Draft (or no release yet): proceed to build, attach, and publish.
+            echo "SKIP=false" >> "$GITHUB_ENV"
+          elif [ "${debs:-0}" -ge 2 ]; then
+            # Fully finalized: published with its .debs. Nothing to do (and a
+            # re-upload would 422 against the immutable release).
+            echo "Release $RELEASE_TAG is already published with its .deb assets; nothing to do."
+            echo "SKIP=true" >> "$GITHUB_ENV"
+          else
+            # Published but missing .debs: an immutable release cannot accept
+            # new assets, so this can never be completed. Fail fast and loud
+            # rather than dying later on an opaque HTTP 422 from the upload.
+            echo "::error::Release $RELEASE_TAG is already published but has no .deb assets. Immutable releases cannot accept new assets, so the .debs cannot be attached. This release is permanently WAR-only; ship the .debs with the next release."
+            exit 1
+          fi
+
+      - name: Download and verify the release WAR
+        if: env.SKIP != 'true'
+        run: |
+          set -euo pipefail
+          # The deb ships the exact WAR the release carries (still a draft):
+          # the .sha256 catches corrupt/partial downloads, and the attestation check
           # below is what makes the stronger claim true — a swapped WAR
           # (even one with a matching swapped .sha256) fails provenance
           # verification and never becomes a package payload.
@@ -132,6 +168,7 @@ jobs:
           echo "CARLOS_WAR=/tmp/release-war/carlos-$RELEASE_TAG.war" >> "$GITHUB_ENV"
 
       - name: Stamp the package version from the release tag
+        if: env.SKIP != 'true'
         run: |
           set -euo pipefail
           # CalVer tag -> Debian version. Pre-release suffixes swap '-' for
@@ -162,6 +199,7 @@ jobs:
           echo "DEB_VERSION=$deb_version" >> "$GITHUB_ENV"
 
       - name: Build the packages
+        if: env.SKIP != 'true'
         run: |
           set -euo pipefail
           # CARLOS_WAR skips the in-tree Maven compile; DrugRef builds from
@@ -178,6 +216,7 @@ jobs:
           ls -la
 
       - name: Lintian gate
+        if: env.SKIP != 'true'
         run: |
           set -euo pipefail
           # Errors fail the build. The overrides files in debian/ carry the
@@ -185,12 +224,14 @@ jobs:
           lintian --fail-on error ../carlos-emr_*.changes
 
       - name: Attest package provenance
+        if: env.SKIP != 'true'
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-path: |
             release-assets/*.deb
 
       - name: Upload and verify the release assets
+        if: env.SKIP != 'true'
         run: |
           set -euo pipefail
           gh release upload "$RELEASE_TAG" release-assets/* --repo "$REPO" --clobber
@@ -210,3 +251,39 @@ jobs:
             fi
           done
           echo "Published: $(cd release-assets && ls *.deb | tr '\n' ' ')"
+
+      - name: Publish the release
+        if: env.SKIP != 'true'
+        run: |
+          set -euo pipefail
+          # Every asset (WAR, SBOM, both .debs) is now attached to the draft.
+          # Flip it to published — this is the point the release becomes
+          # immutable. The latest-pointer decision lives here (not in
+          # publish-release.yml) because the release is only published once all
+          # assets, including these .debs, are in place.
+          prerelease=false
+          if [[ "$RELEASE_TAG" =~ -(alpha|beta|rc)[1-9][0-9]*$ ]]; then
+            prerelease=true
+          fi
+          release_line=$(sed -E 's/^([0-9]{4}\.[0-9]{2})\..*$/\1/' <<< "$RELEASE_TAG")
+
+          if [ "$prerelease" = "true" ]; then
+            gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease --latest=false
+          else
+            # A maintenance patch published from an OLDER release line must not
+            # steal the repo's "latest release" pointer from a newer train:
+            # mark latest only when this tag tops every published stable
+            # release under the CalVer numeric sort. Paginated so a fixed
+            # --limit cannot miss the newest stable release once the repo grows.
+            latest_flag=--latest
+            existing=$(gh api --paginate "repos/$REPO/releases?per_page=100" \
+              --jq '.[] | select((.draft or .prerelease) | not) | .tag_name')
+            top=$({ printf '%s\n' "$RELEASE_TAG"; printf '%s\n' "$existing"; } \
+              | sed '/^$/d' | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
+            if [ "$top" != "$RELEASE_TAG" ]; then
+              latest_flag=--latest=false
+              echo "A newer stable release ($top) is already published — not marking $RELEASE_TAG as latest."
+            fi
+            gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease=false "$latest_flag"
+          fi
+          echo "Published release $RELEASE_TAG with WAR, SBOM, and .deb assets."
