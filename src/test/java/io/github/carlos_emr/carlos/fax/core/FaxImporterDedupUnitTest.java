@@ -433,6 +433,32 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should return true when a prior row's 11-digit fax line matches this 10-digit account (normalized)")
+        void shouldReturnTrue_whenPriorFaxLineIs11DigitFormOfThisAccount() {
+            FaxJob prior = priorRow(FaxJob.STATUS.RECEIVED, null);
+            prior.setFax_line("1" + ACCOUNT_FAX_NUMBER); // provider-supplied 11-digit form
+            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(prior), ACCOUNT_FAX_NUMBER)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return false for a stamped other-account row when THIS account has no fax line")
+        void shouldReturnFalse_whenAccountFaxLineBlankAndPriorRowIsStamped() {
+            FaxJob otherAccount = priorRow(FaxJob.STATUS.RECEIVED, null);
+            otherAccount.setFax_line("5559990000");
+            // Blank account line can't confirm ownership of a stamped row -> not ours.
+            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(otherAccount), "")).isFalse();
+            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(otherAccount), null)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return true for a legacy blank-fax-line row even when THIS account has no fax line")
+        void shouldReturnTrue_whenAccountFaxLineBlankAndPriorRowLegacyBlank() {
+            FaxJob legacy = priorRow(FaxJob.STATUS.RECEIVED, null);
+            legacy.setFax_line(null);
+            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(legacy), "")).isTrue();
+        }
+
+        @Test
         @DisplayName("should return false when the only prior row belongs to a DIFFERENT account (same numeric job id)")
         void shouldReturnFalse_whenPriorRowIsForADifferentAccount() {
             // Two accounts/backends can reuse the same numeric provider job id; a row imported by

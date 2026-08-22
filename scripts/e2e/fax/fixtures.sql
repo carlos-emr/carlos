@@ -8,7 +8,11 @@ INSERT INTO demographic (last_name, first_name, sex, provider_no, roster_status,
        date_joined, lastUpdateDate)
 SELECT 'Loopback','Faxtest','M','999998','RO','AC','','1980','01','01',
        CURDATE(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM demographic WHERE last_name='Loopback' AND first_name='Faxtest');
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM demographic
+    WHERE last_name = 'Loopback' AND first_name = 'Faxtest'
+);
 
 -- A simple eForm template to instantiate and fax. Column is patient_independent
 -- (snake_case); the HTML is a single string literal — two adjacent literals in
@@ -18,4 +22,8 @@ INSERT INTO eform (form_name, subject, file_name, form_html, showLatestFormOnly,
 SELECT 'Loopback Fax Test Form','E2E fax test','loopback.html',
        '<html><body><h2>CARLOS Fax E2E Test</h2><p>Patient: [demographic_name]</p><p>DOB: [demographic_dob]</p><p>Loopback fax test document.</p></body></html>',
        0,0,'doctor',1
-WHERE NOT EXISTS (SELECT 1 FROM eform WHERE form_name='Loopback Fax Test Form');
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM eform
+    WHERE form_name = 'Loopback Fax Test Form'
+);

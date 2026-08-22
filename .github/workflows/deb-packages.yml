@@ -142,7 +142,7 @@ jobs:
           # version with a hyphen is malformed (dpkg-source warns "native
           # package version may not have a revision"). The release tag is the
           # whole version; re-publishing a tag replaces its assets in place.
-          deb_version="$(printf '%s' "$RELEASE_TAG" | sed 's/-/~/')"
+          deb_version="$(printf '%s' "$RELEASE_TAG" | sed 's/-/~/g')"
           # git identity for dch-less changelog editing is not needed; write
           # the stanza directly, keeping the existing changelog as history.
           {
