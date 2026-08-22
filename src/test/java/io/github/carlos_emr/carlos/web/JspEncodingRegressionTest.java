@@ -32,13 +32,13 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit coverage for JSP JavaScript-context encoding regressions.
+ * Unit coverage for JSP output encoding regressions.
  *
  * @since 2026-05-19
  */
-@DisplayName("JSP JavaScript encoding")
+@DisplayName("JSP output encoding")
 @Tag("unit")
-class JspJavaScriptEncodingRegressionTest {
+class JspEncodingRegressionTest {
     private static final String BASEDIR_PROPERTY = "basedir";
     private static final Path JSP_ROOT = resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp"));
     private static final String SAFE_ENCODE_IMPORT_PATTERN =
@@ -152,13 +152,13 @@ class JspJavaScriptEncodingRegressionTest {
         assertThat(demographicExportJsp)
                 .doesNotContain("<option value=\"<%=setName%>\"><%=setName%>")
                 .doesNotContain("<option value=\"<%=p.getProviderNo()%>\"><%=p.getFormattedName()%>")
-                .containsPattern(carlosEncodePattern("setName", "htmlAttribute"))
+                .containsPattern(safeEncodePattern("setName", "forHtmlAttribute"))
                 .containsPattern(carlosEncodePattern("setName", "html"))
-                .containsPattern(carlosEncodePattern("p\\.getProviderNo\\(\\)", "htmlAttribute"))
+                .containsPattern(safeEncodePattern("p\\.getProviderNo\\(\\)", "forHtmlAttribute"))
                 .containsPattern(carlosEncodePattern("p\\.getFormattedName\\(\\)", "html"));
         assertThat(rourkeExportJsp)
                 .doesNotContain("<option value=\"<%=setName%>\"><%=setName%>")
-                .containsPattern(carlosEncodePattern("setName", "htmlAttribute"))
+                .containsPattern(safeEncodePattern("setName", "forHtmlAttribute"))
                 .containsPattern(carlosEncodePattern("setName", "html"));
     }
 
@@ -172,8 +172,8 @@ class JspJavaScriptEncodingRegressionTest {
                 .contains("method=getFile&amp;zipFile=")
                 .doesNotContain("<td><%=dataExport.getUser()%>")
                 .doesNotContain("<td><%=dataExport.getType()%>")
-                .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getUser\\(\\)", "html"))
-                .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getType\\(\\)", "html"));
+                .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getUser\\(\\)", "html") + "\\s*</td>")
+                .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getType\\(\\)", "html") + "\\s*</td>");
 
         int zipFileIndex = rourkeExportJsp.indexOf("zipFile=");
         assertThat(zipFileIndex).isGreaterThanOrEqualTo(0);
@@ -184,7 +184,7 @@ class JspJavaScriptEncodingRegressionTest {
         String downloadAnchorSnippet = rourkeExportJsp.substring(downloadAnchorStart, downloadAnchorEnd + "</a>".length());
 
         assertThat(downloadAnchorSnippet)
-                .containsPattern("zipFile=\\s*" + carlosEncodePattern("file", "uriComponent"))
+                .containsPattern("zipFile=\\s*<%=\\s*SafeEncode\\.forUriComponent\\(\\s*file\\s*\\)\\s*%>")
                 .containsPattern(carlosEncodePattern("file", "html"));
     }
 
@@ -242,5 +242,13 @@ class JspJavaScriptEncodingRegressionTest {
         }
         throw new IllegalStateException("Unable to locate " + relativePath + " from "
                 + System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")));
+    }
+
+    private static String safeEncodePattern(String scriptletExpressionPattern, String method) {
+        return "<%=\\s*SafeEncode\\."
+                + method
+                + "\\(\\s*"
+                + scriptletExpressionPattern
+                + "\\s*\\)\\s*%>";
     }
 }
