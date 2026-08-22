@@ -121,32 +121,29 @@ jobs:
 
       - name: Skip if the release is already finalized
         run: |
-          set -euo pipefail
-          # A completed release is published (non-draft) AND already carries the
-          # two .deb assets. Immutable releases forbid re-uploading, so a re-run
-          # against a finished release would 422 — detect that and stop cleanly.
-          # Uses gh's built-in --jq (system jq is not installed in the image).
-          # GitHub normalises stored asset names (the Debian '~' becomes '.'),
-          # so match by package-name prefix, not the exact filename.
-          draft=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" --jq '.draft' 2>/dev/null || echo "")
-          emr=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" \
-            --jq '[.assets[].name | select(startswith("carlos-emr_") and endswith(".deb"))] | length' 2>/dev/null || echo 0)
-          drugref=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" \
-            --jq '[.assets[].name | select(startswith("carlos-emr-drugref_") and endswith(".deb"))] | length' 2>/dev/null || echo 0)
-          if [ "$draft" = "true" ] || [ -z "$draft" ]; then
-            # Draft (or no release yet): proceed to build, attach, and publish.
+          set -eu
+          # gh release view (unlike the releases/tags REST endpoint, which 404s
+          # on drafts) can see a DRAFT release. Under the release flow the
+          # release is a draft carrying only the WAR at this point, so we must
+          # not treat "not published yet" as "published without debs".
+          #   draft, or no release yet -> proceed to build, attach, and publish
+          #   published with both packages -> nothing to do (immutable; re-upload would 422)
+          #   published but missing a package -> fail fast (immutable, unfixable)
+          isdraft=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json isDraft --jq '.isDraft' 2>/dev/null || echo missing)
+          if [ "$isdraft" != "false" ]; then
             echo "SKIP=false" >> "$GITHUB_ENV"
-          elif [ "${emr:-0}" -ge 1 ] && [ "${drugref:-0}" -ge 1 ]; then
-            # Fully finalized: published with its .debs. Nothing to do (and a
-            # re-upload would 422 against the immutable release).
-            echo "Release $RELEASE_TAG is already published with both carlos-emr and carlos-emr-drugref .deb assets; nothing to do."
-            echo "SKIP=true" >> "$GITHUB_ENV"
           else
-            # Published but missing .debs: an immutable release cannot accept
-            # new assets, so this can never be completed. Fail fast and loud
-            # rather than dying later on an opaque HTTP 422 from the upload.
-            echo "::error::Release $RELEASE_TAG is already published but has no .deb assets. Immutable releases cannot accept new assets, so the .debs cannot be attached. This release is permanently WAR-only; ship the .debs with the next release."
-            exit 1
+            emr=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json assets \
+              --jq '[.assets[].name | select(startswith("carlos-emr_") and endswith(".deb"))] | length' 2>/dev/null || echo 0)
+            drugref=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json assets \
+              --jq '[.assets[].name | select(startswith("carlos-emr-drugref_") and endswith(".deb"))] | length' 2>/dev/null || echo 0)
+            if [ "$emr" -ge 1 ] && [ "$drugref" -ge 1 ]; then
+              echo "Release $RELEASE_TAG is already published with both carlos-emr and carlos-emr-drugref .deb assets; nothing to do."
+              echo "SKIP=true" >> "$GITHUB_ENV"
+            else
+              echo "::error::Release $RELEASE_TAG is already published but is missing a .deb asset. Immutable releases cannot accept new assets, so this cannot be completed; ship the .debs with the next release."
+              exit 1
+            fi
           fi
 
       - name: Download and verify the release WAR
