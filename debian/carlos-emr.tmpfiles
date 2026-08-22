@@ -1,0 +1,103 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Runtime and state directories for CARLOS EMR.
+#
+# Declaring them here rather than creating them in postinst means they are also
+# recreated after a /run wipe on reboot, and that a mode drift is corrected on
+# every boot instead of persisting silently.
+#
+# LAYOUT RULE, learned the hard way: the two top-level directories are owned by
+# ROOT and everything owned by a service account hangs underneath them.
+# systemd-tmpfiles refuses to descend from a directory owned by one unprivileged
+# user into one owned by a different unprivileged user — it reports
+# "Detected unsafe path transition" and SKIPS the entry, which is a
+# symlink-attack defence and not something to argue with. With
+# /var/lib/carlos-emr owned by `carlos`, the ModSecurity spool (www-data) and
+# the ACME webroot (root) below it were silently never created, and nginx then
+# failed to start. Root-owned parents make every transition safe.
+#
+# Type  Path                                      Mode UID           GID   Age Argument
+d /run/carlos-emr                                 0750 carlos        carlos -
+
+# --- state ------------------------------------------------------------------
+d /var/lib/carlos-emr                             0755 root          root   -
+# Tomcat's writable state: the JSP work directory, the servlet temp directory,
+# a lib directory a site can drop a JDBC driver or JCE provider into, and the
+# java.util.prefs root (a JVM that cannot write one logs a warning per start).
+d /var/lib/carlos-emr/catalina                    0750 carlos        carlos -
+d /var/lib/carlos-emr/catalina/webapps            0750 carlos        carlos -
+d /var/lib/carlos-emr/catalina/work               0750 carlos        carlos -
+d /var/lib/carlos-emr/catalina/temp               0750 carlos        carlos -
+d /var/lib/carlos-emr/catalina/lib                0750 carlos        carlos -
+d /var/lib/carlos-emr/catalina/prefs              0750 carlos        carlos -
+# A heap dump of this application IS a PHI artefact — it contains whatever
+# clinical data was in memory. It must never land in /tmp.
+d /var/lib/carlos-emr/heapdumps                   0750 carlos        carlos -
+# The document store holds scanned patient records. Mode 2750: the application
+# (owner) reads and writes, group `carlos` reads — and carlos-backup is a
+# member of that group, which is how the backup reaches patient documents
+# without being given the application uid. The setgid bit makes every file the
+# application creates inherit the group, so the backup keeps working without a
+# periodic chmod sweep. Nobody else on the host can even list it.
+d /var/lib/carlos-emr/OscarDocument               2750 carlos        carlos -
+d /var/lib/carlos-emr/OscarDocument/carlos        2750 carlos        carlos -
+# ModSecurity's request-body spool and persistent collections, owned by the
+# nginx worker uid at 0700: a spooled body is an unfiltered request that may
+# contain PHI.
+d /var/lib/carlos-emr/modsecurity                 0750 www-data      www-data -
+d /var/lib/carlos-emr/modsecurity/tmp             0700 www-data      www-data -
+d /var/lib/carlos-emr/modsecurity/data            0700 www-data      www-data -
+# ACME HTTP-01 webroot. Root-owned and world-readable: certbot writes the
+# challenge token as root and nginx serves it as www-data. Nothing sensitive is
+# ever placed here.
+d /var/lib/carlos-emr/acme                        0755 root          root   -
+d /var/lib/carlos-emr/acme/.well-known            0755 root          root   -
+d /var/lib/carlos-emr/acme/.well-known/acme-challenge 0755 root      root   -
+
+# --- logs -------------------------------------------------------------------
+# Same root-owned-parent rule: the container is root's, and the two writers own
+# a subdirectory each. Group adm so the standard log-reading group can follow
+# them without being handed either service account.
+d /var/log/carlos-emr                             0755 root          root   -
+# Tomcat's access and container logs, and the application's own Log4j2 files.
+# 2750, not 0750: Tomcat (owner carlos) creates access/JULI logs here, and
+# without the setgid bit they inherit group carlos — unreadable by the adm
+# group this directory is grouped to for log access. setgid makes new files
+# inherit adm so `journalctl`-style log readers in group adm can read them.
+d /var/log/carlos-emr/tomcat                      2750 carlos        adm    -
+# ModSecurity's audit and debug logs. Named modsec/, not waf/, because the
+# application's Log4j2 configuration already writes a waf.log of its own (its
+# request rate-limit logger) into the directory above.
+# ROOT-owned, not www-data-owned, even though nginx is the writer. With
+# SecAuditLogType Serial the audit log is opened once by the nginx MASTER
+# process — which is root — and the workers write through the inherited
+# descriptor; no www-data process ever needs to create a file here. Making the
+# directory root-owned lets the `z` rules below re-assert the log's mode at
+# boot: systemd-tmpfiles refuses to descend from a www-data-owned directory
+# into a root-owned file ("unsafe path transition") and would skip them.
+d /var/log/carlos-emr/modsec                      0750 root          adm    -
+# libmodsecurity's SecAuditLogFileMode is not honoured for Serial logs, so the
+# file lands 0644 under the master's umask. The 0750 directory above is what
+# actually denies everyone outside group adm — verified by reading it as
+# `nobody` — but re-assert the file's own mode too rather than leave a
+# PHI-adjacent log world-readable in principle. `z` only acts on a path that
+# already exists, so these are no-ops on a fresh system.
+z /var/log/carlos-emr/modsec/modsec_audit.log      0640 root          adm    -
+z /var/log/carlos-emr/modsec/modsec_debug.log      0640 root          adm    -
+
+# --- backups ----------------------------------------------------------------
+# 0700 and owned by carlos-backup: the application uid must not be able to
+# read, alter or delete the backups it would be recovered from.
+d /var/backups/carlos-emr                         0700 carlos-backup carlos-backup -
+# Root-filesystem copy of the backup repository marker: the copy inside
+# /var/backups sits on the (possibly dedicated, possibly unmounted) backup
+# volume, and an unmounted volume must not erase the evidence that a
+# repository existed there.
+d /var/log/carlos-emr/backup-state                0700 carlos-backup adm    -
+# A crash defeats the backup's EXIT trap; whatever plaintext dump it left in
+# the work directory is removed at boot (the script also purges at run start).
+R! /var/backups/carlos-emr/work
+
+# --- TLS --------------------------------------------------------------------
+# The private key is 0640 root:www-data. nginx reads it as root before dropping
+# privileges; the application uid has no path to it at all.
+d /etc/carlos-emr/tls                             0750 root          www-data -
