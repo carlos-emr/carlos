@@ -42,6 +42,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 
 import java.util.Date;
@@ -50,7 +51,6 @@ import java.util.Locale;
 import java.util.ResourceBundle;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
-import org.apache.commons.io.FileUtils;
 import org.owasp.encoder.Encode;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -80,6 +80,7 @@ import io.github.carlos_emr.carlos.commn.model.TicklerLink;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -909,34 +910,98 @@ public final class EDocUtil {
         }
     }
 
+    /**
+     * Derives the on-disk name used by the incoming-document refile queues.
+     * Stored document names normally begin with a fourteen-character timestamp;
+     * legacy short names are preserved intact.
+     */
+    private static String getRefiledDocumentFileName(String documentFileName) {
+        String destFileName = documentFileName;
+        if (destFileName.length() > 18) {
+            destFileName = destFileName.substring(14);
+        }
+        return "R" + destFileName;
+    }
+
+    private static String getStoredDocumentBaseName(String documentFileName) {
+        if (documentFileName.indexOf('\0') >= 0) {
+            throw new FileValidationException("Invalid filename");
+        }
+
+        int separatorIndex = Math.max(
+                documentFileName.lastIndexOf('/'), documentFileName.lastIndexOf('\\'));
+        String baseName = documentFileName.substring(separatorIndex + 1);
+        return PathValidationUtils.validatePathComponent(baseName, "stored document filename");
+    }
+
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void refileDocument(String documentNo, String queueId) throws Exception {
 
         File sourceBaseDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
-        Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
+        int parsedDocumentNo = parsePositiveId(documentNo, "documentNo");
+        Document d = getDocumentDao().find(parsedDocumentNo);
+        if (d == null) {
+            throw new FileNotFoundException("Document not found");
+        }
+        if (d.getDocfilename() == null || d.getDocfilename().trim().isEmpty()) {
+            // HTML-only documents have no stored file, so there is nothing to refile.
+            throw new FileNotFoundException("Document has no stored file");
+        }
         File sourceFile = PathValidationUtils.validateExistingPath(
                 new File(sourceBaseDir, d.getDocfilename()), sourceBaseDir);
 
-        String destFileName = sourceFile.getName();
-        if (destFileName.length() > 18) {
-            destFileName = destFileName.substring(14, destFileName.length());
-        }
-
-        String destPath = IncomingDocUtil.getIncomingDocumentFilePath(queueId, "Refile");
-        File destBaseDir = new File(destPath);
-        File destFile = PathValidationUtils.validatePath("R" + destFileName, destBaseDir);
+        File destFile = prepareRefileDestination(sourceFile, queueId);
 
         try {
-            if (destFile.exists()) {
-                throw new IOException("Cannot refile document #" + documentNo + " " + d.getDocdesc() + ". Destination File " + destFile.getAbsolutePath() + " already exists");
-            } else {
-                FileUtils.copyFile(sourceFile, destFile);
-            }
+            copyRefiledDocument(sourceFile, destFile);
         } catch (IOException e) {
-            logger.error("Error", e);
-            throw new Exception(e);
+            // File-system exception messages can contain document filenames or paths.
+            logger.error("Unable to copy refiled document ({})", e.getClass().getSimpleName());
+            throw e;
         }
+    }
+
+    /**
+     * Validates the queue before creating its lazily initialized refile directory.
+     * The old FileUtils copy created parent directories implicitly; Files.copy does
+     * not, so the first refile into a new queue otherwise fails.
+     */
+    static File prepareRefileDestination(File sourceFile, String queueId) {
+        int parsedQueueId = parsePositiveId(queueId, "queueId");
+        if (SpringUtils.getBean(QueueDao.class).find(parsedQueueId) == null) {
+            throw new IllegalArgumentException("Queue not found");
+        }
+
+        String destPath = IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, "Refile");
+        File destBaseDir = PathValidationUtils.validateConfiguredDirectory(
+                destPath, "incoming refile directory");
+        return PathValidationUtils.validatePath(
+                getRefiledDocumentFileName(sourceFile.getName()), destBaseDir);
+    }
+
+    private static int parsePositiveId(String value, String label) {
+        if (value == null || !value.matches("[1-9][0-9]*")) {
+            throw new IllegalArgumentException(label + " must be a positive integer");
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(label + " must be a positive integer", e);
+        }
+    }
+
+    /**
+     * Copies a refiled document without an exists-then-copy race. The default
+     * {@link Files#copy(Path, Path, java.nio.file.CopyOption...)} behavior fails
+     * when the destination already exists, including when another request creates
+     * it between path validation and the copy.
+     */
+    static void copyRefiledDocument(File sourceFile, File destFile) throws IOException {
+        if (!Files.isRegularFile(sourceFile.toPath())) {
+            throw new IOException("Source document is not a regular file");
+        }
+        Files.copy(sourceFile.toPath(), destFile.toPath(), StandardCopyOption.COPY_ATTRIBUTES);
     }
 
     public static String getDmsDateTime() {
@@ -1408,24 +1473,58 @@ public final class EDocUtil {
     }
 
 	/**
-	 * Checks if a document with the given filename has already been refiled in the specified queue.
+	 * Checks whether the given document has already been refiled into the specified queue.
+	 *
+	 * <p>Pass the document's stored filename ({@code docfilename}), not its description:
+	 * {@link #refileDocument(String, String)} derives the refiled name from the filename, so
+	 * anything else compares two unrelated strings and reports every document as not refiled.</p>
+	 *
+	 * <p>This is a read-only predicate evaluated for every queue while document views render,
+	 * so it answers {@code false} instead of throwing when the queue has no refile directory
+	 * yet or the name cannot be resolved. A real refile still validates and fails loudly.</p>
 	 *
 	 * @see #refileDocument(String, String)
-	 * @param filename The original filename of the document.
+	 * @param documentFileName The document's stored filename.
 	 * @param queueId  The ID of the queue where the document might have been refiled.
 	 * @return {@code true} if a document with the refiled name exists in the queue's refile directory,
-	 * {@code false} otherwise.
+	 * {@code false} otherwise, including when the queue has no refile directory yet.
 	 */
-	public static boolean isDocumentAlreadyRefiledInQueue(String filename, int queueId) {
-		String destFileName = filename;
-		if (destFileName.length() > 18) {
-			destFileName = destFileName.substring(14, filename.length());
+	public static boolean isDocumentAlreadyRefiledInQueue(String documentFileName, int queueId) {
+		if (documentFileName == null || documentFileName.trim().isEmpty()) {
+			// HTML documents carry no filename, so there is nothing that could have been refiled.
+			return false;
 		}
 
-		String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
-		File destDir = PathValidationUtils.validateConfiguredDirectory(destPath, "incoming refile directory");
-		File destFile = PathValidationUtils.validateGeneratedChildPath("R" + PathValidationUtils.validateGeneratedFileName(destFileName), destDir);
-		return destFile.exists();
+		try {
+			String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
+			PathValidationUtils.validateConfiguredDirectory(
+					CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"),
+					"incoming document root");
+			// Canonicalize through the trusted-directory helper instead of reconstructing the
+			// already validated path at the filesystem probe. This preserves lazy-directory
+			// behavior while making the containment boundary explicit to static analysis.
+			File destDir = PathValidationUtils.resolveConfiguredDirectory(
+					destPath, "incoming refile directory");
+			if (!destDir.isDirectory()) {
+				// Nothing has ever been refiled into this queue. Validating the missing directory
+				// as a misconfiguration threw out of showDocument.jsp, which calls this in a loop
+				// over every queue, so a single never-used queue broke viewing any document.
+				return false;
+			}
+
+			// Resolve the refiled name exactly the way refileDocument writes it. Normalizing here
+			// (spaces to underscores, parentheses dropped) looked for a name that was never
+			// written, so documents refiled under such names were reported as not refiled.
+			File destFile = PathValidationUtils.validatePath(
+					getRefiledDocumentFileName(getStoredDocumentBaseName(documentFileName)), destDir);
+			return destFile.exists();
+		} catch (FileValidationException e) {
+			// A stored name the validator rejects (a blocked final extension, say) is not a
+			// refile match. Configuration and containment failures deliberately stay loud.
+			logger.warn("Refile lookup rejected a queued name ({}), reporting not refiled",
+					e.getClass().getSimpleName());
+			return false;
+		}
 	}
 
 }

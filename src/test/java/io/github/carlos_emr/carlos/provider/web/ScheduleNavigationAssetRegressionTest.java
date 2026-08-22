@@ -310,6 +310,30 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("popupAction(targetUrl);");
     }
 
+    @Test
+    @DisplayName("should expose appointment hover details on schedule entries")
+    void shouldExposeAppointmentHoverDetails_onScheduleEntries() throws IOException {
+        String appointmentProviderDay = Files.readString(APPOINTMENT_PROVIDER_DAY_JSP, StandardCharsets.UTF_8);
+        String scheduleScript = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
+
+        assertThat(appointmentProviderDay)
+                .contains("appointmentTooltipSummaryBuilder.append(SafeEncode.forHtmlAttribute(timeRange))")
+                .contains(".append(SafeEncode.forHtmlAttribute(reasonCodeName));")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"<i class='fa-regular fa-circle-question' aria-hidden='true'></i>\", reasonCodeName);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"<i class='fa-regular fa-note-sticky' aria-hidden='true'></i>\", notes);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"<i class='fa-solid fa-triangle-exclamation' aria-hidden='true'></i>\", tickler_note);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"<i class='fa-solid fa-circle-exclamation me-2' aria-hidden='true'></i>\", demographicAlert);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"<i class='fa-regular fa-comment' aria-hidden='true'></i>\", demographicNotes);")
+                .contains("appointmentTooltipFullBuilder.append(\"<i class='fa-regular fa-bell' aria-hidden='true'></i> \")")
+                .contains("class=\"appt<%= isCancelled ? \" Cancelled\" : \"\" %><%= showTooltip ?"
+                        + " \" appt-reason-tooltip appt-tooltip-provider-\" + curProvider_no[nProvider] : \"\" %>\"")
+                .contains("data-title-full=\\\"\" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + \"\\\"\"")
+                .contains("data-title-short=\\\"\" + SafeEncode.forHtmlAttribute(appointmentTooltipSummary) + \"\\\"\"");
+        assertThat(scheduleScript)
+                .contains("updateTooltipsForProvider(providerNo, showReason);")
+                .contains("const titleAttr = showReason ? el.dataset.titleFull : el.dataset.titleShort;");
+    }
+
     /**
      * Collapses JSP whitespace sequences to single spaces so assertions focus
      * on defaulting behavior instead of indentation or line wrapping.

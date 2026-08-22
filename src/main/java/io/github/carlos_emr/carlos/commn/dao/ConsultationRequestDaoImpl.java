@@ -86,7 +86,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
             sql.append("and cr.status != '4' ");
         }
 
-        if (!team.isEmpty()) {
+        if (team != null && !team.isEmpty()) {
             sql.append("and cr.sendTo = :team ");
         }
 
@@ -132,7 +132,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
 
 
         Query query = entityManager.createQuery(sql.toString());
-        if (!team.isEmpty()) {
+        if (team != null && !team.isEmpty()) {
             query.setParameter("team", team);
         }
         if (startDate != null) {

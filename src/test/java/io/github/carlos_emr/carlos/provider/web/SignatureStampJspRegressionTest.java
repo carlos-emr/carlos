@@ -53,8 +53,37 @@ class SignatureStampJspRegressionTest {
                 .contains("signatureProviderNo = consultUtil.providerNo.trim();")
                 .contains("signatureProviderNo = referringProviderDefault.trim();")
                 .contains("consultSigFile.isFile()")
+                .contains("name=\"signatureProviderNo\" id=\"signatureProviderNo\"")
+                .contains("updateSignatureProvider(this.value)")
+                .contains("function isStoredSignatureId(value)")
+                .contains("function hasPendingManualSignature()")
+                .contains("boolean canWriteConsult = securityInfoManager.hasPrivilege(loggedInInfo, \"_con\", SecurityInfoManager.WRITE, consultSecurityTarget);")
+                .contains("signatureImgTag.onerror = function()")
+                .contains("if (data.signatureImg && isStoredSignatureId(data.signatureImg))")
                 .contains("/provider/providerSignatureImage?providerNo=<%=SafeEncode.forUriComponent(signatureProviderNo)%>")
                 .doesNotContain("UserProperty consultSigProp = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);");
+    }
+
+    @Test
+    @DisplayName("Read-only consultation signature view should not render write-only signature controls")
+    void shouldNotRenderSignaturePadControls_inReadOnlyConsultationSignatureView() throws Exception {
+        String jsp = Files.readString(CONSULT_JSP, StandardCharsets.UTF_8);
+        String normalizedJsp = normalizeWhitespace(jsp);
+        int readOnlySignatureBranch = normalizedJsp.indexOf("<% } else if (SignatureReference.isStoredId(consultUtil.signatureImg)) { %>");
+        int unsignedSignatureBranch = normalizedJsp.indexOf("<% } else { %> <div id=\"signatureUnsignedReadOnly\"", readOnlySignatureBranch);
+
+        assertThat(readOnlySignatureBranch).isGreaterThan(0);
+        assertThat(unsignedSignatureBranch).isGreaterThan(readOnlySignatureBranch);
+        assertThat(normalizedJsp)
+                .contains("<% if (canWriteConsult) { %> <input type=\"hidden\" name=\"newSignature\"")
+                .contains("id=\"signatureReadOnlyShow\"")
+                .contains("id=\"signatureReadOnlyImgTag\"")
+                .contains("src=\"<%=storedImgUrl %><%=SafeEncode.forUriComponent(consultUtil.signatureImg)%>\"")
+                .contains("encounter.oscarConsultationRequest.ConsultationFormRequest.signatureUnsignedReadOnly");
+        assertThat(normalizedJsp.substring(readOnlySignatureBranch, unsignedSignatureBranch))
+                .doesNotContain("signature_pad/tabletSignature")
+                .doesNotContain("linkResignManually")
+                .doesNotContain("onerror=");
     }
 
     @Test
