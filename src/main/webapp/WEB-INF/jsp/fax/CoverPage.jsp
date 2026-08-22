@@ -30,18 +30,36 @@
 --%>
 
 <%--
-    CoverPage.jsp
+    CoverPage.jsp — Fax cover-page composition and pre-send preview.
 
-    Loaded via POST from FaxAnnotateViewer.jsp on forward from
-    FaxDocument?faxReady=true to CoverPage.jsp.
+    Purpose:
+      Renders the "compose fax" screen shown before an eForm (and any attachments) is queued for
+      faxing. The user reviews the assembled document, sets the recipient/cover-page details, and
+      submits the job. Also reached from the document fax flow: FaxAnnotateViewer.jsp navigates
+      the browser (GET) to FaxDocument?faxReady=true, whose Struts action forwards here.
 
-    Provides UI for autocomplete fax numbers and outgoing fax 
-    coordinates.
+    Access control:
+      Requires the _fax READ security object. The gate scriptlet redirects to
+      /securityError?type=_fax when the session lacks it, so the page never renders for
+      unauthorized users.
 
-    @param docId        (request attribute, int) Document number
-    @param faxReady     (request attribute, boolean)
-    @since 2026-06
+    Preview behavior (see docs/eform-browser-pdf-renderer.md):
+      The document is previewed two ways. Inline page IMAGES are produced via
+      NioFileManager.createCacheVersion2 and require _edoc READ; a user without _edoc still gets a
+      working "Open PDF" link (soft degradation), so the preview never hard-fails on missing _edoc.
+
+    Key request parameters / attributes:
+      faxFilePath   - server-generated path of the assembled PDF being previewed/faxed
+      showAs        - "image" selects the inline page-image preview; otherwise the PDF is served
+      pageNumber    - 1-based page selector for the image preview
+      demographicNo - patient the fax relates to
+      letterheadFax - clinic/sender fax number used to select and prefill the sending fax account
+      fax           - recipient fax number prefilled into the form
+      docId         - document number when arriving from the document fax flow
+
+    @since 2014-08-29
 --%>
+
 <!DOCTYPE html>
 
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -110,7 +128,7 @@
     <%--
         Action return flashy confirmation messages.
     --%>
-    <c:if test="${ not empty faxSuccessful }">
+    <c:if test="${ not empty faxSuccessful and faxSuccessful }">
         <script type="text/javascript">
             $(document).ready(function () {
                 $("#page-body").slideUp("slow");
@@ -345,7 +363,7 @@
 						 	</div>
 
 					  		<%-- Only show existing recipients if not displaying submission results --%>
-					  		<c:if test="${ empty faxSuccessful }">
+					  		<c:if test="${ empty faxSuccessful or not faxSuccessful }">
 						  		<c:forEach items="${ copyToRecipients }" var="recipient" >
 							  			<div class="row">
 								  			<div class="col-sm-12 input-group recipientGroup">
@@ -438,17 +456,21 @@
                 </div>
             </form>
             <%-- Only show preview before submission, not after --%>
-            <c:if test="${ transactionType ne 'CONSULTATION' and empty faxSuccessful }">
+            <c:if test="${ transactionType ne 'CONSULTATION' and (empty faxSuccessful or not faxSuccessful) }">
                 <div class="card" id="preview-panel">
                     <div class="card-header">
                         <h3 class="card-title"><fmt:message key="coverPage.card.preview"/></h3>
                     </div>
                     <div class="card-body">
                         <div class="container">
-                            <object id="previewPDF"
-                                    data="${ctx}/fax/faxAction?method=getPreview&faxFilePath=<carlos:encode value='${faxFilePath}' context="uriComponent"/>"
-                                    type="application/pdf" width="100%" height="800">
-                            </object>
+                            <p class="text-muted">
+                                Preview shows the generated fax PDF as server-rendered images.
+                                <a id="previewPdfLink"
+                                   href="${ctx}/fax/faxAction?method=getPreview&faxFilePath=${carlos:forUriComponent(faxFilePath)}"
+                                   target="_blank" rel="noopener noreferrer">Open PDF</a>
+                            </p>
+                            <div id="previewStatus" class="text-muted">Loading preview…</div>
+                            <div id="previewImages" class="d-flex flex-column gap-3"></div>
                         </div>
                     </div>
                 </div>
@@ -465,6 +487,7 @@
                                 <fmt:param value="${carlos:forHtml(faxJob.recipient)}"/>
                                 <fmt:param value="${carlos:forHtml(faxJob.destination)}"/>
                                 <fmt:param value="${carlos:forHtml(faxJob.status)}"/>
+                                <fmt:param value="${carlos:forHtml(faxJob.statusString)}"/>
                             </fmt:message>
                         </div>
                     </c:when>
@@ -480,11 +503,22 @@
             </c:forEach>
             <input type="button" class="btn btn-danger btn-md float-end" value="<fmt:message key='coverPage.btn.close'/>" onclick="window.close();"/>
         </c:if>
+
+        <%-- cancel() no longer redirects (and silently discards the message) when
+             faxManager.flush fails to clear the preview cache / temporary file; render the
+             failure here instead so the user knows the cleanup (and PHI removal) did not
+             complete. --%>
+        <c:if test="${ not empty faxCleanupFailed }">
+            <div class="alert alert-danger" role="alert">
+                The fax was cancelled, but the preview cache or temporary file could not be fully removed.
+                Please retry Cancel or contact your system administrator.
+            </div>
+        </c:if>
     </div>
 </div>
 
 <script type="text/javascript">
-    var ctx = "<carlos:encode value='${ ctx }' context="javaScript"/>";
+    var ctx = "${carlos:forJavaScript(ctx)}";
     
     // HTML entity encoding function to prevent XSS
     function escapeHtml(text) {
@@ -499,7 +533,112 @@
         return text.toString().replace(/[&<>"']/g, function(m) { return map[m]; });
     }
 
+    function getPreviewPageCount(callback) {
+        var faxFilePath = $("input[name='faxFilePath']").val();
+        if (!faxFilePath) {
+            callback(0);
+            return;
+        }
+
+        $.post(ctx + "/fax/faxAction", {
+            method: "getPageCount",
+            faxFilePath: faxFilePath
+        }).done(function (resultdata) {
+            callback(resultdata.pageCount || 0);
+        }).fail(function (jqXHR) {
+            // Surface the status: a 403 (missing document privilege) needs different operator
+            // action than a 404/500, and collapsing them all into "Preview unavailable" hid that.
+            console.error("Fax preview page count request failed with HTTP status " + jqXHR.status);
+            callback(0, jqXHR.status);
+        });
+    }
+
+    // Cap how many page-image elements are materialized up front so a very large PDF cannot make the
+    // cover page slow or unresponsive; the rest render on demand via a "Show remaining" button. Each
+    // <img> is also natively lazy-loaded.
+    var PREVIEW_INITIAL_PAGE_CAP = 25;
+
+    function appendPreviewImage(container, faxFilePath, pageNumber) {
+        var image = $("<img />")
+            .attr("src", ctx + "/fax/faxAction?method=getPreview&showAs=image&faxFilePath=" + encodeURIComponent(faxFilePath) + "&pageNumber=" + pageNumber)
+            .attr("alt", "Fax preview page " + pageNumber)
+            .attr("loading", "lazy")
+            .addClass("img-fluid border rounded bg-white")
+            .css("background-image", "url('" + ctx + "/images/loader.gif')")
+            .css("background-position", "50% 50%")
+            .css("background-repeat", "no-repeat")
+            // A user without the _edoc privilege gets a 403 from getPreview for every page image;
+            // without this handler each broken <img> sits on the page captioned
+            // "Showing N pages", which reads as a successful preview instead of a degraded one.
+            .on("error", function () {
+                $(this).remove();
+                var previewStatus = $("#previewStatus");
+                if (!previewStatus.data("degraded")) {
+                    previewStatus.data("degraded", true)
+                        .text("Preview images are not available for your role or this document. Use Open PDF to review the generated fax document.");
+                }
+            });
+
+        $("<div />")
+            .addClass("mb-3")
+            .append($("<div />").addClass("small text-muted mb-1").text("Page " + pageNumber))
+            .append(image)
+            .appendTo(container);
+    }
+
+    function renderPreviewImages(pageCount, failureStatus) {
+        var faxFilePath = $("input[name='faxFilePath']").val();
+        var previewStatus = $("#previewStatus");
+        var previewImages = $("#previewImages");
+
+        previewImages.empty();
+
+        if (!faxFilePath || pageCount < 1) {
+            // A 403 means this user lacks the document privilege the inline image preview needs
+            // (soft degradation: Open PDF still works); other failures are generic.
+            if (failureStatus === 403) {
+                previewStatus.text("Preview images are not available for your role. Use Open PDF to review the generated fax document.");
+            } else {
+                previewStatus.text("Preview unavailable. Use Open PDF to review the generated fax document.");
+            }
+            return;
+        }
+
+        var initialCount = Math.min(pageCount, PREVIEW_INITIAL_PAGE_CAP);
+        // Reflect the initial cap so the count is not misleading for a large fax: only the first
+        // initialCount pages render up front until the user clicks "Show remaining …".
+        if (pageCount > initialCount) {
+            previewStatus.text("Showing first " + initialCount + " of " + pageCount + " pages.");
+        } else {
+            previewStatus.text("Showing " + pageCount + " page" + (pageCount === 1 ? "" : "s") + ".");
+        }
+
+        for (var i = 1; i <= initialCount; i++) {
+            appendPreviewImage(previewImages, faxFilePath, i);
+        }
+
+        if (pageCount > initialCount) {
+            var remaining = pageCount - initialCount;
+            var showMore = $("<button />")
+                .attr("type", "button")
+                .addClass("btn btn-outline-secondary btn-sm mb-3")
+                .text("Show remaining " + remaining + " page" + (remaining === 1 ? "" : "s"))
+                .on("click", function () {
+                    $(this).remove();
+                    for (var j = initialCount + 1; j <= pageCount; j++) {
+                        appendPreviewImage(previewImages, faxFilePath, j);
+                    }
+                    // All pages are now materialized, so the "first N of M" status no longer holds.
+                    previewStatus.text("Showing all " + pageCount + " page" + (pageCount === 1 ? "" : "s") + ".");
+                });
+            previewImages.append(showMore);
+        }
+    }
+
     $(document).ready(function () {
+        if ($("#previewImages").length) {
+            getPreviewPageCount(renderPreviewImages);
+        }
 
         /*
         * Fax recipient autocomplete (pharmacy + specialist) for the primary To field.
@@ -537,28 +676,30 @@
             }
 
             // For display
-            var inputValue = escapeHtml(name + " " + fax);
-            
+            var inputValue = name + " " + fax;
+
             // For the data format the server expects
-            // First escape double quotes and backslashes in the actual values to prevent breaking the JSON format
+            // First escape double quotes and backslashes in the actual values to keep the JSON valid
             var safeName = name.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
             var safeFax = fax.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
             // Build the format the server expects (proper JSON format with double quotes)
             var submitValue = '"name":"' + safeName + '","fax":"' + safeFax + '"';
 
-            $("#fax-additional-recipients").append(
-                '<div class="row">\
-                    <div class="col-sm-12 input-group recipientGroup">\
-                        <input type="text" class="form-control" value="' + inputValue + '" disabled/>\
-						      <button class="btn btn-danger remove-additional-recipient-btn" type="button" onclick="removeRecipient(this)" >\
-						        <i class="fa-solid fa-trash"></i>\
-						      </button>\
-					    </div>\
-						<input type="hidden" name="copyToRecipients" value=\'' + submitValue + '\' />\
-						<input type="hidden" name="faxRecipients" value=\'' + submitValue + '\' />\
-					</div>'
-            );
+            // Build the row as DOM nodes and assign the user-derived values with .val(), never by
+            // splicing them into an HTML string. A name containing an apostrophe (e.g. O'Brien) would
+            // otherwise break out of a single-quoted value attribute and inject markup (DOM XSS);
+            // .val() sets the value property directly, so no HTML parsing of the value occurs.
+            var $group = $('<div class="col-sm-12 input-group recipientGroup"></div>')
+                .append($('<input type="text" class="form-control" disabled/>').val(inputValue))
+                .append($('<button class="btn btn-danger remove-additional-recipient-btn" type="button"></button>')
+                    .attr('onclick', 'removeRecipient(this)')
+                    .append('<span class="fa-solid fa-trash"></span>'));
+            var $row = $('<div class="row"></div>')
+                .append($group)
+                .append($('<input type="hidden" name="copyToRecipients"/>').val(submitValue))
+                .append($('<input type="hidden" name="faxRecipients"/>').val(submitValue));
+            $("#fax-additional-recipients").append($row);
 
             faxElement.val("");
             nameElement.val("");

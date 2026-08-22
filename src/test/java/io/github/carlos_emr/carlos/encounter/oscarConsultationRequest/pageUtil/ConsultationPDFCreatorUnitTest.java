@@ -29,10 +29,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import javax.imageio.ImageIO;
+
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
+import org.openpdf.text.Image;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -47,6 +53,10 @@ class ConsultationPDFCreatorUnitTest {
 
     private static final byte[] OVERRIDE_BYTES = new byte[]{1, 2, 3};
     private static final byte[] STORED_BYTES = new byte[]{9, 8, 7};
+    private static final int SIGNATURE_SOURCE_WIDTH = 500;
+    private static final int SIGNATURE_SOURCE_HEIGHT = 150;
+    private static final float SIGNATURE_MAX_WIDTH = 200f;
+    private static final float SIGNATURE_MAX_HEIGHT = 60f;
 
     @Test
     @DisplayName("prefers the non-mutating override and never loads the stored signature")
@@ -99,6 +109,21 @@ class ConsultationPDFCreatorUnitTest {
     }
 
     @Test
+    @DisplayName("does not render a stored signature when preview rendering suppresses signatures")
+    void shouldNotRenderSignature_whenSuppressed() {
+        assertThat(ConsultationPDFCreator.shouldRenderSignature(true, null, "5")).isFalse();
+        assertThat(ConsultationPDFCreator.shouldRenderSignature(true, OVERRIDE_BYTES, "")).isFalse();
+    }
+
+    @Test
+    @DisplayName("renders either override bytes or a stored signature id when not suppressed")
+    void shouldRenderSignature_whenOverrideOrStoredIdPresentAndNotSuppressed() {
+        assertThat(ConsultationPDFCreator.shouldRenderSignature(false, OVERRIDE_BYTES, "")).isTrue();
+        assertThat(ConsultationPDFCreator.shouldRenderSignature(false, null, "5")).isTrue();
+        assertThat(ConsultationPDFCreator.shouldRenderSignature(false, new byte[0], "")).isFalse();
+    }
+
+    @Test
     @DisplayName("returns null when the stored signature id contains only whitespace")
     void shouldReturnNull_whenStoredIdWhitespaceOnly() {
         DigitalSignatureManager mgr = mock(DigitalSignatureManager.class);
@@ -146,5 +171,65 @@ class ConsultationPDFCreatorUnitTest {
         byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, "5", mgr);
 
         assertThat(result).isNull();
+    }
+
+    @Test
+    @DisplayName("should scale signature image to the compact right-aligned footprint")
+    void shouldScaleSignatureImage_toCompactFootprint() throws Exception {
+        Image image = ConsultationPDFCreator.createScaledSignatureImage(
+                createPng(SIGNATURE_SOURCE_WIDTH, SIGNATURE_SOURCE_HEIGHT));
+
+        assertThat(image.getScaledWidth()).isEqualTo(SIGNATURE_MAX_WIDTH);
+        assertThat(image.getScaledHeight()).isEqualTo(SIGNATURE_MAX_HEIGHT);
+        assertThat(image.getBorder()).isZero();
+    }
+
+    @Test
+    @DisplayName("should cap wide signature image at the compact footprint width")
+    void shouldCapSignatureImage_whenSourceIsWide() throws Exception {
+        Image image = ConsultationPDFCreator.createScaledSignatureImage(createPng(1000, SIGNATURE_SOURCE_HEIGHT));
+
+        assertThat(image.getScaledWidth()).isEqualTo(SIGNATURE_MAX_WIDTH);
+        assertThat(image.getScaledHeight()).isEqualTo(30f);
+        assertThat(image.getScaledWidth()).isLessThanOrEqualTo(SIGNATURE_MAX_WIDTH);
+        assertThat(image.getScaledHeight()).isLessThanOrEqualTo(SIGNATURE_MAX_HEIGHT);
+    }
+
+    @Test
+    @DisplayName("should cap tall signature image at the compact footprint height")
+    void shouldCapSignatureImage_whenSourceIsTall() throws Exception {
+        Image image = ConsultationPDFCreator.createScaledSignatureImage(createPng(300, 600));
+
+        assertThat(image.getScaledWidth()).isEqualTo(30f);
+        assertThat(image.getScaledHeight()).isEqualTo(SIGNATURE_MAX_HEIGHT);
+        assertThat(image.getScaledWidth()).isLessThanOrEqualTo(SIGNATURE_MAX_WIDTH);
+        assertThat(image.getScaledHeight()).isLessThanOrEqualTo(SIGNATURE_MAX_HEIGHT);
+    }
+
+    @Test
+    @DisplayName("should cap accepted provider stamp maximum dimensions within the compact footprint")
+    void shouldCapSignatureImage_whenSourceMatchesProviderStampLimit() throws Exception {
+        Image image = ConsultationPDFCreator.createScaledSignatureImage(createPng(1000, 400));
+
+        assertThat(image.getScaledWidth()).isEqualTo(150f);
+        assertThat(image.getScaledHeight()).isEqualTo(SIGNATURE_MAX_HEIGHT);
+        assertThat(image.getScaledWidth()).isLessThanOrEqualTo(SIGNATURE_MAX_WIDTH);
+        assertThat(image.getScaledHeight()).isLessThanOrEqualTo(SIGNATURE_MAX_HEIGHT);
+    }
+
+    @Test
+    @DisplayName("should not upscale small signature image")
+    void shouldNotUpscaleSignatureImage_whenSourceIsSmall() throws Exception {
+        Image image = ConsultationPDFCreator.createScaledSignatureImage(createPng(100, 30));
+
+        assertThat(image.getScaledWidth()).isEqualTo(40f);
+        assertThat(image.getScaledHeight()).isEqualTo(12f);
+    }
+
+    private static byte[] createPng(int width, int height) throws IOException {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", out);
+        return out.toByteArray();
     }
 }

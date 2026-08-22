@@ -53,4 +53,34 @@ class ProviderAddStatusValidatorUnitTest {
         assertThat(ProviderAddStatusValidator.buildValidatedAppointmentStatus("CS", "V")).isNull();
         assertThat(ProviderAddStatusValidator.buildValidatedAppointmentStatus("", "CSV")).isNull();
     }
+
+    @Test
+    @DisplayName("should match current status when submitted value equals persisted value")
+    void shouldMatchCurrentStatus_whenSubmittedValueEqualsPersistedValue() {
+        assertThat(ProviderAddStatusValidator.matchesCurrentStatus("T", "T")).isTrue();
+        assertThat(ProviderAddStatusValidator.matchesCurrentStatus("TS", "TS")).isTrue();
+    }
+
+    @Test
+    @DisplayName("should reject current status when submitted value is stale or invalid")
+    void shouldRejectCurrentStatus_whenSubmittedValueIsStaleOrInvalid() {
+        assertThat(ProviderAddStatusValidator.matchesCurrentStatus("H", "T")).isFalse();
+        assertThat(ProviderAddStatusValidator.matchesCurrentStatus("H", null)).isFalse();
+        assertThat(ProviderAddStatusValidator.matchesCurrentStatus("H", "H&status=C")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should match requested status when server calculates same next status")
+    void shouldMatchRequestedStatus_whenServerCalculatesSameNextStatus() {
+        assertThat(ProviderAddStatusValidator.matchesCalculatedNextStatus("H", "H")).isTrue();
+        assertThat(ProviderAddStatusValidator.matchesCalculatedNextStatus("TS", "TS")).isTrue();
+    }
+
+    @Test
+    @DisplayName("should reject requested status when server calculates different next status")
+    void shouldRejectRequestedStatus_whenServerCalculatesDifferentNextStatus() {
+        assertThat(ProviderAddStatusValidator.matchesCalculatedNextStatus("H", "C")).isFalse();
+        assertThat(ProviderAddStatusValidator.matchesCalculatedNextStatus(null, "H")).isFalse();
+        assertThat(ProviderAddStatusValidator.matchesCalculatedNextStatus("H", "H&status=C")).isFalse();
+    }
 }
