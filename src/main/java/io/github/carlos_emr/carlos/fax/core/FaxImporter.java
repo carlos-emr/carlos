@@ -685,6 +685,9 @@ public class FaxImporter {
                             FaxJob retryFax = new FaxJob();
                             retryFax.setFile_name(pdfFile.getFileName().toString());
                             retryFax.setDirection(FaxJob.Direction.IN);
+                            // Stamp the receiving account like the poll path, so
+                            // dedup scoping and attribution apply to retry rows too.
+                            retryFax.setFax_line(faxConfig.getFaxNumber());
                             try {
                                 retryFax.setStamp(new Date(Files.getLastModifiedTime(pdfFile).toMillis()));
                             } catch (IOException e) {
@@ -923,10 +926,17 @@ public class FaxImporter {
             // NOTE: fax_line is the best account key on the row today; a
             // number genuinely shared by two backends cannot be told apart
             // without a per-config identity on the fax record.
+            // A prior row that names a DIFFERENT account is not ours. A
+            // blank/null prior fax_line is a legacy row (imports did not
+            // stamp it before this release) — treat it as ours so an upgrade
+            // never re-imports an already-held fax. Comparison is on the last
+            // 10 digits so a provider-supplied 11-digit line (e.g. a
+            // middleware backend) still matches a 10-digit configured number.
+            // If THIS account has no fax line to scope by, a row bearing some
+            // OTHER account's line cannot be confirmed ours, so it is skipped.
             String priorLine = prior.getFax_line();
             if (priorLine != null && !priorLine.trim().isEmpty()
-                    && accountFaxLine != null
-                    && !priorLine.trim().equals(accountFaxLine.trim())) {
+                    && !sameFaxLine(priorLine, accountFaxLine)) {
                 continue;
             }
             if (FaxJob.STATUS.RECEIVED.equals(prior.getStatus())) {
@@ -943,6 +953,28 @@ public class FaxImporter {
         }
         return false;
     }
+
+    /**
+     * True when two fax-line values denote the same account, compared on
+     * their last 10 significant digits so a provider-supplied 11-digit line
+     * matches a 10-digit configured number (ConfigureFax2Action stores 10).
+     * A null/blank {@code accountFaxLine} matches nothing (the account has no
+     * line to scope by, so another account's row cannot be confirmed ours).
+     */
+    private static boolean sameFaxLine(String a, String b) {
+        String da = digitsTail(a);
+        String db = digitsTail(b);
+        return !da.isEmpty() && da.equals(db);
+    }
+
+    private static String digitsTail(String v) {
+        if (v == null) {
+            return "";
+        }
+        String digits = v.replaceAll("\\D", "");
+        return digits.length() > 10 ? digits.substring(digits.length() - 10) : digits;
+    }
+
 
     /**
      * Marks the original "Downloaded but import failed - pending retry" rows as imported once
