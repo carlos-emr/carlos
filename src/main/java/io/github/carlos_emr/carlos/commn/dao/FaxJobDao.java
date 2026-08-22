@@ -56,14 +56,6 @@ public interface FaxJobDao extends AbstractDao<FaxJob> {
     public List<FaxJob> findByProviderJobId(Long jobId);
 
     /**
-     * Like {@link #findByProviderJobId}, but scoped to a single receiving
-     * account (its fax line). Inbound duplicate detection must not match a
-     * fax imported by a DIFFERENT account/backend that happens to reuse the
-     * same numeric provider job id.
-     */
-    public List<FaxJob> findByProviderJobIdAndFaxLine(Long jobId, String faxLine);
-
-    /**
      * Finds fax rows by their stored file name.
      *
      * Used by the inbound importer's pending-file retry to resolve the original
