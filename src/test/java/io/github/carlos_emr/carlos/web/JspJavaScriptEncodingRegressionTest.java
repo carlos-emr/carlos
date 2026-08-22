@@ -208,7 +208,7 @@ class JspJavaScriptEncodingRegressionTest {
                 + "\\s*%>\\s*['\"]";
         String contextAttribute = "context\\s*=\\s*['\"]" + context + "['\"]";
 
-        return "<carlos:encode\\s+(?:(?:"
+        return "(?:<carlos:encode\\s+(?:(?:"
                 + scriptletValue
                 + "\\s+"
                 + contextAttribute
@@ -216,7 +216,7 @@ class JspJavaScriptEncodingRegressionTest {
                 + contextAttribute
                 + "\\s+"
                 + scriptletValue
-                + "))\\s*/>";
+                + "))\\s*/>)";
     }
 
     private static Path resolveProjectPath(Path relativePath) {
