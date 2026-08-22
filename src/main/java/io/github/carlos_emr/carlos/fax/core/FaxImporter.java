@@ -910,28 +910,7 @@ public class FaxImporter {
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    /**
-     * True when two fax-line values denote the same account, compared on
-     * their last 10 significant digits so a provider-supplied 11-digit line
-     * matches a 10-digit configured number (ConfigureFax2Action stores 10).
-     * A null/blank {@code accountFaxLine} matches nothing (the account has no
-     * line to scope by, so another account's row cannot be confirmed ours).
-     */
-    private static boolean sameFaxLine(String a, String b) {
-        String da = digitsTail(a);
-        String db = digitsTail(b);
-        return !da.isEmpty() && da.equals(db);
-    }
-
-    private static String digitsTail(String v) {
-        if (v == null) {
-            return "";
-        }
-        String digits = v.replaceAll("\\D", "");
-        return digits.length() > 10 ? digits.substring(digits.length() - 10) : digits;
-    }
-
-        boolean isAlreadyImported(List<FaxJob> priorRows, String accountFaxLine) {
+    boolean isAlreadyImported(List<FaxJob> priorRows, String accountFaxLine) {
         if (priorRows == null) {
             return false;
         }
@@ -974,6 +953,28 @@ public class FaxImporter {
         }
         return false;
     }
+
+    /**
+     * True when two fax-line values denote the same account, compared on
+     * their last 10 significant digits so a provider-supplied 11-digit line
+     * matches a 10-digit configured number (ConfigureFax2Action stores 10).
+     * A null/blank {@code accountFaxLine} matches nothing (the account has no
+     * line to scope by, so another account's row cannot be confirmed ours).
+     */
+    private static boolean sameFaxLine(String a, String b) {
+        String da = digitsTail(a);
+        String db = digitsTail(b);
+        return !da.isEmpty() && da.equals(db);
+    }
+
+    private static String digitsTail(String v) {
+        if (v == null) {
+            return "";
+        }
+        String digits = v.replaceAll("\\D", "");
+        return digits.length() > 10 ? digits.substring(digits.length() - 10) : digits;
+    }
+
 
     /**
      * Marks the original "Downloaded but import failed - pending retry" rows as imported once
