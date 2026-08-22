@@ -86,9 +86,9 @@
         moduleid = (String) request.getAttribute("functionid");
     }
 
-    Hashtable docerrors = new Hashtable();
+    Map<String, String> docerrors = new HashMap<>();
     if (request.getAttribute("docerrors") != null) {
-        docerrors = (Hashtable) request.getAttribute("docerrors");
+        docerrors = (Map<String, String>) request.getAttribute("docerrors");
     }
 
     String lastUpdate = "";
@@ -267,8 +267,8 @@
 <body class="mainbody">
 <div class="maindiv">
     <div class="maindivheading">Edit Document</div>
-    <%-- Lists docerrors --%> <% for (Enumeration errorkeys = docerrors.keys(); errorkeys.hasMoreElements(); ) {%>
-    <font class="warning">Error: <fmt:message key="<%=(String) docerrors.get(errorkeys.nextElement())%>"/></font><br/>
+    <%-- Lists docerrors --%> <% for (String errorkey : docerrors.keySet()) {%>
+    <font class="warning">Error: <fmt:message key="<%=docerrors.get(errorkey)%>"/></font><br/>
     <% } %> <form action="${pageContext.request.contextPath}/documentManager/addEditDocument" method="POST"
                        enctype="multipart/form-data" onsubmit="return submitUpload(this);">
     <input type="hidden" name="function"
