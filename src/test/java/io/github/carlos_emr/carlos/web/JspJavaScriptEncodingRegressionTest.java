@@ -210,7 +210,8 @@ class JspJavaScriptEncodingRegressionTest {
                 .contains("<carlos:encode value='<%= bean.medicalHistory %>' context=\"html\"/>")
                 .contains("<carlos:encode value='<%= bean.ongoingConcerns %>' context=\"html\"/>")
                 .contains("<carlos:encode value='<%= bean.reminders %>' context=\"html\"/>")
-                .doesNotContainPattern("<pre[^>]*>\\s*<%=\\s*bean\\.(socialHistory|familyHistory|medicalHistory|ongoingConcerns|reminders)\\s*%>");
+                .contains("<carlos:encode value='<%= bean.encounter %>' context=\"html\"/>")
+                .doesNotContainPattern("<pre[^>]*>\\s*<%=\\s*bean\\.(socialHistory|familyHistory|medicalHistory|ongoingConcerns|reminders|encounter)\\s*%>");
 
         assertThat(echartHistoryPrintJsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
