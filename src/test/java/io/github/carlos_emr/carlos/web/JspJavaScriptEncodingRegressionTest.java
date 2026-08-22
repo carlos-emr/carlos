@@ -168,6 +168,8 @@ class JspJavaScriptEncodingRegressionTest {
 
         assertThat(rourkeExportJsp)
                 .doesNotContain("zipFile=<%=file%>'><%=file %>")
+                .doesNotContain("method=getFile&zipFile=")
+                .contains("method=getFile&amp;zipFile=")
                 .doesNotContain("<td><%=dataExport.getUser()%>")
                 .doesNotContain("<td><%=dataExport.getType()%>")
                 .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getUser\\(\\)", "html"))
