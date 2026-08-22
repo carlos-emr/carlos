@@ -469,6 +469,17 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should return false when the prior row's fax line is short/malformed (< 10 digits)")
+        void shouldReturnFalse_whenPriorFaxLineIsShortMalformed() {
+            // A prior row carrying a truncated/garbage fax_line has no usable account key; it must
+            // not be treated as a match against this account (else a genuine new fax is suppressed),
+            // and a short value must never coincidentally match another short value.
+            FaxJob shortLine = priorRow(FaxJob.STATUS.RECEIVED, null);
+            shortLine.setFax_line("8476");
+            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(shortLine), ACCOUNT_FAX_NUMBER)).isFalse();
+        }
+
+        @Test
         @DisplayName("should return true for a legacy row with a blank fax line (pre-stamping upgrade)")
         void shouldReturnTrue_forLegacyRowWithBlankFaxLine() {
             // Rows imported before this release have no fax_line; an upgrade must still treat them
