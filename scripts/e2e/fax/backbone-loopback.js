@@ -12,6 +12,9 @@
 // matching how the deployment is administered; pass MARIADB="sudo mariadb" etc.
 'use strict';
 const { execFileSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { cfg } = require('./lib');
 
 // MARIADB may be a multi-word launcher (e.g. "sudo mariadb"); split into argv
@@ -27,6 +30,24 @@ function sql(q) {
   return execFileSync(cmd, [...pre, '-N', DB, '-e', q], { encoding: 'utf8' }).trim();
 }
 function sh(cmd, args, opts) { return execFileSync(cmd, args, opts); }
+// Stage file content into a directory the current user may not own. On a
+// hardened deployment the document dir is 0750 and owned by the service
+// account, so staging the outbound PDF needs a privilege wrapper. STAGE_AS is
+// an optional launcher (e.g. "sudo -u carlos"); empty by default so nothing
+// changes when the runner already owns the dir. Content is written to a
+// world-readable temp file first, then installed as the target user — piping
+// through "sudo -u other install /dev/stdin" cannot inherit our pipe fd.
+function stage(content, dest, mode = '0644') {
+  const wrap = (process.env.STAGE_AS || '').split(/\s+/).filter(Boolean);
+  const tmp = path.join(os.tmpdir(), 'carlos-e2e-' + path.basename(dest));
+  fs.writeFileSync(tmp, content, { mode: 0o644 });
+  try {
+    const argv = [...wrap, 'install', '-m', mode, tmp, dest];
+    execFileSync(argv[0], argv.slice(1));
+  } finally {
+    fs.unlinkSync(tmp);
+  }
+}
 
 async function main() {
   const c = cfg();
@@ -42,7 +63,7 @@ async function main() {
     + '5 0 obj<</Length 60>>stream\nBT /F1 18 Tf 72 700 Td (CARLOS E2E loopback) Tj ET\n'
     + 'endstream endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF';
   const fname = 'e2e-backbone-loopback.pdf';
-  sh('install', ['-m', '0644', '/dev/stdin', `${DOCDIR}/${fname}`], { input: pdf });
+  stage(pdf, `${DOCDIR}/${fname}`);
 
   const demo = sql(`SELECT demographic_no FROM demographic WHERE last_name='Loopback' AND first_name='Faxtest' ORDER BY demographic_no LIMIT 1`);
   if (!demo) throw new Error('fixture demographic Loopback/Faxtest not found — load fixtures.sql first');

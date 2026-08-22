@@ -29,18 +29,21 @@ function validateBaseUrl(raw) {
   return u.toString().replace(/\/$/, '');
 }
 
-const cfg = () => ({
+// Assemble config from the environment. Pass { srfax: false } for tests that
+// drive an already-imported fax and never call the SRFax API, so they do not
+// require SRFax account credentials just to run.
+const cfg = ({ srfax = true } = {}) => ({
   base: validateBaseUrl(env('BASE_URL')),
   user: env('TEST_USER'),
   pass: env('TEST_PASSWORD'),
   pin: env('TEST_PIN'),
   chrome: process.env.CHROME_PATH || undefined,
-  srfax: {
+  srfax: srfax ? {
     accessId: env('SRFAX_ACCESS_ID'),
     pass: env('SRFAX_PASS'),
     email: env('SRFAX_USER'),
     faxNumber: env('SRFAX_FAX_NUMBER'),
-  },
+  } : undefined,
 });
 
 async function launch() {
@@ -109,4 +112,34 @@ async function waitForInboundFax(p, c, { sinceCount = 0, timeoutMs = 480000 } = 
   return -1;
 }
 
-module.exports = { env, cfg, launch, login, ensureSrfaxConfigured, waitForInboundFax };
+// Scrape the CSRFGuard token from a rendered page. Every authenticated app
+// page carries it as a hidden <input name="CSRF-TOKEN">; POSTs without it are
+// rejected 403 by CarlosCsrfGuardFilter. Navigate to an app page first.
+async function csrfToken(p) {
+  const t = await p.evaluate(() => {
+    const el = document.querySelector('input[name="CSRF-TOKEN"]');
+    return el ? el.value : null;
+  });
+  if (!t) throw new Error('CSRF-TOKEN not found on page — navigate to an app page before posting');
+  return t;
+}
+
+// POST a form-encoded request from WITHIN the page context so it carries the
+// session cookies and same-origin credentials, with the scraped CSRF token
+// appended. url must be absolute (c.base + path) — a relative path would drop
+// the /carlos context. Returns { status, url }.
+async function postForm(p, url, params) {
+  const token = await csrfToken(p);
+  return p.evaluate(async ({ url, params, token }) => {
+    const body = new URLSearchParams({ ...params, 'CSRF-TOKEN': token }).toString();
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+      credentials: 'same-origin',
+    });
+    return { status: res.status, url: res.url };
+  }, { url, params, token });
+}
+
+module.exports = { env, cfg, launch, login, ensureSrfaxConfigured, waitForInboundFax, csrfToken, postForm };
