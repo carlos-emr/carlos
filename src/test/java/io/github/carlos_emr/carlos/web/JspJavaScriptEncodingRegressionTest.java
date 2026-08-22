@@ -170,12 +170,18 @@ class JspJavaScriptEncodingRegressionTest {
                 .doesNotContain("zipFile=<%=file%>'><%=file %>")
                 .doesNotContain("<td><%=dataExport.getUser()%>")
                 .doesNotContain("<td><%=dataExport.getType()%>")
-                .containsPattern("<a\\s+href=\"[^\"]*zipFile=\\s*"
-                        + carlosEncodePattern("file", "uriComponent")
-                        + "\"\\s*>\\s*"
-                        + carlosEncodePattern("file", "html"))
                 .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getUser\\(\\)", "html"))
                 .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getType\\(\\)", "html"));
+
+        int zipFileIndex = rourkeExportJsp.indexOf("zipFile=");
+        int downloadAnchorEnd = rourkeExportJsp.indexOf("</a>", zipFileIndex);
+        assertThat(zipFileIndex).isGreaterThanOrEqualTo(0);
+        assertThat(downloadAnchorEnd).isGreaterThan(zipFileIndex);
+        String downloadLinkSnippet = rourkeExportJsp.substring(zipFileIndex, downloadAnchorEnd);
+
+        assertThat(downloadLinkSnippet)
+                .containsPattern("zipFile=\\s*" + carlosEncodePattern("file", "uriComponent"))
+                .containsPattern(">\\s*" + carlosEncodePattern("file", "html"));
     }
 
     @Test
