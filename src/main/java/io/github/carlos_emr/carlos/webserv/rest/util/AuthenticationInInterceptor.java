@@ -90,7 +90,7 @@ public class AuthenticationInInterceptor extends AbstractPhaseInterceptor<Messag
             oscarLog.setIp(request.getRemoteAddr());
             oscarLog.setContent(request.getRequestURL().toString());
             String consumerKey = request.getParameter("oauth_consumer_key");
-            oscarLog.setData("consumer_key=" + (consumerKey == null ? "" : LogSafe.sanitize(consumerKey)));
+            oscarLog.setData("oauth_consumer_key=" + (consumerKey == null ? "" : LogSafe.sanitize(consumerKey)));
         }
 
         LogAction.addLogSynchronous(oscarLog);
