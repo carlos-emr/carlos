@@ -36,6 +36,7 @@ import java.util.Date;
 import java.util.List;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import org.springframework.stereotype.Repository;
@@ -162,10 +163,16 @@ public class FaxJobDaoImpl extends AbstractDaoImpl<FaxJob> implements FaxJobDao 
         return query.getResultList();
     }
 
+    /**
+     * All {@link FaxJob} rows whose staged file name equals {@code fileName}.
+     * Used by the retry path to locate the row for a quarantined document
+     * (which carries no provider job id). Returns an empty list when none
+     * match; order is unspecified.
+     */
     @Override
     public List<FaxJob> findByFileName(String fileName) {
-        Query query = entityManager.createQuery(
-                "select job from FaxJob job where job.file_name = ?1");
+        TypedQuery<FaxJob> query = entityManager.createQuery(
+                "select job from FaxJob job where job.file_name = ?1", FaxJob.class);
 
         query.setParameter(1, fileName);
 

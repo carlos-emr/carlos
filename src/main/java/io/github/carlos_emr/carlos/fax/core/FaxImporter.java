@@ -271,13 +271,24 @@ public class FaxImporter {
                 for (FaxJob receivedFax : faxList) {
 
                     receivedFax.setDirection(FaxJob.Direction.IN);
+                    // Stamp the receiving account (its fax line) so duplicate
+                    // detection can scope to this account and the row is
+                    // attributable later. Providers do not set this on the
+                    // listing.
+                    receivedFax.setFax_line(faxConfig.getFaxNumber());
 
                     // Duplicate-import prevention keyed on the provider job id (SRFax FaxDetailsID):
                     // when mark-as-read failed on a previous cycle the fax stays in the UNREAD pull,
                     // and generateUniqueFilename() would happily file it as a brand-new document.
                     // Skip the download entirely and just retry clearing the unread flag.
+                    // The lookup stays GLOBAL (so rows imported before this release, which have no
+                    // fax_line, are still found); isAlreadyImported() does the account scoping,
+                    // treating a row whose fax_line matches THIS account -- or is blank (legacy) --
+                    // as ours, and a row bearing a DIFFERENT account's fax_line as not ours (two
+                    // accounts/backends can reuse the same numeric job id).
                     if (receivedFax.getJobId() != null
-                            && isAlreadyImported(faxJobDao.findByProviderJobId(receivedFax.getJobId()))) {
+                            && isAlreadyImported(faxJobDao.findByProviderJobId(receivedFax.getJobId()),
+                                    faxConfig.getFaxNumber())) {
                         log.info("Skipping already-imported fax with provider job id {} - retrying provider acknowledgement",
                                 receivedFax.getJobId());
                         try {
@@ -674,6 +685,9 @@ public class FaxImporter {
                             FaxJob retryFax = new FaxJob();
                             retryFax.setFile_name(pdfFile.getFileName().toString());
                             retryFax.setDirection(FaxJob.Direction.IN);
+                            // Stamp the receiving account like the poll path, so
+                            // dedup scoping and attribution apply to retry rows too.
+                            retryFax.setFax_line(faxConfig.getFaxNumber());
                             try {
                                 retryFax.setStamp(new Date(Files.getLastModifiedTime(pdfFile).toMillis()));
                             } catch (IOException e) {
@@ -896,12 +910,29 @@ public class FaxImporter {
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    boolean isAlreadyImported(List<FaxJob> priorRows) {
+    boolean isAlreadyImported(List<FaxJob> priorRows, String accountFaxLine) {
         if (priorRows == null) {
             return false;
         }
         for (FaxJob prior : priorRows) {
             if (FaxJob.Direction.OUT.equals(prior.getDirection())) {
+                continue;
+            }
+            // Account scoping on the receiving fax line: two accounts or
+            // backends can reuse the same numeric provider job id, so a prior
+            // row that names a DIFFERENT account is not ours. Comparison is on
+            // the last 10 digits so a provider-supplied 11-digit line (e.g. a
+            // middleware backend) still matches a 10-digit configured number.
+            // A blank/null prior fax_line is a legacy row (imports did not
+            // stamp it before this release) — treat it as ours so an upgrade
+            // never re-imports an already-held fax. If THIS account has no
+            // fax line to scope by, a row bearing some other account's line
+            // cannot be confirmed ours, so it is skipped. fax_line is the best
+            // account key on the row today; a number genuinely shared by two
+            // backends cannot be told apart without a per-config identity.
+            String priorLine = prior.getFax_line();
+            if (priorLine != null && !priorLine.trim().isEmpty()
+                    && !sameFaxLine(priorLine, accountFaxLine)) {
                 continue;
             }
             if (FaxJob.STATUS.RECEIVED.equals(prior.getStatus())) {
@@ -918,6 +949,34 @@ public class FaxImporter {
         }
         return false;
     }
+
+    /**
+     * True when two fax-line values denote the same account, compared on
+     * their last 10 significant digits so a provider-supplied 11-digit line
+     * matches a 10-digit configured number (ConfigureFax2Action stores 10).
+     * A null/blank {@code accountFaxLine} matches nothing (the account has no
+     * line to scope by, so another account's row cannot be confirmed ours).
+     */
+    private static boolean sameFaxLine(String a, String b) {
+        String da = digitsTail(a);
+        String db = digitsTail(b);
+        return !da.isEmpty() && da.equals(db);
+    }
+
+    private static String digitsTail(String v) {
+        if (v == null) {
+            return "";
+        }
+        String digits = v.replaceAll("\\D", "");
+        // A usable fax line needs at least 10 digits; anything shorter is a
+        // malformed/partial value and is treated as no line (never matches),
+        // so it can neither falsely scope to nor away from a real account.
+        if (digits.length() < 10) {
+            return "";
+        }
+        return digits.substring(digits.length() - 10);
+    }
+
 
     /**
      * Marks the original "Downloaded but import failed - pending retry" rows as imported once
