@@ -102,6 +102,18 @@ public class CtlDocumentDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
+        @DisplayName("should find all module links for multiple document numbers")
+        void shouldFindDocuments_byDocumentNos() {
+            List<CtlDocument> results = ctlDocumentDao.findByDocumentNos(
+                    List.of(20001, 20002, 20003, 20001));
+
+            assertThat(results)
+                    .extracting(document -> document.getId().getDocumentNo())
+                    .containsExactlyInAnyOrder(20001, 20002, 20003);
+        }
+
+        @Test
+        @Tag("query")
         @DisplayName("should return empty for non-existent document-module combination")
         void shouldReturnEmpty_whenDocumentModuleNotFound() {
             List<CtlDocument> results = ctlDocumentDao.findByDocumentNoAndModule(99999, "nonexistent");
