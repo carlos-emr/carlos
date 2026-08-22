@@ -93,6 +93,15 @@
 
 	<!-- setup CXF -->
 	<import resource="classpath:spring_ws.xml" />
+
+	<!--
+	  Patient portal integration (issue #3475). Imported explicitly rather than relying on the
+	  classpath:applicationContext*.xml pattern in web.xml: a deployed CARLOS was observed loading
+	  only a subset of the files that pattern matches, and every context that reliably loads in this
+	  application is imported here. All beans in the imported file are lazy-init, so this import does
+	  not make a deployment without portal configuration fail to start.
+	-->
+	<import resource="classpath:applicationContextPatientPortal.xml" />
 	<!-- <context:component-scan base-package="io.github.carlos_emr.carlos.commn.dao" /> -->
 	
 	<!-- hibernated DAO -->

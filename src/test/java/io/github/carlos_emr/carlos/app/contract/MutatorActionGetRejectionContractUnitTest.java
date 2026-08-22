@@ -234,7 +234,22 @@ class MutatorActionGetRejectionContractUnitTest {
             // method is checked before authorization, so a GET rejects without any
             // hasPrivilege call — the declared tuple below is the POST-path bar.
             Arguments.of("io.github.carlos_emr.carlos.decision.gate.SaveAntenatalRiskConfig2Action",
-                    "_form", "w")
+                    "_form", "w"),
+            // --- patient portal ---
+            // Issues, resends, and revokes portal invitations against the external portal service.
+            // Registered explicitly because the integration.patientportal.web package is not in
+            // IN_SCOPE_PACKAGE_PREFIXES. Unconditional: reading the invite list belongs to a
+            // separate read action, so every route on this class mutates and the method check runs
+            // before authorization. A GET that reached create would mint a token and silently
+            // revoke the patient's existing one.
+            Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action",
+                    "_portal.invite", "w"),
+            // Clears a lockout or disables an account. Unconditional for the same reason: the panel
+            // read lives in PortalPanel2Action, so nothing on this class is a view route. The
+            // declared object is the account one; the unlock route gates on the narrower
+            // _portal.account.unlock, which the focused test covers.
+            Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccount2Action",
+                    "_portal.account", "w")
         );
     }
 
@@ -366,6 +381,11 @@ class MutatorActionGetRejectionContractUnitTest {
         // appt slice: AppointmentType2Action is the only migrated mutator; the appt package is
         // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
         "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
+        // patient portal slice: the two mutators are registered explicitly rather than by package
+        // prefix, so the drift scan covers them and a third mutator added to
+        // integration.patientportal.web cannot land unclassified.
+        "io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action",
+        "io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccount2Action",
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         "io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",
