@@ -40,10 +40,16 @@ on:
         required: true
         type: string
 
-# Per-tag serialization: a retry racing the original run would upload the
-# same asset names concurrently.
+# ONE GLOBAL group (not per-tag): this workflow now publishes the release and
+# makes the latest-pointer decision, which reads the set of already-published
+# stable releases. Two releases finalizing concurrently could each query while
+# the other is still a draft and both claim --latest, letting the one that
+# publishes last win even if it is older. Global serialization removes that
+# race; it also still prevents a retry racing the original run (which would
+# upload the same asset names at once). Releases are rare and deliberate, so
+# serializing all deb builds costs nothing.
 concurrency:
-  group: deb-packages-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
+  group: deb-packages
   cancel-in-progress: false
 
 permissions:
@@ -123,11 +129,20 @@ jobs:
           draft=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" --jq '.draft' 2>/dev/null || echo "")
           debs=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" \
             --jq '[.assets[].name | select(endswith(".deb"))] | length' 2>/dev/null || echo 0)
-          if [ "$draft" = "false" ] && [ "${debs:-0}" -ge 2 ]; then
+          if [ "$draft" = "true" ] || [ -z "$draft" ]; then
+            # Draft (or no release yet): proceed to build, attach, and publish.
+            echo "SKIP=false" >> "$GITHUB_ENV"
+          elif [ "${debs:-0}" -ge 2 ]; then
+            # Fully finalized: published with its .debs. Nothing to do (and a
+            # re-upload would 422 against the immutable release).
             echo "Release $RELEASE_TAG is already published with its .deb assets; nothing to do."
             echo "SKIP=true" >> "$GITHUB_ENV"
           else
-            echo "SKIP=false" >> "$GITHUB_ENV"
+            # Published but missing .debs: an immutable release cannot accept
+            # new assets, so this can never be completed. Fail fast and loud
+            # rather than dying later on an opaque HTTP 422 from the upload.
+            echo "::error::Release $RELEASE_TAG is already published but has no .deb assets. Immutable releases cannot accept new assets, so the .debs cannot be attached. This release is permanently WAR-only; ship the .debs with the next release."
+            exit 1
           fi
 
       - name: Download and verify the release WAR
