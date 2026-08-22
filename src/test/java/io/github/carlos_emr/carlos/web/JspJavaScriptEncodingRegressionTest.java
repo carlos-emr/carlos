@@ -195,6 +195,41 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    void shouldContainEncodedEncounterPrintFields_inHtmlBodyContext() throws Exception {
+        String encounterPrintJsp = readJsp("encounter/encounterPrint.jsp");
+        String echartHistoryPrintJsp = readJsp("encounter/echarthistoryprint.jsp");
+
+        assertThat(encounterPrintJsp)
+                .contains("<carlos:encode value='<%= bean.patientLastName %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientFirstName %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientSex %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientAge %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= providerBean.getProperty(bean.familyDoctorNo, \"\") %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.socialHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.familyHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.medicalHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.ongoingConcerns %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.reminders %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.encounter %>' context=\"html\"/>")
+                .doesNotContainPattern("<pre[^>]*>\\s*<%=\\s*bean\\.(socialHistory|familyHistory|medicalHistory|ongoingConcerns|reminders|encounter)\\s*%>");
+
+        assertThat(echartHistoryPrintJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("<carlos:encode value='<%= bean.patientLastName %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientFirstName %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientSex %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.patientAge %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= providerBean.getProperty(bean.familyDoctorNo) %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.socialHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.familyHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.medicalHistory %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.ongoingConcerns %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.reminders %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= bean.encounter %>' context=\"html\"/>")
+                .doesNotContainPattern("<pre[^>]*>\\s*<%=\\s*bean\\.(socialHistory|familyHistory|medicalHistory|ongoingConcerns|reminders|encounter)\\s*%>");
+    }
+
+    @Test
     @DisplayName("should encode provider values in lab forwarding rules JSP")
     @Tag("security")
     void shouldEncodeProviderValues_inLabForwardingRulesJsp() throws Exception {
@@ -232,6 +267,22 @@ class JspJavaScriptEncodingRegressionTest {
                     .containsPattern(SAFE_TEXTAREA_RENDER_PATTERN)
                     .doesNotContainPattern(RAW_TEXTAREA_RENDER_PATTERN);
         }
+    }
+
+    @Test
+    @DisplayName("should make a symlinked antenatal risk override visibly read-only")
+    @Tag("security")
+    void shouldMakeSymlinkedAntenatalRiskOverride_readOnly() throws Exception {
+        String jsp = readJsp("decision/antenatal/obarriskedit_99_12.jsp");
+
+        assertThat(jsp)
+                .contains("Files.isSymbolicLink(configuredOverride)")
+                .contains("<% if (!readOnlyOverride) { %>")
+                .contains("readOnlyOverride ? \" readonly\" : \"\"")
+                .contains("configured through a symbolic link and is read-only here")
+                .contains("Files.exists(configuredOverride, LinkOption.NOFOLLOW_LINKS)")
+                .contains("configured risk-list target is not a readable regular file")
+                .contains("configured document directory is unavailable or not writable");
     }
 
     @Test

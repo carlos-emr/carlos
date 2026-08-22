@@ -52,7 +52,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 	<div class="accordion" id="adminNav">
 
 		<div class="p-2" style="margin-bottom:0px;color:#000">
-		<a href="${ctx}/administration"><i class="fa-solid fa-gear"></i> <fmt:message key="admin.admin.page.title"/></a>
+		<a href="${ctx}/administration${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}"><i class="fa-solid fa-gear"></i> <fmt:message key="admin.admin.page.title"/></a>
 		</div>
 
 <!-- #USER MANAGEMENT -->
@@ -263,7 +263,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 			<div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#adminNav">
 			<div class="accordion-body">
 			<ul>
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/insideLabUpload" ><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/ViewInsideLabUpload" ><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
 				<oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes" defaultVal="false">
 					<li><a href="${ctx}/lab/labUpload" class="contentLink"><fmt:message key="admin.admin.oldLabUpload"/></a></li>
 				</oscar:oscarPropertiesCheck>
@@ -296,7 +296,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						<li><a href="${ctx}/form/formXmlUpload" class="contentLink"><fmt:message key="admin.admin.btnImportFormData"/></a></li>
 						</security:oscarSec>
 					
-					<li><a href="${ctx}/eform/efmformmanager" class="contentLink defaultForms">
+					<li><a href="${ctx}/eform/efmformmanager${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}" class="contentLink defaultForms">
 						<fmt:message key="eform.showmyform.msgManageEFrm"/>
 					</a></li>
 
@@ -470,7 +470,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 								
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.groupCreate" rights="w" reverse="<%=false%>">
 						<li><a href="javascript:void(0);"
-							class="xlink" rel="${ctx}/admin/AdminNewGroup?submit=blank"><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+							class="xlink" rel="${ctx}/admin/AdminNewGroup"><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
 					</security:oscarSec>
 					<li><a href="javascript:void(0);"
 						class="xlink" rel="${ctx}/admin/ViewAdminDisplayMyGroup"><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>

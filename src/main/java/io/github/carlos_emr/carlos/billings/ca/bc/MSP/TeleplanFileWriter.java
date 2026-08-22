@@ -466,7 +466,7 @@ public class TeleplanFileWriter {
         }
 
         public void addToTotal(BigDecimal bd) {
-            bigTotal = bigTotal.add(bd);
+            claimTotal = claimTotal.add(bd);
         }
 
         public void increaseClaims() {
