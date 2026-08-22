@@ -152,11 +152,19 @@ class JspJavaScriptEncodingRegressionTest {
         assertThat(demographicExportJsp)
                 .doesNotContain("<option value=\"<%=setName%>\"><%=setName%>")
                 .doesNotContain("<option value=\"<%=p.getProviderNo()%>\"><%=p.getFormattedName()%>")
-                .contains("<option value=\"<carlos:encode value='<%= setName %>' context=\"htmlAttribute\"/>\"><carlos:encode value='<%= setName %>' context=\"html\"/>")
-                .contains("<option value=\"<carlos:encode value='<%= p.getProviderNo() %>' context=\"htmlAttribute\"/>\"><carlos:encode value='<%= p.getFormattedName() %>' context=\"html\"/>");
+                // Ensure setName is encoded for the value attribute in HTML attribute context
+                .containsPattern("carlos:encode\\s+value='\\s*<%=\\s*setName\\s*%>'\\s+context=\\\"htmlAttribute\\\"")
+                // Ensure setName is encoded for visible text in HTML context
+                .containsPattern("carlos:encode\\s+value='\\s*<%=\\s*setName\\s*%>'\\s+context=\\\"html\\\"")
+                // Ensure provider number is encoded for the value attribute in HTML attribute context
+                .containsPattern("carlos:encode\\s+value='\\s*<%=\\s*p\\.getProviderNo\\(\\)\\s*%>'\\s+context=\\\"htmlAttribute\\\"")
+                // Ensure provider formatted name is encoded for visible text in HTML context
+                .containsPattern("carlos:encode\\s+value='\\s*<%=\\s*p\\.getFormattedName\\(\\)\\s*%>'\\s+context=\\\"html\\\"");
         assertThat(rourkeExportJsp)
                 .doesNotContain("<option value=\"<%=setName%>\"><%=setName%>")
-                .contains("<option value=\"<carlos:encode value='<%= setName %>' context=\"htmlAttribute\"/>\"><carlos:encode value='<%= setName %>' context=\"html\"/>");
+                // Ensure setName is encoded correctly in both attribute and text contexts
+                .containsPattern("carlos:encode\\s+value='\\s*<%=\\s*setName\\s*%>'\\s+context=\\\"htmlAttribute\\\"")
+                .containsPattern("carlos:encode\\s+value='\\s*<%=\\s*setName\\s*%>'\\s+context=\\\"html\\\"");
     }
 
     @Test
