@@ -104,6 +104,32 @@ class FaxStatusUpdaterTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep the current status for re-poll when the provider status is unrecognized")
+    void shouldKeepCurrentStatus_whenProviderStatusUnrecognized() throws FaxProviderException {
+        // Given: the provider answers Success but with a missing/unrecognized SentStatus,
+        // which the client maps to UNKNOWN
+        FaxJob inProgressFax = createFaxJob(1, FAX_LINE_A, FaxJob.STATUS.SENT, 100L);
+        when(faxJobDao.getInprogressFaxesByJobId()).thenReturn(Collections.singletonList(inProgressFax));
+
+        FaxConfig activeConfig = createActiveFaxConfig(1, FAX_LINE_A);
+        when(faxConfigDao.getConfigByNumber(FAX_LINE_A)).thenReturn(activeConfig);
+        when(faxProviderClientFactory.getClient(activeConfig)).thenReturn(faxProviderClient);
+
+        FaxJob unrecognized = new FaxJob();
+        unrecognized.setStatus(FaxJob.STATUS.UNKNOWN);
+        unrecognized.setStatusString("Unknown SRFax status");
+        when(faxProviderClient.fetchFaxStatus(activeConfig, inProgressFax)).thenReturn(unrecognized);
+
+        // When
+        faxStatusUpdater.updateStatus();
+
+        // Then: UNKNOWN is never persisted - it would permanently drop the job out of the
+        // in-progress polling set (which selects only SENT/WAITING) after one malformed response
+        assertThat(inProgressFax.getStatus()).isEqualTo(FaxJob.STATUS.SENT);
+        verify(faxJobDao, never()).merge(any(FaxJob.class));
+    }
+
+    @Test
     @DisplayName("should mark fax as ERROR when FaxConfig is deleted")
     void shouldMarkFaxAsError_whenFaxConfigIsDeleted() {
         // Given
