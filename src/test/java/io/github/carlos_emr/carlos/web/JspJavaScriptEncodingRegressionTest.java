@@ -152,19 +152,14 @@ class JspJavaScriptEncodingRegressionTest {
         assertThat(demographicExportJsp)
                 .doesNotContain("<option value=\"<%=setName%>\"><%=setName%>")
                 .doesNotContain("<option value=\"<%=p.getProviderNo()%>\"><%=p.getFormattedName()%>")
-                // Ensure setName is encoded for the value attribute in HTML attribute context
-                .containsPattern("carlos:encode\\s+value='\\s*<%=\\s*setName\\s*%>'\\s+context=\\\"htmlAttribute\\\"")
-                // Ensure setName is encoded for visible text in HTML context
-                .containsPattern("carlos:encode\\s+value='\\s*<%=\\s*setName\\s*%>'\\s+context=\\\"html\\\"")
-                // Ensure provider number is encoded for the value attribute in HTML attribute context
-                .containsPattern("carlos:encode\\s+value='\\s*<%=\\s*p\\.getProviderNo\\(\\)\\s*%>'\\s+context=\\\"htmlAttribute\\\"")
-                // Ensure provider formatted name is encoded for visible text in HTML context
-                .containsPattern("carlos:encode\\s+value='\\s*<%=\\s*p\\.getFormattedName\\(\\)\\s*%>'\\s+context=\\\"html\\\"");
+                .containsPattern(carlosEncodePattern("setName", "htmlAttribute"))
+                .containsPattern(carlosEncodePattern("setName", "html"))
+                .containsPattern(carlosEncodePattern("p\\.getProviderNo\\(\\)", "htmlAttribute"))
+                .containsPattern(carlosEncodePattern("p\\.getFormattedName\\(\\)", "html"));
         assertThat(rourkeExportJsp)
                 .doesNotContain("<option value=\"<%=setName%>\"><%=setName%>")
-                // Ensure setName is encoded correctly in both attribute and text contexts
-                .containsPattern("carlos:encode\\s+value='\\s*<%=\\s*setName\\s*%>'\\s+context=\\\"htmlAttribute\\\"")
-                .containsPattern("carlos:encode\\s+value='\\s*<%=\\s*setName\\s*%>'\\s+context=\\\"html\\\"");
+                .containsPattern(carlosEncodePattern("setName", "htmlAttribute"))
+                .containsPattern(carlosEncodePattern("setName", "html"));
     }
 
     @Test
@@ -175,10 +170,10 @@ class JspJavaScriptEncodingRegressionTest {
                 .doesNotContain("zipFile=<%=file%>'><%=file %>")
                 .doesNotContain("<td><%=dataExport.getUser()%>")
                 .doesNotContain("<td><%=dataExport.getType()%>")
-                .contains("zipFile=<carlos:encode value='<%= file %>' context=\"uriComponent\"/>")
-                .contains("><carlos:encode value='<%= file %>' context=\"html\"/>")
-                .contains("<td><carlos:encode value='<%= dataExport.getUser() %>' context=\"html\"/>")
-                .contains("<td><carlos:encode value='<%= dataExport.getType() %>' context=\"html\"/>");
+                .containsPattern("zipFile=\\s*" + carlosEncodePattern("file", "uriComponent"))
+                .containsPattern(">\\s*" + carlosEncodePattern("file", "html"))
+                .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getUser\\(\\)", "html"))
+                .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getType\\(\\)", "html"));
     }
 
     @Test
@@ -203,6 +198,14 @@ class JspJavaScriptEncodingRegressionTest {
 
     private static String readJsp(String relativePath) throws Exception {
         return Files.readString(JSP_ROOT.resolve(relativePath));
+    }
+
+    private static String carlosEncodePattern(String scriptletExpressionPattern, String context) {
+        return "<carlos:encode\\s+[^>]*value\\s*=\\s*['\"]\\s*<%=\\s*"
+                + scriptletExpressionPattern
+                + "\\s*%>\\s*['\"][^>]*context\\s*=\\s*['\"]"
+                + context
+                + "['\"][^>]*/>";
     }
 
     private static Path resolveProjectPath(Path relativePath) {

@@ -149,7 +149,7 @@
                             for (int idx = 0; idx < setsList.size(); ++idx) {
                                 setName = setsList.get(idx);
                         %>
-                        <option value="<carlos:encode value='<%= setName %>' context="htmlAttribute"/>"><carlos:encode value='<%= setName %>' context="html"/>
+                        <option value="<carlos:encode value='<%= setName %>' context='htmlAttribute'/>"><carlos:encode value='<%= setName %>' context="html"/>
                         </option>
                         <%
                             }
@@ -184,7 +184,7 @@
                 <td><%=DateFormatUtils.format(dataExport.getDaterun().getTime(), DateFormatUtils.ISO_DATETIME_FORMAT.getPattern()) %>
                 </td>
                 <td>
-                    <a href="${carlos:forHtmlAttribute(ctx)}/demographic/eRourkeExport?method=getFile&zipFile=<carlos:encode value='<%= file %>' context="uriComponent"/>"><carlos:encode value='<%= file %>' context="html"/>
+                    <a href="${carlos:forHtmlAttribute(ctx)}/demographic/eRourkeExport?method=getFile&zipFile=<carlos:encode value='<%= file %>' context='uriComponent'/>"><carlos:encode value='<%= file %>' context="html"/>
                     </a></td>
                 <td><carlos:encode value='<%= dataExport.getUser() %>' context="html"/>
                 <td><carlos:encode value='<%= dataExport.getType() %>' context="html"/>

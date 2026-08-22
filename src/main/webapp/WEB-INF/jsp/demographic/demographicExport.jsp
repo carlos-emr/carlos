@@ -401,7 +401,7 @@
             <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport" method="post" onsubmit="return handleExportSubmit();">
 
                 <% if (demographicNo != null) { %>
-                <input type="hidden" name="demographicNo" id="demographicNo" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
+                <input type="hidden" name="demographicNo" id="demographicNo" value="<carlos:encode value='<%= demographicNo %>' context='htmlAttribute'/>"/>
                 <fmt:message key="demographic.demographicexport.exportingdemographicno"/><carlos:encode value='<%= demographicNo %>' context="html"/>
                 <%} else {%>
                 <fmt:message key="demographic.demographicexport.patientset"/><br>
@@ -416,7 +416,7 @@
                         for (int i = 0; i < sets.size(); i++) {
                             String setName = sets.get(i);
                     %>
-                    <option value="<carlos:encode value='<%= setName %>' context="htmlAttribute"/>"><carlos:encode value='<%= setName %>' context="html"/>
+                    <option value="<carlos:encode value='<%= setName %>' context='htmlAttribute'/>"><carlos:encode value='<%= setName %>' context="html"/>
                     </option>
                     <%}%>
                 </select>
@@ -437,7 +437,7 @@
                         for (int i = 0; i < providers.size(); i++) {
                             Provider p = providers.get(i);
                     %>
-                    <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
+                    <option value="<carlos:encode value='<%= p.getProviderNo() %>' context='htmlAttribute'/>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                     </option>
                     <%}%>
                 </select>
