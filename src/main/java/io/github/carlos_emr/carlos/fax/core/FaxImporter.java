@@ -918,22 +918,18 @@ public class FaxImporter {
             if (FaxJob.Direction.OUT.equals(prior.getDirection())) {
                 continue;
             }
-            // Account scoping on the receiving fax line: a prior row that
-            // names a DIFFERENT account is not ours (two accounts/backends
-            // can reuse the same numeric provider job id). A blank/null
-            // fax_line is a legacy row from before imports stamped it — treat
-            // it as ours so an upgrade never re-imports an already-held fax.
-            // NOTE: fax_line is the best account key on the row today; a
-            // number genuinely shared by two backends cannot be told apart
-            // without a per-config identity on the fax record.
-            // A prior row that names a DIFFERENT account is not ours. A
-            // blank/null prior fax_line is a legacy row (imports did not
-            // stamp it before this release) — treat it as ours so an upgrade
-            // never re-imports an already-held fax. Comparison is on the last
-            // 10 digits so a provider-supplied 11-digit line (e.g. a
+            // Account scoping on the receiving fax line: two accounts or
+            // backends can reuse the same numeric provider job id, so a prior
+            // row that names a DIFFERENT account is not ours. Comparison is on
+            // the last 10 digits so a provider-supplied 11-digit line (e.g. a
             // middleware backend) still matches a 10-digit configured number.
-            // If THIS account has no fax line to scope by, a row bearing some
-            // OTHER account's line cannot be confirmed ours, so it is skipped.
+            // A blank/null prior fax_line is a legacy row (imports did not
+            // stamp it before this release) — treat it as ours so an upgrade
+            // never re-imports an already-held fax. If THIS account has no
+            // fax line to scope by, a row bearing some other account's line
+            // cannot be confirmed ours, so it is skipped. fax_line is the best
+            // account key on the row today; a number genuinely shared by two
+            // backends cannot be told apart without a per-config identity.
             String priorLine = prior.getFax_line();
             if (priorLine != null && !priorLine.trim().isEmpty()
                     && !sameFaxLine(priorLine, accountFaxLine)) {
@@ -972,7 +968,13 @@ public class FaxImporter {
             return "";
         }
         String digits = v.replaceAll("\\D", "");
-        return digits.length() > 10 ? digits.substring(digits.length() - 10) : digits;
+        // A usable fax line needs at least 10 digits; anything shorter is a
+        // malformed/partial value and is treated as no line (never matches),
+        // so it can neither falsely scope to nor away from a real account.
+        if (digits.length() < 10) {
+            return "";
+        }
+        return digits.substring(digits.length() - 10);
     }
 
 
