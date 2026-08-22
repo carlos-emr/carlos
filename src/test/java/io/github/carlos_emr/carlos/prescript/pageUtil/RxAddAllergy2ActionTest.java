@@ -88,6 +88,7 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
         mocks = MockitoAnnotations.openMocks(this);
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
+        mockRequest.setMethod("POST");
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("w"), isNull()))
@@ -104,6 +105,7 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
 
         mockRequest.setParameter("type", "1");
         mockRequest.setParameter("startDate", "");
+        mockRequest.setParameter("formDemographicNo", "123");
         mockRequest.getSession().setAttribute("Patient", mockRxPatient);
         when(mockRxPatient.getDemographicNo()).thenReturn(123);
 
@@ -133,6 +135,92 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_allergy");
         verify(mockRxPatient, never()).addAllergy(any(), any());
+    }
+
+    @Test
+    @DisplayName("should reject a non-POST request before adding an allergy")
+    void shouldRejectAdd_whenRequestMethodIsNotPost() throws Exception {
+        mockRequest.setMethod("GET");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should reject a lower-case post request before adding an allergy")
+    void shouldRejectAdd_whenRequestMethodIsLowerCasePost() throws Exception {
+        mockRequest.setMethod("post");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should reject a missing rendered patient context before adding an allergy")
+    void shouldRejectAdd_whenFormDemographicNoIsMissing() throws Exception {
+        mockRequest.removeParameter("formDemographicNo");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should reject a missing session patient before adding an allergy")
+    void shouldRejectAdd_whenSessionPatientIsMissing() throws Exception {
+        mockRequest.getSession().removeAttribute("Patient");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should reject a stale rendered patient context before adding an allergy")
+    void shouldRejectAdd_whenFormDemographicNoDiffersFromSessionPatient() throws Exception {
+        mockRequest.setParameter("formDemographicNo", "456");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should reject a malformed rendered patient context before adding an allergy")
+    void shouldRejectAdd_whenFormDemographicNoIsMalformed() throws Exception {
+        mockRequest.setParameter("formDemographicNo", "not-a-number");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
     }
 
     @Test
