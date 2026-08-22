@@ -177,7 +177,7 @@ class JspJavaScriptEncodingRegressionTest {
         assertThat(zipFileIndex).isGreaterThanOrEqualTo(0);
         int downloadAnchorEnd = rourkeExportJsp.indexOf("</a>", zipFileIndex);
         assertThat(downloadAnchorEnd).isGreaterThan(zipFileIndex);
-        String downloadLinkSnippet = rourkeExportJsp.substring(zipFileIndex, downloadAnchorEnd);
+        String downloadLinkSnippet = rourkeExportJsp.substring(zipFileIndex, downloadAnchorEnd + "</a>".length());
 
         assertThat(downloadLinkSnippet)
                 .containsPattern("zipFile=\\s*" + carlosEncodePattern("file", "uriComponent"))
