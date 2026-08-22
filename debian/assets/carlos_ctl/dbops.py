@@ -441,6 +441,8 @@ def cmd_db_apply_settings(argv) -> int:
         with open(tz_dropin, encoding="utf-8") as fh:
             have = fh.read()
     except OSError:
+        # No existing drop-in (or unreadable): treat as absent — the
+        # want_dropin comparison below writes or removes it as needed.
         pass
     if want_dropin is None:
         if os.path.exists(tz_dropin):
