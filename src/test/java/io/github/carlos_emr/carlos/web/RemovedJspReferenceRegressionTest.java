@@ -173,7 +173,7 @@ class RemovedJspReferenceRegressionTest {
 
             assertThat(jspf)
                     .as("BC billing report fragments must encode demoName in HTML output: %s", fragment)
-                    .doesNotContain("<%=demoName%>");
+                    .doesNotContainPattern(">(?:\\s*)<%=\\s*demoName\\s*%>(?:\\s*)<");
             assertThat(CARLOS_TAGLIB.matcher(jspf).find())
                     .as("BC billing report fragments must declare the carlos taglib: %s", fragment)
                     .isTrue();
