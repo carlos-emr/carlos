@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.app;
 
+import io.github.carlos_emr.carlos.web.eform.EformViewForPdfGenerationServlet;
+
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import org.owasp.csrfguard.CsrfGuard;
@@ -95,6 +97,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
     private static final Pattern CSRFGUARD_SCRIPT_PATTERN =
             Pattern.compile("<script[^>]*src=[\"'][^\"']*\\/csrfguard[\"']", Pattern.CASE_INSENSITIVE);
     private static final AtomicBoolean HTML_LOOKING_PASSTHROUGH_WARNED = new AtomicBoolean(false);
+    /** Servlet path of the loopback server-side eForm PDF renderer route (see web.xml). */
+    private static final String RENDERER_ROUTE_SERVLET_PATH = "/EFormViewForPdfGenerationServlet";
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
@@ -126,6 +130,21 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         String safeRequestUri = LogSafe.sanitizeUri(httpRequest.getRequestURI());
+
+        if (Boolean.TRUE.equals(httpRequest.getAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE))) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        // The server-side eForm PDF renderer route (loopback + render-token gated) must be captured
+        // byte-for-byte: never inject the CSRFGuard client script into the rendered eForm DOM, or it
+        // would appear in the faxed/stored PDF and add a subresource fetch during capture. This skip
+        // check runs before doFilter, so the servlet's SKIP attribute (set during execution) is too
+        // late — match the route here.
+        if (RENDERER_ROUTE_SERVLET_PATH.equals(httpRequest.getServletPath())) {
+            chain.doFilter(request, response);
+            return;
+        }
 
         // Skip AJAX requests on REQUEST dispatch only (not FORWARD).
         // On FORWARD dispatch, the CaptureResponseWrapper is needed to prevent

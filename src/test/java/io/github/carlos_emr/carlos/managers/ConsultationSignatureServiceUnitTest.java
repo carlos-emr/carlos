@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
@@ -51,6 +53,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -74,6 +77,9 @@ class ConsultationSignatureServiceUnitTest {
     @Mock
     private LoggedInInfo loggedInInfo;
 
+    @Mock
+    private ConsultationRequestDao consultationRequestDao;
+
     private ConsultationSignatureService service;
     private boolean hadEformImagesDir;
     private Object originalEformImagesDir;
@@ -91,7 +97,7 @@ class ConsultationSignatureServiceUnitTest {
         when(loggedInInfo.getCurrentFacility()).thenReturn(facility);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
-        service = new ConsultationSignatureService(digitalSignatureManager, securityInfoManager);
+        service = new ConsultationSignatureService(digitalSignatureManager, securityInfoManager, consultationRequestDao);
     }
 
     @AfterEach
@@ -363,6 +369,70 @@ class ConsultationSignatureServiceUnitTest {
     @DisplayName("returns an empty provider number when no candidate value is numeric")
     void shouldReturnEmptyProviderNumber_whenNoCandidateIsNumeric() {
         assertThat(service.resolveSignatureProviderNo("abc", "def", "ghi")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("does not persist a preview signature when the consultation request is missing")
+    void shouldNotPersistPreviewSignature_whenConsultationRequestMissing() {
+        when(consultationRequestDao.find(9)).thenReturn(null);
+
+        ConsultationPreviewSignatureOutcome outcome = service.saveManualSignatureForPreview(
+                loggedInInfo, 9, 44, "9999981000", "9999981000", "999998");
+
+        assertThat(outcome.status()).isEqualTo(ConsultationPreviewSignatureOutcome.Status.REQUEST_NOT_FOUND);
+        verify(digitalSignatureManager, never()).processAndSaveDigitalSignature(any(), anyString(), anyInt(), any());
+    }
+
+    @Test
+    @DisplayName("does not persist a preview signature when the consultation demographic does not match")
+    void shouldNotPersistPreviewSignature_whenConsultationDemographicMismatches() {
+        ConsultationRequest consult = new ConsultationRequest();
+        consult.setDemographicId(45);
+        when(consultationRequestDao.find(9)).thenReturn(consult);
+
+        ConsultationPreviewSignatureOutcome outcome = service.saveManualSignatureForPreview(
+                loggedInInfo, 9, 44, "9999981000", "9999981000", "999998");
+
+        assertThat(outcome.status()).isEqualTo(ConsultationPreviewSignatureOutcome.Status.DEMOGRAPHIC_MISMATCH);
+        verify(digitalSignatureManager, never()).processAndSaveDigitalSignature(any(), anyString(), anyInt(), any());
+    }
+
+    @Test
+    @DisplayName("persists a manual preview signature after validating the consultation")
+    void shouldPersistPreviewSignature_afterConsultationValidation() {
+        ConsultationRequest consult = new ConsultationRequest();
+        consult.setDemographicId(44);
+        when(consultationRequestDao.find(9)).thenReturn(consult);
+        DigitalSignature savedSignature = mock(DigitalSignature.class);
+        when(savedSignature.getId()).thenReturn(77);
+        when(digitalSignatureManager.processAndSaveDigitalSignature(
+                loggedInInfo, "9999981000", 44, ModuleType.CONSULTATION))
+                .thenReturn(savedSignature);
+
+        ConsultationPreviewSignatureOutcome outcome = service.saveManualSignatureForPreview(
+                loggedInInfo, 9, 44, "9999981000", "9999981000", "999998");
+
+        assertThat(outcome.isSaved()).isTrue();
+        assertThat(outcome.signatureId()).isEqualTo("77");
+        assertThat(consult.getSignatureImg()).isEqualTo("77");
+        verify(consultationRequestDao).merge(consult);
+    }
+
+    @Test
+    @DisplayName("reports a preview signature persistence failure after consultation validation")
+    void shouldReportPreviewSignaturePersistenceFailure_afterConsultationValidation() {
+        ConsultationRequest consult = new ConsultationRequest();
+        consult.setDemographicId(44);
+        when(consultationRequestDao.find(9)).thenReturn(consult);
+        when(digitalSignatureManager.processAndSaveDigitalSignature(
+                loggedInInfo, "9999981000", 44, ModuleType.CONSULTATION))
+                .thenReturn(null);
+
+        ConsultationPreviewSignatureOutcome outcome = service.saveManualSignatureForPreview(
+                loggedInInfo, 9, 44, "9999981000", "9999981000", "999998");
+
+        assertThat(outcome.status()).isEqualTo(ConsultationPreviewSignatureOutcome.Status.PERSIST_FAILED);
+        verify(consultationRequestDao, never()).merge(any());
     }
 
     private byte[] invokeReadProviderStampImage(String providerNo) throws Exception {
