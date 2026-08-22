@@ -43,9 +43,10 @@ async function searchDrug(p, base, demo, term) {
   return p.evaluate((t) => {
     const text = document.body.innerText || '';
     // Result rows in ChooseDrug.jsp carry an "(Info)" affordance per drug.
+    const needle = t.toLowerCase();
     const hits = [...document.querySelectorAll('a,tr,li')]
       .map((e) => (e.textContent || '').trim())
-      .filter((s) => new RegExp(t, 'i').test(s) && s.length < 120);
+      .filter((s) => s.length < 120 && s.toLowerCase().includes(needle));
     return { count: hits.length, sample: hits.slice(0, 3), failedOrEmpty: /unavailable|no results|not found|failed/i.test(text) || text.length < 400 };
   }, term);
 }

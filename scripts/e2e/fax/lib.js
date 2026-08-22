@@ -130,6 +130,7 @@ async function csrfToken(p) {
 // the /carlos context. Returns { status, url }.
 async function postForm(p, url, params) {
   const token = await csrfToken(p);
+  // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- url is the validated base + a constant path and params are test-controlled; no untrusted input reaches evaluate
   return p.evaluate(async ({ url, params, token }) => {
     const body = new URLSearchParams({ ...params, 'CSRF-TOKEN': token }).toString();
     const res = await fetch(url, {

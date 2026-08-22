@@ -39,13 +39,22 @@ function sh(cmd, args, opts) { return execFileSync(cmd, args, opts); }
 // through "sudo -u other install /dev/stdin" cannot inherit our pipe fd.
 function stage(content, dest, mode = '0644') {
   const wrap = (process.env.STAGE_AS || '').split(/\s+/).filter(Boolean);
-  const tmp = path.join(os.tmpdir(), 'carlos-e2e-' + path.basename(dest));
-  fs.writeFileSync(tmp, content, { mode: 0o644 });
+  // mkdtempSync creates a fresh directory with an unguessable name owned by
+  // us, so no pre-existing file or symlink can redirect the write, and only we
+  // (and root) can create entries inside it. It is then made traversable so a
+  // STAGE_AS target user (e.g. carlos) can read the staged file; others still
+  // cannot write into the dir, so no symlink can be planted. The exclusive
+  // 'wx' write flag refuses any collision as a final guard.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-e2e-'));
+  fs.chmodSync(dir, 0o755);
+  // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- dir is a private mkdtemp dir; dest basename is a constant in this script
+  const tmp = path.join(dir, path.basename(dest));
   try {
+    fs.writeFileSync(tmp, content, { mode: 0o644, flag: 'wx' });
     const argv = [...wrap, 'install', '-m', mode, tmp, dest];
     execFileSync(argv[0], argv.slice(1));
   } finally {
-    fs.unlinkSync(tmp);
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 }
 

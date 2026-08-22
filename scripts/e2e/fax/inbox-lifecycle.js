@@ -30,6 +30,8 @@ function sql(q) {
   return execFileSync(cmd, [...pre, '-N', DB, '-e', q], { encoding: 'utf8' }).trim();
 }
 const must = (cond, msg) => { if (!cond) throw new Error(msg); };
+// Escape a value for embedding inside a single-quoted SQL string literal.
+const sqlLit = (v) => String(v).replace(/'/g, "''");
 
 async function main() {
   const c = cfg({ srfax: false });
@@ -38,7 +40,7 @@ async function main() {
   // nothing is hardcoded to a particular install.
   const demo = sql(`SELECT demographic_no FROM demographic WHERE last_name='Loopback' AND first_name='Faxtest' ORDER BY demographic_no LIMIT 1`);
   must(demo, 'fixture demographic Loopback/Faxtest not found — load fixtures.sql first');
-  const provider = sql(`SELECT provider_no FROM security WHERE user_name='${c.user}' ORDER BY security_no LIMIT 1`);
+  const provider = sql(`SELECT provider_no FROM security WHERE user_name='${sqlLit(c.user)}' ORDER BY security_no LIMIT 1`);
   must(provider, `no provider mapped to login ${c.user} in the security table`);
 
   // Find an imported inbound fax still sitting UNCLAIMED in the inbox.

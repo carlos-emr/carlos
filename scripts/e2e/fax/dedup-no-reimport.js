@@ -6,9 +6,12 @@
 //      a faxline equal to the configured account number's last 10 digits. This
 //      is the account key FaxImporter.isAlreadyImported() scopes dedup by.
 //   2. no duplicate rows — no two inbound faxes share the same file name.
-//   3. no re-import       — over more than two scheduler poll cycles the count
-//      of inbound faxes does not grow: faxes already held are recognised and
-//      skipped rather than downloaded and imported again.
+//   3. no duplicate import — over more than two scheduler poll cycles the count
+//      of inbound faxes does not grow. A successfully downloaded fax is marked
+//      read on the provider, so normal polling should not re-import it; this
+//      confirms no duplicate rows appear in steady state. The account-scoped
+//      isAlreadyImported() logic that guards a genuine re-offer is covered
+//      directly and exhaustively by FaxImporterDedupUnitTest.
 //
 // This is the live counterpart to FaxImporterDedupUnitTest. It sends no faxes
 // of its own, so it needs no SRFax credentials. Never run in CI (it waits on
@@ -41,12 +44,19 @@ async function main() {
   const before = inCount();
   must(before > 0, 'no inbound faxes present — run backbone-loopback.js first');
 
-  // 1. faxline stamping on every inbound row.
+  // 1. faxline stamping. Every inbound row must carry a usable (>= 10 digit)
+  //    account key — that is what FaxImporter.isAlreadyImported() scopes dedup
+  //    by. We do NOT require every row to equal one account: a deployment may
+  //    have several fax configurations, each stamping its own line. Instead we
+  //    assert none are unstamped/malformed, and that the account we selected
+  //    above is represented among the inbound rows.
   const unstamped = parseInt(sql(`SELECT COUNT(*) FROM faxes WHERE direction='IN' AND (faxline IS NULL OR faxline='')`), 10) || 0;
   must(unstamped === 0, `${unstamped} inbound fax(es) have no faxline stamped (dedup account key missing)`);
-  const wrong = parseInt(sql(`SELECT COUNT(*) FROM faxes WHERE direction='IN' AND RIGHT(REGEXP_REPLACE(faxline,'[^0-9]',''),10) <> '${acctTail}'`), 10) || 0;
-  must(wrong === 0, `${wrong} inbound fax(es) have a faxline whose last 10 digits != account ${acctTail}`);
-  console.log(`STEP 1 faxline-stamping: PASS (all ${before} inbound faxes stamped with account tail ${acctTail})`);
+  const malformed = parseInt(sql(`SELECT COUNT(*) FROM faxes WHERE direction='IN' AND CHAR_LENGTH(REGEXP_REPLACE(faxline,'[^0-9]','')) < 10`), 10) || 0;
+  must(malformed === 0, `${malformed} inbound fax(es) have a faxline with fewer than 10 digits (not a usable account key)`);
+  const forAccount = parseInt(sql(`SELECT COUNT(*) FROM faxes WHERE direction='IN' AND RIGHT(REGEXP_REPLACE(faxline,'[^0-9]',''),10) = '${acctTail}'`), 10) || 0;
+  must(forAccount > 0, `no inbound fax is stamped for the selected account ${acctTail}`);
+  console.log(`STEP 1 faxline-stamping: PASS (all ${before} inbound faxes carry a usable account key; ${forAccount} for account ${acctTail})`);
 
   // 2. no duplicate file names among inbound faxes.
   const dups = sql(`SELECT COALESCE(filename,'') fn, COUNT(*) n FROM faxes WHERE direction='IN' GROUP BY filename HAVING n > 1`);
@@ -62,8 +72,8 @@ async function main() {
     must(now <= before, `inbound fax count grew from ${before} to ${now} — an already-held fax was re-imported`);
   }
   const after = inCount();
-  must(after === before, `inbound fax count changed from ${before} to ${after}`);
-  console.log(`STEP 3 no-re-import: PASS (inbound count stable at ${after} across the window)`);
+  must(after === before, `inbound fax count changed from ${before} to ${after} — a duplicate import appeared`);
+  console.log(`STEP 3 no-duplicate-import: PASS (inbound count stable at ${after} across the window)`);
 
   console.log('DEDUP NO-REIMPORT: PASS');
 }
