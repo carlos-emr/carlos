@@ -209,9 +209,9 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     private static String carlosEncodePattern(String scriptletExpressionPattern, String context) {
-        String scriptletValue = "value\\s*=\\s*['\"]\\s*<%=\\s*"
+        String scriptletValue = "value\\s*=\\s*'\\s*<%=\\s*"
                 + scriptletExpressionPattern
-                + "\\s*%>\\s*['\"]";
+                + "\\s*%>\\s*'";
         String contextAttribute = "context\\s*=\\s*['\"]" + context + "['\"]";
 
         return "(?:<carlos:encode\\s+(?:(?:"
