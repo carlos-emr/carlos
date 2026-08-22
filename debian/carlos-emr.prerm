@@ -1,0 +1,25 @@
+#!/bin/sh
+# prerm for carlos-emr.
+set -e
+
+case "$1" in
+    remove|deconfigure)
+        if [ -d /run/systemd/system ]; then
+            # Stop the application before the webapp is unpacked from under it.
+            # The timers are handled by the debhelper snippet below; this is
+            # only about not leaving a JVM serving a half-removed application.
+            deb-systemd-invoke stop carlos-emr.service 2>/dev/null || true
+        fi
+        ;;
+    upgrade|failed-upgrade)
+        # Nothing here on upgrade. The debhelper snippet in preinst has already
+        # stopped the service (dh_installsystemd runs with --no-start, so
+        # nothing restarts it automatically either), and postinst starts it
+        # again only after the new schema migration has succeeded. Stopping it
+        # a second time here would be redundant; starting it would be wrong.
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

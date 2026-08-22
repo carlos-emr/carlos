@@ -27,8 +27,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -208,6 +212,121 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
     }
 
     @Nested
+    @DisplayName("sanitizeChainResultName")
+    class SanitizeChainResultName {
+
+        @ParameterizedTest(name = "safe chain result: {0}")
+        @ValueSource(strings = {
+                "list",
+                "view",
+                "issueList_ajax"
+        })
+        @DisplayName("should return whitelisted chain result names")
+        void shouldReturn_whenResultNameWhitelisted(String chain) {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(chain)).isEqualTo(chain);
+        }
+
+        @Test
+        @DisplayName("should return trimmed whitelisted chain result name")
+        void shouldReturn_whenResultNameHasOuterWhitespace() {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(" \tlist \n")).isEqualTo("list");
+        }
+
+        @ParameterizedTest(name = "blank chain result: [{0}]")
+        @NullAndEmptySource
+        @ValueSource(strings = {" ", "\t", "\n"})
+        @DisplayName("should return null for blank chain result names")
+        void shouldReturnNull_whenResultNameBlank(String chain) {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(chain)).isNull();
+        }
+
+        @ParameterizedTest(name = "unsafe chain result: {0}")
+        @ValueSource(strings = {
+                "listCPPNotes",
+                "windowClose",
+                "https://evil.example",
+                "/provider/providercontrol.jsp",
+                "../admin",
+                "list;listCPPNotes"
+        })
+        @DisplayName("should return null for untrusted chain result names")
+        void shouldReturnNull_whenResultNameUntrusted(String chain) {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(chain)).isNull();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // parseExistingNoteId
+    // ------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("parseExistingNoteId")
+    class ParseExistingNoteId {
+
+        @Test
+        @DisplayName("should return the parsed id when noteId is a positive number")
+        void shouldReturnParsedId_whenNoteIdIsPositiveNumber() {
+            assertThat(CaseManagementEntry2Action.parseExistingNoteId("42")).isEqualTo(42L);
+        }
+
+        @ParameterizedTest(name = "no existing note for noteId: [{0}]")
+        @NullAndEmptySource
+        @ValueSource(strings = {"0", "undefined", "null", "NaN", "-1abc", "-1", "1.5", "1abc",
+                "99999999999999999999"})
+        @DisplayName("should return null when noteId does not identify an existing note")
+        void shouldReturnNull_whenNoteIdDoesNotIdentifyExistingNote(String noteId) {
+            assertThat(CaseManagementEntry2Action.parseExistingNoteId(noteId)).isNull();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // nextRevision
+    // ------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("nextRevision")
+    class NextRevision {
+
+        @Test
+        @DisplayName("should increment a numeric prior revision")
+        void shouldIncrementPriorRevision_whenNumeric() {
+            assertThat(CaseManagementEntry2Action.nextRevision("3")).isEqualTo("4");
+        }
+
+        @ParameterizedTest(name = "falls back to first revision for prior revision: [{0}]")
+        @NullAndEmptySource
+        @ValueSource(strings = {"undefined", "null", "NaN", "1.5", "1abc"})
+        @DisplayName("should fall back to the first revision when the prior revision is not numeric")
+        void shouldFallBackToFirstRevision_whenPriorRevisionNotNumeric(String priorRevision) {
+            assertThat(CaseManagementEntry2Action.nextRevision(priorRevision)).isEqualTo("1");
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // combineHistory
+    // ------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("combineHistory")
+    class CombineHistory {
+
+        @Test
+        @DisplayName("should prepend new note to a non-empty prior history")
+        void shouldPrependNewNote_whenPriorHistoryNonEmpty() {
+            assertThat(CaseManagementEntry2Action.combineHistory("new note", "old note"))
+                    .isEqualTo("new note\nold note");
+        }
+
+        @ParameterizedTest(name = "returns just the new note for prior history: [{0}]")
+        @NullAndEmptySource
+        @DisplayName("should return only the new note when prior history is null or empty")
+        void shouldReturnOnlyNewNote_whenPriorHistoryNullOrEmpty(String priorHistory) {
+            assertThat(CaseManagementEntry2Action.combineHistory("new note", priorHistory))
+                    .isEqualTo("new note");
+        }
+    }
+
+    @Nested
     @DisplayName("resolveReporterProgramTeamId")
     class ResolveReporterProgramTeamId {
 
@@ -250,6 +369,57 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
 
             assertThat(CaseManagementEntry2Action.resolveReporterProgramTeamId(admissionManager, "7", "abc"))
                     .isEqualTo("0");
+        }
+    }
+
+    @Nested
+    @DisplayName("case-management chain redirect")
+    class CaseManagementChainRedirect {
+
+        @Test
+        @DisplayName("should allow list chain token")
+        void shouldAllowRedirect_whenChainIsList() {
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain("list")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should allow list chain token with whitespace")
+        void shouldAllowRedirect_whenChainHasWhitespace() {
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(" list ")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should reject raw redirect values")
+        void shouldRejectRedirect_whenChainIsRawUrl() {
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(null)).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain("")).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(
+                    "/carlos/provider/providercontrol.jsp?tab=main")).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(
+                    "https://emr.example/carlos/provider/providercontrol.jsp")).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain("//evil.example/path")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should include servlet context path")
+        void shouldBuildRedirect_whenContextPathProvided() {
+            assertThat(CaseManagementEntry2Action.caseManagementListRedirectUrl("/carlos"))
+                    .isEqualTo("/carlos/CaseManagementView?method=view");
+        }
+
+        @Test
+        @DisplayName("should use root path when context path is empty")
+        void shouldBuildRedirect_whenContextPathEmpty() {
+            assertThat(CaseManagementEntry2Action.caseManagementListRedirectUrl(""))
+                    .isEqualTo("/CaseManagementView?method=view");
+        }
+
+        @Test
+        @DisplayName("should reject unsafe context paths")
+        void shouldRejectRedirect_whenContextPathUnsafe() {
+            assertThatThrownBy(() -> CaseManagementEntry2Action.caseManagementListRedirectUrl("//evil.example"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Unsafe case-management redirect context path");
         }
     }
 }

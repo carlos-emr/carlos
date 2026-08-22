@@ -36,17 +36,20 @@ import jakarta.xml.bind.Unmarshaller;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import io.github.carlos_emr.carlos.eform.data.DatabaseAP;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.data.EFormApConfig;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EFormLoader {
 
@@ -141,6 +144,8 @@ public class EFormLoader {
         return "window.open('" + url + link + "');";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static DatabaseAP getAP(String apName) {
         //returns he DatabaseAP corresponding to the ap name
         DatabaseAP curAP = null;
@@ -170,6 +175,8 @@ public class EFormLoader {
      *</eformap-config>
      *Call ap like so: <input type="text" oscarDB=patient_name size="20">*/
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static void parseXML() {
         try {
             Properties op = CarlosProperties.getInstance();
@@ -180,7 +187,7 @@ public class EFormLoader {
                 ClassLoader loader = eLoader.getClass().getClassLoader();
                 fs = loader.getResourceAsStream("oscar/eform/apconfig.xml");
             } else {
-                fs = new FileInputStream(configpath);
+                fs = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(configpath)));
             }
             try (InputStream autoClose = fs) {
                 JAXBContext ctx = JAXBContext.newInstance(EFormApConfig.class);

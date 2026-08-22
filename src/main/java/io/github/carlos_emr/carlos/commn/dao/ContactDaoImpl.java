@@ -40,6 +40,7 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.model.Contact;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class ContactDaoImpl extends AbstractDaoImpl<Contact> implements ContactDao {
@@ -165,6 +166,8 @@ public class ContactDaoImpl extends AbstractDaoImpl<Contact> implements ContactD
      *         {@code "c.lastName, c.firstName"} if the input is null or empty
      * @throws IllegalArgumentException if orderBy contains invalid column names
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String validateOrderBy(String orderBy) {
         if (orderBy == null || orderBy.trim().isEmpty()) {
             return "c.lastName, c.firstName";

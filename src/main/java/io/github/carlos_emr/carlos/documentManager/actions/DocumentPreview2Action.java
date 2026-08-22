@@ -3,22 +3,31 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
+import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -33,7 +42,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -43,6 +51,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for previewing and rendering medical documents as PDFs in the OpenO EMR system.
@@ -59,10 +68,33 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * @since 2026-01-24
  * @see DocumentAttachmentManager
  * @see DocumentType
- * @see PathValidationUtils
  */
 public class DocumentPreview2Action extends ActionSupport {
     private static final String FETCH_CONSULT_DOCUMENTS = "fetchConsultDocuments";
+    private static final String DEMOGRAPHIC_NO_PARAMETER = "demographicNo";
+    private static final String EFORM_SECURITY_OBJECT = "_eform";
+
+    private enum PreviewError {
+        INVALID_REQUEST("invalid_request", "Invalid preview request."),
+        EDOC_RENDER_FAILED("edoc_render_failed", "Failed to render document PDF."),
+        EFORM_RENDER_FAILED("eform_render_failed", "Failed to render eForm PDF."),
+        EFORM_APPROVAL_INVALID("eform_approval_invalid",
+                "The incomplete-render approval is invalid or expired. Render the preview again."),
+        EFORM_MISSING_CONTENT("eform_missing_content",
+                "This eForm could not be fully rendered because required content or behavior is missing. "
+                        + "You can render it only after approving the listed issues, but the document may be incomplete."),
+        HRM_RENDER_FAILED("hrm_render_failed", "Failed to render HRM PDF."),
+        LAB_RENDER_FAILED("lab_render_failed", "Failed to render lab PDF."),
+        FORM_RENDER_FAILED("form_render_failed", "Failed to render form PDF.");
+
+        private final String code;
+        private final String message;
+
+        PreviewError(String code, String message) {
+            this.code = code;
+            this.message = message;
+        }
+    }
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -71,7 +103,13 @@ public class DocumentPreview2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
+    private final EFormRenderApprovalService renderApprovalService = SpringUtils.getBean(EFormRenderApprovalService.class);
+    private final PdfPreviewCapabilityService pdfPreviewCapabilityService =
+            SpringUtils.getBean(PdfPreviewCapabilityService.class);
     private final FormsManager formsManager = SpringUtils.getBean(FormsManager.class);
+    private final transient EFormDataDao eFormDataDao = SpringUtils.getBean(EFormDataDao.class);
+    private final transient PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
+    private final transient HRMDocumentToDemographicDao hrmDocumentToDemographicDao = SpringUtils.getBean(HRMDocumentToDemographicDao.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -90,6 +128,8 @@ public class DocumentPreview2Action extends ActionSupport {
      *
      * @return String result name for Struts2 result mapping, or null for direct response rendering
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String requestMethod = request.getParameter("method");
@@ -99,44 +139,40 @@ public class DocumentPreview2Action extends ActionSupport {
 
         switch (method.toLowerCase(Locale.ROOT)) {
             case "fetcheformdocuments":
-                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 return fetchEFormDocuments();
             case "renderedocpdf":
-                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderEDocPDF();
-                return null;
+                return NONE;
             case "rendereformpdf":
-                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderEFormPDF();
-                return null;
+                return NONE;
             case "renderhrmpdf":
-                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderHrmPDF();
-                return null;
+                return NONE;
             case "renderlabpdf":
-                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderLabPDF();
-                return null;
+                return NONE;
             case "renderformpdf":
-                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderFormPDF();
-                return null;
+                return NONE;
             case "renderpdf":
-                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderPDF();
-                return null;
+                return NONE;
             case "fetchconsultdocuments":
-                requirePrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE);
                 return fetchConsultDocuments();
             default:
-                logger.warn("Unsupported previewDocs method requested: {}", LogSafe.sanitize(method));
+                logger.warn("Unsupported previewDocs method requested.");
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
         }
     }
 
     private void requirePrivilege(LoggedInInfo loggedInInfo, String securityObjectName, String privilege) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, securityObjectName, privilege, null)) {
+        requirePrivilege(loggedInInfo, securityObjectName, privilege, null);
+    }
+
+    private void requirePrivilege(LoggedInInfo loggedInInfo, String securityObjectName, String privilege, String target) {
+        if (!hasPrivilege(loggedInInfo, securityObjectName, privilege, target)) {
             throw new SecurityException("missing required sec object (" + securityObjectName + ")");
         }
     }
@@ -161,12 +197,18 @@ public class DocumentPreview2Action extends ActionSupport {
         if (eDocId == null) {
             return;
         }
+        String demographicNo = parseDemographicNoOrRespondBadRequest();
+        if (demographicNo == null) {
+            return;
+        }
+        requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, demographicNo);
+        resolveEDocDemographicNoOrDeny(eDocId, demographicNo);
         try {
             Path docPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, eDocId);
             generateResponse(response, docPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering eDoc. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, PreviewError.EDOC_RENDER_FAILED);
         }
     }
 
@@ -190,12 +232,38 @@ public class DocumentPreview2Action extends ActionSupport {
         if (eFormId == null) {
             return;
         }
+        String demographicNo = parseDemographicNoOrRespondBadRequest();
+        if (demographicNo == null) {
+            return;
+        }
+        requirePrivilege(loggedInInfo, EFORM_SECURITY_OBJECT, SecurityInfoManager.READ, demographicNo);
+        resolveEFormDemographicNoOrDeny(eFormId, demographicNo);
+        String approvalToken = request.getParameter("renderApproval");
+        EFormRenderApproval approval = renderApprovalService.consume(
+                request, loggedInInfo, eFormId, demographicNo,
+                EFormRenderApprovalService.Operation.PREVIEW, approvalToken);
+        if (approvalToken != null && approval == null) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            generateResponse(response, PreviewError.EFORM_APPROVAL_INVALID);
+            return;
+        }
         try {
-            Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, eFormId);
-            generateResponse(response, eFormPDFPath);
+            EformDataManager.EformPdfRender rendered =
+                    documentAttachmentManager.renderEform(loggedInInfo, eFormId, approval);
+            generateResponse(response, rendered.path(), rendered.completeness());
+        } catch (EformContentUnavailableException e) {
+            // Return sanitized issue categories so the clinician can make an informed decision.
+            logger.warn("eForm preview incomplete: offering exact-issue approval (issues={})",
+                    e.getIssueCount());
+            String token = renderApprovalService.issue(
+                    request, loggedInInfo, eFormId, demographicNo,
+                    EFormRenderApprovalService.Operation.PREVIEW, e.getReport(),
+                    approval, e.getFdid());
+            generateMissingContentResponse(
+                    response, PreviewError.EFORM_MISSING_CONTENT, token, e.getReport());
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering eForm. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, PreviewError.EFORM_RENDER_FAILED);
         }
     }
 
@@ -219,12 +287,18 @@ public class DocumentPreview2Action extends ActionSupport {
         if (hrmId == null) {
             return;
         }
+        String demographicNo = parseDemographicNoOrRespondBadRequest();
+        if (demographicNo == null) {
+            return;
+        }
+        requirePrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, demographicNo);
+        resolveHrmDemographicNoOrDeny(hrmId, demographicNo);
         try {
             Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, hrmId);
             generateResponse(response, hrmPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering HRM. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, PreviewError.HRM_RENDER_FAILED);
         }
     }
 
@@ -247,12 +321,18 @@ public class DocumentPreview2Action extends ActionSupport {
         if (segmentId == null) {
             return;
         }
+        String demographicNo = parseDemographicNoOrRespondBadRequest();
+        if (demographicNo == null) {
+            return;
+        }
+        requirePrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, demographicNo);
+        resolveLabDemographicNoOrDeny(segmentId, demographicNo);
         try {
             Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, segmentId);
             generateResponse(response, labPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering Lab. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, PreviewError.LAB_RENDER_FAILED);
         }
     }
 
@@ -269,95 +349,49 @@ public class DocumentPreview2Action extends ActionSupport {
      * or "errorMessage" field if PDF generation fails.
      */
     public void renderFormPDF() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        Integer formId = parseIntegerParameterOrRespondBadRequest(request.getParameter("formId"), "formId");
+        if (formId == null) {
+            return;
+        }
+        String formName = parseRequiredParameterOrRespondBadRequest(request.getParameter("formName"), "formName");
+        if (formName == null) {
+            return;
+        }
+        Integer demographicId = parseIntegerParameterOrRespondBadRequest(
+                request.getParameter(DEMOGRAPHIC_NO_PARAMETER), DEMOGRAPHIC_NO_PARAMETER);
+        if (demographicId == null) {
+            return;
+        }
+        String demographicNo = String.valueOf(demographicId);
+        requirePrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, demographicNo);
+        requireFormBelongsToDemographic(loggedInInfo, formId, formName, demographicId);
         try {
             Path formPDFPath = documentAttachmentManager.renderDocument(request, response, DocumentType.FORM);
             generateResponse(response, formPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering Form. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, PreviewError.FORM_RENDER_FAILED);
         }
     }
 
     /**
-     * Renders a PDF file from a validated file path and streams it directly to the HTTP response.
-     *
-     * This method performs comprehensive security validation to prevent path traversal attacks
-     * before serving PDF files. It validates that the requested file path exists within allowed
-     * directories (DOCUMENT_DIR, TMP_DIR, eform_image, or system temp directory) using
-     * PathValidationUtils. Only files that pass canonical path validation and exist as regular
-     * files are served. This method is critical for maintaining PHI security and preventing
-     * unauthorized file access.
-     *
-     * Expected request parameters:
-     * - pdfPath: String the file system path to the PDF file to render
-     *
-     * Security measures:
-     * - Validates path is not empty
-     * - Resolves canonical path to detect traversal attempts
-     * - Validates path is within allowed directories using PathValidationUtils
-     * - Verifies file exists and is a regular file
-     * - Sets appropriate HTTP status codes (400 for bad requests, 403 for forbidden paths,
-     *   404 for missing files, 500 for server errors)
-     *
-     * Response: Streams PDF content directly with "application/pdf" content type, or sets
-     * appropriate HTTP error status code if validation fails.
+     * Streams the generated PDF identified by a short-lived capability. Raw filesystem paths are
+     * never accepted from the browser; the capability is bound to the exact canonical temp file,
+     * authenticated provider, and HTTP session that prepared the email attachment.
      */
     public void renderPDF() {
-        String pdfPathString = StringUtils.isNullOrEmpty(request.getParameter("pdfPath")) ? "" : request.getParameter("pdfPath");
-        
-        if (pdfPathString.isEmpty()) {
-            logger.error("Empty PDF path provided");
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        Path pdfPath = pdfPreviewCapabilityService.resolve(
+                request, loggedInInfo, request.getParameter("previewToken"));
+        if (pdfPath == null) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
-        
-        // Validate the PDF path to prevent path traversal attacks
-        Path pdfPath = Paths.get(pdfPathString);
-        
-        try {
-            // Get the canonical path to resolve any path traversal attempts
-            Path canonicalPdfPath = pdfPath.toRealPath();
-            
-            // Define allowed directories based on OSCAR configuration
-            String[] allowedBasePaths = {
-                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"),
-                CarlosProperties.getInstance().getProperty("TMP_DIR", "/tmp/"),
-                CarlosProperties.getInstance().getProperty("eform_image", "/var/lib/OscarDocument/eform/images/"),
-                System.getProperty("java.io.tmpdir")
-            };
 
-            boolean isValidPath = false;
-            for (String basePath : allowedBasePaths) {
-                if (basePath != null && !basePath.isEmpty()) {
-                    java.io.File baseDir = new java.io.File(basePath);
-                    if (baseDir.exists()) {
-                        try {
-                            canonicalPdfPath = PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir).toPath();
-                            isValidPath = true;
-                            break;
-                        } catch (SecurityException e) {
-                            // File not in this directory, try next
-                        }
-                    }
-                }
-            }
-            
-            if (!isValidPath) {
-                logger.error("Access denied: Path traversal attempt detected for path: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                return;
-            }
-            
-            // Additional check: ensure the file exists and is a regular file
-            if (!Files.exists(canonicalPdfPath) || !Files.isRegularFile(canonicalPdfPath)) {
-                logger.error("PDF file not found or is not a regular file: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                return;
-            }
-            
-            // Serve the validated PDF file
+        try {
             response.setContentType("application/pdf");
-            try (InputStream inputStream = Files.newInputStream(canonicalPdfPath);
+            try (InputStream inputStream = Files.newInputStream(pdfPath);
                  BufferedInputStream bfis = new BufferedInputStream(inputStream);
                  ServletOutputStream outs = response.getOutputStream()) {
 
@@ -369,7 +403,7 @@ public class DocumentPreview2Action extends ActionSupport {
                 outs.flush();
             }
         } catch (IOException e) {
-            logger.error("Error processing PDF file: {}", LogSafe.sanitize(pdfPathString), e);
+            logger.error("Error processing authorized PDF preview", e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
@@ -397,18 +431,16 @@ public class DocumentPreview2Action extends ActionSupport {
     public String fetchConsultDocuments() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        String demographicNo = StringUtils.isNullOrEmpty(request.getParameter("demographicNo")) ? "0" : request.getParameter("demographicNo");
-        Integer demographicId;
-        try {
-            demographicId = Integer.valueOf(demographicNo);
-        } catch (NumberFormatException e) {
-            logger.warn("Invalid demographicNo received: {}. Falling back to 0.", LogSafe.sanitize(demographicNo), e);
-            demographicNo = "0";
-            demographicId = 0;
-        }
+        String demographicNo = requestDemographicNoOrZero();
+        Integer demographicId = parseIntegerParameterOrDefault(demographicNo, DEMOGRAPHIC_NO_PARAMETER, 0);
+        String sanitizedDemographicNo = String.valueOf(demographicId);
 
-        populateCommonDocs(loggedInInfo, demographicNo, demographicId);
-		List<EFormData> allEForms = hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)
+        requirePrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, sanitizedDemographicNo);
+        request.setAttribute(DEMOGRAPHIC_NO_PARAMETER, sanitizedDemographicNo);
+        request.setAttribute("attachmentSecurityObject", "_con");
+        request.setAttribute("canManageAttachments", hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, sanitizedDemographicNo));
+        populateCommonDocs(loggedInInfo, sanitizedDemographicNo, demographicId);
+		List<EFormData> allEForms = hasPrivilege(loggedInInfo, EFORM_SECURITY_OBJECT, SecurityInfoManager.READ, sanitizedDemographicNo)
                 ? EFormUtil.listPatientEformsCurrent(demographicId, true)
                 : new ArrayList<>();
         request.setAttribute("allEForms", allEForms);
@@ -440,12 +472,16 @@ public class DocumentPreview2Action extends ActionSupport {
     public String fetchEFormDocuments() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        String demographicNo = StringUtils.isNullOrEmpty(request.getParameter("demographicNo")) ? "0" : request.getParameter("demographicNo");
+        String demographicNo = requestDemographicNoOrZero();
         String fdid = StringUtils.isNullOrEmpty(request.getParameter("fdid")) ? "0" : request.getParameter("fdid");
-        Integer demographicId = parseIntegerParameterOrDefault(demographicNo, "demographicNo", 0);
+        Integer demographicId = parseIntegerParameterOrDefault(demographicNo, DEMOGRAPHIC_NO_PARAMETER, 0);
         String sanitizedDemographicNo = String.valueOf(demographicId);
         Integer fdidInt = parseIntegerParameterOrDefault(fdid, "fdid", 0);
 
+        requirePrivilege(loggedInInfo, EFORM_SECURITY_OBJECT, SecurityInfoManager.READ, sanitizedDemographicNo);
+        request.setAttribute(DEMOGRAPHIC_NO_PARAMETER, sanitizedDemographicNo);
+        request.setAttribute("attachmentSecurityObject", EFORM_SECURITY_OBJECT);
+        request.setAttribute("canManageAttachments", hasPrivilege(loggedInInfo, EFORM_SECURITY_OBJECT, SecurityInfoManager.WRITE, sanitizedDemographicNo));
         populateCommonDocs(loggedInInfo, sanitizedDemographicNo, demographicId);
 		List<EFormData> allEForms = documentAttachmentManager.getAllEFormsExpectFdid(loggedInInfo, demographicId, fdidInt);
 		request.setAttribute("allEForms", allEForms);
@@ -464,10 +500,25 @@ public class DocumentPreview2Action extends ActionSupport {
      * @param pdfPath Path the file system path to the PDF file to encode
      * @throws PDFGenerationException if an error occurs during base64 conversion or writing the response
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void generateResponse(HttpServletResponse response, Path pdfPath) throws PDFGenerationException {
+        generateResponse(response, pdfPath, null);
+    }
+
+    /**
+     * Writes the PDF response, attaching any non-blocking advisory conditions the render reported.
+     */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
+    private void generateResponse(HttpServletResponse response, Path pdfPath,
+            EFormRenderCompletenessReport completeness) throws PDFGenerationException {
         ObjectNode json = objectMapper.createObjectNode();
         String base64Data = documentAttachmentManager.convertPDFToBase64(pdfPath);
         json.put("base64Data", base64Data);
+        if (completeness != null && completeness.advisoryIssueCount() > 0) {
+            json.put("advisoryIssues", completeness.advisoryIssueCount());
+        }
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         try {
@@ -485,11 +536,49 @@ public class DocumentPreview2Action extends ActionSupport {
      * all document rendering methods.
      *
      * @param response HttpServletResponse the HTTP response object to write to
-     * @param errorMessage String the error message describing the PDF generation failure
+     * @param error fixed public error code and message
      */
-    private void generateResponse(HttpServletResponse response, String errorMessage) {
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
+    private void generateResponse(HttpServletResponse response, PreviewError error) {
         ObjectNode json = objectMapper.createObjectNode();
-        json.put("errorMessage", errorMessage);
+        json.put("errorCode", error.code);
+        json.put("errorMessage", error.message);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        try {
+            response.getWriter().write(json.toString());
+        } catch (IOException e) {
+            logger.error("An error occurred while writing JSON response to the output stream", e);
+        }
+    }
+
+    /**
+     * Generates the sanitized issue report and exact approval token for an incomplete render.
+     *
+     * @param response HttpServletResponse the HTTP response object to write to
+     * @param error fixed clinician-facing error (no PHI; no asset names)
+     */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
+    private void generateMissingContentResponse(HttpServletResponse response, PreviewError error,
+            String approvalToken, EFormRenderCompletenessReport report) {
+        ObjectNode json = objectMapper.createObjectNode();
+        json.put("errorCode", error.code);
+        json.put("errorMessage", error.message);
+        json.put("missingContent", true);
+        json.put("renderApproval", approvalToken);
+        json.put("failedContentResources", report.failedContentResources());
+        json.put("excludedContentElements", report.excludedContentElements());
+        json.put("signatureMissing", report.signatureMissing());
+        json.put("providerStampMissing", report.providerStampMissing());
+        json.put("timerCompatibilityFailure", report.timerCompatibilityFailure());
+        // Keep in step with EFormRenderCompletenessReport: an omitted category would let the caller
+        // present an incomplete issue set for an approval whose digest covers all of them.
+        json.put("severeConsoleErrors", report.severeConsoleErrors());
+        json.put("containedInteractions", report.containedInteractions());
+        json.put("stabilizationCapped", report.stabilizationCapped());
+        json.put("labDecisionSupportStubbed", report.labDecisionSupportStubbed());
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         try {
@@ -505,16 +594,16 @@ public class DocumentPreview2Action extends ActionSupport {
      * @param demographicNo Demographic number of the patient
      */
     private void populateCommonDocs(LoggedInInfo loggedInInfo, String demographicNo, Integer demographicId) {
-        List<EDoc> allDocuments = hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)
+        List<EDoc> allDocuments = hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, demographicNo)
                 ? EDocUtil.listDocs(loggedInInfo, "demographic", demographicNo, null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE)
                 : new ArrayList<>();
-        ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, null)
+        ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, demographicNo)
                 ? HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo, false)
                 : new ArrayList<>();
-        List<AttachmentLabResultData> allLabsSortedByVersions = hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)
+        List<AttachmentLabResultData> allLabsSortedByVersions = hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, demographicNo)
                 ? documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, demographicNo)
                 : new ArrayList<>();
-        List<EctFormData.PatientForm> allForms = hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)
+        List<EctFormData.PatientForm> allForms = hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, demographicNo)
                 ? formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, demographicId, false, true)
                 : new ArrayList<>();
 
@@ -526,6 +615,92 @@ public class DocumentPreview2Action extends ActionSupport {
 
     private boolean hasPrivilege(LoggedInInfo loggedInInfo, String securityObjectName, String privilege, String target) {
         return securityInfoManager.hasPrivilege(loggedInInfo, securityObjectName, privilege, target);
+    }
+
+    private String resolveEFormDemographicNoOrDeny(Integer eFormId, String requestedDemographicNo) {
+        EFormData eFormData = eFormDataDao.find(eFormId.intValue());
+        Integer demographicNo = eFormData == null ? null : eFormData.getDemographicId();
+        return requireMatchingDemographicNo(demographicNo, requestedDemographicNo, "eForm");
+    }
+
+    private String resolveEDocDemographicNoOrDeny(Integer eDocId, String requestedDemographicNo) {
+        EDoc eDoc = EDocUtil.getEDocFromDocId(String.valueOf(eDocId));
+        if (eDoc == null || !"demographic".equals(eDoc.getModule())) {
+            throw new SecurityException("document does not match demographic");
+        }
+
+        return requireMatchingDemographicNo(parseIntegerValue(eDoc.getModuleId()), requestedDemographicNo, "document");
+    }
+
+    private String resolveHrmDemographicNoOrDeny(Integer hrmId, String requestedDemographicNo) {
+        List<HRMDocumentToDemographic> linkedDemographics = hrmDocumentToDemographicDao.findByHrmDocumentId(hrmId);
+        if (linkedDemographics != null) {
+            for (HRMDocumentToDemographic linkedDemographic : linkedDemographics) {
+                if (linkedDemographic != null && requestedDemographicNo.equals(String.valueOf(linkedDemographic.getDemographicNo()))) {
+                    return requestedDemographicNo;
+                }
+            }
+        }
+
+        throw new SecurityException("HRM document does not match demographic");
+    }
+
+    private String resolveLabDemographicNoOrDeny(Integer segmentId, String requestedDemographicNo) {
+        PatientLabRouting patientLabRouting = patientLabRoutingDao.findDemographicByLabId(segmentId);
+        Integer demographicNo = patientLabRouting == null ? null : patientLabRouting.getDemographicNo();
+        return requireMatchingDemographicNo(demographicNo, requestedDemographicNo, "lab");
+    }
+
+    private void requireFormBelongsToDemographic(LoggedInInfo loggedInInfo, Integer formId, String formName, Integer demographicNo) {
+        List<EctFormData.PatientForm> forms = formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, demographicNo, true, true);
+        if (forms != null) {
+            String requestedFormId = String.valueOf(formId);
+            for (EctFormData.PatientForm form : forms) {
+                if (form != null
+                        && requestedFormId.equals(form.getFormId())
+                        && demographicNo.equals(form.demographicId)
+                        && formName.equals(form.getFormName())) {
+                    return;
+                }
+            }
+        }
+
+        throw new SecurityException("form does not match demographic");
+    }
+
+    private String requireMatchingDemographicNo(Integer resolvedDemographicNo, String requestedDemographicNo, String resourceName) {
+        if (resolvedDemographicNo == null) {
+            throw new SecurityException(resourceName + " does not match demographic");
+        }
+
+        String resolvedDemographicNoString = String.valueOf(resolvedDemographicNo);
+        if (!resolvedDemographicNoString.equals(requestedDemographicNo)) {
+            throw new SecurityException(resourceName + " does not match demographic");
+        }
+
+        return resolvedDemographicNoString;
+    }
+
+    private String parseDemographicNoOrRespondBadRequest() {
+        Integer demographicId = parseIntegerParameterOrRespondBadRequest(
+                request.getParameter(DEMOGRAPHIC_NO_PARAMETER), DEMOGRAPHIC_NO_PARAMETER);
+        return demographicId == null ? null : String.valueOf(demographicId);
+    }
+
+    private String requestDemographicNoOrZero() {
+        String demographicNo = request.getParameter(DEMOGRAPHIC_NO_PARAMETER);
+        return StringUtils.isNullOrEmpty(demographicNo) ? "0" : demographicNo;
+    }
+
+    private String parseRequiredParameterOrRespondBadRequest(String value, String parameterName) {
+        if (StringUtils.isNullOrEmpty(value)) {
+            logger.warn("Invalid {} received: empty value", parameterName);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            generateResponse(response, PreviewError.INVALID_REQUEST);
+            return null;
+        }
+
+        return value;
     }
 
     private Integer parseIntegerParameterOrDefault(String value, String parameterName, Integer defaultValue) {
@@ -543,7 +718,15 @@ public class DocumentPreview2Action extends ActionSupport {
         } catch (NumberFormatException e) {
             logger.warn("Invalid {} received: {}", parameterName, LogSafe.sanitize(value), e);
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            generateResponse(response, "Invalid " + parameterName);
+            generateResponse(response, PreviewError.INVALID_REQUEST);
+            return null;
+        }
+    }
+
+    private Integer parseIntegerValue(String value) {
+        try {
+            return Integer.valueOf(value);
+        } catch (NumberFormatException e) {
             return null;
         }
     }

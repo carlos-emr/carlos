@@ -81,7 +81,7 @@
                                       onClick="popupPage(450,900,'ar1risk_99_12.htm')"><font
                         color="#FFFF66"><%= bundle.getString("provider.obarrisk.viewRiskNumber") %></font></a> <input type="button"
                                                                            name="Button"
-                                                                           value="&nbsp;<%=request.getParameter("submit")!=null?bundle.getString("provider.obarrisk.exit"):bundle.getString("provider.obarrisk.cancel")%>&nbsp;"
+                                                                           value="&nbsp;<%=SafeEncode.forHtmlAttribute(request.getParameter("submit")!=null?bundle.getString("provider.obarrisk.exit"):bundle.getString("provider.obarrisk.cancel"))%>&nbsp;"
                                                                            onClick="onExit();">&nbsp;
                 </div>
             </th>

@@ -8,6 +8,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Data Transfer Object (DTO) for email composition and transmission in the OpenO EMR system.
@@ -328,6 +329,8 @@ public class EmailData {
      * @param chartDisplayOption String "doNotAddAsNote" to exclude from chart, 
      *                          any other value (including null) defaults to WITH_FULL_NOTE
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setChartDisplayOption(String chartDisplayOption) {
         if (chartDisplayOption == null) {
             chartDisplayOption = "addFullNote";
@@ -380,6 +383,8 @@ public class EmailData {
      * @param transactionType String one of "EFORM", "CONSULTATION", "TICKLER", or any other value
      *                       (including null) which defaults to DIRECT
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setTransactionType(String transactionType) {
         if (transactionType == null) {
             transactionType = "DIRECT";

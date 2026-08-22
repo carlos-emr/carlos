@@ -70,13 +70,16 @@
     </div>
 
     <script>
-        window.top.location.href = "<%=request.getContextPath()%>/administration?show=Forms";
+        window.top.location.href = "<%=request.getContextPath()%>/administration?show=Forms${param.scheduleNav eq '1' ? '&scheduleNav=1' : ''}";
     </script>
 
 </c:if>
 <form action="<%=request.getContextPath()%>/eform/manageEForm" method="POST" enctype="multipart/form-data" id="eformImportForm">
 
     <input type="hidden" name="method" value="importEForm">
+    <c:if test="${param.scheduleNav eq '1'}">
+        <input type="hidden" name="scheduleNav" value="1"/>
+    </c:if>
 
     <%
         List<String> importErrors = (List<String>) request.getAttribute("importErrors");

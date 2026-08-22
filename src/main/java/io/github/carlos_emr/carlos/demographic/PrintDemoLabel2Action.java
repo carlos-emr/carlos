@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.OscarDocumentCreator;
 import io.github.carlos_emr.CarlosProperties;
@@ -38,6 +39,7 @@ import io.github.carlos_emr.CarlosProperties;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -48,6 +50,7 @@ import java.util.HashMap;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action that generates and prints patient demographic labels as PDF documents.
@@ -144,6 +147,10 @@ public class PrintDemoLabel2Action extends ActionSupport {
      * @return String always returns NONE after streaming the PDF
      * @throws SecurityException if the current user lacks "_demographic" read privilege
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    // FindSecBugs CRLF_INJECTION_LOGS: logged labelPath comes from CarlosProperties (pdfLabelMRP / pdfLabelApptProvider) or a user.home-derived default; trusted server config, not request input.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN", "CRLF_INJECTION_LOGS"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input; logged labelPath is from trusted CARLOS properties/config, no attacker-controlled CR/LF")
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
@@ -207,10 +214,10 @@ public class PrintDemoLabel2Action extends ActionSupport {
 
         logger.debug("user home: " + System.getProperty("user.home"));
         try {
-            ins = new FileInputStream(labelPath);
+            ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(labelPath)));
             logger.debug("loading from :" + labelPath + " " + ins);
-        } catch (FileNotFoundException ex1) {
-            logger.warn("label xml file not found at " + labelPath + " using default instead");
+        } catch (FileNotFoundException | SecurityException ex1) {
+            logger.warn("label xml file not found at " + labelPath + " using default instead", ex1);
         }
         if (ins == null) {
             try {

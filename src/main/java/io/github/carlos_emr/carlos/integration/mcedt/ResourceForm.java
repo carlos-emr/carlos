@@ -35,6 +35,7 @@ import ca.ontario.health.edt.TypeListResult;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ResourceForm {
 
@@ -98,6 +99,8 @@ public class ResourceForm {
         return result;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ResourceStatus getStatusAsResourceStatus() {
         if (getStatus() == null) {
             return null;

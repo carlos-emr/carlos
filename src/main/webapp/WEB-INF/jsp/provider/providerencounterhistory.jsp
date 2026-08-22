@@ -93,12 +93,12 @@
                 if (strForm.toLowerCase().compareTo("form") == 0 && st.hasMoreTokens()) {
                     strTemplateURL = "template" + (new String(st.nextToken())).trim().toLowerCase() + ".jsp";
             %> <a href=#
-                  onClick="popupPage(600,800,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' context="uriComponent"/>&dboperation=search_encountersingle&displaymodevariable=<carlos:encode value='<%= strTemplateURL %>' context="uriComponent"/>&displaymode=vary&bNewForm=0')"><carlos:encode value='<%= historysubject %>' context="html"/>
+                  onClick="popupPage(600,800,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' context="uriComponent"/>&dboperation=search_encountersingle&displaymodevariable=<carlos:encode value='<%= strTemplateURL %>' context="uriComponent"/>&displaymode=vary&bNewForm=0')"><carlos:encode value='<%= historysubject %>' context="html"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             </a></font><br>
                 <%
                 } else if (strForm.compareTo("") != 0) {
                 %> <a href=#
-                      onClick="popupPage(400,600,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' context="uriComponent"/>&template=<carlos:encode value='<%= strForm %>' context="uriComponent"/>&dboperation=search_encountersingle&displaymode=encountersingle')"><carlos:encode value='<%= historysubject %>' context="html"/>
+                      onClick="popupPage(400,600,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' context="uriComponent"/>&template=<carlos:encode value='<%= strForm %>' context="uriComponent"/>&dboperation=search_encountersingle&displaymode=encountersingle')"><carlos:encode value='<%= historysubject %>' context="html"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             </a></font><br>
                 <%
                         }

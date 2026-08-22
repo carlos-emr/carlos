@@ -134,7 +134,7 @@
                         request.getParameter("security_no") + "->" + request.getParameter("user_name"), request.getRemoteAddr());
         %>
         <p>
-        <h2><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="html"/>
+        <h2><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="html"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         </h2>
         <%
         } else {
