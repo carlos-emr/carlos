@@ -212,7 +212,7 @@ class JspJavaScriptEncodingRegressionTest {
         String scriptletValue = "value\\s*=\\s*'\\s*<%=\\s*"
                 + scriptletExpressionPattern
                 + "\\s*%>\\s*'";
-        String contextAttribute = "context\\s*=\\s*['\"]" + context + "['\"]";
+        String contextAttribute = "context\\s*=\\s*(?:'" + context + "'|\"" + context + "\")";
 
         return "(?:<carlos:encode\\s+(?:(?:"
                 + scriptletValue
