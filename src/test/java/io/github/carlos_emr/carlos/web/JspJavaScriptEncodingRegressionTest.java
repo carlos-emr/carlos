@@ -170,8 +170,10 @@ class JspJavaScriptEncodingRegressionTest {
                 .doesNotContain("zipFile=<%=file%>'><%=file %>")
                 .doesNotContain("<td><%=dataExport.getUser()%>")
                 .doesNotContain("<td><%=dataExport.getType()%>")
-                .containsPattern("zipFile=\\s*" + carlosEncodePattern("file", "uriComponent"))
-                .containsPattern(">\\s*" + carlosEncodePattern("file", "html"))
+                .containsPattern("<a\\s+href=\"[^\"]*zipFile=\\s*"
+                        + carlosEncodePattern("file", "uriComponent")
+                        + "\"\\s*>\\s*"
+                        + carlosEncodePattern("file", "html"))
                 .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getUser\\(\\)", "html"))
                 .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getType\\(\\)", "html"));
     }
