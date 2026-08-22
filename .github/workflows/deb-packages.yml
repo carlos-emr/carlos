@@ -272,13 +272,13 @@ jobs:
           # immutable. The latest-pointer decision lives here (not in
           # publish-release.yml) because the release is only published once all
           # assets, including these .debs, are in place.
-          # POSIX case (the container step runs under sh/dash, not bash, so
-          # [[ ... =~ ]] is unavailable). The tag is already validated CalVer,
-          # so a -alphaN / -betaN / -rcN suffix is always the trailing segment.
+          # grep -E keeps the exact anchored semantics of the original regex
+          # (digits required, matched at end); the step runs under sh/dash, so
+          # bash's [[ ... =~ ]] is unavailable and a shell glob would not anchor.
           prerelease=false
-          case "$RELEASE_TAG" in
-            *-alpha[0-9]*|*-beta[0-9]*|*-rc[0-9]*) prerelease=true ;;
-          esac
+          if printf '%s' "$RELEASE_TAG" | grep -Eq -- '-(alpha|beta|rc)[1-9][0-9]*$'; then
+            prerelease=true
+          fi
 
           if [ "$prerelease" = "true" ]; then
             gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease --latest=false
