@@ -47,7 +47,11 @@ async function searchDrug(p, base, demo, term) {
     const hits = [...document.querySelectorAll('a,tr,li')]
       .map((e) => (e.textContent || '').trim())
       .filter((s) => s.length < 120 && s.toLowerCase().includes(needle));
-    return { count: hits.length, sample: hits.slice(0, 3), failedOrEmpty: /unavailable|no results|not found|failed/i.test(text) || text.length < 400 };
+    // "failed" is a genuine service problem (DrugRef unavailable / error page),
+    // kept separate from a valid empty result so the negative case can require
+    // the lookup to have COMPLETED and merely returned nothing.
+const failed = /unavailable|error contacting|could not|exception|service is unavailable|failed|interrupted/i.test(text);
+    return { count: hits.length, sample: hits.slice(0, 3), failed };
   }, term);
 }
 
@@ -67,17 +71,18 @@ async function main() {
 
     // 1. positive lookup
     const pos = await searchDrug(p, c.base, demo, 'amoxicillin');
-    must(pos.count > 0 && !pos.failedOrEmpty, `DrugRef returned no results for "amoxicillin" (count=${pos.count}) — is carlos-emr-drugref up?`);
+    must(pos.count > 0 && !pos.failed, `DrugRef returned no results for "amoxicillin" (count=${pos.count}) — is carlos-emr-drugref up?`);
     console.log(`STEP 1 drugref-positive: PASS (amoxicillin -> ${pos.count} row(s), e.g. ${JSON.stringify(pos.sample[0] || '')})`);
 
     // 2. negative lookup
     const neg = await searchDrug(p, c.base, demo, 'zzzznotarealdrugxyz');
+    must(!neg.failed, 'the negative DrugRef lookup hit a service failure, not a valid empty result');
     must(neg.count === 0, `DrugRef returned ${neg.count} result(s) for a nonsense term — lookup is not a real query`);
-    console.log('STEP 2 drugref-negative: PASS (nonsense term -> no results)');
+    console.log('STEP 2 drugref-negative: PASS (nonsense term -> lookup completed, no results)');
 
     // 3. second positive, to guard against a single fluke/cached hit
     const pos2 = await searchDrug(p, c.base, demo, 'metformin');
-    must(pos2.count > 0 && !pos2.failedOrEmpty, `DrugRef returned no results for "metformin" (count=${pos2.count})`);
+    must(pos2.count > 0 && !pos2.failed, `DrugRef returned no results for "metformin" (count=${pos2.count})`);
     console.log(`STEP 3 drugref-second-drug: PASS (metformin -> ${pos2.count} row(s))`);
 
     console.log('PRESCRIPTION DRUGREF: PASS');
