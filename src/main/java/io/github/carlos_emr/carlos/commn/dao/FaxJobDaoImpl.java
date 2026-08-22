@@ -162,6 +162,12 @@ public class FaxJobDaoImpl extends AbstractDaoImpl<FaxJob> implements FaxJobDao 
         return query.getResultList();
     }
 
+    /**
+     * All {@link FaxJob} rows whose staged file name equals {@code fileName}.
+     * Used by the retry path to locate the row for a quarantined document
+     * (which carries no provider job id). Returns an empty list when none
+     * match; order is unspecified.
+     */
     @Override
     @SuppressWarnings("unchecked")
     public List<FaxJob> findByFileName(String fileName) {
