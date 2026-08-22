@@ -74,7 +74,7 @@ import org.openpdf.text.pdf.PdfWriter;
  * {@code initialize()} is invoked explicitly (in production it is {@code @PostConstruct}).</p>
  *
  * @since 2026-08-21
- * @see FaxImporter#isAlreadyImported(List)
+ * @see FaxImporter#isAlreadyImported(List, String)
  */
 @Tag("unit")
 @Tag("fax")
@@ -82,6 +82,7 @@ import org.openpdf.text.pdf.PdfWriter;
 class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
 
     private static final Long PROVIDER_JOB_ID = 777L;
+    private static final String ACCOUNT_FAX_NUMBER = "5551230000";
 
     private FaxConfigDao faxConfigDao;
     private FaxJobDao faxJobDao;
@@ -377,7 +378,7 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
     }
 
     /**
-     * Direct contract tests for {@link FaxImporter#isAlreadyImported(List)}.
+     * Direct contract tests for {@link FaxImporter#isAlreadyImported(List, String)}.
      */
     @Nested
     @DisplayName("isAlreadyImported() contract")
@@ -386,13 +387,13 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should return false for null prior rows")
         void shouldReturnFalse_forNullPriorRows() {
-            assertThat(faxImporter.isAlreadyImported(null)).isFalse();
+            assertThat(faxImporter.isAlreadyImported(null, ACCOUNT_FAX_NUMBER)).isFalse();
         }
 
         @Test
         @DisplayName("should return false for empty prior rows")
         void shouldReturnFalse_forEmptyPriorRows() {
-            assertThat(faxImporter.isAlreadyImported(Collections.emptyList())).isFalse();
+            assertThat(faxImporter.isAlreadyImported(Collections.emptyList(), ACCOUNT_FAX_NUMBER)).isFalse();
         }
 
         @Test
@@ -404,7 +405,7 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
             outbound.setDirection(FaxJob.Direction.OUT);
             FaxJob outboundComplete = priorRow(FaxJob.STATUS.COMPLETE, "Sent");
             outboundComplete.setDirection(FaxJob.Direction.OUT);
-            assertThat(faxImporter.isAlreadyImported(java.util.Arrays.asList(outbound, outboundComplete))).isFalse();
+            assertThat(faxImporter.isAlreadyImported(java.util.Arrays.asList(outbound, outboundComplete), ACCOUNT_FAX_NUMBER)).isFalse();
         }
 
         @Test
@@ -413,27 +414,81 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
             // Pre-direction rows (before the V1.0.15 backfill ran) must keep deduplicating.
             FaxJob legacy = priorRow(FaxJob.STATUS.RECEIVED, null);
             legacy.setDirection(null);
-            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(legacy))).isTrue();
+            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(legacy), ACCOUNT_FAX_NUMBER)).isTrue();
         }
 
         @Test
         @DisplayName("should return true when a prior row is RECEIVED")
         void shouldReturnTrue_whenPriorRowIsReceived() {
             List<FaxJob> rows = Collections.singletonList(priorRow(FaxJob.STATUS.RECEIVED, null));
-            assertThat(faxImporter.isAlreadyImported(rows)).isTrue();
+            assertThat(faxImporter.isAlreadyImported(rows, ACCOUNT_FAX_NUMBER)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return true when a prior RECEIVED row is for THIS account's fax line")
+        void shouldReturnTrue_whenPriorRowMatchesThisAccountFaxLine() {
+            FaxJob prior = priorRow(FaxJob.STATUS.RECEIVED, null);
+            prior.setFax_line(ACCOUNT_FAX_NUMBER);
+            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(prior), ACCOUNT_FAX_NUMBER)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return true when a prior row's 11-digit fax line matches this 10-digit account (normalized)")
+        void shouldReturnTrue_whenPriorFaxLineIs11DigitFormOfThisAccount() {
+            FaxJob prior = priorRow(FaxJob.STATUS.RECEIVED, null);
+            prior.setFax_line("1" + ACCOUNT_FAX_NUMBER); // provider-supplied 11-digit form
+            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(prior), ACCOUNT_FAX_NUMBER)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return false for a stamped other-account row when THIS account has no fax line")
+        void shouldReturnFalse_whenAccountFaxLineBlankAndPriorRowIsStamped() {
+            FaxJob otherAccount = priorRow(FaxJob.STATUS.RECEIVED, null);
+            otherAccount.setFax_line("5559990000");
+            // Blank account line can't confirm ownership of a stamped row -> not ours.
+            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(otherAccount), "")).isFalse();
+            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(otherAccount), null)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return true for a legacy blank-fax-line row even when THIS account has no fax line")
+        void shouldReturnTrue_whenAccountFaxLineBlankAndPriorRowLegacyBlank() {
+            FaxJob legacy = priorRow(FaxJob.STATUS.RECEIVED, null);
+            legacy.setFax_line(null);
+            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(legacy), "")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return false when the only prior row belongs to a DIFFERENT account (same numeric job id)")
+        void shouldReturnFalse_whenPriorRowIsForADifferentAccount() {
+            // Two accounts/backends can reuse the same numeric provider job id; a row imported by
+            // another account must not suppress importing this account's genuinely new fax.
+            FaxJob otherAccount = priorRow(FaxJob.STATUS.RECEIVED, null);
+            otherAccount.setFax_line("5559990000");
+            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(otherAccount), ACCOUNT_FAX_NUMBER)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return true for a legacy row with a blank fax line (pre-stamping upgrade)")
+        void shouldReturnTrue_forLegacyRowWithBlankFaxLine() {
+            // Rows imported before this release have no fax_line; an upgrade must still treat them
+            // as already-held so an unacknowledged fax is not downloaded and imported again.
+            FaxJob legacyNoLine = priorRow(FaxJob.STATUS.RECEIVED, null);
+            legacyNoLine.setFax_line(null);
+            assertThat(faxImporter.isAlreadyImported(Collections.singletonList(legacyNoLine), ACCOUNT_FAX_NUMBER)).isTrue();
         }
 
         @Test
         @DisplayName("should return true when status string starts with imported in any case")
         void shouldReturnTrue_whenStatusStringStartsWithImportedAnyCase() {
             assertThat(faxImporter.isAlreadyImported(Collections.singletonList(
-                    priorRow(FaxJob.STATUS.ERROR, "IMPORTED BUT ROUTING FAILED - NEEDS MANUAL ASSIGNMENT"))))
+                    priorRow(FaxJob.STATUS.ERROR, "IMPORTED BUT ROUTING FAILED - NEEDS MANUAL ASSIGNMENT")), ACCOUNT_FAX_NUMBER))
                     .isTrue();
             assertThat(faxImporter.isAlreadyImported(Collections.singletonList(
-                    priorRow(FaxJob.STATUS.ERROR, "Imported but routing failed - manual assignment required"))))
+                    priorRow(FaxJob.STATUS.ERROR, "Imported but routing failed - manual assignment required")), ACCOUNT_FAX_NUMBER))
                     .isTrue();
             assertThat(faxImporter.isAlreadyImported(Collections.singletonList(
-                    priorRow(FaxJob.STATUS.ERROR, "imported on retry but routing failed"))))
+                    priorRow(FaxJob.STATUS.ERROR, "imported on retry but routing failed")), ACCOUNT_FAX_NUMBER))
                     .isTrue();
         }
 
@@ -443,7 +498,7 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
             // The quarantined file is owned by retryPendingImports, whose retry row carries no
             // provider job id — re-downloading here would duplicate the document post-retry.
             assertThat(faxImporter.isAlreadyImported(Collections.singletonList(
-                    priorRow(FaxJob.STATUS.ERROR, "Downloaded but import failed - pending retry from incoming directory"))))
+                    priorRow(FaxJob.STATUS.ERROR, "Downloaded but import failed - pending retry from incoming directory")), ACCOUNT_FAX_NUMBER))
                     .isTrue();
         }
 
@@ -451,12 +506,12 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         @DisplayName("should return false for other error status strings")
         void shouldReturnFalse_forOtherErrorStatusStrings() {
             assertThat(faxImporter.isAlreadyImported(Collections.singletonList(
-                    priorRow(FaxJob.STATUS.ERROR, "Download failed: timeout")))).isFalse();
+                    priorRow(FaxJob.STATUS.ERROR, "Download failed: timeout")), ACCOUNT_FAX_NUMBER)).isFalse();
             assertThat(faxImporter.isAlreadyImported(Collections.singletonList(
-                    priorRow(FaxJob.STATUS.ERROR, "Download or save to incoming directory failed"))))
+                    priorRow(FaxJob.STATUS.ERROR, "Download or save to incoming directory failed")), ACCOUNT_FAX_NUMBER))
                     .isFalse();
             assertThat(faxImporter.isAlreadyImported(Collections.singletonList(
-                    priorRow(FaxJob.STATUS.ERROR, null)))).isFalse();
+                    priorRow(FaxJob.STATUS.ERROR, null)), ACCOUNT_FAX_NUMBER)).isFalse();
         }
     }
 
@@ -468,6 +523,7 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
         config.setActive(true);
         config.setDownload(true);
         config.setFaxUser("test-access-id");
+        config.setFaxNumber(ACCOUNT_FAX_NUMBER);
         config.setProviderType(FaxConfig.ProviderType.SRFAX);
         config.setQueue(1);
         return config;
