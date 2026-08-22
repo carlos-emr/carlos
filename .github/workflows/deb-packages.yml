@@ -123,28 +123,28 @@ jobs:
         run: |
           set -eu
           # gh release view (unlike the releases/tags REST endpoint, which 404s
-          # on drafts) can see a DRAFT release. Under the release flow the
-          # release is a draft carrying only the WAR at this point, so we must
-          # not treat "not published yet" as "published without debs".
-          #   draft, or no release yet -> proceed to build, attach, and publish
-          #   published with both packages -> nothing to do (immutable; re-upload would 422)
-          #   published but missing a package -> fail fast (immutable, unfixable)
-          isdraft=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json isDraft --jq '.isDraft' 2>/dev/null || echo missing)
-          if [ "$isdraft" != "false" ]; then
-            echo "SKIP=false" >> "$GITHUB_ENV"
-          else
-            emr=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json assets \
-              --jq '[.assets[].name | select(startswith("carlos-emr_") and endswith(".deb"))] | length' 2>/dev/null || echo 0)
-            drugref=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json assets \
-              --jq '[.assets[].name | select(startswith("carlos-emr-drugref_") and endswith(".deb"))] | length' 2>/dev/null || echo 0)
-            if [ "$emr" -ge 1 ] && [ "$drugref" -ge 1 ]; then
+          # on drafts) can see a DRAFT release. One call computes the state via
+          # gh's built-in jq (system jq is not installed in the image):
+          #   draft / none  -> proceed to build, attach, and publish
+          #   done          -> published with BOTH packages; nothing to do
+          #                    (immutable, so a re-upload would 422)
+          #   missing       -> published but a package is absent; fail fast
+          #                    (immutable release can never be completed)
+          state=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json isDraft,assets --jq '
+            if .isDraft then "draft"
+            elif ([.assets[].name | select(startswith("carlos-emr_") and endswith(".deb"))] | length) >= 1
+             and ([.assets[].name | select(startswith("carlos-emr-drugref_") and endswith(".deb"))] | length) >= 1
+            then "done" else "missing" end' 2>/dev/null || echo none)
+          case "$state" in
+            draft|none)
+              echo "SKIP=false" >> "$GITHUB_ENV" ;;
+            done)
               echo "Release $RELEASE_TAG is already published with both carlos-emr and carlos-emr-drugref .deb assets; nothing to do."
-              echo "SKIP=true" >> "$GITHUB_ENV"
-            else
+              echo "SKIP=true" >> "$GITHUB_ENV" ;;
+            missing)
               echo "::error::Release $RELEASE_TAG is already published but is missing a .deb asset. Immutable releases cannot accept new assets, so this cannot be completed; ship the .debs with the next release."
-              exit 1
-            fi
-          fi
+              exit 1 ;;
+          esac
 
       - name: Download and verify the release WAR
         if: env.SKIP != 'true'
@@ -242,10 +242,16 @@ jobs:
           # asset name (it rewrites the '~' in a Debian pre-release version
           # to '.'), so a name-equality lookup never matched and the check
           # failed on every alpha/rc tag. The digest is invariant.
-          # Resolve the release id first (gh release view sees drafts); the
-          # releases/tags/<tag> endpoint 404s on a draft, which is the state the
-          # release is in until this workflow publishes it below.
-          release_id=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json databaseId --jq '.databaseId')
+          # releases/tags/<tag> 404s on a draft (the release is a draft until
+          # this workflow publishes it). Resolve the numeric REST id from the
+          # releases LIST (which includes drafts and is guaranteed to be the
+          # REST id), mirroring publish-release.yml, then read digests by id.
+          release_id=$(gh api --paginate "repos/$REPO/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | .id" | head -n 1)
+          if [ -z "$release_id" ]; then
+            echo "::error::Release $RELEASE_TAG not found when verifying .deb digests."
+            exit 1
+          fi
           stored_digests="$(gh api "repos/$REPO/releases/$release_id" --jq '.assets[].digest')"
           for asset in release-assets/*.deb; do
             name="$(basename "$asset")"
