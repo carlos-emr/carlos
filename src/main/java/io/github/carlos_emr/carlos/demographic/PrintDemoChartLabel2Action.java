@@ -226,6 +226,8 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
                 ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + File.separator + labelFile)));
             } catch (FileNotFoundException ex1) {
                 logger.warn(labelFile + " not found in user's home directory. Using default instead (classpath)", ex1);
+            } catch (SecurityException ex1) {
+                logger.warn(labelFile + " is not accessible from user's home directory. Using default instead (classpath)", ex1);
             }
 
             if (ins == null) {
