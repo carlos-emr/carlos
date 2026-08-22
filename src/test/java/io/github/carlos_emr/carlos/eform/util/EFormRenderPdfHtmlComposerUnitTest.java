@@ -422,6 +422,8 @@ class EFormRenderPdfHtmlComposerUnitTest {
                 + "imagefile=background%20one.png&amp;v=1\">"
                 + "<link href=\"/carlos/EFormImageViewForPdfGenerationServlet?"
                 + "v=1&imagefile=form.css\">"
+                + "<img src=\"/carlos/EFormImageViewForPdfGenerationServlet?imagefile=..%2Fsecret.png\">"
+                + "<img src=\"/carlos/EFormImageViewForPdfGenerationServlet?imagefile=%ZZ\">"
                 + "<img src=\"/other?imagefile=not-authorized.png\">";
 
         assertThat(EFormRenderPdfHtmlComposer.referencedImageFiles(html))
@@ -464,13 +466,17 @@ class EFormRenderPdfHtmlComposerUnitTest {
                 .doesNotContain("signature.js")
                 .contains("signatureControl.initialize=function initialize(){}")
                 .contains("name=\"fdid\" id=\"fdid\" value=\"77\"")
-                .contains("name=\"demographicNo\" id=\"demographicNo\" value=\"123\"");
+                .contains("name=\"demographicNo\" id=\"demographicNo\" value=\"123\"")
+                .contains("window.__carlosEformPdfRender=true;")
+                .contains("/eform/eform-runtime-compat.js");
         assertThat(html.indexOf("/library/jquery/jquery-3.7.1.min.js"))
                 .isLessThan(html.indexOf("/library/jquery/jquery-ui-1.14.2.min.js"));
         assertThat(html.indexOf("/library/jquery/jquery-ui-1.14.2.min.js"))
                 .isLessThan(html.indexOf("/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"));
         assertThat(html.indexOf("/eform/eform-runtime-compat.js"))
                 .isLessThan(html.indexOf("/clinic.js"));
+        assertThat(html.indexOf("window.__carlosEformPdfRender=true;"))
+                .isLessThan(html.indexOf("/eform/eform-runtime-compat.js"));
     }
 
     @Test

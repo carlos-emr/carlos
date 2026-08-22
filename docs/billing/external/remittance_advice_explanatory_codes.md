@@ -60,7 +60,7 @@ Remittance advice explanatory codes/messages clarify payment exceptions found in
 | C4 | Consultation not allowed with this service-paid as assessment |
 | C5 | Allowed as multiple systems assessment |
 | C6 | Allowed as Type 2 admission assessment |
-| C7 | An admission assessment (C003A) or general re-assessment (C004A) may not be claimed by any physician within 30 days following a predental/pre-operative assessment |
+| C7 | An admission assessment (C003A) or general re-assessment (C004A) may not be claimed by any physician within 30 days following a pre-dental/pre-operative assessment |
 | C8 | Payment reduced to geriatric consultation fee-maximum number of comprehensive geriatric consultations has been reached |
 | C9 | Allowed as in-patient interim admission orders-initial assessment already claimed by other physician |
 | D1 | Allowed as repeat procedure-initial procedure previously claimed |
@@ -74,7 +74,7 @@ Remittance advice explanatory codes/messages clarify payment exceptions found in
 | D9 | Not allowed to a hospital department |
 | DA | Maximum for this procedure reached - paid as repeat/chronic procedure |
 | DB | Other dialysis procedure already paid |
-| DC | Procedure paid previously not allowed in addition to this procedurefee adjusted to pay the difference |
+| DC | Procedure paid previously not allowed in addition to this procedure-fee adjusted to pay the difference |
 | DD | Not allowed as diagnostic code is unrelated to original eye exam |
 | DE | Lab tests already paid-visit fee adjusted |
 | DF | Corresponding fee code was not billed or paid at zero |
@@ -206,7 +206,7 @@ Remittance advice explanatory codes/messages clarify payment exceptions found in
 | SC | Not allowed, major pre-operative visit already claimed |
 | SD | Not allowed, Team/Assist Fee already claimed |
 | SE | Major pre-operative visit previously paid and admission assessment previously paid-surgery fee reduced by the admission assessment |
-| SF | Most Responsible Physician (MRP) visit not allowed during postoperative period-surgical fee adjusted |
+| SF | Most Responsible Physician (MRP) visit not allowed during post-operative period-surgical fee adjusted |
 | SV | MRP visit not allowed during post-operative period-fee reduced to subsequent visit fee |
 | SW | Intensive Care Unit per diem code paid to another physician-MRP subsequent visit reduced to subsequent visit |
 | SX | ICU Per Diem code Paid To Another Physician, MRP Premium Not Allowed |

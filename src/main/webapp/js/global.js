@@ -52,6 +52,7 @@ function popupFocusPage(vheight, vwidth, varpage, pageTitle) {
         }
         popup.focus();
     }
+    return popup;
 }
 
 // Prompt user if exiting without saving
