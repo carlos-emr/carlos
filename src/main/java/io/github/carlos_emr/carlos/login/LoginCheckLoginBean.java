@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
+import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.owasp.encoder.Encode;
@@ -164,6 +165,12 @@ public final class LoginCheckLoginBean {
     /** Security object for authenticated user (contains password hash, PIN, expiration, etc.) */
     private Security security = null;
 
+    /** True only after this bean has completed a successful credential check for the current request. */
+    private boolean authenticationSuccessful = false;
+
+    /** True only when the current successful authentication still needs a deferred PIN hash upgrade. */
+    private boolean pinHashUpgradeRequired = false;
+
     /**
      * Initializes the bean with authentication credentials.
      *
@@ -233,6 +240,8 @@ public final class LoginCheckLoginBean {
      * @see SecurityManager#upgradeSavePasswordHash for legacy password migration
      */
     public String[] authenticate() {
+        authenticationSuccessful = false;
+        pinHashUpgradeRequired = false;
         // Retrieve Security record and populate provider info (firstname, lastname, etc.)
         security = getUserID();
 
@@ -251,6 +260,9 @@ public final class LoginCheckLoginBean {
         boolean isPinValid = true;
         if (isPinRequired) {
             isPinValid = this.securityManager.validatePin(pin, security);
+            if (isPinValid) {
+                pinHashUpgradeRequired = requiresDeferredPinHashUpgrade(security);
+            }
         }
 
         if (isRemotePinRequired && !isPinValid) {
@@ -301,6 +313,7 @@ public final class LoginCheckLoginBean {
 
         // Return provider information array on successful authentication
         if (auth) {
+            authenticationSuccessful = true;
             String[] strAuth = new String[7];
             strAuth[0] = security.getProviderNo();
             strAuth[1] = firstname;
@@ -315,6 +328,39 @@ public final class LoginCheckLoginBean {
         else {
             return cleanNullObj(LOG_PRE + "password failed: " + username);
         }
+    }
+
+    /**
+     * Best-effort PIN hash upgrade for the current authenticated login.
+     *
+     * <p>Call this only after the caller has completed all remaining post-authentication gates and
+     * is about to establish the final logged-in session. The upgrade is skipped unless this bean has
+     * already completed a successful credential check for the current request.</p>
+     */
+    void upgradeValidatedPinIfNeeded() {
+        if (!authenticationSuccessful || security == null || !pinHashUpgradeRequired) {
+            return;
+        }
+
+        try {
+            boolean isPinHashUpgraded = this.securityManager.upgradeSavePinHash(pin, security);
+            if (!isPinHashUpgraded) {
+                logger.error("Error while upgrading PIN hash");
+            }
+        } catch (RuntimeException e) {
+            logger.error("Error while upgrading PIN hash", e);
+        }
+    }
+
+    private boolean requiresDeferredPinHashUpgrade(Security security) {
+        String storedPin = security.getPin();
+        if (storedPin == null) {
+            return false;
+        }
+        if (!storedPin.startsWith("{")) {
+            return true;
+        }
+        return EncryptionUtils.isPasswordHashUpgradeNeeded(storedPin);
     }
 
     /**

@@ -77,15 +77,40 @@ class SecurityManagerPinUnitTest {
     }
 
     @Test
-    @DisplayName("should upgrade legacy plaintext PIN when PIN matches")
-    void shouldUpgradeLegacyPlaintextPin_whenPinMatches() {
+    @DisplayName("should skip persisting hashed PIN when upgrade is not needed")
+    void shouldSkipPersistingHashedPin_whenUpgradeIsNotNeeded() {
+        Security security = new Security();
+        security.setPin(securityManager.encodePin(RAW_PIN));
+
+        boolean upgraded = securityManager.upgradePinHashIfNeeded(RAW_PIN, security);
+
+        assertThat(upgraded).isTrue();
+        verify(securityDao, never()).merge(any(Security.class));
+    }
+
+    @Test
+    @DisplayName("should validate legacy plaintext PIN without persisting upgrade")
+    void shouldValidateLegacyPlaintextPin_withoutPersistingUpgrade() {
         Security security = new Security();
         security.setPin(RAW_PIN);
-        ArgumentCaptor<Security> securityCaptor = ArgumentCaptor.forClass(Security.class);
 
         boolean valid = securityManager.validatePin(RAW_PIN, security);
 
         assertThat(valid).isTrue();
+        assertThat(security.getPin()).isEqualTo(RAW_PIN);
+        verify(securityDao, never()).merge(any(Security.class));
+    }
+
+    @Test
+    @DisplayName("should upgrade legacy plaintext PIN when upgrade is requested")
+    void shouldUpgradeLegacyPlaintextPin_whenUpgradeRequested() {
+        Security security = new Security();
+        security.setPin(RAW_PIN);
+        ArgumentCaptor<Security> securityCaptor = ArgumentCaptor.forClass(Security.class);
+
+        boolean upgraded = securityManager.upgradePinHashIfNeeded(RAW_PIN, security);
+
+        assertThat(upgraded).isTrue();
         verify(securityDao).merge(securityCaptor.capture());
         assertThat(securityCaptor.getValue()).isSameAs(security);
         assertThat(security.getPin()).isNotEqualTo(RAW_PIN);

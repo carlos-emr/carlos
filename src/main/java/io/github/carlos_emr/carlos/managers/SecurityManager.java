@@ -162,30 +162,46 @@ public class SecurityManager {
 	}
 
 	/**
-	 * Validates a raw PIN against the stored PIN value.
+	 * Validates a raw PIN against the stored PIN value without mutating the security record.
 	 *
 	 * <p>Modern hashes are verified with the configured password hashing algorithm. Legacy plaintext
-	 * and legacy encrypted PIN values are accepted only long enough to replace them with a modern
-	 * hash, which is persisted through {@link #upgradeSavePinHash(CharSequence, Security)}. The
-	 * legacy encryption path should be removed after production PINs have migrated to modern hashes.</p>
+	 * and legacy encrypted PIN values are still accepted during authentication, but callers must
+	 * defer any upgrade persistence until after the full login has succeeded.</p>
 	 *
 	 * @param rawPin The PIN supplied by the user.
 	 * @param security The security record containing the stored PIN.
-	 * @return True when the supplied PIN matches and any required upgrade succeeds.
+	 * @return True when the supplied PIN matches the stored PIN in either modern or legacy form.
 	 */
 	public boolean validatePin(CharSequence rawPin, Security security) {
 		if (rawPin == null || rawPin.length() < 3 || security == null || security.getPin() == null) {
 			return false;
 		}
 
-		if (this.matchesPassword(rawPin, security.getPin())) {
-			if (EncryptionUtils.isPasswordHashUpgradeNeeded(security.getPin())) {
+		return this.matchesPassword(rawPin, security.getPin()) || this.matchesLegacyPin(rawPin, security.getPin());
+	}
+
+	/**
+	 * Upgrades a validated PIN to the current hashing algorithm when the stored representation is
+	 * legacy or otherwise needs rehashing.
+	 *
+	 * @param rawPin The PIN supplied by the user.
+	 * @param security The security record containing the stored PIN.
+	 * @return True when no upgrade is needed or when the upgrade was persisted successfully.
+	 */
+	public boolean upgradePinHashIfNeeded(CharSequence rawPin, Security security) {
+		if (rawPin == null || rawPin.length() < 3 || security == null || security.getPin() == null) {
+			return false;
+		}
+
+		String storedPin = security.getPin();
+		if (this.matchesPassword(rawPin, storedPin)) {
+			if (EncryptionUtils.isPasswordHashUpgradeNeeded(storedPin)) {
 				return this.upgradeSavePinHash(rawPin, security);
 			}
 			return true;
 		}
 
-		if (this.matchesLegacyPin(rawPin, security.getPin())) {
+		if (this.matchesLegacyPin(rawPin, storedPin)) {
 			return this.upgradeSavePinHash(rawPin, security);
 		}
 
