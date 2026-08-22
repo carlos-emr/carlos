@@ -174,8 +174,8 @@ class JspJavaScriptEncodingRegressionTest {
                 .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getType\\(\\)", "html"));
 
         int zipFileIndex = rourkeExportJsp.indexOf("zipFile=");
-        int downloadAnchorEnd = rourkeExportJsp.indexOf("</a>", zipFileIndex);
         assertThat(zipFileIndex).isGreaterThanOrEqualTo(0);
+        int downloadAnchorEnd = rourkeExportJsp.indexOf("</a>", zipFileIndex);
         assertThat(downloadAnchorEnd).isGreaterThan(zipFileIndex);
         String downloadLinkSnippet = rourkeExportJsp.substring(zipFileIndex, downloadAnchorEnd);
 
