@@ -242,7 +242,11 @@ jobs:
           # asset name (it rewrites the '~' in a Debian pre-release version
           # to '.'), so a name-equality lookup never matched and the check
           # failed on every alpha/rc tag. The digest is invariant.
-          stored_digests="$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" --jq '.assets[].digest')"
+          # Resolve the release id first (gh release view sees drafts); the
+          # releases/tags/<tag> endpoint 404s on a draft, which is the state the
+          # release is in until this workflow publishes it below.
+          release_id=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json databaseId --jq '.databaseId')
+          stored_digests="$(gh api "repos/$REPO/releases/$release_id" --jq '.assets[].digest')"
           for asset in release-assets/*.deb; do
             name="$(basename "$asset")"
             expected="sha256:$(sha256sum "$asset" | awk '{print $1}')"
