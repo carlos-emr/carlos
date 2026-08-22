@@ -274,8 +274,8 @@ class LoginJspMigrationRegressionTest {
     }
 
     @Test
-    @DisplayName("login failure JSP should prefer action attributes before legacy query parameters")
-    void shouldPreferActionAttribute_beforeLegacyLoginFailureQueryParameter() throws IOException {
+    @DisplayName("login failure JSP should preserve local resources without Host header leakage")
+    void shouldSecureLoginFailureJsp_withoutHostHeaderLeakage() throws IOException {
         String loginFailedJsp = Files.readString(LOGIN_FAILED_JSP, StandardCharsets.UTF_8);
 
         assertThat(loginFailedJsp)
@@ -286,7 +286,7 @@ class LoginJspMigrationRegressionTest {
         assertThat(loginFailedJsp)
                 .contains("request.setAttribute(\"errormsg\", errormsg)")
                 .contains("${pageContext.request.contextPath}/images/favicon.ico")
-                .contains("request.getContextPath() %>/js/global.js")
+                .contains("<%= request.getContextPath() %>/js/global.js")
                 .contains("value=\"${errormsg}\"")
                 .doesNotContain("<base href")
                 .doesNotContain("request.getServerName()")
