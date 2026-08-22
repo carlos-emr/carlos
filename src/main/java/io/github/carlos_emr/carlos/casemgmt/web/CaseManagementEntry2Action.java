@@ -108,6 +108,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private static final String HEADER_PATTERN = "yyyy-MM-dd.HH.mm.ss";
     private static final String YYYY_MM_DD_PATTERN = "yyyy-MM-dd";
     private static final String YYYY_MM_DD_HHMM_PATTERN = "yyyy-MM-dd HH:mm";
+    private static final String CASE_MANAGEMENT_LIST_CHAIN = "list";
+    @SuppressWarnings("java:S1075") // fixed allowlist target; making this configurable would weaken redirect hardening
+    private static final String CASE_MANAGEMENT_LIST_REDIRECT_PATH = "/CaseManagementView?method=view";
     private static final int REMOVED_ISSUE_MESSAGE_OVERHEAD = 64;
 
     private static String appendRemovedIssueMessage(String noteText, Locale locale, ResourceBundle props, CharSequence issueNames) {
@@ -2089,12 +2092,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String chain = request.getParameter("chain");
 
         if (chain != null && !chain.equals("")) {
-            String redirectTarget = sanitizeInternalRedirect(chain);
-            // Redirect guard: only slash-prefixed relative paths are allowed. The shared
-            // validator rejects protocol-relative URLs, absolute schemes, backslashes,
-            // encoded control characters, and traversal escapes.
-            if (redirectTarget != null) {
-                sendChainRedirect(redirectTarget);
+            if (isAllowedInternalRedirectChain(chain)) {
+                sendCaseManagementListRedirect(response, request.getContextPath());
                 return NONE;
             } else {
                 logger.warn("Rejected invalid chain redirect target");
@@ -2103,19 +2102,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         return "windowClose";
-    }
-
-    // FindSecBugs UNVALIDATED_REDIRECT: redirectTarget is returned by sanitizeInternalRedirect,
-    // which only permits trimmed, slash-prefixed relative URLs accepted by RedirectValidationUtils.
-    @SuppressFBWarnings(
-            value = "UNVALIDATED_REDIRECT",
-            justification = "redirectTarget is returned by sanitizeInternalRedirect, which only permits trimmed, "
-                    + "slash-prefixed relative URLs accepted by RedirectValidationUtils")
-    private void sendChainRedirect(String redirectTarget) throws IOException {
-        // Intentionally rebuild at the sink so static analysis sees a same-host path
-        // constructed from a literal slash after sanitizeInternalRedirect validates it.
-        String sameHostRedirectTarget = "/" + redirectTarget.substring(1);
-        response.sendRedirect(sameHostRedirectTarget); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by sanitizeInternalRedirect
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a fixed same-origin billing path (contextPath + "/billing"); only query parameters (billing/appointment request and session values) vary and cannot alter the host or scheme.
@@ -3163,6 +3149,51 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return s1.trim().equals(s2.trim());
     }
 
+    /**
+     * Parses the {@code noteId} request parameter for {@link #ticklerSaveNote()} into an existing
+     * note's primary key, or {@code null} when there is no existing note to revise.
+     * <p>The tickler-note dialog's hidden {@code noteId} field is client-populated; a stale or
+     * malformed value (historically the literal string {@code "undefined"}, see the tickler-note
+     * "undefined" display bug) must not blow up note persistence with an uncaught
+     * {@link NumberFormatException} — it should be treated the same as "no existing note".
+     */
+    static Long parseExistingNoteId(String noteId) {
+        if (noteId == null || !noteId.matches("\\d+") || noteId.equals("0")) {
+            return null;
+        }
+        try {
+            return Long.valueOf(noteId);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Computes the next revision number for {@link #ticklerSaveNote()} from the prior note's
+     * stored revision. A non-numeric {@code priorRevision} must not throw an uncaught
+     * {@link NumberFormatException} and abort the save; it is treated as if this were the first
+     * revision instead.
+     */
+    static String nextRevision(String priorRevision) {
+        try {
+            return String.valueOf(Integer.parseInt(priorRevision) + 1);
+        } catch (NumberFormatException e) {
+            return "1";
+        }
+    }
+
+    /**
+     * Prepends the new note text to the prior note's history for {@link #ticklerSaveNote()}.
+     * Legacy notes can have a {@code null} or empty stored history; concatenating that directly
+     * would persist the literal text {@code "null"} into the new note's history instead of
+     * being treated as "no prior history".
+     */
+    static String combineHistory(String newNote, String priorHistory) {
+        return (priorHistory == null || priorHistory.isEmpty())
+                ? newNote
+                : newNote + "\n" + priorHistory;
+    }
+
     /*
      * 1) load existing note if possible
      * 1) update/save the note
@@ -3180,12 +3211,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String history = strNote;
         String uuid = null;
 
-        if (noteId != null && noteId.length() > 0 && !noteId.equals("0")) {
-            CaseManagementNote existingNote = this.caseManagementNoteDao.getNote(Long.valueOf(noteId));
+        Long existingNoteId = parseExistingNoteId(noteId);
+        if (existingNoteId != null) {
+            CaseManagementNote existingNote = this.caseManagementNoteDao.getNote(existingNoteId);
 
-            revision = String.valueOf(Integer.valueOf(existingNote.getRevision()).intValue() + 1);
-            history = strNote + "\n" + existingNote.getHistory();
-            uuid = existingNote.getUuid();
+            if (existingNote != null) {
+                revision = nextRevision(existingNote.getRevision());
+                history = combineHistory(strNote, existingNote.getHistory());
+                uuid = existingNote.getUuid();
+            }
         }
 
         CaseManagementNote cmn = new CaseManagementNote();
@@ -3945,18 +3979,23 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         this.reloadUrl = reloadUrl;
     }
 
-    /**
-     * Returns a normalized internal redirect target, or {@code null} when unsafe.
-     *
-     * @param url The URL to validate
-     * @return trimmed safe redirect URL, or null when unsafe
-     */
-    static String sanitizeInternalRedirect(String url) {
-        String trimmedUrl = StringUtils.trimToNull(url);
-        if (trimmedUrl == null || !isValidInternalRedirect(trimmedUrl)) {
-            return null;
+    static boolean isAllowedInternalRedirectChain(String chain) {
+        return CASE_MANAGEMENT_LIST_CHAIN.equals(StringUtils.trimToEmpty(chain));
+    }
+
+    static String caseManagementListRedirectUrl(String contextPath) {
+        String redirectUrl = StringUtils.defaultString(contextPath) + CASE_MANAGEMENT_LIST_REDIRECT_PATH;
+        if (!RedirectValidationUtils.isValidRelativeRedirect(redirectUrl)) {
+            throw new IllegalArgumentException("Unsafe case-management redirect context path");
         }
-        return trimmedUrl;
+        return redirectUrl;
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: this sink redirects only to the fixed case-management list path under the servlet context after RedirectValidationUtils validates the final root-relative URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a fixed case-management path under the servlet context and is validated with RedirectValidationUtils before sendRedirect")
+    private static void sendCaseManagementListRedirect(HttpServletResponse response, String contextPath)
+            throws IOException {
+        response.sendRedirect(caseManagementListRedirectUrl(contextPath));
     }
 
     /**
@@ -3971,21 +4010,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return null;
         }
         return trimmedChain;
-    }
-
-    /**
-     * Validates that a redirect URL is safe and points to an internal application URL.
-     * This prevents open redirect vulnerabilities.
-     *
-     * @param url The URL to validate
-     * @return true if the URL is safe for redirect, false otherwise
-     */
-    static boolean isValidInternalRedirect(String url) {
-        if (url == null || url.isEmpty()) {
-            return false;
-        }
-
-        return url.startsWith("/") && RedirectValidationUtils.isValidRelativeRedirect(url);
     }
 
     /**

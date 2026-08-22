@@ -3,9 +3,10 @@
  *
  * Two adaptations live here:
  *
- *  - String timer callbacks. Modern CSP blocks native setTimeout("code", delay) and
- *    setInterval("code", delay). The browser remains the JavaScript parser: stored source is never
- *    scanned or rewritten on the server.
+ *  - Timer callbacks. Modern CSP blocks native string callbacks such as setTimeout("code", delay),
+ *    so those are executed through an injected script while every one-shot timeout is tracked for the
+ *    PDF renderer. The browser remains the JavaScript parser: stored source is never scanned or
+ *    rewritten on the server.
  *  - Obsolete clinical-data fetches. Some forms XHR a route that has since been renamed and that the
  *    render surface could not use even under its new name; those are answered from data the server
  *    embedded in the page. See installCarlosEformLegacyFetchCompatibility below.
@@ -18,19 +19,67 @@
     }
 
     var nativeSetTimeout = window.setTimeout;
+    var nativeClearTimeout = window.clearTimeout;
     var nativeSetInterval = window.setInterval;
+    var nativeClearInterval = window.clearInterval;
+    var countedTimeouts = new Set();
+    // How many consecutive same-reference self-reschedules (a function's setTimeout callback
+    // calling setTimeout(itself, ...) again while it is still running) stay counted before the
+    // guard in schedule() below treats further reschedules as a repeating heartbeat/UI loop
+    // rather than legitimate chained deferred work. See the comment at that guard for why a
+    // single currently-running check cannot tell the two apart on its own.
+    var SELF_RESCHEDULE_COUNT_LIMIT = 3;
+    // Per-handler count of CONSECUTIVE self-reschedules within the CURRENT chain. Reset to zero
+    // (by deleting the entry) once an invocation completes without rescheduling itself again, or
+    // once a still-pending reschedule of that handler is cancelled -- see the reset sites below.
+    // Without a reset, a function reference reused later for an unrelated, independent short
+    // chain would inherit the previous chain's leftover count and could have its own first
+    // reschedule wrongly excluded from the start.
+    var selfRescheduleCounts = new Map();
+    // Tracks which scheduled handle belongs to which function handler, solely so a cancellation
+    // (clearTimeout/clearInterval) can reset that handler's selfRescheduleCounts entry too.
+    var handleToHandler = new Map();
+    // Once a self-reschedule is excluded from status.pending for exceeding
+    // SELF_RESCHEDULE_COUNT_LIMIT, it becomes invisible to whenIdle()'s pending<=0 check --
+    // otherwise a still-actively-rescheduling excluded chain could let whenIdle resolve true
+    // (and the PDF be captured) before a later pass populates a field, even though the intent was
+    // for a genuinely long-running loop to still be bounded by the render budget, not to
+    // disappear from tracking entirely. Holds the handle of every excluded self-reschedule that is
+    // still scheduled (not yet fired or cancelled); whenIdle() below waits while this is non-empty.
+    // Tracked per HANDLE, not as a single deadline shared by the whole page: an earlier version
+    // recorded one global "next fire time," which a cancelled excluded reschedule left stale --
+    // whenIdle then waited out that now-irrelevant future time (or the render budget cap) for a
+    // callback that would never run. Removing the handle here when it fires or is cancelled (see
+    // the two removal sites below) means the set holds exactly the excluded work still genuinely
+    // outstanding, nothing more. A chain that stops rescheduling empties the set as soon as its
+    // last invocation completes; a repeating heartbeat keeps re-adding a fresh handle before the
+    // old one is removed, so the set never stays empty and whenIdle correctly falls through to its
+    // own maxWaitMillis deadline instead of waiting on it forever. See the whenIdle comment below.
+    var excludedSelfReschedulePending = new Set();
     var status = {
         installed: false,
         failed: false,
         // Set by the sentinel appended to each injected string-timer script; see
         // executeStringCallback. Declared here so the shape is visible in one place.
         completed: false,
-        // Scheduled-but-not-yet-run string timeouts. The renderer awaits this reaching zero (see
+        // Scheduled-but-not-yet-run one-shot timeouts. The renderer awaits this reaching zero (see
         // whenIdle) so a capture cannot outrun the form's own deferred work.
         pending: 0,
         errorMessage: null
     };
     window.__carlosEformTimerCompat = status;
+
+    function isPdfRenderAutoSubmit(handler) {
+        // This is intentionally an exact allowlist, not source rewriting or a general attempt to
+        // understand stored eForm JavaScript. Across the shared corpus this delayed callback is the
+        // dominant timer (25/50): it clicks the form's submit button after printing. A passive PDF
+        // render neither needs nor may perform that state-changing action, so waiting 1.8 seconds
+        // for it only delays capture. The marker is injected solely by the PDF HTML composer; the
+        // interactive eForm viewer retains the original callback unchanged.
+        return window.__carlosEformPdfRender === true
+                && typeof handler === "string"
+                && /^\s*SubmitButton\s*\.\s*click\s*\(\s*\)\s*;?\s*$/.test(handler);
+    }
 
     /**
      * Programmatic equivalent of the capture-phase submit guard below, for callers that submit via
@@ -116,30 +165,109 @@
     }
 
     function schedule(nativeTimer, receiver, handler, delay, callbackArguments) {
-        if (typeof handler !== "string") {
-            return nativeTimer.apply(receiver, [handler, delay].concat(callbackArguments));
+        if (nativeTimer === nativeSetTimeout && isPdfRenderAutoSubmit(handler)) {
+            status.suppressedAutoSubmits = (status.suppressedAutoSubmits || 0) + 1;
+            // Preserve the timer-handle shape for form code that clears it, but do not enqueue a
+            // callback that would submit or mutate state on the render-only surface.
+            return nativeSetTimeout.call(window, function suppressedPdfAutoSubmit() {}, 0);
         }
         // Only one-shot timers are counted. A repeating setInterval would never drain, so waiting on
-        // it would stall every render that uses one.
-        var counted = nativeTimer === nativeSetTimeout;
+        // it would stall every render that uses one. Legacy string timers stay tracked at every delay
+        // so a late one reports an incomplete render. Function callbacks are tracked only through the
+        // existing four-second render budget: pages also schedule long-lived UI/heartbeat callbacks
+        // that cannot affect this capture and would otherwise make every render wait until the cap.
+        var delayMillis = delay == null ? 0 : Number(delay);
+        var runningFunctionHandlers = status.runningFunctionHandlers || (status.runningFunctionHandlers = []);
+        // A same-reference self-reschedule (handler calls setTimeout(handler, ...) again while it
+        // is still on the stack) is ambiguous on its own: it is exactly how BOTH a repeating
+        // heartbeat/UI loop AND a short chained-completion sequence (e.g. "poll until data is
+        // ready, then populate the field and stop") reschedule themselves. Excluding every such
+        // reschedule unconditionally (as this guard once did) stopped counting a chain after its
+        // very first pass, so whenIdle could resolve -- and the PDF could be captured -- before a
+        // still-pending later pass populated a field: the same blank-field race this tracking
+        // exists to prevent, just moved one step later. Counting the first
+        // SELF_RESCHEDULE_COUNT_LIMIT self-reschedules keeps a short chain fully covered while
+        // still letting a loop that keeps rescheduling past that bound fall back to being governed
+        // by the render budget cap, same as before.
+        var isSelfReschedule = typeof handler === "function" && runningFunctionHandlers.indexOf(handler) >= 0;
+        var selfRescheduleCount = 0;
+        if (isSelfReschedule) {
+            selfRescheduleCount = (selfRescheduleCounts.get(handler) || 0) + 1;
+            selfRescheduleCounts.set(handler, selfRescheduleCount);
+        }
+        var selfRescheduleExcluded = isSelfReschedule && selfRescheduleCount > SELF_RESCHEDULE_COUNT_LIMIT;
+        var counted = nativeTimer === nativeSetTimeout
+                && (typeof handler === "string"
+                        || (typeof handler === "function"
+                                && isFinite(delayMillis) && delayMillis <= 4000
+                                && !selfRescheduleExcluded));
         if (counted) {
             status.pending += 1;
         }
-        return nativeTimer.call(receiver, function runStoredTimerSource() {
-            try {
-                executeStringCallback(handler);
-            } finally {
-                // finally, not after the call: executeStringCallback rethrows a failed timer, and
-                // leaking the count would leave the renderer waiting for a timer that already ran.
-                if (counted) {
-                    status.pending -= 1;
+        if (typeof handler !== "string" && typeof handler !== "function") {
+            return nativeTimer.apply(receiver, [handler, delay].concat(callbackArguments));
+        }
+        var handle;
+        try {
+            handle = nativeTimer.call(receiver, function runScheduledTimer() {
+                try {
+                    if (typeof handler === "string") {
+                        return executeStringCallback(handler);
+                    }
+                    // Captured before invocation so the finally below can tell whether THIS
+                    // invocation triggered a further self-reschedule (the count changed) or the
+                    // chain ended here (the count is unchanged) -- see selfRescheduleCounts above.
+                    var selfRescheduleCountBeforeInvocation = selfRescheduleCounts.get(handler);
+                    runningFunctionHandlers.push(handler);
+                    try {
+                        return handler.apply(receiver, callbackArguments);
+                    } finally {
+                        runningFunctionHandlers.pop();
+                        if (selfRescheduleCounts.get(handler) === selfRescheduleCountBeforeInvocation) {
+                            selfRescheduleCounts.delete(handler);
+                        }
+                    }
+                } finally {
+                    handleToHandler.delete(handle);
+                    // This handle's excluded reschedule (if it was one) fired: it is no longer
+                    // outstanding, whether or not it rescheduled itself again -- a further
+                    // reschedule adds its OWN new handle to the set during handler.apply() above,
+                    // before this delete() for the old handle runs.
+                    excludedSelfReschedulePending.delete(handle);
+                    // delete() makes completion and cancellation mutually exclusive: whichever
+                    // happens first owns the one matching decrement.
+                    if (counted && countedTimeouts.delete(handle)) {
+                        status.pending -= 1;
+                    }
                 }
+            }, delay);
+        } catch (error) {
+            if (counted) {
+                status.pending -= 1;
             }
-        }, delay);
+            throw error;
+        }
+        if (counted) {
+            countedTimeouts.add(handle);
+        }
+        if (typeof handler === "function") {
+            handleToHandler.set(handle, handler);
+        }
+        // Matches the nativeTimer === nativeSetTimeout gate already in the counted condition
+        // above: a repeating setInterval is never one-shot, so it must never enter pending
+        // tracking of any kind (counted or excluded-but-pending). Without this guard, a
+        // self-rescheduling setInterval registration could still be added here, and its handle
+        // is only ever removed on its FIRST tick (see the finally block below) -- until then,
+        // whenIdle() would refuse to resolve early for a timer that was supposed to be entirely
+        // excluded, hitting the render's own cap instead.
+        if (selfRescheduleExcluded && nativeTimer === nativeSetTimeout) {
+            excludedSelfReschedulePending.add(handle);
+        }
+        return handle;
     }
 
     /**
-     * Resolves once every scheduled string timer has run, or once maxWaitMillis has elapsed.
+     * Resolves once every scheduled one-shot timer has run, or once maxWaitMillis has elapsed.
      *
      * <p>The PDF renderer awaits this before capturing. Without it the capture raced the form: page
      * stabilization settles after a short quiet window, while stored timers are typically scheduled
@@ -151,16 +279,26 @@
      * <p>Polls with the native timer so the wait neither recurses through the wrapper above nor
      * inflates the count it is waiting on.</p>
      *
+     * <p>A self-reschedule excluded from {@code status.pending} for exceeding
+     * {@code SELF_RESCHEDULE_COUNT_LIMIT} is invisible to the {@code pending <= 0} check below, so
+     * this also requires {@code excludedSelfReschedulePending} to be empty before resolving early.
+     * That set holds exactly the excluded handles still genuinely scheduled (not yet fired or
+     * cancelled), so a chain that stops rescheduling empties it as soon as its last invocation
+     * completes, while a repeating heartbeat/UI loop keeps a handle in it continuously and so
+     * correctly falls through to {@code deadline} instead of silently letting the capture race
+     * ahead of it.</p>
+     *
      * @return {Promise<boolean>} true when the queue drained, false when the wait was capped
      */
     status.whenIdle = function whenIdle(maxWaitMillis) {
         var deadline = Date.now() + (maxWaitMillis > 0 ? maxWaitMillis : 3000);
         return new Promise(function settleWhenDrained(resolve) {
             (function poll() {
-                if (status.pending <= 0) {
-                    resolve(true);
-                } else if (Date.now() >= deadline) {
+                var now = Date.now();
+                if (now >= deadline) {
                     resolve(false);
+                } else if (status.pending <= 0 && excludedSelfReschedulePending.size === 0) {
+                    resolve(true);
                 } else {
                     nativeSetTimeout.call(window, poll, 50);
                 }
@@ -176,6 +314,29 @@
                 delay,
                 Array.prototype.slice.call(arguments, 2));
     };
+    window.clearTimeout = function clearTimeoutCompatible(handle) {
+        return cancelTrackedTimer(nativeClearTimeout, handle);
+    };
+    window.clearInterval = function clearIntervalCompatible(handle) {
+        return cancelTrackedTimer(nativeClearInterval, handle);
+    };
+    function cancelTrackedTimer(nativeClear, handle) {
+        if (countedTimeouts.delete(handle)) {
+            status.pending -= 1;
+        }
+        // This handle will never fire now, so it can no longer be outstanding excluded work --
+        // without this, whenIdle() would wait on a cancelled callback that will never run.
+        excludedSelfReschedulePending.delete(handle);
+        var cancelledHandler = handleToHandler.get(handle);
+        if (cancelledHandler) {
+            // The chain this handler was rescheduling ends here too: clear its count so a later,
+            // unrelated scheduling of the same function reference starts counting from zero
+            // instead of inheriting this cancelled chain's leftover count.
+            handleToHandler.delete(handle);
+            selfRescheduleCounts.delete(cancelledHandler);
+        }
+        return nativeClear.call(window, handle);
+    }
     window.setInterval = function setIntervalCompatible(handler, delay) {
         return schedule(
                 nativeSetInterval,

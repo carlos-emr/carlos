@@ -40,8 +40,9 @@ import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action;
-import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -70,6 +71,7 @@ public final class EFormRenderPdfHtmlComposer {
     private static final String SIGNATURE_VIEW_SERVLET_NAME = "EFormSignatureViewForPdfGenerationServlet";
     private static final String PDF_SIGNATURE_SERVLET_PATH = "/" + SIGNATURE_VIEW_SERVLET_NAME;
     private static final String DIGITAL_SIGNATURE_ID_PARAM = "digitalSignatureId";
+    private static final String IMAGE_FILE_PARAM = "imagefile";
     private static final String IMAGE_VIEW_SERVLET_NAME = "EFormImageViewForPdfGenerationServlet";
     private static final Pattern IMAGE_ASSET_URL_PATTERN = Pattern.compile(
             Pattern.quote(IMAGE_VIEW_SERVLET_NAME) + "\\?([^\\s\\\"'<>)]*)");
@@ -95,6 +97,7 @@ public final class EFormRenderPdfHtmlComposer {
             "imagecontrol.js", "signaturecontrol.js", "signaturecontrol.jsp", "signaturecontrol",
             "eform_floating_toolbar.js", "eform_floating_toolbar");
     private static final String EDITOR_BOOTSTRAP_CALL = "insertEditControl()";
+    private static final String SCRIPT_TAG = "script";
     /**
      * Case-insensitive matchers for {@link #hardenLetterHtml}, deliberately ASCII-only.
      *
@@ -144,9 +147,7 @@ public final class EFormRenderPdfHtmlComposer {
         try {
             return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, renderToken);
         } catch (IllegalStateException e) {
-            // fdid is a PHI-correlating identifier (joins back to the patient's saved eForm data);
-            // sanitize it before logging alongside the (already PHI-free) failure reason.
-            logger.error("eForm PDF composition failed: fdid={} reason={}", LogSafe.sanitize(String.valueOf(formDataId)), e.getMessage());
+            logger.error("EFORM_PDF_COMPOSITION_FAILED");
             throw e;
         }
     }
@@ -358,9 +359,15 @@ public final class EFormRenderPdfHtmlComposer {
             String query = matcher.group(1).replace("&amp;", "&");
             for (String parameter : query.split("&")) {
                 int separator = parameter.indexOf('=');
-                if (separator > 0 && "imagefile".equals(parameter.substring(0, separator))) {
-                    files.add(URLDecoder.decode(
-                            parameter.substring(separator + 1), StandardCharsets.UTF_8));
+                if (separator > 0 && IMAGE_FILE_PARAM.equals(parameter.substring(0, separator))) {
+                    try {
+                        String decoded = URLDecoder.decode(
+                                parameter.substring(separator + 1), StandardCharsets.UTF_8);
+                        files.add(PathValidationUtils.validatePathComponent(decoded, IMAGE_FILE_PARAM));
+                    } catch (IllegalArgumentException | FileValidationException ignored) {
+                        // Stored forms can outlive malformed asset references. Do not abort the
+                        // document, and never grant a render capability for an unsafe value.
+                    }
                 }
             }
         }
@@ -465,7 +472,7 @@ public final class EFormRenderPdfHtmlComposer {
             }
             for (String parameter : query.split("&")) {
                 String[] parts = parameter.split("=", 2);
-                if (parts.length == 2 && "imagefile".equals(parts[0])) {
+                if (parts.length == 2 && IMAGE_FILE_PARAM.equals(parts[0])) {
                     return URLDecoder.decode(parts[1], StandardCharsets.UTF_8);
                 }
             }
@@ -580,8 +587,14 @@ public final class EFormRenderPdfHtmlComposer {
             dependencies.add(script(contextPath + "/library/jquery/jquery-ui-1.14.2.min.js"));
             dependencies.add(script(contextPath + "/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"));
         }
+        Element rendererMarker = new Element(Tag.valueOf(SCRIPT_TAG), "");
+        // The compatibility shim is also loaded by the interactive viewer. This marker is set
+        // before it runs so the shim can make the one render-only exception for the legacy delayed
+        // auto-submit callback without changing clinician-facing eForm behaviour.
+        rendererMarker.append("window.__carlosEformPdfRender=true;");
+        dependencies.add(rendererMarker);
         dependencies.add(script(contextPath + "/eform/eform-runtime-compat.js"));
-        Element signatureCompatibility = new Element(Tag.valueOf("script"), "");
+        Element signatureCompatibility = new Element(Tag.valueOf(SCRIPT_TAG), "");
         signatureCompatibility.append(
                 "window.signatureControl=window.signatureControl||{};"
                 + "window.signatureControl.initialize=function initialize(){};");
@@ -678,7 +691,7 @@ public final class EFormRenderPdfHtmlComposer {
      * ships its own implementation keeps it.</p>
      */
     private static void installStrippedEditorShim(Document document) {
-        Element shim = new Element(Tag.valueOf("script"), "");
+        Element shim = new Element(Tag.valueOf(SCRIPT_TAG), "");
         shim.append(
                 "(function(){\n"
                 + "  var w = window;\n"
@@ -730,7 +743,7 @@ public final class EFormRenderPdfHtmlComposer {
     }
 
     private static Element script(String source) {
-        Element element = new Element(Tag.valueOf("script"), "");
+        Element element = new Element(Tag.valueOf(SCRIPT_TAG), "");
         element.attr("type", "text/javascript");
         element.attr("src", source);
         return element;

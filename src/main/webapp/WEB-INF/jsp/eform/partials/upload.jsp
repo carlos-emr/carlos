@@ -73,13 +73,16 @@
         </div>
 
         <script>
-            window.top.location.href = "<%=request.getContextPath()%>/administration?show=Forms";
+            window.top.location.href = "<%=request.getContextPath()%>/administration?show=Forms${param.scheduleNav eq '1' ? '&scheduleNav=1' : ''}";
         </script>
     </c:if>
 
 
     <form action="${pageContext.request.contextPath}/eform/uploadHtml" method="POST" onsubmit="return checkFormAndDisable()"
                enctype="multipart/form-data">
+        <c:if test="${param.scheduleNav eq '1'}">
+            <input type="hidden" name="scheduleNav" value="1"/>
+        </c:if>
         <div class="alert alert-danger" style="display:none"><% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
