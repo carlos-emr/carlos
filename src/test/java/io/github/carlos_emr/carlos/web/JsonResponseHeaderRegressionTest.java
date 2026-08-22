@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
@@ -45,14 +46,23 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.FlowSheetUserCreatedDao;
+import io.github.carlos_emr.carlos.commn.dao.Icd9Dao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.carlos.commn.model.Validations;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig;
+import io.github.carlos_emr.carlos.flowsheet.Flowsheet2Action;
 import io.github.carlos_emr.carlos.mds.pageUtil.ReportMacro2Action;
 import io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -121,6 +131,55 @@ class JsonResponseHeaderRegressionTest extends CarlosUnitTestBase {
         assertThat(helperJsonContentTypeIndex).isNotNegative();
         assertThat(helperJsonWriteIndex).isNotNegative();
         assertThat(helperJsonContentTypeIndex).isLessThan(helperJsonWriteIndex);
+    }
+
+
+    @Test
+    @DisplayName("should emit UTF-8 JSON for flowsheet validations")
+    void shouldEmitUtf8Json_forFlowsheetValidations() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.setCharacterEncoding(StandardCharsets.ISO_8859_1.name());
+        configureServletActionContext(request, response);
+
+        ValidationsDao validationsDao = mock(ValidationsDao.class);
+        registerFlowsheetActionBeans(mock(FlowSheetUserCreatedDao.class), validationsDao);
+        when(validationsDao.findAll()).thenReturn(List.of(newValidation("José 東京")));
+
+        new Flowsheet2Action().getValidations();
+
+        String body = new String(response.getContentAsByteArray(), StandardCharsets.UTF_8);
+        assertThat(response.getContentType()).isEqualTo("application/json; charset=UTF-8");
+        assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
+        assertThat(body).contains("José 東京");
+    }
+
+    @Test
+    @DisplayName("should emit UTF-8 JSON for flowsheet deletion")
+    void shouldEmitUtf8Json_forDeleteFlowsheet() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.setCharacterEncoding(StandardCharsets.ISO_8859_1.name());
+        request.setParameter("id", "42");
+        configureServletActionContext(request, response);
+
+        FlowSheetUserCreatedDao flowsheetUserCreatedDao = mock(FlowSheetUserCreatedDao.class);
+        registerFlowsheetActionBeans(flowsheetUserCreatedDao, mock(ValidationsDao.class));
+        MeasurementTemplateFlowSheetConfig flowsheetConfig = mock(MeasurementTemplateFlowSheetConfig.class);
+
+        try (MockedStatic<MeasurementTemplateFlowSheetConfig> flowsheetConfigMock =
+                     mockStatic(MeasurementTemplateFlowSheetConfig.class)) {
+            flowsheetConfigMock.when(MeasurementTemplateFlowSheetConfig::getInstance).thenReturn(flowsheetConfig);
+
+            new Flowsheet2Action().deleteFlowsheet();
+        }
+
+        String body = new String(response.getContentAsByteArray(), StandardCharsets.UTF_8);
+        assertThat(response.getContentType()).isEqualTo("application/json; charset=UTF-8");
+        assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
+        assertThat(body).contains("\"success\":true", "\"id\":\"42\"");
+        verify(flowsheetUserCreatedDao).remove(42);
+        verify(flowsheetConfig).reloadFlowsheets();
     }
 
     @Test
@@ -244,6 +303,29 @@ class JsonResponseHeaderRegressionTest extends CarlosUnitTestBase {
         assertThat(response.getContentType()).isEqualTo("application/javascript; charset=UTF-8");
         assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
         assertThat(body).contains("jQuery");
+    }
+
+    private void registerFlowsheetActionBeans(FlowSheetUserCreatedDao flowsheetUserCreatedDao,
+            ValidationsDao validationsDao) {
+        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+        registerMock(FlowSheetUserCreatedDao.class, flowsheetUserCreatedDao);
+        registerMock(ProviderDao.class, mock(ProviderDao.class));
+        registerMock(Icd9Dao.class, mock(Icd9Dao.class));
+        registerMock(DemographicDao.class, mock(DemographicDao.class));
+        registerMock(MeasurementTypeDao.class, mock(MeasurementTypeDao.class));
+        registerMock(ValidationsDao.class, validationsDao);
+    }
+
+    private Validations newValidation(String name) {
+        Validations validation = new Validations();
+        validation.setId(7);
+        validation.setName(name);
+        validation.setRegularExp(".*");
+        validation.setMinValue(1.0);
+        validation.setMaxValue(10.0);
+        validation.setMinLength(1);
+        validation.setMaxLength(20);
+        return validation;
     }
 
     private void configureServletActionContext(MockHttpServletRequest request, MockHttpServletResponse response) {

@@ -194,7 +194,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.getDocFile()).isNotNull();
         assertThat(action.getDocFile().getAbsolutePath()).isEqualTo(tempUploadFile.getAbsolutePath());
-        assertThat(action.getDocFileFileName()).isEqualTo("echartupload.pdf");
+        assertThat(action.getDocFileFileName()).isEqualTo("echart-upload.pdf");
         assertThat(action.getDocFileContentType()).isEqualTo("application/pdf");
     }
 
@@ -213,7 +213,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.getDocFile()).isNotNull();
         assertThat(action.getDocFile().getAbsolutePath()).isEqualTo(tempUploadFile.getAbsolutePath());
-        assertThat(action.getDocFileFileName()).isEqualTo("html5upload.pdf");
+        assertThat(action.getDocFileFileName()).isEqualTo("html5-upload.pdf");
         assertThat(action.getDocFileContentType()).isEqualTo("application/pdf");
     }
 
@@ -386,7 +386,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         action.withUploadedFiles(List.of(filedataUpload, docFileUpload));
 
         assertThat(action.getDocFile().getAbsolutePath()).isEqualTo(tempUploadFile.getAbsolutePath());
-        assertThat(action.getDocFileFileName()).isEqualTo("echartupload.pdf");
+        assertThat(action.getDocFileFileName()).isEqualTo("echart-upload.pdf");
     }
 
     @Test
@@ -401,7 +401,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<AddEditDocument2Action> addEditDocumentActionMock = mockStatic(AddEditDocument2Action.class, CALLS_REAL_METHODS)) {
             addEditDocumentActionMock.when(() -> AddEditDocument2Action.writeLocalFile(
                     any(InputStream.class),
-                    argThat(fileName -> isGeneratedStoredName(fileName, "echartupload.pdf")),
+                    argThat(fileName -> isGeneratedStoredName(fileName, "echart-upload.pdf")),
                     eq(false)))
                     .thenReturn(null);
 
@@ -409,7 +409,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
             addEditDocumentActionMock.verify(() -> AddEditDocument2Action.writeLocalFile(
                     any(InputStream.class),
-                    argThat(fileName -> isGeneratedStoredName(fileName, "echartupload.pdf")),
+                    argThat(fileName -> isGeneratedStoredName(fileName, "echart-upload.pdf")),
                     eq(false)));
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(500);
@@ -451,7 +451,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
         Files.writeString(tempUploadFile.toPath(), "complete-content");
         Path documentDir = Files.createTempDirectory("add-edit-document-output");
-        File partialFile = documentDir.resolve("echartupload.pdf").toFile();
+        File partialFile = documentDir.resolve("echart-upload.pdf").toFile();
         Files.writeString(partialFile.toPath(), "partial");
         String originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
@@ -462,7 +462,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<AddEditDocument2Action> addEditDocumentActionMock = mockStatic(AddEditDocument2Action.class, CALLS_REAL_METHODS)) {
             addEditDocumentActionMock.when(() -> AddEditDocument2Action.writeLocalFile(
                     any(InputStream.class),
-                    argThat(fileName -> isGeneratedStoredName(fileName, "echartupload.pdf")),
+                    argThat(fileName -> isGeneratedStoredName(fileName, "echart-upload.pdf")),
                     eq(false)))
                     .thenReturn(partialFile);
 
@@ -509,12 +509,12 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
                 List<String> writtenFileNames = files.map(path -> path.getFileName().toString()).toList();
                 assertThat(writtenFileNames).singleElement()
                         .satisfies(writtenFileName -> {
-                            assertThat(writtenFileName).endsWith("echartupload.txt");
-                            assertThat(writtenFileName).isNotEqualTo("echartupload.txt");
+                            assertThat(writtenFileName).endsWith("echart-upload.txt");
+                            assertThat(writtenFileName).isNotEqualTo("echart-upload.txt");
                             assertThat(savedDocument.get().getFileName()).isEqualTo(writtenFileName);
                         });
             }
-            assertThat(documentDir.resolve("echartupload.txt")).doesNotExist();
+            assertThat(documentDir.resolve("echart-upload.txt")).doesNotExist();
         } finally {
             if (originalDocumentDir == null) {
                 CarlosProperties.getInstance().remove("DOCUMENT_DIR");
@@ -678,13 +678,15 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         action.setDocPublic("0");
         action.setObservationDate("2026-05-21");
         action.setAppointmentNo("45");
+        action.setCurUser("user+name");
+        action.setParentAjaxId("parent&updateParent=false");
         bindDocFileUpload(tempUploadFile, "consult-note.txt", "text/plain");
 
         request.addParameter("function", "provider&next=bad");
         request.addParameter("functionid", "123 456");
-        request.addParameter("curUser", "user+name");
+        request.addParameter("curUser", "request-user+name");
         request.addParameter("appointmentNo", "45&bad=true");
-        request.addParameter("parentAjaxId", "parent&updateParent=false");
+        request.addParameter("parentAjaxId", "request-parent&updateParent=false");
 
         try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class, CALLS_REAL_METHODS)) {
             eDocUtilMock.when(() -> EDocUtil.getDoctypes("provider"))
@@ -696,12 +698,16 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getRedirectedUrl())
                     .contains("/documentManager/ViewDocumentReport?docerrors=docerrors")
-                    .contains("&function=provider%26next%3Dbad")
-                    .contains("&functionid=123%20456")
-                    .contains("&curUser=user%2Bname")
-                    .contains("&appointmentNo=45%26bad%3Dtrue")
+                    .contains("&function=provider")
+                    .contains("&functionid=123")
+                    .contains("&appointmentNo=45")
                     .contains("&parentAjaxId=parent%26updateParent%3Dfalse")
-                    .contains("&updateParent=true");
+                    .contains("&updateParent=true")
+                    .doesNotContain("&curUser=")
+                    .doesNotContain("provider%26next%3Dbad")
+                    .doesNotContain("123%20456")
+                    .doesNotContain("45%26bad%3Dtrue")
+                    .doesNotContain("request-parent");
         } finally {
             if (originalDocumentDir == null) {
                 CarlosProperties.getInstance().remove("DOCUMENT_DIR");

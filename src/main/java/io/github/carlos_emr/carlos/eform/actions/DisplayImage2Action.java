@@ -31,13 +31,15 @@
 package io.github.carlos_emr.carlos.eform.actions;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 
-import jakarta.activation.MimetypesFileTypeMap;
+import io.github.carlos_emr.carlos.eform.util.EFormAssetContentType;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -49,6 +51,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.HtmlResponse;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -74,7 +77,37 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2026-03-06
  */
 public class DisplayImage2Action extends ActionSupport {
+    private static final org.apache.logging.log4j.Logger logger = MiscUtils.getLogger();
     static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
+    /** Immutable WAR path holding the bundled Rich Text Letter editor assets (mirrors EFormAssetDeployer). */
+    private static final String BUNDLED_EDITOR_ASSETS_PATH = "/WEB-INF/eform-assets/";
+    /**
+     * WAR-shipped RTL editor assets CARLOS owns outright. Mirrors {@code EFormAssetDeployer}'s
+     * {@code MANAGED_ASSETS}: the deployer replaces these on startup whenever the on-disk bytes differ,
+     * so the WAR copy is authoritative and serving it from the immutable path can never lose a local
+     * change that was going to survive anyway. Membership is an exact-string match, so no path
+     * traversal is possible.
+     */
+    static final java.util.Set<String> BUNDLED_EDITOR_ASSETS = java.util.Set.of("editControl2.js");
+
+    /**
+     * RTL editor assets the deployer <em>seeds</em> — written once if absent, then never touched again,
+     * because a clinic is expected to customize them ({@code blank.rtl} is the default letter template
+     * and typically carries clinic letterhead). These are served from the eForm image directory so that
+     * customization is honoured, falling back to the WAR copy only when the file is absent.
+     *
+     * <p>They are exempt from the stored-asset {@code sandbox} CSP, because the editor loads them into a
+     * frame and runs scripts in them — sandboxed, the editor breaks (no fdid after save). That exemption
+     * grants nothing new: writing this directory requires {@code _eform} write
+     * ({@code ImageUpload2Action:68}), and that same privilege already stores arbitrary form HTML which
+     * {@code efmshowform_data.jsp} prints raw under {@code script-src 'self' 'unsafe-inline'}. Anyone who
+     * could plant a hostile {@code blank.rtl} can already run same-origin script by authoring an eForm,
+     * so sandboxing these two files defends nothing while silently breaking clinic letterhead. The real
+     * control is who holds {@code _eform} write. Every OTHER text/html file keeps the unconditional
+     * sandbox in {@link #process}.</p>
+     */
+    static final java.util.Set<String> SEEDED_EDITOR_ASSETS = java.util.Set.of(
+            "blank.rtl", "editor_help.html");
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -86,11 +119,19 @@ public class DisplayImage2Action extends ActionSupport {
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
+            logger.warn("DisplayImage2Action rejected: no authenticated session");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return NONE;
         }
 
         String fileName = request.getParameter("imagefile");
+        if (fileName == null || fileName.isBlank()) {
+            // Guard before BUNDLED_EDITOR_ASSETS.contains() below: that set is a null-hostile Set.of,
+            // so a missing imagefile parameter would NPE into the Struts error page instead of a
+            // controlled 400. Fail closed with a bad-request response.
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing imagefile parameter");
+            return NONE;
+        }
         boolean hasEformRead = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null);
         if (VACCINE_BRANDS_FILE.equals(fileName)) {
             if (!hasEformRead
@@ -101,8 +142,46 @@ public class DisplayImage2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
+        // editControl2.js is MANAGED (EFormAssetDeployer replaces it on every startup when the on-disk
+        // bytes differ), so the WAR copy is authoritative by definition and serving it from the
+        // immutable path costs nothing. It stays exempt from the sandbox CSP so the editor can run.
+        if (BUNDLED_EDITOR_ASSETS.contains(fileName)) {
+            return serveBundledEditorAsset(fileName);
+        }
+
+        // blank.rtl and editor_help.html are SEEDED, not managed: EFormAssetDeployer writes them once
+        // if absent and then never touches them again, precisely because a clinic is expected to
+        // customize them (blank.rtl is the default letter template and carries clinic letterhead).
+        // Serving the WAR copy unconditionally therefore discarded that customization silently —
+        // every new Rich Text Letter opened blank, with nothing logged. Prefer the on-disk copy and
+        // fall back to the WAR only when the file is absent, which is the state of a fresh install
+        // before the deployer has run.
+        if (SEEDED_EDITOR_ASSETS.contains(fileName)) {
+            File seeded = getValidatedImageFile(fileName);
+            if (!seeded.exists() || !seeded.isFile()) {
+                return serveBundledEditorAsset(fileName);
+            }
+            return serveSeededEditorAsset(seeded, fileName);
+        }
+
         File validatedFile = getValidatedImageFile(fileName);
-        StreamData data = process(validatedFile, fileName);
+        if (!validatedFile.exists() || !validatedFile.isFile()) {
+            logger.debug("eForm asset not found: {}", LogSafe.sanitize(fileName));
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+        final StreamData data;
+        try {
+            data = process(validatedFile, fileName);
+        } catch (FileNotFoundException e) {
+            logger.debug("eForm asset disappeared before streaming: {}", LogSafe.sanitize(fileName));
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        } catch (IllegalArgumentException e) {
+            logger.debug("eForm asset request rejected (unsupported type): {}", LogSafe.sanitize(fileName));
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+            return NONE;
+        }
         String contentType = data.contentType();
         try (InputStream stream = data.stream()) {
             if (RequestNegotiation.isHtmlContentType(contentType)) {
@@ -117,12 +196,66 @@ public class DisplayImage2Action extends ActionSupport {
             IOUtils.copy(stream, outputStream);
             return NONE;
         } catch (IOException | IllegalStateException e) {
-            MiscUtils.getLogger().error("Error streaming eform image to response", e);
+            logger.error("Error streaming eform image to response", e);
             if (!response.isCommitted()) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
             return NONE;
         }
+    }
+
+    /**
+     * Streams a clinic-customizable seeded editor asset ({@link #SEEDED_EDITOR_ASSETS}) from the eForm
+     * image directory, honouring any local customization the deployer deliberately preserved.
+     *
+     * <p>Served with {@code nosniff} but WITHOUT the sandbox CSP, for the reason given on
+     * {@link #SEEDED_EDITOR_ASSETS}: the editor executes these in a frame, and the privilege needed to
+     * write this directory already permits same-origin script through stored form HTML, so the sandbox
+     * would cost the letterhead feature without denying anything.</p>
+     *
+     * @param file the validated on-disk asset, already confirmed to exist by the caller
+     * @param fileName the exact allowlisted basename, used only for the content-type decision
+     */
+    private String serveSeededEditorAsset(File file, String fileName) throws IOException {
+        String contentType = EFormAssetContentType.forFilename(fileName)
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported eform asset type"));
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        try (InputStream stream = new FileInputStream(file)) {
+            if (RequestNegotiation.isHtmlContentType(contentType)) {
+                HtmlResponse.writeStoredHtml(response, contentType, stream);
+            } else {
+                response.setContentType(contentType);
+                IOUtils.copy(stream, response.getOutputStream());
+            }
+        }
+        return NONE;
+    }
+
+    /**
+     * Streams a bundled RTL editor asset ({@link #BUNDLED_EDITOR_ASSETS}) from the immutable WAR path,
+     * and serves as the fallback for a {@link #SEEDED_EDITOR_ASSETS} file that is not yet on disk.
+     * {@code fileName} is already an exact match against a fixed set, so the resource path cannot be
+     * traversed. Served with {@code nosniff} but WITHOUT the sandbox CSP — these are the editor's own
+     * code/templates and must execute.
+     */
+    private String serveBundledEditorAsset(String fileName) throws IOException {
+        String contentType = EFormAssetContentType.forFilename(fileName)
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported eform asset type"));
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        try (InputStream stream = request.getServletContext().getResourceAsStream(BUNDLED_EDITOR_ASSETS_PATH + fileName)) {
+            if (stream == null) {
+                logger.debug("Bundled eForm editor asset missing from WAR: {}", LogSafe.sanitize(fileName));
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return NONE;
+            }
+            if (RequestNegotiation.isHtmlContentType(contentType)) {
+                HtmlResponse.writeStoredHtml(response, contentType, stream);
+            } else {
+                response.setContentType(contentType);
+                IOUtils.copy(stream, response.getOutputStream());
+            }
+        }
+        return NONE;
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
@@ -145,84 +278,46 @@ public class DisplayImage2Action extends ActionSupport {
 
     private void validateRequestedFileName(String fileName) {
         if (!fileName.equals(FilenameUtils.getName(fileName))) {
+            logger.warn("Path traversal attempt in imagefile parameter: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new SecurityException("Path traversal detected in imagefile parameter");
         }
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private StreamData process(File file, String fileName) throws Exception {
-        // Gets content type from image extension
-        String contentType = new MimetypesFileTypeMap().getContentType(file);
-        
-        /**
-         * For encoding file types not included in the mimetypes file
-         * You need to look at mimetypes file to check if the file type you are using is included
-         */
-        try {
-            if (extension(file.getName()).equalsIgnoreCase("png")) { // for PNG
-                contentType = "image/png";
-            } else if (extension(file.getName()).equalsIgnoreCase("jpeg") ||
-                    extension(file.getName()).equalsIgnoreCase("jpe") ||
-                    extension(file.getName()).equalsIgnoreCase("jpg")) { //for JPEG,JPG,JPE
-                contentType = "image/jpeg";
-            } else if (extension(file.getName()).equalsIgnoreCase("bmp")) { // for BMP
-                contentType = "image/bmp";
-            } else if (extension(file.getName()).equalsIgnoreCase("cod")) { // for COD
-                contentType = "image/cis-cod";
-            } else if (extension(file.getName()).equalsIgnoreCase("ief")) { // for IEF
-                contentType = "image/ief";
-            } else if (extension(file.getName()).equalsIgnoreCase("jfif")) { // for JFIF
-                contentType = "image/pipeg";
-            } else if (extension(file.getName()).equalsIgnoreCase("svg")) { // for SVG
-                contentType = "image/svg+xml";
-            } else if (extension(file.getName()).equalsIgnoreCase("tiff") ||
-                    extension(file.getName()).equalsIgnoreCase("tif")) { // for TIFF or TIF
-                contentType = "image/tiff";
-            } else if (extension(file.getName()).equalsIgnoreCase("pbm")) { // for PBM
-                contentType = "image/x-portable-bitmap";
-            } else if (extension(file.getName()).equalsIgnoreCase("pnm")) { // for PNM
-                contentType = "image/x-portable-anymap";
-            } else if (extension(file.getName()).equalsIgnoreCase("pgm")) { // for PGM
-                contentType = "image/x-portable-greymap";
-            } else if (extension(file.getName()).equalsIgnoreCase("ppm")) { // for PPM
-                contentType = "image/x-portable-pixmap";
-            } else if (extension(file.getName()).equalsIgnoreCase("xbm")) { // for XBM
-                contentType = "image/x-xbitmap";
-            } else if (extension(file.getName()).equalsIgnoreCase("xpm")) { // for XPM
-                contentType = "image/x-xpixmap";
-            } else if (extension(file.getName()).equalsIgnoreCase("xwd")) { // for XWD
-                contentType = "image/x-xwindowdump";
-            } else if (extension(file.getName()).equalsIgnoreCase("rgb")) { // for RGB
-                contentType = "image/x-rgb";
-            } else if (extension(file.getName()).equalsIgnoreCase("ico")) { // for ICO
-                contentType = "image/x-icon";
-            } else if (extension(file.getName()).equalsIgnoreCase("cmx")) { // for CMX
-                contentType = "image/x-cmx";
-            } else if (extension(file.getName()).equalsIgnoreCase("ras")) { // for RAS
-                contentType = "image/x-cmu-raster";
-            } else if (extension(file.getName()).equalsIgnoreCase("gif")) { // for GIF
-                contentType = "image/gif";
-            } else if (extension(file.getName()).equalsIgnoreCase("js")) { // for JS
-                contentType = "text/javascript";
-            } else if (extension(file.getName()).equalsIgnoreCase("css")) { // for CSS
-                contentType = "text/css";
-            } else if (extension(file.getName()).equalsIgnoreCase("json")) { // for JSON
-                contentType = "application/json";
-            } else if (extension(file.getName()).equalsIgnoreCase("rtl") || extension(file.getName()).equalsIgnoreCase("html") || extension(file.getName()).equalsIgnoreCase("htm")) { // for HTML
-                contentType = "text/html";
-            } else {
-                throw new Exception("please check the file type or update mimetypes.default file to include the " + "." + extension(file.getName()));
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            throw new Exception("Could not open file " + file.getName() + " wrong file extension, ", e);
+    StreamData process(File file, String fileName) throws IOException {
+        String contentType = resolveContentType(file);
+        // nosniff: the declared allowlist type is the contract; a browser second-guessing bytes
+        // into a scriptable type is never wanted on an asset route.
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        if (RequestNegotiation.isHtmlContentType(contentType) || "image/svg+xml".equalsIgnoreCase(contentType)) {
+            // A stored eForm asset served as text/html — OR an image/svg+xml, which likewise runs
+            // embedded <script> when navigated to as a document — executes in the authenticated
+            // origin: a stored-XSS channel if asset-upload rights are ever broader than admin. The
+            // sandbox directive (no allow-* tokens) strips scripts/forms/origin from the served
+            // document while keeping passive <img>/CSS embedding working, so legacy html/rtl/svg
+            // assets stay servable without staying scriptable. This applies to every file that
+            // reaches THIS method — which is everything in the image directory except the two exact
+            // basenames in SEEDED_EDITOR_ASSETS, which are routed to serveSeededEditorAsset above and
+            // deliberately exempt (see that field's javadoc: the editor executes them in a frame, and
+            // _eform write already grants same-origin script through stored form HTML, so sandboxing
+            // them would break clinic letterhead without denying anything). editControl2.js comes
+            // from the immutable WAR. Do not read this as "the image directory is wholly sandboxed":
+            // it is sandboxed apart from those two deliberately-exempt names.
+            response.setHeader("Content-Security-Policy", "sandbox");
         }
         response.setContentType(contentType);
         response.setHeader("Content-disposition", "inline; filename=\"" + sanitizeHeaderValue(fileName) + "\"");
 
         InputStream fileStream = new FileInputStream(file);
         return new StreamData(fileStream, contentType);
+    }
+
+    private String resolveContentType(File file) {
+        // Shared with EFormImageViewForPdfGenerationServlet: EFormAssetContentType owns the
+        // allowlist AND the extension parsing/lowercasing, so the paths cannot drift on either.
+        return EFormAssetContentType.forFilename(file.getName())
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported eform asset type"));
     }
 
     /**
@@ -251,17 +346,6 @@ public class DisplayImage2Action extends ActionSupport {
         }
         
         return sanitized;
-    }
-
-    /**
-     * Gets the file extension from a given filename.
-     *
-     * @param f the filename (e.g., example.jpeg)
-     * @return the file extension
-     */
-    public String extension(String f) {
-        int dot = f.lastIndexOf(".");
-        return f.substring(dot + 1);
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use

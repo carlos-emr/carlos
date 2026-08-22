@@ -99,6 +99,8 @@ public class EFormUtil {
 
     private static final Set<String> ALLOWED_SORT_COLUMNS = Set.of(NAME, SUBJECT, DATE, FILE_NAME, PROVIDER);
 
+    public static final String FORM_CREATOR_KEY = "formCreator";
+
     // Collaborator beans are resolved lazily (per call) instead of in static-final field
     // initializers. SpringUtils.getBean returns the cached singleton, so the per-call cost is a
     // map lookup, but - critically - the Spring context is no longer touched when the class is
@@ -475,7 +477,7 @@ public class EFormUtil {
         curht.put("formFileName", eform.getFileName());
         curht.put("formDate", eform.getFormDate().toString());
         curht.put("formTime", eform.getFormTime().toString());
-        curht.put("formCreator", eform.getCreator());
+        curht.put(FORM_CREATOR_KEY, eform.getCreator());
         curht.put("formHtml", eform.getFormHtml());
         curht.put("showLatestFormOnly", eform.isShowLatestFormOnly());
         curht.put("patientIndependent", eform.isPatientIndependent());
@@ -583,6 +585,55 @@ public class EFormUtil {
         return getValues(names, new ParameterizedSql(sql, List.of()));
     }
 
+    /**
+     * Resolves AP column values, keeping "the query failed" distinguishable from "it matched no rows".
+     *
+     * <p>{@link #getValues(List, ParameterizedSql)} cannot express that difference: {@link #getSQL}
+     * logs and returns {@code null} for a blocked or failed statement, and {@code getValues} turns
+     * that into an empty list — the same value a healthy query over a patient with no matching data
+     * returns. Every AP caller then renders an empty clinical field, over HTTP 200, with nothing for
+     * the PDF completeness gate to report. A dropped database connection while resolving an allergy
+     * list therefore prints a blank allergy field on a faxed document.</p>
+     *
+     * <p>A column that cannot be read is also treated as failure here, rather than becoming the
+     * {@code <(name)NotFound>} placeholder {@code getValues} substitutes — that placeholder is
+     * otherwise spliced into the document and delivered to a clinician as if it were content.</p>
+     *
+     * @return the row's values; an <strong>empty</strong> list when the query ran and matched
+     *         nothing; {@code null} when the query could not be executed or read
+     */
+    public static ArrayList<String> getValuesOrNull(List<String> names, ParameterizedSql sql) {
+        ResultSet resultSet;
+        try {
+            EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
+            resultSet = LegacyJdbcQuery.getPreparedResultSet(sql);
+        } catch (SecurityException | SQLException e) {
+            logger.error("eForm AP query could not be executed", e);
+            return null;
+        }
+        if (resultSet == null) {
+            return null;
+        }
+        ArrayList<String> values = new ArrayList<String>();
+        try (ResultSet rows = resultSet) {
+            while (rows.next()) {
+                values = new ArrayList<String>();
+                for (int i = 0; i < names.size(); i++) {
+                    try {
+                        values.add(Misc.getString(rows, names.get(i)));
+                    } catch (Exception columnError) {
+                        logger.error("eForm AP column could not be read: " + names.get(i), columnError);
+                        return null;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("eForm AP result set could not be read", e);
+            return null;
+        }
+        return values;
+    }
+
     public static ArrayList<String> getValues(List<String> names, ParameterizedSql sql) {
         // gets the values for each column name in the sql (used by DatabaseAP)
         ArrayList<String> values = new ArrayList<String>();
@@ -613,6 +664,51 @@ public class EFormUtil {
     @Deprecated(since = "2026-05-21", forRemoval = true)
     public static ArrayNode getJsonValues(List<String> names, String sql) {
         return getJsonValues(names, new ParameterizedSql(sql, List.of()));
+    }
+
+    /**
+     * JSON-output twin of {@link #getValuesOrNull}, with the same contract.
+     *
+     * <p>{@link #getJsonValues(List, ParameterizedSql)} has the defects that method exists to avoid:
+     * a blocked or failed query yields an empty array indistinguishable from "no rows", a mid-read
+     * {@code SQLException} yields whatever accumulated, and a column that cannot be read is written
+     * into the JSON as the literal {@code <(name)NotFound>} — which reaches the clinical field as
+     * that text rather than as an absence anything can detect.</p>
+     *
+     * @return the rows; an <strong>empty</strong> array when the query ran and matched nothing;
+     *         {@code null} when it could not be executed or read
+     */
+    public static ArrayNode getJsonValuesOrNull(List<String> names, ParameterizedSql sql) {
+        ResultSet resultSet;
+        try {
+            EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
+            resultSet = LegacyJdbcQuery.getPreparedResultSet(sql);
+        } catch (SecurityException | SQLException e) {
+            logger.error("eForm AP JSON query could not be executed", e);
+            return null;
+        }
+        if (resultSet == null) {
+            return null;
+        }
+        ArrayNode values = objectMapper.createArrayNode();
+        try (ResultSet rows = resultSet) {
+            while (rows.next()) {
+                ObjectNode value = objectMapper.createObjectNode();
+                for (int i = 0; i < names.size(); i++) {
+                    try {
+                        value.put(names.get(i), Misc.getString(rows, names.get(i)));
+                    } catch (Exception columnError) {
+                        logger.error("eForm AP JSON column could not be read: " + names.get(i), columnError);
+                        return null;
+                    }
+                }
+                values.add(value);
+            }
+        } catch (SQLException e) {
+            logger.error("eForm AP JSON result set could not be read", e);
+            return null;
+        }
+        return values;
     }
 
     public static ArrayNode getJsonValues(List<String> names, ParameterizedSql sql) {
