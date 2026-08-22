@@ -59,6 +59,12 @@ jobs:
   build-debs:
     name: Build and attach .deb packages
     runs-on: ubuntu-latest
+    # Pin the shell: container run steps otherwise default to /bin/sh, which
+    # differs from the runner's bash and broke earlier iterations. bash ships
+    # in the ubuntu:26.04 image, so set it once for the whole job.
+    defaults:
+      run:
+        shell: bash
     container:
       # Digest-pinned like every third-party artefact in this repository's
       # workflows: a re-pushed tag must never change what runs with release
@@ -121,33 +127,30 @@ jobs:
 
       - name: Skip if the release is already finalized
         run: |
-          set -euo pipefail
-          # A completed release is published (non-draft) AND already carries the
-          # two .deb assets. Immutable releases forbid re-uploading, so a re-run
-          # against a finished release would 422 — detect that and stop cleanly.
-          # Uses gh's built-in --jq (system jq is not installed in the image).
-          # GitHub normalises stored asset names (the Debian '~' becomes '.'),
-          # so match by package-name prefix, not the exact filename.
-          draft=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" --jq '.draft' 2>/dev/null || echo "")
-          emr=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" \
-            --jq '[.assets[].name | select(startswith("carlos-emr_") and endswith(".deb"))] | length' 2>/dev/null || echo 0)
-          drugref=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" \
-            --jq '[.assets[].name | select(startswith("carlos-emr-drugref_") and endswith(".deb"))] | length' 2>/dev/null || echo 0)
-          if [ "$draft" = "true" ] || [ -z "$draft" ]; then
-            # Draft (or no release yet): proceed to build, attach, and publish.
-            echo "SKIP=false" >> "$GITHUB_ENV"
-          elif [ "${emr:-0}" -ge 1 ] && [ "${drugref:-0}" -ge 1 ]; then
-            # Fully finalized: published with its .debs. Nothing to do (and a
-            # re-upload would 422 against the immutable release).
-            echo "Release $RELEASE_TAG is already published with both carlos-emr and carlos-emr-drugref .deb assets; nothing to do."
-            echo "SKIP=true" >> "$GITHUB_ENV"
-          else
-            # Published but missing .debs: an immutable release cannot accept
-            # new assets, so this can never be completed. Fail fast and loud
-            # rather than dying later on an opaque HTTP 422 from the upload.
-            echo "::error::Release $RELEASE_TAG is already published but has no .deb assets. Immutable releases cannot accept new assets, so the .debs cannot be attached. This release is permanently WAR-only; ship the .debs with the next release."
-            exit 1
-          fi
+          set -eu
+          # gh release view (unlike the releases/tags REST endpoint, which 404s
+          # on drafts) can see a DRAFT release. One call computes the state via
+          # gh's built-in jq (system jq is not installed in the image):
+          #   draft / none  -> proceed to build, attach, and publish
+          #   done          -> published with BOTH packages; nothing to do
+          #                    (immutable, so a re-upload would 422)
+          #   missing       -> published but a package is absent; fail fast
+          #                    (immutable release can never be completed)
+          state=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json isDraft,assets --jq '
+            if .isDraft then "draft"
+            elif ([.assets[].name | select(startswith("carlos-emr_") and endswith(".deb"))] | length) >= 1
+             and ([.assets[].name | select(startswith("carlos-emr-drugref_") and endswith(".deb"))] | length) >= 1
+            then "done" else "missing" end' 2>/dev/null || echo none)
+          case "$state" in
+            draft|none)
+              echo "SKIP=false" >> "$GITHUB_ENV" ;;
+            done)
+              echo "Release $RELEASE_TAG is already published with both carlos-emr and carlos-emr-drugref .deb assets; nothing to do."
+              echo "SKIP=true" >> "$GITHUB_ENV" ;;
+            missing)
+              echo "::error::Release $RELEASE_TAG is already published but is missing a .deb asset. Immutable releases cannot accept new assets, so this cannot be completed; ship the .debs with the next release."
+              exit 1 ;;
+          esac
 
       - name: Download and verify the release WAR
         if: env.SKIP != 'true'
@@ -245,7 +248,17 @@ jobs:
           # asset name (it rewrites the '~' in a Debian pre-release version
           # to '.'), so a name-equality lookup never matched and the check
           # failed on every alpha/rc tag. The digest is invariant.
-          stored_digests="$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" --jq '.assets[].digest')"
+          # releases/tags/<tag> 404s on a draft (the release is a draft until
+          # this workflow publishes it). Resolve the numeric REST id from the
+          # releases LIST (which includes drafts and is guaranteed to be the
+          # REST id), mirroring publish-release.yml, then read digests by id.
+          release_id=$(gh api --paginate "repos/$REPO/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | .id" | head -n 1)
+          if [ -z "$release_id" ]; then
+            echo "::error::Release $RELEASE_TAG not found when verifying .deb digests."
+            exit 1
+          fi
+          stored_digests="$(gh api "repos/$REPO/releases/$release_id" --jq '.assets[].digest')"
           for asset in release-assets/*.deb; do
             name="$(basename "$asset")"
             expected="sha256:$(sha256sum "$asset" | awk '{print $1}')"
@@ -265,8 +278,10 @@ jobs:
           # immutable. The latest-pointer decision lives here (not in
           # publish-release.yml) because the release is only published once all
           # assets, including these .debs, are in place.
+          # grep -E keeps the exact anchored semantics of the original regex
+          # (digits required, matched at end).
           prerelease=false
-          if [[ "$RELEASE_TAG" =~ -(alpha|beta|rc)[1-9][0-9]*$ ]]; then
+          if printf '%s' "$RELEASE_TAG" | grep -Eq -- '-(alpha|beta|rc)[1-9][0-9]*$'; then
             prerelease=true
           fi
 
