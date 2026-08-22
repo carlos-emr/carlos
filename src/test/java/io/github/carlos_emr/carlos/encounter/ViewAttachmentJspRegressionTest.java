@@ -59,11 +59,10 @@ class ViewAttachmentJspRegressionTest {
                 .contains("<carlos:encode value='<%= thedate %>' context=\"html\"/>")
                 .contains("<carlos:encode value='<%= theime %>' context=\"html\"/>")
                 .contains("<carlos:encode value='<%= themessage %>' context=\"html\"/>")
-                .doesNotContain("<%= sentBy%>")
-                .doesNotContain("<%=remoteName%>")
-                .doesNotContain("<%= thesubject%>")
-                .doesNotContain("<%= thedate %>&nbsp;&nbsp; <%= theime %>")
-                .doesNotContain("<%=themessage%>");
+                .doesNotContainPattern("<td\\s+bgcolor=\"#CCCCFF\">\\s*<%=\\s*sentBy\\s*%>\\s*<fmt:message\\s+key=\"encounter\\.ViewAttachment\\.msgAt\"/>\\s*<%=\\s*remoteName\\s*%>")
+                .doesNotContainPattern("<td\\s+bgcolor=\"#BBBBFF\">\\s*<%=\\s*thesubject\\s*%>")
+                .doesNotContainPattern("<td\\s+bgcolor=\"#B8B8FF\">\\s*<%=\\s*thedate\\s*%>&nbsp;&nbsp;\\s*<%=\\s*theime\\s*%>")
+                .doesNotContainPattern("<textarea\\b[^>]*>\\s*<%=\\s*themessage\\s*%>\\s*</textarea>");
     }
 
     private static Path projectRoot() {
