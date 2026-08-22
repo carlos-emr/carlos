@@ -201,11 +201,20 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     private static String carlosEncodePattern(String scriptletExpressionPattern, String context) {
-        return "<carlos:encode\\s+[^>]*value\\s*=\\s*['\"]\\s*<%=\\s*"
+        String scriptletValue = "value\\s*=\\s*['\"]\\s*<%=\\s*"
                 + scriptletExpressionPattern
-                + "\\s*%>\\s*['\"][^>]*context\\s*=\\s*['\"]"
-                + context
-                + "['\"][^>]*/>";
+                + "\\s*%>\\s*['\"]";
+        String contextAttribute = "context\\s*=\\s*['\"]" + context + "['\"]";
+
+        return "<carlos:encode\\s+(?:(?:"
+                + scriptletValue
+                + "\\s+"
+                + contextAttribute
+                + ")|(?:"
+                + contextAttribute
+                + "\\s+"
+                + scriptletValue
+                + "))\\s*/>";
     }
 
     private static Path resolveProjectPath(Path relativePath) {
