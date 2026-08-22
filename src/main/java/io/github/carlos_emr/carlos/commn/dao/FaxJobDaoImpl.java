@@ -163,6 +163,7 @@ public class FaxJobDaoImpl extends AbstractDaoImpl<FaxJob> implements FaxJobDao 
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public List<FaxJob> findByFileName(String fileName) {
         Query query = entityManager.createQuery(
                 "select job from FaxJob job where job.file_name = ?1");

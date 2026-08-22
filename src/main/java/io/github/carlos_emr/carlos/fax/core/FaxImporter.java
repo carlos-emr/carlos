@@ -271,13 +271,24 @@ public class FaxImporter {
                 for (FaxJob receivedFax : faxList) {
 
                     receivedFax.setDirection(FaxJob.Direction.IN);
+                    // Stamp the receiving account (its fax line) so duplicate
+                    // detection can scope to this account and the row is
+                    // attributable later. Providers do not set this on the
+                    // listing.
+                    receivedFax.setFax_line(faxConfig.getFaxNumber());
 
                     // Duplicate-import prevention keyed on the provider job id (SRFax FaxDetailsID):
                     // when mark-as-read failed on a previous cycle the fax stays in the UNREAD pull,
                     // and generateUniqueFilename() would happily file it as a brand-new document.
                     // Skip the download entirely and just retry clearing the unread flag.
+                    // The lookup stays GLOBAL (so rows imported before this release, which have no
+                    // fax_line, are still found); isAlreadyImported() does the account scoping,
+                    // treating a row whose fax_line matches THIS account -- or is blank (legacy) --
+                    // as ours, and a row bearing a DIFFERENT account's fax_line as not ours (two
+                    // accounts/backends can reuse the same numeric job id).
                     if (receivedFax.getJobId() != null
-                            && isAlreadyImported(faxJobDao.findByProviderJobId(receivedFax.getJobId()))) {
+                            && isAlreadyImported(faxJobDao.findByProviderJobId(receivedFax.getJobId()),
+                                    faxConfig.getFaxNumber())) {
                         log.info("Skipping already-imported fax with provider job id {} - retrying provider acknowledgement",
                                 receivedFax.getJobId());
                         try {
@@ -896,12 +907,26 @@ public class FaxImporter {
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    boolean isAlreadyImported(List<FaxJob> priorRows) {
+    boolean isAlreadyImported(List<FaxJob> priorRows, String accountFaxLine) {
         if (priorRows == null) {
             return false;
         }
         for (FaxJob prior : priorRows) {
             if (FaxJob.Direction.OUT.equals(prior.getDirection())) {
+                continue;
+            }
+            // Account scoping on the receiving fax line: a prior row that
+            // names a DIFFERENT account is not ours (two accounts/backends
+            // can reuse the same numeric provider job id). A blank/null
+            // fax_line is a legacy row from before imports stamped it — treat
+            // it as ours so an upgrade never re-imports an already-held fax.
+            // NOTE: fax_line is the best account key on the row today; a
+            // number genuinely shared by two backends cannot be told apart
+            // without a per-config identity on the fax record.
+            String priorLine = prior.getFax_line();
+            if (priorLine != null && !priorLine.trim().isEmpty()
+                    && accountFaxLine != null
+                    && !priorLine.trim().equals(accountFaxLine.trim())) {
                 continue;
             }
             if (FaxJob.STATUS.RECEIVED.equals(prior.getStatus())) {
