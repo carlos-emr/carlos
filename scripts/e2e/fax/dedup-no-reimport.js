@@ -31,6 +31,11 @@ const digitsTail = (v) => (v || '').replace(/\D/g, '').slice(-10);
 
 // Two poll cycles at the scheduler's 60s cadence, plus margin.
 const WAIT_MS = parseInt(process.env.DEDUP_WAIT_MS || '150000', 10);
+// The window must span more than two 60s poll cycles for the no-growth check to
+// mean anything; reject a NaN/short value rather than pass trivially.
+if (!Number.isInteger(WAIT_MS) || WAIT_MS < 130000) {
+  throw new Error('DEDUP_WAIT_MS must be an integer >= 130000 (more than two 60s scheduler cycles)');
+}
 
 async function main() {
   cfg({ srfax: false }); // validates BASE_URL/login env even though we drive the DB
