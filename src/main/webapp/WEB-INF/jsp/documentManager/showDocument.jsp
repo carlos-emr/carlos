@@ -245,7 +245,7 @@
     String url2 = cp + "/documentManager/ManageDocument?method=display&doc_no=" + docId;
     String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
 
-    Integer docCurrentFiledQueue = null;
+    Set<Integer> docFiledQueues = new HashSet<>();
 
     request.setAttribute("mrpProviderName", mrpProviderName);
     request.setAttribute("demoName", demoName);
@@ -501,18 +501,15 @@
         <!--input type="button" class="btn btn-outline-secondary btn-sm" id="ticklerBtn_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" value="Tickler" onclick="handleDocSave('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','addTickler')"/-->
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" value="<fmt:message key="showDocument.btnTickler"/>" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ViewAddTickler?', 'Tickler','<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')" <%=btnDisabled %>>
         <%
-                                                            String refileBtnVisibility = "";
                                                             for (Hashtable ht : queues) {
                                                                 int id = (Integer) ht.get("id");
 
-                                                                if (EDocUtil.isDocumentAlreadyRefiledInQueue(curdoc.getDescription(), id)) {
-                                                                    docCurrentFiledQueue = id;
-                                                                    if (id == queueId) {
-                                                                        refileBtnVisibility = "disabled";
-                                                                        break;
-                                                                    }
+                                                                if (EDocUtil.isDocumentAlreadyRefiledInQueue(curdoc.getFileName(), id)) {
+                                                                    docFiledQueues.add(id);
                                                                 }
                                                             }
+                                                            String refileBtnVisibility =
+                                                                    docFiledQueues.contains(queueId) ? "disabled" : "";
                                                         %>
 
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainEchart_<%=docId%>"
@@ -528,13 +525,15 @@
                value="<fmt:message key="encounter.noteBrowser.msgRefile"/>" onclick="refileDoc('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>');" <%=refileBtnVisibility%> >
 
         <select id="queueList_<%=docId%>" class="btn btn-outline-secondary btn-sm" name="queueList"
-                onchange="handleQueueListChange(this, document.getElementById('refileDoc_<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>'), '<carlos:encode value='<%= String.valueOf(docCurrentFiledQueue) %>' context="javaScriptAttribute"/>')">
+                onchange="handleQueueListChange(this, document.getElementById('refileDoc_<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>'))">
             <%
                 for (Hashtable ht : queues) {
                     int id = (Integer) ht.get("id");
                     String qName = (String) ht.get("queue");
             %>
-            <option value="<carlos:encode value='<%= String.valueOf(id) %>' context="htmlAttribute"/>" <%=((id == queueId) ? " selected" : "")%>><carlos:encode value='<%= qName %>' context="html"/>
+            <option value="<carlos:encode value='<%= String.valueOf(id) %>' context="htmlAttribute"/>"
+                    data-already-refiled="<carlos:encode value='<%= String.valueOf(docFiledQueues.contains(id)) %>' context="htmlAttribute"/>"
+                    <%=((id == queueId) ? " selected" : "")%>><carlos:encode value='<%= qName %>' context="html"/>
             </option>
             <%}%>
         </select>
