@@ -132,6 +132,23 @@ public interface FaxProviderClient {
     FaxJob fetchFaxStatus(FaxConfig faxConfig, FaxJob faxJob) throws FaxProviderException;
 
     /**
+     * Cancels a queued or in-progress outbound fax at the provider.
+     *
+     * <p>Behavior is provider-specific: SRFax uses the {@code Stop_Fax} action; middleware
+     * issues an HTTP PUT to the relay. Depending on how far transmission has progressed the
+     * provider may report the fax as already sent — implementations must reflect that in the
+     * returned status rather than claiming a cancel that did not happen.</p>
+     *
+     * @param faxConfig FaxConfig provider configuration containing credentials and endpoint
+     * @param faxJob FaxJob outbound job carrying the provider jobId to cancel
+     * @return FaxJob updated job with provider-confirmed status (CANCELLED on success) and
+     *         a human-readable statusString describing the outcome
+     * @throws FaxProviderException when the cancel operation fails or is rejected
+     * @since 2026-08-21
+     */
+    FaxJob cancelFax(FaxConfig faxConfig, FaxJob faxJob) throws FaxProviderException;
+
+    /**
      * Validates that the given fax configuration matches this client's provider type.
      *
      * @param faxConfig FaxConfig to validate

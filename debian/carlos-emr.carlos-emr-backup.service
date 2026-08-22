@@ -1,0 +1,67 @@
+[Unit]
+Description=CARLOS EMR nightly backup (database dump, documents, configuration)
+Documentation=file:///usr/share/doc/carlos-emr/README.Debian
+After=mariadb.service network-online.target
+Wants=mariadb.service network-online.target
+# network-online matters for the boot-time catch-up: Persistent=true
+# fires a missed run right after boot, and against an offsite
+# repository a start before the WAN is up failed the run with the
+# alert equally undeliverable.
+
+[Service]
+Type=oneshot
+# The backup runs as its own unprivileged user, NOT as the application user.
+# That is the whole point of the split: carlos-backup can read the document
+# store and hold a read-only database credential, and the application uid can
+# neither read the backup repository nor its passphrase. A compromise of the
+# EMR therefore cannot silently destroy or exfiltrate the backups.
+User=carlos-backup
+Group=carlos-backup
+UMask=0077
+EnvironmentFile=/etc/carlos-emr/backup.env
+ExecStart=/usr/lib/carlos-emr/carlos-emr-backup run
+# A backup that overruns the next day's window is a problem to report, not to
+# let run forever holding a repository lock.
+TimeoutStartSec=6h
+Nice=10
+IOSchedulingClass=idle
+
+NoNewPrivileges=yes
+# CAP_DAC_READ_SEARCH, and nothing else.
+#
+# The backup has to read every patient document, and the application creates
+# some of its document directories mode 0700 — /OscarDocument/carlos/eform/images
+# is one, verified on a live install. Group membership alone therefore does NOT
+# guarantee the backup can read the tree, and a backup that silently skips part
+# of the document store is worse than no backup at all: it looks like it worked.
+#
+# This capability grants READ and directory traversal past DAC checks. It
+# grants no write access anywhere — ReadWritePaths still confines writes to the
+# repository — and no other privilege. The alternative, running the backup as
+# the application user, would hand the EMR's uid the repository and its
+# passphrase and destroy the separation this split exists to create.
+#
+# Residual risk, stated plainly: a compromise of the backup job can read any
+# file on the host. It already holds a database credential that reads all PHI
+# and the key to the repository, so this widens the blast radius from "all
+# clinical data" to "all clinical data plus /etc/shadow" — real, but small
+# against what it buys.
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=CAP_DAC_READ_SEARCH
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectProc=invisible
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ReadWritePaths=/var/backups/carlos-emr /var/log/carlos-emr

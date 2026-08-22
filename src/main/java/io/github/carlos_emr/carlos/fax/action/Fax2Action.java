@@ -882,8 +882,10 @@ public class Fax2Action extends ActionSupport {
 
     /**
      * Sends an HTTP error response, quietly logging (rather than propagating) any IO failure.
+     * Protected so subclasses (e.g. the Manage Faxes admin action) reuse the same helper
+     * instead of shadowing it.
      */
-    private void sendErrorQuietly(int statusCode, String message) {
+    protected void sendErrorQuietly(int statusCode, String message) {
         try {
             response.sendError(statusCode, message);
         } catch (IOException ex) {

@@ -275,6 +275,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
                 logger.info("Setting up consultation fax to {}", LogSafe.sanitize(faxRecipient.getName()));
 
                 FaxJob faxJob = new FaxJob();
+                faxJob.setDirection(FaxJob.Direction.OUT);
                 faxJob.setDestination(faxNo);
                 faxJob.setRecipient(faxRecipient.getName());
                 faxJob.setFax_line(faxNumber);

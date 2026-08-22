@@ -1,0 +1,279 @@
+#!/usr/bin/make -f
+# debian/rules — CARLOS EMR single-host package.
+#
+# Build inputs (all optional; each has a sane default):
+#
+#   CARLOS_WAR=/path/to/carlos.war     use a prebuilt CARLOS WAR instead of
+#                                      compiling this tree with Maven. A CI
+#                                      job that already produced the release
+#                                      WAR should pass this — the compile is
+#                                      the only slow step in the build.
+#   DRUGREF_WAR=/path/to/drugref2.war  likewise for DrugRef.
+#   DRUGREF_SRC=/path/to/checkout      build DrugRef from a local checkout of
+#                                      carlos-emr/drugref2026 instead of
+#                                      fetching the pinned ref.
+#   DRUGREF_REF=<branch|tag|sha>       ref to fetch when DRUGREF_SRC is unset
+#                                      (default: the pin in debian/drugref.pin).
+#   SKIP_DRUGREF=1                     do not build carlos-emr-drugref at all.
+#
+# NETWORK: like every Maven-built package, the build resolves dependencies
+# from Maven Central, and the DrugRef source is fetched from GitHub unless
+# DRUGREF_SRC/DRUGREF_WAR is supplied. This is not a buildd-clean package; it
+# is built by the project's own release job. Pass the three variables above
+# for a fully offline build.
+
+export DH_VERBOSE = 1
+export JAVA_HOME ?= /usr/lib/jvm/java-21-openjdk-$(shell dpkg --print-architecture)
+export LC_ALL = C.UTF-8
+
+# Maven wants a writable local repository; keep it inside the build tree so a
+# package build never touches the builder's ~/.m2.
+MVN_REPO   := $(CURDIR)/debian/build/m2
+MVN        := mvn -B -Dmaven.repo.local=$(MVN_REPO)
+# -Dmaven.compiler.fork=true: the in-process javac of this single-module WAR
+# holds the Maven JVM's jars and the whole compile file set in ONE process and
+# can exhaust a 4096 file-descriptor limit part-way through. Forking splits the
+# load. -Pskip-dependency-lock: JitPack artifacts re-hash between fetches, so
+# the lock check is a false positive on a normal build; a release build that
+# wants it enforced drops the profile.
+MVN_FLAGS  := -DskipTests=true -Dcheckstyle.skip=true -Dmaven.compiler.fork=true -Pskip-dependency-lock
+
+PKG        := carlos-emr
+DPKG       := carlos-emr-drugref
+BUILDDIR   := $(CURDIR)/debian/build
+# Note the ordering: STAGE expands PKG immediately (:=), so PKG has to be
+# defined above it. The other way round, STAGE silently becomes debian/ and the
+# entire payload is staged one directory too high — producing a 26 kB package
+# that installs nothing.
+STAGE      := $(CURDIR)/debian/$(PKG)
+
+SHAREDIR   := usr/share/carlos-emr
+LIBDIR     := usr/lib/carlos-emr
+
+# Tomcat's global web.xml and catalina.properties are taken from the
+# distribution's tomcat11 package (a build dependency) rather than vendored
+# into this repository, so they track the Tomcat that libtomcat11-java actually
+# is. Overridable so the packaging can be staged from an unpacked tomcat11 deb
+# without installing it.
+TOMCAT_ETC ?= /usr/share/tomcat11/etc
+
+DRUGREF_REF ?= $(shell sed -n 's/^ref=//p' debian/drugref.pin)
+
+# --with installsysusers: the sysusers.d helper is not in debhelper's default
+# sequence, and without this the two system accounts would simply never be
+# declared — the package would install and then fail at the first chown.
+# SKIP_DRUGREF drops the carlos-emr-drugref BINARY PACKAGE entirely (not just
+# its payload): without --no-package, dh still assembled an empty stub .deb
+# that looked shippable. Dev/CI knob only — release builds always ship both.
+ifneq ($(SKIP_DRUGREF),)
+DH_EXTRA := --no-package=carlos-emr-drugref
+endif
+
+%:
+	dh $@ --with installsysusers $(DH_EXTRA)
+
+# The Maven build is driven by hand — dh_auto_* has no useful notion of this
+# tree (a WAR module plus a second application fetched from another repo).
+override_dh_auto_configure:
+	mkdir -p $(BUILDDIR) $(MVN_REPO)
+
+override_dh_auto_build:
+	set -e; \
+	if [ -n "$$CARLOS_WAR" ]; then \
+	  echo "using prebuilt CARLOS WAR: $$CARLOS_WAR"; \
+	  cp -f "$$CARLOS_WAR" $(BUILDDIR)/carlos.war; \
+	else \
+	  JOB_NAME=carlos-emr-deb BUILD_NUMBER="$$(dpkg-parsechangelog -SVersion)" \
+	    $(MVN) $(MVN_FLAGS) package; \
+	  cp -f target/carlos-*.war $(BUILDDIR)/carlos.war; \
+	fi
+	# The Flyway migration runner: a ~100-line launcher compiled against the
+	# flyway-core/flyway-mysql/JDBC jars the WAR already ships, so the package
+	# needs no separate Flyway CLI download and the migrations it applies are
+	# byte-identical to the ones the deployed WAR validates against at boot.
+	$(CURDIR)/debian/build-flyway-runner.sh $(BUILDDIR)/carlos.war $(BUILDDIR)
+ifeq ($(SKIP_DRUGREF),)
+	set -e; \
+	if [ -n "$$DRUGREF_WAR" ]; then \
+	  echo "using prebuilt DrugRef WAR: $$DRUGREF_WAR"; \
+	  cp -f "$$DRUGREF_WAR" $(BUILDDIR)/drugref2.war; \
+	else \
+	  src="$$DRUGREF_SRC"; \
+	  if [ -z "$$src" ]; then \
+	    $(CURDIR)/debian/fetch-drugref.sh "$(DRUGREF_REF)" $(BUILDDIR)/drugref-src; \
+	    src=$(BUILDDIR)/drugref-src; \
+	  fi; \
+	  $(MVN) -f "$$src/pom.xml" $(MVN_FLAGS) -Dmaven.test.skip=true package; \
+	  cp -f "$$src"/target/drugref2*.war $(BUILDDIR)/drugref2.war; \
+	fi
+endif
+
+# dh_clean deletes every *.bak, *.orig, *.rej and *~ it finds ANYWHERE in the
+# source tree, on the assumption that they are editor and patch droppings. This
+# tree has a tracked one — src/main/webapp/form/graphics/boyLength36m.jpg.bak,
+# an asset of a growth-chart form — so an unguarded package build silently
+# deletes a file from the working copy and leaves the repository dirty.
+# -X.bak stops dh_clean from touching any of them; this packaging creates none,
+# so nothing is left behind by the exclusion.
+override_dh_clean:
+	dh_clean -X.bak
+
+override_dh_auto_test:
+	# Application tests are the app repo's own CI concern; a package build
+	# must not require a live database.
+
+override_dh_auto_clean:
+	rm -rf $(BUILDDIR)
+
+override_dh_auto_install:
+	set -e; \
+	install -d $(STAGE)/$(SHAREDIR)/webapp/carlos; \
+	cd $(STAGE)/$(SHAREDIR)/webapp/carlos && $(JAVA_HOME)/bin/jar xf $(BUILDDIR)/carlos.war
+	# Ship the migration set outside the WAR too, so an operator can read and
+	# diff the SQL that carlos-ctl applies without unpacking a webapp.
+	install -d $(STAGE)/$(SHAREDIR)/schema
+	cp -a database/mysql/migration $(STAGE)/$(SHAREDIR)/schema/
+	install -d $(STAGE)/$(SHAREDIR)/lib
+	install -m 0644 $(BUILDDIR)/carlos-flyway-runner.jar $(STAGE)/$(SHAREDIR)/lib/
+	# Tomcat's global web.xml and catalina.properties come from the
+	# distribution's own tomcat11 package (a build dependency) rather than
+	# being vendored into this repo: they then track the Tomcat the runtime
+	# libtomcat11-java actually is, and the shipped package still depends only
+	# on tomcat11-common (no stock tomcat11 service on the host).
+	install -d $(STAGE)/etc/carlos-emr/tomcat/Catalina/localhost
+	install -m 0644 $(TOMCAT_ETC)/web.xml $(STAGE)/etc/carlos-emr/tomcat/web.xml
+	install -m 0644 $(TOMCAT_ETC)/catalina.properties $(STAGE)/etc/carlos-emr/tomcat/catalina.properties
+	install -m 0644 $(TOMCAT_ETC)/jaspic-providers.xml $(STAGE)/etc/carlos-emr/tomcat/jaspic-providers.xml
+	install -m 0644 debian/assets/tomcat/server.xml $(STAGE)/etc/carlos-emr/tomcat/server.xml
+	install -m 0644 debian/assets/tomcat/context.xml $(STAGE)/etc/carlos-emr/tomcat/context.xml
+	install -m 0644 debian/assets/tomcat/logging.properties $(STAGE)/etc/carlos-emr/tomcat/logging.properties
+	install -m 0644 debian/assets/tomcat/tomcat-users.xml $(STAGE)/etc/carlos-emr/tomcat/tomcat-users.xml
+	install -m 0644 debian/assets/tomcat/Catalina/localhost/carlos.xml \
+	    $(STAGE)/etc/carlos-emr/tomcat/Catalina/localhost/carlos.xml
+	# nginx front door + ModSecurity/CRS policy
+	install -d $(STAGE)/etc/nginx/sites-available $(STAGE)/etc/nginx/snippets
+	install -m 0644 debian/assets/nginx/carlos-emr.conf $(STAGE)/etc/nginx/sites-available/carlos-emr
+	install -m 0644 debian/assets/nginx/snippets/carlos-emr-headers.conf \
+	    $(STAGE)/etc/nginx/snippets/carlos-emr-headers.conf
+	install -d $(STAGE)/etc/nginx/conf.d
+	install -m 0644 debian/assets/nginx/conf.d/carlos-emr-limits.conf \
+	    $(STAGE)/etc/nginx/conf.d/carlos-emr-limits.conf
+	install -d $(STAGE)/etc/carlos-emr/modsecurity
+	install -m 0644 debian/assets/modsecurity/main.conf $(STAGE)/etc/carlos-emr/modsecurity/main.conf
+	install -m 0644 debian/assets/modsecurity/crs-overrides.conf $(STAGE)/etc/carlos-emr/modsecurity/crs-overrides.conf
+	install -m 0644 debian/assets/modsecurity/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf \
+	    $(STAGE)/etc/carlos-emr/modsecurity/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf
+	install -m 0644 debian/assets/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf \
+	    $(STAGE)/etc/carlos-emr/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf
+	# MariaDB tuning drop-in
+	install -d $(STAGE)/etc/mysql/mariadb.conf.d
+	install -m 0644 debian/assets/mariadb/60-carlos-emr.cnf $(STAGE)/etc/mysql/mariadb.conf.d/60-carlos-emr.cnf
+	# Administrative tooling. carlos-ctl is a Python package (mirroring
+	# carlos-podman's carlos_ctl in name, language and verb set) behind a
+	# tiny shim; the three shell helpers remain the systemd units' direct
+	# workhorses. `carlosctl` stays as a compatibility symlink that prints a
+	# rename note.
+	install -d $(STAGE)/$(LIBDIR)/carlos_ctl $(STAGE)/usr/sbin
+	install -m 0644 debian/assets/carlos_ctl/*.py $(STAGE)/$(LIBDIR)/carlos_ctl/
+	install -m 0755 debian/assets/bin/carlos-ctl $(STAGE)/$(LIBDIR)/carlos-ctl
+	install -m 0755 debian/assets/bin/carlos-emr-backup $(STAGE)/$(LIBDIR)/carlos-emr-backup
+	install -m 0755 debian/assets/bin/carlos-emr-cert $(STAGE)/$(LIBDIR)/carlos-emr-cert
+	install -m 0755 debian/assets/bin/carlos-emr-tomcat $(STAGE)/$(LIBDIR)/carlos-emr-tomcat
+	ln -sf ../lib/carlos-emr/carlos-ctl $(STAGE)/usr/sbin/carlos-ctl
+	ln -sf ../lib/carlos-emr/carlos-ctl $(STAGE)/usr/sbin/carlosctl
+	install -d $(STAGE)/usr/share/man/man8
+	ln -sf carlos-ctl.8.gz $(STAGE)/usr/share/man/man8/carlosctl.8.gz
+	# Config skeletons the maintainer scripts instantiate (never conffiles:
+	# they carry generated credentials).
+	install -d $(STAGE)/$(SHAREDIR)/skel
+	# The skeleton comes from the BUILT WAR, not from src/main/resources.
+	# Those two files are not the same: the pom's antrun step substitutes the
+	# build stamp into target/classes/carlos.properties
+	# (buildDate=$${build.dateTime}, buildVersion=$${build.JOB_NAME}
+	# $${build.BUILD_NUMBER}) and only the WAR's copy has the real values.
+	# Since /etc/carlos-emr/carlos.properties is loaded as an OVERRIDE on top
+	# of the in-WAR file, shipping the unsubstituted source copy put the raw
+	# placeholder text back — and the application prints it in the corner of
+	# the LOGIN page, to every unauthenticated visitor. Verified live.
+	install -m 0644 \
+	    $(STAGE)/$(SHAREDIR)/webapp/carlos/WEB-INF/classes/carlos.properties \
+	    $(STAGE)/$(SHAREDIR)/skel/carlos.properties
+	install -m 0644 debian/assets/skel/carlos-emr.env $(STAGE)/$(SHAREDIR)/skel/carlos-emr.env
+	install -m 0644 debian/assets/skel/backup.env $(STAGE)/$(SHAREDIR)/skel/backup.env
+	install -m 0644 debian/assets/nginx/proxy-params.conf $(STAGE)/$(SHAREDIR)/skel/proxy-params.conf
+	# OscarDocument skeleton. Every directory that a property SET by carlos-ctl
+	# names must be here: Startup.checkAndSetProperty only auto-creates
+	# directories for properties it derives itself (i.e. UNSET ones), so a
+	# configured INVOICE_DIR or ONEDT_INBOX pointing at a missing directory is
+	# a runtime failure the first time that feature writes — billing/invoices
+	# was exactly that bug on a live install. The app-derived set (export/,
+	# document_cache/, billing/download/, form/records/, hrm/,
+	# encounter/oscarMeasurements/styles/) is included too, so the whole tree
+	# exists deterministically with package-controlled modes rather than
+	# appearing piecemeal at first boot under whatever the JVM's umask gives.
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/incomingdocs/1/Fax
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/incomingdocs/1/File
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/incomingdocs/1/Mail
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/incomingdocs/1/Refile
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/fax-incoming
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/eform/images
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/document
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/document_cache
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/export
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/billing/invoices
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/billing/download
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/form/records
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/hrm/sftp_downloads
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/encounter/oscarMeasurements/styles
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/onEDTDocs/inbox
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/onEDTDocs/outbox
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/onEDTDocs/sent
+	install -d $(STAGE)/$(SHAREDIR)/document-skeleton/carlos/onEDTDocs/archive
+	# logrotate
+	install -d $(STAGE)/etc/logrotate.d
+	install -m 0644 debian/assets/logrotate/carlos-emr $(STAGE)/etc/logrotate.d/carlos-emr
+ifeq ($(SKIP_DRUGREF),)
+	install -d debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2
+	cd debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2 && $(JAVA_HOME)/bin/jar xf $(BUILDDIR)/drugref2.war
+	# Pin Hibernate's dialect: autodetection runs a MySQL-8-only
+	# information_schema query that MariaDB rejects, and the whole context
+	# fails to deploy. See the comment inside the file.
+	install -m 0644 debian/assets/drugref-hibernate.properties \
+	    debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2/WEB-INF/classes/hibernate.properties
+	install -d debian/$(DPKG)/$(SHAREDIR)/schema/drugref
+	install -m 0644 database/mysql/development-drugref.sql \
+	    debian/$(DPKG)/$(SHAREDIR)/schema/drugref/
+	install -m 0644 database/mysql/drugref/*.sql debian/$(DPKG)/$(SHAREDIR)/schema/drugref/
+	install -d debian/$(DPKG)/$(SHAREDIR)/skel
+	install -m 0644 debian/assets/skel/drugref2.properties debian/$(DPKG)/$(SHAREDIR)/skel/drugref2.properties
+	install -d debian/$(DPKG)/$(SHAREDIR)/tomcat/Catalina/localhost
+	install -m 0644 debian/assets/tomcat/Catalina/localhost/drugref2.xml \
+	    debian/$(DPKG)/$(SHAREDIR)/tomcat/Catalina/localhost/drugref2.xml
+endif
+
+# The webapp is thousands of small files that Tomcat serves directly; gzipping
+# any of them (the README/txt/xml dh_compress would otherwise pick up under
+# /usr/share) would corrupt the deployed application.
+override_dh_compress:
+	# README.Debian stays UNCOMPRESSED: the systemd units' Documentation=
+	# lines, the man page, and docs/install-deb.md all point at the bare
+	# path, and a .gz there would quietly break every one of those
+	# references (found by the documentation audit).
+	dh_compress -X/usr/share/carlos-emr -XREADME.Debian
+
+# The package ships no ELF objects; skip the toolchain helpers entirely so the
+# build does not spend minutes walking a 400 MB exploded webapp.
+override_dh_strip:
+override_dh_strip_nondeterminism:
+override_dh_dwz:
+override_dh_shlibdeps:
+override_dh_makeshlibs:
+
+# Enable the units but leave starting to the maintainer script: carlos-emr
+# cannot start before postinst has provisioned the database and rendered
+# /etc/carlos-emr/carlos.properties.
+override_dh_installsystemd:
+	dh_installsystemd --no-start --name=carlos-emr
+	dh_installsystemd --no-start --name=carlos-emr-backup
+	dh_installsystemd --no-start --name=carlos-emr-backup-verify
+	dh_installsystemd --no-start --name=carlos-emr-cert-renew

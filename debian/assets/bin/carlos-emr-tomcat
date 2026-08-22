@@ -1,0 +1,196 @@
+#!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
+#
+# Start wrapper for the CARLOS EMR Tomcat instance. Invoked only by
+# carlos-emr.service; run it by hand solely to reproduce a start failure.
+#
+# It exists rather than putting everything in the unit file for three reasons:
+# the JDK has to be located at run time, the JVM options are assembled from
+# operator-owned settings, and the service must not hand off to Tomcat before
+# the database answers — a Tomcat that deploys against a dead database logs
+# thousands of stack traces and leaves the context permanently failed.
+
+set -euo pipefail
+
+CATALINA_HOME=/usr/share/tomcat11
+CATALINA_BASE=/var/lib/carlos-emr/catalina
+CONF_DIR=/etc/carlos-emr
+PROPERTIES="${CONF_DIR}/carlos.properties"
+
+# --- settings ---------------------------------------------------------------
+# systemd already sourced this through EnvironmentFile=, but sourcing it again
+# makes a manual run behave identically to the service.
+if [ -r "${CONF_DIR}/carlos-emr.env" ]; then
+    # shellcheck disable=SC1091
+    . "${CONF_DIR}/carlos-emr.env"
+fi
+
+CARLOS_JAVA_XMS="${CARLOS_JAVA_XMS:-2g}"
+CARLOS_JAVA_XMX="${CARLOS_JAVA_XMX:-2g}"
+CARLOS_TZ="${CARLOS_TZ:-America/Toronto}"
+CARLOS_DB_HOST="${CARLOS_DB_HOST:-127.0.0.1}"
+CARLOS_DB_PORT="${CARLOS_DB_PORT:-3306}"
+CARLOS_JAVA_OPTS="${CARLOS_JAVA_OPTS:-}"
+
+# --- locate the JDK ---------------------------------------------------------
+# CARLOS is built for and tested on Java 21; pick it explicitly rather than
+# taking default-java, which on Ubuntu 26.04 is Java 25. A newer JVM is not a
+# free upgrade for an application this old — removed internal APIs and changed
+# defaults surface as class-loading failures halfway through a clinical page.
+# A candidate only qualifies if it actually IS Java 21 — the JDK's own
+# release file says so without spawning a JVM. An operator-set JAVA_HOME or a
+# default-java pointing at 17 or 25 would otherwise start CARLOS on a runtime
+# it was never tested on, and the failures that produces are class-loading
+# errors halfway through clinical pages, not a clean refusal at startup.
+is_java_21() {
+    [ -x "$1/bin/java" ] && grep -q '^JAVA_VERSION="21' "$1/release" 2>/dev/null
+}
+
+find_java_home() {
+    if [ -n "${JAVA_HOME:-}" ]; then
+        if is_java_21 "${JAVA_HOME}"; then
+            printf '%s' "${JAVA_HOME}"
+            return 0
+        fi
+        echo "carlos-emr: JAVA_HOME (${JAVA_HOME}) is not a Java 21 runtime; ignoring it" >&2
+    fi
+    local d
+    for d in /usr/lib/jvm/java-21-openjdk-* /usr/lib/jvm/java-21-openjdk \
+             /usr/lib/jvm/default-java; do
+        if is_java_21 "${d}"; then
+            printf '%s' "${d}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if ! JAVA_HOME="$(find_java_home)"; then
+    echo "carlos-emr: no Java 21 runtime found. Install openjdk-21-jre-headless." >&2
+    exit 1
+fi
+export JAVA_HOME
+
+# --- sanity checks with actionable messages ---------------------------------
+# Each of these is a real failure that would otherwise appear as a Tomcat stack
+# trace several hundred lines into the log.
+if [ ! -r "${PROPERTIES}" ]; then
+    echo "carlos-emr: ${PROPERTIES} is missing or unreadable." >&2
+    echo "carlos-emr: run 'dpkg-reconfigure carlos-emr' to regenerate it." >&2
+    exit 1
+fi
+if [ ! -d "${CATALINA_HOME}/lib" ]; then
+    echo "carlos-emr: ${CATALINA_HOME} is not a Tomcat installation (is tomcat11-common installed?)." >&2
+    exit 1
+fi
+if [ ! -e "${CATALINA_BASE}/conf/server.xml" ]; then
+    echo "carlos-emr: ${CATALINA_BASE}/conf is not populated; expected a symlink to ${CONF_DIR}/tomcat." >&2
+    exit 1
+fi
+
+# --- wait for the database --------------------------------------------------
+# Bounded, and it fails the unit rather than looping forever: an operator
+# looking at `systemctl status carlos-emr` should see "database never came up",
+# not a service that has been "activating" since Tuesday. systemd's
+# Restart=on-failure retries the whole thing.
+wait_for_db() {
+    local deadline=$(( SECONDS + 120 ))
+    while [ "${SECONDS}" -lt "${deadline}" ]; do
+        # bash's /dev/tcp is enough: we only need to know something is
+        # accepting on the port, and it avoids depending on a client binary
+        # inside the service sandbox.
+        if (exec 3<>"/dev/tcp/${CARLOS_DB_HOST}/${CARLOS_DB_PORT}") 2>/dev/null; then
+            return 0
+        fi
+        sleep 2
+    done
+    return 1
+}
+
+if ! wait_for_db; then
+    echo "carlos-emr: MariaDB at ${CARLOS_DB_HOST}:${CARLOS_DB_PORT} did not accept a connection within 120s." >&2
+    echo "carlos-emr: check 'systemctl status mariadb'." >&2
+    exit 1
+fi
+
+# --- JVM options ------------------------------------------------------------
+# -Dcarlos_override_properties is how the application finds its configuration
+#   outside the WAR; without it CARLOS reads the packaged defaults, which point
+#   at a development database.
+# --add-opens java.base/java.net: required by the application's HTTP client
+#   under the Java 17+ module system; without it outbound integrations fail
+#   with InaccessibleObjectException.
+# -Djava.security.egd=file:/dev/urandom keeps first session-id generation from
+#   blocking for minutes on a freshly provisioned VM with a shallow entropy
+#   pool — a classic "Tomcat took 4 minutes to start" cause.
+# -XX:+ExitOnOutOfMemoryError: a JVM that has run out of heap serves broken
+#   pages and half-written records. Exiting lets systemd restart it, which is
+#   the safer outcome for a clinical record.
+# -XX:+HeapDumpOnOutOfMemoryError writes into /var/lib/carlos-emr/heapdumps,
+#   which is 0750 carlos:carlos: a heap dump of this application IS a PHI
+#   artefact — it holds whatever clinical data was in memory — and must never
+#   land in /tmp.
+# -Djava.util.prefs.userRoot keeps java.util.prefs off the service account's
+#   home directory, which is root-owned; without it the JVM logs a warning
+#   about a preferences directory it cannot create on every single start.
+# Heap dumps accumulate one Xmx-sized PHI file per OOM crash (HotSpot names
+# them by pid, so nothing overwrites) and nothing else expires them; an OOM
+# loop filled the disk. The two newest are plenty to diagnose with.
+if ls /var/lib/carlos-emr/heapdumps/*.hprof >/dev/null 2>&1; then
+    ls -t /var/lib/carlos-emr/heapdumps/*.hprof | tail -n +3 | while IFS= read -r old_dump; do
+        rm -f -- "${old_dump}"
+    done
+fi
+
+CATALINA_OPTS="-Xms${CARLOS_JAVA_XMS} -Xmx${CARLOS_JAVA_XMX}"
+CATALINA_OPTS="${CATALINA_OPTS} -XX:+UseG1GC"
+CATALINA_OPTS="${CATALINA_OPTS} -XX:+ExitOnOutOfMemoryError"
+CATALINA_OPTS="${CATALINA_OPTS} -XX:+HeapDumpOnOutOfMemoryError"
+CATALINA_OPTS="${CATALINA_OPTS} -XX:HeapDumpPath=/var/lib/carlos-emr/heapdumps"
+CATALINA_OPTS="${CATALINA_OPTS} -Djava.awt.headless=true"
+CATALINA_OPTS="${CATALINA_OPTS} -Djava.util.prefs.userRoot=${CATALINA_BASE}/prefs"
+CATALINA_OPTS="${CATALINA_OPTS} -Djava.security.egd=file:/dev/urandom"
+# An unknown zone name silently ran the whole EMR on GMT (the JVM's
+# fallback for an unparseable user.timezone): validate against the system
+# zoneinfo and fall back to the HOST's zone, loudly, instead.
+if [ ! -f "/usr/share/zoneinfo/${CARLOS_TZ}" ]; then
+    echo "carlos-emr: WARNING: CARLOS_TZ='${CARLOS_TZ}' is not a known timezone (no /usr/share/zoneinfo entry); using the host timezone instead" >&2
+    # Same three sources as the postinst derivation (modern cloud images
+    # lack /etc/timezone), and the fallback is itself validated — an
+    # unvalidated bad fallback would put the JVM on UTC while MariaDB
+    # stays on the host zone, recreating the very split this warns about.
+    CARLOS_TZ="$(cat /etc/timezone 2>/dev/null \
+        || timedatectl show -p Timezone --value 2>/dev/null \
+        || readlink /etc/localtime 2>/dev/null | sed 's|.*/zoneinfo/||' \
+        || true)"
+    if [ -z "${CARLOS_TZ}" ] || [ ! -f "/usr/share/zoneinfo/${CARLOS_TZ}" ]; then
+        CARLOS_TZ=UTC
+    fi
+fi
+CATALINA_OPTS="${CATALINA_OPTS} -Duser.timezone=${CARLOS_TZ}"
+CATALINA_OPTS="${CATALINA_OPTS} -Dcarlos_override_properties=${PROPERTIES}"
+CATALINA_OPTS="${CATALINA_OPTS} --add-opens java.base/java.net=ALL-UNNAMED"
+CATALINA_OPTS="${CATALINA_OPTS} ${CARLOS_JAVA_OPTS}"
+
+export CATALINA_HOME CATALINA_BASE CATALINA_OPTS
+export CATALINA_TMPDIR="${CATALINA_BASE}/temp"
+export CATALINA_PID="/run/carlos-emr/tomcat.pid"
+export TZ="${CARLOS_TZ}"
+
+case "${1:-run}" in
+    run)
+        cd "${CATALINA_BASE}"
+        # exec so the JVM becomes the unit's main process: systemd's SIGTERM
+        # then reaches Tomcat directly and it shuts down cleanly, instead of
+        # killing a shell and leaving an orphaned JVM holding port 18080.
+        exec "${CATALINA_HOME}/bin/catalina.sh" run
+        ;;
+    version)
+        exec "${CATALINA_HOME}/bin/version.sh"
+        ;;
+    *)
+        echo "usage: $0 [run|version]" >&2
+        exit 2
+        ;;
+esac

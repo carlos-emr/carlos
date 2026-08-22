@@ -1,0 +1,4 @@
+# DrugRef2 is shipped as a built web application; these are properties of its
+# third-party jars, for the same reasons given in carlos-emr's overrides.
+jar-contains-source
+unknown-java-class-version

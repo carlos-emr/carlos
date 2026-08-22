@@ -683,13 +683,23 @@
                                 strRx += rx.getFullOutLine() + ";;";
                                 strRxNoNewLines.append(rx.getFullOutLine().replaceAll(";", " ") + "\n");
                             }
+                            /*
+                             * ";" is the stash's internal line separator; FrmCustomedPDFServlet splits the
+                             * posted rx parameter on the platform line separator (";;" -> blank line between
+                             * scripts). This must be computed here in the scriptlet: writing the replaceAll
+                             * with a "\\\n" literal inline in the <carlos:encode> value attribute goes through
+                             * JSP tag-attribute unquoting, which turns the intended newline into a literal
+                             * "n" — the servlet then finds no line breaks and renders the prescription body
+                             * empty (drug/instructions/quantity silently missing from printed and faxed PDFs).
+                             */
+                            String strRxForPdf = strRx.replace(";", System.getProperty("line.separator"));
                         %>
                         <tr valign="bottom">
                             <td colspan="2" id="additNotes"></td>
                         </tr>
 
                         <input type="hidden" name="rx"
-                               value="<carlos:encode value='<%= strRx.replaceAll(";","\\\n") %>' context="htmlAttribute"/>"/>
+                               value="<carlos:encode value='<%= strRxForPdf %>' context="htmlAttribute"/>"/>
                         <input type="hidden" name="rx_no_newlines" value="<%= strRxNoNewLines.toString() %>"/>
                         <input type="hidden" name="additNotes" value=""/>
                         </tbody>

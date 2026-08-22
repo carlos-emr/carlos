@@ -1,0 +1,9 @@
+# The carlos-emr/drugref2026 revision this package builds DrugRef from when
+# neither DRUGREF_SRC nor DRUGREF_WAR is supplied. Pin a full commit SHA for a
+# release build: a branch name makes two builds weeks apart ship different
+# code under one package version.
+#
+# The current pin is the master merge commit of the EntityManager-leak fix
+# (carlos-emr/drugref2026#8): without it, drug searches exhaust the JDBC pool
+# after one or two calls and permanently return "None found".
+ref=e1d867a9a6f13cd321218fe3510de20c2e7ad61c

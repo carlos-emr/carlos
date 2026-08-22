@@ -1,0 +1,111 @@
+Source: carlos-emr
+Section: web
+Priority: optional
+Maintainer: CARLOS EMR Maintainers <maintainers@carlos-emr.invalid>
+Build-Depends:
+ debhelper-compat (= 13),
+# dh_installsysusers and the `installsysusers` sequence addon arrived in
+# debhelper 13.6; compat 13 alone is satisfied by older versions that would
+# silently build a package with no system accounts declared.
+ debhelper (>= 13.6~),
+ maven,
+ openjdk-21-jdk-headless,
+ tomcat11,
+ ca-certificates,
+ git,
+ xz-utils
+Standards-Version: 4.7.0
+Homepage: https://github.com/carlos-emr/carlos
+Vcs-Git: https://github.com/carlos-emr/carlos.git
+Vcs-Browser: https://github.com/carlos-emr/carlos
+Rules-Requires-Root: no
+
+Package: carlos-emr
+Architecture: all
+Depends:
+ ${misc:Depends},
+ openjdk-21-jre-headless | openjdk-21-jdk-headless,
+ tomcat11-common (>= 11.0),
+ libtomcat11-java (>= 11.0),
+ mariadb-server (>= 1:11.4),
+ mariadb-client (>= 1:11.4),
+ nginx (>= 1.25.1),
+ libnginx-mod-http-modsecurity,
+ modsecurity-crs,
+ openssl,
+ ca-certificates,
+ restic,
+ adduser,
+# deb-systemd-invoke, used by the maintainer scripts so that policy-rc.d is
+# honoured in chroots and image builds.
+ init-system-helpers (>= 1.54),
+# curl: the postinst readiness probe, `carlos-ctl check`, and the backup job's
+# failure webhook.
+ curl,
+# ss, for the listening-socket assertions in `carlos-ctl check`.
+ iproute2,
+# ps, for the "no component runs as root" assertion in `carlos-ctl check`.
+ procps,
+# python3-bcrypt hashes the replacement for the seeded administrator password.
+ python3,
+ python3-bcrypt,
+ debconf (>= 0.5) | debconf-2.0
+Recommends:
+# certbot only. NOT python3-certbot-nginx: carlos-emr-cert drives certbot with
+# --webroot precisely so the plugin never rewrites
+# /etc/nginx/sites-available/carlos-emr, which is a dpkg conffile.
+ certbot,
+ carlos-emr-drugref (= ${binary:Version}),
+# logrotate consumes /etc/logrotate.d/carlos-emr; without it the ModSecurity
+# audit log grows unbounded, so this is a strong recommendation rather than a
+# suggestion.
+ logrotate,
+# jq makes `carlos-ctl waf tail` readable; it degrades to raw JSON without it.
+ jq
+Suggests:
+ fail2ban,
+ nftables
+Description: CARLOS EMR - Canadian electronic medical record (single-host deployment)
+ CARLOS (Clinical Assisting Recording Ledger Open Source) is an open-source
+ electronic medical record for Canadian primary care, with HL7 and FHIR
+ interfaces and Ontario and British Columbia billing support.
+ .
+ This package deploys the whole system on one machine: the CARLOS web
+ application on a dedicated Tomcat 11 instance, a MariaDB schema provisioned
+ with least-privilege accounts, and an nginx front door running ModSecurity 3
+ with the OWASP Core Rule Set in blocking mode. TLS is on by default with a
+ self-signed certificate that can be replaced by a certbot-managed Let's
+ Encrypt certificate at any time. Nightly restic backups and a weekly restore
+ drill are installed as systemd timers.
+ .
+ Every long-running component is unprivileged: the application runs as the
+ system user "carlos", backups as "carlos-backup", nginx as "www-data" and
+ MariaDB as "mysql". Root is used only by the package maintainer scripts and
+ by the certificate-renewal timer.
+ .
+ For a container-based, multi-pod deployment with an observability stack see
+ the carlos-podman project instead.
+
+Package: carlos-emr-drugref
+Architecture: all
+Depends:
+ ${misc:Depends},
+# Exact version: the two packages ship one Tomcat instance and one set of
+# database accounts between them, and carlos-emr-drugref's postinst calls
+# carlos-ctl from carlos-emr.
+ carlos-emr (= ${binary:Version}),
+# mariadb-client (not -core) for the schema load; the -core package has the
+# client but not the tooling the rest of this deployment uses.
+ mariadb-client (>= 1:11.4),
+# deb-systemd-invoke, to restart the shared Tomcat after (un)deploying the
+# DrugRef context.
+ init-system-helpers (>= 1.54)
+Description: DrugRef2 drug reference service for CARLOS EMR
+ DrugRef2 is the drug and drug-interaction reference service CARLOS queries
+ over XML-RPC when a prescription is written. It is built from
+ carlos-emr/drugref2026 and deployed as a second web application in the
+ CARLOS Tomcat instance, reachable only over the host loopback interface.
+ .
+ The package creates the drugref2 database, loads the Health Canada Drug
+ Product Database seed shipped with CARLOS, and points the EMR at the local
+ service. Without it, CARLOS prescription drug lookups return no results.

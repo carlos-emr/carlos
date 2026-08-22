@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SPDX-License-Identifier: GPL-2.0-or-later
+  Copyright (C) 2026 CARLOS Contributors
+
+  Context descriptor for the CARLOS application. The file name fixes the
+  context path (/carlos); docBase points at the exploded webapp under
+  /usr/share/carlos-emr, which is owned by root and read-only to the `carlos`
+  uid the JVM runs as. Keeping the served tree outside the writable state
+  directory is what stops a web-shell dropped through an application flaw from
+  being served back: the process that could write it has nowhere to write it
+  that Tomcat will execute.
+-->
+<Context docBase="/usr/share/carlos-emr/webapp/carlos"
+         reloadable="false"
+         crossContext="false"
+         useHttpOnly="true"
+         sessionCookiePath="/carlos"
+         privileged="false">
+
+    <!--
+      The application tree is ~9000 static files; the default 10 MB resource
+      cache thrashes on it and shows up as slow first paint on every page.
+    -->
+    <Resources cachingAllowed="true" cacheMaxSize="102400" cacheTtl="60000"/>
+</Context>
