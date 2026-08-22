@@ -11,12 +11,12 @@ on:
         required: true
         type: string
 
-# One GLOBAL group (not per-tag): the publish step's latest-pointer decision
-# reads the set of already-published stable releases, so two stable tags
-# publishing concurrently could each miss the other (still a draft at query
-# time) and both claim --latest. Releases are rare and deliberate — strict
-# serialization costs nothing and removes the race; same-tag re-runs still
-# queue exactly as before.
+# One GLOBAL group (not per-tag): the release-notes "previous tag" lookup and
+# the draft bookkeeping read the set of existing releases, so serializing all
+# release runs keeps that state consistent. Releases are rare and deliberate —
+# strict serialization costs nothing; same-tag re-runs still queue as before.
+# (The final publish + latest-pointer decision now happens in deb-packages.yml,
+# after the .debs are attached.)
 concurrency:
   group: publish-release
   cancel-in-progress: false
@@ -197,7 +197,7 @@ jobs:
       ref: refs/tags/${{ needs.validate.outputs.tag }}
 
   package-and-publish:
-    name: Package and publish immutable release
+    name: Package release draft and dispatch deb build
     needs: [validate, full-check]
     if: always() && needs.validate.outputs.skip != 'true' && needs.full-check.result == 'success'
     runs-on: ubuntu-latest
@@ -205,6 +205,13 @@ jobs:
       contents: write
       attestations: write
       id-token: write
+      # actions:write lets the final step dispatch the Debian-packages
+      # workflow, which attaches the .debs to the draft and publishes it.
+      # An explicit dispatch is REQUIRED: this job leaves the release as a
+      # draft (no release event to trigger on), and even once deb-packages
+      # publishes it, GitHub suppresses workflow triggers for events created
+      # with the workflow-scoped GITHUB_TOKEN. workflow_dispatch is exempt.
+      actions: write
     env:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ needs.validate.outputs.tag }}
@@ -342,29 +349,27 @@ jobs:
             fi
           done
 
-      - name: Publish the immutable release
+      - name: Dispatch the Debian package build that finalizes the release
         run: |
           set -euo pipefail
-
-          if [ "$IS_PRERELEASE" = "true" ]; then
-            gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease --latest=false
-          else
-            # A maintenance patch published from an OLDER release line (the
-            # documented supported-release flow) must not steal the repo's
-            # "latest release" pointer from a newer train: mark latest only
-            # when this tag tops every published stable release under the
-            # CalVer numeric sort (first-ever stable release wins trivially).
-            # Paginated: a fixed --limit would stop seeing the newest stable
-            # release once the repo accumulates more releases than the cap,
-            # letting an old-train patch wrongly grab the latest pointer.
-            latest_flag=--latest
-            existing=$(gh api --paginate "repos/$REPO/releases?per_page=100" \
-              --jq '.[] | select((.draft or .prerelease) | not) | .tag_name')
-            top=$({ printf '%s\n' "$RELEASE_TAG"; printf '%s\n' "$existing"; } \
-              | sed '/^$/d' | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
-            if [ "$top" != "$RELEASE_TAG" ]; then
-              latest_flag=--latest=false
-              echo "A newer stable release ($top) is already published — not marking $RELEASE_TAG as latest."
-            fi
-            gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease=false "$latest_flag"
+          # The release is still a DRAFT at this point: the WAR + SBOM are
+          # attached but it is NOT published. deb-packages.yml downloads the
+          # WAR from the draft, builds and attaches the .deb assets, and then
+          # publishes the release as its final step — so the immutable release,
+          # once locked, already carries every asset (the repo enables
+          # immutable releases, which forbid attaching assets after publish).
+          # It is dispatched by hand rather than relying on a trigger: this job
+          # has not published anything yet, so there is no release event to
+          # react to, and workflow_dispatch is also exempt from the
+          # GITHUB_TOKEN event suppression noted above.
+          # Dispatched on the TAG's own ref: workflow_dispatch requires the
+          # workflow file to exist on the dispatched ref, and deb-packages.yml
+          # lives on the release lines (and their tags), not necessarily on
+          # the default branch — a default-branch dispatch 404'd on every
+          # release. The tag is also exactly the tree the build checks out.
+          if ! gh workflow run deb-packages.yml --repo "$REPO" \
+                 --ref "refs/tags/$RELEASE_TAG" \
+                 -f "tag=$RELEASE_TAG"; then
+            echo "::error::Draft release $RELEASE_TAG is ready but the Debian package build could not be dispatched, so the release was NOT published. Run it manually to finalize: gh workflow run deb-packages.yml --ref refs/tags/$RELEASE_TAG -f tag=$RELEASE_TAG"
+            exit 1
           fi
