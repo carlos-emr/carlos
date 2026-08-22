@@ -179,17 +179,12 @@ class JspJavaScriptEncodingRegressionTest {
         assertThat(zipFileIndex).isGreaterThanOrEqualTo(0);
         int downloadAnchorStart = rourkeExportJsp.lastIndexOf("<a", zipFileIndex);
         assertThat(downloadAnchorStart).isGreaterThanOrEqualTo(0);
-        int openingAnchorCloseMarker = rourkeExportJsp.indexOf("\">", zipFileIndex);
-        assertThat(openingAnchorCloseMarker).isGreaterThan(zipFileIndex);
-        int openingAnchorEnd = openingAnchorCloseMarker + 1;
-        int downloadAnchorEnd = rourkeExportJsp.indexOf("</a>", openingAnchorEnd);
-        assertThat(downloadAnchorEnd).isGreaterThan(openingAnchorEnd);
-        String downloadHrefSnippet = rourkeExportJsp.substring(downloadAnchorStart, openingAnchorEnd + 1);
-        String downloadLinkTextSnippet = rourkeExportJsp.substring(openingAnchorEnd + 1, downloadAnchorEnd);
+        int downloadAnchorEnd = rourkeExportJsp.indexOf("</a>", zipFileIndex);
+        assertThat(downloadAnchorEnd).isGreaterThan(zipFileIndex);
+        String downloadAnchorSnippet = rourkeExportJsp.substring(downloadAnchorStart, downloadAnchorEnd + "</a>".length());
 
-        assertThat(downloadHrefSnippet)
-                .containsPattern("zipFile=\\s*" + carlosEncodePattern("file", "uriComponent"));
-        assertThat(downloadLinkTextSnippet)
+        assertThat(downloadAnchorSnippet)
+                .containsPattern("zipFile=\\s*" + carlosEncodePattern("file", "uriComponent"))
                 .containsPattern(carlosEncodePattern("file", "html"));
     }
 
