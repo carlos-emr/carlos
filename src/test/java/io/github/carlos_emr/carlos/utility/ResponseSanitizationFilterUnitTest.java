@@ -137,6 +137,44 @@ class ResponseSanitizationFilterUnitTest {
     }
 
     @Nested
+    @DisplayName("web-service buffer size parsing")
+    class WebServiceBufferParsing {
+
+        @Test
+        @DisplayName("should use the configured value when a positive integer is provided")
+        void shouldUseConfiguredValue_whenPositiveIntegerProvided() {
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("131072")).isEqualTo(131072);
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("  262144 ")).isEqualTo(262144);
+        }
+
+        @Test
+        @DisplayName("should fall back to the default when value is absent or blank")
+        void shouldFallBackToDefault_whenAbsentOrBlank() {
+            int expected = ResponseSanitizationFilter.DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES;
+            assertThat(ResponseSanitizationFilter.parseBufferBytes(null)).isEqualTo(expected);
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("")).isEqualTo(expected);
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("   ")).isEqualTo(expected);
+        }
+
+        @Test
+        @DisplayName("should warn and fall back to the default when value is non-positive or non-numeric")
+        void shouldWarnAndFallBackToDefault_whenNonPositiveOrNonNumeric() {
+            int expected = ResponseSanitizationFilter.DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES;
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                assertThat(ResponseSanitizationFilter.parseBufferBytes("0")).isEqualTo(expected);
+                assertThat(ResponseSanitizationFilter.parseBufferBytes("-1")).isEqualTo(expected);
+                assertThat(ResponseSanitizationFilter.parseBufferBytes("abc")).isEqualTo(expected);
+
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Unrecognized response.sanitization.ws.buffer.bytes value");
+                });
+            }
+        }
+    }
+
+    @Nested
     @DisplayName("containsStackTrace()")
     class ContainsStackTrace {
 
@@ -1016,6 +1054,77 @@ class ResponseSanitizationFilterUnitTest {
             assertThat(sanitized)
                     .doesNotContain("NullPointerException")
                     .doesNotContain("io.github.carlos_emr")
+                    .contains("Reference ID:");
+        }
+
+        @Test
+        @DisplayName("should enlarge the response buffer for a /ws request")
+        void shouldEnlargeResponseBuffer_forWebServiceRequest() throws Exception {
+            MockHttpServletRequest request = wsRequest("GET");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            int defaultBuffer = response.getBufferSize();
+
+            FilterChain chain = (req, res) -> ((HttpServletResponse) res).setStatus(200);
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getBufferSize())
+                    .isGreaterThanOrEqualTo(ResponseSanitizationFilter.DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES)
+                    .isGreaterThan(defaultBuffer);
+        }
+
+        @Test
+        @DisplayName("should not enlarge the response buffer for a non-/ws request")
+        void shouldNotEnlargeResponseBuffer_forNonWebServiceRequest() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/provider/providercontrol");
+            request.setRequestURI("/carlos/provider/providercontrol");
+            request.setServletPath("/provider/providercontrol");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            int defaultBuffer = response.getBufferSize();
+
+            FilterChain chain = (req, res) -> ((HttpServletResponse) res).setStatus(200);
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getBufferSize()).isEqualTo(defaultBuffer);
+        }
+
+        @Test
+        @DisplayName("should sanitize a /ws 500 partial body that would otherwise exceed the default buffer and commit")
+        void shouldSanitizePartialBody_whenLargerThanDefaultBufferOnWebServiceRoute() throws Exception {
+            MockHttpServletRequest request = wsRequest("POST");
+            // MockHttpServletResponse commits once written content exceeds its buffer size, like a
+            // real container: its ResponseServletOutputStream.write(int) calls
+            // setCommittedIfBufferSizeExceeded(), and bulk writes route through that per-byte path.
+            // So without the /ws buffer enlargement this partial body (> default buffer) commits and
+            // becomes unrecoverable (the #2994 leak) and this test fails; with it, the body stays
+            // uncommitted and the existing pass-through sanitization replaces it. (Hence this is a
+            // true regression test, not a false positive.)
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            int defaultBuffer = response.getBufferSize();
+            StringBuilder sb = new StringBuilder(
+                    "{\"appointmentNo\":1234,\"demographic\":{\"firstName\":\"Jane\",\"phone\":\"250-555-0143\"");
+            while (sb.length() <= defaultBuffer * 2) {
+                sb.append(",\"note\":\"Jane Doe clinical note padding\"");
+            }
+            String partialPhiJson = sb.toString();
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                // Stream opened while status is still 200 (pass-through), partial body written,
+                // then a mid-serialization failure flips the status to 500.
+                httpRes.setContentType("application/json");
+                res.getOutputStream().write(partialPhiJson.getBytes(StandardCharsets.UTF_8));
+                httpRes.setStatus(500);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            String body = response.getContentAsString();
+            assertThat(body)
+                    .doesNotContain("Jane")
+                    .doesNotContain("250-555-0143")
                     .contains("Reference ID:");
         }
     }

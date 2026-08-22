@@ -34,8 +34,9 @@ import org.apache.struts2.ServletActionContext;
 /**
  * Struts2 action for demographic search. Replaces the {@code demographiccontrol.jsp}
  * {@code displaymode=Search} and {@code displaymode=Search } (trailing space) routes.
- * Performs security validation and routes to the appropriate result JSP. The target
- * JSPs handle their own data loading via Spring-managed DAOs and Managers.
+ * Performs security validation, identifies requests for the recent-patient shortcut,
+ * and routes to the appropriate result JSP. The target JSPs handle their own data
+ * loading via Spring-managed DAOs and Managers.
  *
  * <p>Routes to {@code demographicsearchresults.jsp} for general search, or
  * {@code demographicsearch2apptresults.jsp} for appointment-context search
@@ -45,6 +46,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-04-04
  */
 public class DemographicSearch2Action extends ActionSupport {
+
+    static final String RECENT_PATIENTS_ATTRIBUTE = "showRecentPatients";
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -62,8 +65,9 @@ public class DemographicSearch2Action extends ActionSupport {
     }
 
     /**
-     * Validates session and demographic read privileges, then routes to the
-     * appropriate search results JSP based on the {@code displaymode} parameter.
+     * Validates session and demographic read privileges, identifies whether the
+     * target view should load recent patients, then routes to the appropriate
+     * search results JSP based on the {@code displaymode} parameter.
      *
      * @return {@link #SUCCESS} for general search results, or {@code "apptResults"}
      *         for appointment-context search (when {@code displaymode} is {@code "Search "})
@@ -83,6 +87,9 @@ public class DemographicSearch2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
+        request.setAttribute(RECENT_PATIENTS_ATTRIBUTE, isRecentPatientsRequest(
+                request.getParameter("keyword"), request.getParameter("ptstatus")));
+
         // "Search " (with trailing space) is set by appointment-context forms
         // (addappointment.jsp, editappointment.jsp, ticklerAdd.jsp, PatientSearch.jsp, etc.)
         // so appointment workflows land on the appointment-specific search results view.
@@ -94,5 +101,11 @@ public class DemographicSearch2Action extends ActionSupport {
             logger.debug("DemographicSearch2Action: unexpected displaymode='{}', falling through to general search", displaymode);
         }
         return SUCCESS;
+    }
+
+    private static boolean isRecentPatientsRequest(String keyword, String patientStatus) {
+        // An empty status is the explicit "All" view, so only active/default blank searches use recents.
+        boolean activePatients = patientStatus == null || "active".equals(patientStatus);
+        return activePatients && keyword != null && keyword.isEmpty();
     }
 }

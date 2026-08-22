@@ -38,6 +38,7 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -48,7 +49,7 @@
     String month = request.getParameter("pmonth") != null ? request.getParameter("pmonth") : "5";
     String day = request.getParameter("pday") != null ? request.getParameter("pday") : "8";
 %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -113,12 +114,33 @@
     <script language="JavaScript">
 
 
-        function selectProvider(p, pn) {
-            newGroupNo = p;
+        <fmt:message key="receptionist.receptionistfindprovider.msgMissingSecurityToken" var="missingSecurityTokenMessage"/>
+
+        function selectProvider(p) {
+            var csrfToken = document.getElementById('providerSelectionCsrfToken');
+            if (!csrfToken || !csrfToken.value) {
+                // Fail closed and tell the user: a silent no-op here looks like a dead link.
+                console.error('Provider selection stopped because the CSRF token is unavailable.');
+                alert("${carlos:forJavaScriptBlock(missingSecurityTokenMessage)}");
+                return false;
+            }
+
+            var newGroupNo = p;
             var form = document.createElement('form');
             form.method = 'post';
-            form.action = '<%= request.getContextPath() %>/provider/providercontrol';
-            var fields = {provider_no: '<%=curUser_no%>', start_hour: '<%=startHour%>', end_hour: '<%=endHour%>', every_min: '<%=everyMin%>', color_template: 'deepblue', dboperation: 'updatepreference', displaymode: 'updatepreference', default_servicetype: '<%=defaultServiceType%>', mygroup_no: newGroupNo};
+            form.action = '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>/provider/providercontrol';
+            var fields = {
+                provider_no: '<carlos:encode value='<%= curUser_no %>' context="javaScriptBlock"/>',
+                start_hour: '<%=startHour%>',
+                end_hour: '<%=endHour%>',
+                every_min: '<%=everyMin%>',
+                color_template: 'deepblue',
+                dboperation: 'updatepreference',
+                displaymode: 'updatepreference',
+                default_servicetype: '<carlos:encode value='<%= defaultServiceType %>' context="javaScriptBlock"/>',
+                mygroup_no: newGroupNo
+            };
+            fields[csrfToken.name] = csrfToken.value;
             for (var key in fields) {
                 var input = document.createElement('input');
                 input.type = 'hidden';
@@ -128,6 +150,7 @@
             }
             document.body.appendChild(form);
             form.submit();
+            return false;
         }
 
         function selectProviderCaisi(p, pn) {
@@ -150,6 +173,9 @@
 </head>
 <body bgcolor="ivory" bgproperties="fixed" onLoad="setfocus()"
       topmargin="0" leftmargin="0" rightmargin="0">
+
+<input type="hidden" id="providerSelectionCsrfToken"
+       name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr>
@@ -211,8 +237,10 @@
                 if (bGrpSearch) {
                     g = (MyGroup) o;
                     sp = String.valueOf(g.getId().getMyGroupNo());
-                    spnl = String.valueOf(p.getLastName());
-                    spnf = String.valueOf(p.getFirstName());
+                    // Group rows carry no provider name; the legacy code dereferenced the
+                    // still-null Provider here and made every "." group search throw.
+                    spnl = "";
+                    spnf = "";
                     if (checkRestriction(restrictions, g.getId().getMyGroupNo())) {
                         continue;
                     }
@@ -232,20 +260,20 @@
         <tr bgcolor="<%=bColor?bgcolordef:"white"%>">
             <td>
                 <%if (caisi) { %> <a href=#
-                                     onClick="selectProviderCaisi('<%=sp%>','<%=spnl+", "+spnf%>')"><%=sp%>
+                                     onClick="selectProviderCaisi('<carlos:encode value='<%= sp %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= spnl + ", " + spnf %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= sp %>' context="html"/>
             </a></td>
             <% } else if (custom != null && custom.equals("true")) { %>
-            <a href="#" onClick="selectProviderCustom('<%=sp%>','<%=spnl+", "+spnf%>')"><%=sp%>
+            <a href="#" onClick="selectProviderCustom('<carlos:encode value='<%= sp %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= spnl + ", " + spnf %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= sp %>' context="html"/>
             </a></td>
             <%} else { %>
             <a href=#
-               onClick="selectProvider('<%=sp%>','<%=URLEncoder.encode(spnl+", "+spnf)%>')"><%=sp%>
+               onClick="return selectProvider('<carlos:encode value='<%= sp %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= sp %>' context="html"/>
             </a>
             </td>
             <%} %>
-            <td><%=spnl%>
+            <td><carlos:encode value='<%= spnl %>' context="html"/>
             </td>
-            <td><%=spnf%>
+            <td><carlos:encode value='<%= spnf %>' context="html"/>
             </td>
         </tr>
         <%
@@ -264,10 +292,10 @@
         %>
         <tr bgcolor="#CCCCFF">
             <td colspan='3'>
-                <%if (caisi) { %> <a href=# onClick="selectProviderCaisi('<%=sp%>','')"><%=sp%>
+                <%if (caisi) { %> <a href=# onClick="selectProviderCaisi('<carlos:encode value='<%= sp %>' context="javaScriptAttribute"/>','')"><carlos:encode value='<%= sp %>' context="html"/>
             </a></td>
             <%} else { %>
-            <a href=# onClick="selectProvider('<%=sp%>','')"><%=sp%>
+            <a href=# onClick="return selectProvider('<carlos:encode value='<%= sp %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= sp %>' context="html"/>
             </a>
             </td>
             <%} %>
@@ -282,16 +310,18 @@
         <script language="JavaScript">
             <!--
             <%if(caisi) {%>
-            var nodes = document.getElementsByName("<%=sp%>_name");
+            var nodes = document.getElementsByName("<carlos:encode value='<%= sp %>' context="javaScriptBlock"/>_name");
             var name = '';
             if (nodes.length == 1) {
                 name = nodes[0].value;
             }
-            selectProviderCaisi('<%=sp%>', name);
+            selectProviderCaisi('<carlos:encode value='<%= sp %>' context="javaScriptBlock"/>', name);
             <%} else if(custom != null && custom.equals("true")){%>
-            selectProviderCustom('<%=sp%>', name);
+            // NOTE: `name` is not declared on this branch, so it resolves to the global
+            // window.name. Pre-existing; fixing it needs a decision on what name to send.
+            selectProviderCustom('<carlos:encode value='<%= sp %>' context="javaScriptBlock"/>', name);
             <%} else {%>
-            selectProvider('<%=sp%>', '');
+            selectProvider('<carlos:encode value='<%= sp %>' context="javaScriptBlock"/>');
             <%}%>
             //-->
         </SCRIPT>
