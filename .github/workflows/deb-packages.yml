@@ -59,6 +59,12 @@ jobs:
   build-debs:
     name: Build and attach .deb packages
     runs-on: ubuntu-latest
+    # Pin the shell: container run steps otherwise default to /bin/sh, which
+    # differs from the runner's bash and broke earlier iterations. bash ships
+    # in the ubuntu:26.04 image, so set it once for the whole job.
+    defaults:
+      run:
+        shell: bash
     container:
       # Digest-pinned like every third-party artefact in this repository's
       # workflows: a re-pushed tag must never change what runs with release
@@ -273,8 +279,7 @@ jobs:
           # publish-release.yml) because the release is only published once all
           # assets, including these .debs, are in place.
           # grep -E keeps the exact anchored semantics of the original regex
-          # (digits required, matched at end); the step runs under sh/dash, so
-          # bash's [[ ... =~ ]] is unavailable and a shell glob would not anchor.
+          # (digits required, matched at end).
           prerelease=false
           if printf '%s' "$RELEASE_TAG" | grep -Eq -- '-(alpha|beta|rc)[1-9][0-9]*$'; then
             prerelease=true
