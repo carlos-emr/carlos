@@ -183,7 +183,19 @@ async function checkProtectedRedirect(browser, appPath) {
   wirePage(page, label);
   await gotoApp(page, label, appPath);
   const text = await bodyText(page);
-  const atLogin = /login|username|password/i.test(text) || /login|logout/i.test(page.url());
+  // Three ways the app legitimately lands an unauthenticated client on the
+  // login surface: wording in the visible text, a login/logout URL, or the
+  // login FORM itself. The last matters because the served login page renders
+  // its username/password/pin fields with placeholder attributes, which never
+  // appear in innerText — so a correct auth redirect to /carlos/index used to
+  // read as a missing-auth-redirect finding purely because the heuristic
+  // could not see the form it had been handed.
+  const hasLoginForm =
+    (await page.locator('#username').count()) > 0 &&
+    (await page.locator('#password').count()) > 0;
+  const atLogin = hasLoginForm
+    || /login|username|password/i.test(text)
+    || /login|logout/i.test(page.url());
   if (!atLogin) {
     findings.push({ label, type: 'missing-auth-redirect', url: page.url(), body: text.slice(0, 500) });
   }

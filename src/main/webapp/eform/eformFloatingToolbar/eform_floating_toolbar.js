@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", function(){
     addNavElement();
     disableTextareaResize();
     moveSubjectReverse();
+    hideAdminPreviewSaveButton();
 
     // Add eForm attachments
     addEFormAttachments();
@@ -17,6 +18,7 @@ document.addEventListener("DOMContentLoaded", function(){
     const isDownload = document.getElementById("isDownloadEForm") ? document.getElementById("isDownloadEForm").value : "false";
     if (isDownload && isDownload === "true") {
         downloadEForm();
+        showRenderAdvisory();
     }
 
     // Handle EForm errors
@@ -38,7 +40,10 @@ document.addEventListener("DOMContentLoaded", function(){
 
 	const isSuccessAndAutoclose = document.getElementById("isSuccess_Autoclose") &&
 		document.getElementById("isSuccess_Autoclose").value === 'true';
-	if (isSuccessAndAutoclose) {
+    const warningMessage = document.getElementById("warningMessage") ? document.getElementById("warningMessage").value : "";
+    if (warningMessage) {
+        showWarningAlert(warningMessage.replaceAll(String.raw`\n`, "\n"), isSuccessAndAutoclose ? remoteClose : undefined);
+    } else if (isSuccessAndAutoclose) {
 		showSuccessAlert(remoteClose);
 	}
 	});
@@ -53,6 +58,18 @@ window.onerror = function uncaughtExceptionHandler(message, source, lineNumber, 
     eform.error = message;
     let context = document.getElementById("context").value;
     jQuery.post(context + "/eform/logEformError", eform);
+}
+
+function hideAdminPreviewSaveButton() {
+    const demographicNo = document.getElementById("demographicNo");
+    if (demographicNo?.value !== "-1") {
+        return;
+    }
+
+    const remoteSubmitButton = document.getElementById("remoteSubmitButton");
+    if (remoteSubmitButton) {
+        remoteSubmitButton.style.display = "none";
+    }
 }
 
 function getEForm() {
@@ -76,12 +93,132 @@ function submitEForm() {
 	return true;
 }
 
+let editorLoadingBlockCount = 0;
+
+/**
+ * True when the Rich Text Letter editor is still initializing: its template dropdown still shows the
+ * legacy " loading... " placeholder. Saving now would serialize the half-built editor and persist a
+ * broken snapshot that renders as an empty "loading" page forever, so every save/download/fax/email
+ * entry point checks this BEFORE showing a (locked) spinner or appending action inputs — otherwise
+ * an abort would leave an undismissable overlay and stale hidden inputs behind. After a few
+ * consecutive blocks the editor is probably broken (a failed template fetch never leaves the
+ * placeholder), so escalate the message and post a marker to the server rather than telling the
+ * clinician to "wait" forever. The (visible) alert is raised here so callers stay simple.
+ */
+function editorStillLoading() {
+	// Scoped to the editor's OWN template dropdown (#template, created by editControl2.js and
+	// repopulated when efmformrtl_templates returns). The previous query was every `select option`
+	// in the document, and the "loading..." literal appears nowhere in CARLOS-shipped code — it can
+	// only come from a stored eForm's markup. So any third-party form that happened to ship an
+	// option with that exact text blocked Save, Download, Fax, Email and Add-to-Documents outright,
+	// with no timeout, and the escalation below told the clinician to reopen the letter, which
+	// reproduced it.
+	const templateSelect = document.getElementById('template');
+	const stillLoading = templateSelect !== null
+		&& Array.from(templateSelect.options)
+			.some((option) => option.textContent.trim() === 'loading...');
+	if (!stillLoading) {
+		editorLoadingBlockCount = 0;
+		return false;
+	}
+	editorLoadingBlockCount += 1;
+	if (editorLoadingBlockCount >= 3) {
+		try {
+			const contextEl = document.getElementById('context');
+			const fidEl = document.getElementById('fid');
+			if (contextEl && fidEl) {
+				jQuery.post(contextEl.value + '/eform/logEformError',
+					{ formId: fidEl.value, error: 'RTL editor never left loading state; save blocked' });
+			}
+		} catch (e) {
+			// best-effort telemetry only; never let it block the guard
+		}
+		// After three blocks the editor is not going to finish (a failed template fetch never
+		// leaves the placeholder), so the choice is the clinician's: refusing forever loses whatever
+		// they have typed, which is its own kind of data loss. The risk is named rather than implied.
+		return !confirm('The letter editor did not finish loading. Saving now may store an incomplete '
+			+ 'letter that reopens as a blank "loading" page.\n\nClick OK to save anyway, or Cancel to '
+			+ 'close and reopen the letter.');
+	}
+	alert('The letter editor is still loading. Please wait a moment and try again.');
+	return true;
+}
+
+/**
+ * True when the eForm declares HTML5 constraints that are not satisfied, in which case the save
+ * cannot proceed and the reason has been shown to the user.
+ *
+ * <p>Why this guard has to exist: {@link remoteSave} submits through the eForm's own
+ * {@code <input type="submit" name="SubmitButton">} when the form declares one, and clicking a
+ * native submit button runs constraint validation. A form with an unsatisfied {@code required}
+ * field therefore never posts — but the click throws nothing, so remoteSave used to report success
+ * and the composite callers carried on. Since remoteDownload/remoteFax/remoteEmail/saveAsEdoc show
+ * a LOCKED spinner and set their workflow flag BEFORE saving, the result was an undismissable
+ * overlay over a form that was never saved: the same hazard the editorStillLoading() guard above
+ * already defends against. Observed on a real clinic form whose Past Medical History field is
+ * marked required.</p>
+ *
+ * <p>The check is deliberately applied to every save path, not only the native-button one. The
+ * other paths reach the server through HTMLFormElement.submit(), which bypasses constraint
+ * validation entirely — so before this, whether a form author's {@code required} was enforced at
+ * all depended on the incidental detail of whether their form declared a submit button. Two
+ * different validation semantics for the same action is the underlying defect; this makes the
+ * stricter, author-intended one uniform.</p>
+ *
+ * <p>Cleanup here (unlike the editorStillLoading guard) must also clear the workflow flags: those
+ * callers check editorStillLoading BEFORE setting their flag, but the form's validity cannot be
+ * known until the save is actually attempted, so by this point the flag is already on the form and
+ * a later plain Save would otherwise ride it into a download/fax/email.</p>
+ */
+function eFormValidationBlocked() {
+	const ef = getEForm();
+	// No resolvable form, or a browser/form without the constraint API: nothing can be asserted, so
+	// never block on it — the pre-existing submit paths stay exactly as they were.
+	if (!ef || typeof ef.checkValidity !== "function" || ef.checkValidity()) {
+		return false;
+	}
+	// reportValidity focuses the offending control and shows the browser's own message, which names
+	// the field. Do not substitute a generic alert: the clinician needs to know WHICH field.
+	if (typeof ef.reportValidity === "function") {
+		ef.reportValidity();
+	}
+	HideSpin();
+	clearWorkflowFlags();
+	return true;
+}
+
 	/**
 	 * Triggers the eForm save/submit function
 	 */
 function remoteSave() {
 
 	try {
+		// Last line of defense for direct callers (the plain Save button): composite callers
+		// (remoteDownload/remoteFax/remoteEmail) check editorStillLoading() BEFORE their own
+		// spinner/input mutations, so by the time they reach here the check is already clear. Hide any
+		// spinner a caller may have shown and abort with the function's boolean contract.
+		if (editorStillLoading()) {
+			HideSpin();
+			return false;
+		}
+
+		// A legacy string timer that never ran can leave fields unpopulated. The compat shim's own
+		// capture-phase submit listener cannot help here: every save path below reaches the server
+		// through HTMLFormElement.submit(), which fires no submit event by design.
+		const timerCompat = window.__carlosEformTimerCompat;
+		if (timerCompat && typeof timerCompat.shouldBlockSubmission === "function"
+				&& timerCompat.shouldBlockSubmission()) {
+			HideSpin();
+			return false;
+		}
+
+		// Must run before appendImageInputs()/moveSubject() below mutate the form, and before the
+		// submit-bound spinner is armed: an abort after those leaves the toolbar's inputs on a form
+		// the user is still editing.
+		if (eFormValidationBlocked()) {
+			return false;
+		}
+
 		// bind the spinner to the form submit event.
 		jQuery('form').on('submit', function(e) {
 			ShowSpin(true);
@@ -249,7 +386,11 @@ function addFormIfNotFound(form, demographicNo, delegate) {
         text: 'Preview',
         title: 'Preview'
     }).click(function () {
-        getPdf('FORM', formValue, 'method=renderFormPDF&formId=' + formValue + '&formName=' + formName + '&demographicNo=' + demographicNo);
+        const formPreviewParameters = 'method=renderFormPDF'
+            + '&formId=' + encodeURIComponent(formValue)
+            + '&formName=' + encodeURIComponent(formName)
+            + '&demographicNo=' + encodeURIComponent(demographicNo);
+        getPdf('FORM', formValue, formPreviewParameters);
     });
 
     const newLiFormElement = jQuery('<li>', {
@@ -277,15 +418,46 @@ function addEFormAttachments() {
  * open 'Save as' window dialog
  */
 function remoteDownload() {
+    // Check BEFORE ShowSpin(true) (a locked overlay) and before appending the action input: if the
+    // editor is still loading, aborting after either would strand an undismissable spinner and a
+    // stale saveAndDownloadEForm=true that a later plain Save would silently ride into a download.
+    if (editorStillLoading()) {
+        return;
+    }
+    clearWorkflowFlags();
     ShowSpin(true);
-    const newElement = document.createElement("input");
-    newElement.setAttribute("id", "saveAndDownloadEForm");
-    newElement.setAttribute("name", "saveAndDownloadEForm");
-    newElement.setAttribute("value", "true");
-    newElement.setAttribute("type", "hidden");
-    document.forms[0].appendChild(newElement);
+    setHiddenFormInput("saveAndDownloadEForm", "saveAndDownloadEForm", "true");
 
     remoteSave();
+}
+
+/**
+ * Tells the reader that the render reported a condition that did not withhold the document.
+ *
+ * Advisory conditions - an uncaught error in the form's own script, a dialog the renderer had to
+ * suppress, a legacy timer that threw - now deliver the PDF instead of blocking it. Without this the
+ * clinician receives a possibly-truncated document with no indication anything happened; on the
+ * preview path they already get an equivalent banner.
+ *
+ * A count only, rendered with textContent: console and dialog text is form-authored and can carry
+ * PHI, and this page renders clinical documents so it must never become an HTML sink.
+ */
+function showRenderAdvisory() {
+    const field = document.getElementById("advisoryIssues");
+    const count = field ? Number(field.value) : 0;
+    if (!count || count < 1) {
+        return;
+    }
+    const notice = document.createElement("div");
+    notice.id = "carlos-render-advisory";
+    notice.setAttribute("role", "status");
+    notice.style.cssText = "position:fixed;z-index:2147483646;top:0;left:0;right:0;padding:10px;"
+            + "background:#fff3cd;color:#664d03;border-bottom:1px solid #ffc107;"
+            + "font:14px sans-serif;text-align:center";
+    notice.textContent = "This form reported " + count
+            + (count === 1 ? " issue" : " issues")
+            + " while rendering. The downloaded PDF may be missing content - check it against the form.";
+    document.body.insertBefore(notice, document.body.firstChild);
 }
 
 function downloadEForm() {
@@ -310,12 +482,14 @@ function downloadEForm() {
  * open the Oscar Fax dialog.
  */
 function remoteFax() {
-    const newElement = document.createElement("input");
-    newElement.setAttribute("id", "faxAction");
-    newElement.setAttribute("name", "faxEForm");
-    newElement.setAttribute("value", "true");
-    newElement.setAttribute("type", "hidden");
-    document.forms[0].appendChild(newElement);
+    // Check before appending any action input: aborting the save after appending faxEForm=true (and
+    // stale recipient values) would leave them on the form for a later plain Save to ride into the
+    // fax workflow unexpectedly.
+    if (editorStillLoading()) {
+        return;
+    }
+    clearWorkflowFlags();
+    setHiddenFormInput("faxAction", "faxEForm", "true");
 
     /*
      * This helps carry forward the select list values of fax recipients
@@ -328,25 +502,58 @@ function remoteFax() {
         const recipient = selectedOption.getAttribute('name');
 
         if (recipientFaxNumber) {
-            const recipientElement = document.createElement("input");
-            recipientElement.setAttribute("id", "recipient");
-            recipientElement.setAttribute("name", "recipient");
-            recipientElement.setAttribute("value", recipient);
-            recipientElement.setAttribute("type", "hidden");
-
-            document.forms[0].appendChild(recipientElement);
-
-            const recipientNumberElement = document.createElement("input");
-            recipientNumberElement.setAttribute("id", "recipientFaxNumber");
-            recipientNumberElement.setAttribute("name", "recipientFaxNumber");
-            recipientNumberElement.setAttribute("value", recipientFaxNumber);
-            recipientNumberElement.setAttribute("type", "hidden");
-
-            document.forms[0].appendChild(recipientNumberElement);
+            // Reuse-by-id so repeated fax attempts refresh (not duplicate) the recipient inputs.
+            setHiddenFormInput("recipient", "recipient", recipient);
+            setHiddenFormInput("recipientFaxNumber", "recipientFaxNumber", recipientFaxNumber);
         }
     }
 
     remoteSave();
+}
+
+/**
+ * Sets (creating once, then reusing by id) a hidden input on the primary form. Reuse-by-id keeps
+ * repeated aborted/retried actions from accumulating duplicate id/name inputs (form encoding takes
+ * the first, so a stale duplicate could otherwise win over a fresh value).
+ */
+function setHiddenFormInput(id, name, value) {
+    // Scoped to inputs the toolbar itself created. A bare getElementById(id) matched the eForm's own
+    // markup too — eForms are third-party HTML and a referral form with its own visible "recipient"
+    // field is entirely plausible — so the clinician's typed value was overwritten on Fax. The
+    // removal side below was already guarded by this marker, which meant clearWorkflowFlags() then
+    // refused to remove the hijacked field and the overwritten value survived into the save.
+    let input = document.querySelector(
+        '[data-carlos-workflow-flag][id="' + CSS.escape(id) + '"]');
+    if (!input) {
+        input = document.createElement("input");
+        input.setAttribute("id", id);
+        input.setAttribute("name", name);
+        input.setAttribute("type", "hidden");
+        // Ownership marker. eForms are third-party HTML and may legitimately carry their own
+        // visible inputs with these ids (a referral form with its own "recipient" field is entirely
+        // plausible), so clearWorkflowFlags() must remove only the nodes the toolbar itself created.
+        // Removing by bare id deleted the clinician's field and silently dropped its value.
+        input.dataset.carlosWorkflowFlag = "true";
+        document.forms[0].appendChild(input);
+    }
+    input.setAttribute("value", value);
+    input.value = value;
+}
+
+/**
+ * Removes every workflow-intent hidden input (and fax recipient inputs). Each composite action
+ * (download/fax/email/edocument) calls this before setting its own flag, so a flag left behind by a
+ * previously prevented/aborted attempt cannot ride a later action into the wrong server-side
+ * workflow (e.g. a stale faxEForm=true making a later Save enter the fax path).
+ */
+function clearWorkflowFlags() {
+    // Scoped to toolbar-created nodes only (see setHiddenFormInput). Never select by bare id: the
+    // surrounding eForm is author-supplied HTML and may own an element of the same name.
+    document.querySelectorAll('[data-carlos-workflow-flag]').forEach(function (el) {
+        if (el.parentNode) {
+            el.parentNode.removeChild(el);
+        }
+    });
 }
 
 /**
@@ -375,12 +582,13 @@ function remoteEmail() {
         }
     }
 
-    const newElement = document.createElement("input");
-    newElement.setAttribute("id", "emailAction");
-    newElement.setAttribute("name", "emailEForm");
-    newElement.setAttribute("value", "true");
-    newElement.setAttribute("type", "hidden");
-    document.forms[0].appendChild(newElement);
+    // Check before appending emailEForm=true so an editor-still-loading abort does not leave it on
+    // the form for a later plain Save to ride into the email workflow.
+    if (editorStillLoading()) {
+        return;
+    }
+    clearWorkflowFlags();
+    setHiddenFormInput("emailAction", "emailEForm", "true");
     remoteSave();
 
 }
@@ -388,7 +596,26 @@ function remoteEmail() {
 /**
  * Triggers the eForm print function
  */
+/**
+ * Clears any workflow intent left on the form, then saves.
+ *
+ * Bound to the plain Save button. remoteSave() itself must NOT do this: the composite actions
+ * (remoteDownload/remoteFax/remoteEmail/remoteEdocument) clear and then set their own flag before
+ * calling it, so clearing inside remoteSave would erase the intent they just declared.
+ *
+ * Without it, a cancelled composite leaves its inputs behind. A form-authored onsubmit that returns
+ * false cancels the POST, but remoteSave() still reports success, so faxEForm/recipient/
+ * recipientFaxNumber survive on the form — and AddEForm2Action reads those parameters verbatim, so
+ * the clinician's next plain Save would take the fax branch with the earlier recipient.
+ */
+function remoteSaveOnly() {
+    clearWorkflowFlags();
+    return remoteSave();
+}
+
 function remotePrint() {
+    // Same reason as remoteSaveOnly above: Print saves, and must not inherit a cancelled Fax's intent.
+    clearWorkflowFlags();
 
     if (typeof formPrint === "function") {
         try {
@@ -460,18 +687,14 @@ function hailMary() {
  * save it into the eChart Documents directory.
  */
 function remoteEdocument() {
-
-    const edocElement = document.getElementById("saveAsEdoc");
-    if (edocElement) {
-        edocElement.value = 'true';
-    } else {
-        const newElement = document.createElement("input");
-        newElement.setAttribute("id", "saveAsEdoc");
-        newElement.setAttribute("name", "saveAsEdoc");
-        newElement.setAttribute("value", "true");
-        newElement.setAttribute("type", "hidden");
-        document.forms[0].appendChild(newElement);
+    // Check BEFORE clearing/appending the action input, matching remoteDownload/remoteFax/remoteEmail:
+    // aborting after setting saveAsEdoc=true would strand that flag on the form, and a later plain
+    // Save would silently ride it into the save-as-eDoc workflow.
+    if (editorStillLoading()) {
+        return;
     }
+    clearWorkflowFlags();
+    setHiddenFormInput("saveAsEdoc", "saveAsEdoc", "true");
 
     remoteSave();
 

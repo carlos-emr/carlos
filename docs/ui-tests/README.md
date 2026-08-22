@@ -5,6 +5,7 @@ Comprehensive UI testing for CARLOS EMR using Playwright MCP (Model Context Prot
 ## 📚 Quick Start
 
 - **New to UI testing?** Start with [UI-TEST-PROCESS.md](UI-TEST-PROCESS.md) - Complete testing procedures
+- **Testing eForm PDF fidelity?** Use [eform-pdf-render-smoke-test.md](eform-pdf-render-smoke-test.md) - Branch-focused smoke test runbook
 - **Running Test 1?** See [test-1/test-1-EXECUTION.md](test-1/test-1-EXECUTION.md) - Step-by-step execution guide
 - **Test results?** Check [test-1/test-1-results.md](test-1/test-1-results.md) - Latest test results with screenshots
 - **Implementation details?** Read [SUMMARY.md](SUMMARY.md) - Technical implementation and troubleshooting
@@ -278,7 +279,7 @@ See [smoke-test-results.md](./smoke-test-results.md) for detailed test results f
 
 ```bash
 # Connect to database
-mysql -h db -uroot -ppassword oscar
+mariadb -h db -uroot -ppassword oscar
 
 # Reset specific test user password
 UPDATE security
@@ -303,7 +304,7 @@ To reload:
 server stop
 
 # Reload database
-mysql -h db -uroot -ppassword oscar < .devcontainer/db/scripts/development.sql
+mariadb -h db -uroot -ppassword oscar < .devcontainer/db/scripts/development.sql
 
 # Start application
 server start
@@ -372,18 +373,18 @@ server restart
 docker ps | grep mariadb
 
 # Test connection
-mysql -h db -uroot -ppassword -e "SHOW DATABASES;"
+mariadb -h db -uroot -ppassword -e "SHOW DATABASES;"
 ```
 
 ### Login Fails
 
 ```bash
 # Check if user exists
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword oscar -e \
   "SELECT user_name, pin, forcePasswordReset FROM security WHERE user_name='carlosdoc';"
 
 # Reset password
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword oscar -e \
   "UPDATE security SET password='{bcrypt}\$2a\$12\$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO', forcePasswordReset=0 WHERE user_name='carlosdoc';"
 ```
 
@@ -468,7 +469,7 @@ make install && server start
 curl http://localhost:8080/oscar/index.jsp
 
 # 3. Check test user
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword oscar -e \
   "SELECT user_name, pin FROM security WHERE user_name='carlosdoc';"
 
 # 4. Run UI tests (via Playwright MCP)
