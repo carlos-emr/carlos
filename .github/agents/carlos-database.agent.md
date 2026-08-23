@@ -7,6 +7,14 @@ tools: ["*"]
 
 # CARLOS EMR Database Agent
 
+> **Release policy**: Follow `docs/release-process.md` for target branches, CalVer
+> versions, snapshots, maintenance fixes, tags, and forward merges.
+> Normal work targets `develop`; supported fixes start from and target the oldest
+> affected `release/YYYY.MM` and are forward-merged while preserving target
+> version and SCM metadata. Application changes target `main` only for release preparation;
+> narrowly scoped release-infrastructure corrections are also allowed. Tags and
+> published Flyway migration bytes are immutable.
+
 ## Core Context
 
 **Project**: CARLOS (Clinical Assisting Recording Ledger Open Source) - Canadian healthcare EMR
@@ -48,34 +56,37 @@ Both coexist and share a single JDBC connection via `TransactionAwareDataSourceP
 
 ## Migration Pattern
 
-**Format**: Date-based SQL scripts in `database/mysql/updates/`
+**Schema management is Flyway.** A consolidated `V1` genesis baseline (complete schema + reference
+data) plus forward-only migrations, tracked in `flyway_schema_history`. See
+[`docs/database-schema-management.md`](../../docs/database-schema-management.md).
+
+**Forward migrations** go under a Flyway location, named `V1.0.N__short_description.sql`
+(sequential; use the next free version number across common + your province):
 
 ```text
-update-YYYY-MM-DD-description.sql
+database/mysql/migration/common/V1.0.N__desc.sql   -- shared change
+database/mysql/migration/on/V1.0.N__desc.sql       -- Ontario-only change
+database/mysql/migration/bc/V1.0.N__desc.sql       -- BC-only change
 ```
 
-Example: `update-2025-08-26-remove-waitlist-email.sql`
+Never edit the `V1*` baseline files. The legacy `database/mysql/updates/update-YYYY-MM-DD-*.sql`
+directory is **frozen** (historical; a few entries still applied for demo seeding).
 
 ### Core Database Files (`database/mysql/`)
 
 ```text
-oscarinit.sql          -- Core database schema
-oscarinit_2025.sql     -- Current 2025 schema version
-oscardata.sql          -- Initial reference data
-oscarinit_bc.sql       -- British Columbia specific
-oscarinit_on.sql       -- Ontario specific
-
-# Medical Coding Systems
-icd9.sql / icd10.sql   -- Diagnosis codes (ICD-9/ICD-10)
-measurementMapData.sql  -- Clinical measurements mapping
-SnomedCore/            -- SNOMED CT clinical terminology
-olis/                  -- Ontario Labs Information System
-
-# Provincial Healthcare Data
-bc_billingServiceCodes.sql      -- BC medical service codes
-bc_pharmacies.sql               -- BC pharmacy directory
-firstNationCommunities_lu_list.sql -- First Nations communities
+migration/common/V1__baseline_schema.sql   -- province-neutral schema (structure)
+migration/on/V1.0.1__on_schema.sql         -- Ontario-only tables
+migration/on/V1.0.2__on_data.sql           -- Ontario reference data (carlosdoc seed, ICD, OLIS)
+migration/bc/V1.0.1__bc_schema.sql         -- BC-only tables
+migration/bc/V1.0.2__bc_data.sql           -- BC reference data (billing/specialist/pharmacy catalogs)
+migration/pruned-tables.txt                -- dead tables excluded from the baseline
+SnomedCore/                                -- SNOMED CT clinical terminology (licensed)
+development.sql                            -- dev-only demo dataset (build-demo.sh filters it)
 ```
+
+The legacy build (`createdatabase_*.sh`, `oscarinit*.sql`, `oscardata*.sql`, `icd*.sql`,
+`measurementMapData.sql`, `caisi/initcaisi*.sql`, `olis/olisinit.sql`, `bc_*.sql`) has been retired.
 
 ---
 
@@ -201,18 +212,17 @@ String sql = "SELECT * FROM demographic WHERE id = " + userId;
 ## Provincial Healthcare Data
 
 ### British Columbia
-- `bc_billingServiceCodes.sql` -- MSP service codes
-- `bc_pharmacies.sql` -- Pharmacy directory
+- MSP service codes, pharmacy directory, specialist catalog -- in `migration/bc/V1.0.2__bc_data.sql`
 - Teleplan billing integration
 
 ### Ontario
-- `olis/olisinit.sql` -- Ontario Labs Information System
+- OLIS (Ontario Labs Information System) -- in `migration/on/V1.0.2__on_data.sql`
 - OHIP billing codes
 - MCEDT integration
 
 ### Medical Coding Systems
-- **ICD-9/ICD-10**: Diagnosis codes (`icd9.sql`, `icd10.sql`)
-- **SNOMED CT**: Clinical terminology (`SnomedCore/snomedinit.sql`)
+- **ICD-9/ICD-10**: Diagnosis codes -- in the province reference-data migrations (`migration/*/V1.0.2__*.sql`)
+- **SNOMED CT**: Clinical terminology (`SnomedCore/snomedinit.sql`, licensed)
 - **ATC Codes**: Anatomical Therapeutic Chemical classification for medications
 
 ---
@@ -229,12 +239,11 @@ String sql = "SELECT * FROM demographic WHERE id = " + userId;
 ## Key Database Files
 
 ```text
-src/main/resources/OscarDatabaseBase.xml    -- Hibernate configuration
-database/mysql/oscarinit_2025.sql           -- Current database schema
-database/mysql/updates/update-2025-*.sql    -- Recent migrations
-database/mysql/oscardata.sql                -- Reference data
-database/mysql/caisi/initcaisi.sql          -- Community integration
-database/mysql/olis/olisinit.sql            -- Ontario Labs
+src/main/resources/OscarDatabaseBase.xml         -- Hibernate configuration
+database/mysql/migration/common/V1__baseline_schema.sql -- Flyway V1 genesis schema
+database/mysql/migration/on/V1.0.2__on_data.sql  -- Ontario reference data (incl. OLIS)
+database/mysql/migration/bc/V1.0.2__bc_data.sql  -- BC reference data
+database/mysql/migration/<common|on|bc>/V1.0.N__*.sql -- forward migrations (sequential)
 
 # DAO Patterns
 io/github/carlos_emr/carlos/commn/dao/*Dao.java        -- DAO interfaces
@@ -250,7 +259,7 @@ io/github/carlos_emr/carlos/commn/model/*.java          -- Entity models
 - Use parameterized queries exclusively
 - Include `lastUpdateUser` and `lastUpdateDate` on every new table
 - Check HBM mappings before writing HQL (case sensitivity, column lengths)
-- Follow date-based migration naming: `update-YYYY-MM-DD-description.sql`
+- Follow Flyway forward-migration naming: `V1.0.N__description.sql` (sequential, next free number)
 - Use backtick quoting for SQL reserved words in HBM XML
 
 **Ask first:**

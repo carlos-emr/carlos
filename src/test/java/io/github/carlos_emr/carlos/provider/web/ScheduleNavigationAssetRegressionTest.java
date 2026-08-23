@@ -317,16 +317,18 @@ class ScheduleNavigationAssetRegressionTest {
         String scheduleScript = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
 
         assertThat(appointmentProviderDay)
-                .contains("appendTooltipLine(appointmentTooltipSummaryBuilder, \"Reason\", reasonCodeName);")
-                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Appointment notes\", notes);")
-                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Ticklers\", tickler_note);")
-                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Demographic alerts\", demographicAlert);")
-                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Demographic notes\", demographicNotes);")
-                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Prevention alerts\", preventionWarning);")
+                .contains("appointmentTooltipSummaryBuilder.append(SafeEncode.forHtmlAttribute(timeRange))")
+                .contains(".append(SafeEncode.forHtmlAttribute(reasonCodeName));")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"<i class='fa-regular fa-circle-question' aria-hidden='true'></i>\", reasonCodeName);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"<i class='fa-regular fa-note-sticky' aria-hidden='true'></i>\", notes);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"<i class='fa-solid fa-triangle-exclamation' aria-hidden='true'></i>\", tickler_note);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"<i class='fa-solid fa-circle-exclamation me-2' aria-hidden='true'></i>\", demographicAlert);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"<i class='fa-regular fa-comment' aria-hidden='true'></i>\", demographicNotes);")
+                .contains("appointmentTooltipFullBuilder.append(\"<i class='fa-regular fa-bell' aria-hidden='true'></i> \")")
                 .contains("class=\"appt<%= isCancelled ? \" Cancelled\" : \"\" %><%= showTooltip ?"
                         + " \" appt-reason-tooltip appt-tooltip-provider-\" + curProvider_no[nProvider] : \"\" %>\"")
-                .contains("data-title-full=\\\"\" + appointmentTooltipFull + \"\\\"")
-                .contains("data-title-short=\\\"\" + appointmentTooltipSummary + \"\\\"");
+                .contains("data-title-full=\\\"\" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + \"\\\"\"")
+                .contains("data-title-short=\\\"\" + SafeEncode.forHtmlAttribute(appointmentTooltipSummary) + \"\\\"\"");
         assertThat(scheduleScript)
                 .contains("updateTooltipsForProvider(providerNo, showReason);")
                 .contains("const titleAttr = showReason ? el.dataset.titleFull : el.dataset.titleShort;");

@@ -58,9 +58,11 @@
 
 package io.github.carlos_emr.carlos.login;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Request;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuthScopes;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestToken;
@@ -77,6 +79,13 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 public class OscarRequestTokenService {
+
+    /**
+     * Config flag gating OAuth 1.0a scope enforcement (issue #3083). Absent/false (the default) keeps the
+     * historical lenient behaviour where any scope string is accepted and persisted; a truthy value makes
+     * {@code /initiate} reject empty or unknown scopes.
+     */
+    private static final String SCOPE_ENFORCEMENT_PROPERTY = "oauth.scope.enforcement.enabled";
 
     private final OscarOAuthDataProvider dataProvider;
     private final OAuth1ParamParser parser;
@@ -132,8 +141,14 @@ public class OscarRequestTokenService {
 
         reg.setCallback(cbToStore);   // <-- store plain URL now (not encoded)
 
-        if (oreq.scopesCsv != null && !oreq.scopesCsv.isBlank()) {
-            reg.setScopes(oreq.scopesCsv.split("\\s+"));
+        // trim before splitting so leading/trailing whitespace does not yield an empty token that
+        // would otherwise be rejected as an unknown scope under enforcement
+        String[] requestedScopes = (oreq.scopesCsv != null && !oreq.scopesCsv.isBlank())
+                ? oreq.scopesCsv.trim().split("\\s+")
+                : new String[0];
+        validateRequestedScopes(requestedScopes);
+        if (requestedScopes.length > 0) {
+            reg.setScopes(requestedScopes);
         }
         RequestToken rt = dataProvider.createRequestToken(reg);
 
@@ -144,6 +159,32 @@ public class OscarRequestTokenService {
         return Response.ok(body).type(MediaType.APPLICATION_FORM_URLENCODED).build();
     }
     
+    /**
+     * Validates the scopes requested at {@code /initiate} against the recognised vocabulary (issue #3083).
+     *
+     * <p>When scope enforcement is enabled, a request token may only be issued for known
+     * {@code <domain>.read}/{@code <domain>.write} scopes, and at least one scope must be requested; this
+     * stops arbitrary/meaningless scope strings (and empty grants that later read as "full access") from
+     * being persisted onto a token. When enforcement is disabled (the default) this is a no-op so existing
+     * integrations are unaffected.
+     *
+     * @throws OAuth1Exception 400 {@code invalid_scope} if no scopes are requested or any requested scope
+     *                         is outside the vocabulary
+     */
+    private static void validateRequestedScopes(String[] scopes) {
+        if (!CarlosProperties.getInstance().isPropertyActive(SCOPE_ENFORCEMENT_PROPERTY)) {
+            return;
+        }
+        if (scopes == null || scopes.length == 0) {
+            throw new OAuth1Exception(400, "invalid_scope");
+        }
+        for (String scope : scopes) {
+            if (!OAuthScopes.isKnownScope(scope)) {
+                throw new OAuth1Exception(400, "invalid_scope");
+            }
+        }
+    }
+
     private static String enc(String s) {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
     }

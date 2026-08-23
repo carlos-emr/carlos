@@ -36,14 +36,16 @@
   Features:
   - Requires an authenticated provider session before processing.
   - Validates appointment and provider identifiers before applying updates.
-  - Archives the appointment before merging the new status.
-  - Publishes the appointment status-change event only after a successful update.
+  - Applies stale-status validation, archival, and update under one appointment row lock.
+  - Publishes authoritative appointment provider/status values only after commit.
   - URI-encodes provider-control redirect parameters.
+  - Returns the refreshed day-view URL for AJAX callers and redirects legacy callers.
 
   Expected parameters:
   - appointment_no: numeric appointment identifier.
   - provider_no: numeric provider identifier.
   - status/statusch: status fragments combined for the new appointment status.
+  - currentstatus: appointment status rendered when the schedule link was generated.
   - view: optional provider view flag, either 0 or 1.
   - year/month/day/viewall/x/y/viewWeek/curProvider/curProviderName: redirect context.
 
@@ -54,21 +56,49 @@
 --%>
 
 <%@ page
-  import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat,io.github.carlos_emr.carlos.event.EventService" %>
+  import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@page import="io.github.carlos_emr.carlos.appointment.service.AppointmentStatusTransitionException" %>
+<%@page import="io.github.carlos_emr.carlos.appointment.service.AppointmentStatusTransitionService" %>
 <%@page import="io.github.carlos_emr.carlos.providers.gate.ProviderAddStatusValidator" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@page import="java.io.IOException" %>
+<%@page import="jakarta.servlet.jsp.JspWriter" %>
+<%!
+  private void sendStatusError(
+      HttpServletRequest request,
+      HttpServletResponse response,
+      JspWriter out,
+      boolean ajaxRequest,
+      int status) throws IOException {
+    // providercontrol.jsp dispatches this JSP with RequestDispatcher.include().
+    // Included resources cannot set their caller's status, so always expose the
+    // intended status for the outer JSP to apply. The attribute is harmless for
+    // direct /provider/AddStatus requests.
+    request.setAttribute("providerAddStatusHttpStatus", status);
+    if (ajaxRequest) {
+      // Setting a status avoids Tomcat's HTML error-page dispatch, which can
+      // turn a Fetch response into a misleading 200 after an internal forward.
+      out.clear();
+      response.setStatus(status);
+      response.setContentType("text/plain;charset=UTF-8");
+    } else {
+      response.sendError(status);
+    }
+  }
+%>
 <%
-  AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
-  OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
+  AppointmentStatusTransitionService appointmentStatusTransitionService =
+    SpringUtils.getBean(AppointmentStatusTransitionService.class);
 %>
 <%
   //if action is good, then give me the result
+  boolean ajaxRequest = "XMLHttpRequest".equals(request.getHeader("X-Requested-With"));
+  if (ajaxRequest) {
+    response.setContentType("text/plain;charset=UTF-8");
+  }
   String curUser_no = (String) session.getAttribute("user");
 
   if (curUser_no == null) {
@@ -78,89 +108,95 @@
   String appointmentNoParam = request.getParameter("appointment_no");
   String status = request.getParameter("status");
   String statusch = request.getParameter("statusch");
+  String submittedCurrentStatus = request.getParameter("currentstatus");
   String providerNoParam = request.getParameter("provider_no");
   String appointmentStatus = ProviderAddStatusValidator.buildValidatedAppointmentStatus(status, statusch);
 
-  if (appointmentStatus == null || providerNoParam == null) {
-    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+  if (appointmentStatus == null || submittedCurrentStatus == null || providerNoParam == null) {
+    sendStatusError(request, response, out, ajaxRequest, HttpServletResponse.SC_BAD_REQUEST);
     return;
   }
 
   int appointmentNo;
-  int providerNo;
 
   try {
     appointmentNo = Integer.parseInt(appointmentNoParam);
   } catch (NumberFormatException e) {
-    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+    sendStatusError(request, response, out, ajaxRequest, HttpServletResponse.SC_BAD_REQUEST);
     return;
   }
   try {
-    providerNo = Integer.parseInt(providerNoParam);
+    Integer.parseInt(providerNoParam);
   } catch (NumberFormatException e) {
-    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+    sendStatusError(request, response, out, ajaxRequest, HttpServletResponse.SC_BAD_REQUEST);
     return;
   }
 
-  Appointment appt = appointmentDao.find(appointmentNo);
-  int rowsAffected = 0;
   int view = 0;
 
   String viewParam = request.getParameter("view");
 
   if (viewParam != null) {
     if (!"0".equals(viewParam) && !"1".equals(viewParam)) {
-      response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+      sendStatusError(request, response, out, ajaxRequest, HttpServletResponse.SC_BAD_REQUEST);
       return;
     }
 
     view = "1".equals(viewParam) ? 1 : 0;
   }
 
-  if (appt != null) {
-    appointmentArchiveDao.archiveAppointment(appt);
-    appt.setStatus(appointmentStatus);
-    appt.setLastUpdateUser(curUser_no);
-    appointmentDao.merge(appt);
-    rowsAffected = 1;
-  }
-
-  if (rowsAffected == 1) {//add_record
-    EventService eventService = SpringUtils.getBean(EventService.class);//This is when the icon is clicked in the appt screen
-    eventService.appointmentStatusChanged(
-      this,
-      String.valueOf(appointmentNo),
-      String.valueOf(providerNo),
-      statusch
+  AppointmentStatusTransitionService.TransitionResult transitionResult;
+  try {
+    transitionResult = appointmentStatusTransitionService.transition(
+      appointmentNo,
+      providerNoParam,
+      submittedCurrentStatus,
+      appointmentStatus,
+      curUser_no
     );
-    String strView = (view == 0) ? "0"
-      : ("1&curProvider=" + SafeEncode.forUriComponent(request.getParameter("curProvider"))
-      + "&curProviderName=" + SafeEncode.forUriComponent(request.getParameter("curProviderName")));
-    String strViewAll = request.getParameter("viewall") == null
-      ? "0"
-      : SafeEncode.forUriComponent(request.getParameter("viewall"));
-    String displaypage = request.getContextPath()
-      + "/provider/providercontrol?year=" + SafeEncode.forUriComponent(request.getParameter("year"))
-      + "&month=" + SafeEncode.forUriComponent(request.getParameter("month"))
-      + "&day=" + SafeEncode.forUriComponent(request.getParameter("day"))
-      + "&view=" + strView
-      + "&displaymode=day&dboperation=searchappointmentday"
-      + "&viewall=" + strViewAll
-      + "&x=" + SafeEncode.forUriComponent(request.getParameter("x"))
-      + "&y=" + SafeEncode.forUriComponent(request.getParameter("y"));
-    if (request.getParameter("viewWeek") != null) {
-      displaypage += "&provider_no="
-        + SafeEncode.forUriComponent(String.valueOf(providerNo));
+  } catch (AppointmentStatusTransitionException e) {
+    if (e.getReason() == AppointmentStatusTransitionException.Reason.APPOINTMENT_NOT_FOUND) {
+      sendStatusError(request, response, out, ajaxRequest, HttpServletResponse.SC_NOT_FOUND);
+    } else if (e.getReason() == AppointmentStatusTransitionException.Reason.STALE_STATUS) {
+      sendStatusError(request, response, out, ajaxRequest, HttpServletResponse.SC_CONFLICT);
+    } else {
+      sendStatusError(request, response, out, ajaxRequest, HttpServletResponse.SC_BAD_REQUEST);
     }
-    out.clear();
-    response.sendRedirect(displaypage);
-    //pageContext.forward(displaypage); //forward request&response to the target page
     return;
-  } else {
-%>
-<p>
-<h1><fmt:message key="AddProviderStatus.msgAddFailure"/></h1>
-
-<%
   }
+
+  String appointmentProviderNo = transitionResult.providerNo();
+  appointmentStatus = transitionResult.appointmentStatus();
+  String strView = (view == 0) ? "0"
+    : ("1&curProvider=" + SafeEncode.forUriComponent(request.getParameter("curProvider"))
+    + "&curProviderName=" + SafeEncode.forUriComponent(request.getParameter("curProviderName")));
+  String strViewAll = request.getParameter("viewall") == null
+    ? "0"
+    : SafeEncode.forUriComponent(request.getParameter("viewall"));
+  String displaypage = request.getContextPath()
+    + "/provider/providercontrol?year=" + SafeEncode.forUriComponent(request.getParameter("year"))
+    + "&month=" + SafeEncode.forUriComponent(request.getParameter("month"))
+    + "&day=" + SafeEncode.forUriComponent(request.getParameter("day"))
+    + "&view=" + strView
+    + "&displaymode=day&dboperation=searchappointmentday"
+    + "&viewall=" + strViewAll
+    + "&x=" + SafeEncode.forUriComponent(request.getParameter("x"))
+    + "&y=" + SafeEncode.forUriComponent(request.getParameter("y"));
+  if (request.getParameter("viewWeek") != null) {
+    displaypage += "&provider_no="
+      + SafeEncode.forUriComponent(appointmentProviderNo);
+  }
+  out.clear();
+  // The outer providercontrol.jsp must perform this redirect when this JSP is
+  // included. RequestDispatcher.include() deliberately ignores sendRedirect().
+  request.setAttribute("providerAddStatusRedirectTarget", displaypage);
+  if (ajaxRequest) {
+    // In-place status update: return the refreshed day-view URL so the
+    // browser navigates with a history-replacing GET instead of a
+    // full-page POST/redirect that flashes a blank page.
+    out.print(displaypage);
+  } else {
+    response.sendRedirect(displaypage);
+  }
+  //pageContext.forward(displaypage); //forward request&response to the target page
 %>
