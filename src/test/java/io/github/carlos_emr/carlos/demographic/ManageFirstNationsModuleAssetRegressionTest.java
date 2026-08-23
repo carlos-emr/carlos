@@ -52,9 +52,13 @@ class ManageFirstNationsModuleAssetRegressionTest {
                 .contains("value=\"${carlos:forHtmlAttribute(demoExt['fNationFamilyPosition'])}\"")
                 .contains("value=\"${carlos:forHtmlAttribute(demoExt['ethnicity'])}\"")
                 .doesNotContain("value=\"${ demoExt[\"statusNum\"] }\"")
+                .doesNotContain("value=\"${demoExt[\"statusNum\"]}\"")
                 .doesNotContain("value=\"${firstNationCommunity.value}\"")
                 .doesNotContain("value=\"${ demoExt[\"fNationFamilyNumber\"] }\"")
+                .doesNotContain("value=\"${demoExt[\"fNationFamilyNumber\"]}\"")
                 .doesNotContain("value=\"${ demoExt[\"fNationFamilyPosition\"] }\"")
-                .doesNotContain("value=\"${ demoExt[\"ethnicity\"] }\"");
+                .doesNotContain("value=\"${demoExt[\"fNationFamilyPosition\"]}\"")
+                .doesNotContain("value=\"${ demoExt[\"ethnicity\"] }\"")
+                .doesNotContain("value=\"${demoExt[\"ethnicity\"]}\"");
     }
 }
