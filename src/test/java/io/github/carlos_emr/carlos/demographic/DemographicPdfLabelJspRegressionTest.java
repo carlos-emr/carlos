@@ -77,7 +77,7 @@ class DemographicPdfLabelJspRegressionTest {
                 "<td align=\"left\"><%=d.getChartNo()%>",
                 "<td><%=alert%>",
                 "<td><%=notes%>",
-                "if (refName == ",
+                "if (refName == \"",
                 "if (refName === \"<%=prop.getProperty",
                 "refNo = \"<%=prop.getProperty")) {
             assertThat(jsp)
