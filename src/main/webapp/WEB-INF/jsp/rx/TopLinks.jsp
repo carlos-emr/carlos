@@ -40,7 +40,7 @@
 <core:set var="url"
        value="${ ctx }/demographic/DemographicEdit?demographic_no=${ carlos:forUriComponent(param.demographicNo) }&appointment="/>
 
-<table id="${ not empty param.tableId ? carlos:forHtmlAttribute(fn:replace(param.tableId, ' ', '_')) : 'topLink' }">
+<table id="${ not empty param.tableId ? carlos:forHtmlAttribute(fn:replaceAll(param.tableId, '\\s+', '_')) : 'topLink' }">
     <tr>
         <td id="topLinkLeftColumn">
             <h1>${carlos:forHtmlContent(param.title)}</h1>
@@ -49,7 +49,7 @@
         <td id="topLinkCenterColumn">
 
             <core:if test="${ not empty param.patientName }">
-                <a href="javascript:void(0)" onClick="popupPage(700,1000,'${carlos:forJavaScript(url)}'); return false;"
+                <a href="javascript:void(0)" onClick="popupPage(700,1000,'${carlos:forJavaScriptAttribute(url)}'); return false;"
                    title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">
                     ${carlos:forHtmlContent(param.patientName)}
                 </a>
