@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -80,6 +81,8 @@ public class EmailCompose2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     private EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
+    private PdfPreviewCapabilityService pdfPreviewCapabilityService =
+            SpringUtils.getBean(PdfPreviewCapabilityService.class);
 
     private static final String[] EMAIL_SESSION_KEYS = {
         "attachEFormItSelf", "fdid", "demographicId",
@@ -228,7 +231,7 @@ public class EmailCompose2Action extends ActionSupport {
         if (fid != null && !fid.matches("\\d+")) {
             if (logger.isWarnEnabled()) {
                 String sanitizedFid = LogSafe.sanitize(fid);
-                logger.warn("Invalid fid parameter received: {}", sanitizedFid);
+                logger.warn("Invalid fid parameter received: {}", sanitizedFid); // NOSONAR javasecurity:S5145 (SonarCloud alert #26207) — sanitized with LogSafe
             }
             fid = null;
         }
@@ -255,11 +258,15 @@ public class EmailCompose2Action extends ActionSupport {
             emailAttachmentList.addAll(emailComposeManager.prepareLabAttachments(loggedInInfo, attachedLabs));
             emailAttachmentList.addAll(emailComposeManager.prepareHRMAttachments(loggedInInfo, attachedHRMDocuments));
             emailAttachmentList.addAll(emailComposeManager.prepareFormAttachments(request, response, attachedForms, Integer.parseInt(demographicId)));
-        } catch (PDFGenerationException e) {
+            emailComposeManager.sanitizeAttachments(emailAttachmentList);
+            for (EmailAttachment attachment : emailAttachmentList) {
+                attachment.setPreviewToken(pdfPreviewCapabilityService.issue(
+                        request, loggedInInfo, java.nio.file.Path.of(attachment.getFilePath())));
+            }
+        } catch (PDFGenerationException | RuntimeException e) {
             logger.error(e.getMessage(), e);
             return emailComposeError(request, "This eForm (and attachments, if applicable) could not be emailed. \\n\\n" + e.getMessage());
         }
-        emailComposeManager.sanitizeAttachments(emailAttachmentList);
 
         // Set request attributes for JSP (from session and computed values)
         request.setAttribute("transactionType", TransactionType.EFORM);

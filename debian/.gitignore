@@ -1,0 +1,12 @@
+# Build products of dpkg-buildpackage — never committed. The same set is
+# tar-ignored in debian/source/options for the source package.
+/build/
+/carlos-emr/
+/carlos-emr-drugref/
+/tmp/
+/files
+/*.substvars
+/*.debhelper
+/*.debhelper.log
+/.debhelper/
+/debhelper-build-stamp

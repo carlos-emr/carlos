@@ -107,12 +107,13 @@ import org.springframework.stereotype.Service;
 public class FaxImporter {
 
     /**
-     * Static initialization is intentional: CarlosProperties is a read-once singleton with no
-     * reload mechanism — property changes require a Tomcat restart. This matches the pattern
-     * used by ManageDocument2Action and NioFileManager. The {@link #initialize()} PostConstruct
-     * guard validates this value at Spring startup, failing fast if misconfigured.
+     * Resolved once per instance rather than once per class. CarlosProperties remains a read-once
+     * singleton (property changes still require a Tomcat restart), so behaviour is unchanged in
+     * production — but an instance field is settable from a test, which a {@code static final}
+     * initialized at class load is not. That was the sole reason the import-failure test coverage in
+     * {@code FaxImporterCriticalGapsTest} sat {@code @Disabled}.
      */
-    private static final String DOCUMENT_DIR = CarlosProperties.getInstance().getDocumentDirectory();
+    private final String documentDir;
 
     /** Atomic counter for collision-free filename sequencing */
     private static final AtomicLong fileCounter = new AtomicLong(0);
@@ -145,11 +146,20 @@ public class FaxImporter {
     @Autowired
     public FaxImporter(FaxConfigDao faxConfigDao, FaxJobDao faxJobDao, QueueDocumentLinkDao queueDocumentLinkDao,
             ProviderLabRoutingDao providerLabRoutingDao, FaxProviderClientFactory faxProviderClientFactory) {
+        this(faxConfigDao, faxJobDao, queueDocumentLinkDao, providerLabRoutingDao, faxProviderClientFactory,
+                CarlosProperties.getInstance().getDocumentDirectory());
+    }
+
+    /** Test seam: lets a test point the importer at a scratch document directory. */
+    FaxImporter(FaxConfigDao faxConfigDao, FaxJobDao faxJobDao, QueueDocumentLinkDao queueDocumentLinkDao,
+            ProviderLabRoutingDao providerLabRoutingDao, FaxProviderClientFactory faxProviderClientFactory,
+            String documentDir) {
         this.faxConfigDao = faxConfigDao;
         this.faxJobDao = faxJobDao;
         this.queueDocumentLinkDao = queueDocumentLinkDao;
         this.providerLabRoutingDao = providerLabRoutingDao;
         this.faxProviderClientFactory = faxProviderClientFactory;
+        this.documentDir = documentDir;
     }
 
     /**
@@ -168,7 +178,7 @@ public class FaxImporter {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     @PostConstruct
     public void initialize() {
-        if (DOCUMENT_DIR == null || DOCUMENT_DIR.trim().isEmpty()) {
+        if (documentDir == null || documentDir.trim().isEmpty()) {
             log.warn("FaxImporter: DOCUMENT_DIR is not configured. Fax import is disabled. "
                     + "Configure DOCUMENT_DIR or BASE_DOCUMENT_DIR in carlos.properties.");
             return;
@@ -260,6 +270,45 @@ public class FaxImporter {
 
                 for (FaxJob receivedFax : faxList) {
 
+                    receivedFax.setDirection(FaxJob.Direction.IN);
+                    // Stamp the receiving account (its fax line) so duplicate
+                    // detection can scope to this account and the row is
+                    // attributable later. Providers do not set this on the
+                    // listing.
+                    receivedFax.setFax_line(faxConfig.getFaxNumber());
+
+                    // Duplicate-import prevention keyed on the provider job id (SRFax FaxDetailsID):
+                    // when mark-as-read failed on a previous cycle the fax stays in the UNREAD pull,
+                    // and generateUniqueFilename() would happily file it as a brand-new document.
+                    // Skip the download entirely and just retry clearing the unread flag.
+                    // The lookup stays GLOBAL (so rows imported before this release, which have no
+                    // fax_line, are still found); isAlreadyImported() does the account scoping,
+                    // treating a row whose fax_line matches THIS account -- or is blank (legacy) --
+                    // as ours, and a row bearing a DIFFERENT account's fax_line as not ours (two
+                    // accounts/backends can reuse the same numeric job id).
+                    if (receivedFax.getJobId() != null
+                            && isAlreadyImported(faxJobDao.findByProviderJobId(receivedFax.getJobId()),
+                                    faxConfig.getFaxNumber())) {
+                        log.info("Skipping already-imported fax with provider job id {} - retrying provider acknowledgement",
+                                receivedFax.getJobId());
+                        try {
+                            providerClient.markFaxAsRead(faxConfig, receivedFax);
+                        } catch (FaxProviderException e) {
+                            log.warn("Failed to mark already-imported fax as read - will retry next poll", e);
+                        }
+                        // Acknowledge per provider policy, mirroring the main import path: SRFax
+                        // acknowledges via mark-as-read (deleteFax is its no-op) while the middleware
+                        // relay acknowledges via delete (markFaxAsRead is ITS no-op). Retrying only
+                        // mark-as-read here would leave a middleware fax whose relay delete once
+                        // failed re-listed - and skipped - forever.
+                        try {
+                            providerClient.deleteFax(faxConfig, receivedFax);
+                        } catch (FaxProviderException e) {
+                            log.warn("Failed to acknowledge already-imported fax at provider - will retry next poll", e);
+                        }
+                        continue;
+                    }
+
                     FaxJob faxFile = null;
 
                     if (!FaxJob.STATUS.ERROR.equals(receivedFax.getStatus())) {
@@ -339,7 +388,13 @@ public class FaxImporter {
                         receivedFax.setStatusString("Downloaded but import failed - pending retry from incoming directory");
                     }
 
-                    receivedFax.setFile_name(fileName);
+                    if (fileName != null) {
+                        receivedFax.setFile_name(fileName);
+                    } else {
+                        // Import failed: keep a usable reference (the quarantined file) instead of
+                        // persisting a row with a null filename.
+                        receivedFax.setFile_name(incomingFile.getFileName().toString());
+                    }
                     saveFaxJob(new FaxJob(receivedFax));
                 }
 
@@ -461,13 +516,10 @@ public class FaxImporter {
             // Validate PDF and count pages
             int numberOfPages = validateAndCountPages(incomingFile.toFile());
 
-            // Validate and resolve final path in DOCUMENT_DIR
-            File finalFile = PathValidationUtils.validatePath(uniqueFilename, new File(DOCUMENT_DIR));
-
-            // Move from incoming to DOCUMENT_DIR
-            moveFile(incomingFile, finalFile.toPath());
-
-            // Create EDoc and register with EMR
+            // Create the EDoc first: its constructor prepends the DMS yyyyMMddHHmmss prefix to the
+            // filename, and the physical file MUST be stored under that final name. Moving the file
+            // under the unprefixed name (the previous behavior) produced document rows whose files
+            // could never be found by the viewer.
             EDoc newDoc = new EDoc("Received Fax", "Received Fax", uniqueFilename, "",
                     DEFAULT_USER, DEFAULT_USER, "", 'A',
                     DateFormatUtils.format(receivedFax.getStamp() != null ? receivedFax.getStamp() : new Date(), "yyyy-MM-dd"),
@@ -476,7 +528,34 @@ public class FaxImporter {
             newDoc.setContentType("application/pdf");
             newDoc.setNumberOfPages(numberOfPages);
 
-            String doc_no = EDocUtil.addDocumentSQL(newDoc);
+            // Validate and resolve the final (DMS-prefixed) path in DOCUMENT_DIR
+            File finalFile = PathValidationUtils.validatePath(newDoc.getFileName(), new File(documentDir));
+
+            // Move from incoming to DOCUMENT_DIR under the exact name the document row will carry
+            moveFile(incomingFile, finalFile.toPath());
+
+            String doc_no;
+            try {
+                doc_no = EDocUtil.addDocumentSQL(newDoc);
+            } catch (RuntimeException e) {
+                // The DAO persist path throws unchecked (PersistenceException, NPE on a null id)
+                // rather than returning null, and at this point the PDF has already been moved out
+                // of the incoming directory. Without this compensation the exception would escape
+                // to poll()'s log-only account catch with the file stranded in DOCUMENT_DIR: no
+                // document row, no fax row, and (mark-as-read having already run) no re-download —
+                // the fax would become permanently invisible. Move the file back so
+                // retryPendingImports can recover it next cycle.
+                log.error("Failed to persist document record for fax - moving file back to incoming directory", e);
+                receivedFax.setStatus(FaxJob.STATUS.ERROR);
+                receivedFax.setStatusString("Downloaded but import failed - pending retry from incoming directory");
+                try {
+                    moveFile(finalFile.toPath(), incomingFile);
+                } catch (IOException moveBackEx) {
+                    log.error("CRITICAL: Cannot move fax back to incoming directory. File at: {}",
+                            finalFile.getAbsolutePath(), moveBackEx);
+                }
+                return null;
+            }
             if (doc_no == null || doc_no.trim().isEmpty()) {
                 log.error("Failed to create document record for fax - moving file back to incoming directory");
                 receivedFax.setStatus(FaxJob.STATUS.ERROR);
@@ -508,8 +587,24 @@ public class FaxImporter {
                 return null;
             }
 
-            queueDocumentLinkDao.addActiveQueueDocumentLink(queueId, docNum);
-            log.info("Added fax to document queue: queue_id={}, doc_id={}", queueId, docNum);
+            try {
+                queueDocumentLinkDao.addActiveQueueDocumentLink(queueId, docNum);
+                log.info("Added fax to document queue: queue_id={}, doc_id={}", queueId, docNum);
+            } catch (RuntimeException e) {
+                // The DAO now propagates persist failures instead of swallowing them (a swallowed
+                // failure left the fax outside its work queue, looking successful). By this point the
+                // file has already been moved out of the incoming directory and the document row is
+                // committed, so there is nothing left to retry and no compensation to run: rethrowing
+                // would escape every handler below, skip the move-back, and abort the whole sweep for
+                // the remaining faxes. Record the partial import instead, and keep the document — an
+                // imported-but-unqueued fax is recoverable by an operator; a lost one is not.
+                log.error("Fax document {} was imported but could not be linked to queue {}; "
+                        + "it will not appear in the queue until linked manually",
+                        docNum, queueId, e);
+                receivedFax.setStatus(FaxJob.STATUS.ERROR);
+                receivedFax.setStatusString("IMPORTED BUT NOT QUEUED - link document " + docNum
+                        + " to queue " + queueId + " manually");
+            }
 
             newDoc.setDocId(doc_no);
             return newDoc;
@@ -581,35 +676,49 @@ public class FaxImporter {
 
                         log.info("Retrying import of pending fax: {}/{}", configId, pdfFile.getFileName());
 
-                        FaxJob retryFax = new FaxJob();
-                        retryFax.setFile_name(pdfFile.getFileName().toString());
-                        retryFax.setDirection(FaxJob.Direction.IN);
+                        // Per-file isolation: an unchecked failure on one pending fax must not abort
+                        // the sweep for every fax behind it in the directory. The enclosing catch only
+                        // handles IOException, so before this guard a single RuntimeException escaping
+                        // importFromIncoming stranded the rest of the backlog until the next cycle --
+                        // and if it recurred, indefinitely.
                         try {
-                            retryFax.setStamp(new Date(Files.getLastModifiedTime(pdfFile).toMillis()));
-                        } catch (IOException e) {
-                            retryFax.setStamp(new Date());
-                        }
-
-                        EDoc edoc = importFromIncoming(pdfFile, faxConfig, retryFax);
-                        if (edoc != null) {
+                            FaxJob retryFax = new FaxJob();
+                            retryFax.setFile_name(pdfFile.getFileName().toString());
+                            retryFax.setDirection(FaxJob.Direction.IN);
+                            // Stamp the receiving account like the poll path, so
+                            // dedup scoping and attribution apply to retry rows too.
+                            retryFax.setFax_line(faxConfig.getFaxNumber());
                             try {
-                                providerRouting(Integer.parseInt(edoc.getDocId()));
-                            } catch (RuntimeException e) {
-                                log.error("Routing failed for retried fax import doc_no={}: {}",
-                                        edoc.getDocId(), e.getMessage(), e);
-                                retryFax.setStatus(FaxJob.STATUS.ERROR);
-                                retryFax.setStatusString("IMPORTED ON RETRY BUT ROUTING FAILED - NEEDS MANUAL ASSIGNMENT");
+                                retryFax.setStamp(new Date(Files.getLastModifiedTime(pdfFile).toMillis()));
+                            } catch (IOException e) {
+                                retryFax.setStamp(new Date());
                             }
 
-                            if (retryFax.getStatus() == null) {
-                                retryFax.setStatus(FaxJob.STATUS.RECEIVED);
+                            EDoc edoc = importFromIncoming(pdfFile, faxConfig, retryFax);
+                            if (edoc != null) {
+                                try {
+                                    providerRouting(Integer.parseInt(edoc.getDocId()));
+                                } catch (RuntimeException e) {
+                                    log.error("Routing failed for retried fax import doc_no={}: {}",
+                                            edoc.getDocId(), e.getMessage(), e);
+                                    retryFax.setStatus(FaxJob.STATUS.ERROR);
+                                    retryFax.setStatusString("IMPORTED ON RETRY BUT ROUTING FAILED - NEEDS MANUAL ASSIGNMENT");
+                                }
+
+                                if (retryFax.getStatus() == null) {
+                                    retryFax.setStatus(FaxJob.STATUS.RECEIVED);
+                                }
+                                retryFax.setFile_name(edoc.getFileName());
+                                saveFaxJob(retryFax);
+                                resolvePendingRetryRows(pdfFile.getFileName().toString(), edoc.getFileName());
+                                log.info("Successfully imported pending fax on retry: {}", pdfFile.getFileName());
+                            } else {
+                                // Still failing - leave for next cycle, don't create duplicate FaxJob records
+                                log.warn("Retry import still failing for: {}/{}", configId, pdfFile.getFileName());
                             }
-                            retryFax.setFile_name(edoc.getFileName());
-                            saveFaxJob(retryFax);
-                            log.info("Successfully imported pending fax on retry: {}", pdfFile.getFileName());
-                        } else {
-                            // Still failing - leave for next cycle, don't create duplicate FaxJob records
-                            log.warn("Retry import still failing for: {}/{}", configId, pdfFile.getFileName());
+                        } catch (RuntimeException e) {
+                            log.error("Unexpected failure retrying pending fax {}/{}; continuing with the "
+                                    + "remaining pending faxes", configId, pdfFile.getFileName(), e);
                         }
                     }
                 }
@@ -775,13 +884,159 @@ public class FaxImporter {
     }
 
     /**
+     * Decides whether a remote fax (matched by provider job id) is already held locally —
+     * imported into the EMR or safely quarantined for the retry path — and therefore must
+     * not be downloaded again.
+     *
+     * <p>Rows that count as "already held": a successful import (status RECEIVED); a routing
+     * failure after import (statusString starts with "imported" — two casings exist in this
+     * class, so the comparison is case-insensitive); and a download that quarantined the file
+     * but failed the EMR import (statusString starts with "downloaded but import failed").
+     * The quarantined file belongs to {@code retryPendingImports}, whose retry row carries no
+     * provider job id — re-pulling from the provider here would file a duplicate document once
+     * that retry succeeds.</p>
+     *
+     * <p>Pre-download failures ("Download failed...", "Download or save to incoming directory
+     * failed") do NOT count: no local copy exists, so a re-download is the correct retry.</p>
+     *
+     * <p>Outbound rows never count: provider job ids from different sources (an old middleware
+     * relay's local ids, SRFax FaxDetailsIDs) share the {@code jobId} column, so an OUT row
+     * that merely collides on the number must not suppress importing a genuinely new inbound
+     * fax — a false positive here means the fax is marked read and silently never imported.
+     * Legacy rows with a null direction are still considered (pre-direction inbound rows).</p>
+     *
+     * @param priorRows previously persisted rows sharing the provider job id
+     * @return true when any prior inbound row proves the document is already held locally
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    boolean isAlreadyImported(List<FaxJob> priorRows, String accountFaxLine) {
+        if (priorRows == null) {
+            return false;
+        }
+        for (FaxJob prior : priorRows) {
+            if (FaxJob.Direction.OUT.equals(prior.getDirection())) {
+                continue;
+            }
+            // Account scoping on the receiving fax line: two accounts or
+            // backends can reuse the same numeric provider job id, so a prior
+            // row that names a DIFFERENT account is not ours. Comparison is on
+            // the last 10 digits so a provider-supplied 11-digit line (e.g. a
+            // middleware backend) still matches a 10-digit configured number.
+            // A blank/null prior fax_line is a legacy row (imports did not
+            // stamp it before this release) — treat it as ours so an upgrade
+            // never re-imports an already-held fax. If THIS account has no
+            // fax line to scope by, a row bearing some other account's line
+            // cannot be confirmed ours, so it is skipped. fax_line is the best
+            // account key on the row today; a number genuinely shared by two
+            // backends cannot be told apart without a per-config identity.
+            String priorLine = prior.getFax_line();
+            if (priorLine != null && !priorLine.trim().isEmpty()
+                    && !sameFaxLine(priorLine, accountFaxLine)) {
+                continue;
+            }
+            if (FaxJob.STATUS.RECEIVED.equals(prior.getStatus())) {
+                return true;
+            }
+            String statusString = prior.getStatusString();
+            if (statusString == null) {
+                continue;
+            }
+            String normalized = statusString.trim().toLowerCase();
+            if (normalized.startsWith("imported") || normalized.startsWith("downloaded but import failed")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * True when two fax-line values denote the same account, compared on
+     * their last 10 significant digits so a provider-supplied 11-digit line
+     * matches a 10-digit configured number (ConfigureFax2Action stores 10).
+     * A null/blank {@code accountFaxLine} matches nothing (the account has no
+     * line to scope by, so another account's row cannot be confirmed ours).
+     */
+    private static boolean sameFaxLine(String a, String b) {
+        String da = digitsTail(a);
+        String db = digitsTail(b);
+        return !da.isEmpty() && da.equals(db);
+    }
+
+    private static String digitsTail(String v) {
+        if (v == null) {
+            return "";
+        }
+        String digits = v.replaceAll("\\D", "");
+        // A usable fax line needs at least 10 digits; anything shorter is a
+        // malformed/partial value and is treated as no line (never matches),
+        // so it can neither falsely scope to nor away from a real account.
+        if (digits.length() < 10) {
+            return "";
+        }
+        return digits.substring(digits.length() - 10);
+    }
+
+
+    /**
+     * Marks the original "Downloaded but import failed - pending retry" rows as imported once
+     * the pending-file retry has succeeded.
+     *
+     * <p>The retry row created by {@code retryPendingImports} carries no provider job id and no
+     * linkage to the original failed row, so without this the queue view keeps a permanent ERROR
+     * row promising a retry that already happened. The original row was persisted under the
+     * quarantined file's name, which is how it is found here. RECEIVED keeps the row matching
+     * {@link #isAlreadyImported} (dedup unaffected) and removes it from the action-button paths.</p>
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    private void resolvePendingRetryRows(String quarantinedFileName, String importedFileName) {
+        try {
+            for (FaxJob prior : faxJobDao.findByFileName(quarantinedFileName)) {
+                if (FaxJob.Direction.OUT.equals(prior.getDirection())) {
+                    continue;
+                }
+                String statusString = prior.getStatusString();
+                if (statusString != null
+                        && statusString.trim().toLowerCase().startsWith("downloaded but import failed")) {
+                    prior.setStatus(FaxJob.STATUS.RECEIVED);
+                    prior.setStatusString("Imported from incoming directory by retry as " + importedFileName);
+                    faxJobDao.merge(prior);
+                }
+            }
+        } catch (RuntimeException e) {
+            log.warn("Could not resolve pending-retry fax rows for {} - queue view may show a stale retry row",
+                    quarantinedFileName, e);
+        }
+    }
+
+    /**
      * Persists FaxJob record to database for tracking and audit.
      *
      * @param saveFax FaxJob to persist
      * @return FaxJob ID from database
      */
+    /** faxes.statusString is varchar(255) and the deployment runs MariaDB in
+     *  strict sql_mode, where an over-length value throws (Data too long)
+     *  rather than truncating — which would abandon the rest of the import
+     *  batch. Provider messages (a bounded-reader remedy, a stack detail)
+     *  can exceed 255, so clamp here, the single persistence choke point. */
+    private static final int STATUS_STRING_MAX = 255;
+
     private Integer saveFaxJob(FaxJob saveFax) {
         saveFax.setUser(DEFAULT_USER);
+        String status = saveFax.getStatusString();
+        if (status != null && status.length() > STATUS_STRING_MAX) {
+            // Truncate on a CODE-POINT boundary: a plain substring(0,255) can
+            // split a surrogate pair, and utf8mb4 has no encoding for a lone
+            // surrogate — under strict sql_mode that INSERT throws "Incorrect
+            // string value" and abandons the batch, the very failure this
+            // clamp exists to avoid. offsetByCodePoints backs off to the last
+            // whole code point at or before the limit.
+            int end = status.offsetByCodePoints(0,
+                    Math.min(STATUS_STRING_MAX, status.codePointCount(0, status.length())));
+            saveFax.setStatusString(status.substring(0, end));
+        }
         faxJobDao.persist(saveFax);
         return saveFax.getId();
     }

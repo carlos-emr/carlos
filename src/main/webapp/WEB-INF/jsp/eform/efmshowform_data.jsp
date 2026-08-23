@@ -31,6 +31,7 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.util.LegacyMeasurementHistory" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType" %>
@@ -92,6 +93,7 @@
         eForm = new EForm(fdid);
         eForm.setContextPath(request.getContextPath());
         eForm.setOscarOPEN(request.getRequestURI());
+        eForm.setImagePath(request.getContextPath());
 
         if (fdid != null) {
             eForm.setFdid(fdid);
@@ -115,6 +117,26 @@
         eForm.setFdid("");
     }
 
+    // Serve the measurement history to forms that still fetch it from the pre-migration route, the
+    // same way the PDF renderer does. Without it the identical growth chart plotted correctly in a
+    // downloaded PDF and stayed empty here on screen.
+    //
+    // ORDER MATTERS: this is a string-phase edit and must precede every add*() call below. Those
+    // populate a cached jsoup document that getFormHtml() re-serializes at print, which would
+    // discard anything written to the string afterwards. setFormHtml() also clears that cache, which
+    // is correct at this point because no document has been built yet.
+    //
+    // Placed after the if/else above so it covers both the saved-instance and the admin-preview
+    // branch; the latter passes demographic "-1", which resolves to no rows and embeds an empty
+    // series, so the chart renders empty rather than failing a network fetch.
+    // Measurement data reached through an eForm still requires measurement rights: the route this
+    // replaces enforces _measurement, while this page requires only _eform read. Without the check a
+    // user with eForm access alone received the patient's full dated HT/WT/HEAD series.
+    boolean measurementsPermitted = SpringUtils.getBean(SecurityInfoManager.class).hasPrivilege(
+            LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", eForm.getDemographicNo());
+    eForm.setFormHtml(LegacyMeasurementHistory.embed(
+            eForm.getFormHtml(), eForm, measurementsPermitted));
+
     /*
      * Modifying EForm by directly incorporating libraries and adding hidden fields.
      * Ordering is very important.
@@ -125,9 +147,15 @@
     eForm.addHeadJavascript(request.getContextPath()+"/js/jquery.are-you-sure.js");
     eForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-ui-1.14.2.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-3.7.1.min.js");
+    // DOMPurify is editControl2.js's sanitize gate for loading a saved letter back into the editor.
+    // Without it sanitizeHtml() returns null and the editor falls back to textContent, so the
+    // clinician sees their letter as escaped markup and the next save stores it double-escaped.
+    // "First is last": this must be added AFTER jQuery so it lands BEFORE it in the document.
+    eForm.addHeadJavascript(request.getContextPath()+"/library/dompurify/purify.min.js");
 
     eForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
     eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
+    eForm.addHeadJavascript(request.getContextPath()+"/eform/eform-runtime-compat.js");
 
     eForm.addCSS(request.getContextPath()+"/css/oscar_alert.css", "all");
     eForm.addBodyJavascript(request.getContextPath()+"/js/oscar-alert.js");
@@ -149,6 +177,13 @@
     eForm.addHiddenInputElement("eFormPDFName", (String) request.getAttribute("eFormPDFName"));
     eForm.addHiddenInputElement("eFormPDF", (String) request.getAttribute("eFormPDF"));
     eForm.addHiddenInputElement("isDownloadEForm", (String) request.getAttribute("isDownload"));
+    // Advisory conditions (suppressed dialogs and failed legacy timers) deliver the PDF rather than
+    // blocking it, so the reader is told here instead of silently losing that context. A count only:
+    // dialog and script text are form-authored and can carry PHI, which is why the completeness
+    // report is counts-and-booleans in the first place. Severe page-script errors block separately.
+    Object advisoryIssues = request.getAttribute("advisoryIssues");
+    eForm.addHiddenInputElement("advisoryIssues",
+            advisoryIssues == null ? null : String.valueOf(advisoryIssues));
     eForm.addHiddenInputElement("isSuccess_Autoclose", (String) request.getAttribute("isSuccess_Autoclose"));
     // Add EForm attachments
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -178,6 +213,9 @@
         "img-src 'self' data:",
         "font-src 'self' data:",
         "object-src 'none'",
+        // blob: frames carry the attachment-preview PDFs (attachDocument.jsp builds a Blob from the
+        // preview bytes); without an explicit frame-src the default-src 'self' fallback blocks them.
+        "frame-src 'self' blob:",
         "base-uri 'none'",
         "frame-ancestors 'self'"
     );
