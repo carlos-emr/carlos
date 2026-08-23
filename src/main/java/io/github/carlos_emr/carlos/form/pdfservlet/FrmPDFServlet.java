@@ -23,6 +23,8 @@
  */
 package io.github.carlos_emr.carlos.form.pdfservlet;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import java.awt.*;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -51,6 +53,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.carlos.form.FrmRecord;
 import io.github.carlos_emr.carlos.form.FrmRecordFactory;
@@ -138,6 +141,32 @@ public class FrmPDFServlet extends HttpServlet {
 
         ByteArrayOutputStream baosPDF = null;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
+        if (loggedInInfo == null) {
+            // This servlet renders form templates overlaid with patient data; require an authenticated
+            // session rather than serving anonymous requests. Handle the sendError IOException locally so
+            // it never escapes doPost() (Sonar S1989).
+            try {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN);
+            } catch (java.io.IOException ioe) {
+                log.warn("Unable to send 403 for unauthenticated form PDF request", ioe);
+            }
+            return;
+        }
+        // AUTHENTICATED IS NOT AUTHORIZED. The check above only proves someone is logged in; the
+        // patient whose form is rendered comes straight from the request (`demographic_no`, read at
+        // generatePDFDocumentBytes and passed to FrmRecord.getFormRecord, which does raw SQL with no
+        // gate of its own). Without this, any authenticated user — including a role holding no _form
+        // privilege at all — could POST an arbitrary demographic_no and receive that patient's stored
+        // form as a PDF, with the audit line written only AFTER the PHI had been streamed.
+        //
+        // Scoped to the requested demographic, matching the sibling this servlet parallels
+        // (EFormPDFServlet:149-152). One check covers every path: there is exactly one
+        // demographic_no parameter, and the `multiple` loop below varies only the page index.
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(
+                loggedInInfo, "_form", "r", req.getParameter("demographic_no"))) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
         List<File> tempFiles = new ArrayList<>();
 
         try {
@@ -278,7 +307,19 @@ public class FrmPDFServlet extends HttpServlet {
 
             String title = req.getParameter("__title" + suffix) != null ? req.getParameter("__title" + suffix) : "Unknown";
 
-            String template = req.getParameter("__template" + suffix) != null ? req.getParameter("__template" + suffix) + ".pdf" : "";
+            // Existing client code submits a present-but-blank __template= (see form/formScripts.js),
+            // which means "no template". Treat blank/whitespace-only as no template BEFORE appending the
+            // ".pdf" suffix — otherwise a blank value becomes ".pdf", whose leading dot validatePathComponent
+            // rejects, turning a routine "no template" request into a hard failure.
+            String templateParam = req.getParameter("__template" + suffix);
+            String template = "";
+            if (templateParam != null && !templateParam.isBlank()) {
+                // __template is user-controlled and gets concatenated into a filesystem path read by
+                // PdfReader (pdfFORMDIR and the /oscar/form/prop fallback). Validate the raw component
+                // (before the ".pdf" suffix) so "../" or an absolute path cannot escape the configured
+                // template directory; only then append the extension.
+                template = PathValidationUtils.validatePathComponent(templateParam.trim(), "__template") + ".pdf";
+            }
 
             int numPages = 1;
             String pages = req.getParameter("__numPages" + suffix);
@@ -917,6 +958,8 @@ public class FrmPDFServlet extends HttpServlet {
         return ret;
     }
     
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Properties loadFromFileSystem(String baseDir, String safeFilename) {
         try {
             // Build and validate the full path using PathValidationUtils

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /*
- * Browser regression checks for the CARLOS eChart first render.
+ * Browser regression checks for the CARLOS eChart first render and CPP saves.
  *
  * The script follows the same links a user follows: login, schedule Search,
- * patient result, patient page E-Chart link, then the Social History plus icon.
- * It is intentionally narrow because it guards the filter/JSP interaction that
- * can leave the eChart without its clinical-notes DOM or JavaScript handlers.
+ * patient result, patient page E-Chart link, then the Social History plus icon
+ * and save action. It is intentionally narrow because it guards the filter/JSP
+ * interaction that can leave the eChart without its clinical-notes DOM or
+ * JavaScript handlers, plus the shared save callback used by all CPP sections.
  *
  * Defaults are for the local devcontainer:
  *   node scripts/echart-playwright-checks.js
@@ -23,7 +24,7 @@
  */
 
 const { chromium } = require('playwright');
-const path = require('path');
+const { buildArtifactPath } = require('./eform-local-playwright-utils');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -33,6 +34,10 @@ const testPin = process.env.TEST_PIN || '2026';
 const searchTerm = process.env.ECHART_SEARCH_TERM || 'FAKE-J';
 const demographicNo = process.env.ECHART_DEMOGRAPHIC_NO || '1';
 const screenshotDir = process.env.ECHART_SCREENSHOT_DIR || '/tmp';
+
+if (!/^\d+$/.test(demographicNo)) {
+  throw new Error(`ECHART_DEMOGRAPHIC_NO must contain digits only, got ${demographicNo}`);
+}
 
 const captures = [];
 const badResponses = [];
@@ -74,10 +79,11 @@ function isExpectedMissingFixtureImage(status, responseUrl) {
   return status === 404 && /\/imageRenderingServlet\?/.test(responseUrl);
 }
 
-function isSevereConsoleMessage(message) {
+function isBlockingConsoleMessage(message) {
   const text = message.text();
-  if (message.type() === 'pageerror') {
-    return true;
+  const locationUrl = message.location().url || '';
+  if (message.type() === 'error') {
+    return !/\/imageRenderingServlet\?/.test(locationUrl);
   }
   return /(ReferenceError|SyntaxError|TypeError|MAXNOTES|notesLoading|encMainDiv|newNoteImg|Cannot read properties)/i.test(text);
 }
@@ -106,7 +112,7 @@ function wirePage(page, label) {
     }
   });
   page.on('console', (message) => {
-    if (isSevereConsoleMessage(message)) {
+    if (isBlockingConsoleMessage(message)) {
       consoleIssues.push({ label, type: message.type(), text: message.text(), location: message.location() });
     }
   });
@@ -118,7 +124,7 @@ function wirePage(page, label) {
 async function loginAndOpenSearch(context) {
   const page = await context.newPage();
   wirePage(page, 'schedule');
-  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' });
+  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to local/private by default
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
   await page.locator('#pin').fill(testPin);
@@ -181,7 +187,31 @@ async function assertVisible(page, selector, label) {
 }
 
 async function screenshot(page, name) {
-  await page.screenshot({ path: path.join(screenshotDir, `${name}.png`), fullPage: true });
+  await page.screenshot({ path: buildArtifactPath(screenshotDir, name), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
+}
+
+async function archiveCppNote(page, noteText) {
+  const noteLink = page.locator("#divR1I1 a[id^='listNote']").filter({ hasText: noteText }).first();
+  if (!(await noteLink.isVisible().catch(() => false))) {
+    return false;
+  }
+
+  await noteLink.click();
+  await assertVisible(page, '#showEditNote', 'saved Social History editor during cleanup');
+  await page.locator("#frmIssueNotes input[type='image'][src*='edit-cut.png']").click();
+  await noteLink.waitFor({ state: 'detached', timeout: 15000 });
+  return true;
+}
+
+function isUnresolvedIssuesResponse(response) {
+  const url = new URL(response.url());
+  return url.pathname.endsWith('/encounter/displayIssues')
+    && url.searchParams.get('cmd') === 'unresolvedIssues'
+    && url.searchParams.get('demographicNo') === demographicNo;
+}
+
+function isExpectedNoteLockDialog(issue) {
+  return issue.type === 'dialog' && /started to edit this note in another window/i.test(issue.text);
 }
 
 (async () => {
@@ -211,16 +241,57 @@ async function screenshot(page, name) {
     assert(/Social History/i.test(editor.text), `Social History editor did not contain its expected label: ${editor.text}`);
     await screenshot(echart, 'echart-after-social-history-plus');
 
-    assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
-    const fatalConsoleIssues = consoleIssues
-      .filter((issue) => issue.label === 'echart' && issue.type !== 'dialog');
-    assert(fatalConsoleIssues.length === 0,
-      `unexpected eChart browser console failures: ${JSON.stringify(fatalConsoleIssues, null, 2)}`);
+    const cppNote = `Playwright Social History ${Date.now()}`;
+    let saveFailure = null;
+    let cleanupFailure = null;
+    let saveConfirmed = false;
+    try {
+      await echart.locator('#noteEditTxt').fill(cppNote);
+      const unresolvedIssuesResponse = echart.waitForResponse(isUnresolvedIssuesResponse, { timeout: 15000 });
+      await echart.locator("#frmIssueNotes input[type='image'][src*='note-save.png']").click();
 
-    console.log('PASS eChart clinical notes and Social History editor rendered correctly');
+      const refreshResponse = await unresolvedIssuesResponse;
+      assert(refreshResponse.ok(),
+        `Unresolved Issues refresh failed with HTTP ${refreshResponse.status()}: ${refreshResponse.url()}`);
+      await echart.locator('#divR1I1').filter({ hasText: cppNote }).waitFor({ state: 'visible', timeout: 15000 });
+      saveConfirmed = true;
+      await screenshot(echart, 'echart-after-social-history-save');
+    } catch (error) {
+      saveFailure = error;
+    } finally {
+      try {
+        const archived = await archiveCppNote(echart, cppNote);
+        if (saveConfirmed && !archived) {
+          cleanupFailure = new Error('saved Social History item was not available to archive');
+        }
+      } catch (error) {
+        cleanupFailure = error;
+      }
+    }
+
+    // A failed request is the root cause of most save timeouts, so report it before
+    // the save/cleanup errors, which would otherwise surface only as an opaque wait.
+    assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
+
+    if (saveFailure && cleanupFailure) {
+      throw new AggregateError([saveFailure, cleanupFailure], 'Social History save and cleanup both failed');
+    }
+    if (saveFailure) {
+      throw saveFailure;
+    }
+    if (cleanupFailure) {
+      throw new Error(`saved Social History cleanup failed: ${cleanupFailure.message}`, { cause: cleanupFailure });
+    }
+
+    const fatalConsoleIssues = consoleIssues
+      .filter((issue) => !isExpectedNoteLockDialog(issue));
+    assert(fatalConsoleIssues.length === 0,
+      `unexpected browser console failures: ${JSON.stringify(fatalConsoleIssues, null, 2)}`);
+
+    console.log('PASS eChart clinical notes rendered, Social History saved and archived, and Unresolved Issues refreshed');
     console.log(`Observed ${captures.length} eChart-related responses`);
     if (consoleIssues.length) {
-      console.log(`Non-eChart console diagnostics: ${JSON.stringify(consoleIssues, null, 2)}`);
+      console.log(`Non-blocking browser diagnostics: ${JSON.stringify(consoleIssues, null, 2)}`);
     }
   } finally {
     await browser.close();

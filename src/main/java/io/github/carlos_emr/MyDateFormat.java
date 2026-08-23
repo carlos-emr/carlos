@@ -39,6 +39,7 @@ import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.commons.KeyConstants;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Date and time formatting utility class for handling various date/time conversions.
@@ -275,6 +276,8 @@ public class MyDateFormat {
      * @param aXX_XXampm the time string with optional am/pm suffix
      * @return the time in 24-hour format (HH:mm:ss), or "\\N" (MySQL null) if parsing fails
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String getTimeXX_XX_XX(String aXX_XXampm) {
         String temp = "\\N"; //mySQL = null
         int hour = 0;
@@ -326,6 +329,8 @@ public class MyDateFormat {
      * @param pDate the date string to parse
      * @return SQL Date object, or null if pDate is null/empty or parsing fails
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static java.sql.Date getSysDate(String pDate) {
         pDate = StringUtils.trimToNull(pDate);
 
@@ -451,6 +456,8 @@ public class MyDateFormat {
         return cal;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Calendar getCalendar(String pDate, String dateFormat) {
         if (pDate == null || "".equals(pDate)) return null;
         GregorianCalendar cal = null;
@@ -478,6 +485,8 @@ public class MyDateFormat {
         return cal;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Calendar getCalendar(String pDate) {
         //date format yyyymmddHHMM or yyyymmdd or yyyy/mm/dd or yyyy-mm-dd
         if (pDate == null || "".equals(pDate)) return null;
@@ -526,6 +535,8 @@ public class MyDateFormat {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static java.sql.Date getSysDateEX(String pDate, int days) {
         if (pDate == null || "".equals(pDate)) return null;
         if ("TODAY".equals(pDate.toUpperCase())) return new java.sql.Date(new Date().getTime());
@@ -570,6 +581,8 @@ public class MyDateFormat {
     }
 
     //from  20:20:00to 08:20pm,  09:09:00 to 09:09am, or 20:20 to 08:20pm
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String getTimeXX_XXampm(String aXX_XX_XX) {
         String temp = null; //mySQL = null
         int hour = 0;

@@ -30,12 +30,14 @@
 
 package io.github.carlos_emr.carlos.billings.MSP;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.LogTeleplanTxDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
@@ -381,56 +383,52 @@ public class ExtractBean extends Object implements Serializable {
     }
 
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeFile(String value1) {
         try {
             String home_dir;
             String userHomePath = System.getProperty("user.home", "user.dir");
 
-            File pFile = new File(userHomePath, oscar_home);
-            FileInputStream pStream = new FileInputStream(pFile.getPath());
-
+            File userHomeDir = PathValidationUtils.validateConfiguredDirectory(userHomePath, "user.home");
+            File pFile = PathValidationUtils.validateExistingPath(new File(userHomeDir, oscar_home), userHomeDir);
             Properties ap = new Properties();
-            ap.load(pStream);
+            try (FileInputStream pStream = new FileInputStream(pFile)) {
+                ap.load(pStream);
+            }
 
             home_dir = ap.getProperty("HOME_DIR");
-            pStream.close();
 
-            FileOutputStream out;
-
-            out = new FileOutputStream(home_dir + ohipFilename);
-            PrintStream p;
-            p = new PrintStream(out);
-            p.println(value1);
-
-            p.close();
+            File homeDir = PathValidationUtils.resolveConfiguredDirectory(home_dir, "HOME_DIR");
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(ohipFilename), homeDir);
+            try (PrintStream p = new PrintStream(new FileOutputStream(outputFile))) {
+                p.println(value1);
+            }
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeHtml(String htmlvalue1) {
         try {
             String home_dir1;
             String userHomePath1 = System.getProperty("user.home", "user.dir");
 
-            File pFile1 = new File(userHomePath1, oscar_home);
-            FileInputStream pStream1 = new FileInputStream(pFile1.getPath());
-
+            File userHomeDir1 = PathValidationUtils.validateConfiguredDirectory(userHomePath1, "user.home");
+            File pFile1 = PathValidationUtils.validateExistingPath(new File(userHomeDir1, oscar_home), userHomeDir1);
             Properties ap1 = new Properties();
-            ap1.load(pStream1);
+            try (FileInputStream pStream1 = new FileInputStream(pFile1)) {
+                ap1.load(pStream1);
+            }
             home_dir1 = ap1.getProperty("HOME_DIR");
-            pStream1.close();
 
-
-            FileOutputStream out1;
-            out1 = new FileOutputStream(home_dir1 + htmlFilename);
-            PrintStream p1;
-            p1 = new PrintStream(out1);
-
-
-            p1.println(htmlvalue1);
-
-            p1.close();
+            File homeDir1 = PathValidationUtils.resolveConfiguredDirectory(home_dir1, "HOME_DIR");
+            File outputFile1 = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(htmlFilename), homeDir1);
+            try (PrintStream p1 = new PrintStream(new FileOutputStream(outputFile1))) {
+                p1.println(htmlvalue1);
+            }
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }

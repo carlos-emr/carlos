@@ -41,12 +41,12 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO;
 import org.openpdf.text.DocumentException;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.Loader;
@@ -66,6 +66,7 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ImagePDFCreator;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Spring-managed implementation of the {@link DocumentManager} interface for managing
@@ -92,6 +93,14 @@ public class DocumentManagerImpl implements DocumentManager {
 
     private static final String PARENT_DIR = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
     private final Logger logger = MiscUtils.getLogger();
+
+    /**
+     * Process-wide counter that makes server-generated document filenames unique even when two
+     * uploads land in the same clock-second with the same original name. See
+     * {@link #createUniqueDocumentFile}.
+     */
+    private static final AtomicLong DOCUMENT_FILE_SEQUENCE = new AtomicLong();
+    private static final int UNIQUE_FILENAME_MAX_ATTEMPTS = 5;
 
     @Autowired
     private DocumentDao documentDao;
@@ -179,23 +188,19 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
-        SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyyMMddHHmmss");
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-        Date today = new Date();
         // Generates filename and path data and saves the document data to the file system
         String documentPath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        String fileName = document.getDocfilename();
+        String rawFileName = document.getDocfilename();
         File file;
+        String fileName;
         try {
-            String normalizedFileName = PathValidationUtils.validateFileName(fileName);
-            fileName = dateTimeFormat.format(today) + "_" + normalizedFileName;
-            file = PathValidationUtils.validateUserFilePath(fileName, new File(documentPath));
+            String normalizedFileName = PathValidationUtils.validateFileName(rawFileName);
+            file = createUniqueDocumentFile(normalizedFileName, new File(documentPath), documentData);
             fileName = file.getName();
         } catch (SecurityException e) {
-            logger.error("Document filename failed path validation: {}", Encode.forJava(fileName));
+            logger.error("Document filename failed path validation: {}", Encode.forJava(rawFileName));
             throw new IOException("Document filename failed path validation", e);
         }
-        FileUtils.writeByteArrayToFile(file, documentData);
 
         // Gets the number of pages for the document
         int numberOfPages = 1;
@@ -219,6 +224,49 @@ public class DocumentManagerImpl implements DocumentManager {
 		LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.createDocument()", "Document ID: " + document.getId().toString() + " Demographic: " + (demographicNo != null ? demographicNo.toString() : "N/A") + " FileName: " + document.getDocfilename());
 
         return document;
+    }
+
+    /**
+     * Writes {@code documentData} to a freshly created, collision-resistant file under
+     * {@code destinationDir} and returns the file that was written.
+     *
+     * <p>Security rationale: the previous scheme prefixed a one-second timestamp to the caller's
+     * original filename, so two uploads in the same clock-second with the same name resolved to a
+     * single path and the second silently overwrote the first. Because the {@code document} table
+     * has no unique constraint on {@code docfilename}, both DB rows survived — one of them then
+     * pointing at the other patient's bytes (cross-patient PHI exposure). The name is now
+     * server-generated as {@code yyyyMMddHHmmss_NNNNN_<name>} with an atomic sequence, and the
+     * write uses {@link StandardOpenOption#CREATE_NEW} so an existing file is never truncated; on
+     * the rare residual collision the name is regenerated and the write retried.
+     */
+    private File createUniqueDocumentFile(String normalizedFileName, File destinationDir, byte[] documentData) throws IOException {
+        IOException lastFailure = null;
+        for (int attempt = 0; attempt < UNIQUE_FILENAME_MAX_ATTEMPTS; attempt++) {
+            String candidateName = buildUniqueDocumentFilename(normalizedFileName);
+            File candidate = PathValidationUtils.validateUserFilePath(candidateName, destinationDir);
+            try {
+                Files.write(candidate.toPath(), documentData, StandardOpenOption.CREATE_NEW);
+                return candidate;
+            } catch (FileAlreadyExistsException e) {
+                lastFailure = e;
+                // Name collided (wrapped sequence within the same second, or a stale file already
+                // occupies the path). Regenerate with the next sequence value and retry.
+            }
+        }
+        throw new IOException("Unable to create a unique document file after " + UNIQUE_FILENAME_MAX_ATTEMPTS + " attempts", lastFailure);
+    }
+
+    /**
+     * Builds a collision-resistant document filename {@code yyyyMMddHHmmss_NNNNN_<validatedName>}.
+     * The atomic counter defeats same-second, same-original-name collisions across concurrent uploads.
+     * The leading 14-digit timestamp is preserved from the historical scheme; underscores are used as
+     * separators because {@link PathValidationUtils#validateUserFilePath} normalizes away other
+     * punctuation (dashes), and the counter is inserted between the timestamp and the original name.
+     */
+    private String buildUniqueDocumentFilename(String validatedFileName) {
+        String timestamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+        long sequence = DOCUMENT_FILE_SEQUENCE.incrementAndGet();
+        return String.format("%s_%05d_%s", timestamp, sequence, validatedFileName);
     }
 
     public List<Document> getDocumentsUpdateAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn) {
@@ -471,6 +519,8 @@ public class DocumentManagerImpl implements DocumentManager {
      * @return
      * @throws Exception
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Document addDocument(LoggedInInfo loggedInInfo, Document document, CtlDocument ctlDocument) throws Exception {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.documents", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("Access Denied");
@@ -553,6 +603,8 @@ public class DocumentManagerImpl implements DocumentManager {
         return renderDocument(eDoc);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Path renderDocument(EDoc eDoc) throws PDFGenerationException {
         Path eDocPDFPath = null;
         String eDocPath = getFullPathToDocument(eDoc.getFileName());

@@ -311,7 +311,7 @@
             // Listen for tickler refresh broadcasts from ticklerAdd/ticklerEdit popup windows
             var ticklerChannel = null;
             try {
-                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "0" %>' context="javaScript"/>');
+                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "0" %>' context="javaScript"/>');<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 ticklerChannel.onmessage = function(event) {
                     var data = event.data;
                     if (data === 'refresh' || (data && data.action === 'refresh')) {

@@ -98,8 +98,8 @@
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
         <form action="<%= request.getContextPath()%>/rx/copyFavorite2" method="post">
             <input type="hidden" name="dispatch" value="refresh"/>
-            <input type="hidden" name="userProviderNo" value="<carlos:encode value='<%=providerNo%>' context="htmlAttribute"/>"/>
-            <input type="hidden" name="copyProviderNo" value="<carlos:encode value='<%=copyProviderNo%>' context="htmlAttribute"/>"/>
+            <input type="hidden" name="userProviderNo" value="<carlos:encode value='<%=providerNo%>' context='htmlAttribute'/>"/>
+            <input type="hidden" name="copyProviderNo" value="<carlos:encode value='<%=copyProviderNo%>' context='htmlAttribute'/>"/>
 
             <table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse" width="100%">
                 <%@ include file="TopLinks.jsp"%>
@@ -149,7 +149,7 @@
                                                                     continue;
                                                                 }
                                                         %>
-                                                            <option value="<carlos:encode value='<%=((String) allProviders.get(p))%>' context="htmlAttribute"/>"
+                                                            <option value="<carlos:encode value='<%=((String) allProviders.get(p))%>' context='htmlAttribute'/>"
                                                                 <%=((String) allProviders.get(p)).equalsIgnoreCase(copyProviderNo) ? "selected=\"selected\"" : ""%>>
                                                                 <carlos:encode value='<%=providerDao.getProvider((String) allProviders.get(p)).getFormattedName()%>' context="html"/>
                                                             </option>
