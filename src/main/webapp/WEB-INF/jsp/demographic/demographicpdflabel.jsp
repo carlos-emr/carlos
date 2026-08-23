@@ -327,7 +327,7 @@
                     %>
                     <option
                             value="<carlos:encode value='<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>' context='htmlAttribute'/>"
-                            <%=prop.getProperty("referral_no").equals(rdohip) ? "selected" : ""%>>
+                            <%=Objects.equals(prop.getProperty("referral_no"), rdohip) ? "selected" : ""%>>
                         <carlos:encode value='<%=Misc.getShortStr((prop.getProperty("last_name") + "," + prop.getProperty("first_name")), "", nStrShowLen)%>' context="html"/>
                     </option>
                     <% } %>
