@@ -61,6 +61,11 @@ class NioFileManagerImplCopyFileUnitTest {
         Path source = Files.createTempFile("copy-approved-", ".pdf");
         Files.writeString(source, "approved temp source", StandardCharsets.UTF_8);
 
+        Assumptions.assumeTrue(
+                PathValidationUtils.isInAllowedTempDirectory(source.toFile()),
+                "Default JVM temp directory must be in the allowed temp directories for this test"
+        );
+
         try {
             String result = fileManager.copyFileToOscarDocuments(source.toString());
 
