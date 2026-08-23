@@ -341,10 +341,10 @@
                             var refNo = "";
                             <% for(int k=0; k<vecRef.size(); k++) {
                                     prop= (Properties) vecRef.get(k);
-                                    String referralDisplayName = prop.getProperty("last_name") + "," + prop.getProperty("first_name");
+                                    String referralScriptDisplayName = prop.getProperty("last_name") + "," + prop.getProperty("first_name");
                                     String referralNo = prop.getProperty("referral_no", "");
                             %>
-                            if (refName === "<carlos:encode value='<%=referralDisplayName%>' context='javaScriptBlock'/>") {
+                            if (refName === "<carlos:encode value='<%=referralScriptDisplayName%>' context='javaScriptBlock'/>") {
                                 refNo = "<carlos:encode value='<%=referralNo%>' context='javaScriptBlock'/>";
                             }
                             <% } %>

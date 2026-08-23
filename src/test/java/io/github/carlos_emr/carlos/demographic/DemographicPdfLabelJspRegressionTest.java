@@ -64,7 +64,7 @@ class DemographicPdfLabelJspRegressionTest {
         }
         assertEncodes(jsp, "d.getDemographicNo()", "htmlAttribute");
         assertEncodes(jsp, "referralDisplayName", "htmlAttribute");
-        assertEncodes(jsp, "referralDisplayName", "javaScriptBlock");
+        assertEncodes(jsp, "referralScriptDisplayName", "javaScriptBlock");
         assertEncodes(jsp, "referralNo", "javaScriptBlock");
 
         for (String rawSink : List.of(
