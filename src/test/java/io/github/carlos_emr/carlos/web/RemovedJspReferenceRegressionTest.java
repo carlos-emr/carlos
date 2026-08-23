@@ -281,6 +281,9 @@ class RemovedJspReferenceRegressionTest {
                 .doesNotContainPattern("title=\\\"\\s*<%=\\s*reason\\s*%>\\s*\\\"");
         assertThat(unbilled)
                 .contains("<carlos:encode value='<%= reason %>' context=\"html\"/>")
+                .contains("SafeEncode.forJavaScriptAttribute(")
+                .contains("SafeEncode.forUriComponent(demoName)")
+                .doesNotContain("demographic_name=<%=URLEncoder.encode(demoName)%>")
                 .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
                 .doesNotContainPattern(">(?:\\s*)<%=\\s*reason\\s*%>(?:\\s*)<")
                 .doesNotContainPattern("title=\\\"\\s*<%=\\s*reason\\s*%>\\s*\\\"");
