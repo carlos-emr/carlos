@@ -526,6 +526,23 @@ The application will not start
   Almost always the schema gate or the database. `carlos-ctl db-info` shows the
   migration state; `systemctl status mariadb` shows the database.
 
+  If the unit is dead rather than failing to serve, check whether it exhausted
+  its restart limit: the unit gives up after six failures in thirty minutes
+  (StartLimitBurst) and then stays down until it is started by hand. An
+  out-of-memory exit loops exactly that way, because the JVM is run with
+  -XX:+ExitOnOutOfMemoryError. `journalctl -u carlos-emr` shows the exits and
+  `systemctl reset-failed carlos-emr` clears the limit once the cause is fixed.
+  Give the machine enough memory for the configured heap (CARLOS_JAVA_XMX in
+  /etc/carlos-emr/carlos-emr.env) plus MariaDB's 1 GB buffer pool and the
+  operating system, or lower the heap and run `carlos-ctl restart`.
+
+The check says the JVM runs as `tomcat`, or something answers on port 8080
+  The distribution's tomcat11 SERVICE package is installed. CARLOS does not use
+  it — it runs its own private instance as the `carlos` account on
+  127.0.0.1:18080 — and that second container listens on every interface with
+  no TLS, no WAF and no rate limit. Remove it: `sudo apt purge tomcat11`.
+  Current packages refuse the combination outright (Conflicts: tomcat11).
+
 A page returns 403 and the application log shows nothing
   That is the WAF, not the application. `carlos-ctl waf tail` shows why.
 
