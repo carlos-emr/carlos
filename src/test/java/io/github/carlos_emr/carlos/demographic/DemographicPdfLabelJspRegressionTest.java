@@ -63,11 +63,9 @@ class DemographicPdfLabelJspRegressionTest {
             assertEncodes(jsp, expression, "html");
         }
         assertEncodes(jsp, "d.getDemographicNo()", "htmlAttribute");
-        assertEncodes(jsp, "prop.getProperty(\"last_name\")+\",\"+prop.getProperty(\"first_name\")",
-                "htmlAttribute");
-        assertEncodes(jsp, "prop.getProperty(\"last_name\")+\",\"+prop.getProperty(\"first_name\")",
-                "javaScriptBlock");
-        assertEncodes(jsp, "prop.getProperty(\"referral_no\", \"\")", "javaScriptBlock");
+        assertEncodes(jsp, "referralDisplayName", "htmlAttribute");
+        assertEncodes(jsp, "referralDisplayName", "javaScriptBlock");
+        assertEncodes(jsp, "referralNo", "javaScriptBlock");
 
         for (String rawSink : List.of(
                 "<b>Record</b> (<%=d.getDemographicNo()%>) <%=d.getLastName()%>,",
@@ -79,7 +77,8 @@ class DemographicPdfLabelJspRegressionTest {
                 "<td align=\"left\"><%=d.getChartNo()%>",
                 "<td><%=alert%>",
                 "<td><%=notes%>",
-                "if (refName == \"<%=prop.getProperty",
+                "if (refName == ",
+                "if (refName === \"<%=prop.getProperty",
                 "refNo = \"<%=prop.getProperty")) {
             assertThat(jsp)
                     .as(rawSink)

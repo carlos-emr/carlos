@@ -324,11 +324,12 @@
                     <option value=""></option>
                     <% for (int k = 0; k < vecRef.size(); k++) {
                         prop = (Properties) vecRef.get(k);
+                        String referralDisplayName = prop.getProperty("last_name") + "," + prop.getProperty("first_name");
                     %>
                     <option
-                            value="<carlos:encode value='<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>' context='htmlAttribute'/>"
+                            value="<carlos:encode value='<%=referralDisplayName%>' context='htmlAttribute'/>"
                             <%=Objects.equals(prop.getProperty("referral_no"), rdohip) ? "selected" : ""%>>
-                        <carlos:encode value='<%=Misc.getShortStr((prop.getProperty("last_name") + "," + prop.getProperty("first_name")), "", nStrShowLen)%>' context="html"/>
+                        <carlos:encode value='<%=Misc.getShortStr(referralDisplayName, "", nStrShowLen)%>' context="html"/>
                     </option>
                     <% } %>
                 </select>
@@ -340,9 +341,11 @@
                             var refNo = "";
                             <% for(int k=0; k<vecRef.size(); k++) {
                                     prop= (Properties) vecRef.get(k);
+                                    String referralDisplayName = prop.getProperty("last_name") + "," + prop.getProperty("first_name");
+                                    String referralNo = prop.getProperty("referral_no", "");
                             %>
-                            if (refName == "<carlos:encode value='<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>' context='javaScriptBlock'/>") {
-                                refNo = "<carlos:encode value='<%=prop.getProperty("referral_no", "")%>' context='javaScriptBlock'/>";
+                            if (refName === "<carlos:encode value='<%=referralDisplayName%>' context='javaScriptBlock'/>") {
+                                refNo = "<carlos:encode value='<%=referralNo%>' context='javaScriptBlock'/>";
                             }
                             <% } %>
                             document.updatedelete.r_doctor_ohip.value = refNo;
