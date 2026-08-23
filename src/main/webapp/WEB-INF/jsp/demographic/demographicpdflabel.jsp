@@ -387,7 +387,7 @@
                         boolean nextStatus = true;
 
                         for (String pt : demographicDao.search_ptstatus()) {
-                            if (pt.equals(pacStatus)) { %>
+                            if (Objects.equals(pt, pacStatus)) { %>
                     <carlos:encode value='<%=pt%>' context="html"/> <% nextStatus = false;
                     }
                     }
