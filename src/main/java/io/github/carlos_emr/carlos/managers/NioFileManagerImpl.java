@@ -485,52 +485,63 @@ public class NioFileManagerImpl implements NioFileManager {
 
     /**
      * Copy file from given file path into the default OscarDocuments directory.
-     * This method deletes the temporary file after successful copy.
+     * This method attempts to delete the temporary file after a successful copy.
      * Uses Apache Commons FilenameUtils for robust path security.
      */
+    @SuppressWarnings({"PATH_TRAVERSAL_IN", "findsecbugs:PATH_TRAVERSAL_IN"})
+    // Safe: validateUpload(...) constrains the caller-supplied source to allowed temp locations
+    // before Files.copy(...), and validatePath(...) constrains the destination to OscarDocuments.
     public String copyFileToOscarDocuments(String tempFilePath) {
-        try {
-            // Use FilenameUtils.getName() to extract just the filename, removing any path components
-            // This is more reliable than manual path manipulation as it handles edge cases
-            String sanitizedFileName = FilenameUtils.getName(tempFilePath);
-            if (sanitizedFileName == null || sanitizedFileName.isEmpty()) {
-                log.error("Invalid file path provided: {}", LogSafe.sanitize(tempFilePath, 1024));
-                return null;
-            }
-
-            // Get source and destination directories
-            File documentDir = new File(getDocumentDirectory());
-            File sourceFile;
-            try {
-                sourceFile = PathValidationUtils.validateUpload(new File(tempFilePath));
-            } catch (SecurityException e) {
-                log.error("Invalid source file path for Oscar document copy (upload validation failed): {}; reason: {}",
-                        LogSafe.sanitize(tempFilePath, 1024), e.getMessage());
-                log.debug("Rejected Oscar document copy source", e);
-                return null;
-            }
-
-            // Validate destination path using PathValidationUtils
-            File destinationFile = PathValidationUtils.validatePath(sanitizedFileName, documentDir);
-
-            // Perform the copy operation
-            Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-
-            // Delete source file after successful copy
-            if (destinationFile.exists()) {
-                deleteTempFile(sourceFile.getPath());
-            }
-
-            return destinationFile.getPath();
-        } catch (IOException e) {
-            log.error("An error occurred while moving the PDF file", e);
+        // Use FilenameUtils.getName() to extract just the filename, removing any path components
+        // This is more reliable than manual path manipulation as it handles edge cases
+        String sanitizedFileName = FilenameUtils.getName(tempFilePath);
+        if (sanitizedFileName == null || sanitizedFileName.isEmpty()) {
+            log.error("Invalid file path provided: {}", LogSafe.sanitize(tempFilePath, 1024));
             return null;
+        }
+
+        File documentDir = new File(getDocumentDirectory());
+        File sourceFile;
+        try {
+            sourceFile = PathValidationUtils.validateUpload(new File(tempFilePath));
+        } catch (SecurityException e) {
+            log.error("Invalid source file path for Oscar document copy (upload validation failed): {}; reason: {}",
+                    LogSafe.sanitize(tempFilePath, 1024), e.getMessage());
+            log.debug("Rejected Oscar document copy source", e);
+            return null;
+        }
+
+        File destinationFile;
+        try {
+            destinationFile = PathValidationUtils.validatePath(sanitizedFileName, documentDir);
         } catch (SecurityException e) {
             log.error("Invalid destination file path for Oscar document copy (destination validation failed): {}; reason: {}",
                     LogSafe.sanitize(tempFilePath, 1024), e.getMessage());
             log.debug("Rejected Oscar document copy destination", e);
             return null;
         }
+
+        try {
+            Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            log.error("An error occurred while moving the PDF file", e);
+            return null;
+        }
+
+        if (destinationFile.exists()) {
+            try {
+                if (!deleteTempFile(sourceFile.getPath()) && sourceFile.exists()) {
+                    log.warn("Oscar document copy could not remove validated temp source after successful copy: {}",
+                            LogSafe.sanitize(sourceFile.getPath(), 1024));
+                }
+            } catch (RuntimeException e) {
+                log.warn("Oscar document copy cleanup rejected validated temp source after successful copy: {}; reason: {}",
+                        LogSafe.sanitize(sourceFile.getPath(), 1024), e.getMessage());
+                log.debug("Rejected Oscar document copy cleanup", e);
+            }
+        }
+
+        return destinationFile.getPath();
     }
 
     /**

@@ -30,7 +30,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -80,28 +79,36 @@ class NioFileManagerImplCopyFileUnitTest {
 
     @Test
     @DisplayName("should reject copy when source is outside approved temp directories")
-    void shouldRejectCopy_whenSourceIsOutsideApprovedTempDirectories() {
-        File source = new File("/etc/hostname");
-        Assumptions.assumeTrue(source.exists() && source.isFile());
-        Assumptions.assumeFalse(PathValidationUtils.isInAllowedTempDirectory(source));
+    void shouldRejectCopy_whenSourceIsOutsideApprovedTempDirectories() throws IOException {
+        Path source = Files.createTempFile(Path.of(System.getProperty("user.dir")), "copy-reject-", ".pdf");
 
-        String result = fileManager.copyFileToOscarDocuments(source.toString());
+        try {
+            assertThat(PathValidationUtils.isInAllowedTempDirectory(source.toFile())).isFalse();
 
-        assertThat(result).isNull();
-        assertThat(Files.exists(documentDir.resolve(source.getName()))).isFalse();
+            String result = fileManager.copyFileToOscarDocuments(source.toString());
+
+            assertThat(result).isNull();
+            assertThat(Files.exists(documentDir.resolve(source.getFileName().toString()))).isFalse();
+        } finally {
+            Files.deleteIfExists(source);
+        }
     }
 
     @Test
     @DisplayName("should return destination path when cleanup rejects source after successful copy")
     void shouldReturnDestinationPath_whenCleanupRejectsSourceAfterSuccessfulCopy() throws IOException {
-        Path sourceDir = Files.createTempDirectory("tempDirectory-cleanup-");
-        Path source = sourceDir.resolve("cleanup-fails.pdf");
+        String originalCatalinaBase = System.getProperty("catalina.base");
+        Path catalinaBase = Files.createTempDirectory(Path.of(System.getProperty("user.dir")), "catalina-base-");
+        Path workDir = Files.createDirectories(catalinaBase.resolve("work"));
+        Path source = Files.createTempFile(workDir, "cleanup-fails-", ".pdf");
         Files.writeString(source, "cleanup failure still persists copy", StandardCharsets.UTF_8);
-        Assumptions.assumeTrue(PathValidationUtils.isInAllowedTempDirectory(source.toFile()));
+        Path systemTempDir = Path.of(System.getProperty("java.io.tmpdir")).toRealPath().normalize();
+        assertThat(source.toRealPath().startsWith(systemTempDir)).isFalse();
 
         try {
-            Assumptions.assumeTrue(sourceDir.toFile().setWritable(false, false));
-            Assumptions.assumeFalse(Files.isWritable(sourceDir));
+            System.setProperty("catalina.base", catalinaBase.toString());
+            PathValidationUtils.resetAllowedTempDirectoriesForTests();
+            assertThat(PathValidationUtils.isInAllowedTempDirectory(source.toFile())).isTrue();
 
             String result = fileManager.copyFileToOscarDocuments(source.toString());
 
@@ -110,9 +117,19 @@ class NioFileManagerImplCopyFileUnitTest {
             assertThat(Files.readString(destination)).isEqualTo("cleanup failure still persists copy");
             assertThat(Files.exists(source)).isTrue();
         } finally {
-            assertThat(sourceDir.toFile().setWritable(true, false)).isTrue();
+            restoreSystemProperty("catalina.base", originalCatalinaBase);
+            PathValidationUtils.resetAllowedTempDirectoriesForTests();
             Files.deleteIfExists(source);
-            Files.deleteIfExists(sourceDir);
+            Files.deleteIfExists(workDir);
+            Files.deleteIfExists(catalinaBase);
+        }
+    }
+
+    private static void restoreSystemProperty(String name, String originalValue) {
+        if (originalValue == null) {
+            System.clearProperty(name);
+        } else {
+            System.setProperty(name, originalValue);
         }
     }
 

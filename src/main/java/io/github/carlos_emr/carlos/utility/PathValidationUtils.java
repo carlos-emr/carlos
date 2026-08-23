@@ -1,5 +1,7 @@
 package io.github.carlos_emr.carlos.utility;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -538,6 +540,19 @@ public final class PathValidationUtils {
             }
         }
         return allowedTempDirectories;
+    }
+
+    /**
+     * Clears the cached allowed temp directories so tests can re-evaluate system-property changes.
+     * This method is a test-only hook and must not be called from production code.
+     *
+     * @since 2026-08-23
+     */
+    @VisibleForTesting
+    public static void resetAllowedTempDirectoriesForTests() {
+        synchronized (PathValidationUtils.class) {
+            allowedTempDirectories = null;
+        }
     }
 
     /**
