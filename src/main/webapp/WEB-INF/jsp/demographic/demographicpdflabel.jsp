@@ -193,7 +193,7 @@
             </tr>
             <tr>
                 <td align="left"
-                    title="<carlos:encode value='<%=d.getDemographicNo()%>' context="htmlAttribute"/>"><b><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b><carlos:encode value='<%=d.getLastName()%>' context="html"/>
+                    title="<carlos:encode value='<%=d.getDemographicNo()%>' context='htmlAttribute'/>"><b><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b><carlos:encode value='<%=d.getLastName()%>' context="html"/>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>: </b></td>
                 <td align="left"><carlos:encode value='<%=d.getFirstName()%>' context="html"/>
@@ -326,7 +326,7 @@
                         prop = (Properties) vecRef.get(k);
                     %>
                     <option
-                            value="<carlos:encode value='<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>' context="htmlAttribute"/>"
+                            value="<carlos:encode value='<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>' context='htmlAttribute'/>"
                             <%=prop.getProperty("referral_no").equals(rdohip) ? "selected" : ""%>>
                         <carlos:encode value='<%=Misc.getShortStr((prop.getProperty("last_name") + "," + prop.getProperty("first_name")), "", nStrShowLen)%>' context="html"/>
                     </option>
@@ -341,8 +341,8 @@
                             <% for(int k=0; k<vecRef.size(); k++) {
                                     prop= (Properties) vecRef.get(k);
                             %>
-                            if (refName == "<carlos:encode value='<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>' context="javaScriptBlock"/>") {
-                                refNo = '<carlos:encode value='<%=prop.getProperty("referral_no", "")%>' context="javaScriptBlock"/>';
+                            if (refName == "<carlos:encode value='<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>' context='javaScriptBlock'/>") {
+                                refNo = '<carlos:encode value='<%=prop.getProperty("referral_no", "")%>' context='javaScriptBlock'/>';
                             }
                             <% } %>
                             document.updatedelete.r_doctor_ohip.value = refNo;
@@ -384,7 +384,7 @@
                         boolean nextStatus = true;
 
                         for (String pt : demographicDao.search_ptstatus()) {
-                            if (pacStatus.equals(pt)) { %>
+                            if (pt.equals(pacStatus)) { %>
                     <carlos:encode value='<%=pt%>' context="html"/> <% nextStatus = false;
                     }
                     }

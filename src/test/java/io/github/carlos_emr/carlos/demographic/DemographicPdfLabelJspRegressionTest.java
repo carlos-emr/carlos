@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -51,20 +52,26 @@ class DemographicPdfLabelJspRegressionTest {
     void shouldEncodeDemographicValues_inHtmlAttributeAndJavaScriptContexts() throws IOException {
         String jsp = Files.readString(JSP, StandardCharsets.UTF_8);
 
-        assertThat(jsp)
-                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
-                .contains("title=\"<carlos:encode value='<%=d.getDemographicNo()%>' context=\"htmlAttribute\"/>\"")
-                .contains("<carlos:encode value='<%=d.getLastName()%>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%=d.getAddress()%>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%=d.getHin()%>' context=\"html\"/>")
-                .contains("value=\"<carlos:encode value='<%=prop.getProperty(\"last_name\")+\",\"+prop.getProperty(\"first_name\")%>' context=\"htmlAttribute\"/>\"")
-                .contains("context=\"javaScriptBlock\"")
-                .contains("<carlos:encode value='<%=alert%>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%=notes%>' context=\"html\"/>");
+        assertThat(jsp).contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>");
+
+        for (String expression : List.of(
+                "d.getLastName()",
+                "d.getAddress()",
+                "d.getHin()",
+                "alert",
+                "notes")) {
+            assertEncodes(jsp, expression, "html");
+        }
+        assertEncodes(jsp, "d.getDemographicNo()", "htmlAttribute");
+        assertEncodes(jsp, "prop.getProperty(\"last_name\")+\",\"+prop.getProperty(\"first_name\")",
+                "htmlAttribute");
+        assertEncodes(jsp, "prop.getProperty(\"last_name\")+\",\"+prop.getProperty(\"first_name\")",
+                "javaScriptBlock");
+        assertEncodes(jsp, "prop.getProperty(\"referral_no\", \"\")", "javaScriptBlock");
 
         for (String rawSink : List.of(
                 "<b>Record</b> (<%=d.getDemographicNo()%>) <%=d.getLastName()%>,",
-                "title='<%=d.getDemographicNo()%>'><b><fmt:message key=\"demographic.demographiceditdemographic.formLastName\"/>: </b><%=d.getLastName()%>",
+                "title='<%=d.getDemographicNo()%>'",
                 "<td align=\"left\"><%=d.getFirstName()%>",
                 "<td align=\"left\"><b><fmt:message key=\"demographic.demographiceditdemographic.formAddr\"/>: </b> <%=d.getAddress()%>",
                 "<td align=\"left\"><b><fmt:message key=\"demographic.demographiceditdemographic.formHin\"/>: </b><%=d.getHin()%>",
@@ -72,11 +79,22 @@ class DemographicPdfLabelJspRegressionTest {
                 "<td align=\"left\"><%=d.getChartNo()%>",
                 "<td><%=alert%>",
                 "<td><%=notes%>",
-                "if (refName == \"<%=prop.getProperty(\"last_name\")+\",\"+prop.getProperty(\"first_name\")%>\") {",
-                "refNo = '<%=prop.getProperty(\"referral_no\", \"\")%>';")) {
+                "if (refName == \"<%=prop.getProperty",
+                "refNo = '<%=prop.getProperty")) {
             assertThat(jsp)
                     .as(rawSink)
                     .doesNotContain(rawSink);
         }
+    }
+
+    private static void assertEncodes(String jsp, String expression, String context) {
+        String pattern = "<carlos:encode\\s+value=([\"'])<%=\\s*"
+                + Pattern.quote(expression)
+                + "\\s*%>\\1\\s+context=([\"'])"
+                + Pattern.quote(context)
+                + "\\2\\s*/>";
+        assertThat(jsp)
+                .as("%s encoded with %s", expression, context)
+                .containsPattern(pattern);
     }
 }
