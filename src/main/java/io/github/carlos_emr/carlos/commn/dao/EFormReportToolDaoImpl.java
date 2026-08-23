@@ -28,6 +28,8 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
@@ -190,9 +192,9 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         if (eformReportTool != null) {
             String tableName = getValidatedTableName(eformReportTool);
             Query q = entityManager.createNativeQuery("select count(*) from " + tableName);
-            List<BigInteger> results = q.getResultList();
+            List<?> results = q.getResultList();
             if (!results.isEmpty()) {
-                return results.get(0).intValue();
+                return ((Number) results.get(0)).intValue();
             }
         }
         return null;
