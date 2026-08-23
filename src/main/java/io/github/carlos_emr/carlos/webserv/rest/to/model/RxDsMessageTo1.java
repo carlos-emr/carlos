@@ -131,7 +131,6 @@ public class RxDsMessageTo1 implements Serializable {
             }
         }
 
-        MiscUtils.getLogger().error("WHATS inn ht" + ht);
         type = (String) ht.get("type");
         author = (String) ht.get("author");
         updated_by = (Integer) ht.get("updated_by");

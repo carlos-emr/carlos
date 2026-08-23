@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class JdbcApptImpl {
     private static final Logger _logger = MiscUtils.getLogger();
@@ -57,6 +58,8 @@ public class JdbcApptImpl {
         return (retval == 1);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getLocationFromSchedule(String apptDate, String provider_no) {
         String retval = getLocationFromSpec(apptDate, provider_no, "c");
         if (!"".equals(retval)) {

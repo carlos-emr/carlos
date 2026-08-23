@@ -74,6 +74,7 @@ import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilte
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ConsultationRequestConverter;
@@ -623,12 +624,17 @@ public class ConsultationWebService extends AbstractServiceImpl {
     }
 
     private List<FaxConfigTo1> getFaxList() {
+        // Only active accounts are usable send lines, and the provider account id (faxUser —
+        // for SRFax this is the API access_id) is a credential-adjacent value no consultation
+        // client needs; expose the fax number only (mirrors FaxManagerImpl.getFaxGatewayAccounts).
         List<FaxConfigTo1> faxList = new ArrayList<FaxConfigTo1>();
         List<FaxConfig> faxConfigList = faxConfigDao.findAll(null, null);
         for (FaxConfig faxConfig : faxConfigList) {
+            if (!faxConfig.isActive()) {
+                continue;
+            }
             FaxConfigTo1 faxConfigTo1 = new FaxConfigTo1();
             faxList.add(faxConfigTo1);
-            faxConfigTo1.setFaxUser(faxConfig.getFaxUser());
             faxConfigTo1.setFaxNumber(faxConfig.getFaxNumber());
         }
         return faxList;
@@ -742,8 +748,17 @@ public class ConsultationWebService extends AbstractServiceImpl {
                         attachment.setDocumentNo(document.getDocumentNo());
                         attachment.getDocument().setId(document.getDocumentNo());
                         goodAttachments.add(attachment);
+                    } catch (FileValidationException e) {
+                        MiscUtils.getLogger().warn("saveRequestAttachments: invalid attachment filename");
+                        markAttachmentSaveFailure(goodAttachments, attachment, "Invalid attachment filename");
                     } catch (IOException e) {
-                        MiscUtils.getLogger().warn("saveRequestAttachments: Could not create document for attachment", e);
+                        if (isFileValidationFailure(e)) {
+                            MiscUtils.getLogger().warn("saveRequestAttachments: invalid attachment filename");
+                            markAttachmentSaveFailure(goodAttachments, attachment, "Invalid attachment filename");
+                        } else {
+                            MiscUtils.getLogger().warn("saveRequestAttachments: Could not create document for attachment", e);
+                            markAttachmentSaveFailure(goodAttachments, attachment, "Attachment could not be saved");
+                        }
                     }
                 }
             } else {
@@ -764,6 +779,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
         List<String> uniqueAttachments = new ArrayList<>();
         //compare current & new, remove from current list the unchanged ones - no need to update them
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
+            if (newAtth.getValidationError() != null) {
+                continue;
+            }
             if (uniqueAttachments.contains(newAtth.getDocumentType() + newAtth.getDocumentNo())) {
                 continue;
             }
@@ -817,5 +835,22 @@ public class ConsultationWebService extends AbstractServiceImpl {
         for (ConsultResponseDoc doc : currentDocs) {
             consultationManager.saveConsultResponseDoc(getLoggedInInfo(), doc);
         }
+    }
+
+    private void markAttachmentSaveFailure(List<ConsultationAttachmentTo1> attachments,
+                                           ConsultationAttachmentTo1 attachment,
+                                           String validationError) {
+        attachment.setValidationError(validationError);
+        attachments.add(attachment);
+    }
+
+    private static boolean isFileValidationFailure(Throwable throwable) {
+        while (throwable != null) {
+            if (throwable instanceof FileValidationException) {
+                return true;
+            }
+            throwable = throwable.getCause();
+        }
+        return false;
     }
 }

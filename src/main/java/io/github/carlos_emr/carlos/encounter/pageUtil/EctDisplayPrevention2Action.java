@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EctDisplayPrevention2Action extends EctDisplayAction {
     private static final String cmd = "preventions";
@@ -59,6 +60,8 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
     private static final String COLOUR_UP_TO_DATE = "#009900";
     private static final String COLOUR_NOT_DOCUMENTED = "#999999";
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 

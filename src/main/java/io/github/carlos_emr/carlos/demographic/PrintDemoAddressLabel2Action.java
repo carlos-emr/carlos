@@ -24,6 +24,7 @@
 
 package io.github.carlos_emr.carlos.demographic;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -43,12 +44,14 @@ import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.OscarDocumentCreator;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for generating and printing PDF address labels for patient demographics.
@@ -121,6 +124,9 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
      * @return String NONE constant after streaming the direct PDF response
      * @throws SecurityException if the user lacks "_demographic" read privilege
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
@@ -169,9 +175,9 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
         logger.debug("user home: " + System.getProperty("user.home"));
 
         try {
-            ins = new FileInputStream(System.getProperty("user.home") + "/Addresslabel.xml");
-        } catch (FileNotFoundException ex1) {
-            logger.debug("Addresslabel.xml not found in user's home directory. Using default instead");
+            ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + "/Addresslabel.xml")));
+        } catch (FileNotFoundException | SecurityException ex1) {
+            logger.debug("Addresslabel.xml not found in user's home directory. Using default instead", ex1);
         }
 
         if (ins == null) {

@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,23 +72,53 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
         try {
             digitalSignature.setSignatureImage(EncryptionUtils.decrypt(digitalSignature.getSignatureImage()));
         } catch (Exception e) {
-            logger.warn("Decryption failed for signature ID {} — attempting legacy re-encryption", id, e);
-
-            // The data is not encrypted (legacy record). Re-attach, encrypt, and persist for future access.
-            try {
-                digitalSignature.setSignatureImage(EncryptionUtils.encrypt(digitalSignature.getSignatureImage()));
-                this.digitalSignatureDao.merge(digitalSignature);
-                this.digitalSignatureDao.flush();
-
-                this.digitalSignatureDao.detach(digitalSignature);
-                digitalSignature.setSignatureImage(EncryptionUtils.decrypt(digitalSignature.getSignatureImage()));
-            } catch (Exception ex) {
-                logger.error("Re-encryption and decryption both failed for signature ID {} — returning null to avoid corrupted data", id, ex);
-                return null;
+            // Decryption failed. The record is NOT mutated here (the old code destructively re-encrypted
+            // and persisted the bytes, permanently double-encrypting a merely-undecryptable record).
+            // setSignatureImage was not reached, so the entity still holds its original stored bytes.
+            //
+            // Those bytes are only safe to return when they really are a plaintext image (the legacy
+            // case). For a genuinely encrypted record whose key is currently unavailable (rotation,
+            // outage), the ciphertext is undecodable — returning it would stream garbage as image/jpeg
+            // with HTTP 200, and a signed eForm would fax/archive with a blank signature block while the
+            // render gate (which only trips on >= 400) sees success. So sniff the bytes: keep them only
+            // if they look like a real image; otherwise null the image so the signature servlet 404s and
+            // the render fails honestly.
+            byte[] stored = digitalSignature.getSignatureImage();
+            if (looksLikeImage(stored)) {
+                logger.warn("Could not decrypt signature ID {}; stored bytes look like a legacy plaintext image, returning as-is", id);
+            } else {
+                logger.error("Could not decrypt signature ID {} and the stored bytes are not a recognizable image "
+                        + "(likely encrypted with a currently-unavailable key); returning no image", id, e);
+                digitalSignature.setSignatureImage(null);
             }
         }
 
         return digitalSignature;
+    }
+
+    /**
+     * True when the bytes begin with a known raster-image magic number (JPEG, PNG, GIF, or BMP).
+     * Used to distinguish a legacy plaintext signature image from undecryptable ciphertext on the
+     * decrypt-failure path so a broken signature is never streamed as a valid image.
+     */
+    private static boolean looksLikeImage(byte[] bytes) {
+        if (bytes == null || bytes.length < 4) {
+            return false;
+        }
+        int b0 = bytes[0] & 0xFF;
+        int b1 = bytes[1] & 0xFF;
+        int b2 = bytes[2] & 0xFF;
+        int b3 = bytes[3] & 0xFF;
+        boolean jpeg = b0 == 0xFF && b1 == 0xD8 && b2 == 0xFF;
+        boolean png = b0 == 0x89 && b1 == 0x50 && b2 == 0x4E && b3 == 0x47;
+        boolean gif = b0 == 0x47 && b1 == 0x49 && b2 == 0x46 && b3 == 0x38;
+        boolean bmp = b0 == 0x42 && b1 == 0x4D;
+        return jpeg || png || gif || bmp;
+    }
+
+    @Override
+    public DigitalSignature getDigitalSignatureMetadata(int id) {
+        return this.digitalSignatureDao.findMetadataById(id);
     }
 
     @Override
@@ -156,6 +187,8 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
         return null;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public DigitalSignature saveStampSignature(LoggedInInfo loggedInInfo, String providerNo, Integer demographicNo, ModuleType moduleType) {
         if (!loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()) {
@@ -163,9 +196,13 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             return null;
         }
 
-        // Prevent provider impersonation: the stamp must belong to the logged-in user
+        // Prevent provider impersonation: the stamp must belong to the logged-in user.
+        // Objects.equals, not loggedInProvider.equals(...): getLoggedInProviderNo() is nullable, and
+        // a null receiver threw an NPE out of this check rather than denying. On a security gate
+        // that is the wrong failure — an unattributable session must be refused, not crash the
+        // caller. Null never equals a real providerNo, so this now falls through to the deny below.
         String loggedInProvider = loggedInInfo.getLoggedInProviderNo();
-        if (!loggedInProvider.equals(providerNo)) {
+        if (!Objects.equals(loggedInProvider, providerNo)) {
             logger.warn("Provider {} attempted to use stamp signature of provider {} — denied",
                     loggedInProvider, providerNo);
             return null;
@@ -183,6 +220,15 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             }
 
             byte[] imageData = Files.readAllBytes(stampFile.toPath());
+            // Emptiness guard, matching saveDigitalSignatureFromTempFile above. Without it a
+            // zero-byte stamp file is encrypted and stored as a valid-looking row, and the signature
+            // servlet then streams it as a 200 with Content-Length: 0 — a blank signature block on a
+            // rendered consult that no gate can see, because the decrypt-failure defence below only
+            // inspects bytes that failed to decrypt. Refuse to store what can only render blank.
+            if (imageData.length == 0) {
+                logger.warn("Stamp signature file is empty; refusing to store it: {}", stampFilename);
+                return null;
+            }
             return this.saveDigitalSignature(
                     loggedInInfo.getCurrentFacility().getId(),
                     providerNo, demographicNo, imageData, moduleType

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SPDX-License-Identifier: GPL-2.0-or-later
+  Copyright (C) 2026 CARLOS Contributors
+
+  Context descriptor for DrugRef2, installed by the carlos-emr-drugref
+  package.
+
+  DrugRef speaks unauthenticated XML-RPC: anything that can reach
+  /drugref2/DrugrefService can query the drug database and, more to the point,
+  reach a servlet whose only access control is the network. It is therefore
+  gated twice:
+
+    1. nginx never proxies /drugref2 — the front door has no route to it.
+    2. The RemoteCIDRValve below refuses any request whose (RemoteIpValve-
+       resolved) client address is not the host loopback.
+
+  The valve is declared HERE, in an external context descriptor, rather than
+  relying on the one inside the WAR's META-INF/context.xml: that in-WAR valve
+  uses a "${...:127.0.0.1/32,::1/128}" placeholder default, and
+  RemoteCIDRValve splits `allow` on commas *before* property substitution, so
+  the placeholder never parses. An external descriptor takes precedence over
+  the packaged one, which is also why deployXML must stay at its default.
+
+  `allow` is the valve's ONLY address attribute and it takes IPv4 and IPv6
+  CIDRs in one comma-separated list. (There is no allowIPv6 attribute; naming
+  one makes Tomcat reject the descriptor and the context never deploys.)
+
+  The Host-level RemoteIpValve in server.xml runs BEFORE this one and has
+  already replaced the peer address with the real client address from
+  X-Forwarded-For. That is what makes this gate meaningful: a request arriving
+  through nginx presents the browser's address here and is refused, while
+  CARLOS's own in-process call arrives from 127.0.0.1 with no forwarded header
+  and is allowed.
+-->
+<Context docBase="/usr/share/carlos-emr/webapp/drugref2"
+         reloadable="false"
+         crossContext="false"
+         useHttpOnly="true"
+         privileged="false">
+
+    <Valve className="org.apache.catalina.valves.RemoteCIDRValve"
+           allow="127.0.0.1/32,::1/128"/>
+
+    <Resources cachingAllowed="true" cacheMaxSize="20480" cacheTtl="60000"/>
+</Context>

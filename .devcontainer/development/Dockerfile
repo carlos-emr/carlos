@@ -1,16 +1,35 @@
-FROM tomcat:11.0-jdk21-temurin
+FROM tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077
+
+# bash with pipefail, not the default /bin/sh (dash), for EVERY RUN below.
+#
+# This is not style. `curl -fsSL <url> | bash -` under a shell without pipefail reports the exit
+# status of the LAST command in the pipeline — bash, which happily exits 0 on empty input — so a
+# curl that failed with 403 looked like success and the `&&` chain carried on. That is exactly how
+# the Node install silently produced a container with no npm: NodeSource now answers 403 to CI
+# runners, curl wrote nothing, bash succeeded, and apt fell back to Ubuntu's nodejs (which packages
+# npm separately). The build then died several commands later on `npm: not found`, naming a symptom
+# rather than the cause.
+#
+# With pipefail the pipeline fails at the curl, at the line that is actually wrong. Several other
+# steps here use the same `curl | ...` shape and were masked the same way.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Set environment variables for Tomcat
 ENV CATALINA_HOME /usr/local/tomcat
 ENV PATH $CATALINA_HOME/bin:$PATH
 # ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -agentlib:jdwp=transport=dt_socket,address=8000,server=y,suspend=n"
 ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -Djava.awt.headless=true -Dcarlos_override_properties=/root/carlos.properties"
+# The eForm browser PDF renderer runs headless Chromium unsandboxed by default (Tomcat runs as root
+# here and Chromium refuses to start its OS-level sandbox as root); this container IS the isolation
+# boundary. No env var is needed for that default. To exercise Chromium's OS sandbox in a container
+# that supports it (non-root user + unprivileged user namespaces), set EFORM_RENDER_SANDBOX=true;
+# a sandboxed launch that cannot start then fails closed (see EFormBrowserPdfService.sandboxEnabled()).
 ENV JPDA_OPTS="-agentlib:jdwp=transport=dt_socket,address=8000,server=y,suspend=n"
 ENV JPDA_ADDRESS=8000
 ENV JPDA_TRANSPORT=dt_socket
 
 # Copy Tomcat installation from the official Tomcat image
-COPY --from=tomcat:11.0-jdk21-temurin /usr/local/tomcat $CATALINA_HOME
+COPY --from=tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077 /usr/local/tomcat $CATALINA_HOME
 
 # Labels
 LABEL author="CARLOS EMR Project" \
@@ -22,6 +41,7 @@ ARG DOCS_PATH='/home/oscar/development/volumes'
 ARG OSCAR_DOCUMENT="${DOCS_PATH}/OscarDocument"
 ARG DB_DOCS="/db-data/documents"
 ARG DOCS_DEST="/var/lib/OscarDocument/oscar/document"
+ARG EFORM_IMAGES_DIR="/var/lib/OscarDocument/oscar/eform/images"
 
 WORKDIR /workspace
 
@@ -62,10 +82,44 @@ RUN /usr/local/bin/apt-install \
     inotify-tools \
     fonts-roboto fonts-liberation fonts-noto-color-emoji
 
-# Install Node.js (latest LTS)
-RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
-    && /usr/local/bin/apt-install nodejs \
-    && node --version && npm --version
+# Install Node.js from the official nodejs.org distribution, NOT NodeSource.
+#
+# deb.nodesource.com now answers 403 to CI runners (verified: 403 from the GitHub Actions build and
+# from a developer machine), so `curl … | bash -` fetched nothing, added no apt repository, and
+# `apt-install nodejs` quietly resolved to Ubuntu's nodejs 18. Ubuntu packages npm separately and
+# apt-install passes --no-install-recommends, so npm was absent and the build failed later at
+# `npm: not found`. Adding an apt repository over the network was the fragile part; this removes it.
+#
+# The official tarball is a fixed URL with a published checksum, so the install is reproducible and
+# tamper-evident. `curl -f` turns an HTTP error into a non-zero exit, and the SHELL pipefail set at
+# the top of this file means a failed download can no longer be masked by a later command in a pipe.
+#
+# Pinned deliberately: an unpinned "latest" reintroduces the moving target that broke this twice.
+# Bumping it is a one-line change plus the matching per-arch checksums from
+# https://nodejs.org/dist/v<version>/SHASUMS256.txt.
+# .tar.gz, not .tar.xz: extracting xz needs the `xz` binary, which is not in this base image's
+# default package set. A dry run of these exact commands failed on "xz: Cannot exec" — gzip is
+# always present, so the gz tarball removes a dependency rather than adding one to apt.
+# The archive is selected from the Docker build target architecture so native ARM64 builds
+# (e.g. Apple Silicon) get arm64 binaries instead of failing on x64 executables.
+ENV NODE_VERSION=22.11.0
+ENV NODE_SHA256_X64=4f862bab52039835efbe613b532238b6e4dde98d139a34e6923193e073438b13
+ENV NODE_SHA256_ARM64=27453f7a0dd6b9e6738f1f6ea6a09b102ec7aa484de1e39d6a1c3608ad47aa6a
+RUN arch="$(dpkg --print-architecture)" \
+    && case "$arch" in \
+         amd64) node_arch=x64; node_sha256="${NODE_SHA256_X64}" ;; \
+         arm64) node_arch=arm64; node_sha256="${NODE_SHA256_ARM64}" ;; \
+         *) echo "ERROR: unsupported architecture for Node.js install: $arch" >&2; exit 1 ;; \
+       esac \
+    && curl -fsSLo /tmp/node.tar.gz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.gz" \
+    && echo "${node_sha256}  /tmp/node.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1 --no-same-owner \
+    && rm /tmp/node.tar.gz \
+    && node --version && npm --version \
+    && case "$(node --version)" in \
+         v${NODE_VERSION}) : ;; \
+         *) echo "ERROR: expected Node v${NODE_VERSION}, got $(node --version)." >&2; exit 1 ;; \
+       esac
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -97,18 +151,21 @@ RUN npm install -g @github/copilot && \
     echo "✅ GitHub Copilot CLI installed: $(copilot --version)"
 
 # Install OpenAI Codex CLI (standalone coding agent)
-RUN npm install -g @openai/codex && \
-    echo "✅ OpenAI Codex CLI installed: $(codex --version)"
+ARG CODEX_CLI_VERSION=0.142.2
+# Retry the npm fetch because CI occasionally hits transient ECONNRESET errors.
+RUN for attempt in 1 2 3; do         npm install -g "@openai/codex@${CODEX_CLI_VERSION}" && break;         if [ "$attempt" -eq 3 ]; then exit 1; fi;         echo "Retrying @openai/codex install after transient npm failure (attempt $attempt)...";         sleep 5;     done &&     echo "✅ OpenAI Codex CLI installed: $(codex --version)"
 
-# Install Playwright globally first to ensure it's available
-# Version 1.56.0 has correct Ubuntu 24.04 t64 package names in its dependency list
-RUN npm install -g playwright@1.56.0 && \
-    echo "✅ Playwright CLI installed: $(npx playwright --version)"
+ARG PLAYWRIGHT_VERSION=1.60.0
+
+# Install Playwright globally first to ensure it's available.
+# Keep this in sync with package.json, .mcp.json, and .devcontainer/PLAYWRIGHT_SETUP.md.
+RUN npm install -g "playwright@${PLAYWRIGHT_VERSION}" && \
+    echo "✅ Playwright CLI installed: $(playwright --version)"
 
 # Install Playwright browsers (Chromium, Firefox) with system dependencies
 # Note: Chrome excluded - no ARM64 Linux builds (breaks Apple Silicon). Chromium is equivalent.
-# Version 1.56.0+ correctly uses t64 package names (e.g., libasound2t64) for Ubuntu 24.04
-RUN npx playwright install --with-deps chromium firefox && \
+# Version 1.60.0 uses the current Playwright browser bundles and Ubuntu 24.04 t64 package names.
+RUN playwright install --with-deps chromium firefox && \
     echo "✅ Playwright browsers installed (Chromium, Firefox)"
 
 # Install pipx and Aider AI coding assistant
@@ -167,7 +224,6 @@ COPY ./openosp_files/tomcat-users.xml $TOMCAT_PATH/conf/tomcat-users.xml
 RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
     $OSCAR_DOCUMENT/oscar/billing/download \
     $OSCAR_DOCUMENT/oscar/billing/invoices \
-    $OSCAR_DOCUMENT/oscar/eform/images \
     $OSCAR_DOCUMENT/oscar/form/records \
     $OSCAR_DOCUMENT/oscar/onEDTDocs/inbox \
     $OSCAR_DOCUMENT/oscar/onEDTDocs/outbox \
@@ -177,7 +233,9 @@ RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
     $OSCAR_DOCUMENT/oscar/incomingdocs \
     $OSCAR_DOCUMENT/oscar/export \
     $DB_DOCS \
-    $DOCS_DEST
+    $DOCS_DEST \
+    $EFORM_IMAGES_DIR \
+    && /scripts/bootstrap-property-directories /root/carlos.properties EFORM_IMAGES_DIR
 
 # Set up GPG for PGP encryption (used by demographic export)
 # Create the GNUPGHOME directory and generate a test key for development
