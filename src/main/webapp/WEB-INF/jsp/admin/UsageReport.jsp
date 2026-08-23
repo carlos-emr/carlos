@@ -32,6 +32,8 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -125,7 +127,7 @@
             <div>
                 <input type="text" id="startDate" name="startDate"
                        value="<carlos:encode value='<%= request.getParameter("startDate") != null ? request
-					.getParameter("startDate") : "" %>' context="htmlAttribute"/>"/>
+					.getParameter("startDate") : "" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             </div>
         </div>
         <div class="mb-3">
@@ -133,7 +135,7 @@
             <div>
                 <input type="text" id="endDate" name="endDate"
                        value="<carlos:encode value='<%= request.getParameter("endDate") != null ? request
-					.getParameter("endDate") : "" %>' context="htmlAttribute"/>"/>
+					.getParameter("endDate") : "" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             </div>
         </div>
         <div class="mb-3">

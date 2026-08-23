@@ -156,7 +156,7 @@
     <input type="button" value="cancel" onclick="window.close();"/> &nbsp;&nbsp; <input type="submit"
                                                                                         value="Enter note into selected clients"
                                                                                         onclick="return confirmGroupNote();"/>
-    <input type="hidden" name="programId" value="<carlos:encode value='<%= request.getParameter("programId") != null ? request.getParameter("programId") : "" %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="programId" value="<carlos:encode value='<%= request.getParameter("programId") != null ? request.getParameter("programId") : "" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
 </form>
 <% } %>
 </body>

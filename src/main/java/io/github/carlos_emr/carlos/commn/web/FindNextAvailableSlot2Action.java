@@ -22,6 +22,7 @@
 
 package io.github.carlos_emr.carlos.commn.web;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -73,7 +74,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *   "providerNo": "10001", "startTime": "09:00", "duration": 15 }
  * </pre>
  * <pre>
- * { "found": false }
+ * { "found": false, "lookaheadDays": {@value NextAppointmentSearchHelper#MAX_DAYS_TO_SEARCH} }
  * </pre>
  *
  * @since 2026-03-22
@@ -150,7 +151,7 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
         }
 
         if (allResults.isEmpty()) {
-            writeJson(Map.of("found", false));
+            writeJson(Map.of("found", false, "lookaheadDays", NextAppointmentSearchHelper.MAX_DAYS_TO_SEARCH));
             return null;
         }
 
@@ -178,6 +179,8 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
      * @param obj Object the object to serialize and write
      * @throws Exception if JSON serialization or writing fails
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void writeJson(Object obj) throws Exception {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");

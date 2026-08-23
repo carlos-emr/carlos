@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Read-scope view gate for appointment JSPs that render lists, cards, search
@@ -54,6 +55,8 @@ public final class ViewAppointment2Action extends ActionSupport {
      *         lacks {@code _appointment r}
      * @throws Exception propagated from Struts I/O
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

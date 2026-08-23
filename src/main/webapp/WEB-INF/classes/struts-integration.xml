@@ -102,6 +102,7 @@
         </action>
         <action name="mcedt/kaiautodl" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Download2Action">
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/autoDownload.jsp</result>
+            <result name="error">/WEB-INF/jsp/mcedt/mailbox/autoDownload.jsp</result>
             <result name="cancel">/mcedt/kaimcedt</result>
         </action>
         <action name="mcedt/download" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Download2Action">
@@ -162,6 +163,11 @@
             <result name="success">/WEB-INF/jsp/signature_pad/tabletSignature.jsp</result>
         </action>
         <action name="library/eforms/signatureControl" class="io.github.carlos_emr.carlos.library.eforms.gate.ViewSignatureControl2Action">
+            <result name="success">/WEB-INF/jsp/library/eforms/signatureControl.jsp</result>
+        </action>
+        <!-- Compatibility alias: legacy eForms embed the literal signatureControl.jsp URL, so the
+             historical .jsp path must keep routing to the same gate action as the extensionless route. -->
+        <action name="library/eforms/signatureControl.jsp" class="io.github.carlos_emr.carlos.library.eforms.gate.ViewSignatureControl2Action">
             <result name="success">/WEB-INF/jsp/library/eforms/signatureControl.jsp</result>
         </action>
         <action name="signature_pad/SaveSignatureUpload" class="io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2Action">

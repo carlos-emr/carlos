@@ -22,3 +22,10 @@ db_url_prefix=jdbc:mysql://db/
 db_schema_properties=?zeroDateTimeBehavior=round&useOldAliasMetadataBehavior=true&jdbcCompliantTruncation=false&useSSL=false
 db_schema=oscar_test
 db_host=db
+
+# Test-context guard for the eForm browser PDF renderer startup gate.
+# EFormBrowserRendererStartupValidator (@Component in ...eform.util) runs a @PostConstruct probe
+# that would launch headless Chromium. "off" makes that probe a no-op so any Spring test context
+# scanning the eform.util package never tries to start a browser in the test JVM (where Chromium is
+# neither configured nor available). Production/dev deployments default to "required" (hard gate).
+eform_pdf_browser_startup_check=off

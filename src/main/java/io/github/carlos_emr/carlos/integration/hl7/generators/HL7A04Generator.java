@@ -50,13 +50,17 @@ public class HL7A04Generator {
      *
      * @param demo The Demographic object used to create the HL7 A04 object.
      */
-    public void generateHL7A04(Demographic demo) {
+    public boolean generateHL7A04(Demographic demo) {
         try {
             // generate A04 HL7
             HL7A04Data A04Obj = new HL7A04Data(demo);
             A04Obj.save();
+            return true;
         } catch (Exception e) {
+            // Return the failure so callers do not treat a silently-failed A04 export as success; the
+            // demographic save itself is intentionally not rolled back (A04 export is best-effort).
             logger.error("Unable to generate HL7 A04 file", e);
+            return false;
         }
     }
 }
