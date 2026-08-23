@@ -24,7 +24,6 @@
  */
 -->
 
-<%@page import="java.net.URLEncoder" %>
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
@@ -74,6 +73,24 @@
 		apptTime =  ConversionUtils.toDateString(a.getStartTime());
 		reason = a.getReason();
      	apptStatus = a.getStatus();
+		String encodedBillRegionForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
+				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(oscarVariables.getProperty("billregion")));
+		String encodedBillFormForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
+				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(oscarVariables.getProperty("default_view")));
+		String encodedAppointmentNoForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
+				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptNo));
+		String encodedStatusForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
+				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptStatus));
+		String encodedDemographicNoForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
+				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(demoNo));
+		String encodedUserNoForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
+				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(userno));
+		String encodedProviderViewForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
+				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(providerview));
+		String encodedAppointmentDateForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
+				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptDate));
+		String encodedStartTimeForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
+				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptTime == null ? "00:00:00" : apptTime));
 %>
 	<tr bgcolor="<%=bodd?"#EEEEFF":"white"%>">
 		<TD align="center" width="20%"><b><font size="2"
@@ -86,7 +103,7 @@
 			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= reason %>' context="html"/> </font></b></TD>
 		<TD align="center" width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
-			onClick='popupPage(700,1000, "<%= request.getContextPath() %>/billing?billRegion=<%=URLEncoder.encode(oscarVariables.getProperty("billregion"))%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"))%>&hotclick=&appointment_no=<%=apptNo%>&demographic_name=<%= encodedDemoNameForBillingUrl %>&status=<%=apptStatus%>&demographic_no=<%=demoNo%>&user_no=<%=userno%>&apptProvider_no=<%=providerview%>&appointment_date=<%=apptDate%>&start_time=<%=apptTime==null?"00:00:00":apptTime%>&bNewForm=1")'
+			onClick='popupPage(700,1000, "<%= request.getContextPath() %>/billing?billRegion=<%= encodedBillRegionForBillingUrl %>&billForm=<%= encodedBillFormForBillingUrl %>&hotclick=&appointment_no=<%= encodedAppointmentNoForBillingUrl %>&demographic_name=<%= encodedDemoNameForBillingUrl %>&status=<%= encodedStatusForBillingUrl %>&demographic_no=<%= encodedDemographicNoForBillingUrl %>&user_no=<%= encodedUserNoForBillingUrl %>&apptProvider_no=<%= encodedProviderViewForBillingUrl %>&appointment_date=<%= encodedAppointmentDateForBillingUrl %>&start_time=<%= encodedStartTimeForBillingUrl %>&bNewForm=1")'
 			title="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>">Bill |$|</a></font></b></TD>
 	</tr>
 	<%  rowCount = rowCount + 1;
