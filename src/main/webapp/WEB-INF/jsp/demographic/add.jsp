@@ -137,6 +137,10 @@
             }
 
             function aSubmit() {
+                parseHINforVC();
+                formatPhoneNum(document.adddemographic.phone);
+                formatPhoneNum(document.adddemographic.phone2);
+                formatPhoneNum(document.adddemographic.demo_cell);
                 syncInputDobParts();
                 if (document.getElementById("eform_iframe") != null) {
                     var eformDocument = document.getElementById("eform_iframe").contentWindow.document;
@@ -176,9 +180,12 @@
                         return false;
                     }
                 }
-
+              if (window.opener && !window.opener.closed) {
+                  window.opener.location.reload(true); // update the search now that it has a new demo that you might want to access
+              }
                 return true;
             }
+
 
             function upCaseCtrl(ctrl) {
                 ctrl.value = ctrl.value.toUpperCase();
@@ -239,19 +246,34 @@
                 }
             }
 
-            function formatPhoneNum() {
-                if (document.adddemographic.phone.value.length == 10) {
-                    document.adddemographic.phone.value = document.adddemographic.phone.value.substring(0, 3) + "-" + document.adddemographic.phone.value.substring(3, 6) + "-" + document.adddemographic.phone.value.substring(6);
-                }
-                if (document.adddemographic.phone.value.length == 11 && document.adddemographic.phone.value.charAt(3) == '-') {
-                    document.adddemographic.phone.value = document.adddemographic.phone.value.substring(0, 3) + "-" + document.adddemographic.phone.value.substring(4, 7) + "-" + document.adddemographic.phone.value.substring(7);
-                }
+            function checkHINforVC(hin){
+              // Check total length is exactly 12
+              // First 10 characters must be digits
+              // Last 2 characters must be letters
+              return /^\d{10}[A-Za-z]{2}$/.test(hin);
+            }
 
-                if (document.adddemographic.phone2.value.length == 10) {
-                    document.adddemographic.phone2.value = document.adddemographic.phone2.value.substring(0, 3) + "-" + document.adddemographic.phone2.value.substring(3, 6) + "-" + document.adddemographic.phone2.value.substring(6);
-                }
-                if (document.adddemographic.phone2.value.length == 11 && document.adddemographic.phone2.value.charAt(3) == '-') {
-                    document.adddemographic.phone2.value = document.adddemographic.phone2.value.substring(0, 3) + "-" + document.adddemographic.phone2.value.substring(4, 7) + "-" + document.adddemographic.phone2.value.substring(7);
+            function parseHINforVC(){
+              if (!document.adddemographic || !document.adddemographic.hin) return;
+              const hin = document.adddemographic.hin.value;
+					if (checkHINforVC(hin)) {
+						const firstTen = hin.substring(0, 10);
+						const lastTwo = hin.substring(10);
+						document.adddemographic.hin.value = firstTen;
+                    if (document.adddemographic.ver) {
+                        document.adddemographic.ver.value = lastTwo;
+                    }
+				// Validate Alberta HIN (9 digits) if province is AB
+            }
+
+            function formatPhoneNum(el) {
+                if (!el || !el.value) return;
+                if (el.value.substring(0, 1) == "+") return; // do not reformat E.164 and similar + formatted strings
+                const digits = el.value.replace(/\D/g, ''); // strip formatting if any
+                if (digits.length === 10) { // test for Canadian pattern XXX-XXX-XXXX
+                    el.value = digits.substring(0, 3) + "-" + digits.substring(3, 6) + "-" + digits.substring(6);
+                } else if (digits.length === 11 && digits.substring(0, 1) == "1") { // test for Canadian pattern 1-XXX-XXX-XXXX
+                    el.value = digits.substring(0, 1) + "-" + digits.substring(1, 4) + "-" + digits.substring(4, 7) + "-" + digits.substring(7);
                 }
             }
 
@@ -271,7 +293,7 @@
                 var typeInOK = false;
                 if (document.adddemographic.last_name.value != "" && document.adddemographic.first_name.value != "" && document.adddemographic.last_name.value != " " && document.adddemographic.first_name.value != " ") {
                     typeInOK = true;
-                } 
+                }
                 return typeInOK;
             }
 
@@ -540,11 +562,11 @@
 
             function parseDateField(fieldId) {
                 const input = document.getElementById(fieldId).value;
-            
+
                 let year = "";
                 let month = "";
                 let day = "";
-            
+
                 if (input) {
                     const [y, m, d] = input.split("-");
                     year = y || "";

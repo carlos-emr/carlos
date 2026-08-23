@@ -38,6 +38,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -49,6 +51,7 @@ import io.github.carlos_emr.CarlosProperties;
  */
 public class TeleplanResponse {
     static Logger log = MiscUtils.getLogger();
+    private static final String DOCUMENT_DIR_PROPERTY = "DOCUMENT_DIR";
     private String transactionNo = null;
     private String result = null;
     private String filename = null;
@@ -63,35 +66,44 @@ public class TeleplanResponse {
     }
 
 
+    // FindSecBugs PREDICTABLE_RANDOM: Math.random only adds a local Teleplan temp filename suffix.
+    // Do not use this suppression for secrets, tokens, authorization, or request-controlled random values.
+    @SuppressFBWarnings(value = "PREDICTABLE_RANDOM", justification = "Math.random only creates a local Teleplan temporary filename suffix, not a secret, token, or authorization decision")
     void processResponseStream(InputStream in) {
+        File tempFile = null;
         try {
-            String directory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "./");
+            File directory = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty(DOCUMENT_DIR_PROPERTY, "./"), DOCUMENT_DIR_PROPERTY);
             double randNum = Math.random();
-            String tempFile = directory + "teleplan.msp" + randNum;
-            BufferedReader bin = new BufferedReader(new InputStreamReader(in));
-            BufferedWriter out = new BufferedWriter(new FileWriter(tempFile));
+            tempFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName("teleplan.msp" + randNum), directory);
 
             String str = "";
             String lastLine = null;
-            while ((str = bin.readLine()) != null) {
-                //write str to temp file
-                lineCount++;
-                out.write(str + "\n");
-                log.debug(str);
-                lastLine = new String(str);
+            try (BufferedReader bin = new BufferedReader(new InputStreamReader(in));
+                    BufferedWriter out = new BufferedWriter(new FileWriter(tempFile))) {
+                while ((str = bin.readLine()) != null) {
+                    //write str to temp file
+                    lineCount++;
+                    out.write(str + "\n");
+                    // Do not log the raw Teleplan response line: it can contain claim/billing
+                    // (PHI-correlating) content. Log only non-sensitive length metadata.
+                    log.debug("Read Teleplan response line ({} chars)", str.length());
+                    lastLine = str;
+                }
             }
-            out.close();
-            bin.close();
-            lineCount--;
-            processLastLine(lastLine);
+            // Guard the empty-response case: with no lines read, lastLine stays null and
+            // processLastLine(null) would NPE (and lineCount would go negative).
+            if (lastLine != null) {
+                lineCount--;
+                processLastLine(lastLine);
+            }
             //If it has a filename same to
 
             if (this.getFilename() != null && !this.getFilename().trim().equals("")) {
-                File file = new File(tempFile);
+                File file = PathValidationUtils.validateExistingPath(tempFile, directory);
                 realFilename = "teleplan" + this.getFilename() + randNum;
 
                 // Use PathValidationUtils to validate destination path
-                File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+                File allowedDir = directory;
                 File file2;
                 try {
                     file2 = PathValidationUtils.validatePath(realFilename, allowedDir);
@@ -106,8 +118,13 @@ public class TeleplanResponse {
             }
 
 
-        } catch (IOException e) {
+        } catch (IOException | SecurityException e) {
+            // SecurityException covers PathValidationUtils rejecting a misconfigured DOCUMENT_DIR or a
+            // generated destination; clean up the partial temp file like the IOException path.
             MiscUtils.getLogger().error("Error", e);
+            if (tempFile != null && tempFile.exists() && !tempFile.delete()) {
+                log.warn("Could not delete partial Teleplan response file");
+            }
         }
     }
 
@@ -161,8 +178,8 @@ public class TeleplanResponse {
     }
 
     public File getFile() {
-        String directory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "./");
-        return new File(directory + realFilename);
+        File directory = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty(DOCUMENT_DIR_PROPERTY, "./"), DOCUMENT_DIR_PROPERTY);
+        return PathValidationUtils.validatePath(realFilename, directory);
     }
 
 }

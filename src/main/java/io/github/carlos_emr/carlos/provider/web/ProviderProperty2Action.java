@@ -115,6 +115,7 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.util.LabelValueBean;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ProviderProperty2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
@@ -475,6 +476,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genRxPageSize";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveDefaultDocQueue() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -648,6 +651,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genRxProfileView";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewShowPatientDOB() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1277,6 +1282,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "gen";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveFavouriteEformGroup() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1312,6 +1319,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "gen";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewCppSingleLine() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1386,6 +1395,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genCppSingleLine";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewEDocBrowserInDocumentReport() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1458,6 +1469,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genEDocBrowserInDocumentReport";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewEDocBrowserInMasterFile() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1531,6 +1544,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genEDocBrowserInMasterFile";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewCommentLab() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1605,6 +1620,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genAckCommentLab";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unchecked")
     public String viewLabRecall() {
 
@@ -1641,7 +1658,7 @@ public class ProviderProperty2Action extends ActionSupport {
         providerList.add(new LabelValueBean("Select", "")); //key, value
 
         ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
-        List<Provider> ps = dao.getProviders();
+        List<Provider> ps = dao.getProviders(true);
         Collections.sort(ps, Comparator.comparing(Provider::getLastName));
         try {
             for (Provider p : ps) {
@@ -1672,7 +1689,9 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("providermsgProvider", "provider.setLabRecall.msgProfileView");
         request.setAttribute("providermsgEdit", "provider.setLabRecall.msgEdit");
         request.setAttribute("providerbtnSubmit", "provider.setLabRecall.btnSubmit");
-        request.setAttribute("providermsgSuccess", "provider.setLabRecall.msgSuccess");
+        if (!"error".equals(request.getAttribute("status"))) {
+            request.setAttribute("providermsgSuccess", "provider.setLabRecall.msgSuccess");
+        }     
         request.setAttribute("method", "saveLabRecallPrefs");
 
         this.setLabRecallDelegate(delegate);
@@ -1685,19 +1704,41 @@ public class ProviderProperty2Action extends ActionSupport {
 
     public String saveLabRecallPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_lab)");
+        }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         UserProperty s = this.getLabRecallMsgSubject();
         String subject = s != null ? s.getValue() : "";
 
-        String delegate = request.getParameter("labRecallDelegate.value"); 
+        String delegate = StringUtils.trimToEmpty(request.getParameter("labRecallDelegate.value"));
+
         String priority = request.getParameter("labRecallTicklerPriority.value");
 
         boolean assignee = request.getParameter("labRecallTicklerAssignee.checked") != null;
 
-        boolean delete = false;
-        if (delegate.equals("")) {
-            delete = true;
+        boolean delete = delegate.isEmpty();
+        boolean invalidDelegate = false;
+
+
+        // Validate delegate is an active provider before persisting
+        if (!delete) {
+            ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
+            List<Provider> activeProviders = dao.getProviders(true);
+            boolean validDelegate = activeProviders.stream()
+                .anyMatch(p -> p.getProviderNo().equals(delegate));
+
+            if (!validDelegate) {
+                MiscUtils.getLogger().warn("Invalid or inactive provider selected as lab recall delegate");
+                invalidDelegate = true;
+            }
+        }
+
+        if (invalidDelegate) {
+            request.setAttribute("status", "error");
+            request.setAttribute("providermsgSuccess", "provider.setLabRecall.msgInvalidDelegate");
+            return viewLabRecall();
         }
 
         // Save delegate (dropdown)
@@ -1804,7 +1845,7 @@ public class ProviderProperty2Action extends ActionSupport {
         providerList.add(new LabelValueBean("Select", ""));
 
         ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
-        List<Provider> ps = dao.getProviders();
+        List<Provider> ps = dao.getProviders(true);
         Collections.sort(ps, Comparator.comparing(Provider::getLastName));
         try {
             for (Provider p : ps) {
@@ -2495,7 +2536,7 @@ public class ProviderProperty2Action extends ActionSupport {
      *
      * Security:
      *     - Requires authenticated provider session (injected via LoggedInInfo)
-     *     - Checks _lab READ privilege via SecurityInfoManager
+     *     - Checks _lab READ privilege via SecurityInfoManager to view macros
      *     - Throws RuntimeException if privilege is missing
      *
      * Flow:

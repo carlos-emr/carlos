@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.commn.web;
 
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.appointment.web.NextAppointmentSearchHelper;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao;
 import io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao;
@@ -305,11 +306,11 @@ class FindNextAvailableSlot2ActionTest extends CarlosWebTestBase {
             Map<String, Object> result = executeAndParseJson();
 
             assertThat(result.get("found")).isEqualTo(false);
-            assertThat(result.get("lookaheadDays")).isEqualTo(90);
+            assertThat(result.get("lookaheadDays")).isEqualTo(NextAppointmentSearchHelper.MAX_DAYS_TO_SEARCH);
         }
 
         @Test
-        @DisplayName("Should return found=false with lookaheadDays when all slots closed for 90 days")
+        @DisplayName("Should return found=false with lookaheadDays when all slots closed for the search window")
         void shouldReturnNotFound_whenAllSlotsClosed() throws Exception {
             addRequestParameter("providerNos", TEST_PROVIDER);
             // Only underscore (closed) slots
@@ -318,7 +319,7 @@ class FindNextAvailableSlot2ActionTest extends CarlosWebTestBase {
             Map<String, Object> result = executeAndParseJson();
 
             assertThat(result.get("found")).isEqualTo(false);
-            assertThat(result.get("lookaheadDays")).isEqualTo(90);
+            assertThat(result.get("lookaheadDays")).isEqualTo(NextAppointmentSearchHelper.MAX_DAYS_TO_SEARCH);
         }
 
         @Test

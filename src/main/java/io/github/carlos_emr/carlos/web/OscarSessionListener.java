@@ -31,9 +31,12 @@ package io.github.carlos_emr.carlos.web;
 import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
 import io.github.carlos_emr.carlos.commn.exception.UserSessionNotFoundException;
 import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
+import io.github.carlos_emr.carlos.fax.action.Fax2Action;
 import io.github.carlos_emr.carlos.login.PendingMfaChallenges;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import io.github.carlos_emr.carlos.managers.UserSessionManagerImpl;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -46,14 +49,17 @@ public class OscarSessionListener implements HttpSessionListener {
     @Override
     public void sessionCreated(HttpSessionEvent se) {
         MiscUtils.getLogger().info("Creating new OSCAR session.");
-        MiscUtils.getLogger().info("Session id: " + se.getSession().getId());
+        MiscUtils.getLogger().info("Session id: {}", getSessionLogReference(se.getSession().getId()));
     }
 
     @Override
     public void sessionDestroyed(HttpSessionEvent se) {
         String id = se.getSession().getId();
-        MiscUtils.getLogger().info("session is being destroyed - " + id);
+        MiscUtils.getLogger().info("session is being destroyed - {}", getSessionLogReference(id));
         PendingMfaChallenges.clearFromSession(se.getSession());
+        SpringUtils.getBean(EFormRenderApprovalService.class)
+                .invalidateStagedFaxPreviewsForSession(id);
+        Fax2Action.clearClaimedFaxFilePathsLockForSession(id);
 
         CasemgmtNoteLockDao casemgmtNoteLockDao = SpringUtils.getBean(CasemgmtNoteLockDao.class);
 
@@ -68,11 +74,22 @@ public class OscarSessionListener implements HttpSessionListener {
 		if (userSecurityCode != null) {
 			try {
 				UserSessionManager userSessionManager = SpringUtils.getBean(UserSessionManager.class);
-				userSessionManager.unregisterUserSession(userSecurityCode);
+				userSessionManager.unregisterUserSession(userSecurityCode, session);
 			} catch (UserSessionNotFoundException e) {
 				MiscUtils.getLogger().warn("Failed to unregister session on destroy: {}", e.getMessage());
 			}
 		}
+    }
+
+    /**
+     * Produces a shortened, log-safe session reference for diagnostic correlation
+     * without exposing the full bearer token in application logs.
+     *
+     * @param sessionId raw servlet session id; may be {@code null}
+     * @return an at-most 8-character sanitized reference, with {@code "..."} appended when truncated
+     */
+    private static String getSessionLogReference(String sessionId) {
+        return LogSafe.sanitize(sessionId, 8);
     }
 
 }

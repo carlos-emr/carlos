@@ -102,12 +102,12 @@ public class ApptUtil {
         // Validate numeric ID fields at trust boundary (CWE-501)
         String demoNoParam = request.getParameter("demographic_no");
         if (demoNoParam != null && !demoNoParam.isEmpty() && !demoNoParam.matches("\\d+")) {
-            logger.warn("Invalid non-numeric demographic_no: {}", LogSafe.sanitize(demoNoParam));
+            logger.warn("Invalid non-numeric demographic_no: {}", LogSafe.sanitize(demoNoParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return;
         }
         String chartNo = request.getParameter("chart_no");
         if (chartNo != null && !chartNo.isEmpty() && !chartNo.matches("\\d+")) {
-            logger.warn("Invalid non-numeric chart_no: {}", LogSafe.sanitize(chartNo));
+            logger.warn("Invalid non-numeric chart_no: {}", LogSafe.sanitize(chartNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return;
         }
 

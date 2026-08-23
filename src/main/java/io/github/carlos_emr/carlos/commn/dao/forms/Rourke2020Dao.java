@@ -82,7 +82,7 @@ public class Rourke2020Dao extends AbstractDaoImpl<FormRourke2020> {
             value.getId().setFormName(FormRourke2020.FORM_TABLE);
         }
         FormBooleanValueDao formBooleanValueDao = SpringUtils.getBean(FormBooleanValueDao.class);
-        formBooleanValueDao.batchPersist(new ArrayList(form.getBooleanValueMap().values()));
+        formBooleanValueDao.batchPersistAtomically(new ArrayList(form.getBooleanValueMap().values()));
         return form;
     }
 }

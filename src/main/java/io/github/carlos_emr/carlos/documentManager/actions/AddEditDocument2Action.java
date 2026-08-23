@@ -33,14 +33,13 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
@@ -95,6 +94,7 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for adding and editing documents in the CARLOS EMR document management system.
@@ -155,10 +155,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             if ("filenameinvalid".equals(docFileBindErrorKey)) {
                 response.setHeader("oscar_error", props.getString("dms.error.invalidFilename"));
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, props.getString("dms.error.invalidFilename"));
-                return null;
+                return NONE;
             }
             sendHtml5UploadError(props, HttpServletResponse.SC_BAD_REQUEST, ERROR_ZERO_SIZE_KEY);
-            return null;
+            return NONE;
         }
 
         int numberOfPages = 0;
@@ -168,7 +168,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } catch (SecurityException e) {
             MiscUtils.getLogger().error("Invalid uploaded document file", e);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
-            return null;
+            return NONE;
         }
 
         String fileName;
@@ -177,7 +177,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } catch (FileValidationException e) {
             response.setHeader("oscar_error", props.getString("dms.error.invalidFilename"));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, props.getString("dms.error.invalidFilename"));
-            return null;
+            return NONE;
         }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String user = loggedInInfo.getLoggedInProviderNo();
@@ -199,12 +199,12 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to determine uploaded document file size", e);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
-            return null;
+            return NONE;
         }
         // save local file;
         if (expectedFileSize == 0) {
             sendHtml5UploadError(props, HttpServletResponse.SC_BAD_REQUEST, ERROR_ZERO_SIZE_KEY);
-            return null;
+            return NONE;
         }
         // The upload source was validated above; keep all subsequent file I/O scoped to the
         // validated temp file reference and use try-with-resources for explicit stream cleanup.
@@ -214,13 +214,13 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to write uploaded document file", e);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
-            return null;
+            return NONE;
         }
 
         if (!isWrittenUploadComplete(file, expectedFileSize)) {
             deleteIncompleteWrittenUpload(file);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
-            return null;
+            return NONE;
         }
 
         if (storedFileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
@@ -251,7 +251,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): qid is Integer.parseInt-validated queue ID
         }
 
-        return null;
+        return NONE;
 
     }
 
@@ -309,6 +309,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @return String the Struts2 result name ("failEdit", "failAdd", "successEdit", or NONE)
      * @throws SecurityException if the user lacks _edoc write privilege
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute2() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -327,14 +329,12 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 String contextPath = request.getContextPath();
                 StringBuilder redirect = new StringBuilder(contextPath + "/documentManager/ViewDocumentReport");
                 redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
-                appendQueryParameter(redirect, PARAM_FUNCTION, request.getParameter(PARAM_FUNCTION));
-                appendQueryParameter(redirect, PARAM_FUNCTION_ID, request.getParameter(PARAM_FUNCTION_ID));
-                appendQueryParameter(redirect, PARAM_CUR_USER, request.getParameter(PARAM_CUR_USER));
-                appendQueryParameter(redirect, PARAM_APPOINTMENT_NO, request.getParameter(PARAM_APPOINTMENT_NO));
-                String parentAjaxId = request.getParameter(PARAM_PARENT_AJAX_ID);
+                appendQueryParameter(redirect, PARAM_FUNCTION, this.getFunction());
+                appendQueryParameter(redirect, PARAM_FUNCTION_ID, this.getFunctionId());
+                appendQueryParameter(redirect, PARAM_APPOINTMENT_NO, this.getAppointmentNo());
                 // if we're called with parent ajax id inform jsp that parent needs to be updated
-                if (filled(parentAjaxId)) {
-                    appendQueryParameter(redirect, PARAM_PARENT_AJAX_ID, parentAjaxId);
+                if (filled(this.getParentAjaxId())) {
+                    appendQueryParameter(redirect, PARAM_PARENT_AJAX_ID, this.getParentAjaxId());
                     appendQueryParameter(redirect, "updateParent", "true");
                 }
                 try {
@@ -344,11 +344,11 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 }
                 return NONE;
             } else {
-                request.setAttribute(PARAM_FUNCTION, request.getParameter(PARAM_FUNCTION));
-                request.setAttribute(PARAM_FUNCTION_ID, request.getParameter(PARAM_FUNCTION_ID));
-                request.setAttribute(PARAM_PARENT_AJAX_ID, request.getParameter(PARAM_PARENT_AJAX_ID));
-                request.setAttribute(PARAM_CUR_USER, request.getParameter(PARAM_CUR_USER));
-                request.setAttribute(PARAM_APPOINTMENT_NO, request.getParameter(PARAM_APPOINTMENT_NO));
+                request.setAttribute(PARAM_FUNCTION, this.getFunction());
+                request.setAttribute(PARAM_FUNCTION_ID, this.getFunctionId());
+                request.setAttribute(PARAM_PARENT_AJAX_ID, this.getParentAjaxId());
+                request.setAttribute(PARAM_CUR_USER, this.getCurUser());
+                request.setAttribute(PARAM_APPOINTMENT_NO, this.getAppointmentNo());
                 return "failAdd";
             }
         } else {
@@ -364,6 +364,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @param request HttpServletRequest the current request for session and parameter access
      * @return boolean true if the document was added successfully, false on validation or I/O error
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean addDocument(HttpServletRequest request) {
 
         Hashtable errors = new Hashtable();
@@ -534,6 +536,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @param request HttpServletRequest the current request for session and parameter access
      * @return String the Struts2 result name ("successEdit" or "failEdit")
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String editDocument(HttpServletRequest request) {
         Hashtable errors = new Hashtable();
 
@@ -697,13 +701,15 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     /**
      * Writes an uploaded file to the local document storage directory, optionally
-     * replacing an existing destination file.
+     * replacing an existing destination file. Upload contents are staged in a temporary
+     * sibling file and atomically published only after the staged file is fully written
+     * and synced.
      *
      * @param is InputStream the input stream of the file content to write
      * @param fileName String the target filename (relative to DOCUMENT_DIR)
      * @param replaceExisting boolean true when an existing destination may be replaced
      * @return File the written file
-     * @throws Exception if validation or writing fails
+     * @throws Exception if validation, staging, syncing, or atomic publication fails
      */
     public static File writeLocalFile(InputStream is, String fileName, boolean replaceExisting) throws Exception {
         String docDir = CarlosProperties.getInstance().getDocumentDirectory();
@@ -716,23 +722,18 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
 
         Files.createDirectories(saveParent);
-        boolean reservedDestination = false;
-        if (!replaceExisting) {
-            Files.createFile(savePath);
-            reservedDestination = true;
+        if (!replaceExisting && Files.exists(savePath)) {
+            throw new FileAlreadyExistsException(savePath.toString());
         }
 
         Path tempPath = null;
         try {
             tempPath = Files.createTempFile(saveParent, "document-upload-", ".tmp");
             writeUploadContents(is, tempPath);
-            moveUploadedFile(tempPath, savePath);
+            moveUploadedFile(tempPath, savePath, replaceExisting);
         } catch (Exception e) {
             if (tempPath != null) {
                 deleteTempFile(tempPath, e);
-            }
-            if (reservedDestination) {
-                deleteReservedDestination(savePath, e);
             }
             throw e;
         }
@@ -741,39 +742,26 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     private static void writeUploadContents(InputStream is, Path tempPath) throws IOException {
-        try (OutputStream fos = Files.newOutputStream(tempPath, StandardOpenOption.WRITE)) {
+        try (FileOutputStream fos = new FileOutputStream(tempPath.toFile())) {
             byte[] buf = new byte[128 * 1024];
             int i = 0;
             while ((i = is.read(buf)) != -1) {
                 fos.write(buf, 0, i);
             }
+            fos.getFD().sync();
         }
     }
 
-    private static void moveUploadedFile(Path tempPath, Path savePath) throws IOException {
-        try {
-            Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException e) {
-            // Known limitation: cross-filesystem moves (e.g. /tmp → /data) cannot be atomic.
-            // The destination slot is already claimed by Files.createFile() in the caller so
-            // concurrent duplicate-name uploads are still blocked; the only remaining risk is
-            // that an observer could briefly see a partial file during the non-atomic copy.
-            // Track full mitigation in GitHub issue #2274.
-            Files.move(tempPath, savePath, StandardCopyOption.REPLACE_EXISTING);
+    private static void moveUploadedFile(Path tempPath, Path savePath, boolean replaceExisting) throws IOException {
+        if (!replaceExisting && Files.exists(savePath)) {
+            throw new FileAlreadyExistsException(savePath.toString());
         }
+        Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE);
     }
 
     private static void deleteTempFile(Path tempPath, Exception originalError) {
         try {
             Files.deleteIfExists(tempPath);
-        } catch (IOException deleteError) {
-            originalError.addSuppressed(deleteError);
-        }
-    }
-
-    private static void deleteReservedDestination(Path savePath, Exception originalError) {
-        try {
-            Files.deleteIfExists(savePath);
         } catch (IOException deleteError) {
             originalError.addSuppressed(deleteError);
         }
@@ -1081,6 +1069,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     private String appointmentNo = "0";
 
+    private String curUser = "";
+    private String parentAjaxId = "";
+
     private boolean restrictToProgram = false;
     private String receivedDate = "";
     private String abnormal = "";
@@ -1261,6 +1252,40 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     @StrutsParameter
     public void setAppointmentNo(String appointment) {
         this.appointmentNo = appointment;
+    }
+
+    /**
+     * Gets the current user.
+     * @return String the current user identifier
+     */
+    public String getCurUser() {
+        return curUser;
+    }
+
+    /**
+     * Sets the current user.
+     * @param curUser String the current user identifier to set
+     */
+    @StrutsParameter
+    public void setCurUser(String curUser) {
+        this.curUser = curUser;
+    }
+
+    /**
+     * Gets the parent AJAX ID.
+     * @return String the parent AJAX ID
+     */
+    public String getParentAjaxId() {
+        return parentAjaxId;
+    }
+
+    /**
+     * Sets the parent AJAX ID.
+     * @param parentAjaxId String the parent AJAX ID to set
+     */
+    @StrutsParameter
+    public void setParentAjaxId(String parentAjaxId) {
+        this.parentAjaxId = parentAjaxId;
     }
 
     public boolean isRestrictToProgram() {

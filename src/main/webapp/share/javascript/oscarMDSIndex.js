@@ -2162,8 +2162,10 @@ function fileDoc(docId) {
     }
 }
 
-function handleQueueListChange(queueListSelectElement, refileBtnElement, docCurrentFiledQueue) {
-	refileBtnElement.disabled = queueListSelectElement.value === docCurrentFiledQueue;
+function handleQueueListChange(queueListSelectElement, refileBtnElement) {
+	var selectedQueue = queueListSelectElement.options[queueListSelectElement.selectedIndex];
+	refileBtnElement.disabled = !selectedQueue
+		|| selectedQueue.getAttribute("data-already-refiled") === "true";
 }
 
 function refileDoc(id) {
@@ -2173,11 +2175,19 @@ function refileDoc(id) {
     const data = 'method=refileDocumentAjax&documentId=' + id + "&queueId=" + queueId;
 
     postForm(url, data)
-        .then(response => response.text())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Unable to refile document (HTTP ' + response.status + ')');
+            }
+            return response.text();
+        })
         .then(responseText => {
             fileDoc(id);
         })
-        .catch(error => console.error('Error:', error));
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Unable to refile document. Please try again.');
+        });
 }
 
 function addDocToList(provNo, provName, docId) {

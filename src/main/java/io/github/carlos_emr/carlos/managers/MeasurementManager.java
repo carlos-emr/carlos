@@ -32,6 +32,9 @@
 
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
@@ -223,22 +226,38 @@ public interface MeasurementManager {
         String path_set_by_property = CarlosProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY");
 
         if (path_set_by_property != null) {
-            File[] files1 = new File(path_set_by_property).listFiles();
+            File[] files1 = PathValidationUtils.resolveConfiguredDirectory(path_set_by_property, "measurement resource path").listFiles();
 
-            for (File file1 : files1) {
-                if (file1.isFile()) {
-                    dsHtml.add(file1.getName());
+            // listFiles() returns null if the directory is missing or unreadable (I/O error).
+            if (files1 != null) {
+                for (File file1 : files1) {
+                    if (file1.isFile()) {
+                        dsHtml.add(file1.getName());
+                    }
                 }
+            } else {
+                // Surface a misconfigured/unreadable flowsheet directory: otherwise the list silently
+                // comes back short and the cause is undiagnosable.
+                MiscUtils.getLogger().warn("Configured flowsheet directory missing or unreadable: {}",
+                        LogSafe.sanitize(path_set_by_property));
             }
         }
 
         URL path_of_resource = MeasurementFlowSheet.class.getClassLoader()
                 .getResource("/oscar/encounter/oscarMeasurements/flowsheets/html/");
-        File[] files2 = new File(path_of_resource.getPath()).listFiles();
+        // getResource() returns null when the flowsheet HTML resource directory is absent from the classpath.
+        if (path_of_resource != null) {
+            File[] files2 = PathValidationUtils.resolveConfiguredDirectory(path_of_resource.getPath(), "measurement resource path").listFiles();
 
-        for (File file2 : files2) {
-            if (file2.isFile()) {
-                dsHtml.add(file2.getName());
+            if (files2 != null) {
+                for (File file2 : files2) {
+                    if (file2.isFile()) {
+                        dsHtml.add(file2.getName());
+                    }
+                }
+            } else {
+                MiscUtils.getLogger().warn("Bundled flowsheet resource directory unreadable: {}",
+                        LogSafe.sanitize(path_of_resource.getPath()));
             }
         }
 

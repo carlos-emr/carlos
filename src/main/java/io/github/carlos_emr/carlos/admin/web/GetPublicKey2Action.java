@@ -31,6 +31,8 @@ import java.io.IOException;
 
 import io.github.carlos_emr.carlos.commn.dao.PublicKeyDao;
 import io.github.carlos_emr.carlos.commn.model.PublicKey;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -46,9 +48,9 @@ import org.springframework.stereotype.Component;
  * JSON endpoint that returns the {@link PublicKey} record for a named service.
  *
  * <p>Replaces the legacy {@code /admin/keygen/getPublicKey.json.jsp} which had
- * no application-level authorization check. Requires {@code _admin r}
- * privilege; the underlying record exposes private key material so even read
- * access is restricted to administrators.</p>
+ * no application-level authorization check. Requires {@code _admin w}
+ * privilege; the underlying record exposes private key material so access is
+ * restricted to administrators with write privileges.</p>
  *
  * @since 2026-05-19
  */
@@ -96,7 +98,7 @@ public class GetPublicKey2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
@@ -112,6 +114,7 @@ public class GetPublicKey2Action extends ActionSupport {
             return NONE;
         }
 
+        LogAction.addLog(loggedInInfo, LogConst.READ, "PublicKey", keyId, "", "private key accessed via API");
         writeJson(response, PublicKeyResponse.from(publicKey));
         return NONE;
     }
@@ -125,6 +128,8 @@ public class GetPublicKey2Action extends ActionSupport {
     }
 
     private void writeJson(HttpServletResponse response, Object payload) throws IOException {
+        response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
         response.setContentType("application/json;charset=UTF-8");
         MAPPER.writeValue(response.getOutputStream(), payload);
     }

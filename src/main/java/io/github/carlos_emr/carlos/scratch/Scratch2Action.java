@@ -36,11 +36,13 @@ import io.github.carlos_emr.carlos.commn.model.JSONAction;
 import io.github.carlos_emr.carlos.commn.model.ScratchPad;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  *
@@ -57,7 +59,7 @@ public class Scratch2Action extends JSONAction {
     		throw new IllegalArgumentException("Missing required parameter: id");
     	}
 
-    	try {
+		try {
     		ScratchPad scratchPad = scratchPadDao.find(Integer.parseInt(id));
     		if (scratchPad == null) {
     			throw new IllegalArgumentException("ScratchPad not found for id: " + id);
@@ -69,6 +71,8 @@ public class Scratch2Action extends JSONAction {
     	}
     }
     
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
 
         String method = request.getParameter("method");
@@ -134,12 +138,17 @@ public class Scratch2Action extends JSONAction {
                return null;
            }
            returnId = ""+databaseId;
-           MiscUtils.getLogger().debug( "database Id = "+databaseId+" request id "+id);
 
-		   if (id == null || id.trim().isEmpty()) {
+           if (id == null || id.trim().isEmpty()) {
                MiscUtils.getLogger().error("Request id parameter is null or empty");
                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                return null;
+           }
+
+           Logger logger = MiscUtils.getLogger();
+           if (logger.isDebugEnabled()) {
+               String safeRequestId = LogSafe.sanitize(id);
+               logger.debug("database Id = {} request id {}", databaseId, safeRequestId);
            }
 
            int requestId;
@@ -168,8 +177,10 @@ public class Scratch2Action extends JSONAction {
 			jsonResponse(jsonObject);
 
         }else {
-			MiscUtils.getLogger().error("Scratch pad trying to save data for user {} but session user is {}",
-				Encode.forJava(pNo), Encode.forJava(providerNo));
+			Logger logger = MiscUtils.getLogger();
+			if (logger.isErrorEnabled()) {
+				logger.error("Scratch pad provider mismatch; request and session provider values omitted from log");
+			}
 			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             ObjectNode jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", false);

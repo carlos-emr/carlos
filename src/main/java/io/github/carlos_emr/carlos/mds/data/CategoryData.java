@@ -48,6 +48,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.Query;
 import jakarta.persistence.Tuple;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class CategoryData {
     private static final String COUNT_COLUMN = "count";
@@ -144,6 +145,8 @@ public class CategoryData {
     private final List<String> documentDateParams = new ArrayList<>();
     private final java.util.Map<String, String> hrmParams = new java.util.LinkedHashMap<>();
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public CategoryData(String patientLastName, String patientFirstName, String patientHealthNumber, boolean patientSearch,
                         boolean providerSearch, String searchProviderNo, String status, String abnormalStatus,
                         String startDate, String endDate) {

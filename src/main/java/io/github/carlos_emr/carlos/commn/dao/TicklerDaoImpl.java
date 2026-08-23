@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 import org.hibernate.Hibernate;
 import org.springframework.stereotype.Repository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerDao {
@@ -421,6 +422,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
      * @param filter
      * @return
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getTicklerQueryString(String selectQuery, List<Object> paramList, CustomFilter filter) {
 //		String tickler_date_order = filter.getSort_order();
 
@@ -622,6 +625,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
      * @param filter CustomFilter the filter criteria
      * @return String the complete JPQL query
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getTicklerDTOQueryString(List<Object> paramList, CustomFilter filter) {
         StringBuilder sb = new StringBuilder();
         sb.append("SELECT NEW io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO(");
@@ -769,6 +774,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
      * @return String the ORDER BY clause (only pre-approved static strings)
      * @since 2026-03-15
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String buildOrderByClause(CustomFilter filter) {
         String col = filter.getSortColumn() != null ? filter.getSortColumn() : "serviceDate";
         String dir = "asc".equalsIgnoreCase(filter.getSort_order()) ? "asc" : "desc";
