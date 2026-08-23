@@ -29,6 +29,7 @@ import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * GET-only view gate for the Ontario Schedule of Benefits upload form.
@@ -47,6 +48,8 @@ public class ViewBenefitScheduleUpload2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();

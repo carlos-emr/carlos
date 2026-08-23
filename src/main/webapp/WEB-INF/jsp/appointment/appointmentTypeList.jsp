@@ -22,12 +22,44 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+
+<%--
+    appointmentTypeList.jsp
+    =======================
+    Purpose: Administration view for appointment types (Administration > Appointment Types).
+             Lists every configured type and hosts the single form used to both add a new one
+             and edit an existing one.
+
+    Features:
+    - One form serving Add and Edit, titled by whether an id is present, with New/Cancel
+      controls that drop back to Add mode
+    - Save and delete post to AppointmentType2Action; the action rejects GET for both, so
+      neither is reachable from a link
+    - Field limits mirror the appointmentType columns, and the duration pattern mirrors the
+      action's 1-1440 rule so both validators share one grammar
+    - Values submitted with an invalid field are re-rendered so nothing is retyped
+    - Multisite: location becomes a site picker, otherwise free text. A stored location whose
+      site was renamed or deactivated is offered as a selected option so it round-trips
+    - Delete is a per-row POST form with a confirmation prompt
+    - Success and error feedback via <s:actionmessage/> and <s:actionerror/>
+
+    Parameters (set by AppointmentType2Action):
+    - locationsList - List<LabelValueBean> of active sites; set only when multisites is on
+    - id, name, duration, location, notes, reason, resources - action properties holding
+      either the record being edited or the values just submitted
+
+    Security:
+    - Requires _appointment write privilege, enforced by the action
+    - All dynamic output encoded via carlos:forHtmlAttribute / forHtmlContent / SafeEncode
+    - CSRF token auto-injected into both forms by CsrfGuardScriptInjectionFilter
+
+    @since 2016-06-28
+--%>
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*, io.github.carlos_emr.carlos.appt.*, io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao, io.github.carlos_emr.carlos.commn.model.AppointmentType, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib prefix="s" uri="/struts-tags" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -49,14 +81,12 @@
 <%@ page import="io.github.carlos_emr.carlos.login.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <html>
 <head>
-    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-    <fmt:message key="appointment.appointmentTypeList.errAppointmentTypeName" var="msgAppointmentTypeName"/>
-    <fmt:message key="appointment.appointmentTypeList.errNamesField" var="msgNamesField"/>
+    <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
     <fmt:message key="appointment.appointmentTypeList.msgAppointmentType" var="msgAppointmentType"/>
+    <fmt:message key="appointment.type.duration.error" var="msgDurationRange"/>
     <fmt:message key="global.confirmDeleteItem" var="msgDeleteConfirm">
         <fmt:param value="${msgAppointmentType}"/>
     </fmt:message>
@@ -64,9 +94,6 @@
         <fmt:message key="appointment.appointmentTypeList.title"/>
     </title>
     <script language="JavaScript">
-        const i18nAppointmentTypeName = "${carlos:forJavaScript(msgAppointmentTypeName)}";
-        const i18nNamesField = "${carlos:forJavaScript(msgNamesField)}";
-
         function popupPage(vheight, vwidth, title, varpage) {
             var page = "" + varpage;
             var leftVal = (screen.width - 850) / 2;
@@ -95,47 +122,13 @@
             ctrl.value = ctrl.value.toUpperCase();
         }
 
-        function onBlockFieldFocus(obj) {
-            obj.blur();
-            document.forms[0].name.focus();
-            document.forms[0].name.select();
-            window.alert(i18nAppointmentTypeName);
-        }
-
-        function checkTypeNum(typeIn) {
-            var typeInOK = true;
-            var i = 0;
-            var length = typeIn.length;
-            var ch;
-            // walk through a string and find a number
-            if (length >= 1) {
-                while (i < length) {
-                    ch = typeIn.substring(i, i + 1);
-                    if (ch == ":") {
-                        i++;
-                        continue;
-                    }
-                    if ((ch < "0") || (ch > "9")) {
-                        typeInOK = false;
-                        break;
-                    }
-                    i++;
-                }
-            } else typeInOK = false;
-            return typeInOK;
-        }
-
-        function checkTimeTypeIn(obj) {
-            if (!checkTypeNum(obj.value)) {
-//		  alert ("Please enter numeric value in Duration field");
-            } else {
-                if (obj.value == '') {
-                    alert(i18nNamesField);
-                    onBlockFieldFocus(obj);
-                }
-            }
-        }
     </script>
+    <style>
+        .inline-action { display: inline; }
+        .link-button { background: none; border: 0; color: #0000EE; cursor: pointer; padding: 0; text-decoration: underline; }
+        .form-title { font-family: Helvetica, sans-serif; }
+        .field-label { font-family: Arial, sans-serif; }
+    </style>
 </head>
 <body topmargin="0" leftmargin="0" rightmargin="0">
 <table width="100%">
@@ -148,26 +141,15 @@
             <table border="0" cellspacing="0" cellpadding="0" width="100%">
                 <tr bgcolor="#486ebd" height="30">
                     <th align="LEFT" width="90%">
-                        <font face="Helvetica" color="#FFFFFF">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<% 
-    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
-    if (actionErrors != null && !actionErrors.isEmpty()) {
-%>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
-            <% } %>
-        </ul>
-    </div>
-<% } %>
-                        </font>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                     </th>
                     <td nowrap>
-                        <font size="-1" color="#FFFFFF">&nbsp;
-                        </font>
+                        &nbsp;
                     </td>
                 </tr>
             </table>
+            <s:actionerror/>
+            <s:actionmessage/>
             <table width="100%" border="0" bgcolor="ivory" cellspacing="1" cellpadding="1">
                 <tr bgcolor="mediumaquamarine">
                     <th align="right"></th>
@@ -178,13 +160,18 @@
                 <tr>
                     <td colspan=7>
                         <center>
-                            <form action="${pageContext.request.contextPath}/appointment/appointmentTypeAction" method="post">
+                            <form action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/appointmentTypeAction" method="post">
                                 <input TYPE="hidden" NAME="oper" VALUE="save"/>
                                 <input TYPE="hidden" NAME="id"
                                        VALUE="${carlos:forHtmlAttribute(id)}"/>
                                 <table border=0 cellspacing=0 cellpadding=0 width="100%">
                                     <tr bgcolor="#CCCCFF">
-                                        <th><font face="Helvetica"><fmt:message key="appointment.appointmentTypeList.formEditTitle"/></font></th>
+                                        <th class="form-title">
+                                            <c:choose>
+                                                <c:when test="${not empty id}"><fmt:message key="appointment.appointmentTypeList.formEditTitle"/></c:when>
+                                                <c:otherwise><fmt:message key="appointment.appointmentTypeList.formAddTitle"/></c:otherwise>
+                                            </c:choose>
+                                        </th>
                                     </tr>
                                 </table>
                                 <table border="0" cellpadding="0" cellspacing="0" width="100%">
@@ -194,65 +181,84 @@
                                                    BGCOLOR="#C0C0C0">
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
                                                     <td width="30%">
-                                                        <div align="right"><font face="arial"><fmt:message key="name"/><fmt:message key="global.labelSeparator"/></font></div>
+                                                        <div align="right"><label class="field-label" for="appointmentTypeName"><fmt:message key="name"/><fmt:message key="global.labelSeparator"/></label></div>
                                                     </td>
-                                                    <td width="25%"><INPUT TYPE="TEXT" NAME="name"
+                                                    <td width="25%"><INPUT TYPE="TEXT" NAME="name" id="appointmentTypeName"
                                                                            VALUE="${carlos:forHtmlAttribute(name)}"
-                                                                           WIDTH="10" HEIGHT="20" border="0" hspace="2"
-                                                                           maxlength="50"
-                                                                           onChange="checkTimeTypeIn(this)">
+                                                                           size="10" maxlength="50"
+                                                                           required></td>
                                                     <td width="20%">
-                                                        <div align="right"><font face="arial"><fmt:message key="duration"/><fmt:message key="global.labelSeparator"/></font></div>
+                                                        <div align="right"><label class="field-label" for="appointmentTypeDuration"><fmt:message key="duration"/><fmt:message key="global.labelSeparator"/></label></div>
                                                     </td>
-                                                    <td width="25%"><INPUT TYPE="TEXT" NAME="duration"
+                                                    <%-- Deliberately text rather than number: a number input blanks any value it
+                                                         cannot parse, which would discard the rejected entry the server re-renders
+                                                         for correction.
+
+                                                         Only canonical values need to be admitted here. validateSave re-renders an
+                                                         accepted duration in canonical form, so padding it tolerates never comes
+                                                         back into this field, and pattern, maxlength and the server agree on the
+                                                         same 1-1440 grammar: four digits, no padding. --%>
+                                                    <td width="25%"><INPUT TYPE="text" NAME="duration" id="appointmentTypeDuration"
                                                                            VALUE="${carlos:forHtmlAttribute(duration)}"
-                                                                           WIDTH="5" HEIGHT="20" border="0"
-                                                                           onChange="checkTimeTypeIn(this)"></td>
+                                                                           size="5"
+                                                                           inputmode="numeric"
+                                                                           pattern="[1-9][0-9]{0,2}|1[0-3][0-9]{2}|14[0-3][0-9]|1440"
+                                                                           title="${carlos:forHtmlAttribute(msgDurationRange)}"
+                                                                           maxlength="4" required></td>
                                                 </tr>
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
                                                     <td>
-                                                        <div align="right"><font face="arial"><font
-                                                                face="arial"><fmt:message key="reason"/><fmt:message key="global.labelSeparator"/></font></font></div>
+                                                        <div align="right"><label class="field-label" for="appointmentTypeReason"><fmt:message key="reason"/><fmt:message key="global.labelSeparator"/></label></div>
                                                     </td>
-                                                    <td><TEXTAREA NAME="reason" COLS="40" ROWS="2" border="0" hspace="2">
-                                                        ${carlos:forHtml(reason)}</TEXTAREA>
+                                                    <td><TEXTAREA NAME="reason" id="appointmentTypeReason" COLS="40" ROWS="2"
+                                                                  maxlength="80">${carlos:forHtmlContent(reason)}</TEXTAREA>
                                                     </td>
                                                     <td>
-                                                        <div align="right"><font face="arial"><fmt:message key="Appointment.formNotes"/><fmt:message key="global.labelSeparator"/></font></div>
+                                                        <div align="right"><label class="field-label" for="appointmentTypeNotes"><fmt:message key="Appointment.formNotes"/><fmt:message key="global.labelSeparator"/></label></div>
                                                     </td>
-                                                    <td><TEXTAREA NAME="notes" COLS="40" ROWS="2" border="0" hspace="2">
-                                                        ${carlos:forHtml(notes)}
-                                                    </TEXTAREA>
+                                                    <td><TEXTAREA NAME="notes" id="appointmentTypeNotes" COLS="40" ROWS="2"
+                                                                  maxlength="80">${carlos:forHtmlContent(notes)}</TEXTAREA>
                                                     </td>
                                                 </tr>
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
-                                                    <td align="right"><font face="arial"><fmt:message key="location"/><fmt:message key="global.labelSeparator"/></font></td>
+                                                    <td align="right"><label class="field-label" for="appointmentTypeLocation"><fmt:message key="location"/><fmt:message key="global.labelSeparator"/></label></td>
                                                     <td>
                                                         <c:if test="${not empty locationsList}">
-                                                            <select name="location">
-                                                                <option value="0"><fmt:message key="appointment.appointmentTypeList.lblSelectLocation"/></option>
-                                                                <c:forEach var="location" items="${locationsList}">
-                                                                    <c:set var="locValue" value="${location.label}" />
-                                                                    <option value="${locValue}">
-                                                                        ${carlos:forHtml(location.label)}
+                                                            <%-- A stored location can name a site that has since been renamed or
+                                                                 deactivated. Offer it as a selected option so an edit to another
+                                                                 field round-trips it instead of silently clearing it. --%>
+                                                            <c:set var="locationIsActiveSite" value="false"/>
+                                                            <c:forEach var="siteLocation" items="${locationsList}">
+                                                                <c:if test="${siteLocation.label eq location}">
+                                                                    <c:set var="locationIsActiveSite" value="true"/>
+                                                                </c:if>
+                                                            </c:forEach>
+                                                            <select name="location" id="appointmentTypeLocation">
+                                                                <%-- Empty, not "0": the action treats a blank location as "no site". --%>
+                                                                <option value="" <c:if test="${empty location}">selected</c:if>><fmt:message key="appointment.appointmentTypeList.lblSelectLocation"/></option>
+                                                                <c:forEach var="siteLocation" items="${locationsList}">
+                                                                    <option value="${carlos:forHtmlAttribute(siteLocation.label)}" <c:if test="${siteLocation.label eq location}">selected</c:if>>
+                                                                        ${carlos:forHtmlContent(siteLocation.label)}
                                                                     </option>
                                                                 </c:forEach>
+                                                                <c:if test="${not empty location and not locationIsActiveSite}">
+                                                                    <option value="${carlos:forHtmlAttribute(location)}" selected>${carlos:forHtmlContent(location)}</option>
+                                                                </c:if>
                                                             </select>
                                                         </c:if>
 
                                                         <c:if test="${empty locationsList}">
-                                                            <input type="text" name="location"
-                                                                   value="${location}"
-                                                                   width="30" height="20" border="0" hspace="2" maxlength="30"/>
+                                                            <input type="text" name="location" id="appointmentTypeLocation"
+                                                                   value="${carlos:forHtmlAttribute(location)}"
+                                                                   size="30" maxlength="255"/>
                                                         </c:if>
                                                     </td>
                                                     <td>
-                                                        <div align="right"><font face="arial"><fmt:message key="Appointment.formResources"/><fmt:message key="global.labelSeparator"/></font></div>
+                                                        <div align="right"><label class="field-label" for="appointmentTypeResources"><fmt:message key="Appointment.formResources"/><fmt:message key="global.labelSeparator"/></label></div>
                                                     </td>
-                                                    <td><INPUT TYPE="TEXT" NAME="resources"
+                                                    <td><INPUT TYPE="TEXT" NAME="resources" id="appointmentTypeResources"
                                                                VALUE="${carlos:forHtmlAttribute(resources)}"
-                                                               WIDTH="10" HEIGHT="20" maxlength="10" border="0"
-                                                               hspace="2"></td>
+                                                               size="10" maxlength="10"></td>
                                                 </tr>
                                             </table>
                                         </td>
@@ -261,6 +267,10 @@
                                 <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                     <tr bgcolor="#CCCCFF">
                                         <TD nowrap align="center"><input type="submit" value="<fmt:message key='global.btnSave'/>" />
+                                            <c:if test="${not empty id}">
+                                                <a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/appointmentTypeAction"><fmt:message key="appointment.appointmentTypeList.btnNew"/></a>
+                                                <a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/appointmentTypeAction"><fmt:message key="global.btnCancel"/></a>
+                                            </c:if>
                                         </TD>
                                     </tr>
                                 </table>
@@ -323,9 +333,13 @@
                         <%= SafeEncode.forHtmlContent(type.getResources()) %>
                     </th>
                     <th nowrap>
-                        <a href="${pageContext.request.contextPath}/appointment/appointmentTypeAction?oper=edit&no=<%= type.getId() %>"><fmt:message key="global.btnEdit"/></a>
+                        <a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/appointmentTypeAction?oper=edit&amp;no=<%= SafeEncode.forUriComponent(String.valueOf(type.getId())) %>"><fmt:message key="global.btnEdit"/></a>
                         &nbsp;&nbsp;
-                        <a href="javascript:delType('<%= type.getId() %>')"><fmt:message key="global.btnDelete"/></a>
+                        <form class="inline-action delete-appointment-type" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/appointmentTypeAction" method="post">
+                            <input type="hidden" name="oper" value="del"/>
+                            <input type="hidden" name="no" value="<%= SafeEncode.forHtmlAttribute(String.valueOf(type.getId())) %>"/>
+                            <button class="link-button" type="submit"><fmt:message key="global.btnDelete"/></button>
+                        </form>
                     </th>
                 </tr>
                 <%
@@ -339,24 +353,12 @@
 </body>
 <script type="text/javascript">
     const i18nDeleteConfirm = "${carlos:forJavaScript(msgDeleteConfirm)}";
-
-    function delType(id) {
-        var answer = confirm(i18nDeleteConfirm);
-        if (answer) {
-            var form = document.createElement('form');
-            form.method = 'post';
-            form.action = '${pageContext.request.contextPath}/appointment/appointmentTypeAction';
-            var fields = {oper: 'del', no: id};
-            for (var key in fields) {
-                var input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = key;
-                input.value = fields[key];
-                form.appendChild(input);
+    document.querySelectorAll('.delete-appointment-type').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (!window.confirm(i18nDeleteConfirm)) {
+                event.preventDefault();
             }
-            document.body.appendChild(form);
-            form.submit();
-        }
-    }
+        });
+    });
 </script>
 </html>

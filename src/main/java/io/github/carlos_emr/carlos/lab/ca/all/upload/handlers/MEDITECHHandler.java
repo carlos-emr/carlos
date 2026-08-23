@@ -60,6 +60,7 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class MEDITECHHandler implements MessageHandler {
 
@@ -197,6 +198,8 @@ public class MEDITECHHandler implements MessageHandler {
      * @return a validated File object
      * @throws IOException if the file path is invalid or attempts path traversal
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private File validateAndGetFile(String fileName) throws IOException {
         if (fileName == null || fileName.isEmpty()) {
             throw new IllegalArgumentException("File name cannot be null or empty");

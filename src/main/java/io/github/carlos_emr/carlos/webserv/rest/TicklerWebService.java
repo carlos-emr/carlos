@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -63,6 +64,8 @@ import io.github.carlos_emr.carlos.webserv.rest.to.TicklerResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.TicklerTextSuggestTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 @Path("/tickler")
 @Component("ticklerWebService")
@@ -79,6 +82,8 @@ public class TicklerWebService extends AbstractServiceImpl {
     private ProgramManager2 programManager;
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @POST
     @Path("/search")
     @Produces("application/json")
@@ -269,12 +274,16 @@ public class TicklerWebService extends AbstractServiceImpl {
         }
 
 
-        MiscUtils.getLogger().info(json.toString());
+        MiscUtils.getLogger().debug("completeTicklers called, count={}", json != null && json.has("ticklers") ? json.get("ticklers").size() : 0);
 
-        ArrayNode ticklerIds = (ArrayNode) json.get("ticklers");
+        List<Integer> ticklerIds;
+        try {
+            ticklerIds = extractTicklerIds(json);
+        } catch (IllegalArgumentException e) {
+            return RestResponse.errorResponse(e.getMessage());
+        }
 
-        for (Object id : ticklerIds) {
-            int ticklerNo = (Integer) id;
+        for (Integer ticklerNo : ticklerIds) {
             ticklerManager.completeTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
         }
 
@@ -291,16 +300,51 @@ public class TicklerWebService extends AbstractServiceImpl {
             throw new RuntimeException("Access Denied");
         }
 
-        MiscUtils.getLogger().info(json.toString());
+        MiscUtils.getLogger().debug("deleteTicklers called, count={}", json != null && json.has("ticklers") ? json.get("ticklers").size() : 0);
 
-        ArrayNode ticklerIds = (ArrayNode) json.get("ticklers");
+        List<Integer> ticklerIds;
+        try {
+            ticklerIds = extractTicklerIds(json);
+        } catch (IllegalArgumentException e) {
+            return RestResponse.errorResponse(e.getMessage());
+        }
 
-        for (Object id : ticklerIds) {
-            int ticklerNo = (Integer) id;
+        for (Integer ticklerNo : ticklerIds) {
             ticklerManager.deleteTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
         }
 
         return RestResponse.successResponse(null);
+    }
+
+    /**
+     * Extracts and validates the {@code ticklers} id array from a bulk request body.
+     *
+     * <p>The field must be present, a JSON array, and contain only integral values that
+     * fit a 32-bit int. Reading ids with {@link JsonNode#asInt()} alone would let a missing
+     * field NPE and silently coerce non-numeric values to {@code 0}, so malformed input
+     * is rejected here with a clear message instead. {@link JsonNode#canConvertToInt()}
+     * alone is not enough: it returns {@code true} for fractional values in int range
+     * (e.g. {@code 1.9}), which {@link JsonNode#intValue()} would silently truncate to
+     * {@code 1}, so {@link JsonNode#isIntegralNumber()} is checked first to reject
+     * non-integral numbers.</p>
+     *
+     * @param json the request body
+     * @return the parsed tickler ids (possibly empty)
+     * @throws IllegalArgumentException if the field is missing, not an array, or holds a non-integer id
+     */
+    private List<Integer> extractTicklerIds(JsonNode json) {
+        JsonNode ticklerIds = json.get("ticklers");
+        if (ticklerIds == null || !ticklerIds.isArray()) {
+            throw new IllegalArgumentException("ticklers must be an array of integer ids");
+        }
+        List<Integer> ids = new ArrayList<>();
+        for (JsonNode id : ticklerIds) {
+            if (!id.isIntegralNumber() || !id.canConvertToInt()) {
+                throw new IllegalArgumentException("ticklers must contain only integer ids");
+            }
+            ids.add(id.intValue());
+        }
+        return ids;
     }
 
     @POST
@@ -313,7 +357,7 @@ public class TicklerWebService extends AbstractServiceImpl {
             throw new RuntimeException("Access Denied");
         }
 
-        MiscUtils.getLogger().info(json.toString());
+        MiscUtils.getLogger().debug("updateTickler called, id={}", LogSafe.sanitize(json != null && json.has("id") ? json.get("id").asText() : "null"));
 
         Tickler tickler = ticklerManager.getTickler(getLoggedInInfo(), json.get("id") != null ? json.get("id").asInt() : null);
 

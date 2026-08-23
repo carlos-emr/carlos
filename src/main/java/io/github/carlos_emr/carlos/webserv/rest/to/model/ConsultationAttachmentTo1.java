@@ -45,6 +45,7 @@ public class ConsultationAttachmentTo1 implements Serializable {
     private String displayName;
     private String shortName;
     private String url;
+    private String validationError;
 
     private DocumentTo1 document;
 
@@ -118,6 +119,14 @@ public class ConsultationAttachmentTo1 implements Serializable {
 
     public void setUrl(String url) {
         this.url = url;
+    }
+
+    public String getValidationError() {
+        return validationError;
+    }
+
+    public void setValidationError(String validationError) {
+        this.validationError = validationError;
     }
 
     public DocumentTo1 getDocument() {

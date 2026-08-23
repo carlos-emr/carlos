@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.DateRange;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Shared mutation service for the three OHIP-extract action entry points:
  * {@code ViewGenReport2Action} (SOLO_REPORT), {@code ViewGenGroupReport2Action}
@@ -330,6 +331,8 @@ public class OhipReportGenerationService {
                 dateEnd == null ? "" : dateEnd.toString());
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private List<Provider> resolveProviders(String providerParam) {
         if ("all".equalsIgnoreCase(providerParam)) {
             return providerDao.getActiveProviders();
@@ -348,6 +351,8 @@ public class OhipReportGenerationService {
      * use this to decide whether to chain a SOLO_REPORT into a follow-up
      * GROUP_REPORT pass.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean isHybridBilling() {
         String v = CarlosProperties.getInstance().getProperty("hybrid_billing", "");
         return "on".equalsIgnoreCase(v);

@@ -70,6 +70,7 @@ import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DmsInboxManage2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -88,6 +89,20 @@ public class DmsInboxManage2Action extends ActionSupport {
 
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    private boolean redirectUnauthenticated(HttpSession session) {
+        if (session.getAttribute("userrole") != null) {
+            return false;
+        }
+        try {
+            response.sendRedirect(request.getContextPath() + "/logoutPage");
+        } catch (Exception e) {
+            logger.error("Error", e);
+        }
+        return true;
+    }
 
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -193,11 +208,8 @@ public class DmsInboxManage2Action extends ActionSupport {
 
     public String prepareForIndexPage() {
         HttpSession session = request.getSession();
-        try {
-            if (session.getAttribute("userrole") == null)
-                response.sendRedirect(request.getContextPath() + "/logoutPage");
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("error", e);
+        if (redirectUnauthenticated(session)) {
+            return NONE;
         }
 
         String providerNo = (String) session.getAttribute("user");
@@ -281,15 +293,15 @@ public class DmsInboxManage2Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision.")
     @SuppressWarnings({"unchecked", "rawtypes"})
     public String prepareForContentPage() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         HttpSession session = request.getSession();
-        try {
-            if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
-        } catch (Exception e) {
-            logger.error("Error", e);
+        if (redirectUnauthenticated(session)) {
+            return NONE;
         }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         // can't use userrole from session, because it changes if providers A search for providers B's documents
 
@@ -747,10 +759,8 @@ public class DmsInboxManage2Action extends ActionSupport {
     @SuppressWarnings({"unchecked", "rawtypes"})
     public String getDocumentsInQueues() {
         HttpSession session = request.getSession();
-        try {
-            if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
-        } catch (Exception e) {
-            logger.error("Error", e);
+        if (redirectUnauthenticated(session)) {
+            return NONE;
         }
         String providerNo = (String) session.getAttribute("user");
         String searchProviderNo = request.getParameter("searchProviderNo");
