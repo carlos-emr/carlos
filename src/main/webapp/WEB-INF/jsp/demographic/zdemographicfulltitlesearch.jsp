@@ -212,21 +212,25 @@
     }
 
     function formatDateInput(input) {
-        // Remove any non-digit characters
-        let value = input.value.replace(/\D/g, '');
+        const raw = input.value;
+
+        // Remove any non-digit characters; only the first 8 digits (YYYYMMDD) count
+        const digits = raw.replace(/\D/g, '').substring(0, 8);
+        let value = digits;
 
         // Format as YYYY-MM-DD
-        if (value.length > 0) {
-            // Ensure we only take the first 8 digits
-            value = value.substring(0, Math.min(8, value.length));
+        if (digits.length > 4) {
+            value = digits.substring(0, 4) + '-' + digits.substring(4);
+        }
+        if (digits.length > 6) {
+            value = value.substring(0, 7) + '-' + value.substring(7);
+        }
 
-            // Add hyphens
-            if (value.length > 4) {
-                value = value.substring(0, 4) + '-' + value.substring(4);
-            }
-            if (value.length > 7) {
-                value = value.substring(0, 7) + '-' + value.substring(7);
-            }
+        // Keep a separator the user just typed after the year (YYYY) or month
+        // (YYYY-MM). Dropping it made the field look like it stopped accepting
+        // input at 4 characters when typing the required YYYY-MM-DD format.
+        if (/[-/. ]$/.test(raw) && (digits.length === 4 || digits.length === 6)) {
+            value += '-';
         }
 
         input.value = value;
