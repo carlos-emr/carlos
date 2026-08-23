@@ -44,6 +44,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for writing message content to a patient encounter.
@@ -119,6 +120,8 @@ public class MsgWriteToEncounter2Action extends ActionSupport {
      * @throws IOException if there's an error with the redirect
      * @throws ServletException if there's a servlet processing error
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws IOException, ServletException {
         // Validate session and check privilege before any processing
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

@@ -62,6 +62,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
@@ -92,6 +93,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
     protected static Logger logger = MiscUtils.getLogger();
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -147,7 +150,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             } else {
                 filePath = Utilities.saveFile(is, fileName);
             }
-            File file = new File(filePath);
+            File file = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
 
             if (validateSignature(clientKey, signature, file)) {
                 logger.debug("Validated Successfully");
@@ -230,7 +233,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // sender which encrypts with PKCS#1 v1.5. Changing the padding here would break
             // decryption of incoming lab uploads. This is decrypt-only (not encrypt), which
             // limits the attack surface. If the external protocol is ever updated, migrate to OAEP.
-            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding"); // NOPMD HardCodedCryptoKey — JCA name, not key material // nosemgrep: java.lang.security.audit.crypto.ecb-cipher.ecb-cipher -- "ECB" is JCA convention for RSA single-block, not AES-ECB mode; PKCS#1v1.5 constraint documented above
             cipher.init(Cipher.DECRYPT_MODE, key);
             byte[] newSecretKey = cipher.doFinal(Base64.decodeBase64(skey));
 

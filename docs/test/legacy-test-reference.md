@@ -19,7 +19,6 @@ src/test/
 │   │   │   ├── dao/              # DAO tests (largest collection)
 │   │   │   │   └── utils/        # Test utilities
 │   │   │   │       ├── EntityDataGenerator.java
-│   │   │   │       ├── SchemaUtils.java
 │   │   │   │       ├── DataUtils.java
 │   │   │   │       ├── AuthUtils.java
 │   │   │   │       └── ConfigUtils.java
@@ -83,7 +82,6 @@ public class SomeDaoTest extends DaoTestFixtures {
 Located at `io.github.carlos_emr.carlos.commn.dao.DaoTestFixtures`, this base class provides:
 - Database connection setup via `@BeforeClass` static initialization
 - Spring context initialization from `applicationContextTest.xml`
-- Database schema utilities through `SchemaUtils`
 - LoggedInInfo for authentication context
 - Note: Uses mix of JUnit 3 (junit.framework) and JUnit 4 (@BeforeClass) imports
 
@@ -92,7 +90,6 @@ Located at `io.github.carlos_emr.carlos.commn.dao.DaoTestFixtures`, this base cl
 Located in `io.github.carlos_emr.carlos.commn.dao.utils`:
 
 - **EntityDataGenerator**: Creates test entities with valid data
-- **SchemaUtils**: Database schema operations for tests (table creation, cleanup)
 - **DataUtils**: Common data manipulation utilities
 - **AuthUtils**: Authentication/authorization test helpers
 - **ConfigUtils**: Test configuration management (loads over_ride_config.properties)

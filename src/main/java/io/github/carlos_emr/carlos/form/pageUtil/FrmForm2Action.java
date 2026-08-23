@@ -69,6 +69,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -93,6 +94,8 @@ public class FrmForm2Action extends ActionSupport {
 
     private String _dateFormat = "yyyy/MM/dd";
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute()
             throws ServletException, IOException {
 
@@ -310,6 +313,8 @@ public class FrmForm2Action extends ActionSupport {
         return "/form/SetupForm?formName=" + trustedFormName + "&formId=" + formPath[1];
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean validate(String inputValue, String observationDate, EctMeasurementTypesBean mt,
                              EctValidationsBean validation, HttpServletRequest request) {
         EctValidation ectValidation = new EctValidation();
@@ -398,6 +403,8 @@ public class FrmForm2Action extends ActionSupport {
         return newDataAdded;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String parseCheckBoxValue(String inputValue, String validationName) {
 
         if (validationName.equalsIgnoreCase("Yes/No")) {

@@ -25,3 +25,13 @@ name: "CARLOS EMR CodeQL Configuration"
 # WEB-INF/eform-assets/ are intentionally kept in scope.
 paths-ignore:
   - "src/main/webapp/library/**"
+
+# Custom CodeQL customization pack (source: codeql/customizations/) that models
+# io.github.carlos_emr.carlos.utility.PathValidationUtils as a path-injection sanitizer,
+# so java/path-injection stops reporting false positives on paths already containment-
+# validated by those helpers (e.g. the dismissed alert #26023). Scoped to the
+# Java/Kotlin analysis. Requires the package to be published to GHCR and accessible to
+# this repo's code scanning (Internal visibility or repo Actions access).
+packs:
+  java-kotlin:
+    - carlos-emr/carlos-codeql-customizations

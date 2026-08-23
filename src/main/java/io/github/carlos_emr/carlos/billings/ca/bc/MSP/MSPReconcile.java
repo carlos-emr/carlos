@@ -58,6 +58,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class MSPReconcile {
     private static Logger log = MiscUtils.getLogger();
@@ -738,6 +739,8 @@ public class MSPReconcile {
      * @param billType         String
      * @return double the amount paid
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public double getAmountPaid(String billingmaster_no, String billType) {
         double retval = 0.0;
         //for msp, icbc, wcb payments
@@ -1263,6 +1266,8 @@ public class MSPReconcile {
      * @param amountBilled    String - The total amount of the bill
      * @return String
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public double getAmountOwing(String billingMasterNo, String amountBilled, String billingType) {
 
         amountBilled = (amountBilled != null && !amountBilled.equals("")) ? amountBilled : "0.0";
@@ -1335,6 +1340,8 @@ public class MSPReconcile {
      * @param exludeICBC
      * @return BillSearch
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public MSPReconcile.BillSearch getPayments(String account, String payeeNo, String providerNo, String startDate, String endDate, boolean excludeWCB, boolean excludeMSP, boolean excludePrivate, boolean exludeICBC) {
         BillSearch billSearch = new BillSearch();
         List<Object> criteriaParams = new ArrayList<>();
@@ -1627,6 +1634,8 @@ public class MSPReconcile {
      * @param dateFieldOption String
      * @return String
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String createCriteriaString(String account, String payeeNo, String providerNo, String startDate, String endDate, boolean excludeWCB, boolean excludeMSP, boolean excludePrivate, boolean exludeICBC, String repType, String dateFieldOption, List<Object> criteriaParams) {
         String criteriaQry = "";
         String dateField = MSPReconcile.REP_PAYREF.equals(repType) ? "t_payment" : "service_date";

@@ -1,4 +1,5 @@
 <%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="java.util.List" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -37,8 +38,30 @@
 <%
     String result = Misc.safeString((String) request.getAttribute("Result"));
     String msgs = Misc.safeString((String) request.getAttribute("Msgs"));
+    @SuppressWarnings("unchecked")
+    List<String> msgLines = (List<String>) request.getAttribute("MsgsLines");
     String error = Misc.safeString((String) request.getAttribute("error"));
     if (error.length() != 0) {
         error = "Error in teleplan connection : " + error;
     }
-%><carlos:encode value='<%= result %>' context="html"/>-<carlos:encode value='<%= msgs %>' context="html"/><carlos:encode value='<%= error %>' context="html"/>
+%><carlos:encode value='<%= result %>' context="html"/>-<%
+    if (msgLines != null) {
+        for (String msgLine : msgLines) {
+            String safeLine = Misc.safeString(msgLine);
+            boolean eligibilityFailure = false;
+            if (safeLine.startsWith("ELIG_ON_DOS:")) {
+                eligibilityFailure = "no".equalsIgnoreCase(safeLine.substring(12).trim());
+            }
+            if (eligibilityFailure) {
+%><span style="color:red; font-weight:bold;"><%
+            }
+%><carlos:encode value='<%= safeLine %>' context="html"/><%
+            if (eligibilityFailure) {
+%></span><%
+            }
+%><br><%
+        }
+    } else {
+%><carlos:encode value='<%= msgs %>' context="html"/><%
+    }
+%><carlos:encode value='<%= error %>' context="html"/>

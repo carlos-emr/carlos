@@ -43,7 +43,6 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <html>
     <head>
@@ -65,7 +64,7 @@
                 <h1><fmt:message key="appointment.appointmentupdatearecord.msgUpdateSuccess"/></h1>
                 <script language="JavaScript">
                     <c:if test="${printReceipt}">
-                    popupPage(350, 750, '${pageContext.request.contextPath}/appointment/printappointment?appointment_no=${carlos:forJavaScript(carlos:forUriComponent(appointmentNo))}');
+                    popupFocusPage(350, 750, '${pageContext.request.contextPath}/appointment/printappointment?appointment_no=${carlos:forJavaScript(carlos:forUriComponent(appointmentNo))}', 'appointmentReceipt');
                     </c:if>
                     try { self.opener.refresh(); } catch (e) { /* opener may be closed or cross-origin */ }
                     self.close();

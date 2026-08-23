@@ -26,6 +26,7 @@ import java.util.Date;
 import java.util.stream.Stream;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.eform.util.EFormRendererRequestAuthorization;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -227,6 +228,117 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
 
             assertThat(chain.getRequest()).isSameAs(request);
             assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("should pass logout post when unauthenticated")
+        void shouldPassLogoutPost_whenUnauthenticated()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("POST", CONTEXT_PATH + "/logout");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("should pass uppercase saved eForm PDF route when unauthenticated")
+        void shouldPassUppercaseSavedEformPdfRoute_whenUnauthenticated()
+                throws ServletException, IOException {
+            // Session-less renderer surface: the servlet itself enforces loopback plus a
+            // render-scoped grant (EFormRenderTokenService — peek-repeatable within one render,
+            // invalidated at render end), so LoginFilter must let the token-bearing renderer
+            // request through without a session.
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/EFormViewForPdfGenerationServlet");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("should pass the signature renderer route when unauthenticated")
+        void shouldPassSignatureRendererRoute_whenUnauthenticated()
+                throws ServletException, IOException {
+            // Same session-less renderer surface: loopback + a mandatory render grant are enforced
+            // by the servlet itself, so the exemption must hold for the signature route too.
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/EFormSignatureViewForPdfGenerationServlet");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("should pass the asset image renderer route when unauthenticated")
+        void shouldPassAssetImageRendererRoute_whenUnauthenticated()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/EFormImageViewForPdfGenerationServlet");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("should pass static calendar widget assets when unauthenticated")
+        void shouldPassCalendarWidgetAssets_whenUnauthenticated()
+                throws ServletException, IOException {
+            // Legacy eForms load the calendar widget, and the sessionless browser-PDF renderer
+            // must fetch it like the already-exempt /share/css/ assets (static, no PHI).
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/share/calendar/calendar.js");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("should pass flatpickr assets the calendar shim loads when unauthenticated")
+        void shouldPassFlatpickrAssets_whenUnauthenticated()
+                throws ServletException, IOException {
+            // The /share/calendar/ shim dynamically loads flatpickr; without this exemption the
+            // sessionless render browser received the login page as text/html for the script and
+            // stylesheet, breaking every date-picker eForm render on MIME checking.
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/library/flatpickr/flatpickr.min.js");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("should require a renderer capability for the eForm runtime compatibility shim")
+        void shouldRejectEformRuntimeCompatShim_withoutRendererCapability()
+                throws ServletException, IOException {
+            MockHttpServletRequest request =
+                    request("GET", CONTEXT_PATH + "/eform/eform-runtime-compat.js");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isNull();
+            assertThat(response.getStatus()).isEqualTo(302);
+            assertThat(response.getRedirectedUrl()).isNotNull();
         }
 
         @Test
@@ -890,6 +1002,93 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
         void shouldHandleCombinedNormalization_whenUriHasMultipleUnsafeSegments() {
             assertThat(LoginFilter.normalizeUri("//carlos/./ws/../admin///secret;jsessionid=x"))
                     .isEqualTo("/carlos/admin/secret");
+        }
+    }
+
+    /**
+     * The sessionless browser-PDF renderer fetches static eForm control scripts and webfonts over
+     * loopback with no {@code JSESSIONID}. Those paths are exempt from the login redirect for loopback
+     * callers ONLY — an off-host caller must still authenticate, so the renderer's need does not open
+     * an anonymous surface on an internet-facing deployment.
+     */
+    @Nested
+    @DisplayName("Loopback-only renderer asset exemption")
+    class LoopbackOnlyRendererAssets {
+
+        private static final String CONTROL_SCRIPT = CONTEXT_PATH + "/library/eforms/printControl.js";
+
+        @Test
+        @DisplayName("should serve a renderer control script for an unauthenticated loopback request")
+        void shouldServeRendererAsset_forLoopbackRequest() throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTROL_SCRIPT);
+            request.setRemoteAddr("127.0.0.1");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            try (MockedStatic<EFormRendererRequestAuthorization> authorization =
+                    mockStatic(EFormRendererRequestAuthorization.class)) {
+                authorization.when(() ->
+                        EFormRendererRequestAuthorization.permitsStaticRequest(request))
+                        .thenReturn(true);
+                filter.doFilter(request, response, new MockFilterChain());
+            }
+
+            assertThat(response.getRedirectedUrl()).isNull();
+            assertThat(response.getStatus()).isEqualTo(200);
+        }
+
+        @Test
+        @DisplayName("should serve a renderer webfont for an unauthenticated IPv6 loopback request")
+        void shouldServeRendererWebfont_forIpv6LoopbackRequest() throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/webfonts/fa-solid-900.woff2");
+            request.setRemoteAddr("::1");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            try (MockedStatic<EFormRendererRequestAuthorization> authorization =
+                    mockStatic(EFormRendererRequestAuthorization.class)) {
+                authorization.when(() ->
+                        EFormRendererRequestAuthorization.permitsStaticRequest(request))
+                        .thenReturn(true);
+                filter.doFilter(request, response, new MockFilterChain());
+            }
+
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("should still require authentication for an off-host request")
+        void shouldRejectRendererAsset_forRemoteRequest() throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTROL_SCRIPT);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, new MockFilterChain());
+
+            assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
+        }
+
+        @Test
+        @DisplayName("should ignore a forwarded header claiming loopback for an off-host request")
+        void shouldRejectRendererAsset_whenForwardedHeaderClaimsLoopback()
+                throws ServletException, IOException {
+            // X-Forwarded-For is attacker-controlled; trusting it would restore the blanket exemption.
+            MockHttpServletRequest request = request("GET", CONTROL_SCRIPT);
+            request.addHeader("X-Forwarded-For", "127.0.0.1");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, new MockFilterChain());
+
+            assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
+        }
+
+        @Test
+        @DisplayName("should not extend the exemption to a sibling authenticated route over loopback")
+        void shouldRejectProtectedRoute_forLoopbackRequest() throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/provider/ViewProviderControl");
+            request.setRemoteAddr("127.0.0.1");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, new MockFilterChain());
+
+            assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
         }
     }
 

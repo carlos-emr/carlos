@@ -108,7 +108,6 @@
              scope="page"/>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -118,7 +117,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
@@ -131,12 +129,12 @@
         <script language="JavaScript">
             <!--
             function changePro(providerno) {
-                a = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) +<%=request.getParameter("startDate")!=null?("\"&startDate="+SafeEncode.forJavaScript(SafeEncode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;
+                a = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) +<%=request.getParameter("startDate")!=null?("\"&startDate="+SafeEncode.forJavaScript(SafeEncode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 self.location.href = a;
             }
 
             function selectprovider(s) {
-                a = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(s.options[s.selectedIndex].value) +<%=request.getParameter("startDate")!=null?("\"&startDate="+SafeEncode.forJavaScript(SafeEncode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;
+                a = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(s.options[s.selectedIndex].value) +<%=request.getParameter("startDate")!=null?("\"&startDate="+SafeEncode.forJavaScript(SafeEncode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 self.location.href = a;
             }//-->
 
