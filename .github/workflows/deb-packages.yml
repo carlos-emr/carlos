@@ -219,7 +219,16 @@ jobs:
             cp "$deb" release-assets/
           done
           cd release-assets
-          for f in *.deb; do sha256sum "$f" > "$f.sha256"; done
+          # The name recorded INSIDE the .sha256 must be the name the operator
+          # actually has on disk. GitHub rewrites the '~' of a Debian
+          # pre-release version to '.' when it stores a release asset — the same
+          # normalisation the digest check below already works around — so
+          # recording the build-time name made the documented
+          # `sha256sum -c <asset>.sha256` fail on every alpha/rc download with
+          # "No such file or directory", before the operator ever reached apt.
+          for f in *.deb; do
+            printf '%s  %s\n' "$(sha256sum "$f" | awk '{print $1}')" "${f//\~/.}" > "$f.sha256"
+          done
           ls -la
 
       - name: Lintian gate

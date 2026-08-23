@@ -89,13 +89,29 @@ def cmd_check(argv) -> int:
     print("\nprocess ownership")
     # The whole point of the user split — prove it at runtime rather than
     # trusting that the unit files still say what they said at install time.
-    owners = set(out(["ps", "-o", "user=", "-C", "java"]).split())
-    if not owners:
-        _bad("no java process found")
-    elif "root" in owners:
-        _bad(f"a java process is running as ROOT: {' '.join(owners)}")
+    #
+    # Resolved from the UNIT's own main process, never from a host-wide
+    # `ps -C java`. The sweep reported the owner of ANY java process on the
+    # box, which inverted this check on exactly the host it matters for: a
+    # machine that also runs the distribution's tomcat11 printed a green
+    # "application JVM runs as: tomcat" while carlos-emr was DOWN — the one
+    # state this probe exists to catch — and any unrelated root JVM
+    # false-failed a perfectly correct deployment.
+    main_pid = out(["systemctl", "show", "-p", "MainPID", "--value", "carlos-emr"])
+    if not main_pid or main_pid == "0":
+        _bad("carlos-emr is not running — the application JVM's user cannot be verified")
     else:
-        _ok(f"application JVM runs as: {' '.join(owners)}")
+        # user:32 so a long account name is not silently truncated into a
+        # mismatch against the expected value.
+        owner = out(["ps", "-o", "user:32=", "-p", main_pid])
+        if not owner:
+            _bad(f"the carlos-emr main process ({main_pid}) exited while it was being probed")
+        elif owner == "root":
+            _bad(f"the application JVM is running as ROOT (pid {main_pid})")
+        elif owner != "carlos":
+            _bad(f"the application JVM runs as {owner!r}, expected 'carlos' (pid {main_pid})")
+        else:
+            _ok(f"application JVM runs as: {owner}")
 
     print("\nnetwork exposure")
     # Tomcat must not be reachable except on loopback: anything else is a
