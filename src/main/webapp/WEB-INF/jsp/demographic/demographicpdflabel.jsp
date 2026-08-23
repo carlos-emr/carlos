@@ -342,7 +342,7 @@
                                     prop= (Properties) vecRef.get(k);
                             %>
                             if (refName == "<carlos:encode value='<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>' context='javaScriptBlock'/>") {
-                                refNo = '<carlos:encode value='<%=prop.getProperty("referral_no", "")%>' context='javaScriptBlock'/>';
+                                refNo = "<carlos:encode value='<%=prop.getProperty("referral_no", "")%>' context='javaScriptBlock'/>";
                             }
                             <% } %>
                             document.updatedelete.r_doctor_ohip.value = refNo;

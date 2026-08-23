@@ -80,7 +80,7 @@ class DemographicPdfLabelJspRegressionTest {
                 "<td><%=alert%>",
                 "<td><%=notes%>",
                 "if (refName == \"<%=prop.getProperty",
-                "refNo = '<%=prop.getProperty")) {
+                "refNo = \"<%=prop.getProperty")) {
             assertThat(jsp)
                     .as(rawSink)
                     .doesNotContain(rawSink);
