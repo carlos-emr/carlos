@@ -344,8 +344,8 @@
                                     String referralScriptDisplayName = prop.getProperty("last_name") + "," + prop.getProperty("first_name");
                                     String referralNo = prop.getProperty("referral_no", "");
                             %>
-                            if (refName === "<carlos:encode value='<%=referralScriptDisplayName%>' context='javaScriptBlock'/>") {
-                                refNo = "<carlos:encode value='<%=referralNo%>' context='javaScriptBlock'/>";
+                            if (refName === "<carlos:encode value='<%=referralScriptDisplayName%>' context='javaScript'/>") {
+                                refNo = "<carlos:encode value='<%=referralNo%>' context='javaScript'/>";
                             }
                             <% } %>
                             document.updatedelete.r_doctor_ohip.value = refNo;

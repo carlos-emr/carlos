@@ -64,8 +64,8 @@ class DemographicPdfLabelJspRegressionTest {
         }
         assertEncodes(jsp, "d.getDemographicNo()", "htmlAttribute");
         assertEncodes(jsp, "referralDisplayName", "htmlAttribute");
-        assertEncodes(jsp, "referralScriptDisplayName", "javaScriptBlock");
-        assertEncodes(jsp, "referralNo", "javaScriptBlock");
+        assertEncodes(jsp, "referralScriptDisplayName", "javaScript");
+        assertEncodes(jsp, "referralNo", "javaScript");
 
         for (String rawSink : List.of(
                 "<b>Record</b> (<%=d.getDemographicNo()%>) <%=d.getLastName()%>,",
@@ -87,11 +87,13 @@ class DemographicPdfLabelJspRegressionTest {
     }
 
     private static void assertEncodes(String jsp, String expression, String context) {
-        String pattern = "<carlos:encode\\s+value=([\"'])<%=\\s*"
+        String pattern = "(?s)<carlos:encode\\b"
+                + "(?=(?:(?!/>).)*\\bvalue=[\"']<%=\\s*"
                 + Pattern.quote(expression)
-                + "\\s*%>\\1\\s+context=([\"'])"
+                + "\\s*%>[\"'])"
+                + "(?=(?:(?!/>).)*\\bcontext=[\"']"
                 + Pattern.quote(context)
-                + "\\2\\s*/>";
+                + "[\"'])(?:(?!/>).)*/>";
         assertThat(jsp)
                 .as("%s encoded with %s", expression, context)
                 .containsPattern(pattern);
