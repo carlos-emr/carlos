@@ -12,7 +12,10 @@
 # Containers Managed:
 # - carlos-tomcat-dev: Development container with Java 21, Tomcat, Maven, Node.js
 # - carlos-mariadb-dev: MariaDB database container with schema initialization scripts
-# - carlos-drugref: DrugRef2 service container with Java 11
+# - carlos-drugref-dev: DrugRef2 service container with Java 21
+#   (the bare "carlos-drugref" ghcr name is reserved for the DEPLOYMENT image
+#   published by the carlos-podman repo's Publish Images workflow — dev images
+#   all carry the -dev suffix)
 #
 # Freshness Check Strategy:
 # 1. Calculate SHA256 hash of Dockerfile + build context for each container
@@ -24,12 +27,12 @@
 # not on every commit, saving CI/CD minutes and reducing wait times.
 #
 # Triggers:
-# - Push to main/develop/experimental branches
-# - Pull requests to main/develop/experimental branches
+# - Push to main/develop/experimental/release/* branches
+# - Pull requests to main/develop/experimental/release/* branches
 # - Manual dispatch for forced rebuilds (with force_rebuild option)
 #
 # License:
-# This GitHub Workflow file is part of the Carlos EMR project and is subject
+# This GitHub Workflow file is part of the CARLOS EMR project and is subject
 # to the licensing terms outlined in the repository's LICENSE file.
 
 name: Development Container Images
@@ -42,6 +45,7 @@ on:
       - experimental
       - staging/*
       - hotfix/*
+      - release/*
   pull_request:
     branches:
       - main
@@ -49,6 +53,7 @@ on:
       - experimental
       - staging/*
       - hotfix/*
+      - release/*
   workflow_dispatch:
     inputs:
       force_rebuild:
@@ -124,17 +129,20 @@ jobs:
             echo "Checking container: $name"
             echo "========================================="
 
-            # Calculate hash of Dockerfile and relevant context files only
+            # Calculate hash from every file in the Docker build inputs, not just selected
+            # extensions. Dockerfile COPY sources include extensionless scripts, .properties, .xml,
+            # .jsp, and .ico files; filtering by suffix can leave stale images in the registry.
+            # Note: extra_context is expected to be a space-separated list of paths. Paths
+            # containing spaces are not supported here.
+            local hash_paths=("$context_path")
             if [ -n "$extra_context" ]; then
-              # Note: extra_context is expected to be a space-separated list of paths.
-              # Paths containing spaces are not supported here.
-              local extra_context_array=()
               # Intentionally rely on word splitting to support multiple paths.
-              extra_context_array=($extra_context)
-              HASH=$(find "$context_path" "${extra_context_array[@]}" \( -name 'Dockerfile' -o -name 'Dockerfile.*' -o -name '*.dockerfile' -o -name '*.sh' -o -name '*.sql' -o -name '*.yml' -o -name '*.yaml' -o -name '*.conf' -o -name '*.cnf' \) -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -d' ' -f1)
-            else
-              HASH=$(find "$context_path" \( -name 'Dockerfile' -o -name 'Dockerfile.*' -o -name '*.dockerfile' -o -name '*.sh' -o -name '*.sql' -o -name '*.yml' -o -name '*.yaml' -o -name '*.conf' -o -name '*.cnf' \) -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -d' ' -f1)
+              local extra_context_array=($extra_context)
+              hash_paths+=("${extra_context_array[@]}")
             fi
+            HASH=$(find "${hash_paths[@]}" \
+              -path '*/db_data/*' -prune -o \
+              -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -d' ' -f1)
             echo "Content hash: $HASH"
             echo "${output_name}_hash=$HASH" >> "$GITHUB_OUTPUT"
 
@@ -171,8 +179,8 @@ jobs:
 
           # Check each container (name, output_name, context_path, extra_context)
           check_container "tomcat-dev" "tomcat" ".devcontainer/development" ""
-          check_container "mariadb-dev" "mariadb" ".devcontainer/db" "database .devcontainer/development/config/shared"
-          check_container "drugref" "drugref" ".devcontainer/drugref" ""
+          check_container "mariadb-dev" "mariadb" ".devcontainer/db" "database .devcontainer/development/config/shared/my.cnf"
+          check_container "drugref-dev" "drugref" ".devcontainer/drugref" ""
 
   # ===========================================================================
   # Build and push tomcat-dev container
@@ -229,6 +237,9 @@ jobs:
 
       - name: Save tested tomcat-dev image
         run: |
+          echo "Reclaiming Docker Buildx cache before exporting tested image..."
+          docker buildx prune -af || true
+          docker system df || true
           mkdir -p "$RUNNER_TEMP/container-images"
           docker save carlos-tomcat-dev:test -o "$RUNNER_TEMP/container-images/carlos-tomcat-dev.tar"
 
@@ -326,13 +337,13 @@ jobs:
         run: |
           echo "Testing container starts correctly..."
           docker run -d --name test-mariadb \
-            -e MYSQL_ROOT_PASSWORD=testpassword \
+            -e MARIADB_ROOT_PASSWORD=testpassword \
             carlos-mariadb-dev:test
 
           echo "Waiting for MariaDB to start..."
           ready=false
           for i in {1..30}; do
-            if docker exec test-mariadb mysqladmin ping -h localhost -u root -ptestpassword 2>/dev/null; then
+            if docker exec test-mariadb mariadb-admin ping -h localhost -u root -ptestpassword 2>/dev/null; then
               echo "MariaDB is ready!"
               ready=true
               break
@@ -349,7 +360,7 @@ jobs:
           fi
 
           echo "Verifying MariaDB version..."
-          docker exec test-mariadb mysql --version
+          docker exec test-mariadb mariadb --version
 
           echo "Verifying database scripts are present..."
           docker exec test-mariadb ls -la /database/mysql/
@@ -360,7 +371,7 @@ jobs:
             # Check container logs for the exact completion message from populate_db.sh: "Database initialization complete!"
             if docker logs test-mariadb 2>&1 | grep -q "Database initialization complete!"; then
               # Verify database state to avoid false positives from reused logs
-              provider_count=$(docker exec test-mariadb mysql -N -u root -ptestpassword -e "SELECT COUNT(*) FROM oscar.provider;" 2>/dev/null || echo 0)
+              provider_count=$(docker exec test-mariadb mariadb -N -u root -ptestpassword -e "SELECT COUNT(*) FROM oscar.provider;" 2>/dev/null || echo 0)
               if [ "$provider_count" -gt 0 ]; then
                 echo "Database initialization complete and provider table populated (count=$provider_count)."
                 initialized=true
@@ -381,9 +392,9 @@ jobs:
 
           # Verify all databases exist
           echo "Verifying databases..."
-          docker exec test-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar" > /dev/null || { echo "ERROR: oscar database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
-          docker exec test-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar_test" > /dev/null || { echo "ERROR: oscar_test database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
-          docker exec test-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null || { echo "ERROR: drugref2 database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar" > /dev/null || { echo "ERROR: oscar database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar_test" > /dev/null || { echo "ERROR: oscar_test database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null || { echo "ERROR: drugref2 database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
           echo "All databases verified!"
 
           echo "All tests passed!"
@@ -475,10 +486,10 @@ jobs:
         env:
           CONTENT_HASH: ${{ needs.check-containers.outputs.drugref_hash }}
         run: |
-          echo "Building carlos-drugref container..."
+          echo "Building carlos-drugref-dev container..."
           docker buildx build \
             --load \
-            -t carlos-drugref:test \
+            -t carlos-drugref-dev:test \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
             --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
@@ -487,7 +498,7 @@ jobs:
       - name: Test drugref container
         run: |
           echo "Testing container starts correctly..."
-          docker run -d --name test-drugref -p 8081:8080 carlos-drugref:test
+          docker run -d --name test-drugref -p 8081:8080 carlos-drugref-dev:test
 
           echo "Waiting for Tomcat to start..."
           ready=false
@@ -529,13 +540,13 @@ jobs:
       - name: Save tested drugref image
         run: |
           mkdir -p "$RUNNER_TEMP/container-images"
-          docker save carlos-drugref:test -o "$RUNNER_TEMP/container-images/carlos-drugref.tar"
+          docker save carlos-drugref-dev:test -o "$RUNNER_TEMP/container-images/carlos-drugref-dev.tar"
 
       - name: Upload tested drugref image
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: carlos-drugref-image
-          path: ${{ runner.temp }}/container-images/carlos-drugref.tar
+          name: carlos-drugref-dev-image
+          path: ${{ runner.temp }}/container-images/carlos-drugref-dev.tar
           retention-days: 1
 
   publish-drugref:
@@ -549,7 +560,7 @@ jobs:
       - name: Download tested drugref image
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: carlos-drugref-image
+          name: carlos-drugref-dev-image
           path: ${{ runner.temp }}/container-images
 
       - name: Log in to Container Registry
@@ -561,7 +572,7 @@ jobs:
 
       - name: Push tested drugref container
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref-dev
           CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
@@ -576,14 +587,14 @@ jobs:
             printf '%s-latest' "$safe_ref"
           }
 
-          docker load -i "$RUNNER_TEMP/container-images/carlos-drugref.tar"
-          docker tag carlos-drugref:test "$IMAGE:${{ github.sha }}"
+          docker load -i "$RUNNER_TEMP/container-images/carlos-drugref-dev.tar"
+          docker tag carlos-drugref-dev:test "$IMAGE:${{ github.sha }}"
           CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
-          docker tag carlos-drugref:test "$IMAGE:$CACHE_TAG"
+          docker tag carlos-drugref-dev:test "$IMAGE:$CACHE_TAG"
           docker push "$IMAGE:$CACHE_TAG"
           echo "Pushed $IMAGE:$CACHE_TAG"
           if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
-            docker tag carlos-drugref:test "$IMAGE:latest"
+            docker tag carlos-drugref-dev:test "$IMAGE:latest"
             docker push "$IMAGE:latest"
             echo "Pushed $IMAGE:latest"
           fi

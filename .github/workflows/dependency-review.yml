@@ -10,7 +10,7 @@
 name: 'Dependency review'
 on:
   pull_request:
-    branches: [ "develop", "experimental", "main", "staging/*", "hotfix/*", "community/*/develop", "community/*/staging/*" ]
+    branches: [ "develop", "experimental", "main", "staging/*", "hotfix/*", "release/*", "community/*/develop", "community/*/staging/*" ]
 
 # If using a dependency submission action in this workflow this permission will need to be set to:
 #
@@ -30,7 +30,7 @@ jobs:
       - name: 'Checkout repository'
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - name: 'Dependency Review'
-        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0 (Node 24 runtime)
         # Commonly enabled options, see https://github.com/actions/dependency-review-action#configuration-options for all available options.
         with:
           comment-summary-in-pr: always

@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.form.gate;
 
 import java.io.ByteArrayInputStream;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -109,11 +110,23 @@ class ViewForm2ActionTest extends CarlosUnitTestBase {
     @Test
     void shouldForwardResolvedView() throws Exception {
         ActionContext.of().withActionName("form/formannual").bind();
+        when(mockRequest.getDispatcherType()).thenReturn(DispatcherType.REQUEST);
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         verify(mockDispatcher).forward(mockRequest, mockResponse);
+    }
+
+    @Test
+    void shouldIncludeResolvedViewWhenCalledFromInclude() throws Exception {
+        ActionContext.of().withActionName("form/formannual").bind();
+        when(mockRequest.getDispatcherType()).thenReturn(DispatcherType.INCLUDE);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockDispatcher).include(mockRequest, mockResponse);
     }
 
     @Test

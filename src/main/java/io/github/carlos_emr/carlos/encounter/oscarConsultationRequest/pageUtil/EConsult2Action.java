@@ -30,9 +30,7 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
@@ -42,7 +40,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -62,6 +62,14 @@ public class EConsult2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static final String FRONTEND_ECONSULT_URL_PROPERTY = "frontendEconsultUrl";
+    private static final String BACKEND_ECONSULT_URL_PROPERTY = "backendEconsultUrl";
+    private static final String CARLOS_BASE_URL_PROPERTY = "carlosBaseUrl";
+    private static final String ERROR_RESULT = "error";
+    private static final String HTTP_SCHEME = "http";
+    private static final String HTTPS_SCHEME = "https";
+    private static final String URL_PATH_SEPARATOR = "/";
+
     // Pattern to validate task parameter - allows alphanumeric, underscore, hyphen, and forward slash
     private static final Pattern VALID_TASK_PATTERN = Pattern.compile("^[a-zA-Z0-9_\\-/]+$");
     // Maximum length for task parameter to prevent excessive input
@@ -75,11 +83,11 @@ public class EConsult2Action extends ActionSupport {
     private static final AtomicBoolean ECONSULT_BASE_URL_WARNING_EMITTED = new AtomicBoolean(false);
 
     private final CarlosProperties oscarProperties = CarlosProperties.getInstance();
-    private final String frontendEconsultUrl = oscarProperties.getProperty("frontendEconsultUrl");
-    private final String backendEconsultUrl = oscarProperties.getProperty("backendEconsultUrl");
+    private final String frontendEconsultUrl = oscarProperties.getProperty(FRONTEND_ECONSULT_URL_PROPERTY);
+    private final String backendEconsultUrl = oscarProperties.getProperty(BACKEND_ECONSULT_URL_PROPERTY);
     // Trusted, configured public base URL of this CARLOS instance. Used to build the
     // eConsult SSO return URL so it never reflects a spoofable request Host header.
-    private final String carlosBaseUrl = oscarProperties.getProperty("carlosBaseUrl");
+    private final String carlosBaseUrl = oscarProperties.getProperty(CARLOS_BASE_URL_PROPERTY);
 
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -114,36 +122,28 @@ public class EConsult2Action extends ActionSupport {
         // Validate task parameter to prevent URL injection
         if (!isValidTask(task)) {
             MiscUtils.getLogger().error("Invalid task parameter provided");
-            return "error";
-        }
-        
-        StringBuilder stringBuilder = new StringBuilder(frontendEconsultUrl);
-
-        if (!frontendEconsultUrl.endsWith(File.separator)) {
-            stringBuilder.append(File.separator);
+            return ERROR_RESULT;
         }
 
-        setLoginId(stringBuilder, request);
-
-        // Add the validated task
-        if (task != null && !task.isEmpty()) {
-            stringBuilder.append(task);
-        }
-
-        // method parameters.
-        if (demographicNo != null && !demographicNo.isEmpty()) {
-            // Validate demographicNo to ensure it's numeric
-            if (!demographicNo.matches("^\\d+$")) {
-                MiscUtils.getLogger().error("Invalid demographicNo parameter");
-                return "error";
-            }
-            stringBuilder.append(String.format("?%1$s=%2$s", "patient_id", demographicNo));
+        // Validate demographicNo to ensure it's numeric
+        if (demographicNo != null && !demographicNo.isEmpty() && !demographicNo.matches("^\\d+$")) {
+            MiscUtils.getLogger().error("Invalid demographicNo parameter");
+            return ERROR_RESULT;
         }
 
         try {
-            response.sendRedirect(stringBuilder.toString());
+            String redirectUrl = frontendRedirectUrl(
+                    frontendEconsultUrl,
+                    sessionString(request.getSession(), "oneIdEmail"),
+                    sessionString(request.getSession(), "delegateOneIdEmail"),
+                    task,
+                    demographicNo);
+            sendConfiguredEconsultRedirect(response, redirectUrl, frontendEconsultUrl, FRONTEND_ECONSULT_URL_PROPERTY);
         } catch (IOException e) {
-            MiscUtils.getLogger().error("There was a problem with the redirect of " + stringBuilder.toString(), e);
+            MiscUtils.getLogger().error("There was a problem with the eConsult frontend redirect", e);
+        } catch (IllegalArgumentException e) {
+            MiscUtils.getLogger().error("Invalid eConsult frontend redirect configuration", e);
+            return ERROR_RESULT;
         }
 
         return null;
@@ -162,23 +162,20 @@ public class EConsult2Action extends ActionSupport {
         String oscarReturnUrl = buildSsoReturnUrl(carlosBaseUrl, request.getContextPath());
         if (oscarReturnUrl == null) {
             MiscUtils.getLogger().error("Cannot build eConsult SSO return URL: the 'carlosBaseUrl' property is missing or invalid; refusing to fall back to the request Host.");
-            return "error";
+            return ERROR_RESULT;
         }
-
-        StringBuilder stringBuilder = new StringBuilder(backendEconsultUrl);
-
-        if (!backendEconsultUrl.endsWith(File.separator)) {
-            stringBuilder.append(File.separator);
-        }
-
-        stringBuilder.append("SAML2/login");
 
         try {
-            stringBuilder.append(String.format("?%1$s=%2$s", "oscarReturnURL", URLEncoder.encode(oscarReturnUrl, StandardCharsets.UTF_8.toString())));
-            stringBuilder.append(String.format("&%1$s=%2$s", "loginStart", new Date().getTime() / 1000));
-            response.sendRedirect(stringBuilder.toString());
+            String redirectUrl = loginRedirectUrl(
+                    backendEconsultUrl,
+                    oscarReturnUrl,
+                    new Date().getTime() / 1000);
+            sendConfiguredEconsultRedirect(response, redirectUrl, backendEconsultUrl, BACKEND_ECONSULT_URL_PROPERTY);
         } catch (IOException e) {
-            MiscUtils.getLogger().error("There was a problem with the redirect of " + stringBuilder.toString(), e);
+            MiscUtils.getLogger().error("There was a problem with the eConsult login redirect", e);
+        } catch (IllegalArgumentException e) {
+            MiscUtils.getLogger().error("Invalid eConsult backend redirect configuration", e);
+            return ERROR_RESULT;
         }
 
         return null;
@@ -256,14 +253,14 @@ public class EConsult2Action extends ActionSupport {
             URI uri = new URI(configuredBaseUrl.trim());
 
             // URI schemes are ASCII and case-insensitive (RFC 3986). Match with the
-            // locale-independent equalsIgnoreCase and emit a literal lowercase scheme rather
+            // locale-independent ASCII compare and emit a literal lowercase scheme rather
             // than case-folding the input, which is sensitive to locale/Unicode mappings.
             String rawScheme = uri.getScheme();
             String scheme;
-            if ("https".equalsIgnoreCase(rawScheme)) {
-                scheme = "https";
-            } else if ("http".equalsIgnoreCase(rawScheme)) {
-                scheme = "http";
+            if (asciiEqualsIgnoreCase(HTTPS_SCHEME, rawScheme)) {
+                scheme = HTTPS_SCHEME;
+            } else if (asciiEqualsIgnoreCase(HTTP_SCHEME, rawScheme)) {
+                scheme = HTTP_SCHEME;
             } else {
                 return null;
             }
@@ -364,37 +361,12 @@ public class EConsult2Action extends ActionSupport {
     }
 
     /**
-     * Adds the proper user name line for both the user and user delegate.
-     * <p>
-     * ie: ?{oneIdEmail}&{delegateOneIdEmail}#!/
-     */
-    private void setLoginId(StringBuilder stringBuilder, HttpServletRequest request) {
-
-        String oneIdEmail = (String) request.getSession().getAttribute("oneIdEmail");
-        String delegateOneIdEmail = (String) request.getSession().getAttribute("delegateOneIdEmail");
-
-        try {
-            stringBuilder.append(String.format("?%1$s=%2$s", "oneid_email", URLEncoder.encode(oneIdEmail, StandardCharsets.UTF_8.toString())));
-
-            // Add if there is a delegate too.
-            if (delegateOneIdEmail != null && !delegateOneIdEmail.isEmpty()) {
-                stringBuilder.append(String.format("&%1$s=%2$s", "delegate_oneid_email", URLEncoder.encode(delegateOneIdEmail, StandardCharsets.UTF_8.toString())));
-            }
-
-            // Add the shebang
-            stringBuilder.append(String.format("#!%s", File.separator));
-        } catch (UnsupportedEncodingException e) {
-            MiscUtils.getLogger().error("There was a problem with construction of the login ids " + stringBuilder.toString(), e);
-        }
-    }
-    
-    /**
      * Validates the task parameter to prevent URL injection attacks
      * 
      * @param task The task parameter from the request
      * @return true if the task is valid, false otherwise
      */
-    private boolean isValidTask(String task) {
+    static boolean isValidTask(String task) {
         // Allow null or empty tasks (will be handled later)
         if (task == null || task.isEmpty()) {
             return true;
@@ -426,5 +398,153 @@ public class EConsult2Action extends ActionSupport {
         return true;
     }
 
+    static String frontendRedirectUrl(String frontendEconsultUrl, String oneIdEmail,
+            String delegateOneIdEmail, String task, String demographicNo) {
+        URI configuredBase = validatedConfiguredRedirectBase(FRONTEND_ECONSULT_URL_PROPERTY, frontendEconsultUrl);
+        StringBuilder redirect = new StringBuilder(normalizedBaseUrl(configuredBase));
+        redirect.append("?oneid_email=").append(urlParam(oneIdEmail));
+
+        if (delegateOneIdEmail != null && !delegateOneIdEmail.isEmpty()) {
+            redirect.append("&delegate_oneid_email=").append(urlParam(delegateOneIdEmail));
+        }
+
+        redirect.append("#!/");
+        if (task != null && !task.isEmpty()) {
+            if (!isValidTask(task)) {
+                throw new IllegalArgumentException("Invalid eConsult task");
+            }
+            redirect.append(task);
+        }
+        if (demographicNo != null && !demographicNo.isEmpty()) {
+            if (!demographicNo.matches("^\\d+$")) {
+                throw new IllegalArgumentException("Invalid eConsult demographic number");
+            }
+            redirect.append("?patient_id=").append(urlParam(demographicNo));
+        }
+
+        return validatedRedirectUnderConfiguredBase(configuredBase, redirect.toString(), FRONTEND_ECONSULT_URL_PROPERTY);
+    }
+
+    static String loginRedirectUrl(String backendEconsultUrl, String oscarReturnUrl, long loginStartEpochSeconds) {
+        URI configuredBase = validatedConfiguredRedirectBase(BACKEND_ECONSULT_URL_PROPERTY, backendEconsultUrl);
+        String redirect = normalizedBaseUrl(configuredBase)
+                + "SAML2/login?oscarReturnURL=" + urlParam(oscarReturnUrl)
+                + "&loginStart=" + loginStartEpochSeconds;
+
+        return validatedRedirectUnderConfiguredBase(configuredBase, redirect, BACKEND_ECONSULT_URL_PROPERTY);
+    }
+
+    private static URI validatedConfiguredRedirectBase(String propertyName, String configuredBaseUrl) {
+        if (configuredBaseUrl == null || configuredBaseUrl.trim().isEmpty()) {
+            throw new IllegalArgumentException(propertyName + " is blank");
+        }
+        try {
+            URI uri = new URI(configuredBaseUrl.trim());
+            String scheme = uri.getScheme();
+            if (!isHttpScheme(scheme)) {
+                throw new IllegalArgumentException(propertyName + " must use http or https");
+            }
+            if (uri.getHost() == null || uri.getHost().trim().isEmpty()) {
+                throw new IllegalArgumentException(propertyName + " must include a host");
+            }
+            if (uri.getUserInfo() != null) {
+                throw new IllegalArgumentException(propertyName + " must not include userinfo");
+            }
+            if (uri.getRawQuery() != null || uri.getRawFragment() != null) {
+                throw new IllegalArgumentException(propertyName + " must not include query or fragment");
+            }
+            // URI#getPort() does not range-check, so reject an out-of-range port (e.g. :99999)
+            // here rather than emitting a malformed redirect target. -1 means "no port".
+            int port = uri.getPort();
+            if (port != -1 && (port < 0 || port > 65535)) {
+                throw new IllegalArgumentException(propertyName + " has an invalid port");
+            }
+            return uri;
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException(propertyName + " is not a valid URI", e);
+        }
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "URI.toASCIIString intentionally emits ASCII-safe configured eConsult redirect URLs; no locale-sensitive case mapping is used")
+    private static String normalizedBaseUrl(URI configuredBase) {
+        String base = configuredBase.toASCIIString();
+        return base.endsWith(URL_PATH_SEPARATOR) ? base : base + URL_PATH_SEPARATOR;
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "URI.toASCIIString intentionally emits ASCII-safe validated eConsult redirect URLs; no locale-sensitive case mapping is used")
+    private static String validatedRedirectUnderConfiguredBase(URI configuredBase, String redirectUrl, String propertyName) {
+        try {
+            URI redirect = new URI(redirectUrl);
+            if (!sameOrigin(configuredBase, redirect)) {
+                throw new IllegalArgumentException(propertyName + " redirect changed origin");
+            }
+            String basePath = configuredBase.getRawPath();
+            if (basePath == null || basePath.isEmpty()) {
+                basePath = URL_PATH_SEPARATOR;
+            } else if (!basePath.endsWith(URL_PATH_SEPARATOR)) {
+                basePath = basePath + URL_PATH_SEPARATOR;
+            }
+            String redirectPath = redirect.getRawPath();
+            if (redirectPath == null || !redirectPath.startsWith(basePath)) {
+                throw new IllegalArgumentException(propertyName + " redirect left configured path");
+            }
+            return redirect.toASCIIString();
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException(propertyName + " redirect is not a valid URI", e);
+        }
+    }
+
+    private static boolean sameOrigin(URI configuredBase, URI redirect) {
+        return asciiEqualsIgnoreCase(configuredBase.getScheme(), redirect.getScheme())
+                && asciiEqualsIgnoreCase(configuredBase.getHost(), redirect.getHost())
+                && effectivePort(configuredBase) == effectivePort(redirect);
+    }
+
+    private static int effectivePort(URI uri) {
+        if (uri.getPort() != -1) {
+            return uri.getPort();
+        }
+        return asciiEqualsIgnoreCase(HTTPS_SCHEME, uri.getScheme()) ? 443 : 80;
+    }
+
+    private static String urlParam(String value) {
+        return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
+    }
+
+    private static boolean isHttpScheme(String scheme) {
+        return asciiEqualsIgnoreCase(HTTPS_SCHEME, scheme) || asciiEqualsIgnoreCase(HTTP_SCHEME, scheme);
+    }
+
+    private static boolean asciiEqualsIgnoreCase(String left, String right) {
+        if (left == null || right == null || left.length() != right.length()) {
+            return false;
+        }
+        for (int i = 0; i < left.length(); i++) {
+            if (asciiLower(left.charAt(i)) != asciiLower(right.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static char asciiLower(char value) {
+        if (value >= 'A' && value <= 'Z') {
+            return (char) (value + ('a' - 'A'));
+        }
+        return value;
+    }
+
+    private static String sessionString(HttpSession session, String attributeName) {
+        Object value = session.getAttribute(attributeName); // nosemgrep: java.servlets.security.tainted-session-from-http-request.tainted-session-from-http-request -- authenticated session identity value is URL-encoded before being added to the configured eConsult redirect
+        return value instanceof String string ? string : null;
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: eConsult redirects intentionally leave CARLOS for a deployment-configured eConsult service. The configured base is parsed as http(s), rejects userinfo/query/fragment, request data is URL-encoded, and the final redirect must remain under the configured origin/path.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "eConsult redirects are built from validated deployment-configured http(s) base URLs; request data is URL-encoded and the final target must remain under the configured origin/path")
+    private void sendConfiguredEconsultRedirect(HttpServletResponse response, String redirectUrl,
+            String configuredBaseUrl, String propertyName) throws IOException {
+        URI configuredBase = validatedConfiguredRedirectBase(propertyName, configuredBaseUrl);
+        response.sendRedirect(validatedRedirectUnderConfiguredBase(configuredBase, redirectUrl, propertyName));
+    }
 
 }
