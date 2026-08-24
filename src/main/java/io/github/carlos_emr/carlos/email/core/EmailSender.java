@@ -137,31 +137,22 @@ public class EmailSender {
     }
 
     /**
-     * Sends the email using the configured provider and delivery method.
+     * Refuses the legacy direct-send path because it cannot create the required durable archive.
      *
-     * <p>This method performs security validation to ensure the current user has the "_email"
-     * privilege with WRITE access before attempting to send. This is critical for HIPAA/PIPEDA
-     * compliance as it prevents unauthorized users from sending emails that may contain
-     * patient health information (PHI).</p>
-     *
-     * <p>The email is dispatched based on the configured email type:</p>
-     * <ul>
-     *   <li><strong>SMTP:</strong> Uses either LocalSMTPEmailSender for local providers or
-     *       SMTPEmailSender for external SMTP servers</li>
-     *   <li><strong>API:</strong> Delegates to sendAPIMail() which handles API-based providers
-     *       like SendGrid</li>
-     * </ul>
-     *
-     * <p>All email sending operations are logged for audit trail purposes, which is required
-     * for healthcare compliance and security monitoring.</p>
+     * <p>Use {@code EmailManager.sendEmail} for production delivery. It owns the persisted
+     * {@link EmailLog}, archives the prepared transport artifact, and only then sends those same
+     * prepared bytes. Keeping this method as a fail-closed compatibility shim avoids an abrupt
+     * source-level break for downstream branches while preventing a silent retention gap.</p>
      *
      * @throws SecurityException if the current user lacks the required "_email" security privilege
-     * @throws EmailSendingException if there is an error during email transmission, including
-     *         invalid configuration, network issues, authentication failures, or provider-specific errors
+     * @throws EmailSendingException always, directing the caller to archive-first orchestration
+     * @deprecated use {@code EmailManager.sendEmail}
      */
+    @Deprecated(since = "2026-08-24", forRemoval = false)
     public void send() throws EmailSendingException {
         assertEmailWritePrivilege();
-        createTransport().send();
+        throw new EmailSendingException(
+                "Direct email sending without outbound archiving is disabled; use EmailManager.sendEmail");
     }
 
     /**

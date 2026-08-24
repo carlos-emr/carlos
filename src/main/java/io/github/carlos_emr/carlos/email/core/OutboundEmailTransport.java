@@ -45,13 +45,16 @@ import io.github.carlos_emr.carlos.utility.EmailSendingException;
 public interface OutboundEmailTransport {
 
     /**
-     * Sends immediately, without capturing an archive artifact.
+     * Legacy low-level immediate send, without capturing an archive artifact.
      *
-     * <p>Reserved for callers that are not archiving. The production send path prepares and
-     * archives first; see {@code EmailManager.sendEmail}.</p>
+     * <p>This remains only for source compatibility with transport-specific callers. Production
+     * application code must use {@code EmailManager.sendEmail}, which prepares and durably archives
+     * the artifact before transport. {@link EmailSender#send()} rejects direct unarchived sends.</p>
      *
      * @throws EmailSendingException if transport delivery fails
+     * @deprecated use the archive-first {@code EmailManager.sendEmail} orchestration
      */
+    @Deprecated(since = "2026-08-24", forRemoval = false)
     void send() throws EmailSendingException;
 
     /**

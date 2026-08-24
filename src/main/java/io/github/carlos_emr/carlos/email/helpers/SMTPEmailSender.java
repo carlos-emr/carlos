@@ -186,7 +186,9 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     public byte[] prepareArtifactBytes() throws EmailSendingException {
         assertEmailWritePrivilege();
 
-        discardPrepared();
+        if (preparedMessage != null) {
+            throw new EmailSendingException("SMTP message has already been prepared");
+        }
         javaMailSender = createTLSMailSender(emailConfig);
         MimeMessage message = javaMailSender.createMimeMessage();
         List<Path> attachmentSnapshotPaths = new ArrayList<>();
@@ -281,6 +283,9 @@ public class SMTPEmailSender implements OutboundEmailTransport {
      */
     @Override
     public List<OutboundEmailArchiveAttachmentDto> describePreparedAttachments() throws EmailSendingException {
+        if (preparedMessage == null) {
+            throw new EmailSendingException("SMTP message must be prepared before describing its attachments");
+        }
         List<PreparedAttachment> snapshots = getPreparedAttachments();
         if (snapshots == null || snapshots.isEmpty()) {
             return List.of();

@@ -161,6 +161,45 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("SMTP message must be prepared before sending");
     }
 
+    @Test
+    @DisplayName("should reject repeated preparation without discarding the prepared message")
+    void shouldRejectRepeatedPreparation() throws Exception {
+        SMTPEmailSender sender = new TestSMTPEmailSender(
+                loggedInInfo,
+                smtpEmailConfig(),
+                new String[]{"patient@example.test"},
+                "Snapshot test",
+                "Body text",
+                List.of(),
+                new CapturingJavaMailSender());
+        byte[] firstArtifact = sender.prepareArtifactBytes();
+
+        assertThatThrownBy(sender::prepareArtifactBytes)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessageContaining("already been prepared");
+        assertThat(sender.describePreparedAttachments()).isEmpty();
+        assertThat(firstArtifact).isNotEmpty();
+
+        sender.discardPrepared();
+    }
+
+    @Test
+    @DisplayName("should reject attachment metadata access before preparation")
+    void shouldRejectAttachmentMetadataAccessBeforePreparation() {
+        SMTPEmailSender sender = new TestSMTPEmailSender(
+                loggedInInfo,
+                smtpEmailConfig(),
+                new String[]{"patient@example.test"},
+                "Snapshot test",
+                "Body text",
+                List.of(),
+                new CapturingJavaMailSender());
+
+        assertThatThrownBy(sender::describePreparedAttachments)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessageContaining("must be prepared");
+    }
+
     private byte[] firstAttachmentBytes(byte[] messageBytes) throws Exception {
         MimeMessage message = new MimeMessage(Session.getInstance(new Properties()), new ByteArrayInputStream(messageBytes));
         Object content = message.getContent();

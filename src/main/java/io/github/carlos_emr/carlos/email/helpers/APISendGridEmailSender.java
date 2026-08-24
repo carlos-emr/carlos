@@ -350,6 +350,11 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
             throw new EmailSendingException("SendGrid payload has already been prepared");
         }
         try {
+            // Fail malformed credentials and rejected endpoints before a durable archive is
+            // written. The endpoint is validated again immediately before transport so the
+            // request still uses a fresh, pinned DNS result.
+            getAPIKey();
+            validateEndpoint(getEndPoint());
             byte[] payloadBytes = createEmailJSON().getBytes(StandardCharsets.UTF_8);
             preparedPayloadBytes = payloadBytes;
             return payloadBytes;
@@ -412,27 +417,38 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
     }
 
     private String getAPIKey() throws EmailSendingException {
-        String apiKey;
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            apiKey = jsonNode.get("api_key").asText();
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+        JsonNode apiKeyNode = parseConfigDetails().get("api_key");
+        if (apiKeyNode == null || !apiKeyNode.isTextual() || apiKeyNode.asText().isBlank()) {
+            throw invalidCredentialsException(null);
         }
-        return apiKey;
+        return apiKeyNode.asText();
     }
 
-
     private String getEndPoint() throws EmailSendingException {
-        StringBuilder endPointBuilder = new StringBuilder();
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            endPointBuilder.append(jsonNode.get("end_point") != null ? jsonNode.get("end_point").asText() : DEFAULT_END_POINT);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+        JsonNode endPointNode = parseConfigDetails().get("end_point");
+        if (endPointNode == null || endPointNode.isNull()) {
+            return DEFAULT_END_POINT;
         }
-        return endPointBuilder.toString();
+        if (!endPointNode.isTextual() || endPointNode.asText().isBlank()) {
+            throw invalidCredentialsException(null);
+        }
+        return endPointNode.asText();
+    }
+
+    private JsonNode parseConfigDetails() throws EmailSendingException {
+        try {
+            JsonNode configDetails = objectMapper.readTree(emailConfig.getConfigDetailsJson());
+            if (configDetails == null || !configDetails.isObject()) {
+                throw invalidCredentialsException(null);
+            }
+            return configDetails;
+        } catch (IOException | IllegalArgumentException e) {
+            throw invalidCredentialsException(e);
+        }
+    }
+
+    private EmailSendingException invalidCredentialsException(Throwable cause) {
+        String message = "Invalid credentials configured for " + emailConfig.getSenderEmail();
+        return cause != null ? new EmailSendingException(message, cause) : new EmailSendingException(message);
     }
 }

@@ -57,6 +57,7 @@ import static org.mockito.Mockito.mockConstruction;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -223,16 +224,11 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should archive or refuse for every transport configuration, with no unarchived send path")
-    void shouldArchiveOrRefuse_forEveryTransportConfiguration() {
-        // #3222's core requirement. The risk being pinned is not that a send fails -- it is that a
-        // send SUCCEEDS while leaving no archive, which is invisible at runtime and only shows up
-        // later as a missing legal record. The property that rules it out is agreement: for every
-        // configuration the enums permit, sending and archiving must reach the same verdict.
-        //
-        // Sweeping the enum product rather than listing today's providers is deliberate. Adding an
-        // EmailProvider constant with no transport is exactly how a silent gap would be
-        // introduced, and this loop fails the moment such a constant appears.
+    @DisplayName("should prepare an artifact or refuse every transport configuration")
+    void shouldPrepareArtifactOrRefuse_forEveryTransportConfiguration() {
+        // Sweep the enum product so adding a provider without an archive-capable transport fails
+        // here. This is deliberately a routing test; EmailManagerOutboundArchiveUnitTest verifies
+        // the separate orchestration property that the returned artifact is persisted before send.
         List<EmailConfig> configurations = new ArrayList<>();
         for (EmailConfig.EmailType emailType : EmailConfig.EmailType.values()) {
             for (EmailConfig.EmailProvider emailProvider : EmailConfig.EmailProvider.values()) {
@@ -246,32 +242,59 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
         // mockConstruction does not intercept subclasses. Without this the SMTP/LOCAL pair
         // silently constructs a real local sender and this test measures its failure instead of
         // the routing being asserted.
-        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(SMTPEmailSender.class);
-             MockedConstruction<LocalSMTPEmailSender> localSenders = mockConstruction(LocalSMTPEmailSender.class);
-             MockedConstruction<APISendGridEmailSender> sendGridSenders = mockConstruction(APISendGridEmailSender.class)) {
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(
+                     SMTPEmailSender.class, (sender, context) -> stubArchiveTransport(sender));
+             MockedConstruction<LocalSMTPEmailSender> localSenders = mockConstruction(
+                     LocalSMTPEmailSender.class, (sender, context) -> stubArchiveTransport(sender));
+             MockedConstruction<APISendGridEmailSender> sendGridSenders = mockConstruction(
+                     APISendGridEmailSender.class, (sender, context) -> stubArchiveTransport(sender))) {
 
             for (EmailConfig emailConfig : configurations) {
                 String configuration = emailConfig.getEmailType() + "/" + emailConfig.getEmailProvider();
+                boolean supported = emailConfig.getEmailType() == EmailConfig.EmailType.SMTP
+                        || emailConfig.getEmailProvider() == EmailConfig.EmailProvider.SENDGRID;
+                EmailSender emailSender = new EmailSender(loggedInInfo, emailConfig, emailData(List.of()));
 
-                Throwable sendFailure = catchThrowable(
-                        () -> new EmailSender(loggedInInfo, emailConfig, emailData(List.of())).send());
-                Throwable archiveFailure = catchThrowable(
-                        () -> new EmailSender(loggedInInfo, emailConfig, emailData(List.of()))
-                                .prepareOutboundArchive(new EmailLog()));
+                Throwable archiveFailure;
+                try {
+                    archiveFailure = catchThrowable(() -> {
+                        OutboundEmailArchiveDto archive = emailSender.prepareOutboundArchive(new EmailLog());
+                        assertThat(archive.getArtifactBytes()).isNotEmpty();
+                        assertThat(archive.getArtifactType()).isNotBlank();
+                        assertThat(archive.getContentType()).isNotBlank();
+                    });
+                } finally {
+                    emailSender.discardPrepared();
+                }
 
-                assertThat(archiveFailure == null)
-                        .as("%s: archiving and sending must agree; a configuration that can send but "
-                                + "cannot archive is a silent retention gap", configuration)
-                        .isEqualTo(sendFailure == null);
-
-                if (sendFailure != null) {
-                    assertThat(sendFailure)
-                            .as("%s: an unsupported configuration must be refused, not sent unarchived", configuration)
+                if (supported) {
+                    assertThat(archiveFailure).as(configuration).isNull();
+                } else {
+                    assertThat(archiveFailure)
+                            .as("%s: unsupported configurations must fail closed", configuration)
                             .isInstanceOf(EmailSendingException.class)
                             .hasMessage("Invalid email configuration");
                 }
             }
         }
+    }
+
+    @Test
+    @DisplayName("should reject the legacy direct unarchived send entry point")
+    void shouldRejectLegacyDirectSend() {
+        EmailSender emailSender = new EmailSender(loggedInInfo, smtpEmailConfig(), emailData(List.of()));
+
+        assertThatThrownBy(emailSender::send)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessageContaining("without outbound archiving is disabled");
+    }
+
+    private static void stubArchiveTransport(OutboundEmailTransport transport) throws Exception {
+        when(transport.prepareArtifactBytes()).thenReturn("prepared artifact".getBytes(StandardCharsets.UTF_8));
+        when(transport.getArchiveContentType()).thenReturn("application/octet-stream");
+        when(transport.getArchiveArtifactType()).thenReturn("TEST_ARTIFACT");
+        when(transport.getArchiveFileName(any())).thenReturn("outbound-email.test");
+        when(transport.describePreparedAttachments()).thenReturn(List.of());
     }
 
     private EmailConfig smtpEmailConfig() {

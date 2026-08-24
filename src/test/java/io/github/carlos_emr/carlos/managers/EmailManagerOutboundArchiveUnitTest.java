@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
+import io.github.carlos_emr.carlos.email.helpers.APISendGridEmailSender;
 import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
@@ -163,6 +164,50 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
                     .archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
             archiveBeforeSend.verify(smtpSender).sendPrepared();
             verify(emailLogDao).updateEmailStatus(45, EmailLog.EmailStatus.SUCCESS, "", emailLog.getTimestamp());
+        }
+    }
+
+    @Test
+    @DisplayName("should archive SendGrid payload before sending the prepared request")
+    void shouldArchiveSendGridPayloadBeforeSendingPreparedRequest() throws Exception {
+        EmailConfig emailConfig = sendGridEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 61);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+
+        byte[] preparedPayload = "{\"personalizations\":[]}".getBytes(StandardCharsets.UTF_8);
+        try (MockedConstruction<APISendGridEmailSender> sendGridSenders = mockConstruction(
+                APISendGridEmailSender.class,
+                (sendGridSender, context) -> {
+                    when(sendGridSender.prepareArtifactBytes()).thenReturn(preparedPayload);
+                    when(sendGridSender.getArchiveContentType()).thenReturn("application/json");
+                    when(sendGridSender.getArchiveArtifactType())
+                            .thenReturn(OutboundEmailArchive.ARTIFACT_TYPE_API_PAYLOAD);
+                    when(sendGridSender.getArchiveFileName(any())).thenReturn("outbound-email-sendgrid.json");
+                    when(sendGridSender.describePreparedAttachments()).thenReturn(List.of());
+                })) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.SUCCESS);
+            assertThat(sendGridSenders.constructed()).hasSize(1);
+            APISendGridEmailSender sendGridSender = sendGridSenders.constructed().get(0);
+            org.mockito.InOrder archiveBeforeSend = inOrder(outboundEmailArchiveService, sendGridSender);
+            archiveBeforeSend.verify(outboundEmailArchiveService)
+                    .archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
+            archiveBeforeSend.verify(sendGridSender).sendPrepared();
+
+            ArgumentCaptor<OutboundEmailArchiveDto> archiveCaptor =
+                    ArgumentCaptor.forClass(OutboundEmailArchiveDto.class);
+            verify(outboundEmailArchiveService).archive(eq(loggedInInfo), archiveCaptor.capture());
+            assertThat(archiveCaptor.getValue().getArtifactBytes()).containsExactly(preparedPayload);
+            assertThat(archiveCaptor.getValue().getContentType()).isEqualTo("application/json");
+            assertThat(archiveCaptor.getValue().getArtifactType())
+                    .isEqualTo(OutboundEmailArchive.ARTIFACT_TYPE_API_PAYLOAD);
+            verify(emailLogDao).updateEmailStatus(61, EmailLog.EmailStatus.SUCCESS, "", emailLog.getTimestamp());
         }
     }
 
@@ -639,18 +684,13 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should refuse to send or archive when the email configuration names no transport")
-    void shouldRefuseBothSendAndArchive_whenEmailConfigurationIsMissing() {
-        // The old contract asked supportsOutboundArchive() and quietly fell back to an unarchived
-        // send when it answered false. There is no such fallback now: a configuration that
-        // resolves to no transport is refused on BOTH paths, so it cannot reach the wire
-        // unrecorded. Asserting both together is the point -- it is their agreement that the
-        // structural design buys, and a regression would show up as one of them succeeding.
+    @DisplayName("should disable direct sends and refuse archive preparation with no transport")
+    void shouldDisableDirectSendAndRefuseArchive_whenEmailConfigurationIsMissing() {
         EmailSender emailSender = new EmailSender(loggedInInfo, null, emailData());
 
         assertThatThrownBy(emailSender::send)
                 .isInstanceOf(EmailSendingException.class)
-                .hasMessage("Invalid email configuration");
+                .hasMessageContaining("without outbound archiving is disabled");
 
         assertThatThrownBy(() -> emailSender.prepareOutboundArchive(new EmailLog()))
                 .isInstanceOf(EmailSendingException.class)
@@ -698,6 +738,15 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         emailConfig.setSenderFirstName("Provider");
         emailConfig.setSenderLastName("One");
         emailConfig.setConfigDetailsJson("{\"host\":\"smtp.example.test\",\"port\":\"587\",\"username\":\"user\",\"password\":\"secret\"}");
+        return emailConfig;
+    }
+
+    private EmailConfig sendGridEmailConfig() {
+        EmailConfig emailConfig = new EmailConfig(
+                EmailConfig.EmailType.API, EmailConfig.EmailProvider.SENDGRID, "provider@example.test");
+        emailConfig.setSenderFirstName("Provider");
+        emailConfig.setSenderLastName("One");
+        emailConfig.setConfigDetailsJson("{\"api_key\":\"test-key\"}");
         return emailConfig;
     }
 
