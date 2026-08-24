@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -157,8 +157,13 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
         ObjectNode jsonObject = objectMapper.createObjectNode();
         try {
+            RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+            if (bean == null || !bean.isValid()) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return null;
+            }
             String pharmId = request.getParameter("pharmacyId");
-            String demographicNo = request.getParameter("demographicNo");
+            String demographicNo = String.valueOf(bean.getDemographicNo());
 
             RxPharmacyData pharmacy = new RxPharmacyData();
 
@@ -189,7 +194,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
         if (demographicNo == null || demographicNo.isEmpty() || !demographicNo.matches("\\d+")) {
             return null;
-	}
+        }
 
         RxPharmacyData pharmacyData = new RxPharmacyData();
         List<PharmacyInfo> pharmacyList;
@@ -204,7 +209,12 @@ public final class RxManagePharmacy2Action extends ActionSupport {
     public String setPreferred() {
         RxPharmacyData pharmacy = new RxPharmacyData();
         try {
-            PharmacyInfo pharmacyInfo = pharmacy.addPharmacyToDemographic(request.getParameter("pharmId"), request.getParameter("demographicNo"), request.getParameter("preferredOrder"));
+            RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+            if (bean == null || !bean.isValid()) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return null;
+            }
+            PharmacyInfo pharmacyInfo = pharmacy.addPharmacyToDemographic(request.getParameter("pharmId"), String.valueOf(bean.getDemographicNo()), request.getParameter("preferredOrder"));
             response.setContentType("application/json");
             objectMapper.writeValue(response.getWriter(), pharmacyInfo);
         } catch (Exception e) {
