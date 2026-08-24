@@ -17,6 +17,11 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import java.util.List;
+
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +33,7 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.email.core.EmailData;
@@ -38,11 +44,13 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -60,10 +68,12 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private EmailManager emailManager;
+    private SecurityInfoManager securityInfoManager;
 
     @BeforeEach
     void setUp() {
-        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+        securityInfoManager = mock(SecurityInfoManager.class);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
         emailManager = mock(EmailManager.class);
         registerMock(EmailManager.class, emailManager);
         registerMock(EformDataManager.class, mock(EformDataManager.class));
@@ -158,6 +168,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setParameter("message", "Draft to retry.");
         request.setParameter("isEmailEncrypted", "true");
         request.setParameter("isEmailAttachmentEncrypted", "true");
+        request.setParameter("emailPDFPassword", "valid-password");
+        request.setParameter("emailPDFPasswordClue", "Known to the patient");
         request.setParameter("senderConfigId", "1");
         request.setParameter("demographicId", "42");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
@@ -186,6 +198,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("message", "Draft to retry.");
         // isEmailEncrypted omitted entirely, mirroring a direct/malformed POST.
+        request.setParameter("emailPDFPassword", "valid-password");
+        request.setParameter("emailPDFPasswordClue", "Known to the patient");
         request.setParameter("senderConfigId", "1");
         request.setParameter("demographicId", "42");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
@@ -206,6 +220,55 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
     }
 
+    @Test
+    @DisplayName("should reject an invalid encrypted POST without consuming attachments")
+    void shouldRejectEncryptedPostWithoutConsumingAttachments_whenPasswordMissing() {
+        MockHttpServletRequest request = encryptedSendRequest();
+        request.setMethod("POST");
+        request.setParameter("method", "sendDirectEmail");
+        List<EmailAttachment> attachments = List.of(mock(EmailAttachment.class));
+        request.getSession().setAttribute("emailAttachmentList", attachments);
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+
+        EmailSend2Action action = spy(new EmailSend2Action());
+        doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
+        action.request = request;
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        action.response = response;
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(request.getSession().getAttribute("emailAttachmentList")).isSameAs(attachments);
+        verifyNoInteractions(emailManager);
+    }
+
+    @Test
+    @DisplayName("should reject encrypted sends without a PDF password clue")
+    void shouldRejectEncryptedSend_whenPasswordClueMissing() {
+        MockHttpServletRequest request = encryptedSendRequest();
+        request.setParameter("emailPDFPassword", "valid-password");
+
+        EmailSend2Action action = spy(new EmailSend2Action());
+        doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        assertThatThrownBy(action::sendDirectEmail)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("A PDF password clue is required for encrypted email");
+        verifyNoInteractions(emailManager);
+    }
+
+    private MockHttpServletRequest encryptedSendRequest() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("message", "Confidential note.");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("demographicId", "42");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        return request;
+    }
+
     /**
      * Drives sendDirectEmail() with the given single "message" field and encryption flag, and
      * returns the EmailData the action handed to EmailManager so routing can be asserted. A null
@@ -219,6 +282,10 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         }
         if (isEmailEncrypted != null) {
             request.setParameter("isEmailEncrypted", isEmailEncrypted);
+        }
+        if (!"false".equals(isEmailEncrypted)) {
+            request.setParameter("emailPDFPassword", "valid-password");
+            request.setParameter("emailPDFPasswordClue", "Known to the patient");
         }
         request.setParameter("senderConfigId", "1");
         request.setParameter("demographicId", "42");

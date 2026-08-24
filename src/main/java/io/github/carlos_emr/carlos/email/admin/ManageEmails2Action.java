@@ -231,8 +231,8 @@ public class ManageEmails2Action extends ActionSupport {
      */
     public String resendEmail() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_email)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.email", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_admin.email)");
         }
 
         String emailLogId = request.getParameter("logId");

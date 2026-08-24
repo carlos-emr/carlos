@@ -66,6 +66,7 @@ public class EmailSend2Action extends ActionSupport {
     private static final String PARAM_MESSAGE = "message";
     private static final String PARAM_IS_EMAIL_ENCRYPTED = "isEmailEncrypted";
     private static final String PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED = "isEmailAttachmentEncrypted";
+    private static final int MINIMUM_PDF_PASSWORD_LENGTH = 5;
 
     /**
      * Main execution method that routes to specific email handling methods based on the "method" request parameter.
@@ -93,12 +94,17 @@ public class EmailSend2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_email)");
         }
 
-        if ("sendDirectEmail".equals(request.getParameter("method"))) {
-            return sendDirectEmail();
-        } else if ("cancel".equals(request.getParameter("method"))) {
-            return cancel();
+        try {
+            if ("sendDirectEmail".equals(request.getParameter("method"))) {
+                return sendDirectEmail();
+            } else if ("cancel".equals(request.getParameter("method"))) {
+                return cancel();
+            }
+            return sendEFormEmail();
+        } catch (EmailEncryptionValidationException e) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
-        return sendEFormEmail();
     }
 
     /**
@@ -225,8 +231,45 @@ public class EmailSend2Action extends ActionSupport {
      */
     private EmailLog sendEmail(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        validateEncryptionRequirements(request);
         EmailData emailData = prepareEmailFields(request);
         return emailManager.sendEmail(loggedInInfo, emailData);
+    }
+
+    /**
+     * Enforces the compose form's encryption requirements at the server boundary. Client-side
+     * validation is only a usability aid and can be bypassed by a direct POST; allowing an empty
+     * PDF user password would produce a document that opens without a password prompt.
+     *
+     * <p>This check intentionally runs before {@link #prepareEmailFields(HttpServletRequest)},
+     * because that method consumes the session-scoped attachment list. A rejected request must not
+     * discard attachments that the provider may need to recover.</p>
+     *
+     * @param request request containing the submitted encryption fields
+     * @throws EmailEncryptionValidationException when encrypted delivery lacks a usable password or clue
+     */
+    private void validateEncryptionRequirements(HttpServletRequest request) {
+        if ("false".equals(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED))) {
+            return;
+        }
+
+        String password = request.getParameter("emailPDFPassword");
+        if (password == null || password.trim().length() < MINIMUM_PDF_PASSWORD_LENGTH) {
+            throw new EmailEncryptionValidationException(
+                    "A PDF password of at least 5 characters is required for encrypted email");
+        }
+        String passwordClue = request.getParameter("emailPDFPasswordClue");
+        if (passwordClue == null || passwordClue.trim().isEmpty()) {
+            throw new EmailEncryptionValidationException(
+                    "A PDF password clue is required for encrypted email");
+        }
+    }
+
+    /** Validation failure translated to HTTP 400 by {@link #execute()}. */
+    private static final class EmailEncryptionValidationException extends IllegalArgumentException {
+        private EmailEncryptionValidationException(String message) {
+            super(message);
+        }
     }
 
     /**

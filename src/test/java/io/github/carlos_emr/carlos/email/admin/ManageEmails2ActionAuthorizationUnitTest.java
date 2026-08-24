@@ -69,11 +69,11 @@ class ManageEmails2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
 
             assertThatThrownBy(action::resendEmail)
                     .isInstanceOf(SecurityException.class)
-                    .hasMessage("missing required sec object (_email)");
+                    .hasMessage("missing required sec object (_admin.email)");
         }
 
         verify(securityInfoManager).hasPrivilege(
-                any(), eq("_email"), eq(SecurityInfoManager.READ), isNull());
+                any(), eq("_admin.email"), eq(SecurityInfoManager.READ), isNull());
         verifyNoInteractions(emailComposeManager);
     }
 }
