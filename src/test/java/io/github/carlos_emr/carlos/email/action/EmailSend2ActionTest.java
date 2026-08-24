@@ -28,6 +28,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -139,14 +142,56 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(sent.getIsEncrypted()).isFalse();
     }
 
-    @Test
-    @DisplayName("should default the body to empty when the message param is missing")
-    void shouldDefaultBodyToEmpty_whenMessageParamMissing() {
-        // A direct POST that omits the message param must not push null into the body/PDF channels.
-        EmailData sent = captureSentEmail(null, "false");
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    @DisplayName("should reject missing or blank messages without consuming attachments")
+    void shouldRejectSendWithoutConsumingAttachments_whenMessageMissingOrBlank(String message) {
+        MockHttpServletRequest request = encryptedSendRequest(message);
+        request.setMethod("POST");
+        request.setParameter("method", "sendDirectEmail");
+        request.setParameter("emailPDFPassword", "valid-password");
+        request.setParameter("emailPDFPasswordClue", "Known to the patient");
+        List<EmailAttachment> attachments = List.of(mock(EmailAttachment.class));
+        request.getSession().setAttribute("emailAttachmentList", attachments);
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
 
-        assertThat(sent.getBody()).isEmpty();
-        assertThat(sent.getEncryptedMessage()).isEmpty();
+        EmailSend2Action action = spy(new EmailSend2Action());
+        action.request = request;
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        action.response = response;
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(request.getSession().getAttribute("emailAttachmentList")).isSameAs(attachments);
+        verifyNoInteractions(emailManager);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"unknown"})
+    @DisplayName("should reject missing or unknown POST operations before sending email")
+    void shouldRejectMissingOrUnknownOperation_beforeSendingEmail(String actionMethod) {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
+        if (actionMethod != null) {
+            request.setParameter("method", actionMethod);
+        }
+        request.setParameter("message", "This message must not be sent.");
+        request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("demographicId", "42");
+        request.setParameter("transactionType", "EFORM");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        action.response = response;
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(emailManager);
     }
 
     @Test
@@ -260,8 +305,14 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
     }
 
     private MockHttpServletRequest encryptedSendRequest() {
+        return encryptedSendRequest("Confidential note.");
+    }
+
+    private MockHttpServletRequest encryptedSendRequest(String message) {
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("message", "Confidential note.");
+        if (message != null) {
+            request.setParameter("message", message);
+        }
         request.setParameter("isEmailEncrypted", "true");
         request.setParameter("senderConfigId", "1");
         request.setParameter("demographicId", "42");
@@ -272,8 +323,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
     /**
      * Drives sendDirectEmail() with the given single "message" field and encryption flag, and
      * returns the EmailData the action handed to EmailManager so routing can be asserted. A null
-     * {@code message} or {@code isEmailEncrypted} omits that parameter entirely, mirroring a direct
-     * POST that leaves it out.
+     * {@code isEmailEncrypted} omits that parameter entirely, mirroring a direct POST that leaves it
+     * out.
      */
     private EmailData captureSentEmail(String message, String isEmailEncrypted) {
         MockHttpServletRequest request = new MockHttpServletRequest();

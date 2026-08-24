@@ -74,12 +74,14 @@ public class EmailSend2Action extends ActionSupport {
      * <p>This method implements method-based routing for the following email workflows:</p>
      * <ul>
      *   <li><strong>sendDirectEmail</strong> - Sends email directly without EForm context</li>
+     *   <li><strong>sendEFormEmail</strong> - Sends email with EForm context</li>
      *   <li><strong>cancel</strong> - Cancels email operation and redirects to source</li>
-     *   <li><strong>default</strong> - Sends email with EForm context (if no method parameter specified)</li>
      * </ul>
+     * Missing or unsupported operations are rejected with HTTP 400 rather than defaulting to a
+     * mutation.
      *
      * @return String Struts2 result identifier - "success" for successful email operations,
-     *         or transaction type name for cancel operations
+     *         a transaction type name for cancel operations, or "none" for rejected requests
      */
     public String execute () {
         String httpMethod = request.getMethod();
@@ -95,13 +97,17 @@ public class EmailSend2Action extends ActionSupport {
         }
 
         try {
-            if ("sendDirectEmail".equals(request.getParameter("method"))) {
+            String actionMethod = request.getParameter("method");
+            if ("sendDirectEmail".equals(actionMethod)) {
                 return sendDirectEmail();
-            } else if ("cancel".equals(request.getParameter("method"))) {
+            } else if ("sendEFormEmail".equals(actionMethod)) {
+                return sendEFormEmail();
+            } else if ("cancel".equals(actionMethod)) {
                 return cancel();
             }
-            return sendEFormEmail();
-        } catch (EmailEncryptionValidationException e) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        } catch (EmailSendValidationException e) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
@@ -231,9 +237,29 @@ public class EmailSend2Action extends ActionSupport {
      */
     private EmailLog sendEmail(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        validateMessageRequirement(request);
         validateEncryptionRequirements(request);
         EmailData emailData = prepareEmailFields(request);
         return emailManager.sendEmail(loggedInInfo, emailData);
+    }
+
+    /**
+     * Enforces the compose form's required message at the server boundary. Client-side validation
+     * can be bypassed by a direct POST, and an empty encrypted message would otherwise send only a
+     * notice claiming that a password-protected PDF is attached.
+     *
+     * <p>This check intentionally runs before {@link #prepareEmailFields(HttpServletRequest)},
+     * because that method consumes the session-scoped attachment list. A rejected request must not
+     * discard attachments that the provider may need to recover.</p>
+     *
+     * @param request request containing the submitted message
+     * @throws EmailSendValidationException when the message is missing or blank
+     */
+    private void validateMessageRequirement(HttpServletRequest request) {
+        String message = request.getParameter(PARAM_MESSAGE);
+        if (message == null || message.isBlank()) {
+            throw new EmailSendValidationException("Message is required");
+        }
     }
 
     /**
@@ -246,7 +272,7 @@ public class EmailSend2Action extends ActionSupport {
      * discard attachments that the provider may need to recover.</p>
      *
      * @param request request containing the submitted encryption fields
-     * @throws EmailEncryptionValidationException when encrypted delivery lacks a usable password or clue
+     * @throws EmailSendValidationException when encrypted delivery lacks a usable password or clue
      */
     private void validateEncryptionRequirements(HttpServletRequest request) {
         if ("false".equals(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED))) {
@@ -255,19 +281,19 @@ public class EmailSend2Action extends ActionSupport {
 
         String password = request.getParameter("emailPDFPassword");
         if (password == null || password.trim().length() < MINIMUM_PDF_PASSWORD_LENGTH) {
-            throw new EmailEncryptionValidationException(
+            throw new EmailSendValidationException(
                     "A PDF password of at least 5 characters is required for encrypted email");
         }
         String passwordClue = request.getParameter("emailPDFPasswordClue");
         if (passwordClue == null || passwordClue.trim().isEmpty()) {
-            throw new EmailEncryptionValidationException(
+            throw new EmailSendValidationException(
                     "A PDF password clue is required for encrypted email");
         }
     }
 
     /** Validation failure translated to HTTP 400 by {@link #execute()}. */
-    private static final class EmailEncryptionValidationException extends IllegalArgumentException {
-        private EmailEncryptionValidationException(String message) {
+    private static final class EmailSendValidationException extends IllegalArgumentException {
+        private EmailSendValidationException(String message) {
             super(message);
         }
     }
