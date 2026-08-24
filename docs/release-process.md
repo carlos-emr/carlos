@@ -96,11 +96,14 @@ snapshot. Keep `develop` on its newer snapshot during every forward merge.
 Merge commits must carry a DCO sign-off. If a true forward or back merge connects
 older commits that the automated DCO job cannot verify individually, an
 authorized maintainer may post the exact repository fallback phrase only after
-reviewing the connected history:
+reviewing the connected history. The phrase must include the current full
+40-character PR head SHA so that it approves only that exact revision:
 
 ```text
-Confirming DCO sign off for all commits
+Confirming DCO sign off for all commits at <full-pr-head-sha>
 ```
+
+Any subsequent push changes the PR head SHA and requires a new confirmation.
 
 ## Supported-release fix cycle
 
