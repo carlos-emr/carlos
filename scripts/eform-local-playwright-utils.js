@@ -12,8 +12,8 @@
  * https://github.com/carlos-emr/carlos
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const SAFE_ARTIFACT_BASENAME_RE = /^[A-Za-z0-9._-]+$/;
 const SAFE_ARTIFACT_EXTENSION_RE = /^\.[A-Za-z0-9]+$/;
@@ -46,11 +46,10 @@ function validateBaseUrl(rawBaseUrl) {
   }
 
   const host = parsed.hostname.toLowerCase();
-  const normalizedHost = host.replace(/^\[(.*)]$/, '$1');
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(normalizedHost);
-  if (!localHosts.has(normalizedHost) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
+  const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
+  const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+  if (!loopbackHosts.has(normalizedHost) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+    throw new Error(`Refusing non-loopback BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
 
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
@@ -80,7 +79,7 @@ function createRecorder() {
 
 function isExpectedMissingAsset(status, responseUrl) {
   return status === 404 && (
-    /\/favicon\.ico$/.test(responseUrl)
+    responseUrl.endsWith('/favicon.ico')
     || /\/imageRenderingServlet\?/.test(responseUrl)
     || /\/eform\/displayImage\?imagefile=signature_pad\.min\.js(?:$|&)/.test(responseUrl)
     || /\/eform\/displayImage\?imagefile=BNK\.png(?:$|&)/.test(responseUrl)
@@ -156,7 +155,7 @@ function wirePage(page, label, recorder) {
 }
 
 async function gotoApp(page, baseUrl, appPath, waitUntil = 'domcontentloaded') {
-  return page.goto(appUrl(baseUrl, appPath), { waitUntil, timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restrict hosts to local/private by default
+  return page.goto(appUrl(baseUrl, appPath), { waitUntil, timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default
 }
 
 async function login(context, config, recorder) {
@@ -189,12 +188,12 @@ async function findLibraryEform(page, formName) {
   await row.waitFor({ state: 'visible', timeout: 15000 });
   const previewOnclick = await row.locator('a[onclick*="efmshowform_data?fid="]').first().getAttribute('onclick');
   const editHref = await row.locator('a[href*="efmformmanageredit?fid="]').first().getAttribute('href');
-  const previewMatch = previewOnclick && previewOnclick.match(/fid=([^&'"]+)/);
-  const editMatch = editHref && editHref.match(/fid=([^&'"]+)/);
-  assert(previewMatch?.[1] || editMatch?.[1], `Could not extract fid for ${formName}`);
+  const previewMatch = previewOnclick?.match(/fid=([^&'"]+)/);
+  const editMatch = editHref?.match(/fid=([^&'"]+)/);
+  assert(previewMatch?.[1] ?? editMatch?.[1], `Could not extract fid for ${formName}`);
   return {
     row,
-    fid: decodeURIComponent((previewMatch && previewMatch[1]) || editMatch[1]),
+    fid: decodeURIComponent(previewMatch?.[1] || editMatch[1]),
   };
 }
 
@@ -253,10 +252,14 @@ async function invokeFetchAttached(page) {
 
   const target = page.locator('#tdAttachedDocs');
   const previousHtml = await target.evaluate((element) => element.innerHTML).catch(() => '');
+  let sidebarResponse = null;
   const responsePromise = page.waitForResponse(
     (response) => response.url().includes('/eform/displayAttachedFiles'),
     { timeout: 30000 },
-  ).catch(() => null);
+  ).then((response) => {
+    sidebarResponse = response;
+    return response;
+  }).catch(() => null);
   const domPromise = page.waitForFunction((previousMarkup) => {
     const attachmentTarget = document.getElementById('tdAttachedDocs');
     if (!attachmentTarget) {
@@ -278,12 +281,39 @@ async function invokeFetchAttached(page) {
     return { hasFunction: true, error: invocation.error, text: '', html: '' };
   }
 
+  // Let whichever of the DOM change or the network response settle first, then wait for the DOM to
+  // finish updating.
   await Promise.race([responsePromise, domPromise]);
   await page.waitForFunction((previousMarkup) => {
     const attachmentTarget = document.getElementById('tdAttachedDocs');
     return !!attachmentTarget && attachmentTarget.innerHTML.trim().length > 0
       && attachmentTarget.innerHTML !== previousMarkup;
   }, previousHtml, { timeout: 5000 }).catch(() => {});
+  // Gate success on the SETTLED network response, not on whichever promise won the race above: if the
+  // DOM changed optimistically before the request finished, sidebarResponse would still be null and a
+  // 4xx/5xx attachment failure would be wrongly reported as success. Awaiting the
+  // response promise (it resolves to null on timeout/error) makes the status check deterministic.
+  await responsePromise;
+  // A null response means the request timed out or errored (responsePromise resolves to null in that
+  // case); treat that as a failure too, otherwise a missing attachment load would pass silently.
+  if (!sidebarResponse) {
+    return {
+      hasFunction: true,
+      error: 'fetchAttached() did not receive a displayAttachedFiles response',
+      text: '',
+      html: '',
+    };
+  }
+  if (sidebarResponse.status() >= 400) {
+    return {
+      hasFunction: true,
+      error: `fetchAttached() request failed with HTTP ${sidebarResponse.status()} for ${sidebarResponse.url()}`,
+      text: '',
+      html: '',
+      status: sidebarResponse.status(),
+      url: sidebarResponse.url(),
+    };
+  }
 
   return page.evaluate(() => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code executed without interpolating user-controlled input
     const target = document.getElementById('tdAttachedDocs');
@@ -301,9 +331,16 @@ function getLatestRequest(recorder, predicate) {
 }
 
 function getLaunchOptions(chromePath) {
+  // --no-sandbox is required when Chromium runs as root (the devcontainer/CI default).
+  // Set EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX=true to keep the Chromium sandbox enabled
+  // on deployments that run the renderer as an unprivileged user.
+  const args = ['--disable-dev-shm-usage'];
+  if (process.env.EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX !== 'true') {
+    args.unshift('--no-sandbox');
+  }
   const launchOptions = {
     headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    args,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;

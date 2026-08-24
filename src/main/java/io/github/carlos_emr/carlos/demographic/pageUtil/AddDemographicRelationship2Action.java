@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import java.io.IOException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -64,9 +66,28 @@ public class AddDemographicRelationship2Action extends ActionSupport {
 
     }
 
+    /**
+     * Renders the "Add Relation" contact-search/save form, or persists a new demographic
+     * relationship when the request is a genuine save.
+     *
+     * <p>Request-method contract: a bare GET (only {@code demo}/{@code origDemo} present) renders
+     * the form and never mutates. A request carrying non-blank {@code linkingDemo} and
+     * {@code relation} is treated as save intent and MUST be a POST — a non-POST save attempt is
+     * rejected with {@code 405} (and an {@code Allow: POST} header) before any DAO call. A POST
+     * save with a missing or non-numeric {@code origDemo}/{@code linkingDemo} is rejected with
+     * {@code 400} rather than persisting a relationship against demographic {@code 0}.</p>
+     *
+     * @return {@link #SUCCESS} to render/re-render the form (including after a successful save),
+     *         {@code "pmmClient"} when the request is the PMM client-finished callback, or
+     *         {@link #NONE} after writing a {@code 405}/{@code 400} error response directly
+     * @throws SecurityException if the caller lacks {@code _demographic w}
+     * @throws IOException if writing the {@code 405}/{@code 400} error response fails
+     * @since 2005-10-05
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public String execute() {
+    @Override
+    public String execute() throws IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
@@ -79,24 +100,47 @@ public class AddDemographicRelationship2Action extends ActionSupport {
         String emergContact = request.getParameter("emergContact");
         String notes = request.getParameter("notes");
 
-	    if (origDemo != null && origDemo.matches("[a-zA-Z0-9]+")) {
-        request.setAttribute("demographicNo", origDemo);
-	    }
+        if (isValidDemographicNo(origDemo)) {
+            request.setAttribute("demographicNo", origDemo);
+            request.setAttribute("demo", origDemo);
+        }
 
-        if (request.getParameter("pmmClient") != null && request.getParameter("pmmClient").equals("Finished")) {
+        // Creating a relationship is a mutation and must arrive via POST. The "Add Relation"
+        // popup (edit-view.jsp) opens this action with a plain GET carrying only `demo` to
+        // render the contact-search form (AddAlternateContact.jsp) — linkingDemo/relation are
+        // only present once the form is actually submitted. Gating on their presence (rather
+        // than method alone) also lets the intermediate "select a contact from search results"
+        // POST step render without persisting a relationship row before the user has chosen one.
+        // This check runs before the pmmClient short-circuit below so a non-POST request cannot
+        // use pmmClient=Finished to slip a save attempt past the method gate.
+        boolean isMutation = isNonBlank(linkingDemo) && isNonBlank(relation);
+        if (isMutation && !"POST".equalsIgnoreCase(request.getMethod())) {
+            // RFC 7231 §6.5.5: 405 responses MUST include the Allow header.
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        if ("Finished".equals(request.getParameter("pmmClient"))) {
             return "pmmClient";
+        }
+
+        if (!isMutation) {
+            return SUCCESS;
+        }
+
+        // origDemo/linkingDemo must be real demographic numbers before they reach persistence:
+        // ConversionUtils.fromIntString coerces a missing or non-numeric value to 0, which would
+        // otherwise persist a relationship row pointing at demographic 0.
+        if (!isValidDemographicNo(origDemo) || !isValidDemographicNo(linkingDemo)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "origDemo and linkingDemo must be valid demographic numbers");
+            return NONE;
         }
 
         String providerNo = (String) request.getSession().getAttribute("user");
 
-        boolean sdmBool = false;
-        boolean eBool = false;
-        if (sdm != null && sdm.equals("yes")) {
-            sdmBool = true;
-        }
-        if (emergContact != null && emergContact.equals("yes")) {
-            eBool = true;
-        }
+        boolean sdmBool = "yes".equals(sdm);
+        boolean eBool = "yes".equals(emergContact);
 
         // if we're in a facility tag this association with the facility
         Facility facility = (Facility) request.getSession().getAttribute(SessionConstants.CURRENT_FACILITY);
@@ -106,33 +150,44 @@ public class AddDemographicRelationship2Action extends ActionSupport {
         DemographicRelationship demo = new DemographicRelationship();
         demo.addDemographicRelationship(origDemo, linkingDemo, relation, sdmBool, eBool, notes, providerNo, facilityId);
 
-	    if (origDemo != null && origDemo.matches("[a-zA-Z0-9]+")) {
-		    request.setAttribute("demo", origDemo);
-	    }
-        // ***** NEW CODE *****
-        // Now link in the opposite direction
-        // First work out which pairs match up
-        // From AddAlternateConcact.jsp
+        InverseRelation inverse = computeInverseRelation(origDemo, linkingDemo, relation);
+        if (inverse != null) {
+            DemographicRelationship demo2 = new DemographicRelationship();
+            demo2.addDemographicRelationship(inverse.origDemo(), inverse.linkingDemo(), inverse.relation(),
+                    sdmBool, eBool, notes, providerNo, facilityId);
+        }
 
-        // Relations for the dropdowns should be stored in a table in the database and not hardcoded
+        return SUCCESS;
+    }
 
-         /*
-         This is better:
+    // A digit-only string that overflows int (e.g. "2147483648") still coerces to 0 in
+    // ConversionUtils.fromIntString via the caught NumberFormatException, so the digit check
+    // alone isn't enough -- confirm it actually parses as an int before accepting it. "0" is
+    // rejected too: demographic_no is an auto-increment PK starting at 1, so 0 is never a real
+    // patient -- it's the exact placeholder fromIntString(null/blank) coerces to.
+    private static boolean isValidDemographicNo(String demographicNo) {
+        if (demographicNo == null || !demographicNo.matches("^\\d+$")) {
+            return false;
+        }
+        try {
+            return Integer.parseInt(demographicNo) > 0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
 
-                Parent
-                StepParent
-                Child
-                Sibling
-                Spouse
-                Partner
-                Grandparent
-                Other Relative
-                Other
+    // Blank (as opposed to absent) linkingDemo/relation must not count as mutation intent either —
+    // ConversionUtils.fromIntString("") coerces to 0 the same as fromIntString(null), so treating a
+    // blank value as "real" would persist the same garbage relationship row this gate exists to stop.
+    private static boolean isNonBlank(String value) {
+        return value != null && !value.isBlank();
+    }
 
-         Sex will determine whether it is a brother,
-        grandfather, wife, husband or spouse of the same sex
-          */
-
+    // Relations for the dropdowns should be stored in a table in the database and not hardcoded.
+    // Sex determines whether the inverse is e.g. brother/sister, grandfather/grandmother,
+    // husband/wife of the same relation (from AddAlternateContact.jsp's original logic).
+    // Returns null when no inverse relation applies (e.g. relation type has no sex-specific inverse).
+    private InverseRelation computeInverseRelation(String origDemo, String linkingDemo, String relation) {
         boolean relationset = false;
 
         CtlRelationshipsDao ctlRelationshipsDao = SpringUtils.getBean(CtlRelationshipsDao.class);
@@ -148,24 +203,16 @@ public class AddDemographicRelationship2Action extends ActionSupport {
                 relation = cr.getFemaleInverse();
                 relationset = true;
             }
-
         }
 
-
-        if (relationset) {
-            // flip the demographics
-            String tempdemo;
-            tempdemo = origDemo;
-            origDemo = linkingDemo;
-            linkingDemo = tempdemo;
-
-            //now save this
-            DemographicRelationship demo2 = new DemographicRelationship();
-            demo2.addDemographicRelationship(origDemo, linkingDemo, relation, sdmBool, eBool, notes, providerNo, facilityId);
+        if (!relationset) {
+            return null;
         }
+        // flip the demographics
+        return new InverseRelation(linkingDemo, origDemo, relation);
+    }
 
-
-        return SUCCESS;
+    private record InverseRelation(String origDemo, String linkingDemo, String relation) {
     }
 
 }
