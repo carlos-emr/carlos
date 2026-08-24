@@ -25,6 +25,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -62,9 +65,6 @@ public class ManageEmails2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     private static final Logger logger = MiscUtils.getLogger();
-    private static final String EMAIL_RESEND_PENDING_WARNING =
-            "This email is still recorded as in progress, so it may already have reached the patient. "
-            + "Resending it could deliver a duplicate. Confirm what was received before sending again.";
     private static final String EMAIL_RESEND_MISSING_PATIENT_ERROR = "This email cannot be copied because it is not associated with a patient. Please generate a new email instead.";
 
     private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -81,8 +81,8 @@ public class ManageEmails2Action extends ActionSupport {
      *
      * This method examines the "method" parameter from the HTTP request and delegates to
      * the corresponding method handler. Supported methods include "fetchEmails" for retrieving
-     * email logs based on search criteria, and "resendEmail" for preparing a previously sent
-     * email for resending.
+     * email logs based on search criteria, "resendEmail" for preparing a previously sent email
+     * for resending, and "setResolved" for resolving failed or unconfirmed sends.
      *
      * If no method parameter is provided or the method is not recognized, defaults to displaying
      * the email management interface via {@link #showEmailManager()}.
@@ -109,6 +109,14 @@ public class ManageEmails2Action extends ActionSupport {
             return fetchEmails();
         } else if ("resendEmail".equals(mtd)) {
             return resendEmail();
+        } else if ("setResolved".equals(mtd)) {
+            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+                response.setHeader("Allow", "POST");
+                response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return null;
+            }
+            setResolved();
+            return null;
         }
 
         return showEmailManager();
@@ -160,6 +168,8 @@ public class ManageEmails2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String fetchEmails() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        request.setAttribute("canResolveEmails", securityInfoManager.hasPrivilege(
+                loggedInInfo, "_email", SecurityInfoManager.WRITE, null));
         String emailStatus = request.getParameter("emailStatus");
         String senderEmailAddress = request.getParameter("senderEmailAddress");
         String dateBeginStr = request.getParameter("dateBegin");
@@ -192,24 +202,61 @@ public class ManageEmails2Action extends ActionSupport {
      * Marks a specific email log entry as resolved.
      *
      * This method updates the status of an email log to RESOLVED, typically used when
-     * an administrator has addressed a failed or problematic email. The method validates
+     * an administrator has addressed a failed or unconfirmed email. The method validates
      * the provided log ID to ensure it is a valid integer before processing.
      *
      * If the log ID is invalid (not an integer), the method returns a JSON error response
      * to the client and does not modify any data. Upon successful validation, the email
-     * status is updated via {@link EmailManager#updateEmailStatus}.
+     * status is updated via {@link EmailManager#resolveEmailStatus}.
      *
-     * @see EmailManager#updateEmailStatus
+     * @see EmailManager#resolveEmailStatus
      * @see EmailStatus#RESOLVED
      */
     public void setResolved() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String emailLogId = request.getParameter("logId");
-        if (!StringUtils.isInteger(emailLogId)) {
-            JSONUtil.errorResponse(response, "errorMessage", "Invalid email log id");
+        if (!securityInfoManager.hasPrivilege(
+                loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
+            writeResolveError(HttpServletResponse.SC_FORBIDDEN,
+                    "admin.manageEmails.resolveForbidden");
             return;
         }
-        emailManager.updateEmailStatus(loggedInInfo, Integer.parseInt(emailLogId), EmailStatus.RESOLVED, null);
+        String emailLogId = request.getParameter("logId");
+        if (!StringUtils.isInteger(emailLogId)) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            JSONUtil.jsonResponse(response, "errorMessage", "Invalid email log id");
+            return;
+        }
+        EmailManager.EmailResolutionResult result = emailManager.resolveEmailStatus(
+                loggedInInfo, Integer.parseInt(emailLogId));
+        if (EmailManager.EmailResolutionResult.RESOLVED.equals(result)) {
+            response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+        } else if (EmailManager.EmailResolutionResult.NOT_FOUND.equals(result)) {
+            writeResolveError(HttpServletResponse.SC_NOT_FOUND,
+                    "admin.manageEmails.resolveNotFound");
+        } else if (EmailManager.EmailResolutionResult.PENDING_TOO_RECENT.equals(result)) {
+            writeResolveError(HttpServletResponse.SC_CONFLICT,
+                    "admin.manageEmails.pendingTooRecent");
+        } else if (EmailManager.EmailResolutionResult.NOT_RESOLVABLE.equals(result)) {
+            writeResolveError(HttpServletResponse.SC_CONFLICT,
+                    "admin.manageEmails.resolveInvalidState");
+        } else {
+            writeResolveError(HttpServletResponse.SC_CONFLICT,
+                    "admin.manageEmails.resolveConflict");
+        }
+    }
+
+    private void writeResolveError(int status, String messageKey) {
+        response.setStatus(status);
+        JSONUtil.jsonResponse(response, "errorMessage", getLocalizedMessage(messageKey));
+    }
+
+    private String getLocalizedMessage(String messageKey) {
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale()).getString(messageKey);
+        } catch (MissingResourceException e) {
+            logger.warn("Missing localized email-management message {}; using English", messageKey);
+            return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH).getString(messageKey);
+        }
     }
 
     /**
@@ -259,11 +306,18 @@ public class ManageEmails2Action extends ActionSupport {
             return showEmailComposeError(EMAIL_RESEND_MISSING_PATIENT_ERROR);
         }
 
-        // Warn, do not block. PENDING means transport never reported back, so this message may
-        // already have reached the patient -- but it may equally have died before sending, and the
-        // admin is the only one positioned to tell. Blocking would strand a genuinely failed send.
+        // A fresh PENDING record may still be in the synchronous transport call. Waiting before
+        // exposing recovery avoids opening a duplicate while the first request is still active.
+        if (EmailStatus.PENDING.equals(emailLog.getStatus())
+                && !emailManager.isManuallyResolvable(emailLog)) {
+            return showEmailComposeError(getLocalizedMessage("admin.manageEmails.pendingTooRecent"));
+        }
+
+        // A stale PENDING record has no conclusive outcome. Warn, but let the administrator decide
+        // after checking what the patient received; otherwise a genuinely interrupted send would
+        // be stranded permanently.
         if (EmailStatus.PENDING.equals(emailLog.getStatus())) {
-            request.setAttribute("emailResendWarning", EMAIL_RESEND_PENDING_WARNING);
+            request.setAttribute("isPendingEmailResend", true);
         }
 
         int demographicNo = emailLog.getDemographic().getDemographicNo();

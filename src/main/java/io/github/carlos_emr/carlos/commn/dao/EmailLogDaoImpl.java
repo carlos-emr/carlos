@@ -146,25 +146,29 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      *   <li>Batch status updates after email processing jobs</li>
      *   <li>Error recording for failed email deliveries</li>
      *   <li>Status transitions (for example, PENDING to SUCCESS or FAILED to RESOLVED)</li>
-     *   <li>Timestamp corrections for audit purposes</li>
+     *   <li>Compare-and-set protection against concurrent status changes</li>
      * </ul>
      *
-     * <p><strong>Important:</strong> Setting errorMessage to {@code null} will explicitly clear
-     * any existing error message in the database (setting the column to NULL). This is useful
-     * when resolving previously failed emails.</p>
+     * <p><strong>Important:</strong> Setting errorMessage to {@code null} explicitly clears the
+     * database column. Manual resolution therefore passes through the existing diagnostic instead
+     * of clearing it.</p>
      *
      * @param id Integer the unique identifier of the EmailLog record to update
-     * @param status EmailLog.EmailStatus the new email status (PENDING, SUCCESS, FAILED, or RESOLVED)
+     * @param expectedStatus EmailLog.EmailStatus the status the row must currently have
+     * @param newStatus EmailLog.EmailStatus the new email status (SUCCESS, FAILED, or RESOLVED)
      * @param errorMessage String the error message to record, or {@code null} to clear existing error message
      * @param timestamp Date the timestamp to set, typically current time or email processing time
      * @return int the number of database rows updated (1 if record exists and was updated, 0 if not found)
      */
     @Override
-    public int updateEmailStatus(Integer id, EmailLog.EmailStatus status, String errorMessage, Date timestamp) {
-        String hql = "UPDATE EmailLog e SET e.status = :status, e.errorMessage = :msg, e.timestamp = :ts WHERE e.id = :id";
+    public int transitionEmailStatus(Integer id, EmailLog.EmailStatus expectedStatus,
+            EmailLog.EmailStatus newStatus, String errorMessage, Date timestamp) {
+        String hql = "UPDATE EmailLog e SET e.status = :newStatus, e.errorMessage = :msg, e.timestamp = :ts "
+                + "WHERE e.id = :id AND e.status = :expectedStatus";
         Query query = entityManager.createQuery(hql);
         query.setParameter("id", id);
-        query.setParameter("status", status);
+        query.setParameter("expectedStatus", expectedStatus);
+        query.setParameter("newStatus", newStatus);
         query.setParameter("msg", errorMessage);
         query.setParameter("ts", timestamp);
         return query.executeUpdate();

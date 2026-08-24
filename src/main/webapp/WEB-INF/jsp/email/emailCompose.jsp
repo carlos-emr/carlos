@@ -59,6 +59,7 @@
     <fmt:message key="email.compose.msg.minimumRecipient" var="emailComposeMinimumRecipient"/>
     <fmt:message key="email.compose.state.on" var="emailComposeStateOn"/>
     <fmt:message key="email.compose.state.off" var="emailComposeStateOff"/>
+    <fmt:message key="email.compose.msg.pendingResendWarning" var="emailComposePendingResendWarning"/>
 
     <title>${emailComposeTitle}</title>
 
@@ -230,6 +231,15 @@
 
         <div id="page-body">
 
+            <c:if test="${isPendingEmailResend}">
+                <div class="alert alert-warning" id="emailResendWarning" role="alert">
+                    <span class="fa-solid fa-triangle-exclamation" aria-hidden="true"></span>
+                    ${carlos:forHtml(emailComposePendingResendWarning)}
+                </div>
+                <input type="hidden" id="emailResendWarningMessage"
+                       value="${carlos:forHtmlAttribute(emailComposePendingResendWarning)}"/>
+            </c:if>
+
             <c:choose>
                 <c:when test="${transactionType eq 'EFORM'}">
                     <c:set var="emailSendAction" value="${ctx}/email/emailSendAction?method=sendEFormEmail"/>
@@ -241,7 +251,6 @@
 
             <input type="hidden" name="isEmailError" id="isEmailError" value="${isEmailError}"/>
             <input type="hidden" name="emailErrorMessage" id="emailErrorMessage" value="${emailErrorMessage}"/>
-            <input type="hidden" id="emailResendWarning" value="${carlos:forHtmlAttribute(emailResendWarning)}"/>
             <input type="hidden" name="isEmailSuccessful" id="isEmailSuccessful" value="${isEmailSuccessful}"/>
             <input type="hidden" name="emailPatientChartOption" id="emailPatientChartOption"
                    value="${carlos:forHtmlAttribute(empty param.emailPatientChartOption ? emailPatientChartOption : param.emailPatientChartOption)}"/>
@@ -638,13 +647,6 @@
             new bootstrap.Tooltip(el);
         });
 
-        // Non-terminal, unlike the error path below: a PENDING resend is allowed to proceed, so
-        // this warns and leaves the compose page open rather than closing the window.
-        const resendWarning = document.getElementById('emailResendWarning');
-        if (resendWarning && resendWarning.value) {
-            alert(resendWarning.value);
-        }
-
         // Check if any error
         if (document.getElementById('isEmailError').value === 'true') {
             // Open EForm again on sent
@@ -705,6 +707,10 @@
 
     function validateEmailForm() {
         if (!validateForm()) {
+            return false;
+        }
+        const resendWarning = document.getElementById('emailResendWarningMessage');
+        if (resendWarning && !window.confirm(resendWarning.value)) {
             return false;
         }
         ShowSpin(true);

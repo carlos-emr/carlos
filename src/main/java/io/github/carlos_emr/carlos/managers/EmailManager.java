@@ -22,10 +22,12 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
@@ -46,6 +48,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
@@ -82,16 +85,28 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 @Service
 public class EmailManager {
     private final Logger logger = MiscUtils.getLogger();
+    /** Keep recovery controls away from sends that may still be executing in another request. */
+    static final long PENDING_RESOLUTION_MIN_AGE_MILLIS = 15L * 60L * 1000L;
     static final String SENDER_CONFIG_MISCONFIGURATION_ERROR = "Email sender account is not configured or is inactive.";
     private static final String UNKNOWN_NAME_PART = "Unknown";
     private static final String SENDER_NAME_PART = "Sender";
     private static final String PATIENT_NAME_PART = "Patient";
     private static final String PROVIDER_NAME_PART = "Provider";
 
+    public enum EmailResolutionResult {
+        RESOLVED,
+        NOT_FOUND,
+        NOT_RESOLVABLE,
+        PENDING_TOO_RECENT,
+        CONFLICT
+    }
+
     @Autowired
     private EmailConfigDaoImpl emailConfigDao;
     @Autowired
     private EmailLogDaoImpl emailLogDao;
+    @Autowired
+    private OscarLogDao oscarLogDao;
     @Autowired
     private CaseManagementManager caseManagementManager;
     @Autowired
@@ -111,9 +126,9 @@ public class EmailManager {
      * This method validates access, sanitizes the email data, resolves the active sender
      * configuration, persists a {@code PENDING} outbox log for valid sender configurations,
      * optionally encrypts the content, sends the message, and updates the persisted log to
-     * {@code SUCCESS} or {@code FAILED}. A log still {@code PENDING} after this method returns
-     * means transport never reported back; that is deliberately distinct from {@code FAILED},
-     * so an interrupted send is not mistaken for one that definitely did not reach the patient.
+     * {@code SUCCESS} or {@code FAILED}. A log left {@code PENDING} means no conclusive transport
+     * outcome was recorded; that is deliberately distinct from {@code FAILED}, so an interrupted
+     * send is not mistaken for one that definitely did not reach the patient.
      * If configured to display in the patient chart, it also creates a case management note
      * documenting the email communication.
      *
@@ -145,12 +160,12 @@ public class EmailManager {
             }
             EmailSender emailSender = new EmailSender(loggedInInfo, emailLog.getEmailConfig(), emailData);
             emailSender.send();
-            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
+            emailLog = updateEmailStatus(loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
             if (emailLog.getChartDisplayOption().equals(ChartDisplayOption.WITH_FULL_NOTE)) {
                 addEmailNote(loggedInInfo, emailLog);
             }
         } catch (EmailSendingException e) {
-            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, e.getMessage());
+            emailLog = updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, e.getMessage());
             logger.error("Failed to send email", e);
         }
         return emailLog;
@@ -161,8 +176,8 @@ public class EmailManager {
      *
      * This method creates a comprehensive email log record that captures all email metadata,
      * configuration, and content. The email log is initially created with {@code PENDING} status
-     * and neutral placeholder text, then updated to {@code SUCCESS} once transport confirms
-     * delivery, or to {@code FAILED} if the send raises. The initial state is deliberately not
+     * and no failure detail, then updated to {@code SUCCESS} once the configured transport accepts
+     * the send, or to {@code FAILED} if the send raises. The initial state is deliberately not
      * {@code FAILED}: the post-send status write can itself fail, and a row left saying FAILED
      * for a message that actually went out invites a duplicate resend.
      *
@@ -204,10 +219,9 @@ public class EmailManager {
         emailLog.setChartDisplayOption(emailData.getChartDisplayOption());
         emailLog.setInternalComment(emailData.getInternalComment());
         emailLog.setTransactionType(emailData.getTransactionType());
-        // Neutral by design. The row is PENDING until transport reports back, so this text must
-        // not assert failure: if the post-send status write never lands, this is what an admin
-        // reads, and "failed" would invite resending a message the patient already received.
-        emailLog.setErrorMessage("Email send is in progress; delivery has not been confirmed yet.");
+        // PENDING is self-describing; the admin UI supplies a localized explanation. Do not store
+        // prose that becomes stale or falsely claims an interrupted send is still in progress.
+        emailLog.setErrorMessage(null);
         emailLog.setAdditionalParams(emailData.getAdditionalParams());
         emailLog.setDemographic(demographic);
         emailLog.setProvider(provider);
@@ -251,38 +265,69 @@ public class EmailManager {
     }
 
     /**
-     * Updates the status of an email log entry by ID.
-     *
-     * This is a convenience method that loads the email log by ID and delegates to the
-     * main status update method. It is useful when only the email log ID is available.
-     *
-     * @param loggedInInfo LoggedInInfo the logged-in user session information
-     * @param emailLogId Integer the unique identifier of the email log entry to update
-     * @param emailStatus EmailStatus the new status to set (SUCCESS, FAILED, RESOLVED, etc.)
-     * @param errorMessage String the error message to store, empty string if no error
-     * @return EmailLog the updated email log entry with new status and timestamp
-     * @throws RuntimeException if user lacks _email WRITE privilege
+     * Manually resolves a failed or stale-unconfirmed email without destroying its original
+     * diagnostic or send timestamp. The compare-and-set update prevents a stale admin page from
+     * overwriting a transport result committed by another request.
      */
-    public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, Integer emailLogId, EmailStatus emailStatus, String errorMessage) {
+    @Transactional
+    public EmailResolutionResult resolveEmailStatus(LoggedInInfo loggedInInfo, Integer emailLogId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required sec object (_email)");
         }
 
         EmailLog emailLog = emailLogDao.find(emailLogId);
-        return updateEmailStatus(loggedInInfo, emailLog, emailStatus, errorMessage);
+        if (emailLog == null) {
+            return EmailResolutionResult.NOT_FOUND;
+        }
+        if (EmailStatus.PENDING.equals(emailLog.getStatus()) && !isManuallyResolvable(emailLog)) {
+            return EmailResolutionResult.PENDING_TOO_RECENT;
+        }
+        if (!isManuallyResolvable(emailLog)) {
+            return EmailResolutionResult.NOT_RESOLVABLE;
+        }
+
+        EmailStatus previousStatus = emailLog.getStatus();
+        int updatedRows = emailLogDao.transitionEmailStatus(
+                emailLog.getId(), previousStatus, EmailStatus.RESOLVED,
+                emailLog.getErrorMessage(), emailLog.getTimestamp());
+        if (updatedRows != 1) {
+            return EmailResolutionResult.CONFLICT;
+        }
+
+        emailLog.setStatus(EmailStatus.RESOLVED);
+        persistEmailAuditEvent(loggedInInfo, "EmailManager.resolveEmailStatus", emailLog,
+                "previousStatus=" + previousStatus + "; diagnosticPreserved="
+                        + (emailLog.getErrorMessage() != null));
+        return EmailResolutionResult.RESOLVED;
+    }
+
+    /**
+     * Failed sends are immediately reviewable. PENDING sends become reviewable only after a
+     * conservative delay, which avoids racing the normal synchronous transport request.
+     */
+    public boolean isManuallyResolvable(EmailLog emailLog) {
+        if (emailLog == null) {
+            return false;
+        }
+        if (EmailStatus.FAILED.equals(emailLog.getStatus())) {
+            return true;
+        }
+        return EmailStatus.PENDING.equals(emailLog.getStatus())
+                && emailLog.getTimestamp() != null
+                && emailLog.getTimestamp().getTime()
+                        <= System.currentTimeMillis() - PENDING_RESOLUTION_MIN_AGE_MILLIS;
     }
 
     /**
      * Updates the status of an email log entry with new status and error message.
      *
-     * This method updates the email log status in both the database and the in-memory object.
-     * The timestamp is updated to the current time for status changes, but preserved when
-     * resolving an issue (RESOLVED status) to maintain the original send time.
+     * This method completes a transport lifecycle transition using a compare-and-set database
+     * update. Only PENDING to SUCCESS or FAILED is valid; a concurrent manual resolution is not
+     * overwritten.
      *
      * Common status values:
      * - SUCCESS: Email sent successfully
      * - FAILED: Email transmission failed
-     * - RESOLVED: Issue with email has been resolved by user
      *
      * @param loggedInInfo LoggedInInfo the logged-in user session information
      * @param emailLog EmailLog the email log entry to update
@@ -290,15 +335,50 @@ public class EmailManager {
      * @param errorMessage String the error message to store, empty string if no error
      * @return EmailLog the updated email log entry with new status and timestamp
      * @throws RuntimeException if user lacks _email WRITE privilege
+     * @throws IllegalStateException if the requested lifecycle transition is invalid or the
+     *         persisted row disappeared during a concurrent update
      */
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required security object (_email)");
         }
 
-        Date newTimestamp = (!emailStatus.equals(EmailStatus.RESOLVED)) ? new Date() : emailLog.getTimestamp();
+        if (emailLog == null) {
+            throw new IllegalArgumentException("emailLog must not be null");
+        }
+        EmailStatus previousStatus = emailLog.getStatus();
+        if (!EmailStatus.PENDING.equals(previousStatus)
+                || !(EmailStatus.SUCCESS.equals(emailStatus) || EmailStatus.FAILED.equals(emailStatus))) {
+            throw new IllegalStateException("Invalid email transport status transition from "
+                    + previousStatus + " to " + emailStatus);
+        }
 
-        emailLogDao.updateEmailStatus(emailLog.getId(), emailStatus, errorMessage, newTimestamp);
+        Date newTimestamp = new Date();
+        int updatedRows = emailLogDao.transitionEmailStatus(
+                emailLog.getId(), previousStatus, emailStatus, errorMessage, newTimestamp);
+        if (updatedRows != 1) {
+            EmailLog persistedEmailLog = emailLogDao.find(emailLog.getId());
+            if (persistedEmailLog == null) {
+                throw new IllegalStateException("Email log disappeared during status transition: "
+                        + emailLog.getId());
+            }
+            logger.warn("Email status transition {} -> {} lost a concurrent update for emailLogId={}; persisted status is {}",
+                    previousStatus, emailStatus, emailLog.getId(), persistedEmailLog.getStatus());
+            if (EmailStatus.RESOLVED.equals(persistedEmailLog.getStatus())) {
+                // Admin-audit-only for now: keep the conclusive transport result without
+                // overwriting the administrator's RESOLVED decision or its original diagnostic.
+                // TODO: If operators need this in the email-management workflow, expose these
+                // events through EmailStatusResult and render a separate outcome/history field.
+                persistEmailAuditEvent(loggedInInfo,
+                        "EmailManager.transportOutcomeAfterResolution", persistedEmailLog,
+                        "transportOutcome=" + emailStatus + "; diagnostic="
+                                + nullToEmpty(errorMessage));
+            }
+            emailLog.setStatus(persistedEmailLog.getStatus());
+            emailLog.setErrorMessage(persistedEmailLog.getErrorMessage());
+            emailLog.setTimestamp(persistedEmailLog.getTimestamp());
+            return emailLog;
+        }
 
         // Update object in memory so caller still has the right values
         emailLog.setStatus(emailStatus);
@@ -306,6 +386,31 @@ public class EmailManager {
         emailLog.setTimestamp(newTimestamp);
 
         return emailLog;
+    }
+
+    /**
+     * Persists audit events synchronously. Callers that mutate an email in a transaction rely on
+     * failures propagating so the mutation cannot commit without its corresponding audit record.
+     */
+    private void persistEmailAuditEvent(LoggedInInfo loggedInInfo, String action,
+            EmailLog emailLog, String data) {
+        OscarLog auditLog = new OscarLog();
+        if (loggedInInfo.getLoggedInSecurity() != null) {
+            auditLog.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+        }
+        if (loggedInInfo.getLoggedInProvider() != null) {
+            auditLog.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        }
+        auditLog.setAction(action);
+        auditLog.setContent("Email");
+        auditLog.setContentId(String.valueOf(emailLog.getId()));
+        auditLog.setIp(loggedInInfo.getIp());
+        if (emailLog.getDemographic() != null
+                && emailLog.getDemographic().getDemographicNo() != null) {
+            auditLog.setDemographicId(emailLog.getDemographic().getDemographicNo());
+        }
+        auditLog.setData(data);
+        oscarLogDao.persist(auditLog);
     }
 
     /**
@@ -615,6 +720,7 @@ public class EmailManager {
                     getSenderLastName(emailConfig), nullToEmpty(result.getFromEmail()), getDemographicFirstName(demographic),
                     getDemographicLastName(demographic), String.join(", ", result.getToEmail()), getProviderFirstName(provider), getProviderLastName(provider),
                     result.getIsEncrypted(), result.getPassword(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
+            emailStatusResult.setResolvable(isManuallyResolvable(result));
             emailStatusResults.add(emailStatusResult);
         }
         Collections.sort(emailStatusResults);

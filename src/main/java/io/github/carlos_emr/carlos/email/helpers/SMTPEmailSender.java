@@ -53,6 +53,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * @since 2026-01-24
  */
 public class SMTPEmailSender {
+    static final int SMTP_CONNECTION_TIMEOUT_MILLIS = 30_000;
+    static final int SMTP_IO_TIMEOUT_MILLIS = 60_000;
+
     private final Logger logger = MiscUtils.getLogger();
     private LoggedInInfo loggedInInfo;
 
@@ -171,12 +174,24 @@ public class SMTPEmailSender {
             properties.put("mail.smtp.starttls.required", "true");
             properties.put("mail.smtp.ssl.protocols", "TLSv1.2");
             properties.put("mail.debug", "false");
+            applySmtpTimeouts(properties);
 
             mailSender.setJavaMailProperties(properties);
         } catch (IOException e) {
             throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail(), e);
         }
         return mailSender;
+    }
+
+    /**
+     * Prevents an unreachable or unresponsive SMTP server from holding a request indefinitely.
+     * Jakarta Mail expects these timeout values in milliseconds.
+     */
+    static void applySmtpTimeouts(Properties properties) {
+        properties.put("mail.smtp.connectiontimeout",
+                String.valueOf(SMTP_CONNECTION_TIMEOUT_MILLIS));
+        properties.put("mail.smtp.timeout", String.valueOf(SMTP_IO_TIMEOUT_MILLIS));
+        properties.put("mail.smtp.writetimeout", String.valueOf(SMTP_IO_TIMEOUT_MILLIS));
     }
 
     /**

@@ -6,20 +6,27 @@
 package io.github.carlos_emr.carlos.managers;
 
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
@@ -29,11 +36,14 @@ import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -41,6 +51,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -54,6 +67,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     private EmailManager emailManager;
     private EmailConfigDaoImpl emailConfigDao;
     private EmailLogDaoImpl emailLogDao;
+    private OscarLogDao oscarLogDao;
     private DemographicManager demographicManager;
     private ProviderManager2 providerManager;
     private SecurityInfoManager securityInfoManager;
@@ -65,6 +79,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     void setUp() {
         emailConfigDao = mock(EmailConfigDaoImpl.class);
         emailLogDao = mock(EmailLogDaoImpl.class);
+        oscarLogDao = mock(OscarLogDao.class);
         demographicManager = mock(DemographicManager.class);
         providerManager = mock(ProviderManager2.class);
         securityInfoManager = mock(SecurityInfoManager.class);
@@ -80,6 +95,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         emailManager = new EmailManager();
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
+        injectDependency(emailManager, "oscarLogDao", oscarLogDao);
         injectDependency(emailManager, "caseManagementManager", mock(CaseManagementManager.class));
         injectDependency(emailManager, "demographicManager", demographicManager);
         injectDependency(emailManager, "documentAttachmentManager", mock(DocumentAttachmentManager.class));
@@ -91,6 +107,9 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(demographicManager.getDemographic(loggedInInfo, 123)).thenReturn(demographic);
         when(providerManager.getProvider(loggedInInfo, "999998")).thenReturn(provider);
+        when(emailLogDao.transitionEmailStatus(
+                nullable(Integer.class), any(EmailStatus.class), any(EmailStatus.class),
+                nullable(String.class), any(Date.class))).thenReturn(1);
     }
 
     @Test
@@ -190,6 +209,229 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should persist pending before transport and record success afterward")
+    void shouldPersistPendingBeforeTransport_andRecordSuccessAfterward() throws EmailSendingException {
+        EmailData emailData = emailData(123);
+        when(emailConfigDao.findActiveEmailConfigById(123)).thenReturn(activeSenderConfig());
+        doAnswer(invocation -> {
+            EmailLog persisted = invocation.getArgument(0);
+            assertThat(persisted.getStatus()).isEqualTo(EmailStatus.PENDING);
+            assertThat(persisted.getErrorMessage()).isNull();
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+
+        EmailLog result;
+        try (MockedConstruction<EmailSender> emailSenders = mockConstruction(EmailSender.class)) {
+            result = emailManager.sendEmail(loggedInInfo, emailData);
+
+            assertThat(emailSenders.constructed()).hasSize(1);
+            org.mockito.InOrder lifecycle = inOrder(emailLogDao, emailSenders.constructed().get(0));
+            lifecycle.verify(emailLogDao).persist(any(EmailLog.class));
+            lifecycle.verify(emailSenders.constructed().get(0)).send();
+            lifecycle.verify(emailLogDao).transitionEmailStatus(
+                    nullable(Integer.class), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS),
+                    eq(""), any(Date.class));
+        }
+
+        assertThat(result.getStatus()).isEqualTo(EmailStatus.SUCCESS);
+    }
+
+    @Test
+    @DisplayName("should record failed when transport reports a send failure")
+    void shouldRecordFailed_whenTransportReportsFailure() {
+        EmailData emailData = emailData(123);
+        when(emailConfigDao.findActiveEmailConfigById(123)).thenReturn(activeSenderConfig());
+        doAnswer(invocation -> {
+            assertThat(((EmailLog) invocation.getArgument(0)).getStatus())
+                    .isEqualTo(EmailStatus.PENDING);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+
+        EmailLog result;
+        try (MockedConstruction<EmailSender> ignored = mockConstruction(
+                EmailSender.class,
+                (sender, context) -> doThrow(new EmailSendingException("transport failed"))
+                        .when(sender).send())) {
+            result = emailManager.sendEmail(loggedInInfo, emailData);
+        }
+
+        assertThat(result.getStatus()).isEqualTo(EmailStatus.FAILED);
+        assertThat(result.getErrorMessage()).isEqualTo("transport failed");
+        verify(emailLogDao).transitionEmailStatus(
+                nullable(Integer.class), eq(EmailStatus.PENDING), eq(EmailStatus.FAILED),
+                eq("transport failed"), any(Date.class));
+    }
+
+    @Test
+    @DisplayName("should remain pending when success status cannot be persisted")
+    void shouldRemainPending_whenSuccessStatusWriteFails() {
+        EmailData emailData = emailData(123);
+        when(emailConfigDao.findActiveEmailConfigById(123)).thenReturn(activeSenderConfig());
+        AtomicReference<EmailLog> persistedLog = new AtomicReference<>();
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.PENDING);
+            persistedLog.set(emailLog);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        doThrow(new IllegalStateException("database unavailable"))
+                .when(emailLogDao).transitionEmailStatus(
+                        nullable(Integer.class), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS),
+                        eq(""), any(Date.class));
+
+        try (MockedConstruction<EmailSender> ignored = mockConstruction(EmailSender.class)) {
+            assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("database unavailable");
+        }
+
+        assertThat(persistedLog.get()).isNotNull();
+        assertThat(persistedLog.get().getStatus()).isEqualTo(EmailStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("should resolve failed email atomically while preserving diagnostic and auditing actor")
+    void shouldResolveFailedEmail_atomicallyAndWithAudit() {
+        EmailLog failed = mock(EmailLog.class);
+        Date originalTimestamp = new Date(1_700_000_000_000L);
+        when(failed.getId()).thenReturn(42);
+        when(failed.getStatus()).thenReturn(EmailStatus.FAILED);
+        when(failed.getErrorMessage()).thenReturn("SMTP 550 rejected");
+        when(failed.getTimestamp()).thenReturn(originalTimestamp);
+        when(failed.getDemographic()).thenReturn(demographic);
+        when(emailLogDao.find((Object) 42)).thenReturn(failed);
+
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .isEqualTo(EmailManager.EmailResolutionResult.RESOLVED);
+
+        verify(emailLogDao).transitionEmailStatus(
+                42, EmailStatus.FAILED, EmailStatus.RESOLVED,
+                "SMTP 550 rejected", originalTimestamp);
+        verify(failed).setStatus(EmailStatus.RESOLVED);
+        ArgumentCaptor<OscarLog> auditCaptor = ArgumentCaptor.forClass(OscarLog.class);
+        verify(oscarLogDao).persist(auditCaptor.capture());
+        OscarLog audit = auditCaptor.getValue();
+        assertThat(audit.getAction()).isEqualTo("EmailManager.resolveEmailStatus");
+        assertThat(audit.getContent()).isEqualTo("Email");
+        assertThat(audit.getContentId()).isEqualTo("42");
+        assertThat(audit.getDemographicId()).isEqualTo(123);
+        assertThat(audit.getData())
+                .isEqualTo("previousStatus=FAILED; diagnosticPreserved=true");
+    }
+
+    @Test
+    @DisplayName("should declare resolution transactional and propagate audit failures")
+    void shouldDeclareResolutionTransactional_andPropagateAuditFailure() throws NoSuchMethodException {
+        assertThat(EmailManager.class.getMethod(
+                "resolveEmailStatus", LoggedInInfo.class, Integer.class)
+                .getAnnotation(Transactional.class)).isNotNull();
+
+        EmailLog failed = mock(EmailLog.class);
+        when(failed.getId()).thenReturn(42);
+        when(failed.getStatus()).thenReturn(EmailStatus.FAILED);
+        when(failed.getTimestamp()).thenReturn(new Date());
+        when(emailLogDao.find((Object) 42)).thenReturn(failed);
+        doThrow(new IllegalStateException("audit unavailable"))
+                .when(oscarLogDao).persist(any(OscarLog.class));
+
+        assertThatThrownBy(() -> emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("audit unavailable");
+    }
+
+    @Test
+    @DisplayName("should distinguish missing, active, and conclusive records during resolution")
+    void shouldRejectResolution_whenRecordIsMissingActiveOrConclusive() {
+        when(emailLogDao.find((Object) 42)).thenReturn(null);
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .isEqualTo(EmailManager.EmailResolutionResult.NOT_FOUND);
+
+        EmailLog active = mock(EmailLog.class);
+        when(active.getStatus()).thenReturn(EmailStatus.PENDING);
+        when(active.getTimestamp()).thenReturn(new Date());
+        when(emailLogDao.find((Object) 43)).thenReturn(active);
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 43))
+                .isEqualTo(EmailManager.EmailResolutionResult.PENDING_TOO_RECENT);
+
+        EmailLog successful = mock(EmailLog.class);
+        when(successful.getStatus()).thenReturn(EmailStatus.SUCCESS);
+        when(emailLogDao.find((Object) 44)).thenReturn(successful);
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 44))
+                .isEqualTo(EmailManager.EmailResolutionResult.NOT_RESOLVABLE);
+
+        verify(emailLogDao, never()).transitionEmailStatus(
+                anyInt(), any(EmailStatus.class), any(EmailStatus.class),
+                nullable(String.class), any(Date.class));
+    }
+
+    @Test
+    @DisplayName("should expose recovery only after a pending record is stale")
+    void shouldAllowResolution_whenPendingRecordIsStale() {
+        EmailLog fresh = mock(EmailLog.class);
+        when(fresh.getStatus()).thenReturn(EmailStatus.PENDING);
+        when(fresh.getTimestamp()).thenReturn(new Date());
+
+        EmailLog stale = mock(EmailLog.class);
+        when(stale.getStatus()).thenReturn(EmailStatus.PENDING);
+        when(stale.getTimestamp()).thenReturn(new Date(
+                System.currentTimeMillis() - EmailManager.PENDING_RESOLUTION_MIN_AGE_MILLIS - 1));
+
+        assertThat(emailManager.isManuallyResolvable(fresh)).isFalse();
+        assertThat(emailManager.isManuallyResolvable(stale)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should report conflict when compare-and-set resolution loses a race")
+    void shouldReportConflict_whenResolutionLosesRace() {
+        EmailLog failed = mock(EmailLog.class);
+        when(failed.getId()).thenReturn(42);
+        when(failed.getStatus()).thenReturn(EmailStatus.FAILED);
+        when(failed.getTimestamp()).thenReturn(new Date());
+        when(emailLogDao.find((Object) 42)).thenReturn(failed);
+        when(emailLogDao.transitionEmailStatus(
+                eq(42), eq(EmailStatus.FAILED), eq(EmailStatus.RESOLVED),
+                nullable(String.class), any(Date.class))).thenReturn(0);
+
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .isEqualTo(EmailManager.EmailResolutionResult.CONFLICT);
+
+        verify(failed, never()).setStatus(EmailStatus.RESOLVED);
+    }
+
+    @Test
+    @DisplayName("should not overwrite a concurrent manual resolution with transport completion")
+    void shouldKeepPersistedStatus_whenTransportTransitionLosesRace() {
+        EmailLog sending = mock(EmailLog.class);
+        when(sending.getId()).thenReturn(42);
+        when(sending.getStatus()).thenReturn(EmailStatus.PENDING);
+        EmailLog resolved = mock(EmailLog.class);
+        when(resolved.getId()).thenReturn(42);
+        when(resolved.getStatus()).thenReturn(EmailStatus.RESOLVED);
+        when(resolved.getErrorMessage()).thenReturn("original diagnostic");
+        Date resolvedTimestamp = new Date(1_700_000_000_000L);
+        when(resolved.getTimestamp()).thenReturn(resolvedTimestamp);
+        when(emailLogDao.transitionEmailStatus(
+                eq(42), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS),
+                eq(""), any(Date.class))).thenReturn(0);
+        when(emailLogDao.find((Object) 42)).thenReturn(resolved);
+
+        EmailLog result = emailManager.updateEmailStatus(
+                loggedInInfo, sending, EmailStatus.SUCCESS, "");
+
+        assertThat(result).isSameAs(sending);
+        verify(sending).setStatus(EmailStatus.RESOLVED);
+        verify(sending).setErrorMessage("original diagnostic");
+        verify(sending).setTimestamp(resolvedTimestamp);
+        ArgumentCaptor<OscarLog> auditCaptor = ArgumentCaptor.forClass(OscarLog.class);
+        verify(oscarLogDao).persist(auditCaptor.capture());
+        assertThat(auditCaptor.getValue().getAction())
+                .isEqualTo("EmailManager.transportOutcomeAfterResolution");
+        assertThat(auditCaptor.getValue().getContentId()).isEqualTo("42");
+        assertThat(auditCaptor.getValue().getData())
+                .isEqualTo("transportOutcome=SUCCESS; diagnostic=");
+    }
+
+    @Test
     @DisplayName("should return email status result when sender config association is missing")
     void shouldReturnEmailStatusResult_whenSenderConfigAssociationIsMissing() {
         EmailLog emailLog = new EmailLog(null, "", new String[] {"recipient@example.invalid"}, "Subject", "Body", EmailStatus.FAILED);
@@ -254,6 +496,15 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(result.getStatus()).isEqualTo(EmailStatus.FAILED);
         assertThat(result.getErrorMessage()).isEqualTo(EmailManager.SENDER_CONFIG_MISCONFIGURATION_ERROR);
         assertThat(result.getEmailConfig()).isNull();
+    }
+
+    private EmailConfig activeSenderConfig() {
+        EmailConfig emailConfig = new EmailConfig(
+                EmailConfig.EmailType.SMTP,
+                EmailConfig.EmailProvider.LOCAL,
+                "sender@example.invalid");
+        emailConfig.setActive(true);
+        return emailConfig;
     }
 
     private EmailData emailData(Integer senderConfigId) {

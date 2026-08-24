@@ -1,10 +1,16 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:if test="${not empty emailValidationError}">
 <div class="alert alert-danger mt-1" role="alert">${carlos:forHtml(emailValidationError)}</div>
 </c:if>
 <c:forEach items="${ emailStatusResults }" var="emailStatusResult" varStatus="loop">
+<c:set var="emailStatusDetail" value="${emailStatusResult.errorMessage}"/>
+<c:if test="${emailStatusResult.status eq 'PENDING' and empty emailStatusDetail}">
+    <fmt:message key="admin.manageEmails.pendingDetail" var="emailStatusDetail"/>
+</c:if>
 <!-- Email Card -->
 <div class="card email-status-card mt-1">
     <div class="card-body vertical-status-divider vertical-status-divider-${fn:toLowerCase(emailStatusResult.status)}" id="cardBody${emailStatusResult.logId}">
@@ -39,8 +45,8 @@
         <table class="table table-borderless">
             <tr>
                 <td class="status-and-date">
-                    <div class="status-tag status-tag-${fn:toLowerCase(emailStatusResult.status)}" id="emailStatus${emailStatusResult.logId}" 
-                        ${ empty emailStatusResult.errorMessage ? '' : "data-bs-toggle='popover'" } data-bs-trigger='hover click' data-bs-content="${carlos:forHtmlAttribute(emailStatusResult.errorMessage)}">
+                    <div class="status-tag status-tag-${fn:toLowerCase(emailStatusResult.status)}" id="emailStatus${emailStatusResult.logId}"
+                        ${ empty emailStatusDetail ? '' : "data-bs-toggle='popover'" } data-bs-trigger='hover click' data-bs-content="${carlos:forHtmlAttribute(emailStatusDetail)}">
                         ${carlos:forHtml(emailStatusResult.status)}
                     </div>
                     <div class="date-time text-muted">
@@ -51,10 +57,12 @@
                     </div>
                 </td>
                 <td class="action-menu">
-                    <c:if test="${emailStatusResult.status eq 'FAILED'}">
+                    <c:if test="${canResolveEmails and emailStatusResult.resolvable}">
                         <button type="button" class="btn btn-outline-secondary btnResolve" id="btnResolve${emailStatusResult.logId}" onclick="resolve('${emailStatusResult.logId}')"><i class="fa-solid fa-circle-check"></i> Resolve</button>
                     </c:if>
-                    <button type="button" class="btn btn-success btnResend" id="btnResend${emailStatusResult.logId}" onclick="resend('${emailStatusResult.logId}')"><i class="fa-solid fa-envelope"></i> Copy and Open as New Email to Patient</button>
+                    <c:if test="${emailStatusResult.status ne 'PENDING' or emailStatusResult.resolvable}">
+                        <button type="button" class="btn btn-success btnResend" id="btnResend${emailStatusResult.logId}" onclick="resend('${emailStatusResult.logId}')"><i class="fa-solid fa-envelope"></i> Copy and Open as New Email to Patient</button>
+                    </c:if>
                 </td>
             </tr>
         </table>

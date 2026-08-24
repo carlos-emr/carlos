@@ -117,9 +117,11 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
                 .thenReturn(false);
 
-        for (String method : new String[]{"resendEmail", "fetchEmails", null}) {
+        for (String method : new String[]{"resendEmail", "fetchEmails", "setResolved", null}) {
             if (method != null) {
                 request.setParameter("method", method);
+            } else {
+                request.removeParameter("method");
             }
             request.setParameter("logId", "42");
 
@@ -132,6 +134,122 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         // Refused before anything reads or renders patient data.
         verifyNoInteractions(emailComposeManager, demographicManager, emailManager,
                 documentAttachmentManager, formsManager);
+    }
+
+    @Test
+    @DisplayName("should tell results view whether resolution controls are authorized")
+    void shouldHideResolutionControls_withoutEmailWritePrivilege() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
+                .thenReturn(false);
+
+        assertThat(new ManageEmails2Action().fetchEmails()).isEqualTo("emailstatus");
+
+        assertThat(request.getAttribute("canResolveEmails")).isEqualTo(false);
+    }
+
+    @Test
+    @DisplayName("should dispatch POST setResolved and confirm persistence with no-content response")
+    void shouldDispatchSetResolved_whenPostRequestIsValid() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
+                .thenReturn(true);
+        request.setMethod("POST");
+        request.setParameter("method", "setResolved");
+        request.setParameter("logId", "42");
+        when(emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .thenReturn(EmailManager.EmailResolutionResult.RESOLVED);
+
+        String result = new ManageEmails2Action().execute();
+
+        assertThat(result).isNull();
+        assertThat(response.getStatus()).isEqualTo(204);
+        verify(emailManager).resolveEmailStatus(loggedInInfo, 42);
+    }
+
+    @Test
+    @DisplayName("should return not found when resolving a deleted email log")
+    void shouldReturnNotFound_whenResolvedEmailNoLongerExists() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
+                .thenReturn(true);
+        when(emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .thenReturn(EmailManager.EmailResolutionResult.NOT_FOUND);
+        request.setMethod("POST");
+        request.setParameter("method", "setResolved");
+        request.setParameter("logId", "42");
+
+        assertThat(new ManageEmails2Action().execute()).isNull();
+
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(response.getContentType()).contains("application/json");
+    }
+
+    @Test
+    @DisplayName("should return conflict when an email changed before resolution")
+    void shouldReturnConflict_whenResolutionLosesConcurrentTransition() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
+                .thenReturn(true);
+        when(emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .thenReturn(EmailManager.EmailResolutionResult.CONFLICT);
+        request.setMethod("POST");
+        request.setParameter("method", "setResolved");
+        request.setParameter("logId", "42");
+
+        assertThat(new ManageEmails2Action().execute()).isNull();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+    }
+
+    @Test
+    @DisplayName("should forbid resolution without email write privilege")
+    void shouldForbidResolution_withoutEmailWritePrivilege() throws Exception {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
+                .thenReturn(false);
+        request.setMethod("POST");
+        request.setParameter("method", "setResolved");
+        request.setParameter("logId", "42");
+
+        assertThat(new ManageEmails2Action().execute()).isNull();
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentType()).contains("application/json");
+        assertThat(response.getContentAsString()).contains("permission");
+        verifyNoInteractions(emailManager);
+    }
+
+    @Test
+    @DisplayName("should reject setResolved over GET without updating email status")
+    void shouldRejectSetResolved_whenRequestIsGet() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setMethod("GET");
+        request.setParameter("method", "setResolved");
+        request.setParameter("logId", "42");
+
+        String result = new ManageEmails2Action().execute();
+
+        assertThat(result).isNull();
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(emailManager);
     }
 
     @Test
@@ -157,24 +275,41 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should warn but still compose when resending an email still recorded as pending")
     void shouldWarnButStillCompose_whenResendingPendingEmail() {
-        // Warn, not block. A PENDING row means transport never reported back, so the message may
-        // already have reached the patient -- or may have died before sending. The admin decides.
+        // Warn, not block. A PENDING row has no recorded outcome, so the message may already have
+        // reached the patient -- or may have died before sending. The admin decides.
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
                 .thenReturn(true);
         request.setParameter("logId", "42");
         stubComposeLookups(loggedInInfo);
-        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(pendingEmailLog());
+        EmailLog pending = pendingEmailLog();
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(pending);
+        when(emailManager.isManuallyResolvable(pending)).thenReturn(true);
 
         String result = new ManageEmails2Action().resendEmail();
 
         assertThat(result).isEqualTo("compose");
-        assertThat(request.getAttribute("emailResendWarning")).asString()
-                .contains("may already have reached the patient")
-                .contains("duplicate");
+        assertThat(request.getAttribute("isPendingEmailResend")).isEqualTo(true);
         // Warning only: this must not take the terminal error path, which closes the window.
         assertThat(request.getAttribute("isEmailError")).isNull();
+    }
+
+    @Test
+    @DisplayName("should block copying a fresh pending email for resend")
+    void shouldBlockResend_whenPendingEmailMayStillBeSending() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        request.setParameter("logId", "42");
+        EmailLog pending = pendingEmailLog();
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(pending);
+        when(emailManager.isManuallyResolvable(pending)).thenReturn(false);
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
+
+        assertThat(request.getAttribute("isEmailError")).isEqualTo(true);
+        assertThat(request.getAttribute("isPendingEmailResend")).isNull();
+        verifyNoInteractions(demographicManager, documentAttachmentManager, formsManager);
     }
 
     @Test
@@ -193,7 +328,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(failed);
 
         assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
-        assertThat(request.getAttribute("emailResendWarning")).isNull();
+        assertThat(request.getAttribute("isPendingEmailResend")).isNull();
     }
 
     /** Stubs the lookups resendEmail() fans out to once it has a usable log. */
