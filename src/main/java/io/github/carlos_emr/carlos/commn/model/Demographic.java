@@ -1795,6 +1795,174 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
     }
 
+    public String getStandardIdentificationHTML(String contextPath) {
+        //TODO move this into the DemographicManager as a property modifier and wrap each item with setting preferences
+        StringBuilder sb = new StringBuilder();
+        ResourceBundle carlosRes = getResourceBundle(LocaleContextHolder.getLocale());
+
+        sb.append("<div id='patient-label'>");
+        sb.append("<div id='patient-full-name'>");
+        String editHref = contextPath + "/demographic/DemographicEdit?demographic_no="
+                + SafeEncode.forUriComponent(String.valueOf(getDemographicNo()));
+        sb.append("<h1><a href='").append(SafeEncode.forHtmlAttribute(editHref));
+        sb.append("' target='_blank'>");
+
+        if (getTitle() != null && getTitle().length() > 0) {
+            sb.append(SafeEncode.forHtmlContent(getTitle()));
+            sb.append(" ");
+        }
+
+        sb.append(SafeEncode.forHtmlContent(getFormattedName()));
+        sb.append("</a></h1>");
+        sb.append("</div>");
+
+        //--> pronouns
+        if (getPronoun() != null && !getPronoun().isEmpty()) {
+            sb.append("<div id='patient-pronouns'>");
+            sb.append("<div class='label'>");
+            String pronouns = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPronouns", "Pronouns");
+            sb.append(pronouns);
+            sb.append("</div>");
+            sb.append(SafeEncode.forHtmlContent(getPronoun()));
+            sb.append("</div>");
+        }
+
+        //--> sex
+        sb.append("<div id='patient-sex'>");
+        sb.append("<div class='label'>");
+        String sexLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formSex", "Sex");
+        sb.append(sexLabel);
+        sb.append("</div>");
+        sb.append(SafeEncode.forHtmlContent(getSex()));
+        sb.append("</div>");
+
+        //--> gender
+        if (getGender() != null && !getGender().isEmpty()) {
+            sb.append("<div id='patient-gender'>");
+            sb.append("<div class='label'>");
+            String genderLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formGender", "Gender");
+            sb.append(genderLabel);
+            sb.append("</div>");
+            sb.append(SafeEncode.forHtmlContent(getGender()));
+            sb.append("</div>");
+        }
+
+        //--> Birthdate
+        sb.append("<div id='patient-dob'>");
+        sb.append("<div class='label'>");
+        String dob = getRes(carlosRes, "demographic.demographicaddrecordhtm.formDOB", "DOB");
+        sb.append(dob);
+        sb.append("</div>");
+        sb.append(SafeEncode.forHtmlContent(getBirthDayAsString()));
+        sb.append("</div>");
+
+        //--> age
+        sb.append("<div id='patient-age'>");
+        sb.append("<div class='label'>");
+        String age = getRes(carlosRes, "global.age", "Age");
+        sb.append(age);
+        sb.append("</div>");
+        sb.append(SafeEncode.forHtmlContent(getAgeAsOf(new Date())));
+        sb.append("</div>");
+
+        //--> Insurance number
+        if (getHin() != null && getHin().length() > 0) {
+            sb.append("<div id='patient-hin' class='copyable' onclick=\"copyToClip('")
+                    .append(SafeEncode.forHtmlAttribute(SafeEncode.forJavaScript(getHin())))
+                    .append("',this)\">");
+            sb.append("<div class='label'>");
+            String hinLabel = getRes(carlosRes, "demographic.patient.context.hin", "HIN");
+            sb.append(hinLabel);
+			sb.append(" (");
+            sb.append(SafeEncode.forHtmlContent(getHcType()));
+			sb.append(")</div>");
+			sb.append(SafeEncode.forHtmlContent(getHin()));
+			sb.append("&nbsp;");
+			sb.append(SafeEncode.forHtmlContent(getVer()));
+            sb.append("</div>");
+        }
+
+        //--> phone
+        if (getPhone() != null && !getPhone().isEmpty()) {
+            sb.append("<div id='patient-phone' class='copyable' title='")
+                    .append(SafeEncode.forHtmlAttribute(getPhoneComment()))
+                    .append("' onclick=\"copyToClip('")
+                    .append(SafeEncode.forHtmlAttribute(SafeEncode.forJavaScript(getPhone())))
+                    .append("',this)\">");
+            sb.append("<div class='label'>");
+            String phoneLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPhone", "Phone");
+            sb.append(phoneLabel);
+            sb.append("</div>");
+            sb.append(SafeEncode.forHtmlContent(getPhone()));
+            sb.append("</div>");
+        }
+
+        //--> cell phone
+        if (getCellPhone() != null && !getCellPhone().isEmpty()) {
+            sb.append("<div id='patient-cell-phone' class='copyable' title='")
+                    .append(SafeEncode.forHtmlAttribute(getPhoneComment()))
+                    .append("' onclick=\"copyToClip('")
+                    .append(SafeEncode.forHtmlAttribute(SafeEncode.forJavaScript(getCellPhone())))
+                    .append("',this)\">");
+            sb.append("<div class='label'>");
+            String cell = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPhoneCell", "Cell Phone");
+            sb.append(cell);
+            sb.append("</div>");
+            sb.append(SafeEncode.forHtmlContent(getCellPhone()));
+            sb.append("</div>");
+        }
+
+        //--> email
+        if (getEmail() != null && !getEmail().isEmpty()) {
+            sb.append("<div id='patient-email' class='copyable' onclick=\"copyToClip('")
+                    .append(SafeEncode.forHtmlAttribute(SafeEncode.forJavaScript(getEmail())))
+                    .append("',this)\">");
+            sb.append("<div class='label'>");
+            String emailLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formEMail", "Email");
+            sb.append(emailLabel);
+            sb.append("</div>");
+            sb.append(SafeEncode.forHtmlContent(getEmail()));
+            sb.append("</div>");
+        }
+
+        //--> next appointment date
+        sb.append("<div id='patient-next-appointment'>");
+        sb.append("<div class='label'>");
+        String apptHref = contextPath + "/demographic/DemographicApptHistory?demographic_no="
+                + SafeEncode.forUriComponent(String.valueOf(getDemographicNo()))
+                + "&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25";
+        sb.append("<a href=\"").append(SafeEncode.forHtmlAttribute(apptHref))
+                .append("\" title='View Appointment History' target='_blank'>");
+        String nAppt = getRes(carlosRes, "global.nextAppointment", "Next Appt.");
+        sb.append(nAppt);
+        sb.append("</a>");
+        sb.append("</div>");
+        String unknown = getRes(carlosRes, "demographic.demographicaddrecordhtm.formNewsLetter.optUnknown", "Unknown");
+        if (getNextAppointment() != null && !getNextAppointment().isEmpty()) {
+            sb.append(SafeEncode.forHtmlContent(getNextAppointment()));
+        } else {
+            sb.append(SafeEncode.forHtmlContent(unknown));
+        }
+        sb.append("</div>");
+
+        //--> most responsible practitioner (last item, pushed to right via CSS)
+        sb.append("<div id='patient-mrp'>");
+        sb.append("<div class='label'>");
+        String mrpLabel = getRes(carlosRes, "demographic.demographiceditdemographic.formMRP", "MRP");
+        sb.append(mrpLabel);
+        sb.append("</div>");
+        Provider mrp = getMrp();
+        if (mrp != null) {
+            sb.append(SafeEncode.forHtmlContent(mrp.getFormattedName()));
+        } else {
+            sb.append(SafeEncode.forHtmlContent(unknown));
+        }
+        sb.append("</div>");
+
+        sb.append("</div>");
+
+        return sb.toString();
+    }
 
     @Override
     @jakarta.persistence.Transient
