@@ -1,0 +1,214 @@
+#!/usr/bin/env python3
+"""Read the length-prefixed CARLOS dev mail capture format."""
+
+from __future__ import annotations
+
+import argparse
+from dataclasses import dataclass
+from email import policy
+from email.parser import BytesParser
+from pathlib import Path
+import sys
+from typing import BinaryIO, Iterable, Iterator
+
+
+FRAME_MARKER = b"===== CARLOS DEV EMAIL CAPTURE v2 =====\n"
+REQUIRED_FIELDS = ("Captured-At", "Envelope-From", "Envelope-To", "Raw-Length")
+
+
+class CaptureFormatError(ValueError):
+    """Raised when the capture file contains an incomplete or invalid record."""
+
+
+class IncompleteCaptureRecord(CaptureFormatError):
+    """Raised when a trailing record ends before all expected bytes arrive."""
+
+
+@dataclass(frozen=True)
+class CapturedMessage:
+    """One captured envelope and its exact raw MIME payload."""
+
+    captured_at: str
+    envelope_from: str
+    envelope_to: str
+    raw_message: bytes
+
+
+def _readline(stream: BinaryIO, description: str) -> bytes:
+    line = stream.readline()
+    if not line:
+        raise IncompleteCaptureRecord(
+            f"Unexpected end of capture file while reading {description}"
+        )
+    if not line.endswith(b"\n"):
+        raise IncompleteCaptureRecord(
+            f"Unexpected end of capture file while reading {description}"
+        )
+    return line
+
+
+def _captured_messages(
+    stream: BinaryIO, *, read_payload: bool = True
+) -> Iterator[CapturedMessage]:
+    while True:
+        marker = stream.readline()
+        if not marker:
+            return
+        if marker != FRAME_MARKER:
+            if FRAME_MARKER.startswith(marker):
+                raise IncompleteCaptureRecord("Incomplete mail capture record marker")
+            raise CaptureFormatError("Invalid mail capture record marker")
+
+        fields: dict[str, str] = {}
+        while True:
+            line = _readline(stream, "record metadata")
+            if line in (b"\n", b"\r\n"):
+                break
+            key, separator, value = line.rstrip(b"\r\n").partition(b": ")
+            if not separator:
+                raise CaptureFormatError("Invalid mail capture metadata")
+            fields[key.decode("ascii")] = value.decode("utf-8", errors="replace")
+
+        missing_fields = [field for field in REQUIRED_FIELDS if field not in fields]
+        if missing_fields:
+            raise CaptureFormatError(
+                f"Missing mail capture metadata: {', '.join(missing_fields)}"
+            )
+        try:
+            raw_length = int(fields["Raw-Length"])
+        except ValueError as error:
+            raise CaptureFormatError("Invalid Raw-Length metadata") from error
+        if raw_length < 0:
+            raise CaptureFormatError("Invalid negative Raw-Length metadata")
+
+        payload_start = stream.tell()
+        stream.seek(0, 2)
+        remaining_bytes = stream.tell() - payload_start
+        stream.seek(payload_start)
+        if raw_length > remaining_bytes:
+            raise IncompleteCaptureRecord("Incomplete raw MIME payload")
+        if read_payload:
+            try:
+                raw_message = stream.read(raw_length)
+            except (MemoryError, OverflowError) as error:
+                raise CaptureFormatError("Raw-Length exceeds supported size") from error
+            if len(raw_message) != raw_length:
+                raise IncompleteCaptureRecord("Incomplete raw MIME payload")
+        else:
+            stream.seek(raw_length, 1)
+            raw_message = b""
+        yield CapturedMessage(
+            captured_at=fields["Captured-At"],
+            envelope_from=fields["Envelope-From"],
+            envelope_to=fields["Envelope-To"],
+            raw_message=raw_message,
+        )
+
+
+def captured_messages(path: Path) -> Iterator[CapturedMessage]:
+    """Yield complete records, using Raw-Length rather than MIME body sentinels."""
+
+    with path.open("rb") as stream:
+        yield from _captured_messages(stream)
+
+
+def repair_capture(path: Path) -> int:
+    """Remove a malformed trailing record and return the number of bytes removed."""
+
+    with path.open("r+b") as stream:
+        stream.seek(0, 2)
+        original_size = stream.tell()
+        stream.seek(0)
+        last_complete_offset = 0
+        try:
+            # Repair runs before every append, so seek over already-validated
+            # payloads instead of repeatedly loading the whole inbox.
+            for _ in _captured_messages(stream, read_payload=False):
+                last_complete_offset = stream.tell()
+        except IncompleteCaptureRecord:
+            stream.truncate(last_complete_offset)
+            return original_size - last_complete_offset
+    return 0
+
+
+def _subject(message: CapturedMessage) -> str:
+    parsed = BytesParser(policy=policy.default).parsebytes(
+        message.raw_message, headersonly=True
+    )
+    subject = str(parsed.get("Subject", "(no subject)"))
+    return " ".join(subject.splitlines())
+
+
+def list_messages(messages: Iterable[CapturedMessage]) -> None:
+    """Print the inbox summary used by `mail list`."""
+
+    found_message = False
+    for index, message in enumerate(messages, start=1):
+        if not found_message:
+            print(f"{'ID':<4}  {'CAPTURED AT':<25}  {'RECIPIENT':<30}  SUBJECT")
+            found_message = True
+        print(
+            f"{index:<4}  {message.captured_at:<25}  "
+            f"{message.envelope_to:<30}  {_subject(message)}"
+        )
+    if not found_message:
+        print("No captured messages.")
+
+
+def read_message(messages: Iterable[CapturedMessage], requested: int) -> None:
+    """Print one record with readable metadata around the exact MIME bytes."""
+
+    message_count = 0
+    for message_count, message in enumerate(messages, start=1):
+        if message_count != requested:
+            continue
+        output = sys.stdout.buffer
+        output.write(FRAME_MARKER)
+        output.write(f"Captured-At: {message.captured_at}\n".encode())
+        output.write(f"Envelope-From: {message.envelope_from}\n".encode())
+        output.write(f"Envelope-To: {message.envelope_to}\n".encode())
+        output.write(b"----- BEGIN RAW MESSAGE -----\n")
+        output.write(message.raw_message)
+        if not message.raw_message.endswith(b"\n"):
+            output.write(b"\n")
+        output.write(b"----- END RAW MESSAGE -----\n")
+        return
+    raise ValueError(
+        f"Message {requested} does not exist; captured messages: {message_count}."
+    )
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("capture_file", type=Path)
+    parser.add_argument("command", choices=("count", "list", "read", "repair"))
+    parser.add_argument("message_number", nargs="?", type=int)
+    arguments = parser.parse_args()
+
+    try:
+        if arguments.command == "count":
+            print(sum(1 for _ in captured_messages(arguments.capture_file)))
+        elif arguments.command == "list":
+            list_messages(captured_messages(arguments.capture_file))
+        elif arguments.command == "repair":
+            removed_bytes = repair_capture(arguments.capture_file)
+            if removed_bytes:
+                print(
+                    f"mail capture: removed {removed_bytes} bytes from an incomplete "
+                    "trailing record",
+                    file=sys.stderr,
+                )
+        elif arguments.message_number is None:
+            parser.error("read requires a message number")
+        else:
+            read_message(
+                captured_messages(arguments.capture_file), arguments.message_number
+            )
+    except (CaptureFormatError, OSError, ValueError) as error:
+        print(f"mail capture: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,28 +1,211 @@
 #!/bin/bash
+set -euo pipefail
 
-command=$1
+command="${1:-}"
+MAIL_LOG_FILE="/var/log/mail.log"
+CAPTURE_DIR="${CARLOS_MAIL_CAPTURE_DIR:-/var/log/carlos-mail-capture}"
+CAPTURE_FILE="${CARLOS_MAIL_CAPTURE_FILE:-$CAPTURE_DIR/messages.eml}"
+CAPTURE_LOCK="${CARLOS_MAIL_CAPTURE_LOCK:-$CAPTURE_DIR/.lock}"
+CAPTURE_INBOX="${CARLOS_MAIL_CAPTURE_INBOX:-/scripts/mail-capture-inbox}"
+CAPTURE_USER="${CARLOS_MAIL_CAPTURE_USER:-carlos-mail}"
+CAPTURE_GROUP="${CARLOS_MAIL_CAPTURE_GROUP:-carlos-mail}"
+CAPTURE_MAP="/etc/postfix/carlos-transport-regexp"
+SEND_ALLOWLIST="/etc/postfix/carlos-send-allowlist"
 
-case $command in
+# Make sure the capture directory and stable lock file exist. This helper runs
+# as root in the devcontainer; delivery itself never does.
+ensure_capture_lock() {
+  install -d -o "$CAPTURE_USER" -g "$CAPTURE_GROUP" -m 0770 "$CAPTURE_DIR"
+  : >> "$CAPTURE_LOCK"
+  chown "$CAPTURE_USER:$CAPTURE_GROUP" "$CAPTURE_LOCK"
+  chmod 0660 "$CAPTURE_LOCK"
+}
+
+# Prepare the capture file while fd 9 owns the stable lock.
+ensure_capture_file_locked() {
+  local repair_mode="${1:-repair}"
+
+  if [ ! -f "$CAPTURE_FILE" ]; then
+    install -o "$CAPTURE_USER" -g "$CAPTURE_GROUP" -m 0660 /dev/null "$CAPTURE_FILE"
+  fi
+  chown "$CAPTURE_USER:$CAPTURE_GROUP" "$CAPTURE_FILE"
+  chmod 0660 "$CAPTURE_FILE"
+  if [ "$repair_mode" = "repair" ]; then
+    # Make prior complete messages readable again if an uncatchable delivery
+    # crash left a partial trailing frame. Explicit `mail clear` skips this so
+    # it remains the reset path for other kinds of corruption.
+    "$CAPTURE_INBOX" "$CAPTURE_FILE" repair
+  fi
+}
+
+# Make sure the capture file exists and is readable, repairing crash residue
+# under the stable lock before returning it to a caller.
+ensure_capture_file() {
+  ensure_capture_lock
+  {
+    flock 9
+    ensure_capture_file_locked
+  } 9>> "$CAPTURE_LOCK"
+}
+
+list_captured_messages() {
+  ensure_capture_file
+  flock -s "$CAPTURE_LOCK" "$CAPTURE_INBOX" "$CAPTURE_FILE" list
+}
+
+read_captured_message() {
+  local message_count
+  local message_number
+  local requested_message
+
+  ensure_capture_file
+  {
+    # Keep one snapshot stable across count, validation, and output. Otherwise
+    # `mail clear` can truncate the capture between the two parser invocations.
+    flock -s 9
+    message_count="$("$CAPTURE_INBOX" "$CAPTURE_FILE" count)"
+    if [ "$message_count" -eq 0 ]; then
+      echo "No captured messages." >&2
+      return 1
+    fi
+
+    requested_message="${1:-latest}"
+    if [ "$requested_message" = "latest" ]; then
+      message_number="$message_count"
+    elif [[ "$requested_message" =~ ^[1-9][0-9]*$ ]]; then
+      message_number="$requested_message"
+    else
+      echo "Message must be a positive number or 'latest'." >&2
+      return 1
+    fi
+
+    if [ "$message_number" -gt "$message_count" ]; then
+      echo "Message $message_number does not exist; captured messages: $message_count." >&2
+      return 1
+    fi
+
+    "$CAPTURE_INBOX" "$CAPTURE_FILE" read "$message_number"
+  } 9< "$CAPTURE_LOCK"
+}
+
+# Non-comment, non-blank entries in the send allowlist.
+allowlist_entries() {
+  grep -vE '^[[:space:]]*(#|$)' "$SEND_ALLOWLIST" 2>/dev/null || true
+}
+
+# Configure Postfix delivery routing from the environment. Default (flag unset)
+# captures everything — nothing can leave the container. With
+# CARLOS_MAIL_ALLOW_SEND=1 the allowlist is consulted first, so only allowlisted
+# recipients are delivered externally (via smtp) while everything else is still
+# captured. CARLOS_MAIL_RELAYHOST optionally sets an SMTP relay for real sends.
+configure_send_mode() {
+  # Derive relayhost from the environment on every start so a stale value from an
+  # earlier session can't be silently reused; empty clears it (Postfix default).
+  postconf -e "relayhost=${CARLOS_MAIL_RELAYHOST:-}"
+
+  if [ "${CARLOS_MAIL_ALLOW_SEND:-0}" = "1" ]; then
+    postconf -e "transport_maps=regexp:${SEND_ALLOWLIST}, regexp:${CAPTURE_MAP}"
+    echo "⚠️  REAL SEND ENABLED (CARLOS_MAIL_ALLOW_SEND=1)."
+    echo "    Allowlisted recipients in $SEND_ALLOWLIST are delivered EXTERNALLY;"
+    echo "    every other recipient is still captured to $CAPTURE_FILE."
+    if [ -z "$(allowlist_entries)" ]; then
+      echo "    Allowlist is empty, so nothing will actually send yet."
+    fi
+  else
+    # Capture everything; nothing leaves the container.
+    postconf -e "transport_maps=regexp:${CAPTURE_MAP}"
+  fi
+}
+
+# Print the current delivery mode for `mail status`.
+report_send_mode() {
+  if postconf -h transport_maps 2>/dev/null | grep -q 'carlos-send-allowlist'; then
+    echo "Send mode: REAL SEND enabled for allowlisted recipients."
+    echo "Allowlist ($SEND_ALLOWLIST):"
+    if [ -n "$(allowlist_entries)" ]; then
+      allowlist_entries | sed 's/^/  /'
+    else
+      echo "  (empty — nothing will actually send; all mail captured)"
+    fi
+  else
+    echo "Send mode: capture-only (all accepted mail is captured; nothing leaves the container)."
+  fi
+}
+
+case "$command" in
     start)
       echo "Starting Postfix..."
+      configure_send_mode
       service postfix start
+      echo "Capture file: $CAPTURE_FILE"
     ;;
     stop)
       echo "Stopping Postfix..."
       service postfix stop
     ;;
     status)
-      service postfix status
+      service_status=0
+      service postfix status || service_status=$?
+      echo
+      echo "Capture file: $CAPTURE_FILE"
+      if [ -f "$CAPTURE_FILE" ]; then
+        ls -lh "$CAPTURE_FILE"
+      else
+        echo "Capture file does not exist yet."
+      fi
+      echo
+      report_send_mode
+      exit "$service_status"
     ;;
     restart)
       echo "Restarting Postfix..."
+      configure_send_mode
       service postfix restart
+      echo "Capture file: $CAPTURE_FILE"
     ;;
     log)
-      tail -f /var/log/mail.log
+      touch "$MAIL_LOG_FILE"
+      tail -f "$MAIL_LOG_FILE"
+    ;;
+    capture)
+      ensure_capture_file
+      tail -F "$CAPTURE_FILE"
+    ;;
+    list)
+      list_captured_messages
+    ;;
+    read)
+      read_captured_message "${2:-latest}"
+    ;;
+    show)
+      ensure_capture_file
+      flock -s "$CAPTURE_LOCK" cat "$CAPTURE_FILE"
+    ;;
+    clear)
+      ensure_capture_lock
+      {
+        flock 9
+        ensure_capture_file_locked skip-repair
+        : > "$CAPTURE_FILE"
+        find "$CAPTURE_DIR" -maxdepth 1 -type f -name '.raw-message.*' -delete
+        chown "$CAPTURE_USER:$CAPTURE_GROUP" "$CAPTURE_FILE"
+        chmod 0660 "$CAPTURE_FILE"
+      } 9>> "$CAPTURE_LOCK"
+      echo "Cleared $CAPTURE_FILE"
+    ;;
+    test)
+      ensure_capture_file
+      {
+        echo "From: noreply@openo-dev.local"
+        echo "To: patient@example.test"
+        echo "Subject: CARLOS dev mail capture test"
+        echo
+        echo "This is a test message captured by the devcontainer Postfix setup."
+      } | /usr/sbin/sendmail -f noreply@openo-dev.local patient@example.test
+      echo "Sent test message to Postfix. Run: mail list"
     ;;
     *)
-      echo "Usage: mail {start|stop|restart|status|log}"
+      echo "Usage: mail {start|stop|restart|status|log|capture|list|read [number|latest]|show|clear|test}"
       exit 1
     ;;
 esac
