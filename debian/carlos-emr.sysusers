@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# System accounts for CARLOS EMR.
+#
+# Two accounts, deliberately separate, and neither is a member of any
+# privileged group:
+#
+#   carlos         runs the JVM. Owns the document store and Tomcat's writable
+#                  state. Holds the read-write database credential.
+#   carlos-backup  runs the backup and restore-drill timers. Holds a
+#                  read-only database credential and the restic passphrase,
+#                  and owns the backup repository — none of which the `carlos`
+#                  uid can read.
+#
+# The relationship between them is deliberately ONE-WAY. carlos-backup is a
+# member of the `carlos` group, so it can READ everything the application owns
+# — the document store, carlos.properties, the encryption key the application
+# uses for stored credentials — which is exactly what a restorable backup
+# needs. `carlos` is NOT a member of any group of carlos-backup's, so the
+# application cannot read the repository, the passphrase or the backup
+# credential. A compromise of the EMR therefore cannot quietly destroy,
+# decrypt or exfiltrate the backups that would be used to recover from it.
+#
+# The application is NOT run under the distribution's shared `tomcat` user.
+# That account is shared with every other Tomcat webapp on the machine, and on
+# a host running an EMR that is precisely the boundary that has to hold.
+u carlos       - "CARLOS EMR application server" /var/lib/carlos-emr        /usr/sbin/nologin
+u carlos-backup - "CARLOS EMR backup" /var/backups/carlos-emr /usr/sbin/nologin
+m carlos-backup carlos

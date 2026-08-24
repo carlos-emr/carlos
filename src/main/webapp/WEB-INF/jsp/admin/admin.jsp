@@ -816,7 +816,7 @@
                 <h3>&nbsp;<fmt:message key="admin.admin.Status"/></h3>
                 <ul>
                     <% if (CarlosProperties.getInstance().isFaxEnabled()) { %>
-                    <li><a href="#" onclick='popupPage(600, 800, "${pageContext.request.contextPath}/admin/faxStatus");return false;'><fmt:message key="admin.faxStatus.faxStatus"/></a></li>
+                    <li><a href="#" onclick='popupPage(600, 800, "${pageContext.request.contextPath}/admin/ViewManageFaxes");return false;'><fmt:message key="admin.faxStatus.faxStatus"/></a></li>
                     <% } %>
 
                 </ul>

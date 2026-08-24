@@ -68,6 +68,16 @@ import java.util.stream.Collectors;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 
+/**
+ * Default {@link FaxManager} implementation.
+ *
+ * <p><strong>Stubbed render paths:</strong> the deprecated {@code renderFaxDocument} dispatch only
+ * has live implementations for EFORM and FORM. The CONSULTATION/DOCUMENT/RX branches
+ * ({@code renderConsultationRequest}, {@code renderDocument}, {@code renderPrescription}) are
+ * unreachable stubs that return {@code null} — live rendering for those flows goes through
+ * {@code DocumentAttachmentManager} (and the consultation fax action renders its own PDF). Do not
+ * call {@code renderFaxDocument} for those transaction types.</p>
+ */
 @Service
 public class FaxManagerImpl implements FaxManager {
 
@@ -385,6 +395,7 @@ public class FaxManagerImpl implements FaxManager {
         // CoverPage.jsp renders recipient/destination/status/statusString per job on the preview.
         FaxJob faxJob = new FaxJob();
         faxJob.setStamp(new Date());
+        faxJob.setDirection(FaxJob.Direction.OUT);
         faxJob.setOscarUser(loggedInInfo.getLoggedInProviderNo());
         faxJob.setDemographicNo(demographicNo);
         faxJob.setRecipient(recipient);
@@ -1052,9 +1063,16 @@ public class FaxManagerImpl implements FaxManager {
         long lastRun = faxSchedulerJob.getLastSuccessfulRunEpochMs();
         String lastError = faxSchedulerJob.getLastError();
 
-        String status = "Scheduler Stopped (Fatal Error)";
+        // Not running without a recorded error is the benign startup state (no active fax
+        // account configured yet) — reporting it as a fatal error sent admins chasing a
+        // failure that never happened. The fatal label is reserved for a recorded lastError.
+        String status;
         if (running) {
             status = "Scheduler Running";
+        } else if (lastError == null || lastError.isEmpty()) {
+            status = "Scheduler Idle (No Active Fax Accounts)";
+        } else {
+            status = "Scheduler Stopped (Fatal Error)";
         }
 
         ObjectNode jsonObject = objectMapper.createObjectNode();
