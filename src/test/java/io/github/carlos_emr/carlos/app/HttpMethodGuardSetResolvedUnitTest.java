@@ -62,4 +62,19 @@ class HttpMethodGuardSetResolvedUnitTest {
         verify(response).setHeader("Allow", "POST");
         verify(chain, never()).doFilter(request, response);
     }
+
+    @Test
+    @DisplayName("should block HEAD with method=setResolved")
+    void shouldBlockHeadWithSetResolvedMethodParam() throws Exception {
+        when(request.getMethod()).thenReturn("HEAD");
+        when(request.getRequestURI()).thenReturn("/carlos/admin/ManageEmails");
+        when(request.getParameter("method")).thenReturn("setResolved");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED,
+                "GET requests are not allowed on this endpoint. Use POST.");
+        verify(response).setHeader("Allow", "POST");
+        verify(chain, never()).doFilter(request, response);
+    }
 }

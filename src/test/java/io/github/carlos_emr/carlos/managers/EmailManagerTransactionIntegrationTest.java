@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -39,6 +40,7 @@ import static org.mockito.Mockito.mock;
 @Tag("integration")
 @Tag("manager")
 @Tag("email")
+@Isolated("temporarily alters the shared log table schema")
 @DisplayName("EmailManager transactional integration tests")
 class EmailManagerTransactionIntegrationTest extends CarlosTestBase {
 
