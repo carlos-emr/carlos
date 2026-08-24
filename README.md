@@ -20,9 +20,32 @@ Please review the GPL v2 license for further details.
 CARLOS EMR continues to evolve through community-driven development, providing a robust solution tailored for modern healthcare challenges.
 
 ## Installation
-Detailed installation documentation is available in the `.devcontainer` setup, which provides a complete development environment using Docker. This is the recommended approach for both development and getting started with CARLOS. The installation process supports both cloud-based and on-site deployments, offering flexibility based on your organization's needs.
 
-For installation instructions, see [.devcontainer/README.md](.devcontainer/README.md).
+**Running CARLOS on a server** — install the Debian packages. Every
+[release](https://github.com/carlos-emr/carlos/releases) ships `carlos-emr`
+and `carlos-emr-drugref` `.deb` files (with checksums and provenance
+attestations) that set up the whole system on one Ubuntu 26.04 machine: the
+application, MariaDB, an nginx + ModSecurity web application firewall, HTTPS,
+scheduled encrypted backups, and the `carlos-ctl` administration tool — with
+every long-running component under an unprivileged account.
+
+```bash
+sudo apt install ./carlos-emr_<version>_all.deb ./carlos-emr-drugref_<version>_all.deb
+sudo carlos-ctl check
+```
+
+Full install and quickstart guide: **[docs/install-deb.md](docs/install-deb.md)**.
+
+**Developing CARLOS** — use the [devcontainer](.devcontainer/README.md), a
+complete disposable development environment with synthetic data. It is for
+development only, never for patient information.
+
+**Containers (under development)** — the
+[carlos-podman](https://github.com/carlos-emr/carlos-podman) project deploys
+CARLOS as rootless Podman pods with an optional observability stack and
+Ansible provisioning; see its
+[README](https://github.com/carlos-emr/carlos-podman#readme) and
+[QUICKSTART](https://github.com/carlos-emr/carlos-podman/blob/main/QUICKSTART.md).
 
 ## Releases
 
