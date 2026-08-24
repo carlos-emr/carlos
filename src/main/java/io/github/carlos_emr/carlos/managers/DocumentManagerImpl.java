@@ -197,6 +197,11 @@ public class DocumentManagerImpl implements DocumentManager {
             String normalizedFileName = PathValidationUtils.validateFileName(rawFileName);
             file = createUniqueDocumentFile(normalizedFileName, new File(documentPath), documentData);
             fileName = file.getName();
+            // Assigned here rather than after the page-count/persist steps below: a caller that
+            // cleans up an orphaned file when a later step fails can only find it by the
+            // server-generated name, and its own pre-normalization name matches nothing on disk.
+            // OutboundEmailArchiveServiceImpl depends on this ordering.
+            document.setDocfilename(fileName);
         } catch (SecurityException e) {
             logger.error("Document filename failed path validation: {}", Encode.forJava(rawFileName));
             throw new IOException("Document filename failed path validation", e);
@@ -215,7 +220,6 @@ public class DocumentManagerImpl implements DocumentManager {
         }
         document.setNumberofpages(numberOfPages);
         document.setDoccreator(loggedInInfo.getLoggedInProviderNo());
-        document.setDocfilename(fileName);
 		if (document.getDocdesc() == null || document.getDocdesc().isEmpty()) { document.setDocdesc(fileName); }
 
         // Creates and saves the document
@@ -238,6 +242,9 @@ public class DocumentManagerImpl implements DocumentManager {
      * server-generated as {@code yyyyMMddHHmmss_NNNNN_<name>} with an atomic sequence, and the
      * write uses {@link StandardOpenOption#CREATE_NEW} so an existing file is never truncated; on
      * the rare residual collision the name is regenerated and the write retried.
+     *
+     * <p>A write that fails part-way removes its own partial file before rethrowing, because the
+     * server-generated name never reaches the caller in that window.</p>
      */
     private File createUniqueDocumentFile(String normalizedFileName, File destinationDir, byte[] documentData) throws IOException {
         IOException lastFailure = null;
@@ -251,6 +258,20 @@ public class DocumentManagerImpl implements DocumentManager {
                 lastFailure = e;
                 // Name collided (wrapped sequence within the same second, or a stale file already
                 // occupies the path). Regenerate with the next sequence value and retry.
+            } catch (IOException e) {
+                // CREATE_NEW creates the file before the write completes, so a mid-write failure
+                // (disk full, quota, IO error) leaves a partial document behind. No caller can clean
+                // it up: docfilename is not assigned until this method returns, so the caller's
+                // Document still names the pre-normalization file and any cleanup it attempts is a
+                // silent no-op. Remove it here or it survives as unreferenced PHI that no database
+                // row names.
+                try {
+                    Files.deleteIfExists(candidate.toPath());
+                } catch (IOException cleanupFailure) {
+                    logger.error("Orphaned partial document file left in place: {}",
+                            Encode.forJava(candidate.getName()), cleanupFailure);
+                }
+                throw e;
             }
         }
         throw new IOException("Unable to create a unique document file after " + UNIQUE_FILENAME_MAX_ATTEMPTS + " attempts", lastFailure);
