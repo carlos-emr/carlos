@@ -151,7 +151,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new SecurityException("missing required security object (_demographic)");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         restoreFromSession();
@@ -760,7 +760,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return null;
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
-            throw new SecurityException("missing required security object (_demographic)");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         String demoNo = getDemographicNo(request);

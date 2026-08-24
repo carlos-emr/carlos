@@ -66,7 +66,6 @@ public final class EctSetupStyleSheetList2Action extends ActionSupport {
             return "continue";
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin) or (_admin.measurements)
-        }
+            throw new SecurityException("missing required sec object (_admin)");
     }
 }

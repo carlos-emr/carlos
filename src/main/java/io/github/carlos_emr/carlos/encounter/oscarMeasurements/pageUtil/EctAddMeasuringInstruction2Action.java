@@ -149,7 +149,7 @@ public class EctAddMeasuringInstruction2Action extends ActionSupport {
             return SUCCESS;
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("missing required sec object (_admin)");
         }
 
     }
