@@ -287,6 +287,8 @@ public class EmailCompose2Action extends ActionSupport {
         // Fail closed when older entry points do not seed the session flag: only an explicit
         // Boolean false may open the composer with encryption disabled.
         boolean isEmailEncrypted = !Boolean.FALSE.equals(session.getAttribute("isEmailEncrypted"));
+        isEmailEncrypted = EmailData.resolveMergedMessageEncryption(
+                isEmailEncrypted, bodyEmail, encryptedMessageEmail);
         request.setAttribute("message", EmailData.mergeMessage(isEmailEncrypted, bodyEmail, encryptedMessageEmail));
         request.setAttribute("bodyEmail", bodyEmail);
         request.setAttribute("encryptedMessageEmail", encryptedMessageEmail);

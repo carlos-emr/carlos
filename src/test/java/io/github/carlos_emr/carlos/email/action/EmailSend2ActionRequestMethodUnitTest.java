@@ -29,7 +29,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 /**
- * Verifies that read-only HTTP methods cannot reach either email mutation route.
+ * Verifies that non-POST HTTP methods cannot reach either email mutation route.
  *
  * @since 2026-08-24
  */
@@ -41,9 +41,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class EmailSend2ActionRequestMethodUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest(name = "{0} is rejected")
-    @ValueSource(strings = {"GET", "HEAD"})
-    @DisplayName("should reject GET and HEAD before sending email")
-    void shouldRejectReadOnlyMethod_beforeSendingEmail(String httpMethod) {
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE"})
+    @DisplayName("should reject non-POST methods before sending email")
+    void shouldRejectNonPostMethod_beforeSendingEmail(String httpMethod) {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         EmailManager emailManager = mock(EmailManager.class);
         EformDataManager eformDataManager = mock(EformDataManager.class);
@@ -63,6 +63,7 @@ class EmailSend2ActionRequestMethodUnitTest extends CarlosUnitTestBase {
 
             assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
         }
 
         verifyNoInteractions(securityInfoManager, emailManager, eformDataManager);

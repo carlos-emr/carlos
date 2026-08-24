@@ -53,9 +53,26 @@ class EmailDataUnitTest {
     }
 
     @Test
-    @DisplayName("should fall back to the encrypted-message channel when body is empty and encryption is off")
-    void shouldFallBackToEncryptedMessage_whenBodyEmptyAndEncryptionOff() {
-        assertThat(EmailData.mergeMessage(false, null, "secret pdf content")).isEqualTo("secret pdf content");
+    @DisplayName("should not move encrypted-message content into an encryption-off draft")
+    void shouldNotReturnEncryptedMessage_whenBodyEmptyAndEncryptionOff() {
+        assertThat(EmailData.mergeMessage(false, null, "secret pdf content")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should force encryption on when protected content is the only available message")
+    void shouldForceEncryptionOn_whenEncryptedMessageIsOnlyContent() {
+        boolean encrypted = EmailData.resolveMergedMessageEncryption(false, null, "secret pdf content");
+
+        assertThat(encrypted).isTrue();
+        assertThat(EmailData.mergeMessage(encrypted, null, "secret pdf content"))
+                .isEqualTo("secret pdf content");
+    }
+
+    @Test
+    @DisplayName("should preserve encryption off when the cleartext body is populated")
+    void shouldPreserveEncryptionOff_whenBodyPopulated() {
+        assertThat(EmailData.resolveMergedMessageEncryption(
+                false, "cleartext body", "stale encrypted content")).isFalse();
     }
 
     @Test

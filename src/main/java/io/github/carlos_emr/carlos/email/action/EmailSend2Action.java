@@ -82,7 +82,8 @@ public class EmailSend2Action extends ActionSupport {
      */
     public String execute () {
         String httpMethod = request.getMethod();
-        if ("GET".equals(httpMethod) || "HEAD".equals(httpMethod)) {
+        if (!"POST".equals(httpMethod)) {
+            response.setHeader("Allow", "POST");
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }

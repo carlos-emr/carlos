@@ -56,7 +56,21 @@ class EmailComposeEncryptionDefaultUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(false);
     }
 
+    @Test
+    @DisplayName("should force encryption on when legacy protected content is the only message")
+    void shouldForceEncryptionOn_whenLegacyProtectedContentIsOnlyMessage() throws Exception {
+        MockHttpServletRequest request = prepareComposer(false, null, "Protected clinical content");
+
+        assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
+        assertThat(request.getAttribute("message")).isEqualTo("Protected clinical content");
+    }
+
     private MockHttpServletRequest prepareComposer(Boolean encryptionFlag) throws Exception {
+        return prepareComposer(encryptionFlag, null, null);
+    }
+
+    private MockHttpServletRequest prepareComposer(
+            Boolean encryptionFlag, String bodyEmail, String encryptedMessageEmail) throws Exception {
         DemographicManager demographicManager = mock(DemographicManager.class);
         EmailComposeManager emailComposeManager = mock(EmailComposeManager.class);
         registerMock(DemographicManager.class, demographicManager);
@@ -72,6 +86,8 @@ class EmailComposeEncryptionDefaultUnitTest extends CarlosUnitTestBase {
         if (encryptionFlag != null) {
             request.getSession(false).setAttribute("isEmailEncrypted", encryptionFlag);
         }
+        request.getSession(false).setAttribute("bodyEmail", bodyEmail);
+        request.getSession(false).setAttribute("encryptedMessageEmail", encryptedMessageEmail);
 
         when(emailComposeManager.getEmailConsentStatus(any(), anyInt()))
                 .thenReturn(new String[]{"Consent", "Yes"});

@@ -273,12 +273,15 @@ public class ManageEmails2Action extends ActionSupport {
         // Map the stored two-field log back into the single "Message" field (issue #3118): an
         // encrypted email's clinical content lives in encryptedMessage (the cleartext body is only
         // the PHI-free notice + clue), while an unencrypted email's content lives in the body.
-        request.setAttribute("message", EmailData.mergeMessage(emailLog.getIsEncrypted(), emailLog.getBody(), emailLog.getEncryptedMessage()));
+        boolean isEmailEncrypted = EmailData.resolveMergedMessageEncryption(
+                emailLog.getIsEncrypted(), emailLog.getBody(), emailLog.getEncryptedMessage());
+        request.setAttribute("message", EmailData.mergeMessage(
+                isEmailEncrypted, emailLog.getBody(), emailLog.getEncryptedMessage()));
         request.setAttribute("bodyEmail", emailLog.getBody());
         request.setAttribute("encryptedMessageEmail", emailLog.getEncryptedMessage());
         request.setAttribute("emailPDFPassword", emailLog.getPassword());
         request.setAttribute("emailPDFPasswordClue", emailLog.getPasswordClue());
-        request.setAttribute("isEmailEncrypted", emailLog.getIsEncrypted());
+        request.setAttribute("isEmailEncrypted", isEmailEncrypted);
         request.setAttribute("isEmailAttachmentEncrypted", emailLog.getIsAttachmentEncrypted());
         request.setAttribute("emailPatientChartOption", emailLog.getChartDisplayOption().getValue());
         request.setAttribute("emailAdditionalParams", emailLog.getAdditionalParams());
