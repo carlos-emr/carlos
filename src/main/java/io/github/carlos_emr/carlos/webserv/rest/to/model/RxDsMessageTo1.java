@@ -38,7 +38,6 @@ import jakarta.xml.bind.annotation.XmlRootElement;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
-
 @XmlRootElement
 public class RxDsMessageTo1 implements Serializable {
 
