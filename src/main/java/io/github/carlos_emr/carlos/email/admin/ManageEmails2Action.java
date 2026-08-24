@@ -231,6 +231,10 @@ public class ManageEmails2Action extends ActionSupport {
      */
     public String resendEmail() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
+
         String emailLogId = request.getParameter("logId");
         if (!StringUtils.isInteger(emailLogId)) {
             JSONUtil.errorResponse(response, "errorMessage", "Invalid email log id");

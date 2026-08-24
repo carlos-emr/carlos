@@ -1,5 +1,16 @@
 <!DOCTYPE html>
 
+<%--
+  Purpose: Presents the provider-to-patient email composer.
+  Key features: Selects sender and recipients, composes one message, controls message and
+  attachment encryption, manages attachments, and displays send or validation results.
+  Request attributes: senderAccounts, receiverEmailList, invalidReceiverEmailList, message,
+  emailAttachmentList, isEmailEncrypted, isEmailAttachmentEncrypted, and emailLog.
+  Request parameters: demographicId, transactionType, senderConfigId, subjectEmail, message,
+  isEmailEncrypted, isEmailAttachmentEncrypted, and patientChartOption.
+  @since 2023-12-21
+--%>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

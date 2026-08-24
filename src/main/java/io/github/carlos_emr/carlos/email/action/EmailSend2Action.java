@@ -81,6 +81,12 @@ public class EmailSend2Action extends ActionSupport {
      *         or transaction type name for cancel operations
      */
     public String execute () {
+        String httpMethod = request.getMethod();
+        if ("GET".equals(httpMethod) || "HEAD".equals(httpMethod)) {
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)) {
             throw new SecurityException("missing required sec object (_email)");

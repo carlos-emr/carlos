@@ -284,7 +284,9 @@ public class EmailCompose2Action extends ActionSupport {
         // The compose screen now has a single "Message" field (issue #3118). Seed it from whichever
         // legacy channel is populated for this workflow, preferring the one matching the encryption
         // state so pre-filled content is preserved when opening the composer.
-        boolean isEmailEncrypted = Boolean.TRUE.equals(session.getAttribute("isEmailEncrypted"));
+        // Fail closed when older entry points do not seed the session flag: only an explicit
+        // Boolean false may open the composer with encryption disabled.
+        boolean isEmailEncrypted = !Boolean.FALSE.equals(session.getAttribute("isEmailEncrypted"));
         request.setAttribute("message", EmailData.mergeMessage(isEmailEncrypted, bodyEmail, encryptedMessageEmail));
         request.setAttribute("bodyEmail", bodyEmail);
         request.setAttribute("encryptedMessageEmail", encryptedMessageEmail);
@@ -294,7 +296,7 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("fid", fid);
         request.setAttribute("openEFormAfterEmail", session.getAttribute("openEFormAfterEmail"));
         request.setAttribute("deleteEFormAfterEmail", session.getAttribute("deleteEFormAfterEmail"));
-        request.setAttribute("isEmailEncrypted", session.getAttribute("isEmailEncrypted"));
+        request.setAttribute("isEmailEncrypted", isEmailEncrypted);
         request.setAttribute("isEmailAttachmentEncrypted", session.getAttribute("isEmailAttachmentEncrypted"));
         request.setAttribute("isEmailAutoSend", session.getAttribute("isEmailAutoSend"));
         request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- emailAttachmentList built from manager-prepared attachments (eForm, eDoc, lab, HRM, form PDFs), then sanitized by emailComposeManager.sanitizeAttachments()
