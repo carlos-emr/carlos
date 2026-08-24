@@ -104,12 +104,12 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
                 List.of(attachment),
                 mailSender);
 
-        byte[] archivedMessageBytes = sender.prepareMessageBytes();
+        byte[] archivedMessageBytes = sender.prepareArtifactBytes();
         assertThat(sender.getPreparedAttachments()).hasSize(1);
         long preparedByteSize = sender.getPreparedAttachments().get(0).getByteSize();
         String preparedSha256Hash = sender.getPreparedAttachments().get(0).getSha256Hash();
         Files.write(attachmentPath, changedAttachmentBytes);
-        sender.sendPreparedMessage();
+        sender.sendPrepared();
 
         assertThat(preparedByteSize).isEqualTo((long) originalAttachmentBytes.length);
         assertThat(preparedSha256Hash).isEqualTo(sha256Hex(originalAttachmentBytes));
@@ -133,11 +133,11 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
                 "Body text",
                 List.of(attachment),
                 mailSender);
-        sender.prepareMessageBytes();
+        sender.prepareArtifactBytes();
         assertThat(sender.getPreparedAttachments()).hasSize(1);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(false);
 
-        assertThatThrownBy(sender::sendPreparedMessage)
+        assertThatThrownBy(sender::sendPrepared)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("missing required sec object (_email)");
         assertThat(mailSender.getSentMessageBytes()).isNull();
@@ -156,9 +156,48 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
                 List.of(),
                 new CapturingJavaMailSender());
 
-        assertThatThrownBy(sender::sendPreparedMessage)
+        assertThatThrownBy(sender::sendPrepared)
                 .isInstanceOf(EmailSendingException.class)
                 .hasMessageContaining("SMTP message must be prepared before sending");
+    }
+
+    @Test
+    @DisplayName("should reject repeated preparation without discarding the prepared message")
+    void shouldRejectRepeatedPreparation() throws Exception {
+        SMTPEmailSender sender = new TestSMTPEmailSender(
+                loggedInInfo,
+                smtpEmailConfig(),
+                new String[]{"patient@example.test"},
+                "Snapshot test",
+                "Body text",
+                List.of(),
+                new CapturingJavaMailSender());
+        byte[] firstArtifact = sender.prepareArtifactBytes();
+
+        assertThatThrownBy(sender::prepareArtifactBytes)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessageContaining("already been prepared");
+        assertThat(sender.describePreparedAttachments()).isEmpty();
+        assertThat(firstArtifact).isNotEmpty();
+
+        sender.discardPrepared();
+    }
+
+    @Test
+    @DisplayName("should reject attachment metadata access before preparation")
+    void shouldRejectAttachmentMetadataAccessBeforePreparation() {
+        SMTPEmailSender sender = new TestSMTPEmailSender(
+                loggedInInfo,
+                smtpEmailConfig(),
+                new String[]{"patient@example.test"},
+                "Snapshot test",
+                "Body text",
+                List.of(),
+                new CapturingJavaMailSender());
+
+        assertThatThrownBy(sender::describePreparedAttachments)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessageContaining("must be prepared");
     }
 
     private byte[] firstAttachmentBytes(byte[] messageBytes) throws Exception {
@@ -195,7 +234,7 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
         // EmailSendingException handling.
         SMTPEmailSender sender = senderWithConfigJson("{\"port\":\"587\",\"username\":\"user\",\"password\":\"secret\"}");
 
-        assertThatThrownBy(sender::prepareMessageBytes)
+        assertThatThrownBy(sender::prepareArtifactBytes)
                 .isInstanceOf(EmailSendingException.class)
                 .hasMessageContaining("Invalid credentials configured for");
     }
@@ -205,7 +244,7 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
     void shouldFailWithSendingException_whenRequiredSmtpConfigFieldIsBlank() {
         SMTPEmailSender sender = senderWithConfigJson("{\"host\":\"  \",\"port\":\"587\",\"username\":\"user\",\"password\":\"secret\"}");
 
-        assertThatThrownBy(sender::prepareMessageBytes)
+        assertThatThrownBy(sender::prepareArtifactBytes)
                 .isInstanceOf(EmailSendingException.class)
                 .hasMessageContaining("Invalid credentials configured for");
     }
@@ -215,7 +254,7 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
     void shouldFailWithSendingException_whenSmtpPortIsNotAValidPortNumber() {
         SMTPEmailSender sender = senderWithConfigJson("{\"host\":\"smtp.example.test\",\"port\":\"not-a-port\",\"username\":\"user\",\"password\":\"secret\"}");
 
-        assertThatThrownBy(sender::prepareMessageBytes)
+        assertThatThrownBy(sender::prepareArtifactBytes)
                 .isInstanceOf(EmailSendingException.class)
                 .hasMessageContaining("Invalid credentials configured for");
     }
@@ -225,7 +264,7 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
     void shouldFailWithSendingException_whenSmtpPortIsOutOfRange() {
         SMTPEmailSender sender = senderWithConfigJson("{\"host\":\"smtp.example.test\",\"port\":\"70000\",\"username\":\"user\",\"password\":\"secret\"}");
 
-        assertThatThrownBy(sender::prepareMessageBytes)
+        assertThatThrownBy(sender::prepareArtifactBytes)
                 .isInstanceOf(EmailSendingException.class)
                 .hasMessageContaining("Invalid credentials configured for");
     }

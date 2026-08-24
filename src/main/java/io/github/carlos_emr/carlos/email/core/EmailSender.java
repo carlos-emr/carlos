@@ -5,8 +5,6 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
-import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
-import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveAttachmentDto;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.email.helpers.APISendGridEmailSender;
 import io.github.carlos_emr.carlos.email.helpers.LocalSMTPEmailSender;
@@ -47,8 +45,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @since 2026-01-24
  */
 public class EmailSender {
-    private static final String RFC822_CONTENT_TYPE = "message/rfc822";
-
     private LoggedInInfo loggedInInfo;
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -59,7 +55,7 @@ public class EmailSender {
     private String body;
     private String additionalParams;
     private List<EmailAttachment> attachments;
-    private SMTPEmailSender preparedSmtpSendHelper;
+    private OutboundEmailTransport preparedTransport;
 
     /**
      * Private no-argument constructor to prevent direct instantiation without required parameters.
@@ -141,149 +137,149 @@ public class EmailSender {
     }
 
     /**
-     * Sends the email using the configured provider and delivery method.
+     * Refuses the legacy direct-send path because it cannot create the required durable archive.
      *
-     * <p>This method performs security validation to ensure the current user has the "_email"
-     * privilege with WRITE access before attempting to send. This is critical for HIPAA/PIPEDA
-     * compliance as it prevents unauthorized users from sending emails that may contain
-     * patient health information (PHI).</p>
-     *
-     * <p>The email is dispatched based on the configured email type:</p>
-     * <ul>
-     *   <li><strong>SMTP:</strong> Uses either LocalSMTPEmailSender for local providers or
-     *       SMTPEmailSender for external SMTP servers</li>
-     *   <li><strong>API:</strong> Delegates to sendAPIMail() which handles API-based providers
-     *       like SendGrid</li>
-     * </ul>
-     *
-     * <p>All email sending operations are logged for audit trail purposes, which is required
-     * for healthcare compliance and security monitoring.</p>
+     * <p>Use {@code EmailManager.sendEmail} for production delivery. It owns the persisted
+     * {@link EmailLog}, archives the prepared transport artifact, and only then sends those same
+     * prepared bytes. Keeping this method as a fail-closed compatibility shim avoids an abrupt
+     * source-level break for downstream branches while preventing a silent retention gap.</p>
      *
      * @throws SecurityException if the current user lacks the required "_email" security privilege
-     * @throws EmailSendingException if there is an error during email transmission, including
-     *         invalid configuration, network issues, authentication failures, or provider-specific errors
+     * @throws EmailSendingException always, directing the caller to archive-first orchestration
+     * @deprecated use {@code EmailManager.sendEmail}
      */
+    @Deprecated(since = "2026-08-24", forRemoval = false)
     public void send() throws EmailSendingException {
         assertEmailWritePrivilege();
+        throw new EmailSendingException(
+                "Direct email sending without outbound archiving is disabled; use EmailManager.sendEmail");
+    }
 
+    /**
+     * Resolves the configured transport, or refuses the send.
+     *
+     * <p>This is the single place that decides which transports exist. Both {@link #send()} and
+     * {@link #prepareOutboundArchive(EmailLog)} route through it, so "can this configuration
+     * send?" and "can this configuration be archived?" cannot give different answers — every
+     * transport reachable here is an {@link OutboundEmailTransport} and therefore describes its
+     * own archive artifact.</p>
+     *
+     * <p>An unconfigured or unrecognised transport throws rather than falling through to an
+     * unarchived send. Adding a provider means adding a branch here, and a branch can only be
+     * added by supplying something that implements the archive contract.</p>
+     *
+     * @return the transport for this configuration
+     * @throws EmailSendingException if the configuration names no supported transport
+     */
+    private OutboundEmailTransport createTransport() throws EmailSendingException {
+        if (emailConfig == null || emailConfig.getEmailType() == null) {
+            throw new EmailSendingException("Invalid email configuration");
+        }
         switch (emailConfig.getEmailType()) {
             case SMTP:
-                createSmtpSender().send();
-                break;
+                return createSmtpSender();
             case API:
-                sendAPIMail();
-                break;
+                return createApiSender();
             default:
                 throw new EmailSendingException("Invalid email configuration");
         }
     }
 
     /**
-     * Indicates whether this sender can prepare a durable outbound archive artifact.
+     * Captures the exact payload this configuration will transmit and wraps it in an archive request.
      *
-     * @return {@code true} for SMTP configurations, where the finalized RFC 822 message can be captured before transport
-     * @since 2026-07-20
-     */
-    public boolean supportsOutboundArchive() {
-        return emailConfig != null && emailConfig.getEmailType() == EmailConfig.EmailType.SMTP;
-    }
-
-    /**
-     * Prepares the finalized SMTP message bytes and wraps them in an archive request.
+     * <p>Must run before {@link #sendPrepared()}: the point of preparing is that the bytes handed
+     * to the archive are the bytes later put on the wire, not a reconstruction of them.</p>
      *
-     * <p>This method must run before {@link #sendPrepared()} so the exact prepared
-     * message is archived before it is transported.</p>
+     * <p>There is no "is archiving supported?" question to ask first. Any configuration that can
+     * send resolves to an {@link OutboundEmailTransport} through {@link #createTransport()}, and
+     * every such transport supplies its own artifact; a configuration that resolves to nothing
+     * throws here exactly as it would from {@link #send()}.</p>
      *
      * @param emailLog persisted email log that owns the archive artifact
-     * @return archive request containing the RFC 822 artifact and attachment metadata
-     * @throws EmailSendingException if this configuration cannot be archived or message preparation fails
+     * @return archive request containing the transport's artifact and attachment metadata
+     * @throws EmailSendingException if the configuration names no transport, or preparation fails
      * @throws SecurityException if the current user lacks the required "_email" write privilege
      * @since 2026-07-20
      */
     public OutboundEmailArchiveDto prepareOutboundArchive(EmailLog emailLog) throws EmailSendingException {
         assertEmailWritePrivilege();
-        if (!supportsOutboundArchive()) {
-            throw new EmailSendingException("Outbound email archive is not supported for this email configuration");
-        }
-        if (preparedSmtpSendHelper != null) {
-            throw new EmailSendingException("SMTP message has already been prepared");
+        if (preparedTransport != null) {
+            throw new EmailSendingException("Outbound message has already been prepared");
         }
 
-        preparedSmtpSendHelper = createSmtpSender();
+        preparedTransport = createTransport();
         try {
-            byte[] artifactBytes = preparedSmtpSendHelper.prepareMessageBytes();
+            byte[] artifactBytes = preparedTransport.prepareArtifactBytes();
 
             OutboundEmailArchiveDto archiveRequest = new OutboundEmailArchiveDto();
             archiveRequest.setEmailLog(emailLog);
             archiveRequest.setArtifactBytes(artifactBytes);
-            archiveRequest.setFileName("outbound-email-" + emailLog.getId() + ".eml");
-            archiveRequest.setContentType(RFC822_CONTENT_TYPE);
-            archiveRequest.setArtifactType(OutboundEmailArchive.ARTIFACT_TYPE_SMTP_RFC822);
+            archiveRequest.setFileName(preparedTransport.getArchiveFileName(emailLog));
+            archiveRequest.setContentType(preparedTransport.getArchiveContentType());
+            archiveRequest.setArtifactType(preparedTransport.getArchiveArtifactType());
             archiveRequest.setTransportType(emailConfig.getEmailType().name());
             archiveRequest.setProviderName(emailConfig.getEmailProvider() != null ? emailConfig.getEmailProvider().name() : null);
-            archiveRequest.setAttachments(buildAttachmentArchiveMetadata(preparedSmtpSendHelper.getPreparedAttachments()));
+            archiveRequest.setAttachments(preparedTransport.describePreparedAttachments());
             return archiveRequest;
         } catch (EmailSendingException | RuntimeException e) {
-            preparedSmtpSendHelper.discardPreparedMessage();
-            preparedSmtpSendHelper = null;
+            discardPrepared();
             throw e;
         }
     }
 
     /**
-     * Sends the SMTP message previously prepared for outbound archiving.
+     * Sends the payload previously captured for outbound archiving.
      *
-     * @throws EmailSendingException if no prepared SMTP message exists or transport delivery fails
+     * @throws EmailSendingException if nothing has been prepared or transport delivery fails
      * @throws SecurityException if the current user lacks the required "_email" write privilege
      * @since 2026-07-20
      */
     public void sendPrepared() throws EmailSendingException {
         try {
             assertEmailWritePrivilege();
-            if (preparedSmtpSendHelper == null) {
-                throw new EmailSendingException("SMTP message must be prepared before sending");
+            if (preparedTransport == null) {
+                throw new EmailSendingException("Outbound message must be prepared before sending");
             }
-            preparedSmtpSendHelper.sendPreparedMessage();
+            preparedTransport.sendPrepared();
         } finally {
             discardPrepared();
         }
     }
 
     /**
-     * Releases a prepared SMTP message when archiving or another pre-send step fails.
+     * Releases a prepared payload when archiving or another pre-send step fails.
      */
     public void discardPrepared() {
-        if (preparedSmtpSendHelper != null) {
-            preparedSmtpSendHelper.discardPreparedMessage();
-            preparedSmtpSendHelper = null;
+        if (preparedTransport != null) {
+            preparedTransport.discardPrepared();
+            preparedTransport = null;
         }
     }
 
     /**
-     * Sends email using API-based providers.
-     *
-     * <p>This private helper method handles email delivery through API-based email services
-     * rather than traditional SMTP. It routes the email to the appropriate provider-specific
-     * sender implementation based on the configured email provider.</p>
+     * Resolves the API-based transport for the configured provider.
      *
      * <p>Currently supported API providers:</p>
      * <ul>
-     *   <li><strong>SendGrid:</strong> Uses the SendGrid Web API for email delivery with
-     *       support for templates, tracking, and advanced features</li>
+     *   <li><strong>SendGrid:</strong> the SendGrid Web API v3 mail/send endpoint</li>
      * </ul>
      *
-     * <p>This method is called internally by send() when the email configuration specifies
-     * an API-based delivery method.</p>
+     * <p>An API configuration naming any other provider throws. That is deliberate and it is the
+     * same refusal the caller would get for an unknown {@code EmailType}: the enum permits
+     * providers that have no implementation, and a send that cannot be archived is a retention
+     * gap in a legal record, so the configuration is rejected rather than sent unrecorded.</p>
      *
-     * @throws EmailSendingException if the configured provider is not supported or if there
-     *         is an error during API-based email transmission
+     * @return the SendGrid transport
+     * @throws EmailSendingException if the configured API provider has no implementation
      */
-    private void sendAPIMail() throws EmailSendingException {
+    private OutboundEmailTransport createApiSender() throws EmailSendingException {
+        if (emailConfig.getEmailProvider() == null) {
+            throw new EmailSendingException("Invalid email configuration");
+        }
         switch (emailConfig.getEmailProvider()) {
             case SENDGRID:
-                APISendGridEmailSender apiSendGridSendHelper = new APISendGridEmailSender(loggedInInfo, emailConfig, recipients, subject, body, additionalParams, attachments);
-                apiSendGridSendHelper.send();
-                break;
+                return new APISendGridEmailSender(loggedInInfo, emailConfig, recipients, subject, body, additionalParams, attachments);
             default:
                 throw new EmailSendingException("Invalid email configuration");
         }
@@ -302,31 +298,4 @@ public class EmailSender {
         }
     }
 
-    private List<OutboundEmailArchiveAttachmentDto> buildAttachmentArchiveMetadata(List<SMTPEmailSender.PreparedAttachment> preparedAttachments) throws EmailSendingException {
-        if (preparedAttachments == null || preparedAttachments.isEmpty()) {
-            return List.of();
-        }
-
-        java.util.ArrayList<OutboundEmailArchiveAttachmentDto> attachmentDtos = new java.util.ArrayList<>();
-        for (SMTPEmailSender.PreparedAttachment preparedAttachment : preparedAttachments) {
-            attachmentDtos.add(buildAttachmentArchiveMetadata(preparedAttachment));
-        }
-        return attachmentDtos;
-    }
-
-    private OutboundEmailArchiveAttachmentDto buildAttachmentArchiveMetadata(SMTPEmailSender.PreparedAttachment preparedAttachment) throws EmailSendingException {
-        if (preparedAttachment == null || preparedAttachment.getAttachment() == null) {
-            throw new EmailSendingException("Prepared attachment is required for archive metadata");
-        }
-
-        EmailAttachment attachment = preparedAttachment.getAttachment();
-        OutboundEmailArchiveAttachmentDto attachmentDto = new OutboundEmailArchiveAttachmentDto();
-        attachmentDto.setFileName(attachment.getFileName());
-        attachmentDto.setContentType(preparedAttachment.getContentType());
-        attachmentDto.setSha256Hash(preparedAttachment.getSha256Hash());
-        attachmentDto.setByteSize(preparedAttachment.getByteSize());
-        attachmentDto.setSourceDocumentType(attachment.getDocumentType() != null ? attachment.getDocumentType().name() : null);
-        attachmentDto.setSourceDocumentId(attachment.getDocumentId());
-        return attachmentDto;
-    }
 }

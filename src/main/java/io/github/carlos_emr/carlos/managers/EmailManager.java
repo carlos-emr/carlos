@@ -170,12 +170,12 @@ public class EmailManager {
                 encryptEmail(emailData);
             }
             emailSender = new EmailSender(loggedInInfo, emailLog.getEmailConfig(), emailData);
-            if (emailSender.supportsOutboundArchive()) {
-                archiveOutboundEmail(loggedInInfo, emailSender, emailLog);
-                emailSender.sendPrepared();
-            } else {
-                emailSender.send();
-            }
+            // Unconditional: there is no longer a "does this transport archive?" branch to get
+            // wrong. Any configuration that can send resolves to a transport that produces an
+            // archive artifact, and one that resolves to no transport throws out of
+            // archiveOutboundEmail rather than reaching an unarchived send.
+            archiveOutboundEmail(loggedInInfo, emailSender, emailLog);
+            emailSender.sendPrepared();
             delivered = true;
         } catch (EmailSendingException e) {
             recordDeliveryFailure(loggedInInfo, emailLog, e);
@@ -188,9 +188,9 @@ public class EmailManager {
             recordDeliveryFailure(loggedInInfo, emailLog, e);
             throw e;
         } finally {
-            // Currently a no-op on every path: sendPrepared() discards in its own finally,
-            // archiveOutboundEmail discards on both failure branches, and the non-archive
-            // send() never prepares. It is kept deliberately as the structural guarantee that
+            // Currently a no-op on every path: sendPrepared() discards in its own finally, and
+            // archiveOutboundEmail discards on both failure branches. It is kept deliberately
+            // as the structural guarantee that
             // no prepared message -- and no PHI-bearing attachment snapshot -- survives this
             // method, so a future branch that forgets to discard cannot leak one. Passing
             // null as the primary failure is correct here: on the success path there is no
