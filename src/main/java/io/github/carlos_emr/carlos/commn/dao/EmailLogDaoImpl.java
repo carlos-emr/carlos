@@ -69,7 +69,7 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      * <ul>
      *   <li>Date filtering: Matches DATE portion only (time component ignored)</li>
      *   <li>Demographic filtering: Uses DemographicNo for patient identification</li>
-     *   <li>Status filtering: Matches EmailStatus enum (SUCCESS, FAILED, RESOLVED)</li>
+     *   <li>Status filtering: Matches EmailStatus enum (PENDING, SUCCESS, FAILED, RESOLVED)</li>
      *   <li>Sender filtering: Matches fromEmail field exactly</li>
      *   <li>Results ordered by timestamp descending (newest first)</li>
      * </ul>
@@ -78,7 +78,7 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      * @param dateEnd Date the end date for filtering email logs (required, matches DATE portion only)
      * @param demographicNo String the demographic number for filtering by patient (null, blank, or invalid matches all)
      * @param senderEmailAddress String the sender email address for filtering (null matches all)
-     * @param emailStatus String the email status for filtering (SUCCESS/FAILED/RESOLVED; null, blank, or invalid matches all)
+     * @param emailStatus String the email status for filtering (PENDING/SUCCESS/FAILED/RESOLVED; null, blank, or invalid matches all)
      * @return List&lt;EmailLog&gt; list of email logs matching the specified filters, ordered by timestamp descending;
      *         empty list if no matches found
      */
@@ -145,7 +145,7 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      * <ul>
      *   <li>Batch status updates after email processing jobs</li>
      *   <li>Error recording for failed email deliveries</li>
-     *   <li>Status transitions (e.g., FAILED to RESOLVED after manual intervention)</li>
+     *   <li>Status transitions (for example, PENDING to SUCCESS or FAILED to RESOLVED)</li>
      *   <li>Timestamp corrections for audit purposes</li>
      * </ul>
      *
@@ -154,7 +154,7 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      * when resolving previously failed emails.</p>
      *
      * @param id Integer the unique identifier of the EmailLog record to update
-     * @param status EmailLog.EmailStatus the new email status (SUCCESS, FAILED, or RESOLVED)
+     * @param status EmailLog.EmailStatus the new email status (PENDING, SUCCESS, FAILED, or RESOLVED)
      * @param errorMessage String the error message to record, or {@code null} to clear existing error message
      * @param timestamp Date the timestamp to set, typically current time or email processing time
      * @return int the number of database rows updated (1 if record exists and was updated, 0 if not found)

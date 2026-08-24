@@ -326,7 +326,7 @@ public class EmailManager {
      * @param dateEndStr String the end date in yyyy-MM-dd format, or null for no end date
      * @param demographic_no String the patient demographic number to filter by, or null for all patients
      * @param senderEmailAddress String the sender email address to filter by, or null for all senders
-     * @param emailStatus String the email status to filter by (SUCCESS, FAILED, etc.), or null for all statuses
+     * @param emailStatus String the email status to filter by (PENDING, SUCCESS, FAILED, RESOLVED), or null for all statuses
      * @return List&lt;EmailStatusResult&gt; list of email status results matching the filter criteria, sorted by timestamp
      * @throws RuntimeException if user lacks _email READ privilege
      */
