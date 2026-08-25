@@ -170,6 +170,7 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>senderAccounts (List&lt;EmailConfig&gt;) - available sender account configurations</li>
      *   <li>emailPDFPassword (String) - generated or existing PDF password</li>
      *   <li>emailPDFPasswordClue (String) - password hint for recipient</li>
+     *   <li>message (String) - unified message selected from the legacy content channels</li>
      *   <li>demographicId (String) - patient demographic identifier</li>
      *   <li>fdid (String) - form data ID</li>
      *   <li>fid (String) - validated form ID or null if invalid</li>
@@ -290,8 +291,6 @@ public class EmailCompose2Action extends ActionSupport {
         isEmailEncrypted = EmailData.resolveMergedMessageEncryption(
                 isEmailEncrypted, bodyEmail, encryptedMessageEmail);
         request.setAttribute("message", EmailData.mergeMessage(isEmailEncrypted, bodyEmail, encryptedMessageEmail));
-        request.setAttribute("bodyEmail", bodyEmail);
-        request.setAttribute("encryptedMessageEmail", encryptedMessageEmail);
         request.setAttribute("emailPatientChartOption", emailPatientChartOption);
         request.setAttribute("demographicId", demographicId);
         request.setAttribute("fdid", session.getAttribute("fdid"));

@@ -1,6 +1,8 @@
 package io.github.carlos_emr.carlos.email.action;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -67,6 +69,7 @@ public class EmailSend2Action extends ActionSupport {
     private static final String PARAM_IS_EMAIL_ENCRYPTED = "isEmailEncrypted";
     private static final String PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED = "isEmailAttachmentEncrypted";
     private static final int MINIMUM_PDF_PASSWORD_LENGTH = 5;
+    private static final int MAXIMUM_MESSAGE_LENGTH = 10_000;
 
     /**
      * Main execution method that routes to specific email handling methods based on the "method" request parameter.
@@ -109,6 +112,12 @@ public class EmailSend2Action extends ActionSupport {
             return NONE;
         } catch (EmailSendValidationException e) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            response.setContentType("text/plain;charset=UTF-8");
+            try {
+                response.getWriter().write(e.getMessage());
+            } catch (IOException ioException) {
+                logger.warn("Unable to write email validation response", ioException);
+            }
             return NONE;
         }
     }
@@ -145,7 +154,9 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("isOpenEForm", request.getParameter("openEFormAfterEmail"));
         request.setAttribute("fdid", request.getParameter("fdid"));
         request.setAttribute("emailLog", emailLog);
-        preserveComposeInputsForReRender();
+        if (!isEmailSuccessful) {
+            preserveComposeInputsForReRender(emailLog);
+        }
         return SUCCESS;
     }
 
@@ -169,7 +180,9 @@ public class EmailSend2Action extends ActionSupport {
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
         request.setAttribute("emailLog", emailLog);
-        preserveComposeInputsForReRender();
+        if (!isEmailSuccessful) {
+            preserveComposeInputsForReRender(emailLog);
+        }
         return SUCCESS;
     }
 
@@ -180,12 +193,42 @@ public class EmailSend2Action extends ActionSupport {
      * send), so a blind retry of a failed encrypted send could silently go out as cleartext — a
      * PHI-safety regression (issue #3118).
      */
-    private void preserveComposeInputsForReRender() {
+    private void preserveComposeInputsForReRender(EmailLog emailLog) {
         request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
         // Fail closed on the message-encryption flag, matching prepareEmailFields: only an explicit
         // "false" re-renders the toggle OFF, so a failed encrypted draft can never reopen as cleartext.
-        request.setAttribute(PARAM_IS_EMAIL_ENCRYPTED, !"false".equals(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED)));
-        request.setAttribute(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED, "true".equals(request.getParameter(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED)));
+        request.setAttribute(PARAM_IS_EMAIL_ENCRYPTED,
+                isMessageEncryptionEnabled(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED)));
+        request.setAttribute(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED,
+                Boolean.TRUE.toString().equals(request.getParameter(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED)));
+        request.setAttribute("demographicId", request.getParameter("demographicId"));
+        request.setAttribute("fdid", request.getParameter("fdid"));
+        request.setAttribute("fid", request.getParameter("fid"));
+        request.setAttribute("openEFormAfterEmail", request.getParameter("openEFormAfterEmail"));
+        request.setAttribute("deleteEFormAfterEmail", request.getParameter("deleteEFormAfterEmail"));
+        request.setAttribute("transactionType", request.getParameter("transactionType"));
+        request.setAttribute("senderConfigId", request.getParameter("senderConfigId"));
+        request.setAttribute("subjectEmail", request.getParameter("subjectEmail"));
+        request.setAttribute("emailPDFPassword", request.getParameter("emailPDFPassword"));
+        request.setAttribute("emailPDFPasswordClue", request.getParameter("emailPDFPasswordClue"));
+        request.setAttribute("emailPatientChartOption", request.getParameter("patientChartOption"));
+        request.setAttribute("internalComment", request.getParameter("internalComment"));
+        request.setAttribute("emailAdditionalParams", request.getParameter("additionalURLParams"));
+        request.setAttribute("emailConsentStatus", request.getParameter("emailConsentStatus"));
+        request.setAttribute("invalidReceiverEmailList", List.of());
+
+        String[] recipients = request.getParameterValues("receiverEmailAddress");
+        request.setAttribute("receiverEmailList",
+                recipients == null ? List.of() : Arrays.asList(recipients));
+        if (emailLog.getEmailConfig() == null) {
+            request.setAttribute("senderAccounts", List.of());
+        } else {
+            request.setAttribute("senderAccounts", List.of(emailLog.getEmailConfig()));
+            request.setAttribute("senderEmail", emailLog.getFromEmail());
+        }
+        if (emailLog.getDemographic() != null) {
+            request.setAttribute("receiverName", emailLog.getDemographic().getFormattedName());
+        }
     }
 
     /**
@@ -209,6 +252,7 @@ public class EmailSend2Action extends ActionSupport {
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String cancel() {
         EmailData emailData = prepareEmailFields(request);
+        request.getSession().removeAttribute("emailAttachmentList");
         String emailRedirect = emailData.getTransactionType().name();
         if (emailData.getTransactionType().equals(EmailLog.TransactionType.EFORM)) {
             try {
@@ -240,7 +284,11 @@ public class EmailSend2Action extends ActionSupport {
         validateMessageRequirement(request);
         validateEncryptionRequirements(request);
         EmailData emailData = prepareEmailFields(request);
-        return emailManager.sendEmail(loggedInInfo, emailData);
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+        if (emailLog.getStatus() == EmailStatus.SUCCESS) {
+            request.getSession().removeAttribute("emailAttachmentList");
+        }
+        return emailLog;
     }
 
     /**
@@ -260,6 +308,9 @@ public class EmailSend2Action extends ActionSupport {
         if (message == null || message.isBlank()) {
             throw new EmailSendValidationException("Message is required");
         }
+        if (message.length() > MAXIMUM_MESSAGE_LENGTH) {
+            throw new EmailSendValidationException("Message must not exceed 10000 characters");
+        }
     }
 
     /**
@@ -275,7 +326,7 @@ public class EmailSend2Action extends ActionSupport {
      * @throws EmailSendValidationException when encrypted delivery lacks a usable password or clue
      */
     private void validateEncryptionRequirements(HttpServletRequest request) {
-        if ("false".equals(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED))) {
+        if (!isMessageEncryptionEnabled(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED))) {
             return;
         }
 
@@ -340,7 +391,7 @@ public class EmailSend2Action extends ActionSupport {
         // Fail closed: treat only an explicit "false" as encryption OFF. A direct or malformed POST
         // that omits or garbles the toggle defaults to ENCRYPTED, so PHI is never routed to the
         // cleartext body when intent is unclear (the compose flow defaults encryption on). See #3118.
-        boolean encrypted = !"false".equals(isEncrypted);
+        boolean encrypted = isMessageEncryptionEnabled(isEncrypted);
         String body = encrypted ? encryptedBodyNotice() : message;
         String encryptedMessage = encrypted ? message : "";
 
@@ -373,11 +424,35 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setDemographicNo(demographicNo);
         emailData.setProviderNo(providerNo);
         emailData.setAdditionalParams(additionalParams);
-        emailData.setAttachments(emailAttachmentList);
-
-        request.getSession().removeAttribute("emailAttachmentList");
+        emailData.setAttachments(copyAttachments(emailAttachmentList));
 
         return emailData;
+    }
+
+    /** Only an explicit false value opts out of message encryption. */
+    private static boolean isMessageEncryptionEnabled(String value) {
+        return !Boolean.FALSE.toString().equals(value);
+    }
+
+    /**
+     * EmailManager encrypts attachments in place. Send detached copies so the original compose
+     * attachments and preview capabilities remain usable when delivery fails and the form is
+     * rendered for retry.
+     */
+    private static List<EmailAttachment> copyAttachments(List<EmailAttachment> attachments) {
+        if (attachments == null || attachments.isEmpty()) {
+            return List.of();
+        }
+
+        List<EmailAttachment> copies = new ArrayList<>(attachments.size());
+        for (EmailAttachment attachment : attachments) {
+            EmailAttachment copy = new EmailAttachment(
+                    attachment.getFileName(), attachment.getFilePath(),
+                    attachment.getDocumentType(), attachment.getDocumentId(), attachment.getFileSize());
+            copy.setPreviewToken(attachment.getPreviewToken());
+            copies.add(copy);
+        }
+        return copies;
     }
 
     /**
