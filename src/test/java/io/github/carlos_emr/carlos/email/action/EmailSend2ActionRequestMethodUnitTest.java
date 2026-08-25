@@ -24,9 +24,14 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 /**
  * Verifies that non-POST HTTP methods cannot reach either email mutation route.
@@ -50,6 +55,8 @@ class EmailSend2ActionRequestMethodUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(EmailManager.class, emailManager);
         registerMock(EformDataManager.class, eformDataManager);
+        when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq("w"), isNull()))
+                .thenReturn(true);
 
         MockHttpServletRequest request = new MockHttpServletRequest(httpMethod, "/email/send");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -66,6 +73,7 @@ class EmailSend2ActionRequestMethodUnitTest extends CarlosUnitTestBase {
             assertThat(response.getHeader("Allow")).isEqualTo("POST");
         }
 
-        verifyNoInteractions(securityInfoManager, emailManager, eformDataManager);
+        verify(securityInfoManager).hasPrivilege(any(), eq("_email"), eq("w"), isNull());
+        verifyNoInteractions(emailManager, eformDataManager);
     }
 }
