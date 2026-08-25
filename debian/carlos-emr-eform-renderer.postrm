@@ -1,0 +1,34 @@
+#!/bin/sh
+# postrm for carlos-emr-eform-renderer.
+#
+# Removing the browser must also retract the configuration that points at it:
+# carlos.properties would otherwise keep an eform_pdf_browser_chromium_path
+# aimed at a deleted binary, and the startup probe (now enabled) would fail on
+# every boot for a feature the operator has deliberately removed.
+set -e
+
+case "$1" in
+    remove|purge)
+        # carlos-ctl comes from carlos-emr, which this package depends on — but
+        # on a purge of BOTH packages carlos-emr may already be gone, so this is
+        # advisory rather than required.
+        if command -v carlos-ctl >/dev/null 2>&1; then
+            # The binaries are gone by now, so init-config takes its
+            # "no browser installed" branch and puts the probe back to off.
+            carlos-ctl init-config || true
+            if [ -d /run/systemd/system ] && systemctl is-active --quiet carlos-emr.service; then
+                deb-systemd-invoke restart carlos-emr.service || true
+            fi
+        fi
+        ;;
+    upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

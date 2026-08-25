@@ -13,7 +13,12 @@ Build-Depends:
  tomcat11,
  ca-certificates,
  git,
- xz-utils
+ xz-utils,
+# curl and unzip fetch and unpack the pinned Chromium for
+# carlos-emr-eform-renderer (debian/fetch-chromium.sh). Not needed when the
+# build supplies CHROMIUM_DIST or sets SKIP_EFORM_RENDERER.
+ curl,
+ unzip
 Standards-Version: 4.7.0
 Homepage: https://github.com/carlos-emr/carlos
 Vcs-Git: https://github.com/carlos-emr/carlos.git
@@ -34,6 +39,13 @@ Depends:
  modsecurity-crs,
  openssl,
  ca-certificates,
+# libXrender.so.1 is a link-time dependency of the wkhtmltopdf native library
+# bundled in the WAR (ultrabuk-htmltopdf-java), which renders encounter forms,
+# HRM documents, form faxes and encrypted-email PDFs. Nothing else in this
+# dependency set pulls libXrender in on a server install, so without it every
+# one of those renders died with UnsatisfiedLinkError at request time while the
+# rest of the application looked healthy.
+ libxrender1,
  restic,
  adduser,
 # deb-systemd-invoke, used by the maintainer scripts so that policy-rc.d is
@@ -56,6 +68,11 @@ Recommends:
 # /etc/nginx/sites-available/carlos-emr, which is a dpkg conffile.
  certbot,
  carlos-emr-drugref (= ${binary:Version}),
+# The eForm-to-PDF renderer. Recommended, not required: it carries a vendored
+# Chromium (~150 MB) and only saved-eForm print/fax/archive needs it. Without
+# it those three workflows are unavailable and the package says so at install
+# time; every other PDF in CARLOS is produced by a pure-Java library.
+ carlos-emr-eform-renderer (= ${binary:Version}),
 # logrotate consumes /etc/logrotate.d/carlos-emr; without it the ModSecurity
 # audit log grows unbounded, so this is a strong recommendation rather than a
 # suggestion.
@@ -109,3 +126,59 @@ Description: DrugRef2 drug reference service for CARLOS EMR
  The package creates the drugref2 database, loads the Health Canada Drug
  Product Database seed shipped with CARLOS, and points the EMR at the local
  service. Without it, CARLOS prescription drug lookups return no results.
+
+Package: carlos-emr-eform-renderer
+Architecture: amd64
+Depends:
+ ${misc:Depends},
+# Exact version: the renderer's properties are written into carlos.properties by
+# carlos-emr's carlos-ctl, and this package's postinst calls it to do so.
+ carlos-emr (= ${binary:Version}),
+ init-system-helpers (>= 1.54),
+# Chromium's direct DT_NEEDED set, minus what the Essential/base system already
+# guarantees (libc6, libgcc-s1). Derived by reading the shipped binary's dynamic
+# section, not copied from a wiki page: dh_shlibdeps cannot compute it here
+# because the binary is vendored rather than built by this source package.
+ libasound2t64,
+ libatk-bridge2.0-0t64,
+ libatk1.0-0t64,
+ libatspi2.0-0t64,
+ libcairo2,
+ libcups2t64,
+ libdbus-1-3,
+ libexpat1,
+ libgbm1,
+ libglib2.0-0t64,
+ libnspr4,
+ libnss3,
+ libpango-1.0-0,
+ libudev1,
+ libx11-6,
+ libxcb1,
+ libxcomposite1,
+ libxdamage1,
+ libxext6,
+ libxfixes3,
+ libxkbcommon0,
+ libxrandr2,
+# Not a link-time dependency: Chromium resolves fonts through fontconfig at
+# render time, and on a font-less server every eForm PDF comes out with the
+# glyphs missing rather than failing loudly.
+ fontconfig,
+ fonts-dejavu-core
+Description: Headless Chromium renderer for CARLOS EMR eForm PDFs
+ Saved-eForm print, fax and archive in CARLOS are produced by rendering the
+ form in a real browser and printing it to PDF over the Chrome DevTools
+ Protocol. There is no legacy fallback path: without a browser those three
+ workflows are unavailable.
+ .
+ Ubuntu 26.04 ships Chromium only as a snap, and a confined snap cannot read
+ the renderer's working directories under /var/lib/carlos-emr. This package
+ therefore installs a pinned, unconfined Chromium and a chromedriver built from
+ the same revision into /usr/lib/carlos-emr/chromium, and points
+ eform_pdf_browser_chromium_path and eform_pdf_browser_chromedriver_path at
+ them so the renderer never has to download a driver at first use.
+ .
+ Installing this package also turns the boot-time renderer probe back on, so a
+ broken browser is reported once in the journal at startup instead of surfacing
+ as a failed print in the middle of a consultation.

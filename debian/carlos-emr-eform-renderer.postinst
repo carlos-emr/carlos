@@ -1,0 +1,58 @@
+#!/bin/sh
+# postinst for carlos-emr-eform-renderer.
+#
+# The package's payload is a vendored Chromium and a matching chromedriver
+# under /usr/lib/carlos-emr/chromium. All this script does is make the
+# application aware of them: carlos-ctl writes eform_pdf_browser_chromium_path,
+# eform_pdf_browser_chromedriver_path and eform_pdf_browser_startup_check into
+# carlos.properties, keyed on those binaries existing.
+set -e
+
+LIB=/usr/lib/carlos-emr
+CHROMIUM="${LIB}/chromium/chrome"
+CHROMEDRIVER="${LIB}/chromium/chromedriver"
+
+case "$1" in
+    configure)
+        # Fail loudly rather than silently configuring a renderer that cannot
+        # run: a missing binary here means the package was built without its
+        # payload, and the symptom would otherwise be a failed print weeks
+        # later rather than a failed install now.
+        for bin in "${CHROMIUM}" "${CHROMEDRIVER}"; do
+            if [ ! -x "${bin}" ]; then
+                echo "carlos-emr-eform-renderer: ${bin} is missing or not executable" >&2
+                exit 1
+            fi
+        done
+
+        # Re-render carlos.properties. carlos-ctl owns every property this
+        # package needs and is idempotent, so this is also the upgrade path.
+        carlos-ctl init-config || {
+            echo "carlos-emr-eform-renderer: WARNING: 'carlos-ctl init-config' failed; eForm" >&2
+            echo "carlos-emr-eform-renderer: WARNING: PDF rendering stays unconfigured. Check the" >&2
+            echo "carlos-emr-eform-renderer: WARNING: cause and re-run 'carlos-ctl init-config'." >&2
+        }
+
+        # Restart so the running JVM picks up the new properties — they are read
+        # at renderer construction, not per request, so without this the browser
+        # stays unconfigured until the next restart. Same shared-JVM caveat as
+        # carlos-emr-drugref: this is a short EMR outage.
+        if [ -d /run/systemd/system ] && systemctl is-active --quiet carlos-emr.service; then
+            deb-systemd-invoke restart carlos-emr.service || {
+                echo "carlos-emr-eform-renderer: WARNING: the EMR did not restart — eForm PDF" >&2
+                echo "carlos-emr-eform-renderer: rendering will not work until it does" >&2
+                echo "carlos-emr-eform-renderer: (journalctl -u carlos-emr)." >&2
+            }
+        fi
+        ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

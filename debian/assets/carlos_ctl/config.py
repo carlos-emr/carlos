@@ -14,7 +14,7 @@ import re
 
 from . import util
 from .util import (
-    CONF_DIR, ENV_FILE, LIB, PROPERTIES, SHARE, STATE,
+    CHROMIUM_DIR, CONF_DIR, ENV_FILE, LIB, PROPERTIES, SHARE, STATE,
     die, env_get, log, prop_comment, prop_get, prop_set, run, warn,
 )
 
@@ -119,9 +119,25 @@ def cmd_init_config(argv) -> int:
     # DrugRef is co-deployed in this Tomcat, loopback-only.
     prop_set(PROPERTIES, "drugref_url", "http://127.0.0.1:18080/drugref2/DrugrefService")
 
-    # The shipped image carries no Chromium; the boot-time browser probe for
-    # the eForm-to-PDF renderer can only fail and log an error burst.
-    prop_set(PROPERTIES, "eform_pdf_browser_startup_check", "off")
+    # eForm-to-PDF renderer. carlos-emr-eform-renderer ships a pinned Chromium
+    # and a chromedriver built from the same revision; point the renderer at
+    # both so it never falls back to Selenium Manager downloading a driver at
+    # first use (which a clinic host may not be able to reach at all).
+    #
+    # The probe follows the browser rather than being hard-off: with no browser
+    # installed it could only fail and log an error burst on every boot, but
+    # once one IS installed a silent probe is worse than none — a broken
+    # renderer then surfaces as a failed print mid-consultation instead of one
+    # WARN at startup. "warn" is the application's own documented default; it
+    # logs and continues, and never blocks deployment.
+    chromium = f"{CHROMIUM_DIR}/chrome"
+    chromedriver = f"{CHROMIUM_DIR}/chromedriver"
+    if os.path.exists(chromium) and os.path.exists(chromedriver):
+        prop_set(PROPERTIES, "eform_pdf_browser_chromium_path", chromium)
+        prop_set(PROPERTIES, "eform_pdf_browser_chromedriver_path", chromedriver)
+        prop_set(PROPERTIES, "eform_pdf_browser_startup_check", "warn")
+    else:
+        prop_set(PROPERTIES, "eform_pdf_browser_startup_check", "off")
 
     # --- paths the upstream skeleton still aims at the OLD FHS location -----
     # The stock carlos.properties predates this packaging and carries several

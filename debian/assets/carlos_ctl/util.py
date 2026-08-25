@@ -24,6 +24,9 @@ BACKUP_ENV = os.path.join(CONF_DIR, "backup.env")
 SHARE = "/usr/share/carlos-emr"
 LIB = "/usr/lib/carlos-emr"
 WEBAPP = os.path.join(SHARE, "webapp", "carlos")
+# Vendored browser from carlos-emr-eform-renderer. Absent unless that package
+# is installed, so every reader must treat it as optional.
+CHROMIUM_DIR = os.path.join(LIB, "chromium")
 STATE = "/var/lib/carlos-emr"
 
 _TTY = sys.stdout.isatty()

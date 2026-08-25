@@ -41,7 +41,24 @@ published WAR byte for byte. Verify, then install:
 
   sha256sum -c carlos-emr_<version>_all.deb.sha256
   sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
-  sudo apt install ./carlos-emr_<version>_all.deb ./carlos-emr-drugref_<version>_all.deb
+  sudo apt install ./carlos-emr_<version>_all.deb ./carlos-emr-drugref_<version>_all.deb \
+      ./carlos-emr-eform-renderer_<version>_amd64.deb
+
+carlos-emr-eform-renderer is optional but strongly recommended: it carries the
+browser that renders saved eForms to PDF, and eForm print, fax and archive do
+not work without it. Leave it out only if the site does not use eForms.
+
+apt normally prints this while installing a local .deb, and it is harmless:
+
+  Notice: Download is performed unsandboxed as root as file '...deb'
+  couldn't be accessed by user '_apt'. - pkgAcquire::Run (13: Permission denied)
+
+apt drops to the unprivileged '_apt' user to fetch packages. Ubuntu creates
+home directories mode 0750, so '_apt' cannot traverse yours to reach a .deb
+sitting in it; apt says so and copies the file as root instead. Nothing is
+downloaded from the network by that step — the file is already on disk and you
+have already checksummed it — and the install is unaffected. To avoid the
+notice entirely, install from a world-traversable directory such as /tmp.
 
 Building from source instead: see debian/rules (the header documents the
 inputs, including how to skip the Maven compile with a prebuilt WAR).
@@ -55,6 +72,8 @@ inputs, including how to skip the Maven compile with a prebuilt WAR).
   /usr/share/carlos-emr/webapp/drugref2/ DrugRef2 (carlos-emr-drugref)
   /usr/share/carlos-emr/schema/          the Flyway migration set, readable
   /usr/lib/carlos-emr/                   the administrative helpers
+  /usr/lib/carlos-emr/chromium/          the eForm PDF browser and its
+                                         chromedriver (carlos-emr-eform-renderer)
   /usr/sbin/carlos-ctl                    the administration command
 
   /etc/carlos-emr/carlos-emr.env         site settings; yours to edit

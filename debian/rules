@@ -40,6 +40,7 @@ MVN_FLAGS  := -DskipTests=true -Dcheckstyle.skip=true -Dmaven.compiler.fork=true
 
 PKG        := carlos-emr
 DPKG       := carlos-emr-drugref
+RPKG       := carlos-emr-eform-renderer
 BUILDDIR   := $(CURDIR)/debian/build
 # Note the ordering: STAGE expands PKG immediately (:=), so PKG has to be
 # defined above it. The other way round, STAGE silently becomes debian/ and the
@@ -59,6 +60,10 @@ TOMCAT_ETC ?= /usr/share/tomcat11/etc
 
 DRUGREF_REF ?= $(shell sed -n 's/^ref=//p' debian/drugref.pin)
 
+CHROMIUM_REV        ?= $(shell sed -n 's/^rev=//p' debian/chromium.pin)
+CHROMIUM_CHROME_SHA ?= $(shell sed -n 's/^chrome_sha256=//p' debian/chromium.pin)
+CHROMIUM_DRIVER_SHA ?= $(shell sed -n 's/^chromedriver_sha256=//p' debian/chromium.pin)
+
 # --with installsysusers: the sysusers.d helper is not in debhelper's default
 # sequence, and without this the two system accounts would simply never be
 # declared — the package would install and then fail at the first chown.
@@ -67,6 +72,13 @@ DRUGREF_REF ?= $(shell sed -n 's/^ref=//p' debian/drugref.pin)
 # that looked shippable. Dev/CI knob only — release builds always ship both.
 ifneq ($(SKIP_DRUGREF),)
 DH_EXTRA := --no-package=carlos-emr-drugref
+endif
+# SKIP_EFORM_RENDERER drops carlos-emr-eform-renderer the same way, for a build
+# that must not reach the network for the ~250 MB Chromium archive. Dev/CI knob
+# only — release builds always ship it, because without a browser saved-eForm
+# print/fax/archive has no fallback path at all.
+ifneq ($(SKIP_EFORM_RENDERER),)
+DH_EXTRA += --no-package=carlos-emr-eform-renderer
 endif
 
 %:
@@ -105,6 +117,22 @@ ifeq ($(SKIP_DRUGREF),)
 	  fi; \
 	  $(MVN) -f "$$src/pom.xml" $(MVN_FLAGS) -Dmaven.test.skip=true package; \
 	  cp -f "$$src"/target/drugref2*.war $(BUILDDIR)/drugref2.war; \
+	fi
+endif
+ifeq ($(SKIP_EFORM_RENDERER),)
+	# Chromium is fetched, never built: compiling it here would dwarf the rest
+	# of this package by orders of magnitude. CHROMIUM_DIST points at an
+	# already-unpacked tree (chrome-linux/ + chromedriver) for an offline or
+	# air-gapped build; otherwise the pinned revision is downloaded and its
+	# sha256 verified before anything is unpacked.
+	set -e; \
+	if [ -n "$$CHROMIUM_DIST" ]; then \
+	  echo "using prebuilt Chromium: $$CHROMIUM_DIST"; \
+	  rm -rf $(BUILDDIR)/chromium; \
+	  mkdir -p $(BUILDDIR)/chromium; \
+	  cp -a "$$CHROMIUM_DIST"/. $(BUILDDIR)/chromium/; \
+	else \
+	  $(CURDIR)/debian/fetch-chromium.sh "$(CHROMIUM_REV)" "$(CHROMIUM_CHROME_SHA)" "$(CHROMIUM_DRIVER_SHA)" $(BUILDDIR)/chromium; \
 	fi
 endif
 
@@ -250,6 +278,19 @@ ifeq ($(SKIP_DRUGREF),)
 	install -m 0644 debian/assets/tomcat/Catalina/localhost/drugref2.xml \
 	    debian/$(DPKG)/$(SHAREDIR)/tomcat/Catalina/localhost/drugref2.xml
 endif
+ifeq ($(SKIP_EFORM_RENDERER),)
+	# cp -a, not install: the Chromium tree carries nested resource
+	# directories and its own helper binaries, and their modes matter
+	# (chrome_crashpad_handler and the sandbox helper must stay executable).
+	install -d debian/$(RPKG)/$(LIBDIR)/chromium
+	cp -a $(BUILDDIR)/chromium/chrome-linux/. debian/$(RPKG)/$(LIBDIR)/chromium/
+	install -m 0755 $(BUILDDIR)/chromium/chromedriver debian/$(RPKG)/$(LIBDIR)/chromium/chromedriver
+	# The setuid sandbox helper ships non-setuid on purpose: the renderer runs
+	# with --no-sandbox by default (see docs/eform-browser-pdf-renderer.md),
+	# and a setuid root binary inside a clinical package is not something to
+	# install for a code path that is off unless EFORM_RENDER_SANDBOX=true.
+	chmod 0755 debian/$(RPKG)/$(LIBDIR)/chromium/chrome_sandbox || true
+endif
 
 # The webapp is thousands of small files that Tomcat serves directly; gzipping
 # any of them (the README/txt/xml dh_compress would otherwise pick up under
@@ -261,8 +302,12 @@ override_dh_compress:
 	# references (found by the documentation audit).
 	dh_compress -X/usr/share/carlos-emr -XREADME.Debian
 
-# The package ships no ELF objects; skip the toolchain helpers entirely so the
-# build does not spend minutes walking a 400 MB exploded webapp.
+# carlos-emr itself ships no ELF objects, and the ELF that carlos-emr-eform-renderer
+# does ship is a VENDORED Chromium: stripping it, rewriting its build-ids or
+# computing shlibdeps from it are all wrong (its dependencies are declared by
+# hand in debian/control, read off the binary's own dynamic section). Skipping
+# these also keeps the build from spending minutes walking a 400 MB exploded
+# webapp.
 override_dh_strip:
 override_dh_strip_nondeterminism:
 override_dh_dwz:
