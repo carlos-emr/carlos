@@ -21,6 +21,7 @@
 package io.github.carlos_emr.carlos.signature.action;
 
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -75,6 +76,7 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
     @Mock private SecurityInfoManager mockSecurityInfoManager;
     @Mock private DigitalSignatureManager mockDigitalSignatureManager;
     @Mock private LoggedInInfo mockLoggedInInfo;
+    @Mock private Facility mockFacility;
 
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
@@ -106,6 +108,8 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("w"), isNull()))
                 .thenReturn(true);
+        when(mockLoggedInInfo.getCurrentFacility()).thenReturn(mockFacility);
+        when(mockFacility.isEnableDigitalSignatures()).thenReturn(true);
 
         action = new SaveSignatureUpload2Action();
     }
@@ -415,6 +419,19 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
             mockRequest.setParameter("source", "IPAD");
             mockRequest.setParameter("signatureImage", dataUri);
             mockRequest.setParameter("saveToDB", "true");
+        }
+
+        @Test
+        @DisplayName("should return 403 when facility digital signatures are disabled")
+        void shouldReturn403_whenFacilityDigitalSignaturesAreDisabled() throws Exception {
+            primeIpadUpload();
+            when(mockFacility.isEnableDigitalSignatures()).thenReturn(false);
+
+            action.execute();
+
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(new File(DigitalSignatureUtils.getTempFilePath(signatureKey))).doesNotExist();
+            verifyNoInteractions(mockDigitalSignatureManager);
         }
 
         @Test

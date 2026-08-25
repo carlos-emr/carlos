@@ -52,6 +52,9 @@ class RxPrescriptionSignatureFlowIntegrationTest {
                 .contains("<allowed-methods>saveDigitalSignature</allowed-methods>");
 
         assertThat(viewScript)
+                .contains("isRxSignatureEnabled()")
+                .contains("loggedInInfo.getCurrentFacility() != null")
+                .contains("loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()")
                 .contains("id=\"signatureFrame\"")
                 .contains("saveToDB=true")
                 .contains("ModuleType.PRESCRIPTION")
