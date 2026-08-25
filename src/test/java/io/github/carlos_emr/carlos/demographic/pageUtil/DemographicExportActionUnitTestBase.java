@@ -129,7 +129,18 @@ abstract class DemographicExportActionUnitTestBase extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographicExport"), eq("r"), isNull()))
                 .thenReturn(true);
 
-        action = new DemographicExportAction42Action();
+        action = new DemographicExportAction42Action(
+                demographicArchiveDao,
+                demographicContactDao,
+                partialDateDao,
+                hrmDocumentToDemographicDao,
+                hrmDocumentDao,
+                hrmDocumentCommentDao,
+                caseManagementManager,
+                hl7TextInfoDao,
+                hl7TextMessageDao,
+                demographicExtDao,
+                securityInfoManager);
     }
 
     @AfterEach

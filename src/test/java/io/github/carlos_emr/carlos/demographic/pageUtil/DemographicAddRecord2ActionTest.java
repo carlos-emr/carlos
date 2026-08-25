@@ -22,6 +22,11 @@
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtArchiveDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
+import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
@@ -39,6 +44,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -63,7 +69,7 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
     private DemographicAddRecord2Action action;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         mockCloseable = MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
@@ -73,15 +79,14 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
         String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(key, mockLoggedInInfo);
 
-        action = new DemographicAddRecord2Action();
-
-        java.lang.reflect.Field secField = DemographicAddRecord2Action.class.getDeclaredField("securityInfoManager");
-        secField.setAccessible(true);
-        secField.set(action, mockSecurityInfoManager);
-
-        java.lang.reflect.Field demographicDaoField = DemographicAddRecord2Action.class.getDeclaredField("demographicDao");
-        demographicDaoField.setAccessible(true);
-        demographicDaoField.set(action, mockDemographicDao);
+        action = new DemographicAddRecord2Action(
+                mockSecurityInfoManager,
+                mockDemographicDao,
+                mock(DemographicCustDao.class),
+                mock(DemographicExtDao.class),
+                mock(DemographicArchiveDao.class),
+                mock(DemographicExtArchiveDao.class),
+                mock(WaitingListDao.class));
     }
 
     @AfterEach

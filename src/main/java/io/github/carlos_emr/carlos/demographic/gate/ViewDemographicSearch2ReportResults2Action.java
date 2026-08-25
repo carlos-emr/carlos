@@ -32,7 +32,15 @@ import org.apache.struts2.ServletActionContext;
  */
 public final class ViewDemographicSearch2ReportResults2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+
+    public ViewDemographicSearch2ReportResults2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    public ViewDemographicSearch2ReportResults2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
 
     @Override
     public String execute() throws Exception {
