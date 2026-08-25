@@ -361,12 +361,15 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     /**
      * Gets the encryption password.
      *
-     * <p><strong>Security Note:</strong> This password is used for email encryption in a
-     * healthcare context where emails may contain PHI. Handle this value with appropriate
-     * security measures: do not log it, avoid exposing it in error messages, and clear it
-     * from memory when no longer needed.</p>
+     * <p><strong>Security Note:</strong> As of issue #3112 this field is intentionally left
+     * unpopulated by default: the Manage Emails view no longer surfaces the stored PDF password,
+     * so {@code EmailManager} passes {@code null} here. The accessor is retained for compatibility.
+     * If a future workflow repopulates it, this password is used for email encryption in a
+     * healthcare context where emails may contain PHI. Handle it with appropriate security
+     * measures: do not log it, avoid exposing it in error messages, and clear it from memory when
+     * no longer needed.</p>
      *
-     * @return String the encryption password (may be null if not encrypted)
+     * @return String the encryption password (null by default; see the security note above)
      */
     public String getPassword() {
         return password;

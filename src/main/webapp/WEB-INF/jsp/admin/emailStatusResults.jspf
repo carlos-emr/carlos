@@ -26,7 +26,9 @@
                 <td>
                 <c:choose>
                     <c:when test="${emailStatusResult.isEncrypted}">
-                        <i class="fa-solid fa-lock"></i> Encrypted with password <b>${carlos:forHtml(emailStatusResult.password)}</b>
+                        <%-- The PDF password is deliberately not rendered here (issue #3112): show only
+                             that the email was encrypted, never the credential itself. --%>
+                        <i class="fa-solid fa-lock"></i> Encrypted
                     </c:when>
                     <c:otherwise>
                         <i class="fa-solid fa-unlock"></i> Unencrypted
