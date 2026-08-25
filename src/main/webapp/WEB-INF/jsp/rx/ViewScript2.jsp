@@ -284,14 +284,27 @@
         <fmt:message key="ViewScript.msgRemovePharmacyInfo" var="msg_removePharmacyInfo"/>
 
         <script type="text/javascript">
-            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-            var csrfToken = csrfEl ? csrfEl.value : '';
+            /*
+             * CSRFGuard's client script populates the hidden CSRF-TOKEN input on
+             * DOMContentLoaded, after this block has already executed — a parse-time
+             * capture is therefore always empty/stale and every fetch() below gets
+             * rejected with 403. Read the token at call time instead (same pattern
+             * as labDisplay.jsp's getCsrfToken()).
+             */
+            function getCsrfToken() {
+                var el = document.querySelector('input[name="CSRF-TOKEN"]');
+                if (!el) {
+                    console.warn('CSRF-TOKEN hidden input not found. POST requests will be rejected.');
+                    return '';
+                }
+                return el.value;
+            }
 
             function resetStash() {
                 var url = "${carlos:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearStash";
                 fetch(url, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                     credentials: 'same-origin',
                     body: ''
                 }).then(function() {
@@ -304,7 +317,7 @@
                 var url = "${carlos:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearReRxDrugList";
                 fetch(url, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                     credentials: 'same-origin',
                     body: ''
                 });
@@ -347,7 +360,7 @@
                 var params = "addr=" + addr + "&rand=" + ran_number;
                 fetch(url, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                     credentials: 'same-origin',
                     body: params
                 });
@@ -363,7 +376,7 @@
                 var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
                 fetch(url, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                     credentials: 'same-origin',
                     body: params
                 });
@@ -484,7 +497,7 @@
 			var prefPharmacy = "<%=prefPharmacy != null ? SafeEncode.forJavaScriptBlock(prefPharmacy) : ""%>";
 			fetch(url, {
 				method: 'POST',
-				headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+				headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
 				credentials: 'same-origin',
 				body: "prefPharmacy=" + encodeURIComponent(prefPharmacy) +
 						"&additionalNotes=" +
@@ -639,7 +652,7 @@
 function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 	fetch('<%=request.getContextPath() %>/rx/saveDigitalSignature', {
 		method: 'POST',
-		headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+		headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
 		credentials: 'same-origin',
 		body: 'method=saveDigitalSignature&digitalSignatureId=' + encodeURIComponent(digitalSignatureId) + '&scriptId=' + encodeURIComponent(scriptId)
 	});

@@ -1,0 +1,524 @@
+#!/bin/sh
+# postinst for carlos-emr.
+#
+# THIS IS THE ONLY PLACE THE PACKAGE USES ROOT. It creates the two system
+# accounts, lays out the directories, provisions the database, renders the
+# configuration and wires nginx. Everything it installs then runs unprivileged:
+# the application as `carlos`, backups as `carlos-backup`, the front door as
+# `www-data`, the database as `mysql`.
+#
+# The provisioning work itself lives in carlos-ctl, not here, so that what an
+# install does and what an administrator can re-run by hand are the same code.
+
+set -e
+
+. /usr/share/debconf/confmodule
+
+CONF_DIR=/etc/carlos-emr
+SHARE=/usr/share/carlos-emr
+ENV_FILE="${CONF_DIR}/carlos-emr.env"
+PROPERTIES="${CONF_DIR}/carlos.properties"
+BACKUP_ENV="${CONF_DIR}/backup.env"
+STATE=/var/lib/carlos-emr
+
+# deb-systemd-invoke rather than systemctl: it honours /usr/sbin/policy-rc.d,
+# which is how an image build or a chroot says "configure this package but do
+# not start anything". A raw systemctl call ignores that and would start a
+# database-backed EMR inside a build container. It comes from
+# init-system-helpers, which the package depends on explicitly, so there is no
+# fallback path to get wrong.
+sd_invoke() {
+    if [ ! -d /run/systemd/system ]; then
+        return 0
+    fi
+    deb-systemd-invoke "$@"
+}
+
+# Install a generated file ONCE. These carry credentials and site decisions, so
+# they are deliberately not conffiles: dpkg would prompt about a "modified"
+# file on every upgrade, and worse, a distribution default could overwrite a
+# working credential. The reference copy stays in ${SHARE}/skel for comparison
+# after an upgrade.
+install_once() {
+    src="$1"; dest="$2"; mode="$3"; owner="$4"
+    if [ ! -e "${dest}" ]; then
+        install -m "${mode}" -o "${owner%:*}" -g "${owner#*:}" "${src}" "${dest}"
+    else
+        chown "${owner}" "${dest}"
+        chmod "${mode}" "${dest}"
+    fi
+}
+
+case "$1" in
+    configure)
+        # --- accounts -------------------------------------------------------
+        # dh_installsysusers has already run systemd-sysusers by this point on
+        # a systemd host. This is the fallback for a chroot or container image
+        # built without systemd running, so the package is installable there
+        # too and the ownerships below do not fail.
+        if ! getent group carlos >/dev/null; then
+            addgroup --system carlos
+        fi
+        if ! getent passwd carlos >/dev/null; then
+            adduser --system --ingroup carlos --home "${STATE}" \
+                    --no-create-home --shell /usr/sbin/nologin \
+                    --gecos "CARLOS EMR application server" carlos
+        fi
+        if ! getent group carlos-backup >/dev/null; then
+            addgroup --system carlos-backup
+        fi
+        if ! getent passwd carlos-backup >/dev/null; then
+            adduser --system --ingroup carlos-backup --home /var/backups/carlos-emr \
+                    --no-create-home --shell /usr/sbin/nologin \
+                    --gecos "CARLOS EMR backup" carlos-backup
+        fi
+        # Read-only reach into the application's data. See debian/carlos-emr.sysusers
+        # for why this direction and not the other. Guarded on membership
+        # rather than `|| true`: the old form also swallowed real failures.
+        # Exact match, one group per line: `grep -qw carlos` word-matched
+        # inside the primary group "carlos-backup" (hyphen is a non-word
+        # character), so the guard was always true and this fallback dead.
+        if ! id -nG carlos-backup | tr ' ' '\n' | grep -qx carlos; then
+            adduser --quiet carlos-backup carlos
+        fi
+
+        # --- directories ----------------------------------------------------
+        # systemd-tmpfiles owns this on a systemd host; run it explicitly so a
+        # fresh install has its directories before anything below writes into
+        # them, and fall back to mkdir where systemd is not running.
+        if command -v systemd-tmpfiles >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+            systemd-tmpfiles --create /usr/lib/tmpfiles.d/carlos-emr.conf || \
+                echo "carlos-emr: WARNING: systemd-tmpfiles reported errors creating the state directories; later steps may fail — scroll up for its output" >&2
+        else
+            # Root owns the two top-level directories and every service-owned
+            # directory hangs underneath them; see debian/carlos-emr.tmpfiles
+            # for why that ordering is not optional.
+            install -d -m 0755 -o root -g root "${STATE}" /var/log/carlos-emr
+            install -d -m 0750 -o carlos -g carlos /run/carlos-emr
+            install -d -m 0750 -o carlos -g carlos \
+                "${STATE}/catalina" "${STATE}/catalina/webapps" \
+                "${STATE}/catalina/work" "${STATE}/catalina/temp" \
+                "${STATE}/catalina/lib" "${STATE}/catalina/prefs" \
+                "${STATE}/heapdumps"
+            install -d -m 2750 -o carlos -g carlos \
+                "${STATE}/OscarDocument" "${STATE}/OscarDocument/carlos"
+            install -d -m 0750 -o www-data -g www-data "${STATE}/modsecurity"
+            install -d -m 0700 -o www-data -g www-data \
+                "${STATE}/modsecurity/tmp" "${STATE}/modsecurity/data"
+            install -d -m 0755 -o root -g root "${STATE}/acme/.well-known/acme-challenge"
+            # 2750 (setgid) so Tomcat's logs inherit group adm and stay
+            # readable by the log-reading group — matching the tmpfiles entry.
+            install -d -m 2750 -o carlos -g adm /var/log/carlos-emr/tomcat
+            install -d -m 0750 -o root -g adm /var/log/carlos-emr/modsec
+            # Root-filesystem twin of the backup repo marker, so an unmounted
+            # backup disk cannot erase the evidence a repository existed
+            # (mirrors the tmpfiles entry).
+            install -d -m 0700 -o carlos-backup -g adm /var/log/carlos-emr/backup-state
+            install -d -m 0700 -o carlos-backup -g carlos-backup /var/backups/carlos-emr
+            install -d -m 0750 -o root -g www-data "${CONF_DIR}/tls"
+        fi
+
+        # The document skeleton the application expects to exist before it
+        # starts; without the incoming-document directories, document routing
+        # fails at runtime rather than at deploy time.
+        #
+        # Created directory by directory with the right owner and mode, rather
+        # than `cp -r` followed by a recursive chown. Two reasons: the copy
+        # would create root-owned entries that then need fixing, and the
+        # recursive fix would walk the WHOLE document store — which on a
+        # established clinic is hundreds of thousands of patient files — on
+        # every package upgrade, for no benefit.
+        ( cd "${SHARE}/document-skeleton/carlos" && find . -type d -printf '%P\n' ) | \
+        while IFS= read -r d; do
+            [ -n "${d}" ] || continue
+            if [ ! -d "${STATE}/OscarDocument/carlos/${d}" ]; then
+                install -d -m 2750 -o carlos -g carlos "${STATE}/OscarDocument/carlos/${d}"
+            fi
+        done
+        ( cd "${SHARE}/document-skeleton/carlos" && find . -type f -printf '%P\n' ) | \
+        while IFS= read -r f; do
+            [ -n "${f}" ] || continue
+            if [ ! -e "${STATE}/OscarDocument/carlos/${f}" ]; then
+                install -m 0640 -o carlos -g carlos \
+                    "${SHARE}/document-skeleton/carlos/${f}" \
+                    "${STATE}/OscarDocument/carlos/${f}"
+            fi
+        done
+
+        # --- CATALINA_BASE --------------------------------------------------
+        # conf and logs are symlinks, following the same layout the
+        # distribution's own tomcat11 package uses: configuration belongs in
+        # /etc and logs in /var/log, while Tomcat insists on finding both
+        # under CATALINA_BASE.
+        ln -sfn "${CONF_DIR}/tomcat" "${STATE}/catalina/conf"
+        # Tomcat insists on finding logs under CATALINA_BASE; the application's
+        # own Log4j2 appenders resolve through the same symlink, so csrf.log and
+        # waf.log land beside the container's.
+        ln -sfn /var/log/carlos-emr/tomcat "${STATE}/catalina/logs"
+
+        # --- configuration files --------------------------------------------
+        # Recorded BEFORE install_once lays down the skeleton: the province
+        # guard below must distinguish "fresh install" from "operator already
+        # chose", and once the skel (whose default is CARLOS_PROVINCE=on)
+        # exists, the two are indistinguishable — which silently configured a
+        # British Columbia clinic for Ontario migrations. Review finding,
+        # confirmed by inspection.
+        # The freshness decision is PERSISTED across a configure that dies
+        # part-way: install_once lands the skeleton immediately below, so on
+        # a rerun the env file exists and a bare existence test would read
+        # "not fresh" — silently discarding the operator's province answer
+        # (and the timezone) after any early failure. The sentinel is
+        # removed only after the first-install writes actually happen.
+        FRESH_SENTINEL=/var/lib/carlos-emr/.first-configure-pending
+        if [ -e "${ENV_FILE}" ] && [ ! -e "${FRESH_SENTINEL}" ]; then
+            FRESH_ENV=0
+        else
+            FRESH_ENV=1
+            touch "${FRESH_SENTINEL}"
+        fi
+        install_once "${SHARE}/skel/carlos-emr.env" "${ENV_FILE}" 0644 root:root
+        install_once "${SHARE}/skel/carlos.properties" "${PROPERTIES}" 0640 root:carlos
+        install_once "${SHARE}/skel/backup.env" "${BACKUP_ENV}" 0640 root:carlos-backup
+
+        # Fold the debconf answers into the operator-owned settings file.
+        db_get carlos-emr/server-name; SERVER_NAME="${RET:-localhost}"
+        db_get carlos-emr/bind-ip;     BIND_IP="${RET:-0.0.0.0}"
+        db_get carlos-emr/province;    PROVINCE="${RET:-on}"
+        db_get carlos-emr/java-heap;   HEAP="${RET:-2g}"
+        db_get carlos-emr/tls-mode;    TLS_MODE="${RET:-selfsigned}"
+        db_get carlos-emr/acme-email;  ACME_EMAIL="${RET:-}"
+        db_get carlos-emr/reset-seed-admin; RESET_ADMIN="${RET:-true}"
+
+        # Three sources in order of authority: /etc/timezone (Debian
+        # tradition), timedatectl, the /etc/localtime symlink target. Modern
+        # Ubuntu cloud images can lack /etc/timezone entirely — live-caught:
+        # the old single-source fallback silently picked America/Toronto on
+        # a UTC host.
+        TZ_NAME="$(cat /etc/timezone 2>/dev/null \
+            || timedatectl show -p Timezone --value 2>/dev/null \
+            || readlink /etc/localtime 2>/dev/null | sed 's|.*/zoneinfo/||' \
+            || true)"
+        TZ_NAME="${TZ_NAME:-America/Toronto}"
+
+        # The value travels through the ENVIRONMENT into awk, never through a
+        # sed replacement: sed treats |, & and \ specially there, so a host
+        # name or heap value containing one would be corrupted — or abort
+        # configure under set -e. Appends when the key is missing.
+        set_env_key() {
+            key="$1" value="$2"
+            SEK_KEY="${key}" SEK_VALUE="${value}" awk '
+                BEGIN { k = ENVIRON["SEK_KEY"]; v = ENVIRON["SEK_VALUE"] }
+                index($0, k "=") == 1 { print k "=" v; done = 1; next }
+                { print }
+                END { if (!done) print k "=" v }
+            ' "${ENV_FILE}" > "${ENV_FILE}.tmp"
+            # cat-into rather than mv: preserves the destination's inode,
+            # owner and mode without re-stating them here.
+            cat "${ENV_FILE}.tmp" > "${ENV_FILE}"
+            rm -f "${ENV_FILE}.tmp"
+        }
+        set_env_key CARLOS_SERVER_NAME "${SERVER_NAME}"
+        set_env_key CARLOS_BIND_IP "${BIND_IP}"
+        set_env_key CARLOS_JAVA_XMS "${HEAP}"
+        set_env_key CARLOS_JAVA_XMX "${HEAP}"
+        # Fresh install only: CARLOS_TZ is not round-tripped through debconf
+        # like the keys above, so re-deriving it from /etc/timezone on every
+        # configure silently overwrote an operator's clinic timezone on each
+        # upgrade (a cloud VM's /etc/timezone is usually Etc/UTC).
+        if [ "${FRESH_ENV}" = 1 ]; then
+            set_env_key CARLOS_TZ "${TZ_NAME}"
+        fi
+        # The province is written only on the FIRST install (as detected
+        # before the skeleton landed — the skel itself carries a default that
+        # would fool a grep on the file). Changing it later against an
+        # existing schema would point Flyway at migrations that create a
+        # different set of tables, and the application would fail its
+        # boot-time validation with no obvious way back.
+        if [ "${FRESH_ENV}" = 1 ]; then
+            set_env_key CARLOS_PROVINCE "${PROVINCE}"
+        fi
+        # Cleared ONLY after every first-install-only write has landed: an
+        # install interrupted between clearing it and writing the province
+        # used to reset FRESH_ENV to 0 on the rerun and silently keep the
+        # skeleton default (Ontario) over the operator's answer.
+        rm -f "${FRESH_SENTINEL}"
+
+        # Generate the restic passphrase once, if the operator has not set one.
+        if ! grep -qE '^RESTIC_PASSWORD=.+' "${BACKUP_ENV}"; then
+            # Bounded read, not `tr -dc ... </dev/urandom | head -c N`: that
+            # idiom kills tr with SIGPIPE, which is invisible here but fatal in
+            # any script running with `set -o pipefail`. Written with the same
+            # env-fed awk pattern as set_env_key so the key line is APPENDED
+            # when an operator deleted it (the old substitute-only sed wrote
+            # nothing in that case and left the backups locked to a passphrase
+            # recorded nowhere).
+            RESTIC_PW="$(head -c 128 /dev/urandom | base64 | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-40)"
+            # The .tmp is created under umask 077: dpkg runs maintainer
+            # scripts at umask 022, which made the temp file 0644 — the new
+            # passphrase world-readable (in a 0755 directory) for the moment
+            # it existed. The subshell keeps the umask change local.
+            ( umask 077
+              SEK_KEY=RESTIC_PASSWORD SEK_VALUE="${RESTIC_PW}" awk '
+                BEGIN { k = ENVIRON["SEK_KEY"]; v = ENVIRON["SEK_VALUE"] }
+                index($0, k "=") == 1 { print k "=" v; done = 1; next }
+                { print }
+                END { if (!done) print k "=" v }
+              ' "${BACKUP_ENV}" > "${BACKUP_ENV}.tmp" )
+            cat "${BACKUP_ENV}.tmp" > "${BACKUP_ENV}"
+            rm -f "${BACKUP_ENV}.tmp"
+            unset RESTIC_PW
+            echo "carlos-emr: generated a restic backup passphrase in ${BACKUP_ENV}."
+            echo "carlos-emr: COPY IT OFF THIS HOST. Without it the backups cannot be read."
+        fi
+
+        # --- render, provision, migrate -------------------------------------
+        # Guarded: init-config exits non-zero when nginx cannot be tested or
+        # reloaded — including for reasons OUTSIDE this package (another
+        # vhost's broken config). Front-door trouble is loud but must never
+        # leave the package half-configured and block the apt transaction;
+        # the same tolerance the nginx section below has always had.
+        carlos-ctl init-config || {
+            echo "carlos-emr: WARNING: init-config reported a problem applying the front-door" >&2
+            echo "carlos-emr: WARNING: configuration (see above). The install continues; fix the" >&2
+            echo "carlos-emr: WARNING: cause and re-run 'carlos-ctl init-config'." >&2
+        }
+
+        if command -v mariadb >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+            # A fresh mariadb-server install may not have finished starting.
+            sd_invoke start mariadb.service >/dev/null 2>&1 || true
+            i=0
+            while [ "${i}" -lt 30 ] && ! mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; do
+                sleep 2; i=$((i + 1))
+            done
+        fi
+
+        # Tracks whether the schema is in a state the application can start
+        # against. Consulted before the service start at the end of postinst:
+        # starting anyway would put systemd into a restart loop of two-minute
+        # failed deployments (the app's boot-time validate gate refuses a
+        # schema behind the WAR — by design).
+        MIGRATION_OK=1
+        if mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
+            # mariadb-server was already running when this package's drop-in
+            # was unpacked, so it is still on distribution defaults — STRICT
+            # sql_mode and no binary log, neither of which this deployment can
+            # live with. This restarts it, but only if the running values
+            # actually disagree.
+            carlos-ctl db-apply-settings || {
+                echo "carlos-emr: WARNING: MariaDB is NOT running the packaged settings" >&2
+                echo "carlos-emr: (STRICT sql_mode and/or no binary log). The application may" >&2
+                echo "carlos-emr: misbehave and point-in-time recovery is unavailable until" >&2
+                echo "carlos-emr: 'carlos-ctl db-apply-settings' succeeds." >&2
+            }
+            # Handled like the migration below rather than left to set -e: an
+            # unhandled abort here marks the package failed-to-configure,
+            # which then blocks carlos-emr-drugref and any unrelated packages
+            # in the same apt transaction — and gives the operator no
+            # recovery instructions.
+            if ! carlos-ctl db-users; then
+                MIGRATION_OK=0
+                echo "carlos-emr: database provisioning FAILED; the service will not be started." >&2
+                echo "carlos-emr: fix the cause (journalctl or the messages above), then run:" >&2
+                echo "carlos-emr:   sudo carlos-ctl db-apply-settings && sudo carlos-ctl db-users && \\" >&2
+                echo "carlos-emr:   sudo carlos-ctl db-migrate && sudo carlos-ctl bootstrap-admin" >&2
+                echo "carlos-emr:   sudo systemctl start carlos-emr" >&2
+            fi
+            # Apply the schema. On a fresh database this creates everything; on
+            # an existing one Flyway applies only what is pending and refuses
+            # loudly if the history does not match the deployed WAR, which is
+            # the behaviour we want during an upgrade. Skipped when
+            # provisioning failed: it would only fail again with a worse
+            # message.
+            if [ "${MIGRATION_OK}" = 1 ] && ! carlos-ctl db-migrate; then
+                MIGRATION_OK=0
+                echo "carlos-emr: the schema migration FAILED. The service will not be started:" >&2
+                echo "carlos-emr: the application refuses a schema behind its WAR, and starting it" >&2
+                echo "carlos-emr: anyway would loop through two-minute failed deployments." >&2
+                echo "carlos-emr: run 'carlos-ctl db-info' to see the state, fix the cause, then:" >&2
+                echo "carlos-emr:   sudo carlos-ctl db-migrate && sudo systemctl start carlos-emr" >&2
+            fi
+            if [ "${RESET_ADMIN}" = true ]; then
+                carlos-ctl bootstrap-admin || {
+                    echo "carlos-emr: WARNING: could not replace the seeded 'carlosdoc' password —" >&2
+                    echo "carlos-emr: the account still has the credential PUBLISHED in the CARLOS" >&2
+                    echo "carlos-emr: source repository. Run 'carlos-ctl bootstrap-admin' before" >&2
+                    echo "carlos-emr: putting patient data on this system." >&2
+                }
+            else
+                echo "carlos-emr: WARNING: the seeded 'carlosdoc' account keeps the password" >&2
+                echo "carlos-emr: published in the CARLOS source repository. Do not put patient" >&2
+                echo "carlos-emr: data on this system until you have changed it." >&2
+            fi
+        else
+            MIGRATION_OK=0
+            echo "carlos-emr: could not reach MariaDB as root over the unix socket." >&2
+            echo "carlos-emr: finish setup by hand once it is running:" >&2
+            echo "carlos-emr:   sudo carlos-ctl db-apply-settings && sudo carlos-ctl db-users && \\" >&2
+                echo "carlos-emr:   sudo carlos-ctl db-migrate && sudo carlos-ctl bootstrap-admin" >&2
+            echo "carlos-emr:   sudo systemctl start carlos-emr" >&2
+        fi
+
+        # --- TLS ------------------------------------------------------------
+        # A certificate failure is fatal to the front door (nginx refuses to
+        # start without the pair), so every branch reports it in terms of that
+        # consequence instead of swallowing it.
+        cert_failed() {
+            echo "carlos-emr: WARNING: TLS certificate generation FAILED — nginx cannot serve" >&2
+            echo "carlos-emr: until 'carlos-ctl cert selfsigned' succeeds." >&2
+        }
+        # The RECORDED mode (what carlos-ctl cert last did) can legitimately
+        # differ from the debconf answer: an operator who ran 'cert acme'
+        # after installing with selfsigned has a working Let's Encrypt pair
+        # that this block must not touch — cert selfsigned refuses exactly
+        # that, and treating its refusal as "generation FAILED" printed a
+        # false alarm (with destructive advice) on every upgrade.
+        MODE_NOW="$(cat "${CONF_DIR}/tls/mode" 2>/dev/null || echo "")"
+        case "${TLS_MODE}" in
+            selfsigned)
+                case "${MODE_NOW}" in
+                    ""|selfsigned) /usr/lib/carlos-emr/carlos-emr-cert selfsigned || cert_failed ;;
+                    *) echo "carlos-emr: TLS is operator-managed ('${MODE_NOW}'); leaving the certificate alone." ;;
+                esac
+                ;;
+            manual)
+                if [ -s "${CONF_DIR}/tls/fullchain.pem" ] && [ "${MODE_NOW}" != selfsigned ]; then
+                    /usr/lib/carlos-emr/carlos-emr-cert manual || cert_failed
+                else
+                    # Never leave the front door without a certificate: nginx
+                    # would refuse to start and the EMR would be unreachable.
+                    # A pair whose recorded mode is selfsigned is the
+                    # package's own placeholder (init-config generates one
+                    # earlier in this very configure) — adopting it as
+                    # "operator-supplied" would tell the operator their
+                    # certificate is in use when it is not.
+                    echo "carlos-emr: TLS mode is 'manual' but no operator certificate is present;" >&2
+                    echo "carlos-emr: serving a self-signed placeholder. Place your chain and key at" >&2
+                    echo "carlos-emr: ${CONF_DIR}/tls/{fullchain,privkey}.pem and run 'carlos-ctl cert manual'." >&2
+                    /usr/lib/carlos-emr/carlos-emr-cert selfsigned || cert_failed
+                fi
+                ;;
+            acme)
+                # Place a self-signed pair first — certbot's HTTP-01
+                # challenge is served BY nginx, and nginx will not start
+                # without a certificate — but only when no certificate
+                # exists yet: on an upgrade of a working ACME site the pair
+                # is the live Let's Encrypt one and must not be touched.
+                if [ ! -s "${CONF_DIR}/tls/fullchain.pem" ]; then
+                    /usr/lib/carlos-emr/carlos-emr-cert selfsigned || cert_failed
+                fi
+                ;;
+        esac
+
+        # --- nginx ----------------------------------------------------------
+        if [ -d /etc/nginx/sites-enabled ]; then
+            # Ubuntu's nginx ships a default site on port 80 that would answer
+            # for any host name this server does not match, including the ACME
+            # challenge. Remove the symlink (never the file — it is another
+            # package's conffile).
+            if [ -L /etc/nginx/sites-enabled/default ]; then
+                rm -f /etc/nginx/sites-enabled/default
+            fi
+            ln -sfn /etc/nginx/sites-available/carlos-emr /etc/nginx/sites-enabled/carlos-emr
+        fi
+        if nginx -t >/dev/null 2>&1; then
+            if [ -d /run/systemd/system ]; then
+                sd_invoke reload nginx.service 2>/dev/null || sd_invoke restart nginx.service || \
+                    echo "carlos-emr: WARNING: nginx did not reload — the front door may be serving stale configuration (systemctl status nginx)" >&2
+            fi
+        else
+            echo "carlos-emr: the nginx configuration test FAILED; the front door was not reloaded." >&2
+            # Re-run purely to SHOW the failure detail; the || true keeps this
+            # diagnostic from aborting configure a second time.
+            nginx -t || true
+        fi
+        ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+        # The debhelper preinst snippet stops the service (and timers) at the
+        # START of an upgrade; if the upgrade then dies before our configure
+        # branch, nothing would ever start them again — a failed upgrade of
+        # an unrelated package in the same transaction left the EMR down.
+        # Best-effort, never failing the abort path itself.
+        if [ -d /run/systemd/system ]; then
+            deb-systemd-invoke start carlos-emr.service >/dev/null 2>&1 || true
+            deb-systemd-invoke start carlos-emr-backup.timer carlos-emr-backup-verify.timer \
+                carlos-emr-cert-renew.timer >/dev/null 2>&1 || true
+        fi
+        ;;
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+# Everything below runs AFTER the debhelper snippets, so the units exist and
+# are enabled by the time we start them.
+if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
+    if [ "${MIGRATION_OK:-1}" = 0 ]; then
+        echo "carlos-emr: NOT starting the service — the schema is not ready (see above)." >&2
+        echo "carlos-emr: the unit stays enabled; it will start on the next boot or when you" >&2
+        echo "carlos-emr: start it after completing the migration." >&2
+    elif sd_invoke start carlos-emr.service; then
+        # Deploying this webapp takes around two minutes on a small VM
+        # (measured: 119 s), and postinst returning before it answers makes a
+        # perfectly good install look broken — the operator runs
+        # `carlos-ctl check` straight away and sees the front door timing out.
+        # Wait for it, with a bound and a progress line so nobody thinks apt
+        # has hung.
+        echo "carlos-emr: waiting for the application to finish deploying (this takes a couple of minutes)..."
+        # Probe through the configured server name resolved to loopback, not by
+        # bare IP: a numeric Host header trips CRS rule 920350 on every poll
+        # and fills the brand-new audit log with noise the installer itself
+        # generated.
+        PROBE_NAME="$(sed -n 's/^CARLOS_SERVER_NAME=//p' "${ENV_FILE}" | head -1)"
+        PROBE_NAME="${PROBE_NAME:-localhost}"
+        # Probe the address nginx actually listens on: with a non-default
+        # CARLOS_BIND_IP (a LAN address) nothing answers on loopback, and a
+        # healthy install used to sit through the whole five-minute loop and
+        # then blame the application.
+        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | head -1)"
+        case "${PROBE_IP}" in ""|0.0.0.0|::) PROBE_IP=127.0.0.1 ;; esac
+        i=0
+        while [ "${i}" -lt 60 ]; do
+            code="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 \
+                    --resolve "${PROBE_NAME}:443:${PROBE_IP}" \
+                    "https://${PROBE_NAME}/carlos/" 2>/dev/null || echo 000)"
+            case "${code}" in
+                200|302|303) break ;;
+            esac
+            sleep 5
+            i=$((i + 1))
+        done
+        if [ "${i}" -ge 60 ]; then
+            echo "carlos-emr: the application has not answered after five minutes." >&2
+            echo "carlos-emr: run 'journalctl -u carlos-emr -n 200' to see why." >&2
+        else
+            echo "carlos-emr: the application is serving. Run 'sudo carlos-ctl check' to verify the deployment."
+        fi
+    else
+        echo "carlos-emr: the application server did not start." >&2
+        echo "carlos-emr: run 'journalctl -u carlos-emr -n 200' to see why." >&2
+    fi
+    sd_invoke start carlos-emr-backup.timer carlos-emr-backup-verify.timer \
+              carlos-emr-cert-renew.timer 2>/dev/null || \
+        echo "carlos-emr: WARNING: the backup/cert timers did not start — no nightly backup will run until they do (systemctl list-timers 'carlos-emr*')" >&2
+
+    db_get carlos-emr/tls-mode || true
+    if [ "${RET}" = acme ]; then
+        db_get carlos-emr/acme-email || true
+        if [ -n "${RET}" ]; then
+            /usr/lib/carlos-emr/carlos-emr-cert acme "${RET}" || \
+                echo "carlos-emr: the Let's Encrypt request failed; the self-signed certificate is still serving. Retry with 'carlos-ctl cert acme <email>'." >&2
+        fi
+    fi
+
+    db_get carlos-emr/reset-seed-admin || true
+    if [ "${RET}" = true ] && [ -r /etc/carlos-emr/initial-admin.txt ]; then
+        db_input high carlos-emr/initial-credentials || true
+        db_go || true
+    fi
+fi
+
+exit 0

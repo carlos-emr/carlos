@@ -12,11 +12,14 @@
 -- mysql/mariadb CLI (the carlos-podman deployment path) do.
 --
 -- V1.0.7 itself is left byte-identical to preserve its recorded Flyway
--- checksum. This forward-only migration repeats both backfill INSERTs with the
--- cast pinned to CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci (matching
--- the table), so it works under any session collation. Both INSERTs keep
--- their existence guards, so this is a no-op on databases where V1.0.7
--- completed and fills in the missing rows on databases where it aborted.
+-- checksum. A fail-fast CLI migration loop cannot reach this migration after
+-- V1.0.7 aborts; follow the same-session V1.0.7 recovery procedure in
+-- ../README.md, then continue in version order. This forward-only migration
+-- repeats both backfill INSERTs with the cast pinned to CHARACTER SET utf8mb4
+-- COLLATE utf8mb4_general_ci (matching the table), so it works under any
+-- session collation. Both INSERTs keep their existence guards, so this is a
+-- no-op on databases where V1.0.7 completed and fills missing rows when an
+-- operator previously bypassed the V1.0.7 error and continued.
 
 -- Expand adopted legacy integer-keyed mappings to every exact diagnostic-code
 -- spelling that normalizes to the same integer (see V1.0.7 for the rationale).

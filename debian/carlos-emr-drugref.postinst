@@ -1,0 +1,142 @@
+#!/bin/sh
+# postinst for carlos-emr-drugref.
+#
+# DrugRef is a second web application in the CARLOS Tomcat instance. This
+# script creates its database, loads the Health Canada Drug Product Database
+# seed that ships with CARLOS, and deploys the context descriptor.
+set -e
+
+CONF_DIR=/etc/carlos-emr
+SHARE=/usr/share/carlos-emr
+DRUGREF_PROPERTIES="${CONF_DIR}/drugref2.properties"
+STATE=/var/lib/carlos-emr
+
+case "$1" in
+    configure)
+        # Configuration, installed once. It carries a database password, so it
+        # is not a conffile and it is not world-readable.
+        if [ ! -e "${DRUGREF_PROPERTIES}" ]; then
+            install -m 0640 -o root -g carlos "${SHARE}/skel/drugref2.properties" "${DRUGREF_PROPERTIES}"
+        fi
+        chown root:carlos "${DRUGREF_PROPERTIES}"
+        chmod 0640 "${DRUGREF_PROPERTIES}"
+
+        # DrugRef's StartUp listener resolves its configuration as
+        # ${user.home}/drugref2.properties, and user.home for the service is
+        # the state directory. A symlink keeps the real file in /etc where
+        # configuration belongs.
+        ln -sfn "${DRUGREF_PROPERTIES}" "${STATE}/drugref2.properties"
+
+        install -m 0644 "${SHARE}/tomcat/Catalina/localhost/drugref2.xml" \
+            "${CONF_DIR}/tomcat/Catalina/localhost/drugref2.xml"
+
+        if mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
+            # Provision the account and password (carlos-ctl handles both
+            # packages' accounts in one place, and is idempotent). No `|| true`
+            # here: everything below assumes the drugref account exists with
+            # the password now recorded in drugref2.properties, so a
+            # provisioning failure must fail configure loudly rather than
+            # continue into grants for an account that was never created.
+            carlos-ctl db-users
+            mariadb --protocol=socket --user=root -e \
+                "CREATE DATABASE IF NOT EXISTS \`drugref2\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+            mariadb --protocol=socket --user=root -e \
+                "SET SESSION sql_log_bin = 0;
+                 GRANT ALL PRIVILEGES ON \`drugref2\`.* TO 'drugref'@'localhost';
+                 GRANT ALL PRIVILEGES ON \`drugref2\`.* TO 'drugref'@'127.0.0.1';
+                 GRANT SELECT, SHOW VIEW, TRIGGER, EVENT ON \`drugref2\`.* TO 'backup'@'localhost';
+                 FLUSH PRIVILEGES;"
+
+            # Load the seed only into an empty database. DrugRef runs Hibernate
+            # with hbm2ddl.auto=validate, so the tables must exist before it
+            # deploys; re-loading over a populated database would discard drug
+            # data a site has updated since.
+            #
+            # The _carlos_seed_complete marker table distinguishes "populated
+            # by a finished seed load" from "populated by a seed load that was
+            # KILLED part-way": without it, a retry after an interrupted load
+            # saw tables present, skipped the load, and reported success over
+            # a half-loaded database that Hibernate then failed to validate on
+            # every start. A populated database WITHOUT the marker is either
+            # that, or a pre-existing dataset from before this package — both
+            # are left alone, but loudly.
+            tables="$(mariadb --protocol=socket --user=root -N -B -e \
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='drugref2'")"
+            seeded="$(mariadb --protocol=socket --user=root -N -B -e \
+                "SELECT COUNT(*) FROM information_schema.tables
+                  WHERE table_schema='drugref2' AND table_name='_carlos_seed_complete'")"
+            if [ "${tables}" = 0 ]; then
+                echo "carlos-emr-drugref: loading the drug reference dataset (this takes a minute)"
+                for f in "${SHARE}/schema/drugref/development-drugref.sql" \
+                         "${SHARE}/schema/drugref"/2*-drugref-*.sql; do
+                    [ -r "${f}" ] || continue
+                    mariadb --protocol=socket --user=root --default-character-set=utf8mb4 \
+                        drugref2 < "${f}"
+                done
+
+                # The upstream seed creates every table as ENGINE=Aria. A
+                # non-transactional table cannot take part in the backup's
+                # --single-transaction snapshot, so it would be dumped from
+                # whenever it happened to be read rather than from the snapshot
+                # instant — and the nightly backup reports it every night.
+                # Convert once, here, rather than leaving it as a documented
+                # manual step nobody performs.
+                # Two review findings, both applied: the generated SQL is
+                # captured BEFORE execution (in a pipe, only the consumer's
+                # exit status counted, so a failed metadata query fed the
+                # consumer empty input and the load reported success without
+                # converting anything), and table identifiers are
+                # backtick-escaped (REPLACE doubles any \` in a name) before
+                # root executes them.
+                alter_sql="$(mariadb --protocol=socket --user=root -N -B -e \
+                    "SELECT CONCAT('ALTER TABLE \`drugref2\`.\`',
+                                   REPLACE(table_name, '\`', '\`\`'),
+                                   '\` ENGINE=InnoDB;')
+                       FROM information_schema.tables
+                      WHERE table_schema='drugref2' AND engine <> 'InnoDB'")"
+                if [ -n "${alter_sql}" ]; then
+                    printf '%s\n' "${alter_sql}" | mariadb --protocol=socket --user=root drugref2
+                fi
+                mariadb --protocol=socket --user=root drugref2 -e \
+                    "SET SESSION sql_log_bin = 0;
+                     CREATE TABLE _carlos_seed_complete (loaded_at DATETIME NOT NULL) ENGINE=InnoDB;
+                     INSERT INTO _carlos_seed_complete VALUES (NOW());"
+                echo "carlos-emr-drugref: drug reference dataset loaded"
+            elif [ "${seeded}" != 0 ]; then
+                echo "carlos-emr-drugref: drugref2 already has ${tables} tables; leaving the data alone"
+            else
+                echo "carlos-emr-drugref: WARNING: drugref2 has ${tables} tables but no seed-completion marker." >&2
+                echo "carlos-emr-drugref: WARNING: either this is a pre-existing dataset (fine — leaving it alone)," >&2
+                echo "carlos-emr-drugref: WARNING: or a previous seed load was interrupted and the data is INCOMPLETE." >&2
+                echo "carlos-emr-drugref: WARNING: if DrugRef fails to deploy or lookups return nothing, reload with:" >&2
+                echo "carlos-emr-drugref: WARNING:   sudo mariadb -e 'DROP DATABASE drugref2' && sudo dpkg-reconfigure carlos-emr-drugref" >&2
+            fi
+        else
+            echo "carlos-emr-drugref: MariaDB is not reachable; finish with:" >&2
+            echo "carlos-emr-drugref:   sudo dpkg-reconfigure carlos-emr-drugref" >&2
+        fi
+
+        # Restart so Tomcat picks up the new context. DrugRef shares the JVM
+        # with CARLOS, so this is a short EMR outage — which is why the package
+        # is installed alongside carlos-emr rather than months later.
+        # is-active is a query, not a lifecycle action, so systemctl is the
+        # right tool for it; the restart itself goes through deb-systemd-invoke
+        # so policy-rc.d is honoured.
+        if [ -d /run/systemd/system ] && systemctl is-active --quiet carlos-emr.service; then
+            deb-systemd-invoke restart carlos-emr.service || {
+                echo "carlos-emr-drugref: WARNING: the EMR did not restart — DrugRef will not" >&2
+                echo "carlos-emr-drugref: serve until it does (journalctl -u carlos-emr)." >&2
+            }
+        fi
+        ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

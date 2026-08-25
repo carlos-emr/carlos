@@ -1,0 +1,107 @@
+Template: carlos-emr/server-name
+Type: string
+Default: localhost
+Description: Host name clinicians will use to reach CARLOS EMR:
+ Enter the fully qualified host name this server will be reached at, for
+ example emr.myclinic.ca.
+ .
+ It becomes the nginx server_name and the subject of the TLS certificate. If
+ you intend to use a Let's Encrypt certificate, this name must resolve in
+ public DNS to this machine before you run "carlos-ctl cert acme".
+ .
+ You can change it later in /etc/carlos-emr/carlos-emr.env followed by
+ "carlos-ctl init-config".
+
+Template: carlos-emr/bind-ip
+Type: string
+Default: 0.0.0.0
+Description: Address the CARLOS EMR front door should listen on:
+ 0.0.0.0 serves every network interface, which is what a clinic server
+ normally needs.
+ .
+ Use 127.0.0.1 to keep the EMR reachable only from this machine — appropriate
+ while you are staging a migration, or when a separate reverse proxy in front
+ of this host terminates client connections.
+ .
+ The application server and the database always listen on the loopback
+ interface only, whatever you choose here.
+
+Template: carlos-emr/province
+Type: select
+Choices: on, bc
+Default: on
+Description: Billing province:
+ CARLOS implements provincial billing for Ontario (on) and British Columbia
+ (bc). This choice selects which database migrations are applied and which
+ billing behaviour the application uses.
+ .
+ It CANNOT be changed afterwards: the two provinces create different tables,
+ and switching means starting again from an empty database.
+
+Template: carlos-emr/tls-mode
+Type: select
+Choices: selfsigned, acme, manual
+Default: selfsigned
+Description: TLS certificate for the front door:
+ selfsigned generates a certificate now, so the EMR is served over HTTPS from
+ the first minute. Browsers will warn until you replace it. This is the safe
+ default because it never leaves a deployment sitting on plain HTTP.
+ .
+ acme obtains a free Let's Encrypt certificate with certbot. It requires that
+ the host name above already resolves to this machine in public DNS and that
+ port 80 is reachable from the internet.
+ .
+ manual leaves the certificate to you: place the chain and key at
+ /etc/carlos-emr/tls/fullchain.pem and privkey.pem and run
+ "carlos-ctl cert manual". Until you do, the front door serves a self-signed
+ placeholder certificate (generated so nginx can start), which browsers will
+ warn about.
+
+Template: carlos-emr/acme-email
+Type: string
+Default:
+Description: Email address for Let's Encrypt registration:
+ Let's Encrypt uses this address to warn you if a certificate is about to
+ expire and has not renewed. It is not published.
+ .
+ Leave it empty to skip requesting a certificate now; you can run
+ "carlos-ctl cert acme <email>" at any time.
+
+Template: carlos-emr/java-heap
+Type: string
+Default: 2g
+Description: Java heap size for the CARLOS application server:
+ CARLOS is a large application and will not run well below 2g. On a dedicated
+ server give it roughly half of physical memory, leaving room for MariaDB's
+ buffer pool and about 1 GB for the operating system.
+ .
+ Use the JVM's own notation, for example 4g or 6144m.
+
+Template: carlos-emr/reset-seed-admin
+Type: boolean
+Default: true
+Description: Replace the seeded administrator password with a random one?
+ The database migrations seed one administrator account, "carlosdoc", with a
+ password hash that is published in the CARLOS source repository — it is the
+ credential the project's own test suite uses. Every installation created from
+ those migrations therefore starts with the same publicly-known password and
+ PIN.
+ .
+ Accepting this replaces both with random values and writes them to
+ /etc/carlos-emr/initial-admin.txt, readable only by root.
+ .
+ Decline ONLY on a disposable development machine that will never hold real
+ patient information.
+
+Template: carlos-emr/initial-credentials
+Type: note
+Description: CARLOS EMR is installed
+ The initial administrator password and PIN have been written to
+ /etc/carlos-emr/initial-admin.txt (readable only by root). Log in, change the
+ password, create real accounts, disable the seeded one, and then delete that
+ file.
+ .
+ Run "sudo carlos-ctl check" to verify the deployment, and read
+ /usr/share/doc/carlos-emr/README.Debian before putting patient data on this
+ system — in particular the sections on backups, which are stored on this host
+ only until you configure an offsite repository.

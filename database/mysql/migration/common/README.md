@@ -12,9 +12,11 @@ grouping table and seeds numeric billing diagnoses with ICD-9 chapter categories
 `V1.0.9__remove_carlosdoc_schedule_group_denial.sql` removes the obsolete explicit denial.
 `V1.0.10__seed_default_measurement_groups.sql` seeds the default measurement groups.
 `V1.0.13__fix_phcp_diagnosis_group_backfill_collation.sql` re-runs the V1.0.7 dxphcpgroup
-backfill with a collation-pinned cast, repairing databases where a non-general_ci session
-collation (e.g. MariaDB 11.4+ `character_set_collations` defaults reached via a utf8mb4 CLI
-session) aborted V1.0.7 with ERROR 1267.
+backfill with a collation-pinned cast. Once reached, it repairs missing rows where a
+non-general_ci session collation caused V1.0.7 to abort and an operator bypassed that error. A
+normal fail-fast CLI loop cannot reach V1.0.13 after that failure; use the
+[same-session V1.0.7 recovery procedure](../README.md#mariadb-cli-recovery-for-v107), then continue
+in version order.
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
