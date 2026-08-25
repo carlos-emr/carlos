@@ -171,7 +171,10 @@ Depends:
 # render time, and on a font-less server every eForm PDF comes out with the
 # glyphs missing rather than failing loudly.
  fontconfig,
- fonts-dejavu-core
+ fonts-dejavu-core,
+# apparmor supplies apparmor_parser, which the maintainer scripts use to load
+# the profile that makes Chromium's own sandbox usable on this distribution.
+ apparmor
 Description: Headless Chromium renderer for CARLOS EMR eForm PDFs
  Saved-eForm print, fax and archive in CARLOS are produced by rendering the
  form in a real browser and printing it to PDF over the Chrome DevTools

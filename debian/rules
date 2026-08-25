@@ -300,6 +300,12 @@ ifeq ($(SKIP_EFORM_RENDERER),)
 	# and a setuid root binary inside a clinical package is not something to
 	# install for a code path that is off unless EFORM_RENDER_SANDBOX=true.
 	chmod 0755 debian/$(RPKG)/$(LIBDIR)/chromium/chrome_sandbox || true
+	# AppArmor profile that hands back the `userns` permission Ubuntu 23.10+
+	# removes system-wide. Without it Chromium aborts with "No usable sandbox!"
+	# and the only alternative would be --no-sandbox.
+	install -d debian/$(RPKG)/etc/apparmor.d
+	install -m 0644 debian/assets/apparmor/carlos-emr-chromium \
+	    debian/$(RPKG)/etc/apparmor.d/carlos-emr-chromium
 endif
 
 # The webapp is thousands of small files that Tomcat serves directly; gzipping

@@ -28,6 +28,25 @@ UMask=0027
 EnvironmentFile=-/etc/carlos-emr/carlos-emr.env
 Environment=LANG=C.UTF-8
 Environment=LC_ALL=C.UTF-8
+# NOT the passwd home (/var/lib/carlos-emr): that is root-owned 0755 by the
+# layout rule in carlos-emr.tmpfiles, and Chromium — which the eForm PDF
+# renderer drives — cannot start without somewhere writable to put its
+# crashpad database. It does not fail loudly either; it hangs until the
+# renderer's startup budget expires. The JVM is unaffected because user.home
+# is read from passwd rather than from this variable.
+Environment=HOME=/var/lib/carlos-emr/browser
+# Run the eForm renderer's Chromium WITH its OS sandbox. The application
+# defaults to --no-sandbox so it starts on hosts where the sandbox cannot
+# initialise; this deployment can do better, because carlos-emr-eform-renderer
+# ships an AppArmor profile granting the `userns` permission Ubuntu 23.10+
+# removes system-wide. The renderer opens clinic-authored eForm HTML — the
+# least trustworthy input this application handles — so it should not be the
+# one component running unsandboxed.
+#
+# This setting FAILS CLOSED by design: if the sandbox cannot start, a render
+# fails rather than silently downgrading. Inert unless the renderer package is
+# installed, since nothing launches a browser without it.
+Environment=EFORM_RENDER_SANDBOX=true
 
 ExecStart=/usr/lib/carlos-emr/carlos-emr-tomcat run
 # catalina.sh run execs the JVM, so systemd's SIGTERM reaches Java directly and

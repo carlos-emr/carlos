@@ -29,6 +29,18 @@ d /var/lib/carlos-emr/catalina/work               0750 carlos        carlos -
 d /var/lib/carlos-emr/catalina/temp               0750 carlos        carlos -
 d /var/lib/carlos-emr/catalina/lib                0750 carlos        carlos -
 d /var/lib/carlos-emr/catalina/prefs              0750 carlos        carlos -
+# HOME for the service, and it exists for exactly one reason: the eForm PDF
+# renderer's Chromium (carlos-emr-eform-renderer) will not start without a
+# writable home. Live-caught — with HOME pointing at the root-owned state
+# directory, Chromium's crashpad handler could not create its database and
+# every browser launch hung until the renderer's 30s startup budget expired,
+# so eForm print/fax/archive failed with the rest of the application healthy.
+# An explicit --user-data-dir is NOT a substitute; only a writable HOME is.
+#
+# Safe for the JVM: user.home comes from the passwd entry, not $HOME, so it
+# stays /var/lib/carlos-emr and DrugRef still resolves
+# ${user.home}/drugref2.properties (verified with -XshowSettings:properties).
+d /var/lib/carlos-emr/browser                     0750 carlos        carlos -
 # A heap dump of this application IS a PHI artefact — it contains whatever
 # clinical data was in memory. It must never land in /tmp.
 d /var/lib/carlos-emr/heapdumps                   0750 carlos        carlos -
