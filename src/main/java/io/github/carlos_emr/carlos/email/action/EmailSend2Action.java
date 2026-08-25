@@ -63,18 +63,25 @@ public class EmailSend2Action extends ActionSupport {
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
 
+    private static final String PARAM_MESSAGE = "message";
+    private static final String PARAM_IS_EMAIL_ENCRYPTED = "isEmailEncrypted";
+    private static final String PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED = "isEmailAttachmentEncrypted";
+    private static final int MINIMUM_PDF_PASSWORD_LENGTH = 5;
+
     /**
      * Main execution method that routes to specific email handling methods based on the "method" request parameter.
      *
      * <p>This method implements method-based routing for the following email workflows:</p>
      * <ul>
      *   <li><strong>sendDirectEmail</strong> - Sends email directly without EForm context</li>
+     *   <li><strong>sendEFormEmail</strong> - Sends email with EForm context</li>
      *   <li><strong>cancel</strong> - Cancels email operation and redirects to source</li>
-     *   <li><strong>default</strong> - Sends email with EForm context (if no method parameter specified)</li>
      * </ul>
+     * Missing or unsupported operations are rejected with HTTP 400 rather than defaulting to a
+     * mutation.
      *
      * @return String Struts2 result identifier - "success" for successful email operations,
-     *         or transaction type name for cancel operations
+     *         a transaction type name for cancel operations, or "none" for rejected requests
      */
     public String execute () {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -82,12 +89,28 @@ public class EmailSend2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_email)");
         }
 
-        if ("sendDirectEmail".equals(request.getParameter("method"))) {
-            return sendDirectEmail();
-        } else if ("cancel".equals(request.getParameter("method"))) {
-            return cancel();
+        String httpMethod = request.getMethod();
+        if (!"POST".equals(httpMethod)) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
-        return sendEFormEmail();
+
+        try {
+            String actionMethod = request.getParameter("method");
+            if ("sendDirectEmail".equals(actionMethod)) {
+                return sendDirectEmail();
+            } else if ("sendEFormEmail".equals(actionMethod)) {
+                return sendEFormEmail();
+            } else if ("cancel".equals(actionMethod)) {
+                return cancel();
+            }
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        } catch (EmailSendValidationException e) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
     }
 
     /**
@@ -122,6 +145,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("isOpenEForm", request.getParameter("openEFormAfterEmail"));
         request.setAttribute("fdid", request.getParameter("fdid"));
         request.setAttribute("emailLog", emailLog);
+        preserveComposeInputsForReRender();
         return SUCCESS;
     }
 
@@ -145,7 +169,23 @@ public class EmailSend2Action extends ActionSupport {
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
         request.setAttribute("emailLog", emailLog);
+        preserveComposeInputsForReRender();
         return SUCCESS;
+    }
+
+    /**
+     * Re-seeds the provider's submitted compose inputs into request scope so a failed-send re-render
+     * of emailCompose.jsp preserves both the typed message AND the chosen encryption state. Without
+     * this, the JSP re-initializes the encryption toggle from {@code isEmailEncrypted} (unset after a
+     * send), so a blind retry of a failed encrypted send could silently go out as cleartext — a
+     * PHI-safety regression (issue #3118).
+     */
+    private void preserveComposeInputsForReRender() {
+        request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
+        // Fail closed on the message-encryption flag, matching prepareEmailFields: only an explicit
+        // "false" re-renders the toggle OFF, so a failed encrypted draft can never reopen as cleartext.
+        request.setAttribute(PARAM_IS_EMAIL_ENCRYPTED, !"false".equals(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED)));
+        request.setAttribute(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED, "true".equals(request.getParameter(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED)));
     }
 
     /**
@@ -197,8 +237,65 @@ public class EmailSend2Action extends ActionSupport {
      */
     private EmailLog sendEmail(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        validateMessageRequirement(request);
+        validateEncryptionRequirements(request);
         EmailData emailData = prepareEmailFields(request);
         return emailManager.sendEmail(loggedInInfo, emailData);
+    }
+
+    /**
+     * Enforces the compose form's required message at the server boundary. Client-side validation
+     * can be bypassed by a direct POST, and an empty encrypted message would otherwise send only a
+     * notice claiming that a password-protected PDF is attached.
+     *
+     * <p>This check intentionally runs before {@link #prepareEmailFields(HttpServletRequest)},
+     * because that method consumes the session-scoped attachment list. A rejected request must not
+     * discard attachments that the provider may need to recover.</p>
+     *
+     * @param request request containing the submitted message
+     * @throws EmailSendValidationException when the message is missing or blank
+     */
+    private void validateMessageRequirement(HttpServletRequest request) {
+        String message = request.getParameter(PARAM_MESSAGE);
+        if (message == null || message.isBlank()) {
+            throw new EmailSendValidationException("Message is required");
+        }
+    }
+
+    /**
+     * Enforces the compose form's encryption requirements at the server boundary. Client-side
+     * validation is only a usability aid and can be bypassed by a direct POST; allowing an empty
+     * PDF user password would produce a document that opens without a password prompt.
+     *
+     * <p>This check intentionally runs before {@link #prepareEmailFields(HttpServletRequest)},
+     * because that method consumes the session-scoped attachment list. A rejected request must not
+     * discard attachments that the provider may need to recover.</p>
+     *
+     * @param request request containing the submitted encryption fields
+     * @throws EmailSendValidationException when encrypted delivery lacks a usable password or clue
+     */
+    private void validateEncryptionRequirements(HttpServletRequest request) {
+        if ("false".equals(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED))) {
+            return;
+        }
+
+        String password = request.getParameter("emailPDFPassword");
+        if (password == null || password.trim().length() < MINIMUM_PDF_PASSWORD_LENGTH) {
+            throw new EmailSendValidationException(
+                    "A PDF password of at least 5 characters is required for encrypted email");
+        }
+        String passwordClue = request.getParameter("emailPDFPasswordClue");
+        if (passwordClue == null || passwordClue.trim().isEmpty()) {
+            throw new EmailSendValidationException(
+                    "A PDF password clue is required for encrypted email");
+        }
+    }
+
+    /** Validation failure translated to HTTP 400 by {@link #execute()}. */
+    private static final class EmailSendValidationException extends IllegalArgumentException {
+        private EmailSendValidationException(String message) {
+            super(message);
+        }
     }
 
     /**
@@ -227,12 +324,29 @@ public class EmailSend2Action extends ActionSupport {
         String senderConfigId = request.getParameter("senderConfigId");
         String[] receiverEmails = request.getParameterValues("receiverEmailAddress");
         String subject = request.getParameter("subjectEmail");
-        String body = request.getParameter("bodyEmail");
-        String encryptedMessage = request.getParameter("encryptedMessage");
+        String isEncrypted = request.getParameter(PARAM_IS_EMAIL_ENCRYPTED);
+
+        // Single "Message" field routed server-side by the encryption toggle so the client can never
+        // populate both the cleartext body and the encrypted-PDF channel at once (see issue #3118).
+        // Encryption ON  -> the message becomes the password-protected PDF (encryptedMessage), and the
+        //                   visible email body is a fixed, PHI-free notice.
+        // Encryption OFF -> the message is sent as the cleartext MIME body; there is no encrypted PDF.
+        String message = request.getParameter(PARAM_MESSAGE);
+        // Defensive: a direct POST may omit the message param entirely. Coalesce to empty so the
+        // cleartext body / encrypted-PDF content is never null downstream.
+        if (message == null) {
+            message = "";
+        }
+        // Fail closed: treat only an explicit "false" as encryption OFF. A direct or malformed POST
+        // that omits or garbles the toggle defaults to ENCRYPTED, so PHI is never routed to the
+        // cleartext body when intent is unclear (the compose flow defaults encryption on). See #3118.
+        boolean encrypted = !"false".equals(isEncrypted);
+        String body = encrypted ? encryptedBodyNotice() : message;
+        String encryptedMessage = encrypted ? message : "";
+
         String password = request.getParameter("emailPDFPassword");
         String passwordClue = request.getParameter("emailPDFPasswordClue");
-        String isEncrypted = request.getParameter("isEmailEncrypted");
-        String isAttachmentEncrypted = request.getParameter("isEmailAttachmentEncrypted");
+        String isAttachmentEncrypted = request.getParameter(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED);
         String chartDisplayOption = request.getParameter("patientChartOption");
         String internalComment = request.getParameter("internalComment");
         String transactionType = request.getParameter("transactionType");
@@ -251,7 +365,7 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setEncryptedMessage(encryptedMessage);
         emailData.setPassword(password);
         emailData.setPasswordClue(passwordClue);
-        emailData.setIsEncrypted(isEncrypted);
+        emailData.setIsEncrypted(encrypted);
         emailData.setIsAttachmentEncrypted(isAttachmentEncrypted);
         emailData.setChartDisplayOption(chartDisplayOption);
         emailData.setInternalComment(internalComment);
@@ -264,5 +378,19 @@ public class EmailSend2Action extends ActionSupport {
         request.getSession().removeAttribute("emailAttachmentList");
 
         return emailData;
+    }
+
+    /**
+     * Resolves the fixed, PHI-free notice used as the visible cleartext email body when the
+     * message is delivered encrypted. The actual clinical content lives only inside the
+     * password-protected PDF; the body must never carry patient health information.
+     *
+     * <p>Extracted as a protected method so it can be overridden in unit tests without a live
+     * Struts container backing {@link #getText(String)}.</p>
+     *
+     * @return the localized secure-message notice for the encrypted email body
+     */
+    protected String encryptedBodyNotice() {
+        return getText("email.compose.msg.encryptedBodyNotice");
     }
 }
