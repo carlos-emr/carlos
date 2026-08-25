@@ -453,6 +453,7 @@
                                          EmailSend2Action re-seeding the "message" request attribute. --%>
                                     <label for="message" class="visually-hidden">${emailComposeMessageLabel}</label>
                                     <textarea class="form-control" name="message" id="message" rows="7"
+                                              maxlength="10000"
                                               placeholder="${emailComposeMessagePlaceholder}"><carlos:encode value="${message}"/></textarea>
                                     <div class="error-message" id="messageError"></div>
                                 </div>
@@ -683,38 +684,9 @@
             new bootstrap.Tooltip(el);
         });
 
-        // Check if any error
-        if (document.getElementById('isEmailError').value === 'true') {
-            // Open EForm again on sent
-            showErrorAndClose();
-            return;
-        }
-
-        // After sending email
-        if (document.getElementById('isEmailSuccessful').value === 'true' || document.getElementById('isEmailSuccessful').value === 'false') {
-            // Open EForm again on sent
-            openEFormAfterSend();
-
-		if (document.getElementById('isEmailSuccessful').value === 'true') {
-			// Close the window after 3 seconds
-			setTimeout(() => {
-				window.close();
-			}, 3000);
-		}
-            return;
-        }
-
-        // Auto-send email
-        autoSendEmail();
-
-        // Convert attachment size into kb/mb
-        convertAttachmentSize();
-
-        // Display an error if there are 0 senders, 0 recipients, or if the recipients' addresses are invalid.
-        displayErrorOnInvalidEmail();
-
-        // Apply the initial encryption state without prompting (a resend may load with encryption off,
-        // and the confirmation modal must only appear on a deliberate user toggle, not on page load).
+        // Synchronize every visible control with the server-resolved encryption state before any
+        // success/error branch returns. This is especially important after a failed cleartext send:
+        // the label and password controls must not imply encryption while the hidden value is false.
         applyEncryptionState();
 
         // If the disable-encryption confirmation is dismissed (Cancel / X / Esc / backdrop) without
@@ -728,6 +700,32 @@
                 }
             });
         }
+
+        // Check if any error
+        if (document.getElementById('isEmailError').value === 'true') {
+            // Open EForm again on sent
+            showErrorAndClose();
+            return;
+        }
+
+        // A successful send is terminal for this composer. A failed send deliberately continues
+        // through normal initialization below so the fully restored form remains usable for retry.
+        if (document.getElementById('isEmailSuccessful').value === 'true') {
+            openEFormAfterSend();
+            setTimeout(() => {
+                window.close();
+            }, 3000);
+            return;
+        }
+
+        // Auto-send email
+        autoSendEmail();
+
+        // Convert attachment size into kb/mb
+        convertAttachmentSize();
+
+        // Display an error if there are 0 senders, 0 recipients, or if the recipients' addresses are invalid.
+        displayErrorOnInvalidEmail();
 
         // Select chart option from user's preference
         selectPatientChartOption();
