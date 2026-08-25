@@ -99,9 +99,10 @@ public class ManageEmails2Action extends ActionSupport {
         // refreshEmailAttachments(), which runs after that load and is skipped entirely when the
         // log has no demographic -- so an authenticated caller without _email could reach patient
         // email content. The Struts package carries no security interceptor, so this is the gate.
-        if (!securityInfoManager.hasPrivilege(
-                LoggedInInfo.getLoggedInInfoFromSession(request), "_email", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_email)");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!hasManageEmailsReadAccess(loggedInInfo)) {
+            throw new SecurityException(
+                    "missing required sec object (_email and (_admin or _admin.email))");
         }
 
         String mtd = request.getParameter("method");
@@ -120,6 +121,18 @@ public class ManageEmails2Action extends ActionSupport {
         }
 
         return showEmailManager();
+    }
+
+    private boolean hasManageEmailsReadAccess(LoggedInInfo loggedInInfo) {
+        boolean canReadEmail = securityInfoManager.hasPrivilege(
+                loggedInInfo, "_email", SecurityInfoManager.READ, null);
+        if (!canReadEmail) {
+            return false;
+        }
+        return securityInfoManager.hasPrivilege(
+                loggedInInfo, "_admin", SecurityInfoManager.READ, null)
+                || securityInfoManager.hasPrivilege(
+                        loggedInInfo, "_admin.email", SecurityInfoManager.READ, null);
     }
 
     /**

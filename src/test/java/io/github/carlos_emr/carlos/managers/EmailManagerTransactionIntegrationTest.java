@@ -46,6 +46,11 @@ class EmailManagerTransactionIntegrationTest extends CarlosTestBase {
 
     private static final String REJECT_AUDIT_CONSTRAINT = "reject_email_resolution_audit";
     private static final String RESOLUTION_ACTION = "EmailManager.resolveEmailStatus";
+    private static final String DROP_REJECT_AUDIT_CONSTRAINT_SQL =
+            "ALTER TABLE log DROP CONSTRAINT IF EXISTS reject_email_resolution_audit";
+    private static final String ADD_REJECT_AUDIT_CONSTRAINT_SQL =
+            "ALTER TABLE log ADD CONSTRAINT reject_email_resolution_audit "
+                    + "CHECK (action <> 'EmailManager.resolveEmailStatus')";
 
     @Autowired
     private EmailManager emailManager;
@@ -81,18 +86,15 @@ class EmailManagerTransactionIntegrationTest extends CarlosTestBase {
             return emailLog.getId();
         });
 
-        jdbcTemplate.execute("ALTER TABLE log DROP CONSTRAINT IF EXISTS "
-                + REJECT_AUDIT_CONSTRAINT);
-        jdbcTemplate.execute("ALTER TABLE log ADD CONSTRAINT " + REJECT_AUDIT_CONSTRAINT
-                + " CHECK (action <> '" + RESOLUTION_ACTION + "')");
+        jdbcTemplate.execute(DROP_REJECT_AUDIT_CONSTRAINT_SQL);
+        jdbcTemplate.execute(ADD_REJECT_AUDIT_CONSTRAINT_SQL);
     }
 
     @AfterEach
     void tearDownIntegrationFixture() {
         if (jdbcTemplate != null) {
             try {
-                jdbcTemplate.execute("ALTER TABLE log DROP CONSTRAINT IF EXISTS "
-                        + REJECT_AUDIT_CONSTRAINT);
+                jdbcTemplate.execute(DROP_REJECT_AUDIT_CONSTRAINT_SQL);
             } finally {
                 if (emailLogId != null) {
                     jdbcTemplate.update("DELETE FROM emailLog WHERE id = ?", emailLogId);

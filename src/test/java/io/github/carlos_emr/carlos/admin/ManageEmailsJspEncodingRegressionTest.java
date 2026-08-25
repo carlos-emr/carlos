@@ -69,7 +69,7 @@ class ManageEmailsJspEncodingRegressionTest {
     }
 
     @Test
-    void shouldKeepPendingEmailRecoveryVisibleAndExplicit() throws Exception {
+    void shouldKeepPendingEmailRecoveryVisible_whenRenderingManagementViews() throws Exception {
         String resultsJsp = Files.readString(resolveProjectPath(EMAIL_STATUS_RESULTS_JSP_PATH));
         String manageJsp = Files.readString(resolveProjectPath(MANAGE_EMAILS_JSP_PATH));
         String composeJsp = Files.readString(resolveProjectPath(EMAIL_COMPOSE_JSP_PATH));
@@ -78,7 +78,9 @@ class ManageEmailsJspEncodingRegressionTest {
                 .contains("emailStatusResult.resolvable")
                 .contains("emailStatusResult.status ne 'PENDING' or emailStatusResult.resolvable")
                 .contains("admin.manageEmails.pendingDetail")
-                .contains("emailStatusResult.status eq 'PENDING' and empty emailStatusDetail");
+                .contains("emailStatusResult.status eq 'PENDING' and empty emailStatusDetail")
+                .contains("<i class=\"fa-solid fa-lock\"></i> Encrypted")
+                .doesNotContain("emailStatusResult.password");
         assertThat(manageJsp)
                 .contains(".status-tag-pending")
                 .contains(".vertical-status-divider-pending")
@@ -89,6 +91,11 @@ class ManageEmailsJspEncodingRegressionTest {
                 .contains("email.compose.msg.pendingResendWarning")
                 .contains("class=\"alert alert-warning\" id=\"emailResendWarning\"")
                 .contains("window.confirm(resendWarning.value)")
+                .contains("email.compose.msg.statusTrackingFailed")
+                .contains("email.compose.msg.deliveryUnconfirmed")
+                .contains("<c:when test=\"${ isEmailSuccessful }\">")
+                .contains("<c:when test=\"${ isEmailDeliveryUnconfirmed }\">")
+                .contains("document.getElementById('isEmailStatusRecorded').value === 'true'")
                 .doesNotContain("alert(resendWarning.value)");
     }
 

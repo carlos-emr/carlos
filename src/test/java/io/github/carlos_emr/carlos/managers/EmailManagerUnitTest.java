@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -206,6 +207,16 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
                 .doesNotContain("raw-password")
                 .doesNotContain("sendgridApiKey")
                 .doesNotContain("smtpPassword");
+        ArgumentCaptor<OscarLog> auditCaptor = ArgumentCaptor.forClass(OscarLog.class);
+        verify(oscarLogDao).persist(auditCaptor.capture());
+        assertThat(auditCaptor.getValue().getAction())
+                .isEqualTo("EmailManager.preTransportFailure");
+        assertThat(auditCaptor.getValue().getData())
+                .contains("reason=sender_configuration_unavailable")
+                .contains("senderConfigId=456")
+                .doesNotContain("SG.raw-secret-token")
+                .doesNotContain("raw-password")
+                .doesNotContain("patient@example.invalid");
     }
 
     @Test
@@ -263,8 +274,60 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should remain pending when success status cannot be persisted")
-    void shouldRemainPending_whenSuccessStatusWriteFails() {
+    @DisplayName("should audit a definite failure when its status cannot be persisted")
+    void shouldAuditDefiniteFailure_whenFailedStatusWriteFails() {
+        EmailData emailData = emailData(123);
+        when(emailConfigDao.findActiveEmailConfigById(123)).thenReturn(activeSenderConfig());
+        doThrow(new IllegalStateException("database unavailable"))
+                .when(emailLogDao).transitionEmailStatus(
+                        nullable(Integer.class), eq(EmailStatus.PENDING), eq(EmailStatus.FAILED),
+                        eq("transport failed"), any(Date.class));
+
+        EmailSendResult result;
+        try (MockedConstruction<EmailSender> ignored = mockConstruction(
+                EmailSender.class,
+                (sender, context) -> doThrow(new EmailSendingException("transport failed"))
+                        .when(sender).send())) {
+            result = emailManager.sendEmailWithResult(loggedInInfo, emailData);
+        }
+
+        assertThat(result.getEmailLog().getStatus()).isEqualTo(EmailStatus.FAILED);
+        assertThat(result.isTransportOutcomeRecorded()).isFalse();
+        ArgumentCaptor<OscarLog> auditCaptor = ArgumentCaptor.forClass(OscarLog.class);
+        verify(oscarLogDao).persist(auditCaptor.capture());
+        assertThat(auditCaptor.getValue().getAction())
+                .isEqualTo("EmailManager.transportOutcomeNotRecorded");
+        assertThat(auditCaptor.getValue().getData())
+                .isEqualTo("transportOutcome=FAILED; statusRecorded=false");
+    }
+
+    @Test
+    @DisplayName("should keep pending when transport cannot confirm whether dispatch succeeded")
+    void shouldKeepPending_whenTransportOutcomeIsUnconfirmed() {
+        EmailData emailData = emailData(123);
+        when(emailConfigDao.findActiveEmailConfigById(123)).thenReturn(activeSenderConfig());
+
+        EmailSendResult result;
+        try (MockedConstruction<EmailSender> ignored = mockConstruction(
+                EmailSender.class,
+                (sender, context) -> doThrow(new EmailSendingException(
+                        "transport timed out", new java.io.IOException("timeout"), true))
+                        .when(sender).send())) {
+            result = emailManager.sendEmailWithResult(loggedInInfo, emailData);
+        }
+
+        assertThat(result.isDeliveryUnconfirmed()).isTrue();
+        assertThat(result.isTransportAccepted()).isFalse();
+        assertThat(result.isTransportOutcomeRecorded()).isFalse();
+        assertThat(result.getEmailLog().getStatus()).isEqualTo(EmailStatus.PENDING);
+        verify(emailLogDao, never()).transitionEmailStatus(
+                nullable(Integer.class), any(EmailStatus.class), any(EmailStatus.class),
+                nullable(String.class), any(Date.class));
+    }
+
+    @Test
+    @DisplayName("should report accepted without inviting retry when success status cannot be persisted")
+    void shouldReportAccepted_whenSuccessStatusWriteFails() {
         EmailData emailData = emailData(123);
         when(emailConfigDao.findActiveEmailConfigById(123)).thenReturn(activeSenderConfig());
         AtomicReference<EmailLog> persistedLog = new AtomicReference<>();
@@ -279,12 +342,13 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
                         nullable(Integer.class), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS),
                         eq(""), any(Date.class));
 
+        EmailSendResult result;
         try (MockedConstruction<EmailSender> ignored = mockConstruction(EmailSender.class)) {
-            assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessage("database unavailable");
+            result = emailManager.sendEmailWithResult(loggedInInfo, emailData);
         }
 
+        assertThat(result.isTransportAccepted()).isTrue();
+        assertThat(result.isTransportOutcomeRecorded()).isFalse();
         assertThat(persistedLog.get()).isNotNull();
         assertThat(persistedLog.get().getStatus()).isEqualTo(EmailStatus.PENDING);
     }
@@ -411,12 +475,13 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         Date resolvedTimestamp = new Date(1_700_000_000_000L);
         when(resolved.getTimestamp()).thenReturn(resolvedTimestamp);
         when(emailLogDao.transitionEmailStatus(
-                eq(42), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS),
-                eq(""), any(Date.class))).thenReturn(0);
+                eq(42), eq(EmailStatus.PENDING), eq(EmailStatus.FAILED),
+                eq("SMTP rejected patient@example.invalid"), any(Date.class))).thenReturn(0);
         when(emailLogDao.find((Object) 42)).thenReturn(resolved);
 
         EmailLog result = emailManager.updateEmailStatus(
-                loggedInInfo, sending, EmailStatus.SUCCESS, "");
+                loggedInInfo, sending, EmailStatus.FAILED,
+                "SMTP rejected patient@example.invalid");
 
         assertThat(result).isSameAs(sending);
         verify(sending).setStatus(EmailStatus.RESOLVED);
@@ -428,7 +493,31 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
                 .isEqualTo("EmailManager.transportOutcomeAfterResolution");
         assertThat(auditCaptor.getValue().getContentId()).isEqualTo("42");
         assertThat(auditCaptor.getValue().getData())
-                .isEqualTo("transportOutcome=SUCCESS; diagnostic=");
+                .isEqualTo("transportOutcome=FAILED; diagnosticPresent=true")
+                .doesNotContain("patient@example.invalid");
+    }
+
+    @Test
+    @DisplayName("should preserve accepted transport outcome when resolution wins the status race")
+    void shouldPreserveAcceptedOutcome_whenResolutionWinsStatusRace() {
+        EmailData emailData = emailData(123);
+        when(emailConfigDao.findActiveEmailConfigById(123)).thenReturn(activeSenderConfig());
+        EmailLog resolved = mock(EmailLog.class);
+        when(resolved.getStatus()).thenReturn(EmailStatus.RESOLVED);
+        when(resolved.getTimestamp()).thenReturn(new Date());
+        when(emailLogDao.transitionEmailStatus(
+                nullable(Integer.class), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS),
+                eq(""), any(Date.class))).thenReturn(0);
+        when(emailLogDao.find(nullable(Integer.class))).thenReturn(resolved);
+
+        EmailSendResult result;
+        try (MockedConstruction<EmailSender> ignored = mockConstruction(EmailSender.class)) {
+            result = emailManager.sendEmailWithResult(loggedInInfo, emailData);
+        }
+
+        assertThat(result.isTransportAccepted()).isTrue();
+        assertThat(result.isTransportOutcomeRecorded()).isFalse();
+        assertThat(result.getEmailLog().getStatus()).isEqualTo(EmailStatus.RESOLVED);
     }
 
     @Test

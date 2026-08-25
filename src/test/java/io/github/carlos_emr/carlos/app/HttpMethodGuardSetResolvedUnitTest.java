@@ -50,7 +50,7 @@ class HttpMethodGuardSetResolvedUnitTest {
 
     @Test
     @DisplayName("should block GET with method=setResolved")
-    void shouldBlockGetWithSetResolvedMethodParam() throws Exception {
+    void shouldBlockGet_whenMethodIsSetResolved() throws Exception {
         when(request.getMethod()).thenReturn("GET");
         when(request.getRequestURI()).thenReturn("/carlos/admin/ManageEmails");
         when(request.getParameter("method")).thenReturn("setResolved");
@@ -65,7 +65,7 @@ class HttpMethodGuardSetResolvedUnitTest {
 
     @Test
     @DisplayName("should block HEAD with method=setResolved")
-    void shouldBlockHeadWithSetResolvedMethodParam() throws Exception {
+    void shouldBlockHead_whenMethodIsSetResolved() throws Exception {
         when(request.getMethod()).thenReturn("HEAD");
         when(request.getRequestURI()).thenReturn("/carlos/admin/ManageEmails");
         when(request.getParameter("method")).thenReturn("setResolved");

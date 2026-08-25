@@ -128,10 +128,36 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> new ManageEmails2Action().execute())
                     .as("dispatch method=%s must be refused", method)
                     .isInstanceOf(SecurityException.class)
-                    .hasMessage("missing required sec object (_email)");
+                    .hasMessage("missing required sec object (_email and (_admin or _admin.email))");
         }
 
         // Refused before anything reads or renders patient data.
+        verifyNoInteractions(emailComposeManager, demographicManager, emailManager,
+                documentAttachmentManager, formsManager);
+    }
+
+    @Test
+    @DisplayName("should refuse direct dispatch with email access but without administration access")
+    void shouldRefuseEveryDispatch_withoutAdministrationPrivilege() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(
+                loggedInInfo, "_email", SecurityInfoManager.READ, null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(
+                loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(
+                loggedInInfo, "_admin.email", SecurityInfoManager.READ, null)).thenReturn(false);
+
+        for (String method : new String[]{"resendEmail", "fetchEmails", "setResolved"}) {
+            request.setParameter("method", method);
+            request.setParameter("logId", "42");
+
+            assertThatThrownBy(() -> new ManageEmails2Action().execute())
+                    .as("dispatch method=%s must retain the admin-page authorization boundary", method)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_email and (_admin or _admin.email))");
+        }
+
         verifyNoInteractions(emailComposeManager, demographicManager, emailManager,
                 documentAttachmentManager, formsManager);
     }
@@ -154,6 +180,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
     void shouldDispatchSetResolved_whenPostRequestIsValid() {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        grantManageEmailsRead(loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
                 .thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
@@ -176,6 +203,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
     void shouldReturnNotFound_whenResolvedEmailNoLongerExists() {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        grantManageEmailsRead(loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
                 .thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
@@ -197,6 +225,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
     void shouldReturnConflict_whenResolutionLosesConcurrentTransition() {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        grantManageEmailsRead(loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
                 .thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
@@ -217,6 +246,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
     void shouldForbidResolution_withoutEmailWritePrivilege() throws Exception {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        grantManageEmailsRead(loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
                 .thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
@@ -238,6 +268,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
     void shouldRejectSetResolved_whenRequestIsGet() {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        grantManageEmailsRead(loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
                 .thenReturn(true);
         request.setMethod("GET");
@@ -337,6 +368,11 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         when(emailComposeManager.getRecipients(loggedInInfo, 123))
                 .thenReturn(new java.util.List<?>[]{java.util.List.of(), java.util.List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(java.util.List.of());
+    }
+
+    private void grantManageEmailsRead(LoggedInInfo loggedInInfo) {
+        when(securityInfoManager.hasPrivilege(
+                loggedInInfo, "_admin.email", SecurityInfoManager.READ, null)).thenReturn(true);
     }
 
     private EmailLog pendingEmailLog() {

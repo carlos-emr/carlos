@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.email.util.EmailNoteUtil;
@@ -142,6 +143,17 @@ public class EmailManager {
      * @throws RuntimeException if user lacks _email WRITE privilege
      */
     public EmailLog sendEmail(LoggedInInfo loggedInInfo, EmailData emailData) {
+        return sendEmailWithResult(loggedInInfo, emailData).getEmailLog();
+    }
+
+    /**
+     * Sends an email while keeping the transport outcome distinct from persistence state.
+     *
+     * <p>This is the preferred API for interactive callers. The compatibility
+     * {@link #sendEmail(LoggedInInfo, EmailData)} method remains for existing integrations that
+     * consume only the log entity.</p>
+     */
+    public EmailSendResult sendEmailWithResult(LoggedInInfo loggedInInfo, EmailData emailData) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required sec object (_email)");
         }
@@ -150,7 +162,11 @@ public class EmailManager {
         EmailConfig emailConfig = findActiveSenderEmailConfig(emailData);
         if (emailConfig == null) {
             logger.warn("Email send failed before transport: sender email configuration is missing or inactive for senderConfigId={}", emailData.getSenderConfigId());
-            return createFailedEmailLog(emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR);
+            EmailLog failedEmailLog = createFailedEmailLog(
+                    emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR);
+            persistPreTransportFailureAuditEvent(loggedInInfo, emailData,
+                    "sender_configuration_unavailable");
+            return EmailSendResult.failed(failedEmailLog, false);
         }
 
         EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData, emailConfig);
@@ -160,15 +176,81 @@ public class EmailManager {
             }
             EmailSender emailSender = new EmailSender(loggedInInfo, emailLog.getEmailConfig(), emailData);
             emailSender.send();
-            emailLog = updateEmailStatus(loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
-            if (emailLog.getChartDisplayOption().equals(ChartDisplayOption.WITH_FULL_NOTE)) {
-                addEmailNote(loggedInInfo, emailLog);
+            boolean outcomeRecorded;
+            try {
+                emailLog = updateEmailStatus(
+                        loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
+                outcomeRecorded = EmailStatus.SUCCESS.equals(emailLog.getStatus());
+            } catch (RuntimeException statusUpdateFailure) {
+                // Transport has already accepted the message. Propagating a 500 would invite the
+                // sender to retry immediately and could deliver a duplicate. Leave the durable row
+                // PENDING, return the conclusive transport outcome, and make the persistence problem
+                // operator-visible.
+                logger.error("Email transport accepted the message but its SUCCESS status could not be recorded for emailLogId={}",
+                        emailLog.getId(), statusUpdateFailure);
+                persistTransportOutcomeBestEffort(loggedInInfo, emailLog,
+                        "transportOutcome=SUCCESS; statusRecorded=false");
+                outcomeRecorded = false;
             }
+            if (ChartDisplayOption.WITH_FULL_NOTE.equals(emailLog.getChartDisplayOption())) {
+                try {
+                    addEmailNote(loggedInInfo, emailLog);
+                } catch (RuntimeException noteFailure) {
+                    // The message is already accepted. A secondary chart-note failure must not
+                    // turn the response into a retryable send failure.
+                    logger.error("Email transport accepted the message but its chart note could not be created for emailLogId={}",
+                            emailLog.getId(), noteFailure);
+                    persistTransportOutcomeBestEffort(loggedInInfo, emailLog,
+                            "transportOutcome=SUCCESS; chartNoteRecorded=false");
+                }
+            }
+            return EmailSendResult.accepted(emailLog, outcomeRecorded);
         } catch (EmailSendingException e) {
-            emailLog = updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, e.getMessage());
-            logger.error("Failed to send email", e);
+            if (e.isDeliveryOutcomeUncertain()) {
+                // A timeout or connection loss after dispatch does not prove rejection. Keep the
+                // durable PENDING state so neither the sender nor an administrator is told that a
+                // possibly delivered clinical message definitely failed.
+                emailLog.setErrorMessage(safeDiagnostic(e));
+                persistTransportOutcomeBestEffort(loggedInInfo, emailLog,
+                        "transportOutcome=UNCONFIRMED; diagnosticPresent="
+                                + !StringUtils.isNullOrEmpty(e.getMessage()));
+                logTransportFailure("UNCONFIRMED", e);
+                return EmailSendResult.unconfirmed(emailLog);
+            }
+            try {
+                emailLog = updateEmailStatus(
+                        loggedInInfo, emailLog, EmailStatus.FAILED, safeDiagnostic(e));
+            } catch (RuntimeException statusUpdateFailure) {
+                logger.error("Email transport failed but its FAILED status could not be recorded for emailLogId={}",
+                        emailLog.getId(), statusUpdateFailure);
+                // This value is only returned to the current request. The durable row remains
+                // PENDING, correctly signalling that no outcome was recorded.
+                emailLog.setStatus(EmailStatus.FAILED);
+                emailLog.setErrorMessage(safeDiagnostic(e));
+                persistTransportOutcomeBestEffort(loggedInInfo, emailLog,
+                        "transportOutcome=FAILED; statusRecorded=false");
+                return EmailSendResult.failed(emailLog, false);
+            }
+            logTransportFailure("FAILED", e);
+            return EmailSendResult.failed(
+                    emailLog, EmailStatus.FAILED.equals(emailLog.getStatus()));
         }
-        return emailLog;
+    }
+
+    private String safeDiagnostic(EmailSendingException exception) {
+        return StringUtils.isNullOrEmpty(exception.getMessage())
+                ? "Email transport did not accept the message."
+                : exception.getMessage();
+    }
+
+    private void logTransportFailure(String outcome, EmailSendingException exception) {
+        // Nested parser and transport exception messages can echo configuration values or remote
+        // content. Retain an actionable safe diagnostic and the cause type without logging the
+        // potentially sensitive cause message or stack trace.
+        Throwable cause = exception.getCause();
+        logger.error("Email transport outcome={}; diagnostic={}; causeType={}",
+                outcome, safeDiagnostic(exception),
+                cause == null ? "none" : cause.getClass().getName());
     }
 
     /**
@@ -340,7 +422,7 @@ public class EmailManager {
      */
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required security object (_email)");
+            throw new RuntimeException("missing required sec object (_email)");
         }
 
         if (emailLog == null) {
@@ -371,8 +453,8 @@ public class EmailManager {
                 // events through EmailStatusResult and render a separate outcome/history field.
                 persistEmailAuditEvent(loggedInInfo,
                         "EmailManager.transportOutcomeAfterResolution", persistedEmailLog,
-                        "transportOutcome=" + emailStatus + "; diagnostic="
-                                + nullToEmpty(errorMessage));
+                        "transportOutcome=" + emailStatus + "; diagnosticPresent="
+                                + !StringUtils.isNullOrEmpty(errorMessage));
             }
             emailLog.setStatus(persistedEmailLog.getStatus());
             emailLog.setErrorMessage(persistedEmailLog.getErrorMessage());
@@ -394,6 +476,39 @@ public class EmailManager {
      */
     private void persistEmailAuditEvent(LoggedInInfo loggedInInfo, String action,
             EmailLog emailLog, String data) {
+        OscarLog auditLog = createActorAuditLog(loggedInInfo);
+        auditLog.setAction(action);
+        auditLog.setContent("Email");
+        auditLog.setContentId(String.valueOf(emailLog.getId()));
+        if (emailLog.getDemographic() != null
+                && emailLog.getDemographic().getDemographicNo() != null) {
+            auditLog.setDemographicId(emailLog.getDemographic().getDemographicNo());
+        }
+        auditLog.setData(data);
+        oscarLogDao.persist(auditLog);
+    }
+
+    private void persistPreTransportFailureAuditEvent(LoggedInInfo loggedInInfo,
+            EmailData emailData, String reason) {
+        OscarLog auditLog = createActorAuditLog(loggedInInfo);
+        auditLog.setAction("EmailManager.preTransportFailure");
+        auditLog.setContent("Email");
+        auditLog.setContentId("unpersisted");
+        if (emailData.getDemographicNo() != null && emailData.getDemographicNo() > 0) {
+            auditLog.setDemographicId(emailData.getDemographicNo());
+        }
+        auditLog.setData("reason=" + reason + "; senderConfigId="
+                + String.valueOf(emailData.getSenderConfigId()));
+        try {
+            oscarLogDao.persist(auditLog);
+        } catch (RuntimeException auditFailure) {
+            // Preserve the user-facing graceful failure even if the audit database is unavailable;
+            // the application log remains an operator-visible fallback.
+            logger.error("Could not persist pre-transport email failure audit event", auditFailure);
+        }
+    }
+
+    private OscarLog createActorAuditLog(LoggedInInfo loggedInInfo) {
         OscarLog auditLog = new OscarLog();
         if (loggedInInfo.getLoggedInSecurity() != null) {
             auditLog.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
@@ -401,16 +516,19 @@ public class EmailManager {
         if (loggedInInfo.getLoggedInProvider() != null) {
             auditLog.setProviderNo(loggedInInfo.getLoggedInProviderNo());
         }
-        auditLog.setAction(action);
-        auditLog.setContent("Email");
-        auditLog.setContentId(String.valueOf(emailLog.getId()));
         auditLog.setIp(loggedInInfo.getIp());
-        if (emailLog.getDemographic() != null
-                && emailLog.getDemographic().getDemographicNo() != null) {
-            auditLog.setDemographicId(emailLog.getDemographic().getDemographicNo());
+        return auditLog;
+    }
+
+    private void persistTransportOutcomeBestEffort(LoggedInInfo loggedInInfo,
+            EmailLog emailLog, String data) {
+        try {
+            persistEmailAuditEvent(loggedInInfo,
+                    "EmailManager.transportOutcomeNotRecorded", emailLog, data);
+        } catch (RuntimeException auditFailure) {
+            logger.error("Could not persist unrecorded email transport outcome audit event for emailLogId={}",
+                    emailLog.getId(), auditFailure);
         }
-        auditLog.setData(data);
-        oscarLogDao.persist(auditLog);
     }
 
     /**
@@ -719,7 +837,7 @@ public class EmailManager {
             EmailStatusResult emailStatusResult = new EmailStatusResult(result.getId(), result.getSubject(), getSenderFirstName(emailConfig),
                     getSenderLastName(emailConfig), nullToEmpty(result.getFromEmail()), getDemographicFirstName(demographic),
                     getDemographicLastName(demographic), String.join(", ", result.getToEmail()), getProviderFirstName(provider), getProviderLastName(provider),
-                    result.getIsEncrypted(), result.getPassword(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
+                    result.getIsEncrypted(), null, result.getStatus(), result.getErrorMessage(), result.getTimestamp());
             emailStatusResult.setResolvable(isManuallyResolvable(result));
             emailStatusResults.add(emailStatusResult);
         }

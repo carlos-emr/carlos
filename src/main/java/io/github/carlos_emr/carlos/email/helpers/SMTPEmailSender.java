@@ -18,6 +18,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.mail.MailAuthenticationException;
+import org.springframework.mail.MailPreparationException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -116,18 +118,35 @@ public class SMTPEmailSender {
             throw new RuntimeException("missing required sec object (_email)");
         }
 
-        javaMailSender = createTLSMailSender(emailConfig);
-        MimeMessage message = javaMailSender.createMimeMessage();
+        MimeMessage message;
         try {
+            javaMailSender = createTLSMailSender(emailConfig);
+            message = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
             helper.setFrom(emailConfig.getSenderEmail(), emailConfig.getSenderFullName());
             helper.setTo(recipients);
             helper.setSubject(subject);
             helper.setText(body, false);
             addAttachments(helper, attachments);
-            javaMailSender.send(message);
+        } catch (EmailSendingException e) {
+            throw e;
         } catch (Exception e) {
-            throw new EmailSendingException(e.getMessage(), e);
+            throw new EmailSendingException("The SMTP message could not be prepared.", e);
+        }
+
+        try {
+            javaMailSender.send(message);
+        } catch (MailAuthenticationException | MailPreparationException e) {
+            // Authentication and local preparation failures occur before SMTP can accept the
+            // message, so these are safe to present as conclusive failures.
+            throw new EmailSendingException(
+                    "SMTP failed before accepting the message.", e);
+        } catch (Exception e) {
+            // Once Jakarta Mail begins the SMTP transaction, a timeout or lost response cannot
+            // prove the server rejected the message. Treat the outcome as uncertain so callers do
+            // not encourage a duplicate send.
+            throw new EmailSendingException(
+                    "SMTP transport did not confirm whether the message was accepted.", e, true);
         }
     }
 
@@ -177,8 +196,8 @@ public class SMTPEmailSender {
             applySmtpTimeouts(properties);
 
             mailSender.setJavaMailProperties(properties);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail(), e);
+        } catch (IOException | RuntimeException e) {
+            throw new EmailSendingException("The active SMTP sender configuration is invalid.", e);
         }
         return mailSender;
     }

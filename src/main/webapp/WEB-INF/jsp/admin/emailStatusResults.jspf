@@ -32,7 +32,7 @@
                 <td>
                 <c:choose>
                     <c:when test="${emailStatusResult.isEncrypted}">
-                        <i class="fa-solid fa-lock"></i> Encrypted with password <b>${carlos:forHtml(emailStatusResult.password)}</b>
+                        <i class="fa-solid fa-lock"></i> Encrypted
                     </c:when>
                     <c:otherwise>
                         <i class="fa-solid fa-unlock"></i> Unencrypted
