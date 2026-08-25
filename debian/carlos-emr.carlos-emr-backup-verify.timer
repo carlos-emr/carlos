@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly CARLOS EMR restore drill
+Documentation=file:///usr/share/doc/carlos-emr/README.Debian
+
+[Timer]
+OnCalendar=Sun *-*-* 04:30:00
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -489,7 +489,9 @@ jobs:
               echo ""
               echo "Please reduce the PR commit count or have an authorized maintainer with write or higher repository permission post the manual confirmation phrase below after reviewing DCO coverage."
               echo ""
-              echo "> $CONFIRMATION_PHRASE at $HEAD_SHA"
+              echo '```text'
+              echo "$CONFIRMATION_PHRASE at $HEAD_SHA"
+              echo '```'
               echo ""
               echo "See https://developercertificate.org/ for DCO details."
             } > /tmp/dco_failure_comment.md
@@ -525,7 +527,9 @@ jobs:
               echo ""
               echo "An authorized maintainer with write or higher repository permission can confirm DCO sign-off after reviewing the connected history by posting this exact phrase for the current PR revision:"
               echo ""
-              echo "> $CONFIRMATION_PHRASE at $HEAD_SHA"
+              echo '```text'
+              echo "$CONFIRMATION_PHRASE at $HEAD_SHA"
+              echo '```'
               echo ""
               echo "See https://developercertificate.org/ for DCO details."
             } > /tmp/dco_failure_comment.md
