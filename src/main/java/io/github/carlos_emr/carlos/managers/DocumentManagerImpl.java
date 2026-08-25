@@ -153,7 +153,8 @@ public class DocumentManagerImpl implements DocumentManager {
     }
 
     public List<Document> getDocumentsByDemographicNo(LoggedInInfo loggedInInfo, Integer demographicNo) {
-        List<Document> result = documentDao.findByDemographicId(demographicNo + "");
+        List<Document> result = withoutOutboundEmailArchiveDocuments(
+                documentDao.findByDemographicId(demographicNo + ""));
 
         //--- log action ---
         if (result != null) {
@@ -305,7 +306,8 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
-        List<Document> results = documentDao.findByUpdateDate(updatedAfterThisDateExclusive, itemsToReturn);
+        List<Document> results = withoutOutboundEmailArchiveDocuments(
+                documentDao.findByUpdateDate(updatedAfterThisDateExclusive, itemsToReturn));
 
         LogAction.addLog(loggedInInfo, "DocumentManager.getUpdateAfterDate", "updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive, "", "", "Number items " + itemsToReturn);
 
@@ -317,7 +319,8 @@ public class DocumentManagerImpl implements DocumentManager {
         //If the consent type does not exist in the table assume this consent type is not being managed by the clinic, otherwise ensure patient has consented
         boolean hasConsent = patientConsentManager.hasProviderSpecificConsent(loggedInInfo) || patientConsentManager.getConsentType(ConsentType.PROVIDER_CONSENT_FILTER) == null;
         if (hasConsent) {
-            results = documentDao.findByDemographicUpdateAfterDate(demographicId, updatedAfterThisDateExclusive);
+            results = withoutOutboundEmailArchiveDocuments(
+                    documentDao.findByDemographicUpdateAfterDate(demographicId, updatedAfterThisDateExclusive));
             LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDocumentsByDemographicIdUpdateAfterDate", "demographicId=" + demographicId + " updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive);
         }
         return (results);
@@ -329,7 +332,9 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
-        List<Document> results = documentDao.findByProgramProviderDemographicUpdateDate(programId, providerNo, demographicId, updatedAfterThisDateExclusive.getTime(), itemsToReturn);
+        List<Document> results = withoutOutboundEmailArchiveDocuments(
+                documentDao.findByProgramProviderDemographicUpdateDate(
+                        programId, providerNo, demographicId, updatedAfterThisDateExclusive.getTime(), itemsToReturn));
 
         LogAction.addLog(loggedInInfo, "DocumentManager.getDocumentsByProgramProviderDemographicDate", "programId=" + programId, "providerNo=" + providerNo, demographicId + "", "updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive.getTime());
 
@@ -671,6 +676,7 @@ public class DocumentManagerImpl implements DocumentManager {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", "")) {
 			throw new RuntimeException("Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
 		}
+		assertNotOutboundEmailArchiveDocument(documentId);
 
 		if (queueId != null && queueId > 0) {
 			queueDocumentLinkDAO.addActiveQueueDocumentLink(queueId, documentId);

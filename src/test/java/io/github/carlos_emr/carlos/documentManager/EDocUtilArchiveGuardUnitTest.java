@@ -21,7 +21,10 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Set;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -87,6 +90,28 @@ class EDocUtilArchiveGuardUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> EDocUtil.undeleteDocument(ARCHIVE_DOC_NO))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage(ARCHIVE_MESSAGE);
+    }
+
+    @Test
+    @DisplayName("should refuse to delete an archive artifact")
+    void shouldRefuseToDeleteArchiveArtifact() {
+        assertThatThrownBy(() -> EDocUtil.deleteDocument(ARCHIVE_DOC_NO))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage(ARCHIVE_MESSAGE);
+    }
+
+    @Test
+    @DisplayName("should remove archive artifacts from legacy document listings")
+    void shouldRemoveArchiveArtifacts_fromLegacyDocumentListings() {
+        EDoc archive = new EDoc();
+        archive.setDocId(ARCHIVE_DOC_NO);
+        EDoc ordinary = new EDoc();
+        ordinary.setDocId("999");
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(321, 999)))
+                .thenReturn(Set.of(321));
+
+        assertThat(EDocUtil.withoutOutboundEmailArchiveDocuments(List.of(archive, ordinary)))
+                .containsExactly(ordinary);
     }
 
     @Test

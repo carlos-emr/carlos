@@ -49,6 +49,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.Set;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import org.owasp.encoder.Encode;
@@ -458,7 +459,8 @@ public final class EDocUtil {
         if (!attached) {
             ctlDocs = getDocumentDao().findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
         }
-        return documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs));
+        return withoutOutboundEmailArchiveDocuments(
+                documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs)));
     }
 
     public static ArrayList<EDoc> listDocsAttachedToEForm(LoggedInInfo loggedInInfo, String demoNo, String requestId, boolean attached) {
@@ -470,7 +472,8 @@ public final class EDocUtil {
         if (!attached) {
             ctlDocs = getDocumentDao().findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
         }
-        return documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs));
+        return withoutOutboundEmailArchiveDocuments(
+                documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs)));
     }
 
     //Consultation Response fetch documents
@@ -480,7 +483,8 @@ public final class EDocUtil {
         if (!attached) {
             ctlDocs = getDocumentDao().findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
         }
-        return documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs));
+        return withoutOutboundEmailArchiveDocuments(
+                documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs)));
     }
 
     private static ArrayList<EDoc> listDocs(LoggedInInfo loggedInInfo, boolean attached, List<Object[]> docs, List<Object[]> ctlDocs) {
@@ -619,7 +623,7 @@ public final class EDocUtil {
             currentdoc = getEDocFromDocId(docId);
             resultDocs.add(currentdoc);
         }
-        return resultDocs;
+        return withoutOutboundEmailArchiveDocuments(resultDocs);
     }
 
     public static ArrayList<EDoc> listDocs(LoggedInInfo loggedInInfo, String module, String moduleid, String docType, String publicDoc, EDocSort sort, String viewstatus) {
@@ -643,7 +647,7 @@ public final class EDocUtil {
         //filter by program.
         resultDocs = documentProgramFiltering(loggedInInfo, resultDocs);
 
-        return resultDocs;
+        return withoutOutboundEmailArchiveDocuments(resultDocs);
     }
 
     public static List<EDoc> listAllDemographicDocsSince(LoggedInInfo loggedInInfo, int demographicNo, Date since) {
@@ -660,7 +664,7 @@ public final class EDocUtil {
             edocList = documentFacilityFiltering(loggedInInfo, edocList);
         }
 
-        return edocList;
+        return withoutOutboundEmailArchiveDocuments(edocList);
     }
 
     public static ArrayList<EDoc> listDocsSince(LoggedInInfo loggedInInfo, String module, String moduleid, String docType, String publicDoc, EDocSort sort, String viewstatus, Date since) {
@@ -683,7 +687,7 @@ public final class EDocUtil {
             resultDocs = documentFacilityFiltering(loggedInInfo, resultDocs);
         }
 
-        return resultDocs;
+        return withoutOutboundEmailArchiveDocuments(resultDocs);
     }
 
     public static ArrayList<Integer> listDemographicIdsSince(Date since) {
@@ -756,7 +760,7 @@ public final class EDocUtil {
             list.add(currentdoc);
         }
 
-        return list;
+        return withoutOutboundEmailArchiveDocuments(list);
     }
 
     private static ArrayList<EDoc> documentFacilityFiltering(LoggedInInfo loggedInInfo, List<EDoc> eDocs) {
@@ -832,7 +836,7 @@ public final class EDocUtil {
             resultDocs = documentFacilityFiltering(loggedInInfo, resultDocs);
         }
 
-        return resultDocs;
+        return withoutOutboundEmailArchiveDocuments(resultDocs);
     }
 
     public static List<String> listModules() {
@@ -911,6 +915,7 @@ public final class EDocUtil {
     }
 
     public static void deleteDocument(String documentNo) {
+        assertNotOutboundEmailArchiveDocument(documentNo);
         Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
         if (d != null) {
             d.setStatus('D');
@@ -1597,5 +1602,53 @@ public final class EDocUtil {
 
     private static boolean isOutboundEmailArchiveDocumentId(String documentId) {
         return OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao(), documentId);
+    }
+
+    /**
+     * Removes archive-owned eDocs from legacy listings in one batch query.
+     *
+     * <p>The JSP document browser, consultation picker, eForm picker and several REST summaries
+     * still list through this static utility rather than {@code DocumentManager}. Filtering here
+     * keeps those surfaces from presenting an archive as an ordinary clinical document, while a
+     * per-document guard remains the backstop for callers that name an id directly.</p>
+     */
+    static ArrayList<EDoc> withoutOutboundEmailArchiveDocuments(List<EDoc> documents) {
+        if (documents == null || documents.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Integer> documentNos = new ArrayList<>();
+        for (EDoc document : documents) {
+            if (document == null || document.getDocId() == null || document.getDocId().isBlank()) {
+                continue;
+            }
+            try {
+                documentNos.add(Integer.valueOf(document.getDocId().trim()));
+            } catch (NumberFormatException e) {
+                // Internal list results should carry numeric ids. Preserve an invalid legacy row
+                // rather than changing its behaviour as a side effect of archive filtering.
+            }
+        }
+
+        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao().findExistingDocumentNos(documentNos);
+        if (archiveDocumentNos == null || archiveDocumentNos.isEmpty()) {
+            return new ArrayList<>(documents);
+        }
+
+        ArrayList<EDoc> filtered = new ArrayList<>();
+        for (EDoc document : documents) {
+            if (document == null || document.getDocId() == null) {
+                filtered.add(document);
+                continue;
+            }
+            try {
+                if (!archiveDocumentNos.contains(Integer.valueOf(document.getDocId().trim()))) {
+                    filtered.add(document);
+                }
+            } catch (NumberFormatException e) {
+                filtered.add(document);
+            }
+        }
+        return filtered;
     }
 }

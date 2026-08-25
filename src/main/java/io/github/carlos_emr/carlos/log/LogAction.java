@@ -217,9 +217,6 @@ public class LogAction {
     }
 
     /**
-     * This method will add a log entry in the same thread and can participate in the same transaction if one exists.
-     */
-    /**
      * Adds a fully attributed audit entry in the calling thread and transaction.
      *
      * <p>The synchronous counterpart of

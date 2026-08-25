@@ -276,8 +276,9 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     @Override
     @Transactional(noRollbackFor = IOException.class)
     public byte[] readArchivedArtifact(LoggedInInfo loggedInInfo, Integer archiveId) throws IOException {
-        // Locked, unlike getActiveArchive: a controlled deletion running concurrently would
-        // otherwise be free to remove the stored file between the checks below and the read.
+        // Locked, unlike getActiveArchive: this serializes the authorized read with the logical
+        // deletion transition. Controlled deletion retains the bytes, but a read that started
+        // while active must not race the archive into deleted state before it completes.
         OutboundEmailArchive archive = loadArchiveForAuthorizedRead(loggedInInfo, archiveId, true);
         Document document = archive.getDocument();
         byte[] artifactBytes;
@@ -835,8 +836,8 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
      * the row first and authorizing from it is the ordering this class already moved away from,
      * so the read path is not written the other way round.</p>
      *
-     * @param lockForUpdate whether to take the row's write lock, for reads that then touch the
-     *        stored file and must not race a controlled deletion
+     * @param lockForUpdate whether to take the row's write lock, for reads that must remain
+     *        serialized with the logical deletion transition
      */
     private OutboundEmailArchive loadArchiveForAuthorizedRead(
             LoggedInInfo loggedInInfo, Integer archiveId, boolean lockForUpdate) {
@@ -847,12 +848,12 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             throw new IllegalArgumentException("Archive ID is required");
         }
 
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
         Integer authorizedDemographicNo = outboundEmailArchiveDao.findDemographicNoById(archiveId);
         if (authorizedDemographicNo == null) {
             throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
         }
         requirePatientRecordAccess(loggedInInfo, authorizedDemographicNo);
 

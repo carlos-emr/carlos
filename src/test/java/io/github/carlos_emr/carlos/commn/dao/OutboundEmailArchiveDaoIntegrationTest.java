@@ -84,6 +84,9 @@ class OutboundEmailArchiveDaoIntegrationTest extends CarlosTestBase {
     private OutboundEmailArchiveDao outboundEmailArchiveDao;
 
     @Autowired
+    private DocumentDao documentDao;
+
+    @Autowired
     private OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao;
 
     @Autowired
@@ -198,6 +201,46 @@ class OutboundEmailArchiveDaoIntegrationTest extends CarlosTestBase {
             assertThat(reloadedAttachment.getSha256Hash()).isEqualTo(ATTACHMENT_HASH);
             assertThat(reloadedAttachment.getByteSize()).isEqualTo(512L);
             assertThat(reloadedAttachment.getCreatedAt()).isNotNull();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should recognize an archive attachment by its linked eDoc stored filename")
+        void shouldRecognizeArchiveAttachment_byLinkedEdocStoredFilename() {
+            Document attachmentDocument = new Document();
+            attachmentDocument.setDocfilename("20260817120000_00002_referral.pdf");
+            attachmentDocument.setDocdesc("Referral attachment");
+            attachmentDocument.setDoctype("document");
+            attachmentDocument.setDoccreator(PROVIDER_NO);
+            attachmentDocument.setResponsible(PROVIDER_NO);
+            attachmentDocument.setContenttype("application/pdf");
+            attachmentDocument.setStatus(Document.STATUS_ACTIVE);
+            attachmentDocument.setPublic1(0);
+            attachmentDocument.setObservationdate(new Date());
+            attachmentDocument.setContentdatetime(new Date());
+            entityManager.persist(attachmentDocument);
+
+            OutboundEmailArchive archive = newArchive();
+            OutboundEmailArchiveAttachment attachment = new OutboundEmailArchiveAttachment();
+            // The archive metadata retains the sender-facing filename, while document.docfilename
+            // is the generated basename received by preview and raw-file routes.
+            attachment.setFileName("referral.pdf");
+            attachment.setContentType("application/pdf");
+            attachment.setSha256Hash(ATTACHMENT_HASH);
+            attachment.setByteSize(512L);
+            attachment.setDocument(attachmentDocument);
+            attachment.setLastUpdateUser(PROVIDER_NO);
+            archive.addAttachment(attachment);
+
+            outboundEmailArchiveDao.persist(archive);
+            entityManager.flush();
+            entityManager.clear();
+
+            assertThat(outboundEmailArchiveDao.existsByFileName("20260817120000_00002_referral.pdf"))
+                    .isTrue();
+            assertThat(outboundEmailArchiveDao.existsByFileName("referral.pdf"))
+                    .as("a sender-facing attachment name is not a unique stored eDoc filename")
+                    .isFalse();
         }
 
         @Test
@@ -425,6 +468,51 @@ class OutboundEmailArchiveDaoIntegrationTest extends CarlosTestBase {
     @Nested
     @DisplayName("Query methods")
     class QueryMethods {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should exclude archives before applying the generic document sync limit")
+        void shouldExcludeArchives_beforeApplyingGenericDocumentSyncLimit() {
+            OutboundEmailArchive archive = newArchive();
+            outboundEmailArchiveDao.persist(archive);
+
+            Document ordinaryDocument = new Document();
+            ordinaryDocument.setDocfilename("ordinary-sync-document.txt");
+            ordinaryDocument.setDocdesc("Ordinary synchronization document");
+            ordinaryDocument.setDoctype("document");
+            ordinaryDocument.setDoccreator(PROVIDER_NO);
+            ordinaryDocument.setResponsible(PROVIDER_NO);
+            ordinaryDocument.setContenttype("text/plain");
+            ordinaryDocument.setStatus(Document.STATUS_ACTIVE);
+            ordinaryDocument.setPublic1(0);
+            ordinaryDocument.setObservationdate(new Date());
+            ordinaryDocument.setContentdatetime(new Date());
+            entityManager.persist(ordinaryDocument);
+            entityManager.flush();
+
+            Date archiveUpdate = new Date(1_700_000_000_000L);
+            Date ordinaryUpdate = new Date(1_700_000_001_000L);
+            entityManager.createQuery("""
+                            UPDATE Document document SET document.updatedatetime = :updatedAt
+                            WHERE document.documentNo = :documentNo
+                            """)
+                    .setParameter("updatedAt", archiveUpdate)
+                    .setParameter("documentNo", document.getDocumentNo())
+                    .executeUpdate();
+            entityManager.createQuery("""
+                            UPDATE Document document SET document.updatedatetime = :updatedAt
+                            WHERE document.documentNo = :documentNo
+                            """)
+                    .setParameter("updatedAt", ordinaryUpdate)
+                    .setParameter("documentNo", ordinaryDocument.getDocumentNo())
+                    .executeUpdate();
+            entityManager.clear();
+
+            List<Document> results = documentDao.findByUpdateDate(new Date(0), 1);
+
+            assertThat(results).extracting(Document::getDocumentNo)
+                    .containsExactly(ordinaryDocument.getDocumentNo());
+        }
 
         @Test
         @Tag("read")

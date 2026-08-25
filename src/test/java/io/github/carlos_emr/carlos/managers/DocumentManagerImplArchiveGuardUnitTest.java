@@ -23,6 +23,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
@@ -59,6 +61,7 @@ class DocumentManagerImplArchiveGuardUnitTest extends CarlosUnitTestBase {
     private SecurityInfoManager securityInfoManager;
     private DocumentDao documentDao;
     private OutboundEmailArchiveDao outboundEmailArchiveDao;
+    private PatientConsentManager patientConsentManager;
     private LoggedInInfo loggedInInfo;
     private DocumentManagerImpl manager;
 
@@ -67,6 +70,7 @@ class DocumentManagerImplArchiveGuardUnitTest extends CarlosUnitTestBase {
         securityInfoManager = mock(SecurityInfoManager.class);
         documentDao = mock(DocumentDao.class);
         outboundEmailArchiveDao = mock(OutboundEmailArchiveDao.class);
+        patientConsentManager = mock(PatientConsentManager.class);
         loggedInInfo = mock(LoggedInInfo.class);
 
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
@@ -79,6 +83,7 @@ class DocumentManagerImplArchiveGuardUnitTest extends CarlosUnitTestBase {
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "documentDao", documentDao);
         injectDependency(manager, "outboundEmailArchiveDao", outboundEmailArchiveDao);
+        injectDependency(manager, "patientConsentManager", patientConsentManager);
     }
 
     @Test
@@ -132,6 +137,14 @@ class DocumentManagerImplArchiveGuardUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should refuse to route an archive artifact to a document queue")
+    void shouldRefuseToRouteArchiveArtifact_toDocumentQueue() {
+        assertThatThrownBy(() -> manager.addDocumentToQueue(loggedInInfo, ARCHIVE_DOCUMENT_NO, 5))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage(ARCHIVE_MESSAGE);
+    }
+
+    @Test
     @DisplayName("should hide archive artifacts from a patient document listing")
     void shouldHideArchiveArtifacts_fromPatientDocumentListing() {
         // Filtered, not refused. A patient who has ever been emailed would otherwise have an
@@ -157,6 +170,38 @@ class DocumentManagerImplArchiveGuardUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.findExistingDocumentNos(any())).thenReturn(Set.of());
 
         assertThat(manager.getDemographicDocumentsByDocumentType(loggedInInfo, 123, DocumentDao.DocumentType.LAB))
+                .containsExactly(ordinary);
+    }
+
+    @Test
+    @DisplayName("should hide archive artifacts from every generic document synchronization listing")
+    void shouldHideArchiveArtifacts_fromEveryGenericDocumentSynchronizationListing() {
+        int demographicNo = 123;
+        Date cutoff = new Date(1_700_000_000_000L);
+        Calendar calendarCutoff = Calendar.getInstance();
+        calendarCutoff.setTime(cutoff);
+        Document ordinary = new Document();
+        ordinary.setDocumentNo(ORDINARY_DOCUMENT_NO);
+        List<Document> mixedDocuments = List.of(archiveDocument(), ordinary);
+
+        when(documentDao.findByDemographicId(String.valueOf(demographicNo))).thenReturn(mixedDocuments);
+        when(documentDao.findByUpdateDate(cutoff, 10)).thenReturn(mixedDocuments);
+        when(documentDao.findByDemographicUpdateAfterDate(demographicNo, cutoff)).thenReturn(mixedDocuments);
+        when(documentDao.findByProgramProviderDemographicUpdateDate(
+                7, "999998", demographicNo, cutoff, 10)).thenReturn(mixedDocuments);
+        when(patientConsentManager.hasProviderSpecificConsent(loggedInInfo)).thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(any()))
+                .thenReturn(Set.of(ARCHIVE_DOCUMENT_NO));
+
+        assertThat(manager.getDocumentsByDemographicNo(loggedInInfo, demographicNo))
+                .containsExactly(ordinary);
+        assertThat(manager.getDocumentsUpdateAfterDate(loggedInInfo, cutoff, 10))
+                .containsExactly(ordinary);
+        assertThat(manager.getDocumentsByDemographicIdUpdateAfterDate(
+                loggedInInfo, demographicNo, cutoff))
+                .containsExactly(ordinary);
+        assertThat(manager.getDocumentsByProgramProviderDemographicDate(
+                loggedInInfo, 7, "999998", demographicNo, calendarCutoff, 10))
                 .containsExactly(ordinary);
     }
 

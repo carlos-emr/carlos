@@ -314,7 +314,11 @@ public class SplitDocument2Action extends ActionSupport {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String removeFirstPage() throws Exception {
-        Document doc = documentDao.getDocument(request.getParameter("document"));
+        String documentNo = request.getParameter("document");
+        // Must run before the PDF is opened or saved. EDocUtil.subtractOnePage also guards, but
+        // this action rewrites the bytes first and updates the page count afterwards.
+        assertNotOutboundEmailArchiveDocument(documentNo);
+        Document doc = documentDao.getDocument(documentNo);
 
         String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDir = new File(docdownload);
@@ -337,7 +341,7 @@ public class SplitDocument2Action extends ActionSupport {
 
         pdf.removePage(0);
         if (saveFile(pdf, file.getPath())) {
-            EDocUtil.subtractOnePage(request.getParameter("document"));
+            EDocUtil.subtractOnePage(documentNo);
         }
 
         return null;

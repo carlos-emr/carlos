@@ -65,8 +65,8 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
      * Finds an archive row for reading, with its demographic and document hydrated.
      *
      * <p>Takes no lock. Use this for reads that only report archive metadata. Artifact reads
-     * take {@link #findForUpdate(Integer)} instead, so a controlled deletion cannot remove the
-     * stored file between the integrity check and the read.</p>
+     * take {@link #findForUpdate(Integer)} instead, so the archive cannot transition to its
+     * logically deleted state while an authorized read is in progress.</p>
      *
      * @param archiveId persisted archive identifier
      * @return the archive with demographic and document fetched, or {@code null} when no row exists

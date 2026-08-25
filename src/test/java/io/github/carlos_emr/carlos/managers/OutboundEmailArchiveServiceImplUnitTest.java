@@ -1048,7 +1048,6 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should reject archive metadata read without eDoc read authority")
     void shouldRejectArchiveRead_withoutEdocReadAuthority() {
-        when(outboundEmailArchiveDao.findDemographicNoById(888)).thenReturn(123);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)).thenReturn(false);
 
         assertThatThrownBy(() -> service.getActiveArchive(loggedInInfo, 888))
@@ -1056,6 +1055,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 .hasMessage("missing required sec object (_edoc)");
 
         verify(outboundEmailArchiveDao, never()).findForRead(anyInt());
+        verify(outboundEmailArchiveDao, never()).findDemographicNoById(anyInt());
     }
 
     @Test

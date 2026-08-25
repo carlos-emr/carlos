@@ -56,11 +56,11 @@ public final class OutboundEmailArchiveDocumentGuard {
      * @return {@code true} only when the id parses and matches an archive artifact or attachment
      */
     public static boolean isArchiveDocument(OutboundEmailArchiveDao archiveDao, String documentId) {
-        if (archiveDao == null || documentId == null || documentId.isBlank()) {
+        if (documentId == null || documentId.isBlank()) {
             return false;
         }
         try {
-            return archiveDao.existsByDocumentNo(Integer.valueOf(documentId.trim()));
+            return requireArchiveDao(archiveDao).existsByDocumentNo(Integer.valueOf(documentId.trim()));
         } catch (NumberFormatException e) {
             return false;
         }
@@ -74,7 +74,7 @@ public final class OutboundEmailArchiveDocumentGuard {
      * @return {@code true} when it matches an archive artifact or attachment
      */
     public static boolean isArchiveDocument(OutboundEmailArchiveDao archiveDao, Integer documentNo) {
-        return archiveDao != null && documentNo != null && archiveDao.existsByDocumentNo(documentNo);
+        return documentNo != null && requireArchiveDao(archiveDao).existsByDocumentNo(documentNo);
     }
 
     /**
@@ -88,7 +88,14 @@ public final class OutboundEmailArchiveDocumentGuard {
      * @return {@code true} when it matches an archive artifact or attachment
      */
     public static boolean isArchiveFileName(OutboundEmailArchiveDao archiveDao, String fileName) {
-        return archiveDao != null && fileName != null && !fileName.isBlank()
-                && archiveDao.existsByFileName(fileName);
+        return fileName != null && !fileName.isBlank()
+                && requireArchiveDao(archiveDao).existsByFileName(fileName);
+    }
+
+    private static OutboundEmailArchiveDao requireArchiveDao(OutboundEmailArchiveDao archiveDao) {
+        if (archiveDao == null) {
+            throw new IllegalStateException("Outbound email archive DAO is required");
+        }
+        return archiveDao;
     }
 }

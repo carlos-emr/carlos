@@ -330,6 +330,13 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
+        assertNoOutboundEmailArchiveAttachments(documentType, attachments);
+        if (documentType == DocumentType.DOC) {
+            attachments = preserveCurrentArchiveAttachments(documentType, attachments,
+                    consultDocsDao.findByRequestIdDocType(requestId, documentType.getType()).stream()
+                            .map(ConsultDocs::getDocumentNo)
+                            .toList());
+        }
         DocumentAttach documentAttach = new DocumentAttach();
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
@@ -358,6 +365,13 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
+        assertNoOutboundEmailArchiveAttachments(documentType, attachments);
+        if (documentType == DocumentType.DOC) {
+            attachments = preserveCurrentArchiveAttachments(documentType, attachments,
+                    consultDocsDao.findByRequestIdDocType(requestId, documentType.getType()).stream()
+                            .map(ConsultDocs::getDocumentNo)
+                            .toList());
+        }
         DocumentAttach documentAttach = new DocumentAttach(demographicNo, editOnOcean);
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
@@ -383,10 +397,12 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         }
 
         assertNoOutboundEmailArchiveAttachments(documentType, attachments);
-        attachments = preserveCurrentArchiveAttachments(documentType, attachments,
-                eFormDocsDao.findByFdidIdDocType(fdid, documentType.getType()).stream()
-                        .map(EFormDocs::getDocumentNo)
-                        .toList());
+        if (documentType == DocumentType.DOC) {
+            attachments = preserveCurrentArchiveAttachments(documentType, attachments,
+                    eFormDocsDao.findByFdidIdDocType(fdid, documentType.getType()).stream()
+                            .map(EFormDocs::getDocumentNo)
+                            .toList());
+        }
 
         DocumentAttach documentAttach = new DocumentAttach();
         documentAttach.attachToEForm(attachments, documentType, providerNo, fdid);
@@ -967,7 +983,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         }
     }
     /**
-     * Refuses an attempt to attach an outbound email archive eDoc to an eForm.
+     * Refuses an attempt to add an outbound email archive eDoc to an attachment relationship.
      *
      * <p>Only {@link DocumentType#DOC} can name an eDoc, so other attachment types short-circuit
      * without a query.</p>
@@ -994,13 +1010,13 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     }
 
     /**
-     * Keeps archive eDocs already attached to this eForm attached.
+     * Keeps archive eDocs already present in an attachment relationship attached.
      *
-     * <p>This call replaces the eForm's whole attachment set, so a submit that simply omits an
-     * archive artifact would detach it -- quietly severing a legal record from the form it was
-     * sent with, without ever going through the controlled-deletion path. Refusing the submit
-     * would be worse: the omission is normal UI behaviour, not an attack. So the archive
-     * attachments are folded back in and the rest of the submitted set is honoured.</p>
+     * <p>The consultation and eForm calls replace the whole attachment set, so a submit that
+     * simply omits an archive artifact would detach it -- quietly severing a legal association
+     * without ever going through the controlled-deletion path. Refusing the submit would be
+     * worse: the omission is normal UI behaviour, not an attack. So archive attachments are
+     * folded back in and the rest of the submitted set is honoured.</p>
      */
     private String[] preserveCurrentArchiveAttachments(
             DocumentType documentType, String[] submittedAttachments, Collection<Integer> currentDocumentNos) {
@@ -1020,6 +1036,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         if (documentType != DocumentType.DOC || documentNos == null || documentNos.isEmpty()) {
             return Set.of();
         }
-        return outboundEmailArchiveDao.findExistingDocumentNos(documentNos);
+        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(documentNos);
+        return archiveDocumentNos != null ? archiveDocumentNos : Set.of();
     }
 }

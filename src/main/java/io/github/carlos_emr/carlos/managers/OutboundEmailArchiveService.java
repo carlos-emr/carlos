@@ -84,8 +84,9 @@ public interface OutboundEmailArchiveService {
      * read error: the mismatch is audited before the failure propagates. Callers get an
      * {@link IOException} and no bytes, never partially-verified content.</p>
      *
-     * <p>The row is read under a write lock so a controlled deletion cannot remove the stored
-     * file between the integrity check and the read.</p>
+     * <p>The row is read under a write lock so the archive cannot transition to its logically
+     * deleted state between authorization and completion of the read. Controlled deletion
+     * deliberately retains the stored bytes.</p>
      *
      * @param loggedInInfo current user context
      * @param archiveId persisted archive identifier
@@ -111,10 +112,10 @@ public interface OutboundEmailArchiveService {
      * and it does <em>not</em> unlink the stored artifact from {@code DOCUMENT_DIR} —
      * the bytes remain verifiable against the tombstone hash.</p>
      *
-     * <p>Consequences a caller must plan for: the archived artifact stays visible in
-     * the patient's document browser, and this workflow alone does not satisfy a
-     * patient erasure request. Suppressing retired archives from the eDoc view, and any
-     * genuine purge path, belong to the archive UI work and must keep the tombstone.</p>
+     * <p>Consequences a caller must plan for: the archived artifact is suppressed from the
+     * ordinary eDoc views but its row and bytes remain retained, so this workflow alone does
+     * not satisfy a patient erasure request. Any genuine purge path must preserve the
+     * tombstone.</p>
      *
      * <p>Requires {@code _admin.edocdelete w}. Plain {@code _edoc w} is deliberately
      * not sufficient: that is the same right needed to create an archive, so accepting

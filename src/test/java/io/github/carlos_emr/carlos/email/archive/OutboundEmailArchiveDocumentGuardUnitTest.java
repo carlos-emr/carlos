@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -114,13 +115,16 @@ class OutboundEmailArchiveDocumentGuardUnitTest {
     }
 
     @Test
-    @DisplayName("should report false when no archive DAO is available")
-    void shouldReportFalse_whenNoArchiveDaoIsAvailable() {
-        // Legacy static call sites resolve their DAO through SpringUtils, which can hand back
-        // null in contexts without a container. The guard must degrade to "not an archive"
-        // rather than throwing out of an unrelated document operation.
-        assertThat(OutboundEmailArchiveDocumentGuard.isArchiveDocument(null, "321")).isFalse();
-        assertThat(OutboundEmailArchiveDocumentGuard.isArchiveDocument(null, Integer.valueOf(321))).isFalse();
-        assertThat(OutboundEmailArchiveDocumentGuard.isArchiveFileName(null, "archive.eml")).isFalse();
+    @DisplayName("should fail closed when no archive DAO is available")
+    void shouldFailClosed_whenNoArchiveDaoIsAvailable() {
+        assertThatThrownBy(() -> OutboundEmailArchiveDocumentGuard.isArchiveDocument(null, "321"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Outbound email archive DAO is required");
+        assertThatThrownBy(() -> OutboundEmailArchiveDocumentGuard.isArchiveDocument(null, Integer.valueOf(321)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Outbound email archive DAO is required");
+        assertThatThrownBy(() -> OutboundEmailArchiveDocumentGuard.isArchiveFileName(null, "archive.eml"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Outbound email archive DAO is required");
     }
 }

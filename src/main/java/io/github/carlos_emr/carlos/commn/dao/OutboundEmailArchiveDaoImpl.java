@@ -135,11 +135,17 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
         if (fileName == null || fileName.isBlank()) {
             return false;
         }
+        // Filename-only eDoc routes receive Document.docfilename (the generated stored basename).
+        // Do not match attachment.fileName here: it is a sender-facing display name, is not unique,
+        // and may not name a stored eDoc at all. Matching it would let one attachment called
+        // "referral.pdf" globally block unrelated legacy eDocs with that basename.
         TypedQuery<Long> query = entityManager.createQuery("""
                 SELECT COUNT(archive) FROM OutboundEmailArchive archive
                 WHERE archive.fileName = :fileName
+                   OR archive.document.docfilename = :fileName
                    OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment
-                              WHERE attachment.archive = archive AND attachment.fileName = :fileName)
+                              WHERE attachment.archive = archive
+                                AND attachment.document.docfilename = :fileName)
                 """,
                 Long.class);
         query.setParameter("fileName", fileName);
