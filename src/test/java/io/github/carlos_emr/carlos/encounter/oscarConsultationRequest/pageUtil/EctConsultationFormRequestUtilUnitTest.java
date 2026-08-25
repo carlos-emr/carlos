@@ -27,12 +27,15 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.ContactDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxClientLogDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
+import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt.DemographicProperty;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.util.Collections;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -43,6 +46,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -78,6 +82,9 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
     private FaxClientLogDao mockFaxClientLogDao;
 
     @Mock
+    private ProfessionalSpecialistDao mockProfessionalSpecialistDao;
+
+    @Mock
     private LoggedInInfo mockLoggedInInfo;
 
     private EctConsultationFormRequestUtil consultationFormRequestUtil;
@@ -93,6 +100,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
         registerMock(ContactDao.class, mockContactDao);
         registerMock(FaxJobDao.class, mockFaxJobDao);
         registerMock(FaxClientLogDao.class, mockFaxClientLogDao);
+        registerMock(ProfessionalSpecialistDao.class, mockProfessionalSpecialistDao);
         consultationFormRequestUtil = new EctConsultationFormRequestUtil();
     }
 
@@ -130,5 +138,27 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
         assertThat(patientFound).isTrue();
         assertThat(consultationFormRequestUtil.getPatientAddress())
                 .isEqualTo("12 &lt;Main&gt;\nToronto,ON\nA1A 1A1");
+    }
+
+    @Test
+    @DisplayName("should load request with associations when estimating request fields")
+    void shouldLoadRequestWithAssociations_whenEstimatingRequestFields() {
+        ConsultationRequest request = new ConsultationRequest();
+        request.setDemographicId(123);
+        request.setServiceId(10);
+        request.setPatientWillBook(false);
+
+        Demographic demographic = new Demographic();
+        demographic.setFirstName("John");
+        demographic.setLastName("Doe");
+
+        when(mockConsultationRequestDao.findWithAssociations(456)).thenReturn(request);
+        when(mockDemographicManager.getDemographic(eq(mockLoggedInInfo), eq(123))).thenReturn(demographic);
+        when(mockFaxClientLogDao.findClientLogbyRequestId(456)).thenReturn(Collections.emptyList());
+
+        boolean requestFound = consultationFormRequestUtil.estRequestFromId(mockLoggedInInfo, "456");
+
+        assertThat(requestFound).isTrue();
+        verify(mockConsultationRequestDao).findWithAssociations(456);
     }
 }

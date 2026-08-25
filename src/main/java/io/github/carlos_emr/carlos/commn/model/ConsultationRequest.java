@@ -55,11 +55,11 @@ public class ConsultationRequest extends AbstractModel<Integer> implements Seria
 
     private Integer serviceId;
 
-    @ManyToOne(fetch = FetchType.EAGER, targetEntity = ProfessionalSpecialist.class, cascade = CascadeType.MERGE)
+    @ManyToOne(fetch = FetchType.LAZY, targetEntity = ProfessionalSpecialist.class, cascade = CascadeType.MERGE)
     @JoinColumn(name = "specId", referencedColumnName = "specId")
     private ProfessionalSpecialist professionalSpecialist;
 
-    @ManyToOne(fetch = FetchType.EAGER, targetEntity = DemographicContact.class)
+    @ManyToOne(fetch = FetchType.LAZY, targetEntity = DemographicContact.class)
     @JoinColumn(name = "demographicContactId", referencedColumnName = "id")
     private DemographicContact demographicContact;
 
@@ -105,7 +105,7 @@ public class ConsultationRequest extends AbstractModel<Integer> implements Seria
     private Integer fdid = null;
     private String source;
 
-    @ManyToOne(fetch = FetchType.EAGER, targetEntity = LookupListItem.class)
+    @ManyToOne(fetch = FetchType.LAZY, targetEntity = LookupListItem.class)
     @JoinColumn(name = "appointmentInstructions", referencedColumnName = "value", insertable = false, updatable = false)
     private LookupListItem lookupListItem;
 
