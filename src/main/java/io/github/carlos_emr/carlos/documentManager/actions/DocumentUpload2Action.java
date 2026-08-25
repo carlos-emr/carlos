@@ -351,16 +351,19 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
      * <p>The single-component filename rules are delegated to
      * {@link PathValidationUtils#validatePathComponent(String, String)} so this upload path cannot
      * drift from the centralized validator (issue #2213). {@link FilenameUtils#getName(String)}
-     * first strips any directory the client included, then the centralized check rejects separators,
-     * hidden names, and traversal components. The caller-supplied basename is otherwise preserved
-     * exactly — the downstream {@code .pdf} check and
-     * {@link PathValidationUtils#validateGeneratedChildPath} containment check both rely on it being
-     * unchanged. The non-throwing {@code null} contract is deliberate and specific to this handler;
-     * {@link FileValidationException} (a {@link SecurityException}) is translated to {@code null}.</p>
+     * first reduces the client-supplied value to its <em>basename</em>, stripping any directory
+     * prefix — so a path-like input such as {@code ../secret.pdf} is reduced to {@code secret.pdf}
+     * and accepted (filesystem-safe), <strong>not</strong> rejected. The centralized check then
+     * rejects only a basename that is blank, hidden ({@code .env}), or a traversal component
+     * ({@code .}/{@code ..}). The resulting basename is otherwise preserved exactly — the downstream
+     * {@code .pdf} check and {@link PathValidationUtils#validateGeneratedChildPath} containment check
+     * both rely on it being unchanged. The non-throwing {@code null} contract is deliberate and
+     * specific to this handler; {@link FileValidationException} (a {@link SecurityException}) is
+     * translated to {@code null}.</p>
      *
      * @param fileName the original client-supplied filename
-     * @return the validated single-component filename, or {@code null} when it is blank, hidden,
-     *         path-like, or otherwise not a safe single component
+     * @return the validated basename (directory prefix stripped by {@link FilenameUtils#getName}),
+     *         or {@code null} when the resulting basename is blank, hidden, or a traversal component
      */
     private String sanitizeFileNameForIncomingDocs(String fileName) {
         if (fileName == null || fileName.trim().isEmpty()) {

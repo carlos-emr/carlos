@@ -178,12 +178,31 @@ class NioFileManagerImplFilenameValidationUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"@@@", "///"})
-    @DisplayName("saveTempFile throws rather than creating a sentinel temp file when the name cleans to empty")
+    @DisplayName("saveTempFile throws and leaves no temp directory behind when the name cleans to empty")
     void shouldThrow_whenTempFilenameCleansToEmpty(String filename) throws IOException {
+        // The rejected-name validation must happen before the temp directory is created, so a
+        // failure leaves nothing behind (issue #2213 review). Assert the tempPDF* directory count is
+        // unchanged across the failed call.
+        long before = countTempPdfDirectories();
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
             os.write("hi".getBytes(StandardCharsets.UTF_8));
             assertThatThrownBy(() -> nioFileManager.saveTempFile(filename, os, "pdf"))
                     .isInstanceOf(SecurityException.class);
+        }
+        assertThat(countTempPdfDirectories()).isEqualTo(before);
+    }
+
+    /** Counts leftover {@code tempPDF*} directories under the application temp root. */
+    private long countTempPdfDirectories() throws IOException {
+        Path applicationParent = Path.of(System.getProperty("java.io.tmpdir"),
+                PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
+        if (!Files.isDirectory(applicationParent)) {
+            return 0;
+        }
+        try (java.util.stream.Stream<Path> entries = Files.list(applicationParent)) {
+            return entries.filter(Files::isDirectory)
+                    .filter(p -> p.getFileName().toString().startsWith("tempPDF"))
+                    .count();
         }
     }
 

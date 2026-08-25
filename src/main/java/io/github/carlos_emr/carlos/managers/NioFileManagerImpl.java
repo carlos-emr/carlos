@@ -769,15 +769,16 @@ public class NioFileManagerImpl implements NioFileManager {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public Path saveTempFile(final String fileName, ByteArrayOutputStream os, String fileType) throws IOException {
+        // A freshly created temp file: normalizing the caller-supplied base name is intentional here
+        // (nothing on disk needs to match it exactly), so validateFileName — which normalizes and then
+        // rejects unusable names — is the right fit. It fails loudly rather than constructing a
+        // sentinel filename such as "invalid_filename". Validate BEFORE creating the temp directory so
+        // a rejected name does not leave an empty tempPDF* directory behind on every failure.
+        String sanitizedName = PathValidationUtils.validateFileName(fileName);
         Path directory = Files.createTempDirectory(applicationTempParent(), TEMP_PDF_DIRECTORY + System.currentTimeMillis());
         if (fileType == null) {
             fileType = DEFAULT_FILE_SUFFIX;
         }
-        // A freshly created temp file: normalizing the caller-supplied base name is intentional here
-        // (nothing on disk needs to match it exactly), so validateFileName — which normalizes and then
-        // rejects unusable names — is the right fit. It fails loudly rather than constructing a
-        // sentinel filename such as "invalid_filename".
-        String sanitizedName = PathValidationUtils.validateFileName(fileName);
         // Sanitize fileType to only allow safe alphanumeric extension characters
         String sanitizedType = fileType.replaceAll("[^a-zA-Z0-9]", "");
         if (sanitizedType.isEmpty()) {

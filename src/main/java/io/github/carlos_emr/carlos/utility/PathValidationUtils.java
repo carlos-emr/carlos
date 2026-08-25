@@ -349,8 +349,16 @@ public final class PathValidationUtils {
     }
 
     /**
-     * Applies the legacy {@code MiscUtils.sanitizeFileName} normalization: whitespace becomes
-     * underscores, characters outside the keep-class are deleted, and dot runs collapse.
+     * Applies the legacy filename character normalization used across CARLOS: runs of whitespace
+     * become a single underscore, characters outside {@code [a-zA-Z0-9._-]} are removed, and repeated
+     * dots collapse to a single dot. This performs normalization ONLY — it does not strip path
+     * components, reject hidden or blocked names, or otherwise validate; callers that need those
+     * guarantees should use {@link #validateFileName(String)} or
+     * {@link #validatePathComponent(String, String)}.
+     *
+     * <p>This is the single centralized home for the normalization the deprecated
+     * {@link MiscUtils#sanitizeFileName(String)} delegates to, so callers can point here directly
+     * instead of at the deprecated indirection.</p>
      *
      * <p>Hyphens are kept. They were accepted by the original guard ({@code ^[a-zA-Z0-9._-]+$}) and
      * their deletion arrived incidentally with the move to {@code MiscUtils.sanitizeFileName}
@@ -363,18 +371,6 @@ public final class PathValidationUtils {
      * database record of eForm image names ({@code EFormUtil.listImages()} is a directory scan), so
      * the on-disk name is the contract and a silent rename permanently breaks the form referencing
      * it.</p>
-     */
-    /**
-     * Applies the legacy filename character normalization used across CARLOS: runs of whitespace
-     * become a single underscore, characters outside {@code [a-zA-Z0-9._-]} are removed, and repeated
-     * dots collapse to a single dot. This performs normalization ONLY — it does not strip path
-     * components, reject hidden or blocked names, or otherwise validate; callers that need those
-     * guarantees should use {@link #validateFileName(String)} or
-     * {@link #validatePathComponent(String, String)}.
-     *
-     * <p>This is the single centralized home for the normalization the deprecated
-     * {@link MiscUtils#sanitizeFileName(String)} delegates to, so callers can point here directly
-     * instead of at the deprecated indirection.</p>
      *
      * @param fileName the filename to normalize; must not be {@code null}
      * @return the normalized filename
