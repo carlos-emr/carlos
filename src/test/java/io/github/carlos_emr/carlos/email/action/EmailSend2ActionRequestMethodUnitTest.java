@@ -55,7 +55,7 @@ class EmailSend2ActionRequestMethodUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(EmailManager.class, emailManager);
         registerMock(EformDataManager.class, eformDataManager);
-        when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq("w"), isNull()))
+        when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq("w"), isNull(String.class)))
                 .thenReturn(true);
 
         MockHttpServletRequest request = new MockHttpServletRequest(httpMethod, "/email/send");
@@ -73,7 +73,7 @@ class EmailSend2ActionRequestMethodUnitTest extends CarlosUnitTestBase {
             assertThat(response.getHeader("Allow")).isEqualTo("POST");
         }
 
-        verify(securityInfoManager).hasPrivilege(any(), eq("_email"), eq("w"), isNull());
+        verify(securityInfoManager).hasPrivilege(any(), eq("_email"), eq("w"), isNull(String.class));
         verifyNoInteractions(emailManager, eformDataManager);
     }
 }
