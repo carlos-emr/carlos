@@ -96,7 +96,7 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
     private Date lastUpdateDate = null;
 
     // This is a bi-directional relationship
-    @OneToMany(mappedBy = "prevention", fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "prevention", fetch = FetchType.LAZY)
     private List<PreventionExt> preventionExts;
 
     @Transient
