@@ -25,27 +25,23 @@ case "$1" in
             fi
         done
 
-        # Load the AppArmor profile that makes Chromium's own sandbox usable.
-        # carlos-emr.service sets EFORM_RENDER_SANDBOX=true, and that setting
-        # fails CLOSED, so a profile that did not load would turn every eForm
-        # render into an error rather than a silent downgrade. Warn loudly here
-        # instead of letting that surface as a failed print later.
+        # Load the AppArmor profile that grants the browser back the `userns`
+        # permission Ubuntu 23.10+ removes system-wide. Chromium's own sandbox
+        # is NOT enabled by default here (see the comment in carlos-emr.service
+        # for why), so a profile that fails to load is not fatal today — it only
+        # removes the ability to opt in. Report it rather than failing the
+        # install.
         if [ -e /sys/module/apparmor/parameters/enabled ] \
            && [ "$(cat /sys/module/apparmor/parameters/enabled 2>/dev/null)" = "Y" ]; then
-            if ! apparmor_parser -r -T -W /etc/apparmor.d/carlos-emr-chromium 2>/dev/null; then
-                echo "carlos-emr-eform-renderer: WARNING: could not load the AppArmor profile" >&2
-                echo "carlos-emr-eform-renderer: WARNING: /etc/apparmor.d/carlos-emr-chromium." >&2
-                echo "carlos-emr-eform-renderer: WARNING: Chromium sandboxes renderers with an" >&2
-                echo "carlos-emr-eform-renderer: WARNING: unprivileged user namespace, which this" >&2
-                echo "carlos-emr-eform-renderer: WARNING: distribution restricts by default, so" >&2
-                echo "carlos-emr-eform-renderer: WARNING: eForm PDF rendering will fail until the" >&2
-                echo "carlos-emr-eform-renderer: WARNING: profile loads (systemctl reload apparmor)." >&2
+            if apparmor_parser -r -T -W /etc/apparmor.d/carlos-emr-chromium 2>/dev/null; then
+                echo "carlos-emr-eform-renderer: AppArmor profile loaded for the render browser"
+            else
+                echo "carlos-emr-eform-renderer: NOTE: could not load the AppArmor profile" >&2
+                echo "carlos-emr-eform-renderer: NOTE: /etc/apparmor.d/carlos-emr-chromium." >&2
+                echo "carlos-emr-eform-renderer: NOTE: eForm rendering still works; only the" >&2
+                echo "carlos-emr-eform-renderer: NOTE: option to run the browser sandboxed is" >&2
+                echo "carlos-emr-eform-renderer: NOTE: unavailable until it loads." >&2
             fi
-        else
-            echo "carlos-emr-eform-renderer: NOTE: AppArmor is not enabled on this host." >&2
-            echo "carlos-emr-eform-renderer: NOTE: Chromium's sandbox needs unprivileged user" >&2
-            echo "carlos-emr-eform-renderer: NOTE: namespaces to be permitted; if they are" >&2
-            echo "carlos-emr-eform-renderer: NOTE: restricted by other means, eForm rendering fails." >&2
         fi
 
         # Re-render carlos.properties. carlos-ctl owns every property this
