@@ -14,6 +14,8 @@ package io.github.carlos_emr.carlos.deb;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationInfo;
@@ -64,7 +66,35 @@ public final class FlywayRunner {
      *             comma-separated migration location list, restricted to the
      *             classpath locations this package ships.
      */
+    /**
+     * Silence one INFO line OpenTelemetry emits on first use.
+     *
+     * <p>This runner's classpath is the deployed WAR's, which carries the
+     * OpenTelemetry SDK as a transitive Flyway dependency. Merely touching the
+     * API makes GlobalOpenTelemetry announce that it found the autoconfigure
+     * SDK and is not using it:
+     *
+     * <pre>
+     * INFO: AutoConfiguredOpenTelemetrySdk found on classpath but automatic
+     * configuration is disabled. To enable, run your JVM with
+     * -Dotel.java.global-autoconfigure.enabled=true
+     * </pre>
+     *
+     * <p>It is advice for someone who wants telemetry, not a problem — but it
+     * lands in the middle of `apt install` output, where the only other lines
+     * are this package's own progress, and it has been read as an installation
+     * error by more than one tester. Enabling autoconfiguration would silence
+     * it too, but by starting an exporter this deployment never asked for.
+     *
+     * <p>The logger is named by string rather than by class so this stays
+     * compilable, and harmless, if OpenTelemetry ever leaves the classpath.
+     */
+    private static void quietenOpenTelemetry() {
+        Logger.getLogger("io.opentelemetry.api.GlobalOpenTelemetry").setLevel(Level.WARNING);
+    }
+
     public static void main(String[] args) {
+        quietenOpenTelemetry();
         if (args.length < 2) {
             System.err.println("usage: FlywayRunner <info|validate|migrate|baseline|repair> <locations>");
             System.exit(2);
