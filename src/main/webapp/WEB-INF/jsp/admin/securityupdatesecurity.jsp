@@ -191,7 +191,7 @@
 	function handleResetMfa(securityId) {
 		if (confirm("<fmt:message key="admin.securityAddRecord.mfa.reset.confirm"/>")) {
 			var url = "${pageContext.request.contextPath}/securityRecord/mfa";
-			var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+			var csrfEl = document.querySelector('body > input[name="CSRF-TOKEN"]');
 			var csrfToken = csrfEl ? csrfEl.value : '';
 			var params = 'method=<%= MfaActions2Action.METHOD_RESET_MFA %>&securityId=' + encodeURIComponent(securityId);
 			fetch(url, {
@@ -220,6 +220,7 @@
     </head>
 
     <body onLoad="setfocus('user_name')" topmargin="0" leftmargin="0" rightmargin="0">
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
