@@ -139,6 +139,12 @@ Depends:
 # guarantees (libc6, libgcc-s1). Derived by reading the shipped binary's dynamic
 # section, not copied from a wiki page: dh_shlibdeps cannot compute it here
 # because the binary is vendored rather than built by this source package.
+#
+# libc6 and libgcc-s1 are listed even though they are effectively always
+# present: dh_shlibdeps normally adds them, and with it skipped nothing else
+# would declare the C runtime that this package's ELF actually links against.
+ libc6,
+ libgcc-s1,
  libasound2t64,
  libatk-bridge2.0-0t64,
  libatk1.0-0t64,

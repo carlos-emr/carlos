@@ -15,12 +15,22 @@
 #   DRUGREF_REF=<branch|tag|sha>       ref to fetch when DRUGREF_SRC is unset
 #                                      (default: the pin in debian/drugref.pin).
 #   SKIP_DRUGREF=1                     do not build carlos-emr-drugref at all.
+#   CHROMIUM_DIST=/path/to/unpacked    use an already-unpacked Chromium
+#                                      (chrome-linux/ plus chromedriver) instead
+#                                      of downloading the revision pinned in
+#                                      debian/chromium.pin. This is the offline
+#                                      path for carlos-emr-eform-renderer.
+#   SKIP_EFORM_RENDERER=1              do not build carlos-emr-eform-renderer at
+#                                      all. Note that saved-eForm print, fax and
+#                                      archive have NO non-browser fallback, so a
+#                                      release build must not set this.
 #
 # NETWORK: like every Maven-built package, the build resolves dependencies
-# from Maven Central, and the DrugRef source is fetched from GitHub unless
-# DRUGREF_SRC/DRUGREF_WAR is supplied. This is not a buildd-clean package; it
-# is built by the project's own release job. Pass the three variables above
-# for a fully offline build.
+# from Maven Central, the DrugRef source is fetched from GitHub unless
+# DRUGREF_SRC/DRUGREF_WAR is supplied, and the pinned Chromium is fetched from
+# the upstream snapshot archive unless CHROMIUM_DIST is supplied. This is not a
+# buildd-clean package; it is built by the project's own release job. Pass the
+# variables above for a fully offline build.
 
 export DH_VERBOSE = 1
 export JAVA_HOME ?= /usr/lib/jvm/java-21-openjdk-$(shell dpkg --print-architecture)
