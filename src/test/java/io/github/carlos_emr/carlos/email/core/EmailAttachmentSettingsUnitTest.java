@@ -95,22 +95,20 @@ class EmailAttachmentSettingsUnitTest {
         @Test
         @DisplayName("should return null when exceeding RFC 5321 length limit")
         void shouldReturnNull_whenExceedingMaxLength() {
-            String longLocal = "a".repeat(245);
-            String longEmail = longLocal + "@example.com";
-            assertThat(longEmail.length()).isGreaterThan(254);
-            assertThat(EmailAttachmentSettings.validateEmail(longEmail)).isNull();
+            String local = "a".repeat(64);
+            String domain = "b".repeat(63) + "." + "c".repeat(63) + "." + "d".repeat(62);
+            String email = local + "@" + domain;
+            assertThat(email).hasSize(255);
+            assertThat(EmailAttachmentSettings.validateEmail(email)).isNull();
         }
 
         @Test
         @DisplayName("should return email when at RFC 5321 length limit")
         void shouldReturnEmail_whenAtMaxLength() {
-            // 242 + "@example.com".length() (12) == 254, the RFC 5321 limit this test is about.
-            // The original 241 produced a 253-character address, so the length assertion
-            // below always failed. Nobody saw it: the class was named *Test, which the
-            // Surefire <includes> never select, so it had never run in CI.
-            String local = "a".repeat(242);
-            String email = local + "@example.com";
-            assertThat(email.length()).isEqualTo(254);
+            String local = "a".repeat(64);
+            String domain = "b".repeat(63) + "." + "c".repeat(63) + "." + "d".repeat(61);
+            String email = local + "@" + domain;
+            assertThat(email).hasSize(254);
             assertThat(EmailAttachmentSettings.validateEmail(email)).isEqualTo(email);
         }
     }
