@@ -32,13 +32,13 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit coverage for JSP JavaScript-context encoding regressions.
+ * Unit coverage for JSP output encoding regressions.
  *
  * @since 2026-05-19
  */
-@DisplayName("JSP JavaScript encoding")
+@DisplayName("JSP output encoding")
 @Tag("unit")
-class JspJavaScriptEncodingRegressionTest {
+class JspEncodingRegressionTest {
     private static final String BASEDIR_PROPERTY = "basedir";
     private static final Path JSP_ROOT = resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp"));
     private static final String SAFE_ENCODE_IMPORT_PATTERN =
@@ -195,6 +195,50 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    void shouldEncodeExportSelections_inHtmlContexts() throws Exception {
+        String demographicExportJsp = readJsp("demographic/demographicExport.jsp");
+        String rourkeExportJsp = readJsp("demographic/rourkeExport.jsp");
+
+        assertThat(demographicExportJsp)
+                .doesNotContain("<option value=\"<%=setName%>\"><%=setName%>")
+                .doesNotContain("<option value=\"<%=p.getProviderNo()%>\"><%=p.getFormattedName()%>")
+                .containsPattern(safeEncodePattern("setName", "forHtmlAttribute"))
+                .containsPattern(carlosEncodePattern("setName", "html"))
+                .containsPattern(safeEncodePattern("p\\.getProviderNo\\(\\)", "forHtmlAttribute"))
+                .containsPattern(carlosEncodePattern("p\\.getFormattedName\\(\\)", "html"));
+        assertThat(rourkeExportJsp)
+                .doesNotContain("<option value=\"<%=setName%>\"><%=setName%>")
+                .containsPattern(safeEncodePattern("setName", "forHtmlAttribute"))
+                .containsPattern(carlosEncodePattern("setName", "html"));
+    }
+
+    @Test
+    void shouldEncodeRourkeExportHistoryFields_inUriAndHtmlContexts() throws Exception {
+        String rourkeExportJsp = readJsp("demographic/rourkeExport.jsp");
+
+        assertThat(rourkeExportJsp)
+                .doesNotContain("zipFile=<%=file%>'><%=file %>")
+                .doesNotContain("method=getFile&zipFile=")
+                .contains("method=getFile&amp;zipFile=")
+                .doesNotContain("<td><%=dataExport.getUser()%>")
+                .doesNotContain("<td><%=dataExport.getType()%>")
+                .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getUser\\(\\)", "html") + "\\s*</td>")
+                .containsPattern("<td>\\s*" + carlosEncodePattern("dataExport\\.getType\\(\\)", "html") + "\\s*</td>");
+
+        int zipFileIndex = rourkeExportJsp.indexOf("zipFile=");
+        assertThat(zipFileIndex).isGreaterThanOrEqualTo(0);
+        int downloadAnchorStart = rourkeExportJsp.lastIndexOf("<a", zipFileIndex);
+        assertThat(downloadAnchorStart).isGreaterThanOrEqualTo(0);
+        int downloadAnchorEnd = rourkeExportJsp.indexOf("</a>", zipFileIndex);
+        assertThat(downloadAnchorEnd).isGreaterThan(zipFileIndex);
+        String downloadAnchorSnippet = rourkeExportJsp.substring(downloadAnchorStart, downloadAnchorEnd + "</a>".length());
+
+        assertThat(downloadAnchorSnippet)
+                .containsPattern("zipFile=\\s*<%=\\s*SafeEncode\\.forUriComponent\\(\\s*file\\s*\\)\\s*%>")
+                .containsPattern(carlosEncodePattern("file", "html"));
+    }
+
+    @Test
     void shouldContainEncodedEncounterPrintFields_inHtmlBodyContext() throws Exception {
         String encounterPrintJsp = readJsp("encounter/encounterPrint.jsp");
         String echartHistoryPrintJsp = readJsp("encounter/echarthistoryprint.jsp");
@@ -341,6 +385,23 @@ class JspJavaScriptEncodingRegressionTest {
         return Files.readString(JSP_ROOT.resolve(relativePath));
     }
 
+    private static String carlosEncodePattern(String scriptletExpressionPattern, String context) {
+        String scriptletValue = "value\\s*=\\s*'\\s*<%=\\s*"
+                + scriptletExpressionPattern
+                + "\\s*%>\\s*'";
+        String contextAttribute = "context\\s*=\\s*(?:'" + context + "'|\"" + context + "\")";
+
+        return "(?:<carlos:encode\\s+(?:(?:"
+                + scriptletValue
+                + "\\s+"
+                + contextAttribute
+                + ")|(?:"
+                + contextAttribute
+                + "\\s+"
+                + scriptletValue
+                + "))\\s*/>)";
+    }
+
     private static Path resolveProjectPath(Path relativePath) {
         Path current = Path.of(System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")))
                 .toAbsolutePath()
@@ -354,5 +415,13 @@ class JspJavaScriptEncodingRegressionTest {
         }
         throw new IllegalStateException("Unable to locate " + relativePath + " from "
                 + System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")));
+    }
+
+    private static String safeEncodePattern(String scriptletExpressionPattern, String method) {
+        return "<%=\\s*SafeEncode\\."
+                + method
+                + "\\(\\s*"
+                + scriptletExpressionPattern
+                + "\\s*\\)\\s*%>";
     }
 }
