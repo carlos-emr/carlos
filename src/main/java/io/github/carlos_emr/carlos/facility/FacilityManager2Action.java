@@ -37,29 +37,56 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
 import io.github.carlos_emr.carlos.commn.model.Facility;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
 
+@Component(FacilityManager2Action.SPRING_BEAN_NAME)
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class FacilityManager2Action extends ActionSupport {
+    public static final String SPRING_BEAN_NAME = "facilityManager2Action";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private FacilityDao facilityDao = (FacilityDao) SpringUtils.getBean(FacilityDao.class);
+    private final transient FacilityDao facilityDao;
+    private final transient SecurityInfoManager securityInfoManager;
 
     private static final String FORWARD_EDIT = "edit";
     private static final String FORWARD_LIST = "list";
     private static final String BEAN_FACILITIES = "facilities";
+    private static final String FACILITY_ADMIN_SECURITY_OBJECT = "_admin.facility";
+    private static final String WRITE_PRIVILEGE = "w";
+
+    public FacilityManager2Action(FacilityDao facilityDao, SecurityInfoManager securityInfoManager) {
+        this.facilityDao = facilityDao;
+        this.securityInfoManager = securityInfoManager;
+    }
 
     @Override
-    public String execute() {
+    public String execute() throws Exception {
         String method = request.getParameter("method");
+        if (!securityInfoManager.hasPrivilege(
+                LoggedInInfo.getLoggedInInfoFromSession(request),
+                FACILITY_ADMIN_SECURITY_OBJECT,
+                WRITE_PRIVILEGE,
+                null)) {
+            throw new SecurityException("missing required sec object (_admin.facility)");
+        }
+        if (isMutationMethod(method) && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         if ("edit".equals(method)) {
             return edit();
         } else if ("delete".equals(method)) {
@@ -70,6 +97,10 @@ public class FacilityManager2Action extends ActionSupport {
             return save();
         }
         return list();
+    }
+
+    private boolean isMutationMethod(String method) {
+        return "delete".equals(method) || "save".equals(method) || "add".equals(method);
     }
 
     public String list() {
@@ -123,8 +154,8 @@ public class FacilityManager2Action extends ActionSupport {
 
         // if we just updated our current facility, refresh local cached data in the session / thread local variable
         if (loggedInInfo.getCurrentFacility().getId().intValue() == facility.getId().intValue()) {
-            // nosemgrep: tainted-session-from-http-request -- facility fields from admin form, persisted/merged to DB above; admin-restricted via Struts URL mapping
-            request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): admin-persisted facility entity (DAO-sourced); _admin.facility hasPrivilege checked
+            // nosemgrep: tainted-session-from-http-request -- facility fields from admin form, persisted/merged to DB above; execute() requires _admin.facility write
+            request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): admin-persisted facility entity (DAO-sourced); execute() requires _admin.facility write
             loggedInInfo.setCurrentFacility(facility);
         }
         addActionMessage(getText("facility.saved", facility.getName()));
