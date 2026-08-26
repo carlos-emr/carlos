@@ -438,7 +438,7 @@
 
 
             function returnToRx() {
-                var rx_enhance = <%=CarlosProperties.getInstance().getProperty("rx_enhance")%>;
+                var rx_enhance = <%=Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("rx_enhance"))%>;
 
                 if (rx_enhance) {
                     opener.window.refresh();
@@ -553,7 +553,7 @@
                         <h2><fmt:message key="SelectPharmacy.title"/>
                             <span style="font-size: small;">
 						<fmt:message key="SearchDrug.nameText"/>
-                        <%=surname%>, <%=firstName%>
+                        <carlos:encode value='<%= surname %>' context="html"/>, <carlos:encode value='<%= firstName %>' context="html"/>
                     </span>
                             <input type=button class="btn btn-secondary float-end" onclick="returnToRx();"
                                    value="Return to RX"/>

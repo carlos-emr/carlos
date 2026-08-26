@@ -30,7 +30,28 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("WebUtils")
 @Tag("unit")
+@Tag("encoding")
 class WebUtilsUnitTest {
+
+    @Test
+    void shouldEncodeSessionMessages_whenRenderingHtmlList() {
+        MockHttpSession session = new MockHttpSession();
+        String message = "<script>alert('xss')</script>";
+        // This assertion only cares about encoded list item output, not optional wrapper attributes.
+        String inlineStyle = null;
+        String elementId = null;
+        String elementName = null;
+        WebUtils.addErrorMessage(session, message);
+
+        String rendered = WebUtils.renderMessagesAsHtml(session, WebUtils.ERROR_MESSAGE_SESSION_KEY,
+                "error", inlineStyle, elementId, elementName);
+
+        assertThat(rendered)
+                .contains("<ul class=\"error\">")
+                .contains("<li>" + SafeEncode.forHtmlContent(message) + "</li>")
+                .doesNotContain(message);
+        assertThat(WebUtils.popMessages(session, WebUtils.ERROR_MESSAGE_SESSION_KEY)).isNull();
+    }
 
     @Test
     void shouldEscapeMessages_whenRenderedAsHtml() {
@@ -74,5 +95,4 @@ class WebUtilsUnitTest {
         assertThat(html).contains("</li>");
         assertThat(html).doesNotContain("</il>");
     }
-
 }
