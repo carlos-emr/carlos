@@ -1142,6 +1142,17 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject read limits that cannot be represented by the byte buffer")
+    void shouldRejectReadLimits_thatCannotBeRepresentedByByteBuffer() {
+        assertThatThrownBy(() -> new OutboundEmailArchiveServiceImpl(
+                documentManager, emailLogDao, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao,
+                outboundEmailArchiveLegalHoldEventDao, ctlDocumentDao, securityInfoManager,
+                (long) Integer.MAX_VALUE + 1L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Maximum archived artifact read size");
+    }
+
+    @Test
     @DisplayName("should refuse the artifact when the stored file is missing")
     void shouldRefuseArtifact_whenStoredFileIsMissing(@TempDir Path documentDir) throws Exception {
         OutboundEmailArchive archive = archiveUnderLegalHold();

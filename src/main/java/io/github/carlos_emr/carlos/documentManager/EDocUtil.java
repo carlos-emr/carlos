@@ -412,6 +412,7 @@ public final class EDocUtil {
 
     public static void editDocumentSQL(EDoc newDocument, boolean doReview) {
         assertNotOutboundEmailArchiveDocument(newDocument != null ? newDocument.getDocId() : null);
+        assertNotOutboundEmailArchiveFileName(newDocument != null ? newDocument.getFileName() : null);
 
         Document doc = getDocumentDao().find(ConversionUtils.fromIntString(newDocument.getDocId()));
         if (doc != null) {
@@ -575,12 +576,18 @@ public final class EDocUtil {
     }
 
     public static EDoc getEDocFromDocId(String docId) {
-        DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
         EDoc currentdoc = new EDoc();
+        if (isOutboundEmailArchiveDocumentId(docId)) {
+            return currentdoc;
+        }
+        DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
 
         for (Object[] o : dao.findCtlDocsAndDocsByDocNo(ConversionUtils.fromIntString(docId))) {
             Document d = (Document) o[0];
             CtlDocument c = (CtlDocument) o[1];
+            if (isOutboundEmailArchiveFileName(d.getDocfilename())) {
+                return new EDoc();
+            }
 
             currentdoc.setModule(c.getId().getModule());
             currentdoc.setModuleId("" + c.getId().getModuleId());
@@ -619,6 +626,9 @@ public final class EDocUtil {
 
         ArrayList<EDoc> resultDocs = new ArrayList<EDoc>();
         for (String docId : docIds) {
+            if (isOutboundEmailArchiveDocumentId(docId)) {
+                continue;
+            }
             EDoc currentdoc = new EDoc();
             currentdoc = getEDocFromDocId(docId);
             resultDocs.add(currentdoc);
@@ -845,14 +855,18 @@ public final class EDocUtil {
     }
 
     public static EDoc getDoc(String documentNo) {
-
-        DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
-
         EDoc currentdoc = new EDoc();
+        if (isOutboundEmailArchiveDocumentId(documentNo)) {
+            return currentdoc;
+        }
+        DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
 
         for (Object[] o : dao.findCtlDocsAndDocsByDocNo(ConversionUtils.fromIntString(documentNo))) {
             Document d = (Document) o[0];
             CtlDocument c = (CtlDocument) o[1];
+            if (isOutboundEmailArchiveFileName(d.getDocfilename())) {
+                return new EDoc();
+            }
 
             currentdoc.setModule("" + c.getId().getModule());
             currentdoc.setModuleId("" + c.getId().getModuleId());
@@ -891,8 +905,12 @@ public final class EDocUtil {
     }
 
     public String getDocumentName(String id) {
+        if (isOutboundEmailArchiveDocumentId(id)) {
+            return null;
+        }
         Document d = getDocumentDao().find(ConversionUtils.fromIntString(id));
         if (d != null) {
+            assertNotOutboundEmailArchiveFileName(d.getDocfilename());
             return d.getDocfilename();
         }
         return null;
@@ -959,6 +977,7 @@ public final class EDocUtil {
         if (d == null) {
             throw new FileNotFoundException("Document not found");
         }
+        assertNotOutboundEmailArchiveFileName(d.getDocfilename());
         if (d.getDocfilename() == null || d.getDocfilename().trim().isEmpty()) {
             // HTML-only documents have no stored file, so there is nothing to refile.
             throw new FileNotFoundException("Document has no stored file");
@@ -1043,6 +1062,7 @@ public final class EDocUtil {
     }
 
     public static int addDocument(String demoNo, String docFileName, String docDesc, String docType, String docClass, String docSubClass, String contentType, String contentDateTime, String observationDate, String updateDateTime, String docCreator, String responsible, String reviewer, String reviewDateTime, String source, String sourceFacility, String receivedDate) {
+        assertNotOutboundEmailArchiveFileName(docFileName);
 
         Document doc = new Document();
         doc.setDoctype(docType);
@@ -1097,9 +1117,12 @@ public final class EDocUtil {
 
     public static String getLastDocumentDesc() {
         String docNumber = EDocUtil.getLastDocumentNo();
+        if (isOutboundEmailArchiveDocumentId(docNumber)) {
+            return null;
+        }
         DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
         Document d = dao.find(ConversionUtils.fromIntString(docNumber));
-        if (d != null) {
+        if (d != null && !isOutboundEmailArchiveFileName(d.getDocfilename())) {
             return d.getDocdesc();
         }
         return null;
@@ -1175,10 +1198,13 @@ public final class EDocUtil {
         Long docIdL = getTableIdFromNoteId(noteId);
         if (docIdL > 0L) {
             Integer docId = docIdL.intValue();
+            if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao(), docId)) {
+                return doc;
+            }
 
             DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
             Document d = dao.find(docId);
-            if (d != null) {
+            if (d != null && !isOutboundEmailArchiveFileName(d.getDocfilename())) {
                 doc.setDocId("" + d.getDocumentNo());
                 doc.setFileName(d.getDocfilename());
                 doc.setStatus(d.getStatus());
@@ -1345,6 +1371,10 @@ public final class EDocUtil {
         String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDirFile = new File(docDir);
         File file = PathValidationUtils.validatePath(fileName, docDirFile);
+        // validatePath intentionally strips path components from legacy caller input. Check the
+        // resolved basename as well, otherwise "ignored-directory/<archive-name>" misses the
+        // check above and then resolves to the protected archive file in DOCUMENT_DIR.
+        assertNotOutboundEmailArchiveFileName(file.getName());
         writeContent(file.getAbsolutePath(), content);
     }
 
@@ -1595,9 +1625,13 @@ public final class EDocUtil {
     }
 
     private static void assertNotOutboundEmailArchiveFileName(String fileName) {
-        if (OutboundEmailArchiveDocumentGuard.isArchiveFileName(outboundEmailArchiveDao(), fileName)) {
+        if (isOutboundEmailArchiveFileName(fileName)) {
             throw new OutboundEmailArchiveSecurityException(OUTBOUND_ARCHIVE_MESSAGE);
         }
+    }
+
+    private static boolean isOutboundEmailArchiveFileName(String fileName) {
+        return OutboundEmailArchiveDocumentGuard.isArchiveFileName(outboundEmailArchiveDao(), fileName);
     }
 
     private static boolean isOutboundEmailArchiveDocumentId(String documentId) {

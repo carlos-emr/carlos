@@ -106,6 +106,15 @@ class OutboundEmailArchiveDocumentGuardUnitTest {
     }
 
     @Test
+    @DisplayName("should recognize an archive basename hidden behind discarded path components")
+    void shouldRecognizeArchiveBasename_hiddenBehindDiscardedPathComponents() {
+        when(archiveDao.existsByFileName("archive.eml")).thenReturn(true);
+
+        assertThat(OutboundEmailArchiveDocumentGuard.isArchiveFileName(
+                archiveDao, "discarded-directory/archive.eml")).isTrue();
+    }
+
+    @Test
     @DisplayName("should report false without querying for null and blank file names")
     void shouldReportFalse_withoutQuerying_forNullAndBlankFileNames() {
         assertThat(OutboundEmailArchiveDocumentGuard.isArchiveFileName(archiveDao, null)).isFalse();

@@ -119,6 +119,7 @@ public class SplitDocument2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         Document doc = documentDao.getDocument(docNum);
+        assertNotOutboundEmailArchiveFileName(doc != null ? doc.getDocfilename() : null);
 
         String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (!docdownload.endsWith(File.separator)) {
@@ -264,6 +265,7 @@ public class SplitDocument2Action extends ActionSupport {
     public String rotate180() throws Exception {
         assertNotOutboundEmailArchiveDocument(request.getParameter("document"));
         Document doc = documentDao.getDocument(request.getParameter("document"));
+        assertNotOutboundEmailArchiveFileName(doc != null ? doc.getDocfilename() : null);
 
         String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDir = new File(docdownload);
@@ -290,6 +292,7 @@ public class SplitDocument2Action extends ActionSupport {
     public String rotate90() throws Exception {
         assertNotOutboundEmailArchiveDocument(request.getParameter("document"));
         Document doc = documentDao.getDocument(request.getParameter("document"));
+        assertNotOutboundEmailArchiveFileName(doc != null ? doc.getDocfilename() : null);
 
         String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDir = new File(docdownload);
@@ -319,6 +322,7 @@ public class SplitDocument2Action extends ActionSupport {
         // this action rewrites the bytes first and updates the page count afterwards.
         assertNotOutboundEmailArchiveDocument(documentNo);
         Document doc = documentDao.getDocument(documentNo);
+        assertNotOutboundEmailArchiveFileName(doc != null ? doc.getDocfilename() : null);
 
         String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDir = new File(docdownload);
@@ -406,6 +410,13 @@ public class SplitDocument2Action extends ActionSupport {
      */
     private void assertNotOutboundEmailArchiveDocument(String documentNo) {
         if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao, documentNo)) {
+            throw new SecurityException(
+                    "Outbound email archive eDocs must be managed through the controlled archive workflow");
+        }
+    }
+
+    private void assertNotOutboundEmailArchiveFileName(String fileName) {
+        if (OutboundEmailArchiveDocumentGuard.isArchiveFileName(outboundEmailArchiveDao, fileName)) {
             throw new SecurityException(
                     "Outbound email archive eDocs must be managed through the controlled archive workflow");
         }

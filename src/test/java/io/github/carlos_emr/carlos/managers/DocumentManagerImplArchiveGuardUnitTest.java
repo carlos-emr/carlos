@@ -55,6 +55,7 @@ class DocumentManagerImplArchiveGuardUnitTest extends CarlosUnitTestBase {
 
     private static final Integer ARCHIVE_DOCUMENT_NO = 321;
     private static final Integer ORDINARY_DOCUMENT_NO = 999;
+    private static final String ARCHIVE_FILE_NAME = "20260707120000_outbound-email-44.eml";
     private static final String ARCHIVE_MESSAGE =
             "Outbound email archive eDocs must be managed through the controlled archive workflow";
 
@@ -78,6 +79,7 @@ class DocumentManagerImplArchiveGuardUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(outboundEmailArchiveDao.existsByDocumentNo(ARCHIVE_DOCUMENT_NO)).thenReturn(true);
         when(outboundEmailArchiveDao.existsByDocumentNo(ORDINARY_DOCUMENT_NO)).thenReturn(false);
+        when(outboundEmailArchiveDao.existsByFileName(ARCHIVE_FILE_NAME)).thenReturn(true);
 
         manager = new DocumentManagerImpl();
         injectDependency(manager, "securityInfoManager", securityInfoManager);
@@ -116,6 +118,21 @@ class DocumentManagerImplArchiveGuardUnitTest extends CarlosUnitTestBase {
                 .hasMessage(ARCHIVE_MESSAGE);
 
         // The point of guarding before the write, not after: nothing may reach the DAO.
+        verify(documentDao, never()).merge(any(Document.class));
+        verify(documentDao, never()).persist(any(Document.class));
+    }
+
+    @Test
+    @DisplayName("should refuse an ordinary document object that aliases an archive filename")
+    void shouldRefuseOrdinaryDocumentObject_thatAliasesArchiveFilename() {
+        Document alias = new Document();
+        alias.setDocumentNo(ORDINARY_DOCUMENT_NO);
+        alias.setDocfilename(ARCHIVE_FILE_NAME);
+
+        assertThatThrownBy(() -> manager.saveDocument(loggedInInfo, alias, null))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage(ARCHIVE_MESSAGE);
+
         verify(documentDao, never()).merge(any(Document.class));
         verify(documentDao, never()).persist(any(Document.class));
     }
@@ -208,7 +225,7 @@ class DocumentManagerImplArchiveGuardUnitTest extends CarlosUnitTestBase {
     private Document archiveDocument() {
         Document document = new Document();
         document.setDocumentNo(ARCHIVE_DOCUMENT_NO);
-        document.setDocfilename("20260707120000_outbound-email-44.eml");
+        document.setDocfilename(ARCHIVE_FILE_NAME);
         return document;
     }
 }

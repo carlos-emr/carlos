@@ -13,14 +13,18 @@
  */
 package io.github.carlos_emr.carlos.documentManager;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
@@ -115,6 +119,20 @@ class EDocUtilArchiveGuardUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should suppress direct legacy EDoc lookups for an archive artifact")
+    void shouldSuppressDirectLegacyEdocLookups_forArchiveArtifact() {
+        assertThat(EDocUtil.getEDocFromDocId(ARCHIVE_DOC_NO).getDocId()).isNull();
+        assertThat(EDocUtil.getDoc(ARCHIVE_DOC_NO).getDocId()).isNull();
+        assertThat(new EDocUtil().getDocumentName(ARCHIVE_DOC_NO)).isNull();
+    }
+
+    @Test
+    @DisplayName("should omit archive artifacts from legacy preview inbox lookups")
+    void shouldOmitArchiveArtifacts_fromLegacyPreviewInboxLookups() {
+        assertThat(EDocUtil.listDocsPreviewInbox(List.of(ARCHIVE_DOC_NO))).isEmpty();
+    }
+
+    @Test
     @DisplayName("should refuse to subtract a page from an archive artifact")
     void shouldRefuseToSubtractPage_fromArchiveArtifact() {
         assertThatThrownBy(() -> EDocUtil.subtractOnePage(ARCHIVE_DOC_NO))
@@ -139,11 +157,63 @@ class EDocUtilArchiveGuardUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should refuse to alias an archive filename while editing an ordinary eDoc")
+    void shouldRefuseToAliasArchiveFilename_whileEditingOrdinaryEdoc() {
+        EDoc ordinary = new EDoc();
+        ordinary.setDocId("999");
+        ordinary.setFileName(ARCHIVE_FILE_NAME);
+
+        assertThatThrownBy(() -> EDocUtil.editDocumentSQL(ordinary, false))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage(ARCHIVE_MESSAGE);
+    }
+
+    @Test
+    @DisplayName("should refuse to alias an archive filename while adding a legacy eDoc")
+    void shouldRefuseToAliasArchiveFilename_whileAddingLegacyEdoc() {
+        assertThatThrownBy(() -> EDocUtil.addDocument(
+                "123", ARCHIVE_FILE_NAME, "description", "email", "", "",
+                "message/rfc822", "2026-08-25", "2026-08-25", "2026-08-25",
+                "999998", "999998"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage(ARCHIVE_MESSAGE);
+    }
+
+    @Test
     @DisplayName("should refuse to overwrite an archive artifact file")
     void shouldRefuseToOverwriteArchiveArtifactFile() {
         assertThatThrownBy(() -> EDocUtil.writeDocContent(ARCHIVE_FILE_NAME, new byte[]{1, 2, 3}))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage(ARCHIVE_MESSAGE);
+    }
+
+    @Test
+    @DisplayName("should guard the resolved basename when a write strips path components")
+    void shouldGuardResolvedBasename_whenWriteStripsPathComponents(@TempDir Path documentDir)
+            throws Exception {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        boolean hadDocumentDir = properties.containsKey("DOCUMENT_DIR");
+        Object originalDocumentDir = properties.get("DOCUMENT_DIR");
+        byte[] archivedBytes = "original archive".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        Path archivePath = documentDir.resolve(ARCHIVE_FILE_NAME);
+        Files.write(archivePath, archivedBytes);
+        properties.setProperty("DOCUMENT_DIR", documentDir.toString());
+
+        try {
+            // PathValidationUtils.validatePath strips the leading directory and resolves this to
+            // archivePath. The guard must inspect that resolved target before any overwrite.
+            assertThatThrownBy(() -> EDocUtil.writeDocContent(
+                    "discarded-directory/" + ARCHIVE_FILE_NAME, new byte[]{1, 2, 3}))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage(ARCHIVE_MESSAGE);
+            assertThat(Files.readAllBytes(archivePath)).isEqualTo(archivedBytes);
+        } finally {
+            if (hadDocumentDir) {
+                properties.put("DOCUMENT_DIR", originalDocumentDir);
+            } else {
+                properties.remove("DOCUMENT_DIR");
+            }
+        }
     }
 
     @Test

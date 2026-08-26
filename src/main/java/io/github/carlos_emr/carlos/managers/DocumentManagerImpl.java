@@ -709,12 +709,17 @@ public class DocumentManagerImpl implements DocumentManager {
     private void assertNotOutboundEmailArchiveDocument(EDoc eDoc) {
         if (eDoc != null) {
             assertNotOutboundEmailArchiveDocument(eDoc.getDocId());
+            assertNotOutboundEmailArchiveFileName(eDoc.getFileName());
         }
     }
 
     private void assertNotOutboundEmailArchiveDocument(Document document) {
         if (document != null) {
             assertNotOutboundEmailArchiveDocument(document.getDocumentNo());
+            // Document filenames are not unique in the legacy schema. An ordinary (or newly
+            // constructed) row can therefore alias an archive file even though its id is safe;
+            // object-based operations must protect both identities before reading or replacing it.
+            assertNotOutboundEmailArchiveFileName(document.getDocfilename());
         }
     }
 

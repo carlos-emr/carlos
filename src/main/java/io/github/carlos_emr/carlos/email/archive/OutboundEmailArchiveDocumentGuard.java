@@ -14,6 +14,7 @@
 package io.github.carlos_emr.carlos.email.archive;
 
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import org.apache.commons.io.FilenameUtils;
 
 /**
  * Recognises eDocs that belong to an outbound email archive, so the ordinary document surface
@@ -88,8 +89,19 @@ public final class OutboundEmailArchiveDocumentGuard {
      * @return {@code true} when it matches an archive artifact or attachment
      */
     public static boolean isArchiveFileName(OutboundEmailArchiveDao archiveDao, String fileName) {
-        return fileName != null && !fileName.isBlank()
-                && requireArchiveDao(archiveDao).existsByFileName(fileName);
+        if (fileName == null || fileName.isBlank()) {
+            return false;
+        }
+        OutboundEmailArchiveDao requiredDao = requireArchiveDao(archiveDao);
+        if (requiredDao.existsByFileName(fileName)) {
+            return true;
+        }
+
+        // Some legacy file APIs sanitize caller input by discarding path components. Guard the
+        // effective basename too: otherwise "ignored/<archive-name>" misses the exact lookup and
+        // is subsequently normalized onto the protected file in DOCUMENT_DIR.
+        String baseName = FilenameUtils.getName(fileName);
+        return !baseName.equals(fileName) && requiredDao.existsByFileName(baseName);
     }
 
     private static OutboundEmailArchiveDao requireArchiveDao(OutboundEmailArchiveDao archiveDao) {

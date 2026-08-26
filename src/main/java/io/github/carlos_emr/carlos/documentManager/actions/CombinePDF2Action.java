@@ -90,6 +90,10 @@ public class CombinePDF2Action extends ActionSupport {
                             "Outbound email archive eDocs must be managed through the controlled archive workflow");
                 }
                 String filename = docData.getDocumentName(files[i]);
+                if (OutboundEmailArchiveDocumentGuard.isArchiveFileName(outboundEmailArchiveDao, filename)) {
+                    throw new SecurityException(
+                            "Outbound email archive eDocs must be managed through the controlled archive workflow");
+                }
                 filePath = PathValidationUtils.validateExistingPath(new File(documentDir, filename), documentDir).toPath();
                 alist.add(filePath.toAbsolutePath().toString());
             }

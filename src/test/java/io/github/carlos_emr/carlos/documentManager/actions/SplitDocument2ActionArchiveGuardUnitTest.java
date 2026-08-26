@@ -7,6 +7,7 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,6 +36,7 @@ class SplitDocument2ActionArchiveGuardUnitTest extends CarlosUnitTestBase {
     private MockedStatic<ServletActionContext> servletActionContext;
     private HttpServletRequest request;
     private DocumentDao documentDao;
+    private OutboundEmailArchiveDao archiveDao;
     private SplitDocument2Action action;
 
     @BeforeEach
@@ -42,7 +44,7 @@ class SplitDocument2ActionArchiveGuardUnitTest extends CarlosUnitTestBase {
         request = mock(HttpServletRequest.class);
         HttpServletResponse response = mock(HttpServletResponse.class);
         documentDao = mock(DocumentDao.class);
-        OutboundEmailArchiveDao archiveDao = mock(OutboundEmailArchiveDao.class);
+        archiveDao = mock(OutboundEmailArchiveDao.class);
 
         servletActionContext = mockStatic(ServletActionContext.class);
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
@@ -70,5 +72,20 @@ class SplitDocument2ActionArchiveGuardUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("controlled archive workflow");
 
         verify(documentDao, never()).getDocument(anyString());
+    }
+
+    @Test
+    @DisplayName("should refuse an ordinary document id that resolves to an archive filename")
+    void shouldRefuseOrdinaryDocumentId_thatResolvesToArchiveFilename() {
+        Document alias = new Document();
+        alias.setDocumentNo(321);
+        alias.setDocfilename("20260707120000_outbound-email-44.eml");
+        when(archiveDao.existsByDocumentNo(321)).thenReturn(false);
+        when(archiveDao.existsByFileName(alias.getDocfilename())).thenReturn(true);
+        when(documentDao.getDocument("321")).thenReturn(alias);
+
+        assertThatThrownBy(action::removeFirstPage)
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("controlled archive workflow");
     }
 }

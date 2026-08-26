@@ -133,6 +133,11 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             CtlDocumentDao ctlDocumentDao,
             SecurityInfoManager securityInfoManager,
             long maxArchivedArtifactBytes) {
+        if (maxArchivedArtifactBytes < 0 || maxArchivedArtifactBytes > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException(
+                    "Maximum archived artifact read size must be between 0 and "
+                            + Integer.MAX_VALUE + " bytes");
+        }
         this.maxArchivedArtifactBytes = maxArchivedArtifactBytes;
         this.documentManager = documentManager;
         this.emailLogDao = emailLogDao;
@@ -943,9 +948,9 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     private void auditArtifactReadIntegrityFailure(
             LoggedInInfo loggedInInfo, OutboundEmailArchive archive, Document document, IOException failure) {
         MiscUtils.getLogger().warn(
-                "Outbound email archive artifact integrity failure archiveId={}: {}",
+                "Outbound email archive artifact integrity failure archiveId={} failureType={}",
                 archive.getId(),
-                failure.getMessage());
+                failure.getClass().getSimpleName());
         LogAction.addLogSynchronous(loggedInInfo,
                 "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
                 "Outbound email archive",
