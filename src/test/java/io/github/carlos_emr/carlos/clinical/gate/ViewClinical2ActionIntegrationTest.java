@@ -47,7 +47,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("ViewClinical2Action privilege + method tests")
 @Tag("integration")
 @Tag("clinical")
-class ViewClinical2ActionUnitTest extends CarlosWebTestBase {
+class ViewClinical2ActionIntegrationTest extends CarlosWebTestBase {
 
     @BeforeEach
     void setUpGate() {

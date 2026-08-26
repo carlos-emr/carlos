@@ -54,7 +54,7 @@ import static org.mockito.Mockito.mockStatic;
 @Tag("integration")
 @Tag("web")
 @Tag("eform")
-class PrintPDF2ActionUnitTest extends CarlosWebTestBase {
+class PrintPDF2ActionIntegrationTest extends CarlosWebTestBase {
 
     private static final String UNSUPPORTED_SUBMIT_MESSAGE = "Unsupported submit action";
 

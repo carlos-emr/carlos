@@ -64,7 +64,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("PMmodule JSP Migration Action Routing Tests")
 @Tag("integration")
 @Tag("pmmodule")
-class PmmoduleJspMigrationActionRoutingUnitTest extends CarlosWebTestBase {
+class PmmoduleJspMigrationActionRoutingIntegrationTest extends CarlosWebTestBase {
 
     private ProgramManager programManager;
     private ProgramQueueManager programQueueManager;

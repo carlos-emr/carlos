@@ -45,7 +45,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("Flowsheet2Action - direct-response NONE contract")
 @Tag("integration")
 @Tag("clinical")
-class Flowsheet2ActionUnitTest extends CarlosWebTestBase {
+class Flowsheet2ActionIntegrationTest extends CarlosWebTestBase {
 
     private static final String JSON_CONTENT_TYPE = "application/json; charset=UTF-8";
 

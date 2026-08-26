@@ -54,7 +54,7 @@ import static org.mockito.Mockito.when;
 @Tag("eform")
 @Tag("security")
 @Tag("delete")
-class DelEForm2ActionUnitTest extends CarlosWebTestBase {
+class DelEForm2ActionIntegrationTest extends CarlosWebTestBase {
 
     private static final String FID = "42";
 

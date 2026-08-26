@@ -51,7 +51,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("FlowSheetCustom2Action - HTTP method and privilege contract tests")
 @Tag("integration")
 @Tag("clinical")
-class FlowSheetCustom2ActionUnitTest extends CarlosWebTestBase {
+class FlowSheetCustom2ActionIntegrationTest extends CarlosWebTestBase {
 
     @Mock
     private FlowSheetCustomizationService mockFlowSheetCustomizationService;

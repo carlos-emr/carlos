@@ -54,7 +54,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("RxRePrescribe2Action prescription signature tests")
 @Tag("integration")
 @Tag("prescript")
-class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
+class RxRePrescribe2ActionIntegrationTest extends CarlosWebTestBase {
 
     private static final int SCRIPT_ID = 1234;
     private static final int SIGNATURE_ID = 5678;

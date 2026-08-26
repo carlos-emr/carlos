@@ -54,7 +54,7 @@ import java.util.*;
 @Tag("integration")
 @Tag("web")
 @Tag("demographic")
-class SearchDemographicAutoComplete2ActionUnitTest extends CarlosWebTestBase {
+class SearchDemographicAutoComplete2ActionIntegrationTest extends CarlosWebTestBase {
 
     private static final String TEST_PROVIDER = "999998";
     private static final ObjectMapper MAPPER = new ObjectMapper();
