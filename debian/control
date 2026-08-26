@@ -149,6 +149,9 @@ Depends:
 # carlos-emr's carlos-ctl, and this package's postinst calls it to do so.
  carlos-emr (= ${binary:Version}),
  init-system-helpers (>= 1.54),
+# addgroup/adduser in the postinst fallback that creates carlos-render when
+# systemd-sysusers has not run (chroot/container image builds).
+ adduser,
 # Chromium's direct DT_NEEDED set, minus what the Essential/base system already
 # guarantees (libc6, libgcc-s1). Derived by reading the shipped binary's dynamic
 # section, not copied from a wiki page: dh_shlibdeps cannot compute it here

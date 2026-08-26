@@ -58,7 +58,7 @@ case "$1" in
         # with "install: invalid group". Same shape as the fallback in
         # carlos-emr.postinst, which also covers a chroot or container image built
         # without systemd running.
-        if [ -x /usr/bin/systemd-sysusers ] || [ -x /bin/systemd-sysusers ]; then
+        if command -v systemd-sysusers >/dev/null 2>&1; then
             systemd-sysusers /usr/lib/sysusers.d/carlos-emr-eform-renderer.conf >/dev/null 2>&1 || true
         fi
         if ! getent group carlos-render >/dev/null; then
