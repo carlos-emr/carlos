@@ -16,7 +16,11 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Verifies the encryption UI is synchronized before send-result branches can return. */
+/**
+ * Verifies the encryption UI is synchronized before send-result branches can return.
+ *
+ * @since 2026-08-25
+ */
 @Tag("unit")
 @Tag("fast")
 @Tag("email")

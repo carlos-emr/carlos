@@ -26,8 +26,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for merged email content and consent-audit validation in {@link EmailData}.
+ *
+ * @since 2026-07-06
  */
 @Tag("unit")
+@Tag("fast")
 @DisplayName("EmailData")
 class EmailDataUnitTest {
 
