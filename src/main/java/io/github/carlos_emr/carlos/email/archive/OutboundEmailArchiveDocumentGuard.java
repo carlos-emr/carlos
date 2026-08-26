@@ -46,6 +46,10 @@ import org.apache.commons.io.FilenameUtils;
  */
 public final class OutboundEmailArchiveDocumentGuard {
 
+    /** Standard refusal text for ordinary eDoc workflows that encounter an archive artifact. */
+    public static final String REFUSAL_MESSAGE =
+            "Outbound email archive eDocs must be managed through the controlled archive workflow";
+
     private OutboundEmailArchiveDocumentGuard() {
     }
 

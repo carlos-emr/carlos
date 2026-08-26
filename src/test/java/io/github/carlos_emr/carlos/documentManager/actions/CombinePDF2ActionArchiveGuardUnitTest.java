@@ -5,6 +5,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -20,8 +21,11 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @DisplayName("CombinePDF2Action archive guard")
@@ -31,6 +35,7 @@ class CombinePDF2ActionArchiveGuardUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContext;
     private MockedStatic<LoggedInInfo> loggedInInfoStatic;
+    private DocumentDao documentDao;
     private CombinePDF2Action action;
 
     @BeforeEach
@@ -40,6 +45,7 @@ class CombinePDF2ActionArchiveGuardUnitTest extends CarlosUnitTestBase {
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         OutboundEmailArchiveDao archiveDao = mock(OutboundEmailArchiveDao.class);
+        documentDao = mock(DocumentDao.class);
 
         servletActionContext = mockStatic(ServletActionContext.class);
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
@@ -49,6 +55,7 @@ class CombinePDF2ActionArchiveGuardUnitTest extends CarlosUnitTestBase {
 
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(OutboundEmailArchiveDao.class, archiveDao);
+        registerMock(DocumentDao.class, documentDao);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)).thenReturn(true);
         when(request.getParameterValues("docNo")).thenReturn(new String[] {"321"});
         when(archiveDao.existsByDocumentNo(321)).thenReturn(true);
@@ -68,5 +75,6 @@ class CombinePDF2ActionArchiveGuardUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
+        verify(documentDao, never()).getDocument(anyString());
     }
 }

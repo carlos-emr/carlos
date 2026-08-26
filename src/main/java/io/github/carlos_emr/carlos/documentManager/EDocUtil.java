@@ -1593,7 +1593,7 @@ public final class EDocUtil {
     // email is reachable from most of it. These helpers let the operations below refuse one.
 
     private static final String OUTBOUND_ARCHIVE_MESSAGE =
-            "Outbound email archive eDocs must be managed through the controlled archive workflow";
+            OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE;
 
     /**
      * Marks an archive refusal so it survives handlers that translate SecurityException.

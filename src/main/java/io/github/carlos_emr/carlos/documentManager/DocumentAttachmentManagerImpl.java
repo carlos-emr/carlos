@@ -15,6 +15,7 @@ import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.utility.DateUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -43,6 +44,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.util.*;
+import java.util.function.Supplier;
 
 /**
  * Implementation of the DocumentAttachmentManager interface providing comprehensive document attachment
@@ -330,13 +332,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
-        assertNoOutboundEmailArchiveAttachments(documentType, attachments);
-        if (documentType == DocumentType.DOC) {
-            attachments = preserveCurrentArchiveAttachments(documentType, attachments,
-                    consultDocsDao.findByRequestIdDocType(requestId, documentType.getType()).stream()
-                            .map(ConsultDocs::getDocumentNo)
-                            .toList());
-        }
+        attachments = guardArchiveAttachments(documentType, attachments,
+                () -> consultDocsDao.findByRequestIdDocType(requestId, documentType.getType()).stream()
+                        .map(ConsultDocs::getDocumentNo)
+                        .toList());
         DocumentAttach documentAttach = new DocumentAttach();
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
@@ -365,13 +364,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
-        assertNoOutboundEmailArchiveAttachments(documentType, attachments);
-        if (documentType == DocumentType.DOC) {
-            attachments = preserveCurrentArchiveAttachments(documentType, attachments,
-                    consultDocsDao.findByRequestIdDocType(requestId, documentType.getType()).stream()
-                            .map(ConsultDocs::getDocumentNo)
-                            .toList());
-        }
+        attachments = guardArchiveAttachments(documentType, attachments,
+                () -> consultDocsDao.findByRequestIdDocType(requestId, documentType.getType()).stream()
+                        .map(ConsultDocs::getDocumentNo)
+                        .toList());
         DocumentAttach documentAttach = new DocumentAttach(demographicNo, editOnOcean);
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
@@ -396,13 +392,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new RuntimeException("missing required sec object (_eform)");
         }
 
-        assertNoOutboundEmailArchiveAttachments(documentType, attachments);
-        if (documentType == DocumentType.DOC) {
-            attachments = preserveCurrentArchiveAttachments(documentType, attachments,
-                    eFormDocsDao.findByFdidIdDocType(fdid, documentType.getType()).stream()
-                            .map(EFormDocs::getDocumentNo)
-                            .toList());
-        }
+        attachments = guardArchiveAttachments(documentType, attachments,
+                () -> eFormDocsDao.findByFdidIdDocType(fdid, documentType.getType()).stream()
+                        .map(EFormDocs::getDocumentNo)
+                        .toList());
 
         DocumentAttach documentAttach = new DocumentAttach();
         documentAttach.attachToEForm(attachments, documentType, providerNo, fdid);
@@ -1004,9 +997,20 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             }
         }
         if (!findArchiveDocumentNos(documentType, documentNos).isEmpty()) {
-            throw new SecurityException(
-                    "Outbound email archive eDocs must be managed through the controlled archive workflow");
+            throw new SecurityException(OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE);
         }
+    }
+
+    private String[] guardArchiveAttachments(
+            DocumentType documentType,
+            String[] submittedAttachments,
+            Supplier<Collection<Integer>> currentDocumentNos) {
+        assertNoOutboundEmailArchiveAttachments(documentType, submittedAttachments);
+        if (documentType != DocumentType.DOC) {
+            return submittedAttachments;
+        }
+        return preserveCurrentArchiveAttachments(
+                documentType, submittedAttachments, currentDocumentNos.get());
     }
 
     /**

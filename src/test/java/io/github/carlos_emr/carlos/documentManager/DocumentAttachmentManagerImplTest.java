@@ -255,11 +255,10 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should refuse new archive eDocs and preserve existing ones on an eForm")
-    void shouldRefuseNewArchiveEdocs_andPreserveExistingOnEform() {
+    @DisplayName("should refuse a new archive eDoc on an eForm")
+    void shouldRefuseNewArchiveEdoc_onEform() {
         int demographicNo = 123;
         int fdid = 456;
-        EFormDocs archiveDocument = new EFormDocs(fdid, 789, DocumentType.DOC.getType(), "999");
 
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.WRITE, demographicNo))
                 .thenReturn(true);
@@ -270,7 +269,17 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
                 loggedInInfo, DocumentType.DOC, new String[] {"791"}, "999", fdid, demographicNo))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
+    }
 
+    @Test
+    @DisplayName("should preserve an existing archive eDoc on an eForm")
+    void shouldPreserveExistingArchiveEdoc_onEform() {
+        int demographicNo = 123;
+        int fdid = 456;
+        EFormDocs archiveDocument = new EFormDocs(fdid, 789, DocumentType.DOC.getType(), "999");
+
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.WRITE, demographicNo))
+                .thenReturn(true);
         when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(790)))
                 .thenReturn(Set.of());
         when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(789)))

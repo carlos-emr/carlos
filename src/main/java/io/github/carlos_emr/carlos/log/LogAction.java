@@ -225,7 +225,13 @@ public class LogAction {
      * that is about to roll back never runs, which loses precisely the security events worth
      * keeping.</p>
      *
-     * @param demographicNo patient identifier for the audited record, may be null or blank
+     * @param loggedInInfo required authenticated request context used for actor and IP attribution
+     * @param action audit action, stored as supplied and may be null
+     * @param content audit content category, stored as supplied and may be null
+     * @param contentId audit record identifier or detail, stored as supplied and may be null
+     * @param demographicNo patient identifier for the audited record; null or blank is omitted,
+     *                      and a non-numeric value is logged and omitted
+     * @param data additional audit data, stored as supplied and may be null
      * @since 2026-08-19
      */
     public static void addLogSynchronous(

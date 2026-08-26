@@ -30,6 +30,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -90,7 +91,7 @@ class EDocUtilArchiveGuardUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should refuse to undelete an archive artifact")
-    void shouldRefuseToUndeleteArchiveArtifact() {
+    void shouldRefuseToUndeleteArchiveArtifact_whenRequested() {
         assertThatThrownBy(() -> EDocUtil.undeleteDocument(ARCHIVE_DOC_NO))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage(ARCHIVE_MESSAGE);
@@ -98,7 +99,7 @@ class EDocUtilArchiveGuardUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should refuse to delete an archive artifact")
-    void shouldRefuseToDeleteArchiveArtifact() {
+    void shouldRefuseToDeleteArchiveArtifact_whenRequested() {
         assertThatThrownBy(() -> EDocUtil.deleteDocument(ARCHIVE_DOC_NO))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage(ARCHIVE_MESSAGE);
@@ -150,7 +151,7 @@ class EDocUtilArchiveGuardUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should refuse to refile an archive artifact")
-    void shouldRefuseToRefileArchiveArtifact() {
+    void shouldRefuseToRefileArchiveArtifact_whenRequested() {
         assertThatThrownBy(() -> EDocUtil.refileDocument(ARCHIVE_DOC_NO, "5"))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage(ARCHIVE_MESSAGE);
@@ -181,7 +182,7 @@ class EDocUtilArchiveGuardUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should refuse to overwrite an archive artifact file")
-    void shouldRefuseToOverwriteArchiveArtifactFile() {
+    void shouldRefuseToOverwriteArchiveArtifactFile_whenRequested() {
         assertThatThrownBy(() -> EDocUtil.writeDocContent(ARCHIVE_FILE_NAME, new byte[]{1, 2, 3}))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage(ARCHIVE_MESSAGE);
@@ -218,7 +219,7 @@ class EDocUtilArchiveGuardUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should surface an archive refusal from readContent as SecurityException, not IOException")
-    void shouldSurfaceArchiveRefusal_fromReadContent_asSecurityException() {
+    void shouldSurfaceArchiveRefusalAsSecurityException_fromReadContent() {
         // The subtle one. readContent converts SecurityException from a rejected filesystem path
         // into IOException to honour its declared throws clause. An archive refusal must not be
         // folded into that conversion: it is an authorization outcome, not a missing file, and a
@@ -240,10 +241,10 @@ class EDocUtilArchiveGuardUnitTest extends CarlosUnitTestBase {
         when(outboundEmailArchiveDao.existsByDocumentNo(999)).thenReturn(false);
         when(outboundEmailArchiveDao.existsByFileName(anyString())).thenReturn(false);
 
-        assertThatThrownBy(() -> EDocUtil.refileDocument("999", "5"))
-                .satisfies(thrown -> org.assertj.core.api.Assertions
-                        .assertThat(ARCHIVE_MESSAGE.equals(thrown.getMessage()))
-                        .as("ordinary document must not hit the archive refusal")
-                        .isFalse());
+        Throwable thrown = catchThrowable(() -> EDocUtil.refileDocument("999", "5"));
+
+        assertThat(thrown == null ? null : thrown.getMessage())
+                .as("ordinary document must not hit the archive refusal")
+                .isNotEqualTo(ARCHIVE_MESSAGE);
     }
 }

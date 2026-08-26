@@ -112,7 +112,7 @@ class DocumentManagerImplArchiveGuardUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should refuse to save over an archive artifact")
-    void shouldRefuseToSaveOverArchiveArtifact() {
+    void shouldRefuseToSaveOverArchiveArtifact_whenRequested() {
         assertThatThrownBy(() -> manager.saveDocument(loggedInInfo, archiveDocument(), null))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage(ARCHIVE_MESSAGE);
@@ -139,7 +139,7 @@ class DocumentManagerImplArchiveGuardUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should refuse to move an archive artifact")
-    void shouldRefuseToMoveArchiveArtifact() {
+    void shouldRefuseToMoveArchiveArtifact_whenRequested() {
         assertThatThrownBy(() -> manager.moveDocument(loggedInInfo, archiveDocument(), "/from", "/to"))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage(ARCHIVE_MESSAGE);
@@ -191,35 +191,74 @@ class DocumentManagerImplArchiveGuardUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should hide archive artifacts from every generic document synchronization listing")
-    void shouldHideArchiveArtifacts_fromEveryGenericDocumentSynchronizationListing() {
+    @DisplayName("should hide archive artifacts from the demographic document listing")
+    void shouldHideArchiveArtifacts_fromDemographicDocumentListing() {
+        int demographicNo = 123;
+        Document ordinary = ordinaryDocument();
+        when(documentDao.findByDemographicId(String.valueOf(demographicNo)))
+                .thenReturn(List.of(archiveDocument(), ordinary));
+        stubMixedArchiveLookup();
+
+        assertThat(manager.getDocumentsByDemographicNo(loggedInInfo, demographicNo))
+                .containsExactly(ordinary);
+    }
+
+    @Test
+    @DisplayName("should hide archive artifacts from the updated-document listing")
+    void shouldHideArchiveArtifacts_fromUpdatedDocumentListing() {
+        Date cutoff = new Date(1_700_000_000_000L);
+        Document ordinary = ordinaryDocument();
+        when(documentDao.findByUpdateDate(cutoff, 10))
+                .thenReturn(List.of(archiveDocument(), ordinary));
+        stubMixedArchiveLookup();
+
+        assertThat(manager.getDocumentsUpdateAfterDate(loggedInInfo, cutoff, 10))
+                .containsExactly(ordinary);
+    }
+
+    @Test
+    @DisplayName("should hide archive artifacts from demographic synchronization")
+    void shouldHideArchiveArtifacts_fromDemographicSynchronization() {
+        int demographicNo = 123;
+        Date cutoff = new Date(1_700_000_000_000L);
+        Document ordinary = ordinaryDocument();
+        when(documentDao.findByDemographicUpdateAfterDate(demographicNo, cutoff))
+                .thenReturn(List.of(archiveDocument(), ordinary));
+        when(patientConsentManager.hasProviderSpecificConsent(loggedInInfo)).thenReturn(true);
+        stubMixedArchiveLookup();
+
+        assertThat(manager.getDocumentsByDemographicIdUpdateAfterDate(
+                loggedInInfo, demographicNo, cutoff))
+                .containsExactly(ordinary);
+    }
+
+    @Test
+    @DisplayName("should hide archive artifacts from program-provider synchronization")
+    void shouldHideArchiveArtifacts_fromProgramProviderSynchronization() {
         int demographicNo = 123;
         Date cutoff = new Date(1_700_000_000_000L);
         Calendar calendarCutoff = Calendar.getInstance();
         calendarCutoff.setTime(cutoff);
-        Document ordinary = new Document();
-        ordinary.setDocumentNo(ORDINARY_DOCUMENT_NO);
-        List<Document> mixedDocuments = List.of(archiveDocument(), ordinary);
-
-        when(documentDao.findByDemographicId(String.valueOf(demographicNo))).thenReturn(mixedDocuments);
-        when(documentDao.findByUpdateDate(cutoff, 10)).thenReturn(mixedDocuments);
-        when(documentDao.findByDemographicUpdateAfterDate(demographicNo, cutoff)).thenReturn(mixedDocuments);
+        Document ordinary = ordinaryDocument();
         when(documentDao.findByProgramProviderDemographicUpdateDate(
-                7, "999998", demographicNo, cutoff, 10)).thenReturn(mixedDocuments);
-        when(patientConsentManager.hasProviderSpecificConsent(loggedInInfo)).thenReturn(true);
-        when(outboundEmailArchiveDao.findExistingDocumentNos(any()))
-                .thenReturn(Set.of(ARCHIVE_DOCUMENT_NO));
+                7, "999998", demographicNo, cutoff, 10))
+                .thenReturn(List.of(archiveDocument(), ordinary));
+        stubMixedArchiveLookup();
 
-        assertThat(manager.getDocumentsByDemographicNo(loggedInInfo, demographicNo))
-                .containsExactly(ordinary);
-        assertThat(manager.getDocumentsUpdateAfterDate(loggedInInfo, cutoff, 10))
-                .containsExactly(ordinary);
-        assertThat(manager.getDocumentsByDemographicIdUpdateAfterDate(
-                loggedInInfo, demographicNo, cutoff))
-                .containsExactly(ordinary);
         assertThat(manager.getDocumentsByProgramProviderDemographicDate(
                 loggedInInfo, 7, "999998", demographicNo, calendarCutoff, 10))
                 .containsExactly(ordinary);
+    }
+
+    private Document ordinaryDocument() {
+        Document document = new Document();
+        document.setDocumentNo(ORDINARY_DOCUMENT_NO);
+        return document;
+    }
+
+    private void stubMixedArchiveLookup() {
+        when(outboundEmailArchiveDao.findExistingDocumentNos(any()))
+                .thenReturn(Set.of(ARCHIVE_DOCUMENT_NO));
     }
 
     private Document archiveDocument() {

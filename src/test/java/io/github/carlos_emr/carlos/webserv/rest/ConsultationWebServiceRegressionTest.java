@@ -225,7 +225,7 @@ class ConsultationWebServiceRegressionTest {
 
         assertThatThrownBy(() -> service.saveResponse(response))
                 .isInstanceOf(SecurityException.class)
-                .hasMessage("Access Denied");
+                .hasMessage("missing required sec object (_con)");
 
         verifyNoInteractions(outboundEmailArchiveDao);
         verify(consultationManager, never()).getResponse(any(), any());

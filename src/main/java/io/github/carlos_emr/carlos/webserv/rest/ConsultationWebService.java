@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
@@ -247,6 +248,13 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return attachments;
     }
 
+    /**
+     * Creates a consultation for a caller with {@code _con} write privilege.
+     *
+     * @param data consultation request to create; outbound archive eDoc attachments are refused
+     * @return the created consultation or a bad-request response for invalid input
+     * @throws SecurityException if write privilege is missing or an archive eDoc is attached
+     */
     @POST
     @Path("/createConsultation")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -281,6 +289,13 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return Response.ok().entity(data).build();
     }
 
+    /**
+     * Updates a consultation for a caller with {@code _con} update privilege.
+     *
+     * @param data consultation request to update; outbound archive eDoc attachments are refused
+     * @return the updated consultation or a bad-request response for invalid input
+     * @throws SecurityException if update privilege is missing or an archive eDoc is attached
+     */
     @POST
     @Path("/updateConsultation")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -411,6 +426,14 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return attachments;
     }
 
+    /**
+     * Creates or updates a consultation response.
+     *
+     * @param data response to save; outbound archive eDoc attachments are refused
+     * @return the saved response
+     * @throws SecurityException if the caller lacks write privilege for a new response, update
+     *                           privilege for an existing response, or attaches an archive eDoc
+     */
     @POST
     @Path("/saveResponse")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -900,7 +923,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     private void requireConsultationPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", privilege, null)) {
-            throw new SecurityException("Access Denied");
+            throw new SecurityException("missing required sec object (_con)");
         }
     }
 
@@ -928,8 +951,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
             return;
         }
         if (!findOutboundEmailArchiveDocumentNos(documentNos).isEmpty()) {
-            throw new SecurityException(
-                    "Outbound email archive eDocs must be managed through the controlled archive workflow");
+            throw new SecurityException(OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE);
         }
     }
 

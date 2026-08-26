@@ -2033,8 +2033,7 @@ public class ManageDocument2Action extends ActionSupport {
      */
     private void assertNotOutboundEmailArchiveDocument(String documentId) {
         if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao, documentId)) {
-            throw new SecurityException(
-                    "Outbound email archive eDocs must be managed through the controlled archive workflow");
+            throw new SecurityException(OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE);
         }
     }
 }

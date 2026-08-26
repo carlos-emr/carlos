@@ -61,7 +61,7 @@ class OutboundEmailArchiveDocumentGuardUnitTest {
 
     @Test
     @DisplayName("should report false without querying when the id is not a number")
-    void shouldReportFalse_withoutQuerying_whenIdIsNotANumber() {
+    void shouldReportFalseWithoutQuerying_whenIdIsNotANumber() {
         // A non-numeric id cannot name an archive, and the caller's own validation rejects it
         // separately. Answering false rather than throwing keeps a malformed-input error from
         // surfacing to the user as a security error.
@@ -72,7 +72,7 @@ class OutboundEmailArchiveDocumentGuardUnitTest {
 
     @Test
     @DisplayName("should report false without querying for null and blank ids")
-    void shouldReportFalse_withoutQuerying_forNullAndBlankIds() {
+    void shouldReportFalseWithoutQuerying_forNullAndBlankIds() {
         assertThat(OutboundEmailArchiveDocumentGuard.isArchiveDocument(archiveDao, (String) null)).isFalse();
         assertThat(OutboundEmailArchiveDocumentGuard.isArchiveDocument(archiveDao, "   ")).isFalse();
         assertThat(OutboundEmailArchiveDocumentGuard.isArchiveDocument(archiveDao, (Integer) null)).isFalse();
@@ -116,7 +116,7 @@ class OutboundEmailArchiveDocumentGuardUnitTest {
 
     @Test
     @DisplayName("should report false without querying for null and blank file names")
-    void shouldReportFalse_withoutQuerying_forNullAndBlankFileNames() {
+    void shouldReportFalseWithoutQuerying_forNullAndBlankFileNames() {
         assertThat(OutboundEmailArchiveDocumentGuard.isArchiveFileName(archiveDao, null)).isFalse();
         assertThat(OutboundEmailArchiveDocumentGuard.isArchiveFileName(archiveDao, "  ")).isFalse();
 

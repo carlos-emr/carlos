@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import java.util.Set;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -153,8 +154,8 @@ public class DocumentManagerImpl implements DocumentManager {
     }
 
     public List<Document> getDocumentsByDemographicNo(LoggedInInfo loggedInInfo, Integer demographicNo) {
-        List<Document> result = withoutOutboundEmailArchiveDocuments(
-                documentDao.findByDemographicId(demographicNo + ""));
+        List<Document> result = withoutOutboundEmailArchiveEntries(
+                documentDao.findByDemographicId(demographicNo + ""), Document::getDocumentNo);
 
         //--- log action ---
         if (result != null) {
@@ -306,8 +307,9 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
-        List<Document> results = withoutOutboundEmailArchiveDocuments(
-                documentDao.findByUpdateDate(updatedAfterThisDateExclusive, itemsToReturn));
+        List<Document> results = withoutOutboundEmailArchiveEntries(
+                documentDao.findByUpdateDate(updatedAfterThisDateExclusive, itemsToReturn),
+                Document::getDocumentNo);
 
         LogAction.addLog(loggedInInfo, "DocumentManager.getUpdateAfterDate", "updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive, "", "", "Number items " + itemsToReturn);
 
@@ -319,8 +321,10 @@ public class DocumentManagerImpl implements DocumentManager {
         //If the consent type does not exist in the table assume this consent type is not being managed by the clinic, otherwise ensure patient has consented
         boolean hasConsent = patientConsentManager.hasProviderSpecificConsent(loggedInInfo) || patientConsentManager.getConsentType(ConsentType.PROVIDER_CONSENT_FILTER) == null;
         if (hasConsent) {
-            results = withoutOutboundEmailArchiveDocuments(
-                    documentDao.findByDemographicUpdateAfterDate(demographicId, updatedAfterThisDateExclusive));
+            results = withoutOutboundEmailArchiveEntries(
+                    documentDao.findByDemographicUpdateAfterDate(
+                            demographicId, updatedAfterThisDateExclusive),
+                    Document::getDocumentNo);
             LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDocumentsByDemographicIdUpdateAfterDate", "demographicId=" + demographicId + " updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive);
         }
         return (results);
@@ -332,9 +336,10 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
-        List<Document> results = withoutOutboundEmailArchiveDocuments(
+        List<Document> results = withoutOutboundEmailArchiveEntries(
                 documentDao.findByProgramProviderDemographicUpdateDate(
-                        programId, providerNo, demographicId, updatedAfterThisDateExclusive.getTime(), itemsToReturn));
+                        programId, providerNo, demographicId, updatedAfterThisDateExclusive.getTime(), itemsToReturn),
+                Document::getDocumentNo);
 
         LogAction.addLog(loggedInInfo, "DocumentManager.getDocumentsByProgramProviderDemographicDate", "programId=" + programId, "providerNo=" + providerNo, demographicId + "", "updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive.getTime());
 
@@ -534,7 +539,9 @@ public class DocumentManagerImpl implements DocumentManager {
 
         LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDemographicDocumentsByDocumentType", "fetching documents of type " + documentType.getName() + " for demographic " + demographicNo);
 
-        return withoutOutboundEmailArchiveDocuments(documentDao.findByDemographicAndDoctype(demographicNo, documentType));
+        return withoutOutboundEmailArchiveEntries(
+                documentDao.findByDemographicAndDoctype(demographicNo, documentType),
+                Document::getDocumentNo);
     }
 
     public Document getDocumentByDemographicAndFilename(LoggedInInfo loggedInInfo, int demographicNo, String fileName) {
@@ -693,7 +700,9 @@ public class DocumentManagerImpl implements DocumentManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
-        List<DocumentListItemDTO> results = withoutOutboundEmailArchiveDocumentDTOs(documentDao.findDocumentDTOsByDemographicNo(demographicNo));
+        List<DocumentListItemDTO> results = withoutOutboundEmailArchiveEntries(
+                documentDao.findDocumentDTOsByDemographicNo(demographicNo),
+                DocumentListItemDTO::getDocumentNo);
         LogAction.addLogSynchronous(loggedInInfo, "DocumentManager.getDocumentDTOs",
                 "demographicNo=" + demographicNo);
         return results;
@@ -704,7 +713,7 @@ public class DocumentManagerImpl implements DocumentManager {
     // browser does not surface a legal record as if it were a clinical document.
 
     private static final String OUTBOUND_ARCHIVE_MESSAGE =
-            "Outbound email archive eDocs must be managed through the controlled archive workflow";
+            OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE;
 
     private void assertNotOutboundEmailArchiveDocument(EDoc eDoc) {
         if (eDoc != null) {
@@ -754,47 +763,24 @@ public class DocumentManagerImpl implements DocumentManager {
      * anyone who has ever been emailed. The per-document operations above are the backstop for
      * anyone who names an archive id directly.</p>
      */
-    private List<Document> withoutOutboundEmailArchiveDocuments(List<Document> documents) {
+    private <T> List<T> withoutOutboundEmailArchiveEntries(
+            List<T> documents, Function<T, Integer> documentNoAccessor) {
         if (documents == null || documents.isEmpty()) {
             return documents;
         }
         Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(
                 documents.stream()
                         .filter(Objects::nonNull)
-                        .map(Document::getDocumentNo)
+                        .map(documentNoAccessor)
                         .filter(Objects::nonNull)
                         .toList());
         if (archiveDocumentNos == null || archiveDocumentNos.isEmpty()) {
             return documents;
         }
-        List<Document> filtered = new ArrayList<>();
-        for (Document document : documents) {
-            if (document == null || document.getDocumentNo() == null
-                    || !archiveDocumentNos.contains(document.getDocumentNo())) {
-                filtered.add(document);
-            }
-        }
-        return filtered;
-    }
-
-    /** DTO-shaped counterpart of {@link #withoutOutboundEmailArchiveDocuments(List)}. */
-    private List<DocumentListItemDTO> withoutOutboundEmailArchiveDocumentDTOs(List<DocumentListItemDTO> documents) {
-        if (documents == null || documents.isEmpty()) {
-            return documents;
-        }
-        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao.findExistingDocumentNos(
-                documents.stream()
-                        .filter(Objects::nonNull)
-                        .map(DocumentListItemDTO::getDocumentNo)
-                        .filter(Objects::nonNull)
-                        .toList());
-        if (archiveDocumentNos == null || archiveDocumentNos.isEmpty()) {
-            return documents;
-        }
-        List<DocumentListItemDTO> filtered = new ArrayList<>();
-        for (DocumentListItemDTO document : documents) {
-            if (document == null || document.getDocumentNo() == null
-                    || !archiveDocumentNos.contains(document.getDocumentNo())) {
+        List<T> filtered = new ArrayList<>();
+        for (T document : documents) {
+            Integer documentNo = document != null ? documentNoAccessor.apply(document) : null;
+            if (documentNo == null || !archiveDocumentNos.contains(documentNo)) {
                 filtered.add(document);
             }
         }

@@ -263,8 +263,9 @@ public class SplitDocument2Action extends ActionSupport {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String rotate180() throws Exception {
-        assertNotOutboundEmailArchiveDocument(request.getParameter("document"));
-        Document doc = documentDao.getDocument(request.getParameter("document"));
+        String documentNo = request.getParameter("document");
+        assertNotOutboundEmailArchiveDocument(documentNo);
+        Document doc = documentDao.getDocument(documentNo);
         assertNotOutboundEmailArchiveFileName(doc != null ? doc.getDocfilename() : null);
 
         String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
@@ -290,8 +291,9 @@ public class SplitDocument2Action extends ActionSupport {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String rotate90() throws Exception {
-        assertNotOutboundEmailArchiveDocument(request.getParameter("document"));
-        Document doc = documentDao.getDocument(request.getParameter("document"));
+        String documentNo = request.getParameter("document");
+        assertNotOutboundEmailArchiveDocument(documentNo);
+        Document doc = documentDao.getDocument(documentNo);
         assertNotOutboundEmailArchiveFileName(doc != null ? doc.getDocfilename() : null);
 
         String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
@@ -410,15 +412,13 @@ public class SplitDocument2Action extends ActionSupport {
      */
     private void assertNotOutboundEmailArchiveDocument(String documentNo) {
         if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao, documentNo)) {
-            throw new SecurityException(
-                    "Outbound email archive eDocs must be managed through the controlled archive workflow");
+            throw new SecurityException(OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE);
         }
     }
 
     private void assertNotOutboundEmailArchiveFileName(String fileName) {
         if (OutboundEmailArchiveDocumentGuard.isArchiveFileName(outboundEmailArchiveDao, fileName)) {
-            throw new SecurityException(
-                    "Outbound email archive eDocs must be managed through the controlled archive workflow");
+            throw new SecurityException(OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE);
         }
     }
 }

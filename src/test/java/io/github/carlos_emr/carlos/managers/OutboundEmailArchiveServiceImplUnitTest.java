@@ -1110,6 +1110,8 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
                         .isInstanceOf(IOException.class)
                         .hasMessage("Archived artifact hash does not match archive metadata"));
+
+        verifyIntegrityFailureAudit();
     }
 
     @Test
@@ -1123,6 +1125,18 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
                         .isInstanceOf(IOException.class)
                         .hasMessage("Archived artifact size does not match archive metadata"));
+
+        verifyIntegrityFailureAudit();
+    }
+
+    private void verifyIntegrityFailureAudit() {
+        logActionMock.verify(() -> LogAction.addLogSynchronous(
+                loggedInInfo,
+                "OutboundEmailArchiveService.readArchivedArtifact.integrityFailure",
+                "Outbound email archive",
+                "archiveId=888 documentNo=321 reason=artifactIntegrityFailure",
+                "123",
+                ""));
     }
 
     @Test
