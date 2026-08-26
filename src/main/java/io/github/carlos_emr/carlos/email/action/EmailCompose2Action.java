@@ -13,6 +13,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
+import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -280,6 +281,15 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("emailPDFPasswordClue", emailPDFPasswordClue);
         request.setAttribute("senderEmail", senderEmail);
         request.setAttribute("subjectEmail", subjectEmail);
+        // The compose screen now has a single "Message" field (issue #3118). Seed it from whichever
+        // legacy channel is populated for this workflow, preferring the one matching the encryption
+        // state so pre-filled content is preserved when opening the composer.
+        // Fail closed when older entry points do not seed the session flag: only an explicit
+        // Boolean false may open the composer with encryption disabled.
+        boolean isEmailEncrypted = !Boolean.FALSE.equals(session.getAttribute("isEmailEncrypted"));
+        isEmailEncrypted = EmailData.resolveMergedMessageEncryption(
+                isEmailEncrypted, bodyEmail, encryptedMessageEmail);
+        request.setAttribute("message", EmailData.mergeMessage(isEmailEncrypted, bodyEmail, encryptedMessageEmail));
         request.setAttribute("bodyEmail", bodyEmail);
         request.setAttribute("encryptedMessageEmail", encryptedMessageEmail);
         request.setAttribute("emailPatientChartOption", emailPatientChartOption);
@@ -288,7 +298,7 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("fid", fid);
         request.setAttribute("openEFormAfterEmail", session.getAttribute("openEFormAfterEmail"));
         request.setAttribute("deleteEFormAfterEmail", session.getAttribute("deleteEFormAfterEmail"));
-        request.setAttribute("isEmailEncrypted", session.getAttribute("isEmailEncrypted"));
+        request.setAttribute("isEmailEncrypted", isEmailEncrypted);
         request.setAttribute("isEmailAttachmentEncrypted", session.getAttribute("isEmailAttachmentEncrypted"));
         request.setAttribute("isEmailAutoSend", session.getAttribute("isEmailAutoSend"));
         request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- emailAttachmentList built from manager-prepared attachments (eForm, eDoc, lab, HRM, form PDFs), then sanitized by emailComposeManager.sanitizeAttachments()
