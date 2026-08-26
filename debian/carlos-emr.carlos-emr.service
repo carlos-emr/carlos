@@ -35,8 +35,11 @@ Environment=LC_ALL=C.UTF-8
 # renderer's startup budget expires. The JVM is unaffected because user.home
 # is read from passwd rather than from this variable.
 Environment=HOME=/var/lib/carlos-emr/browser
-# NOT setting EFORM_RENDER_SANDBOX=true. This is where that investigation got
-# to, recorded so the next person does not repeat it.
+# EFORM_RENDER_SANDBOX is NOT set here — it is set by
+# /usr/lib/systemd/system/carlos-emr.service.d/10-eform-renderer.conf, shipped by
+# carlos-emr-eform-renderer, so that the flag cannot outlive the browser unit that
+# satisfies it. Edit that file, not this one. What follows is the investigation
+# that led here, recorded so the next person does not repeat it.
 #
 # Chromium's OS sandbox is the right posture for this component: the renderer
 # opens clinic-authored eForm HTML, the least trustworthy input this application
@@ -65,7 +68,8 @@ Environment=HOME=/var/lib/carlos-emr/browser
 # security control that was not actually working. The gap is documented rather
 # than papered over. To experiment:
 #
-#   systemctl edit carlos-emr    ->    [Service]
+#   (to experiment, edit the drop-in above rather than `systemctl edit`, which
+#    would collide with it)    [Service]
 #                                      Environment=EFORM_RENDER_SANDBOX=true
 #                                      RestrictNamespaces=user pid net mnt
 #                                      ProtectProc=ptraceable

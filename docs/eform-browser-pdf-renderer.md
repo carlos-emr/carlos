@@ -306,9 +306,16 @@ started it. Three mitigations, in the order they actually matter:
    patient documents, no database credentials, no read on `carlos.properties`. Running it as the
    application account would instead hand over the uid that owns the document store. This is only
    possible because the rendered PDF returns inline over CDP, so the two sides share no filesystem.
-2. **`--url-base` as a bearer credential.** A random path prefix generated at install, delivered to
-   the two accounts through two files neither can read from the other. A local uid that cannot read
-   them cannot guess the endpoint.
+2. **`--url-base` as a speed bump — and not more than that.** A random path prefix generated at
+   install. Be clear about its limits: systemd expands it into the process's `argv`, and
+   `/proc/<pid>/cmdline` is world-readable, so **any local uid can read the token**. It raises the
+   bar against blind scanning; it does not bound the port. Anyone reasoning about this design should
+   treat control 1 as the boundary and this as hygiene. The service does refuse to start without one,
+   because an empty `--url-base` silently moves every endpoint to the bare root.
+
+   If a site needs the port genuinely closed to other local accounts, the available control is a
+   firewall owner-match (e.g. an nftables rule on `lo` dport matching `meta skuid`), not anything
+   chromedriver offers. AppArmor cannot express it on this kernel (`af_unix` only, no `af_inet`).
 3. **chromedriver's loopback-only default, left alone.** `--allowed-ips` and `--allowed-origins` are
    deliberately NOT passed: the defaults are already correct, and passing either with an empty value
    historically means "allow everything".

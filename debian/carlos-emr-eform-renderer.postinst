@@ -38,11 +38,16 @@ case "$1" in
             if apparmor_parser -r -T -W /etc/apparmor.d/carlos-emr-chromium 2>/dev/null; then
                 echo "carlos-emr-eform-renderer: AppArmor profile loaded for the render browser"
             else
-                echo "carlos-emr-eform-renderer: NOTE: could not load the AppArmor profile" >&2
-                echo "carlos-emr-eform-renderer: NOTE: /etc/apparmor.d/carlos-emr-chromium." >&2
-                echo "carlos-emr-eform-renderer: NOTE: eForm rendering still works; only the" >&2
-                echo "carlos-emr-eform-renderer: NOTE: option to run the browser sandboxed is" >&2
-                echo "carlos-emr-eform-renderer: NOTE: unavailable until it loads." >&2
+                # WARNING, not NOTE, and no longer "rendering still works". This package
+                # now enables the sandbox (10-eform-renderer.conf), and the renderer
+                # fails CLOSED on it — without the userns grant this profile carries,
+                # Chromium aborts with "No usable sandbox!" and every eForm PDF fails.
+                echo "carlos-emr-eform-renderer: WARNING: could not load the AppArmor profile" >&2
+                echo "carlos-emr-eform-renderer: WARNING: /etc/apparmor.d/carlos-emr-chromium." >&2
+                echo "carlos-emr-eform-renderer: WARNING: eForm print/fax/archive WILL FAIL until" >&2
+                echo "carlos-emr-eform-renderer: WARNING: it loads, because the render browser is" >&2
+                echo "carlos-emr-eform-renderer: WARNING: sandboxed and the sandbox needs it." >&2
+                echo "carlos-emr-eform-renderer: WARNING: Try: systemctl reload apparmor" >&2
             fi
         fi
 
@@ -56,7 +61,14 @@ case "$1" in
         fi
         chown root:carlos-render "${RENDER_ENV}"
         chmod 0640 "${RENDER_ENV}"
-        if ! grep -qE '^CARLOS_RENDER_URL_BASE=.+' "${RENDER_ENV}"; then
+        # Note the two cases: the key present-but-empty (sed substitutes) and the key
+        # ABSENT entirely (sed would match nothing and rewrite the file unchanged,
+        # leaving no token and reporting success). The unit now refuses to start
+        # without one, so a silent miss here is a failed install rather than a
+        # silent security downgrade — but handle both properly regardless.
+        if ! grep -q '^CARLOS_RENDER_URL_BASE=' "${RENDER_ENV}"; then
+            printf 'CARLOS_RENDER_URL_BASE=%s\n' "$(openssl rand -hex 16)" >> "${RENDER_ENV}"
+        elif ! grep -qE '^CARLOS_RENDER_URL_BASE=.+' "${RENDER_ENV}"; then
             # chromedriver has no authentication and any local uid can reach a
             # loopback port, so this prefix is what stops another local account
             # driving a browser as carlos-render. openssl is already a dependency.
@@ -77,7 +89,16 @@ case "$1" in
         # application probes the renderer from @PostConstruct, i.e. while Tomcat
         # deploys, so chromedriver must already be listening or the first boot
         # after install logs a failure for a deployment that is actually fine.
+        # ENABLE before starting. dh_installsystemd's enable snippet lands in the
+        # #DEBHELPER# block at the END of this script, so on a FIRST install the unit
+        # is not enabled yet at this point — and deb-systemd-invoke deliberately
+        # skips start/restart for a unit that is neither enabled nor already active,
+        # printing "is a disabled or a static unit not running, not starting it" and
+        # exiting 0. The `|| { ... }` below would never fire, and the browser would
+        # not come up until the next boot. (On upgrade the unit is already enabled,
+        # which is why this only bites the first install.)
         if [ -d /run/systemd/system ]; then
+            deb-systemd-helper enable carlos-emr-chromedriver.service >/dev/null 2>&1 || true
             deb-systemd-invoke restart carlos-emr-chromedriver.service || {
                 echo "carlos-emr-eform-renderer: WARNING: the render browser service did not" >&2
                 echo "carlos-emr-eform-renderer: WARNING: start; eForm print/fax/archive will fail" >&2

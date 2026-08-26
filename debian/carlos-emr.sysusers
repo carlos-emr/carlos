@@ -26,6 +26,17 @@
 # application: the rendered PDF comes back inline over the DevTools protocol, not
 # through a file both sides can see.
 #
+# The account split is the ONLY real control here, which is why it is not
+# optional. The --url-base token is a speed bump, not a boundary: systemd expands
+# it into the process's argv and /proc/<pid>/cmdline is world-readable, so any
+# local uid can read it. Do not reason as though it protects the port.
+#
+# And be precise about what carlos-render does reach: it is outside the EMR's
+# data, but it is inside the PHI boundary of the form being rendered, and it can
+# talk to Tomcat, DrugRef and MariaDB on loopback — i.e. the application's own
+# HTTP surface with nginx and ModSecurity bypassed. Compromising it is not
+# nothing; it is bounded.
+#
 # The relationship between them is deliberately ONE-WAY. carlos-backup is a
 # member of the `carlos` group, so it can READ everything the application owns
 # — the document store, carlos.properties, the encryption key the application

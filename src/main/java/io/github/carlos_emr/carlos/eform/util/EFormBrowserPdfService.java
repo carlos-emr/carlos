@@ -45,6 +45,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -154,6 +156,11 @@ public class EFormBrowserPdfService {
     /** Cause chains are third-party here and may be cyclic; walking one must always terminate. */
     private static final int MAX_CAUSE_DEPTH = 32;
     static final Duration BACKSTOP_TIMEOUT = Duration.ofSeconds(5);
+    /**
+     * How long the late-session reaper waits for an abandoned session-create to finish. Longer than
+     * the start budget it follows: the point is to learn the session id that budget gave up on.
+     */
+    static final Duration LATE_SESSION_REAP_TIMEOUT = Duration.ofSeconds(90);
     static final Duration DRIVER_START_TIMEOUT = Duration.ofSeconds(30);
 
     /** Bounded well below Tomcat's worker pool so renders can never saturate request threads. */
@@ -1365,25 +1372,50 @@ public class EFormBrowserPdfService {
      * not happened yet -- a timed-out session is an {@code about:blank} browser holding no PHI.
      */
     private RendererBrowser startSessionWithinBudget(URI serviceUri, ChromeOptions options) {
-        // The executor is closed in the finally below via shutdownNow(). shutdownNow() is deliberate,
-        // NOT try-with-resources close(): close() awaits task termination, which would re-block the
-        // request thread on a wedged constructor -- the exact hang this watchdog exists to bound.
-        // The worker is a daemon, so a still-running cancelled task never keeps the JVM alive.
-        ExecutorService starter = Executors.newSingleThreadExecutor(runnable -> { // NOSONAR java:S2095 - closed via shutdownNow() in finally; try-with-resources close() would block the watchdog
+        // shutdown(), NOT shutdownNow(). shutdownNow() interrupts the in-flight task, and an
+        // interrupted session-create abandons the POST /session read — so if chromedriver already
+        // made the session, its id never reaches this JVM and there is nothing left to delete.
+        // shutdown() does not interrupt, does not block, and the daemon worker still terminates.
+        ExecutorService starter = Executors.newSingleThreadExecutor(runnable -> { // NOSONAR java:S2095 - shutdown() in finally; close() would block the watchdog
             Thread thread = new Thread(runnable, "eform-render-driver-start");
             thread.setDaemon(true);
             return thread;
         });
+        // The session is published from INSIDE the callable rather than read off the Future,
+        // because a Future the caller gave up on cannot hand it back — see reapLateSession.
+        AtomicReference<RendererBrowser> created = new AtomicReference<>();
+        AtomicBoolean abandoned = new AtomicBoolean();
         try {
             Future<RendererBrowser> pending = starter.submit(() -> {
                 ChromiumDriver driver = new RemoteRenderBrowser(
                         serviceUri.toURL(), options, rendererClientConfig().baseUri(serviceUri));
-                return new RendererBrowser(driver, serviceUri, driver.getSessionId());
+                RendererBrowser browser;
+                try {
+                    browser = new RendererBrowser(driver, serviceUri, driver.getSessionId());
+                } catch (RuntimeException e) {
+                    // The session exists but we cannot describe it (e.g. a null session id). Quit it
+                    // here: nothing downstream will ever see a handle to it.
+                    quitQuietly(driver);
+                    throw e;
+                }
+                created.set(browser);
+                if (abandoned.get()) {
+                    // The caller timed out between the session being created and it being
+                    // published. Reap it on this thread; nobody else holds it.
+                    RendererBrowser mine = created.getAndSet(null);
+                    if (mine != null) {
+                        logger.warn("eForm render browser session arrived after its start budget "
+                                + "expired; quitting it so it cannot leak a browser process");
+                        teardownQuietly(mine);
+                    }
+                    throw new IllegalStateException("render session abandoned after its start budget");
+                }
+                return browser;
             });
             try {
                 return pending.get(DRIVER_START_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
             } catch (TimeoutException timeout) {
-                reapLateSession(pending);
+                reapLateSession(pending, created, abandoned);
                 throw new IllegalStateException(
                         "Chromium session creation exceeded the " + DRIVER_START_TIMEOUT.toSeconds()
                         + "s startup budget", timeout);
@@ -1395,36 +1427,48 @@ public class EFormBrowserPdfService {
                 throw new IllegalStateException("Chromium session creation failed", cause);
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
-                reapLateSession(pending);
+                reapLateSession(pending, created, abandoned);
                 throw new IllegalStateException("Interrupted while starting the Chromium renderer", interrupted);
             }
         } finally {
-            starter.shutdownNow();
+            starter.shutdown();
         }
     }
 
     /**
      * Quits a session that arrives after its start budget expired.
      *
-     * <p>{@code cancel(true)} only interrupts; the constructor may still complete and hand back a live
-     * browser nobody is holding. Killing chromedriver used to make that impossible. Now the only
-     * remedy is to watch for the late arrival and end the session, so this hands the wait to a daemon
-     * thread rather than blocking the request thread that has already given up.
+     * <p>Deliberately does NOT call {@code Future.cancel(true)}. A cancelled {@code FutureTask}
+     * discards its result and every {@code get()} throws {@link CancellationException} immediately,
+     * so a reaper written around {@code pending.get()} after a cancel can never see the session and
+     * never tears anything down — it just logs nothing while the browser stays alive. Cancelling
+     * also interrupts the in-flight {@code POST /session}, which can lose the session id before this
+     * JVM ever learns it, leaving nothing to address. So: let the exchange finish, bounded, and take
+     * the handle the callable published.
+     *
+     * <p>The residual hole is honest and documented: if the interrupt or a connection failure means
+     * the id never arrives, no targeted teardown is possible and
+     * {@code systemctl restart carlos-emr-chromedriver} is the backstop. A timed-out session has not
+     * navigated yet, so it is an {@code about:blank} browser holding no clinical data.
      */
-    private static void reapLateSession(Future<RendererBrowser> pending) {
-        pending.cancel(true);
+    private static void reapLateSession(Future<RendererBrowser> pending,
+            AtomicReference<RendererBrowser> created, AtomicBoolean abandoned) {
+        abandoned.set(true);
         Thread reaper = new Thread(() -> {
             try {
-                RendererBrowser late = pending.get();
+                pending.get(LATE_SESSION_REAP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            } catch (ExecutionException | TimeoutException | CancellationException ignored) {
+                // Fall through: the callable may still have published a session before failing.
+            }
+            // getAndSet: whoever takes it non-null owns the teardown, so the callable's own
+            // self-reap and this thread can never both quit the same session.
+            RendererBrowser late = created.getAndSet(null);
+            if (late != null) {
                 logger.warn("eForm render browser session arrived after its start budget expired; "
                         + "quitting it so it cannot leak a browser process");
                 teardownQuietly(late);
-            } catch (CancellationException | InterruptedException expected) {
-                Thread.currentThread().interrupt();
-            } catch (ExecutionException alreadyFailed) {
-                // The launch failed on its own; nothing was created, nothing to reap.
-                logger.debug("Late eForm render session never materialised: type={}",
-                        alreadyFailed.getCause() == null ? "unknown" : alreadyFailed.getCause().getClass().getName());
             }
         }, "eform-render-late-session-reaper");
         reaper.setDaemon(true);
@@ -1515,9 +1559,21 @@ public class EFormBrowserPdfService {
                     .timeout(BACKSTOP_TIMEOUT)
                     .DELETE()
                     .build();
-            client.send(request, java.net.http.HttpResponse.BodyHandlers.discarding());
-            logger.warn("Browser eForm renderer session {} did not quit cleanly; force-deleted it "
-                    + "against the render browser service", sessionId);
+            java.net.http.HttpResponse<Void> response =
+                    client.send(request, java.net.http.HttpResponse.BodyHandlers.discarding());
+            // send() does not throw on 4xx/5xx. Without this check a wedged chromedriver returning
+            // 500 — or a 404 from something that is not chromedriver at all — would be reported as
+            // "force-deleted it", and an operator would close the ticket while the browser holding
+            // the rendered page is still running. That is precisely what this WARN exists to catch.
+            if (response.statusCode() / 100 == 2) {
+                logger.warn("Browser eForm renderer session {} did not quit cleanly; force-deleted it "
+                        + "against the render browser service", sessionId);
+            } else {
+                logger.warn("Force-delete of browser eForm renderer session {} was refused (HTTP {}). "
+                        + "A browser holding a rendered page may still be running; "
+                        + "systemctl restart carlos-emr-chromedriver clears it.",
+                        sessionId, response.statusCode());
+            }
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             logger.warn("Interrupted while force-deleting browser eForm renderer session {}", sessionId);

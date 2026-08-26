@@ -295,8 +295,10 @@ ifeq ($(SKIP_EFORM_RENDERER),)
 	install -d debian/$(RPKG)/$(LIBDIR)/chromium
 	cp -a $(BUILDDIR)/chromium/chrome-linux/. debian/$(RPKG)/$(LIBDIR)/chromium/
 	install -m 0755 $(BUILDDIR)/chromium/chromedriver debian/$(RPKG)/$(LIBDIR)/chromium/chromedriver
-	# The setuid sandbox helper ships non-setuid on purpose: the renderer runs
-	# with --no-sandbox by default (see docs/eform-browser-pdf-renderer.md),
+	# The setuid sandbox helper ships non-setuid on purpose. The browser IS
+	# sandboxed now, but via unprivileged user namespaces (the AppArmor profile
+	# grants userns and the browser unit permits namespaces) — the setuid path
+	# is not used,
 	# and a setuid root binary inside a clinical package is not something to
 	# install for a code path that is off unless EFORM_RENDER_SANDBOX=true.
 	chmod 0755 debian/$(RPKG)/$(LIBDIR)/chromium/chrome_sandbox || true
@@ -343,6 +345,16 @@ override_dh_makeshlibs:
 # Enable the units but leave starting to the maintainer script: carlos-emr
 # cannot start before postinst has provisioned the database and rendered
 # /etc/carlos-emr/carlos.properties.
+# Pin tmpfiles removal behaviour BEFORE anyone bumps debhelper-compat. At compat
+# 14 dh_installtmpfiles starts generating a purge snippet that would run
+# systemd-tmpfiles --purge over debian/carlos-emr.tmpfiles on purge -- which
+# lists /var/lib/carlos-emr/OscarDocument (the patient document store) and
+# /var/backups/carlos-emr. carlos-emr.postrm exists specifically to guarantee
+# neither is ever deleted by package removal; this keeps that true across a
+# compat bump instead of relying on nobody making one.
+override_dh_installtmpfiles:
+	dh_installtmpfiles --no-purge --no-remove
+
 override_dh_installsystemd:
 	dh_installsystemd --no-start --name=carlos-emr
 	dh_installsystemd --no-start --name=carlos-emr-backup

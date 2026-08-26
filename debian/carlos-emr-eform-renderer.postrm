@@ -16,10 +16,35 @@ case "$1" in
             # The binaries are gone by now, so init-config takes its
             # "no browser installed" branch and puts the probe back to off.
             carlos-ctl init-config || true
-            if [ -d /run/systemd/system ] && systemctl is-active --quiet carlos-emr.service; then
-                deb-systemd-invoke restart carlos-emr.service || true
+            # daemon-reload BEFORE the restart, and explicitly rather than relying
+            # on the #DEBHELPER# block below. dpkg has already deleted the drop-in
+            # from disk, but systemd still holds it in memory — so a restart here
+            # would bring the EMR back up with EFORM_RENDER_SANDBOX=true still set
+            # and a Wants= on a unit file that no longer exists. debhelper's own
+            # reload lands after this point and nothing restarts the EMR again,
+            # so the flag would survive removal indefinitely.
+            if [ -d /run/systemd/system ]; then
+                systemctl daemon-reload >/dev/null 2>&1 || true
+                if systemctl is-active --quiet carlos-emr.service; then
+                    deb-systemd-invoke restart carlos-emr.service || true
+                fi
             fi
         fi
+        ;;
+esac
+
+# Generated from a skeleton by postinst, so it is NOT a conffile and dpkg will
+# not remove it. It holds the url-base bearer token, and the carlos-render group
+# that owns it outlives the package too — leaving a readable secret behind whose
+# gid can later be reused.
+case "$1" in
+    purge)
+        rm -f /etc/carlos-emr/render-browser.env
+        ;;
+esac
+
+case "$1" in
+    remove|purge)
         ;;
     upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
         ;;
