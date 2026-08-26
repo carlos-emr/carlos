@@ -396,6 +396,12 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
         return consentStatus;
     }
 
+    /**
+     * Copies the persisted consent audit fields into this display result. The mutable consent date
+     * is defensively copied and absent fields remain {@code null} or empty.
+     *
+     * @param emailLog the persisted email log containing the consent snapshot
+     */
     public void applyConsentSnapshot(EmailLog emailLog) {
         this.consentStatus = emailLog.getConsentStatus();
         this.consentId = emailLog.getConsentId();
@@ -420,11 +426,22 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
         return consentOverrideReason;
     }
 
+    /**
+     * Returns the consent status label, or an empty string when no snapshot was recorded.
+     *
+     * @return the user-facing consent status
+     */
     public String getConsentDisplayStatus() {
         EmailConsentStatus displayStatus = getConsentStatus();
         return displayStatus != null ? displayStatus.getDisplayName() : "";
     }
 
+    /**
+     * Formats the snapshotted consent update date as {@code yyyy-MM-dd}, or returns an empty string
+     * when the snapshot has no update date.
+     *
+     * @return the formatted consent update date
+     */
     public String getConsentLastUpdateDisplay() {
         Date lastUpdate = getConsentLastUpdateDate();
         if (lastUpdate == null) {

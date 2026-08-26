@@ -57,6 +57,9 @@
     <fmt:message key="email.compose.msg.clueRequired" var="emailComposeClueRequired"/>
     <fmt:message key="email.compose.msg.passwordMinLength" var="emailComposePasswordMinLength"/>
     <fmt:message key="email.compose.msg.minimumRecipient" var="emailComposeMinimumRecipient"/>
+    <fmt:message key="email.compose.label.consentOverride" var="emailComposeConsentOverrideLabel"/>
+    <fmt:message key="email.compose.label.consentOverrideReason" var="emailComposeConsentOverrideReasonLabel"/>
+    <fmt:message key="email.compose.msg.consentOverrideReasonRequired" var="emailComposeConsentOverrideReasonRequired"/>
     <fmt:message key="email.compose.state.on" var="emailComposeStateOn"/>
     <fmt:message key="email.compose.state.off" var="emailComposeStateOff"/>
 
@@ -300,10 +303,10 @@
                                 <c:if test="${emailConsentStatus eq 'Unknown'}">
                                     <div class="form-check mt-2">
                                         <input class="form-check-input" type="checkbox" name="consentOverride" id="consentOverride" value="true"/>
-                                        <label class="form-check-label" for="consentOverride">Verbal email consent confirmed</label>
+                                        <label class="form-check-label" for="consentOverride">${emailComposeConsentOverrideLabel}</label>
                                     </div>
-                                    <label class="form-label mt-2" for="consentOverrideReason">Consent confirmation note</label>
-                                    <textarea class="form-control" name="consentOverrideReason" id="consentOverrideReason" rows="2"></textarea>
+                                    <label class="form-label mt-2" for="consentOverrideReason">${emailComposeConsentOverrideReasonLabel}</label>
+                                    <textarea class="form-control" name="consentOverrideReason" id="consentOverrideReason" rows="2" maxlength="255"></textarea>
                                     <div class="invalid-feedback d-block" id="consentOverrideReasonError"></div>
                                 </c:if>
                             </div>
@@ -701,6 +704,7 @@
     const emailComposeClueRequiredMsg = "<carlos:encode value='${emailComposeClueRequired}' context="javaScript"/>";
     const emailComposePasswordMinLengthMsg = "<carlos:encode value='${emailComposePasswordMinLength}' context="javaScript"/>";
     const emailComposeMinimumRecipientMsg = "<carlos:encode value='${emailComposeMinimumRecipient}' context="javaScript"/>";
+    const emailComposeConsentOverrideReasonRequiredMsg = "<carlos:encode value='${emailComposeConsentOverrideReasonRequired}' context="javaScript"/>";
     const emailComposeStateOnMsg = "<carlos:encode value='${emailComposeStateOn}' context="javaScript"/>";
     const emailComposeStateOffMsg = "<carlos:encode value='${emailComposeStateOff}' context="javaScript"/>";
 
@@ -747,9 +751,9 @@
             }
         }
         if (consentOverride && consentOverride.checked) {
-            validateField(consentOverrideReason, 'Consent confirmation note is required.', errors, 'consentOverrideReasonError');
+            validateField(consentOverrideReason, emailComposeConsentOverrideReasonRequiredMsg, errors, 'consentOverrideReasonError');
         } else if (consentOverrideReason) {
-            clearError('consentOverrideReasonError');
+            clearError('consentOverrideReasonError', consentOverrideReason);
         }
 
         if (Object.keys(errors).length === 0) {
@@ -759,31 +763,33 @@
     }
 
     function validateField(field, errorMessage, errors, errorElementId) {
-        clearError(errorElementId);
+        clearError(errorElementId, field);
 
         if (field.value.trim() === '') {
             errors[field.name] = errorMessage;
-            displayError(errorElementId, errorMessage);
+            displayError(errorElementId, errorMessage, field);
         } else if (field.value.trim().length < 5 && field.id === 'emailPDFPassword') {
             errorMessage = emailComposePasswordMinLengthMsg;
             errors[field.name] = errorMessage;
-            displayError(errorElementId, errorMessage);
+            displayError(errorElementId, errorMessage, field);
         }
     }
 
-    function displayError(errorElementId, errorMessage) {
+    function displayError(errorElementId, errorMessage, field) {
         const errorElement = document.getElementById(errorElementId);
         errorElement.innerHTML = errorMessage;
-        errorElement.parentNode.firstElementChild.classList.add("is-invalid");
+        const invalidField = field || errorElement.parentNode.firstElementChild;
+        invalidField.classList.add("is-invalid");
         setTimeout(function () {
             errorElement.scrollIntoView({block: 'center'});
         }, 100);
     }
 
-    function clearError(errorElementId) {
+    function clearError(errorElementId, field) {
         const errorElement = document.getElementById(errorElementId);
         errorElement.innerHTML = '';
-        errorElement.parentNode.firstElementChild.classList.remove("is-invalid");
+        const invalidField = field || errorElement.parentNode.firstElementChild;
+        invalidField.classList.remove("is-invalid");
     }
 
     function showEncryptionOptions() {

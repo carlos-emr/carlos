@@ -103,10 +103,20 @@ public class EmailManager {
     private ProviderManager2 providerManager;
     @Autowired
     private SecurityInfoManager securityInfoManager;
-    @Autowired
-    private EmailConsentResolver emailConsentResolver;
-    @Autowired
-    private EmailSenderFactory emailSenderFactory;
+    private final EmailConsentResolver emailConsentResolver;
+    private final EmailSenderFactory emailSenderFactory;
+
+    /**
+     * Creates an email manager with the consent gate and sender factory used by the send path.
+     * Remaining legacy collaborators are injected into their existing fields by Spring.
+     *
+     * @param emailConsentResolver resolves current patient email consent
+     * @param emailSenderFactory creates the outbound sender after consent is accepted
+     */
+    public EmailManager(EmailConsentResolver emailConsentResolver, EmailSenderFactory emailSenderFactory) {
+        this.emailConsentResolver = emailConsentResolver;
+        this.emailSenderFactory = emailSenderFactory;
+    }
 
     /**
      * Sends an email with optional encryption and creates a corresponding email log entry.
@@ -119,11 +129,12 @@ public class EmailManager {
      * The method performs the following steps:
      * 1. Validates user has _email WRITE privilege
      * 2. Sanitizes email data fields
-     * 3. Creates email log entry in FAILED status
-     * 4. Encrypts message and/or attachments if requested
-     * 5. Sends email via configured email server
-     * 6. Updates log status to SUCCESS or FAILED
-     * 7. Creates chart note if configured for WITH_FULL_NOTE display
+     * 3. Resolves current patient consent and records it on the email log
+     * 4. Returns the log in BLOCKED status without creating a sender when consent denies the send
+     * 5. Encrypts message and/or attachments if requested
+     * 6. Sends email via configured email server
+     * 7. Updates log status to SUCCESS or FAILED
+     * 8. Creates a chart note for successful sends configured for WITH_FULL_NOTE display
      *
      * @param loggedInInfo LoggedInInfo the logged-in user session information
      * @param emailData EmailData containing email subject, body, recipients, attachments, and configuration options
@@ -178,7 +189,7 @@ public class EmailManager {
      * 2. Loads demographic and provider information
      * 3. Creates EmailLog entity with all email data
      * 4. Persists the email log to database
-     * 5. Creates audit log entry for compliance tracking
+     * The caller records the consent snapshot and compliance audit entry after this method returns.
      *
      * @param loggedInInfo LoggedInInfo the logged-in user session information
      * @param emailData EmailData containing email content, recipients, and configuration

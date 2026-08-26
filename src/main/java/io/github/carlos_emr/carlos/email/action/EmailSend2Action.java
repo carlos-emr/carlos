@@ -76,16 +76,23 @@ public class EmailSend2Action extends ActionSupport {
      * @return String Struts2 result identifier - "success" for successful email operations,
      *         or transaction type name for cancel operations
      */
-    public String execute () {
+    @Override
+    public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)) {
             throw new SecurityException("missing required sec object (_email)");
         }
 
-        if ("sendDirectEmail".equals(request.getParameter("method"))) {
-            return sendDirectEmail();
-        } else if ("cancel".equals(request.getParameter("method"))) {
+        String method = request.getParameter("method");
+        if ("cancel".equals(method)) {
             return cancel();
+        }
+        if (!"POST".equals(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+        if ("sendDirectEmail".equals(method)) {
+            return sendDirectEmail();
         }
         return sendEFormEmail();
     }

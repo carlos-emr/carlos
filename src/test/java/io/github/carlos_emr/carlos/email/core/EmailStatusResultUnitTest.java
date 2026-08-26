@@ -22,7 +22,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 class EmailStatusResultUnitTest {
     @Test
     @DisplayName("should defensively copy consent last update date")
-    void shouldDefensivelyCopyConsentLastUpdateDate() {
+    void shouldDefensivelyCopyConsentLastUpdateDate_whenApplyingSnapshot() {
         Date sourceDate = new Date(1_000L);
         EmailLog emailLog = new EmailLog();
         emailLog.setConsentLastUpdateDate(sourceDate);

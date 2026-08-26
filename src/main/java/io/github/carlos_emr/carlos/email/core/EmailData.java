@@ -46,6 +46,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2026-01-14
  */
 public class EmailData {
+    private static final int CONSENT_OVERRIDE_REASON_MAX_LENGTH = 255;
+
     private Integer senderConfigId;
     private String sender;
     private String[] recipients;
@@ -509,6 +511,9 @@ public class EmailData {
 
     public void setConsentOverrideReason(String consentOverrideReason) {
         String reason = consentOverrideReason != null ? consentOverrideReason.trim() : "";
-        this.consentOverrideReason = reason.length() > 255 ? reason.substring(0, 255) : reason;
+        if (reason.length() > CONSENT_OVERRIDE_REASON_MAX_LENGTH) {
+            throw new IllegalArgumentException("Consent override reason must not exceed 255 characters");
+        }
+        this.consentOverrideReason = reason;
     }
 }

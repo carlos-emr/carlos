@@ -36,6 +36,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 
 /**
  * Unit tests for {@link EmailSend2Action} redirect safety.
@@ -49,11 +53,15 @@ import static org.mockito.Mockito.mockStatic;
 class EmailSend2ActionTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
+    private SecurityInfoManager securityInfoManager;
+    private EmailManager emailManager;
 
     @BeforeEach
     void setUp() {
-        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
-        registerMock(EmailManager.class, mock(EmailManager.class));
+        securityInfoManager = mock(SecurityInfoManager.class);
+        emailManager = mock(EmailManager.class);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(EmailManager.class, emailManager);
         registerMock(EformDataManager.class, mock(EformDataManager.class));
         // EmailSend2Action reads request/response from ServletActionContext in field initializers
         // (evaluated at construction), so mock the static to keep `new EmailSend2Action()` from
@@ -88,5 +96,27 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(response.getRedirectedUrl()).isEqualTo(
                 "/carlos/eform/efmshowform_data?fdid="
                         + "123%26parentAjaxId%3Devil%23fragment%2525%20%2B%2F&parentAjaxId=eforms");
+    }
+
+    @Test
+    @DisplayName("should reject email sends submitted with GET")
+    void shouldRejectSend_whenRequestIsGet() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/emailSendAction");
+        request.setParameter("method", "sendDirectEmail");
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_email"), eq("w"), isNull()))
+                .thenReturn(true);
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(EmailSend2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        verifyNoInteractions(emailManager);
     }
 }

@@ -57,7 +57,6 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        emailManager = new EmailManager();
         emailConfigDao = mock(EmailConfigDaoImpl.class);
         emailLogDao = mock(EmailLogDaoImpl.class);
         demographicManager = mock(DemographicManager.class);
@@ -67,15 +66,13 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         emailSenderFactory = mock(EmailSenderFactory.class);
         emailSender = mock(EmailSender.class);
         loggedInInfo = new LoggedInInfo();
+        emailManager = new EmailManager(emailConsentResolver, emailSenderFactory);
 
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "demographicManager", demographicManager);
         injectDependency(emailManager, "providerManager", providerManager);
         injectDependency(emailManager, "securityInfoManager", securityInfoManager);
-        injectDependency(emailManager, "emailConsentResolver", emailConsentResolver);
-        injectDependency(emailManager, "emailSenderFactory", emailSenderFactory);
-
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
         when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(emailConfig());
         when(demographicManager.getDemographic(loggedInInfo, 123)).thenReturn(demographic());
@@ -148,6 +145,22 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
         assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.UNKNOWN);
         assertThat(emailLog.getConsentOverride()).isFalse();
+        verify(emailSenderFactory, never()).create(any(), any(), any());
+        verifyNoInteractions(emailSender);
+    }
+
+    @Test
+    @DisplayName("should block send when unknown-consent override reason is blank")
+    void shouldBlockSend_whenUnknownConsentOverrideReasonIsBlank() {
+        EmailData emailData = emailData();
+        emailData.setConsentOverride(true);
+        emailData.setConsentOverrideReason("   ");
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult("Email", EmailConsentStatus.UNKNOWN, null, null));
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
         verify(emailSenderFactory, never()).create(any(), any(), any());
         verifyNoInteractions(emailSender);
     }

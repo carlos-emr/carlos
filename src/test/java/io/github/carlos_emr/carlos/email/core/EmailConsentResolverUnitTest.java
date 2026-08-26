@@ -39,13 +39,10 @@ class EmailConsentResolverUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        emailConsentResolver = new EmailConsentResolver();
         userPropertyDAO = mock(UserPropertyDAO.class);
         patientConsentManager = mock(PatientConsentManager.class);
         loggedInInfo = new LoggedInInfo();
-
-        injectDependency(emailConsentResolver, "userPropertyDAO", userPropertyDAO);
-        injectDependency(emailConsentResolver, "patientConsentManager", patientConsentManager);
+        emailConsentResolver = new EmailConsentResolver(userPropertyDAO, patientConsentManager);
     }
 
     @Test

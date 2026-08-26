@@ -13,6 +13,14 @@ public class EmailConsentResult {
     private final Integer consentId;
     private final Date consentLastUpdateDate;
 
+    /**
+     * Creates an immutable consent result, defensively copying the mutable update timestamp.
+     *
+     * @param consentName display name of the configured consent type
+     * @param status resolved consent status
+     * @param consentId identifier of the consent row, when present
+     * @param consentLastUpdateDate last update time of the consent row, when present
+     */
     public EmailConsentResult(String consentName, EmailConsentStatus status, Integer consentId, Date consentLastUpdateDate) {
         this.consentName = consentName;
         this.status = status;
@@ -36,6 +44,12 @@ public class EmailConsentResult {
         return copyDate(consentLastUpdateDate);
     }
 
+    /**
+     * Returns a user-facing consent status, falling back to the {@code UNKNOWN} display name when
+     * this result has no status.
+     *
+     * @return the display status
+     */
     public String getDisplayStatus() {
         return status != null ? status.getDisplayName() : EmailConsentStatus.UNKNOWN.getDisplayName();
     }

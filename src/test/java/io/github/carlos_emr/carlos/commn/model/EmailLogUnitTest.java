@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 class EmailLogUnitTest {
     @Test
     @DisplayName("should defensively copy consent last update date")
-    void shouldDefensivelyCopyConsentLastUpdateDate() {
+    void shouldDefensivelyCopy_whenConsentLastUpdateDateIsMutated() {
         Date sourceDate = new Date(1_000L);
         EmailLog emailLog = new EmailLog();
         emailLog.setConsentLastUpdateDate(sourceDate);
