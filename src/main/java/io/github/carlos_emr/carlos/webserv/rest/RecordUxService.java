@@ -353,6 +353,9 @@ public class RecordUxService extends AbstractServiceImpl {
     @Produces("application/json")
     public SummaryTo1 getFullSummmary(@PathParam("demographicNo") Integer demographicNo, @PathParam(value = "summaryCode") String summaryCode) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", demographicNo)) {
+            throw new SecurityException("missing required sec object (_eChart)");
+        }
         SummaryTo1 summary = null;
 
         Summary summaryInterface = (Summary) SpringUtils.getBean(MY_MAP.get(summaryCode));
