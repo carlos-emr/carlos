@@ -116,7 +116,7 @@ public class EmailSend2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             response.setContentType("text/plain;charset=UTF-8");
             try {
-                response.getWriter().write(e.getMessage());
+                response.getWriter().write(SafeEncode.forHtmlContent(e.getMessage()));
             } catch (IOException ioException) {
                 logger.warn("Unable to write email validation response", ioException);
             }

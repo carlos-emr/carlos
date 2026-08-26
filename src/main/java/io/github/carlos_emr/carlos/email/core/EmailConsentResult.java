@@ -6,6 +6,8 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 
 /**
  * Immutable result of resolving patient email consent for compose display and send-time enforcement.
+ *
+ * @since 2026-07-06
  */
 public class EmailConsentResult {
     private final String consentName;

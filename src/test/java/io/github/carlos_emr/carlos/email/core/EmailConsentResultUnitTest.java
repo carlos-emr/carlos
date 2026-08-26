@@ -15,6 +15,11 @@ import org.junit.jupiter.api.Test;
 
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 
+/**
+ * Unit tests for immutable email-consent results.
+ *
+ * @since 2026-07-06
+ */
 @Tag("unit")
 @Tag("fast")
 @Tag("email")

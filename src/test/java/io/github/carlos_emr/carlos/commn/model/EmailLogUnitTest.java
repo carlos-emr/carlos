@@ -13,6 +13,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Unit tests for email-log consent audit snapshots.
+ *
+ * @since 2026-07-06
+ */
 @Tag("unit")
 @Tag("fast")
 @Tag("email")

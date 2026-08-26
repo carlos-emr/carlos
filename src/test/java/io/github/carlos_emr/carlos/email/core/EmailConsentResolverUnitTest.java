@@ -27,6 +27,11 @@ import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Unit tests for patient email-consent resolution.
+ *
+ * @since 2026-07-06
+ */
 @Tag("unit")
 @Tag("fast")
 @Tag("email")

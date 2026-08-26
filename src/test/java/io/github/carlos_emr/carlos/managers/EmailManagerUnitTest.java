@@ -39,6 +39,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit tests for send-time email consent enforcement and auditing.
+ *
+ * @since 2026-07-06
+ */
 @Tag("unit")
 @Tag("fast")
 @Tag("email")
