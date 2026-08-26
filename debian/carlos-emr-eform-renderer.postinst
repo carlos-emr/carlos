@@ -90,8 +90,11 @@ case "$1" in
         # deploys, so chromedriver must already be listening or the first boot
         # after install logs a failure for a deployment that is actually fine.
         # ENABLE before starting. dh_installsystemd's enable snippet lands in the
-        # #DEBHELPER# block at the END of this script, so on a FIRST install the unit
-        # is not enabled yet at this point — and deb-systemd-invoke deliberately
+        # debhelper-substituted block at the END of this script (the token is not
+        # spelled out here: debhelper substitutes it wherever it appears, INCLUDING
+        # inside a comment, which splits the comment and leaves its tail running as
+        # a command -- "block: not found" on a clean install), so on a FIRST install
+        # the unit is not enabled yet at this point — and deb-systemd-invoke deliberately
         # skips start/restart for a unit that is neither enabled nor already active,
         # printing "is a disabled or a static unit not running, not starting it" and
         # exiting 0. The `|| { ... }` below would never fire, and the browser would

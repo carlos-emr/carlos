@@ -12,6 +12,10 @@
 #                  uid can read.
 #   carlos-render  runs the headless browser that renders eForms to PDF, and is
 #                  a member of NO group — deliberately, including not `carlos`.
+#                  DECLARED IN carlos-emr-eform-renderer.sysusers, not here: the
+#                  account and the directory it owns must be created by the same
+#                  package, or carlos-emr's tmpfiles run first on a clean install
+#                  and fail with "Failed to resolve user 'carlos-render'".
 #
 # Why carlos-render exists at all: chromedriver listens on a loopback TCP port
 # with no authentication, and a WebDriver new-session request can specify the
@@ -50,6 +54,5 @@
 # That account is shared with every other Tomcat webapp on the machine, and on
 # a host running an EMR that is precisely the boundary that has to hold.
 u carlos       - "CARLOS EMR application server" /var/lib/carlos-emr        /usr/sbin/nologin
-u carlos-render - "CARLOS EMR eForm render browser" /var/lib/carlos-emr/render /usr/sbin/nologin
 u carlos-backup - "CARLOS EMR backup" /var/backups/carlos-emr /usr/sbin/nologin
 m carlos-backup carlos
