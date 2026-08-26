@@ -51,6 +51,28 @@ case "$1" in
             fi
         fi
 
+        # Make sure the account exists before anything below chowns to it.
+        # dh_installsysusers' snippet runs from the debhelper-substituted block at
+        # the END of this script, so on a FIRST install carlos-render does not exist
+        # yet at this point and `install -g carlos-render` fails the whole configure
+        # with "install: invalid group". Same shape as the fallback in
+        # carlos-emr.postinst, which also covers a chroot or container image built
+        # without systemd running.
+        if [ -x /usr/bin/systemd-sysusers ] || [ -x /bin/systemd-sysusers ]; then
+            systemd-sysusers /usr/lib/sysusers.d/carlos-emr-eform-renderer.conf >/dev/null 2>&1 || true
+        fi
+        if ! getent group carlos-render >/dev/null; then
+            addgroup --system carlos-render
+        fi
+        if ! getent passwd carlos-render >/dev/null; then
+            adduser --system --ingroup carlos-render --home /var/lib/carlos-emr/render \
+                    --no-create-home --shell /usr/sbin/nologin \
+                    --gecos "CARLOS EMR eForm render browser" carlos-render
+        fi
+        # The directory the account owns, for the same reason: dh_installtmpfiles'
+        # snippet has not run yet either.
+        install -d -o carlos-render -g carlos-render -m 0700 /var/lib/carlos-emr/render
+
         # The render browser's own settings, including the url-base capability
         # token. 0640 root:carlos-render: the browser account reads it, and the
         # `carlos` account deliberately cannot — just as carlos-render cannot read
