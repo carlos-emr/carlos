@@ -1409,7 +1409,10 @@ class EFormBrowserPdfServiceUnitTest {
         long deadlineNanos = System.nanoTime() + Duration.ofMinutes(1).toNanos();
 
         Method printToPdfMethod = EFormBrowserPdfService.class.getDeclaredMethod(
-                "printToPdf", ChromeDriver.class, Path.class, long.class);
+                // ChromiumDriver, not ChromeDriver: the renderer now connects to an
+                // already-running chromedriver, so the helpers take the wider type. The mock below
+                // is still a ChromeDriver, which extends ChromiumDriver and satisfies it.
+                "printToPdf", org.openqa.selenium.chromium.ChromiumDriver.class, Path.class, long.class);
         printToPdfMethod.setAccessible(true);
         EFormBrowserPdfService service = new EFormBrowserPdfService();
 
