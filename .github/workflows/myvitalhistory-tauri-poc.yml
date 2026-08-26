@@ -1,12 +1,6 @@
 name: MyVitalHistory Tauri POC
 
 on:
-  push:
-    branches:
-      - "poc/**"
-    paths:
-      - "myvitalhistory-tauri-poc/**"
-      - ".github/workflows/myvitalhistory-tauri-poc.yml"
   pull_request:
     paths:
       - "myvitalhistory-tauri-poc/**"

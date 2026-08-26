@@ -61,6 +61,15 @@ The generated `src-tauri/gen/android` and `src-tauri/gen/apple` directories are 
 the pinned Tauri CLI rather than reviewed application source, so CI regenerates them on clean
 runners. Android debug builds run on Linux; the unsigned iOS simulator build runs on macOS.
 
+## Known evaluation findings
+
+- The current Tauri v2 Linux dependency graph resolves `glib` 0.18.5. GitHub's dependency review
+  flags [GHSA-wrw7-89jp-8q8g](https://github.com/advisories/GHSA-wrw7-89jp-8q8g), which is patched
+  only in `glib` 0.20.0. This is a merge blocker to reassess upstream, not an alert to waive.
+- Hosted CI produced a 48 MB Linux debug `.deb`, a 131 MB Android debug APK, and a 92 MB unsigned
+  iOS simulator `.app`. These unoptimized artifacts are useful feasibility evidence, not release
+  size estimates.
+
 ## Checks
 
 ```bash
