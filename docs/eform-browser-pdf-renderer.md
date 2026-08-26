@@ -127,10 +127,20 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 
 - **Chromium** (or Chrome) on the server. Point the renderer at it with
   `eform_pdf_browser_chromium_path`; without the property, Selenium looks for a system Chrome.
-- **chromedriver matching the browser's major version.** Recommended for production (and
-  required for air-gapped hosts): install it alongside Chromium and pin
-  `eform_pdf_browser_chromedriver_path`. Without the property, Selenium Manager downloads a
-  matching chromedriver at first use — acceptable for dev/CI, not recommended for clinics.
+- **A RUNNING chromedriver, matching the browser's major version.** CARLOS connects to it over
+  loopback (`eform_pdf_browser_service_url`); it does not launch one, and there is no
+  Selenium Manager fallback to download a driver at first use. On the .deb this is the
+  `carlos-emr-chromedriver` service, which the `carlos-emr-eform-renderer` package installs
+  and starts. Elsewhere, run one yourself before the webapp deploys.
+
+  **Why it is a separate process and not a child of the JVM.** Chromium sandboxes its
+  renderers with an unprivileged user namespace. A chromedriver the application spawns
+  inherits the application service's cgroup and confinement, and `carlos-emr.service` denies
+  namespace creation because it runs a PHI-handling Tomcat. Measured on a clean 26.04 VM:
+  sandboxed Chromium started directly as an unprivileged user works in about a second;
+  spawned by the JVM under that unit it fails every boot on the 30s startup budget. Moving
+  the browser to its own unit is what lets it be sandboxed without loosening the EMR's own
+  hardening.
 - **No Node.js.** The renderer runs entirely in the JVM (Selenium driving Chromium); no Node
   runtime or npm modules are required on the host. (The dev/CI Playwright check scripts under
   `scripts/` are separate test tooling, not part of the renderer.)
@@ -150,7 +160,8 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 |---|---|---|
 | `eform_pdf_browser_base_url` | derived | Loopback base URL the renderer navigates to. Derived from the active request (`scheme://127.0.0.1:localPort/context`), downgrading a proxied `https` scheme to `http` when a TLS-terminating reverse proxy is detected (see "Base URL behind a TLS-terminating proxy" below), or from `project_home` when no request is available. Must resolve to a loopback host — anything else is rejected. |
 | `eform_pdf_browser_chromium_path` | unset | Absolute path to the Chromium/Chrome binary. |
-| `eform_pdf_browser_chromedriver_path` | unset | Absolute path to a pinned chromedriver. Set this in production. |
+| `eform_pdf_browser_service_url` | `http://127.0.0.1:9515` | URL of an **already-running** chromedriver. CARLOS connects to it and never launches one. Must be `http` (chromedriver serves plaintext only) with an explicit port on a loopback host — anything else is rejected at startup. A path component is permitted and is the chromedriver `--url-base` prefix, which the .deb uses as a capability token. Unreachable fails the render closed; there is no fallback to launching a browser. |
+| ~~`eform_pdf_browser_chromedriver_path`~~ | — | **Removed.** CARLOS no longer spawns chromedriver, so a path to one has nothing to launch. See `eform_pdf_browser_service_url`. |
 | `eform_pdf_browser_startup_check` | `warn` | Startup readiness mode: `warn` probes and logs without aborting startup, legacy `required` behaves the same way, and `off` skips the probe (test contexts). See the upgrade notice above. |
 | `eform_pdf_browser_strict_network_gate` | `false` | When `true`, restores the original fail-closed posture where any observed off-origin HTTP request, failed render-critical subresource, or severe page-script console error aborts the whole render. The default (`false`) treats those three as advisory (logged, render proceeds) so the legacy eForm corpus — which routinely references off-origin assets, 404s optional helper scripts/images, and emits benign JS errors — still produces a PDF of what painted. Physical egress containment is unaffected: the dead proxy still blocks off-origin HTTP, and the WebSocket/WebTransport gate, the same-origin main-document requirement, and the unparseable-network-evidence gate stay hard fail-closed regardless of this switch. |
 | `eform_pdf_browser_saved_view_profile_enabled` | `true` | Enables the saved-view dependency profile and renderer-only APCache bridge. Set `false` only as a temporary compatibility rollback while investigating a clinic form; capability/session isolation and all browser containment remain enabled. |
@@ -280,6 +291,37 @@ RCE in Chromium's renderer). Because the renderer processes clinic-authored cont
 pinned Chromium and chromedriver like any other security-patched dependency: keep them updated.
 The token design means the render browser holds no session cookies or credentials, so a
 compromised render exposes only the content of the form being rendered.
+
+### The render browser runs out of process, as its own account
+
+CARLOS connects to a chromedriver it does not own. Two consequences worth stating plainly.
+
+**A new local attack surface.** chromedriver listens on a loopback TCP port with **no
+authentication**, and a WebDriver new-session request can name the browser binary and its arguments.
+An exposed chromedriver is therefore an arbitrary-code-execution service running as whatever account
+started it. Three mitigations, in the order they actually matter:
+
+1. **A dedicated, group-less account.** On the .deb the browser runs as `carlos-render`, which is in
+   no group — deliberately not `carlos`. Reaching the port yields a browser owning nothing: no
+   patient documents, no database credentials, no read on `carlos.properties`. Running it as the
+   application account would instead hand over the uid that owns the document store. This is only
+   possible because the rendered PDF returns inline over CDP, so the two sides share no filesystem.
+2. **`--url-base` as a bearer credential.** A random path prefix generated at install, delivered to
+   the two accounts through two files neither can read from the other. A local uid that cannot read
+   them cannot guess the endpoint.
+3. **chromedriver's loopback-only default, left alone.** `--allowed-ips` and `--allowed-origins` are
+   deliberately NOT passed: the defaults are already correct, and passing either with an empty value
+   historically means "allow everything".
+
+AppArmor cannot help here. On this kernel it mediates only `af_unix`, not `af_inet`, so there is no
+rule expressing "deny this port to that user" — only "deny all inet sockets", which is useless for a
+web server. The account split is the control.
+
+**Teardown changed.** The application can no longer kill the browser process, because it does not own
+it. A wedged session is ended by `quit()`, escalating to a targeted `DELETE` of that exact session id
+over a fresh short-deadline connection; the id is captured at session creation because
+`RemoteWebDriver.quit()` clears its own even when the quit fails. The backstop of last resort is now
+`systemctl stop carlos-emr-chromedriver`, which tears down the driver and every browser it launched.
 
 **Selenium is not an isolation layer.** It only launches `chromedriver` → `chrome`; the
 chroot / namespace / seccomp confinement is Chromium's *own* sandbox (or the container). By default
