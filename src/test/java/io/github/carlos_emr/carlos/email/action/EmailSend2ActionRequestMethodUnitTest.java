@@ -17,6 +17,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
@@ -27,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -74,6 +76,36 @@ class EmailSend2ActionRequestMethodUnitTest extends CarlosUnitTestBase {
         }
 
         verify(securityInfoManager).hasPrivilege(any(), eq("_email"), eq("w"), isNull(String.class));
+        verifyNoInteractions(emailManager, eformDataManager);
+    }
+
+    @Test
+    @DisplayName("should block a non-POST request when the error response is already committed")
+    void shouldBlockNonPostMethod_whenErrorResponseIsAlreadyCommitted() throws Exception {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        EmailManager emailManager = mock(EmailManager.class);
+        EformDataManager eformDataManager = mock(EformDataManager.class);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(EmailManager.class, emailManager);
+        registerMock(EformDataManager.class, eformDataManager);
+        when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq("w"), isNull(String.class)))
+                .thenReturn(true);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/send");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        doThrow(new IllegalStateException("response already committed"))
+                .when(response).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            EmailSend2Action action = new EmailSend2Action();
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        }
+
         verifyNoInteractions(emailManager, eformDataManager);
     }
 }
