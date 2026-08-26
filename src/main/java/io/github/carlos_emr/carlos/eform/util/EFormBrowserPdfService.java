@@ -556,6 +556,18 @@ public class EFormBrowserPdfService {
             + "  .filter((el) => /^page\\d+$/i.test(el.id));\n"
             + "let excludedCount = 0;\n"
             + "let excludedHeight = 0;\n"
+            + "let decorativeExcludedCount = 0;\n"
+            + "const carlosLicenseRe = /(gnu\\.org|creativecommons\\.org|opensource\\.org)|licen[sc]e|gplv?[0-9]|(^|[^a-z])cc[-_]?(by|zero|0)|by[-_]?(sa|nc|nd)/i;\n"
+            + "const carlosIsDecoration = (el) => {\n"
+            + "  if (el.querySelector('input, textarea, select, button, [contenteditable]')) { return false; }\n"
+            + "  const refs = Array.from(el.querySelectorAll('a[href], img[src]'));\n"
+            + "  const badge = refs.length > 0 && refs.every((r) => carlosLicenseRe.test(r.getAttribute('href') || r.getAttribute('src') || ''));\n"
+            + "  const hasBlock = el.querySelector('p, table, ul, ol, dl') !== null;\n"
+            + "  const shortText = (el.textContent || '').trim().length <= 80;\n"
+            + "  const hasVisual = el.querySelector('img, svg, canvas, h1, h2, h3, h4, h5, h6') !== null;\n"
+            + "  const branding = !hasBlock && shortText && hasVisual;\n"
+            + "  return badge || branding;\n"
+            + "};\n"
             // DESCEND, don't skip, through elements that merely CONTAIN a page div. Scanning only
             // document.body.children made this whole pass dead on almost the entire real corpus:
             // eformGenerator.jsp wraps the form body in <form id="FormName"> (emitted at its line
@@ -594,7 +606,9 @@ public class EFormBrowserPdfService {
             + "      const substantive = isVisible(child) && rect.height > 4 && (\n"
             + "        (child.textContent || '').trim().length > 0\n"
             + "        || child.querySelector('img, canvas, svg, video, input, textarea, select') !== null);\n"
-            + "      if (substantive) {\n"
+            + "      if (substantive && carlosIsDecoration(child)) {\n"
+            + "        decorativeExcludedCount += 1;\n"
+            + "      } else if (substantive) {\n"
             + "        excludedCount += 1;\n"
             + "        excludedHeight += rect.height;\n"
             + "      }\n"
@@ -657,6 +671,7 @@ public class EFormBrowserPdfService {
             + "  }),\n"
             + "  excludedCount: excludedCount,\n"
             + "  excludedHeight: excludedHeight,\n"
+            + "  decorativeExcludedCount: decorativeExcludedCount,\n"
             + "  signatureBroken: signatureBroken,\n"
             + "  timerCompatibilityFailure: timerCompatibilityFailure,\n"
             + "  timerCompatShimMissing: timerCompatShimMissing,\n"
@@ -953,6 +968,14 @@ public class EFormBrowserPdfService {
             // form (the Rich Text Letter) authored no pageN divs, so we inject no @page size and let the
             // form's own @page rules or Chromium's default paper drive natural pagination.
             PageGeometry geometry = readPageGeometry(js.executeScript(COMPUTE_PAGE_GEOMETRY_JS));
+            if (geometry.decorativeExcludedCount() > 0) {
+                // Transparency for a clinical gate: an off-page license/attribution badge or
+                // branding masthead was reclassified as non-clinical decoration and does NOT
+                // withhold the document, so it never reaches the blocking excludedContentElements
+                // count. A count only (no content) — nothing here can carry PHI.
+                logger.info("Browser eForm renderer treated {} off-page element(s) as non-clinical "
+                        + "decoration (not blocking): fdid={}", geometry.decorativeExcludedCount(), fdid);
+            }
             int containedInteractions = readContainedInteractionCount(
                     js.executeScript("return window.__carlosRendererInteractionCount || 0;"));
             drainPerformanceLog(driver, performanceEntries);
@@ -1692,6 +1715,15 @@ public class EFormBrowserPdfService {
         }
         int excludedCount = (int) rawCount;
         double excludedHeight = requiredNonNegativeNumber(rawMap, "excludedHeight");
+        // Off-page elements the detector classified as non-clinical decoration (a license
+        // or attribution badge, a branding masthead). Reported for transparency, NEVER
+        // folded into excludedContentElements, so they do not withhold a patient document.
+        double rawDecorative = requiredNonNegativeNumber(rawMap, "decorativeExcludedCount");
+        if (Math.floor(rawDecorative) < rawDecorative || rawDecorative > Integer.MAX_VALUE) {
+            throw new PDFGenerationException(
+                    "Browser rendering returned an invalid decorative-content count.");
+        }
+        int decorativeExcludedCount = (int) rawDecorative;
         boolean signatureBroken = requiredBoolean(rawMap, "signatureBroken");
         boolean timerCompatibilityFailure = requiredBoolean(
                 rawMap, "timerCompatibilityFailure");
@@ -1706,7 +1738,8 @@ public class EFormBrowserPdfService {
         boolean labDecisionSupportStubbed = requiredBoolean(
                 rawMap, "labDecisionSupportStubbed");
         boolean providerStampMissing = requiredBoolean(rawMap, "providerStampMissing");
-        return new PageGeometry(pages, excludedCount, excludedHeight, signatureBroken,
+        return new PageGeometry(pages, excludedCount, excludedHeight, decorativeExcludedCount,
+                signatureBroken,
                 timerCompatibilityFailure, labDecisionSupportStubbed, providerStampMissing);
     }
 
@@ -1867,6 +1900,7 @@ public class EFormBrowserPdfService {
      * Authored page sizes and sanitized omission signals used by the completeness report.
      */
     record PageGeometry(List<PageSize> pages, int excludedCount, double excludedHeight,
+            int decorativeExcludedCount,
             boolean signatureBroken, boolean timerCompatibilityFailure,
             boolean labDecisionSupportStubbed, boolean providerStampMissing) {
         PageGeometry {

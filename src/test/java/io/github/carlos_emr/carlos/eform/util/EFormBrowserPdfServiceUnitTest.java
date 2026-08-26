@@ -166,6 +166,7 @@ class EFormBrowserPdfServiceUnitTest {
                 "pages", List.of(Map.of("id", "page1", "width", 750L, "height", 971L)),
                 "excludedCount", 2L,
                 "excludedHeight", 210.5d,
+                "decorativeExcludedCount", 3L,
                 "signatureBroken", false,
                 "timerCompatibilityFailure", true,
                 "labDecisionSupportStubbed", true,
@@ -174,6 +175,8 @@ class EFormBrowserPdfServiceUnitTest {
         assertThat(geometry.pages()).hasSize(1);
         assertThat(geometry.excludedCount()).isEqualTo(2);
         assertThat(geometry.excludedHeight()).isEqualTo(210.5d);
+        // Decoration is parsed and carried separately from the blocking excludedCount.
+        assertThat(geometry.decorativeExcludedCount()).isEqualTo(3);
         assertThat(geometry.signatureBroken()).isFalse();
         // Distinct from signatureBroken: a stamp the provider never uploaded is routine, while a
         // signed document that lost its signature is an integrity failure. They must not collapse.
