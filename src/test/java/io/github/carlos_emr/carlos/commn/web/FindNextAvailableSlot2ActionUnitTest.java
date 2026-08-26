@@ -15,7 +15,9 @@ package io.github.carlos_emr.carlos.commn.web;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.appointment.web.NextAppointmentSearchBean;
 import io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao;
 import io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao;
 import io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao;
@@ -31,6 +33,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -47,6 +53,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 /**
@@ -128,7 +135,7 @@ class FindNextAvailableSlot2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(() -> action.execute())
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("_appointment");
+                .hasMessage("missing required sec object (_appointment)");
 
         // Refused before any schedule is read: the privilege check is the first thing execute does.
         searchHelper.verify(() -> NextAppointmentSearchHelper.search(any()), never());
@@ -177,7 +184,20 @@ class FindNextAvailableSlot2ActionUnitTest extends CarlosUnitTestBase {
 
         action.execute();
 
-        searchHelper.verify(() -> NextAppointmentSearchHelper.search(any()), org.mockito.Mockito.times(3));
+        ArgumentCaptor<NextAppointmentSearchBean> searchCaptor =
+                ArgumentCaptor.forClass(NextAppointmentSearchBean.class);
+        searchHelper.verify(() -> NextAppointmentSearchHelper.search(searchCaptor.capture()), times(3));
+
+        assertThat(searchCaptor.getAllValues())
+                .extracting(NextAppointmentSearchBean::getProviderNo)
+                .containsExactly("111", "222", "333");
+        assertThat(searchCaptor.getAllValues()).allSatisfy(searchBean -> {
+            assertThat(searchBean.getDayOfWeek()).isEmpty();
+            assertThat(searchBean.getStartTimeOfDay()).isEqualTo("0");
+            assertThat(searchBean.getEndTimeOfDay()).isEqualTo("24");
+            assertThat(searchBean.getCode()).isEmpty();
+            assertThat(searchBean.getNumResults()).isEqualTo(3);
+        });
     }
 
     @Test
@@ -187,7 +207,12 @@ class FindNextAvailableSlot2ActionUnitTest extends CarlosUnitTestBase {
 
         action.execute();
 
-        searchHelper.verify(() -> NextAppointmentSearchHelper.search(any()), org.mockito.Mockito.times(2));
+        ArgumentCaptor<NextAppointmentSearchBean> searchCaptor =
+                ArgumentCaptor.forClass(NextAppointmentSearchBean.class);
+        searchHelper.verify(() -> NextAppointmentSearchHelper.search(searchCaptor.capture()), times(2));
+        assertThat(searchCaptor.getAllValues())
+                .extracting(NextAppointmentSearchBean::getProviderNo)
+                .containsExactly("111", "222");
     }
 
     @Test
@@ -200,9 +225,18 @@ class FindNextAvailableSlot2ActionUnitTest extends CarlosUnitTestBase {
         Date first = dateAt(2026, Calendar.SEPTEMBER, 1, 9, 15);
         Date second = dateAt(2026, Calendar.SEPTEMBER, 3, 10, 0);
         Date third = dateAt(2026, Calendar.SEPTEMBER, 7, 14, 30);
+        Date fourth = dateAt(2026, Calendar.SEPTEMBER, 9, 8, 45);
         searchHelper.when(() -> NextAppointmentSearchHelper.search(any()))
-                .thenReturn(List.of(slot("222", third, 20), slot("111", first, 15), slot("333", second, 10)));
-        request.setParameter("providerNos", "111");
+                .thenAnswer(invocation -> {
+                    NextAppointmentSearchBean searchBean = invocation.getArgument(0);
+                    return switch (searchBean.getProviderNo()) {
+                        case "111" -> List.of(slot("111", fourth, 15), slot("111", first, 15));
+                        case "222" -> List.of(slot("222", third, 20));
+                        case "333" -> List.of(slot("333", second, 10));
+                        default -> List.of();
+                    };
+                });
+        request.setParameter("providerNos", "111,222,333");
 
         action.execute();
 
@@ -212,6 +246,7 @@ class FindNextAvailableSlot2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(json.get("month").asInt()).isEqualTo(9);
         assertThat(json.get("day").asInt()).isEqualTo(7);
         assertThat(json.get("providerNo").asText()).isEqualTo("222");
+        assertThat(json.get("startTime").asText()).isEqualTo("14:30");
         assertThat(json.get("duration").asInt()).isEqualTo(20);
     }
 
@@ -233,17 +268,24 @@ class FindNextAvailableSlot2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(json.get("day").asInt()).isEqualTo(2);
     }
 
-    @Test
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "0", "-1", "not-a-number"})
     @DisplayName("should default the target slot ordinal when the property is absent or invalid")
-    void shouldDefaultTargetSlotOrdinal_whenPropertyAbsentOrInvalid() {
-        // No TARGET_SLOT_ORDINAL configured in the test environment, so this pins the documented
-        // fallback rather than the configured value.
-        assertThat(FindNextAvailableSlot2Action.resolveTargetSlotOrdinal()).isEqualTo(3);
+    void shouldDefaultTargetSlotOrdinal_whenPropertyAbsentOrInvalid(String configuredValue) {
+        assertTargetSlotOrdinal(configuredValue, 3);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1", " 4 "})
+    @DisplayName("should use a positive configured target slot ordinal")
+    void shouldUseTargetSlotOrdinal_whenPositiveValueConfigured(String configuredValue) {
+        assertTargetSlotOrdinal(configuredValue, Integer.parseInt(configuredValue.trim()));
     }
 
     @Test
     @DisplayName("should respond as JSON")
-    void shouldRespondAsJson() throws Exception {
+    void shouldRespondAsJson_whenSearchCompletes() throws Exception {
         request.setParameter("providerNos", "999998");
 
         action.execute();
@@ -258,6 +300,25 @@ class FindNextAvailableSlot2ActionUnitTest extends CarlosUnitTestBase {
         result.setDate(date);
         result.setDuration(duration);
         return result;
+    }
+
+    private void assertTargetSlotOrdinal(String configuredValue, int expected) {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        Object originalValue = properties.get("TARGET_SLOT_ORDINAL");
+        try {
+            if (configuredValue == null) {
+                properties.remove("TARGET_SLOT_ORDINAL");
+            } else {
+                properties.setProperty("TARGET_SLOT_ORDINAL", configuredValue);
+            }
+            assertThat(FindNextAvailableSlot2Action.resolveTargetSlotOrdinal()).isEqualTo(expected);
+        } finally {
+            if (originalValue == null) {
+                properties.remove("TARGET_SLOT_ORDINAL");
+            } else {
+                properties.put("TARGET_SLOT_ORDINAL", originalValue);
+            }
+        }
     }
 
     private Date dateAt(int year, int month, int day, int hour, int minute) {

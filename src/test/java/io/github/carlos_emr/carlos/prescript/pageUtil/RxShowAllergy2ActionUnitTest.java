@@ -121,7 +121,7 @@ class RxShowAllergy2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(() -> action.execute())
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("_allergy");
+                .hasMessage("missing required sec object (_allergy)");
 
         // Twice, not once: execute() gates the dispatcher and reorder() gates the handler it
         // dispatches to. That duplication is deliberate defence in depth -- reorder() is also
