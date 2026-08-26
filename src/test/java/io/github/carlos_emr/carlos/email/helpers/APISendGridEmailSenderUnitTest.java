@@ -24,7 +24,7 @@ class APISendGridEmailSenderUnitTest {
 
     @Test
     @DisplayName("should require a validated HTTPS endpoint")
-    void shouldRequireValidatedHttpsEndpoint() throws Exception {
+    void shouldRequireValidatedHttpsEndpoint_forSendGridTransport() throws Exception {
         assertThat(APISendGridEmailSender.validateEndpoint(
                 "https://203.0.113.10/v3/mail/send").uri().getScheme()).isEqualTo("https");
 
@@ -35,7 +35,8 @@ class APISendGridEmailSenderUnitTest {
         assertThatThrownBy(() -> APISendGridEmailSender.validateEndpoint(
                 "https://127.0.0.1/v3/mail/send"))
                 .isInstanceOf(EmailSendingException.class)
-                .hasMessageContaining("rejected");
+                .hasMessageContaining("rejected")
+                .hasMessageNotContaining("127.0.0.1");
     }
 
     @Test

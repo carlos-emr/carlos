@@ -128,6 +128,8 @@ public class APISendGridEmailSender {
             throw new RuntimeException("missing required sec object (_email)");
         }
 
+        boolean requestDispatched = false;
+        boolean accepted = false;
         try {
             String endPoint = getEndPoint();
             ValidatedHttpEndpoint validatedEndpoint = validateEndpoint(endPoint);
@@ -159,14 +161,27 @@ public class APISendGridEmailSender {
 
                 StringEntity entity = new StringEntity(createEmailJSON(), ContentType.APPLICATION_JSON);
                 httpPost.setEntity(entity);
+                requestDispatched = true;
                 try (var response = httpClient.execute(httpPost)) {
                     assertAccepted(response.getCode());
+                    accepted = true;
                 }
             }
         } catch (EmailSendingException e) {
             throw e;
-        } catch (IOException | GeneralSecurityException e) {
-            throw new EmailSendingException(e.getMessage(), e);
+        } catch (IOException | RuntimeException e) {
+            if (accepted) {
+                // The 202 response is conclusive; a later cleanup failure must not turn it into a
+                // retryable send failure.
+                return;
+            }
+            if (requestDispatched) {
+                throw new EmailSendingException(
+                        "SendGrid did not confirm whether the message was accepted.", e, true);
+            }
+            throw new EmailSendingException("The SendGrid request could not be prepared.", e);
+        } catch (GeneralSecurityException e) {
+            throw new EmailSendingException("The SendGrid request could not be prepared.", e);
         }
     }
 
@@ -199,7 +214,7 @@ public class APISendGridEmailSender {
             validatedEndpoint = ValidatedHttpEndpoint.resolve(
                     endpoint, "carlos.email.sendgrid.allowedHosts");
         } catch (ValidatedHttpEndpoint.ValidationException e) {
-            throw new EmailSendingException("Configured email endpoint was rejected: " + e.getMessage());
+            throw new EmailSendingException("Configured email endpoint was rejected.", e);
         }
         if (!validatedEndpoint.isHttps()) {
             throw new EmailSendingException("Configured email endpoint must use HTTPS.");
@@ -292,8 +307,8 @@ public class APISendGridEmailSender {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
             apiKey = jsonNode.get("api_key").asText();
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+        } catch (IOException | RuntimeException e) {
+            throw new EmailSendingException("The active SendGrid sender configuration is invalid.", e);
         }
         return apiKey;
     }
@@ -305,8 +320,8 @@ public class APISendGridEmailSender {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
             endPointBuilder.append(jsonNode.get("end_point") != null ? jsonNode.get("end_point").asText() : DEFAULT_END_POINT);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+        } catch (IOException | RuntimeException e) {
+            throw new EmailSendingException("The active SendGrid sender configuration is invalid.", e);
         }
         return endPointBuilder.toString();
     }

@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -133,7 +134,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_email"), eq("w"), nullable(String.class)))
                 .thenReturn(true);
-        when(emailManager.sendEmail(eq(loggedInInfo), any(EmailData.class))).thenReturn(failedEmailLog);
+        when(emailManager.sendEmailWithResult(eq(loggedInInfo), any(EmailData.class)))
+                .thenReturn(EmailSendResult.failed(failedEmailLog, false));
 
         EmailSend2Action action = new EmailSend2Action();
         action.request = request;
@@ -146,7 +148,43 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("emailLog")).isSameAs(failedEmailLog);
 
         ArgumentCaptor<EmailData> emailDataCaptor = ArgumentCaptor.forClass(EmailData.class);
-        verify(emailManager).sendEmail(eq(loggedInInfo), emailDataCaptor.capture());
+        verify(emailManager).sendEmailWithResult(eq(loggedInInfo), emailDataCaptor.capture());
         assertThat(emailDataCaptor.getValue().getSenderConfigId()).isNull();
+    }
+
+    @Test
+    @DisplayName("should report transport acceptance even when persisted status is resolved")
+    void shouldReportTransportAcceptance_whenPersistedStatusWasConcurrentlyResolved() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("method", "sendDirectEmail");
+        request.setParameter("receiverEmailAddress", "patient@example.invalid");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("patientChartOption", "doNotAddAsNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        request.getSession().setAttribute("emailAttachmentList", Collections.emptyList());
+
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        loggedInInfo.setLoggedInProvider(new Provider("999998"));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        EmailLog resolvedLog = new EmailLog();
+        resolvedLog.setStatus(EmailStatus.RESOLVED);
+        resolvedLog.setToEmail(new String[] {"patient@example.invalid"});
+
+        when(securityInfoManager.hasPrivilege(
+                any(LoggedInInfo.class), eq("_email"), eq("w"), nullable(String.class)))
+                .thenReturn(true);
+        when(emailManager.sendEmailWithResult(eq(loggedInInfo), any(EmailData.class)))
+                .thenReturn(EmailSendResult.accepted(resolvedLog, false));
+
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        assertThat(action.execute()).isEqualTo("success");
+        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
+        assertThat(request.getAttribute("isEmailStatusRecorded")).isEqualTo(false);
+        assertThat(request.getAttribute("emailLog")).isSameAs(resolvedLog);
     }
 }

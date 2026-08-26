@@ -26,7 +26,7 @@ import java.util.List;
  *   <li>Base64-encoded storage of email body and encrypted messages for security</li>
  *   <li>Support for multiple transaction types (eForm, consultation, tickler, direct)</li>
  *   <li>Attachment management with encryption support</li>
- *   <li>Status tracking (success, failed, resolved) for delivery monitoring</li>
+ *   <li>Status tracking (pending, success, failed, resolved) for delivery monitoring</li>
  *   <li>Patient and provider associations for clinical context</li>
  *   <li>Chart display options for clinical note integration</li>
  *   <li>Password-protected encrypted messages with password clues</li>
@@ -51,11 +51,27 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * Used for tracking the lifecycle and delivery state of email communications.
      */
     public enum EmailStatus {
-        /** Email was successfully sent and delivered */
+        /**
+         * Delivery outcome is unconfirmed: the log row exists but transport completion was not
+         * recorded.
+         *
+         * <p>The initial state of every send. It exists so an interrupted send is not recorded as
+         * a failed one -- if the status write after transport never lands, the row stays PENDING
+         * rather than claiming a delivered message failed, which previously invited an admin to
+         * resend and deliver the patient a duplicate.</p>
+         *
+         * <p>A row stuck in PENDING can be reviewed by an admin after the active-send guard period
+         * and marked RESOLVED. It is deliberately not aged out automatically: a sweep would have
+         * to guess whether the message reached the patient, and only a human can establish that.</p>
+         *
+         * @since 2026-08-20
+         */
+        PENDING,
+        /** The configured transport accepted the send without a synchronous error */
         SUCCESS,
         /** Email failed to send due to an error */
         FAILED,
-        /** Previously failed email was successfully resent or issue resolved */
+        /** A failed or unconfirmed email was manually reviewed and resolved */
         RESOLVED
     }
 
@@ -295,7 +311,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
     /**
      * Gets the current delivery status of the email.
      * 
-     * @return EmailStatus the email delivery status (SUCCESS, FAILED, or RESOLVED)
+     * @return EmailStatus the email delivery status (PENDING, SUCCESS, FAILED, or RESOLVED)
      */
     public EmailStatus getStatus() {
         return status;
@@ -311,18 +327,18 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
     }
 
     /**
-     * Gets the error message if the email failed to send.
+     * Gets the delivery-status detail message.
      * 
-     * @return String the error message, or null if no error occurred
+     * @return String the pending-delivery or failure detail, or null if no detail was recorded
      */
     public String getErrorMessage() {
         return errorMessage;
     }
 
     /**
-     * Sets the error message for failed email delivery.
+     * Sets the delivery-status detail message.
      * 
-     * @param errorMessage String the error message describing the failure
+     * @param errorMessage String describing an unconfirmed or failed delivery
      */
     public void setErrorMessage(String errorMessage) {
         this.errorMessage = errorMessage;

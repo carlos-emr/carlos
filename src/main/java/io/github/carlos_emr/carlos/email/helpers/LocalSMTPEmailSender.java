@@ -34,7 +34,7 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
 
             // SECURITY: Only allow localhost variations
             if (!isLocalhost(host)) {
-                throw new EmailSendingException("local provider can only use localhost, got: " + host);
+                throw new EmailSendingException("Local SMTP provider must use localhost.");
             }
             
             mailSender.setHost(host);
@@ -55,10 +55,11 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
             properties.put("mail.smtp.starttls.enable", "false");
             properties.put("mail.smtp.starttls.required", "false");
             properties.put("mail.debug", "false");
+            applySmtpTimeouts(properties);
 
             mailSender.setJavaMailProperties(properties);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail(), e);
+        } catch (IOException | RuntimeException e) {
+            throw new EmailSendingException("The active local SMTP sender configuration is invalid.", e);
         }
         return mailSender;
     }

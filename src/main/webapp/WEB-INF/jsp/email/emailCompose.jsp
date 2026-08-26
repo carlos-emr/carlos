@@ -59,6 +59,9 @@
     <fmt:message key="email.compose.msg.minimumRecipient" var="emailComposeMinimumRecipient"/>
     <fmt:message key="email.compose.state.on" var="emailComposeStateOn"/>
     <fmt:message key="email.compose.state.off" var="emailComposeStateOff"/>
+    <fmt:message key="email.compose.msg.pendingResendWarning" var="emailComposePendingResendWarning"/>
+    <fmt:message key="email.compose.msg.statusTrackingFailed" var="emailComposeStatusTrackingFailed"/>
+    <fmt:message key="email.compose.msg.deliveryUnconfirmed" var="emailComposeDeliveryUnconfirmed"/>
 
     <title>${emailComposeTitle}</title>
 
@@ -230,6 +233,15 @@
 
         <div id="page-body">
 
+            <c:if test="${isPendingEmailResend}">
+                <div class="alert alert-warning" id="emailResendWarning" role="alert">
+                    <span class="fa-solid fa-triangle-exclamation" aria-hidden="true"></span>
+                    ${carlos:forHtml(emailComposePendingResendWarning)}
+                </div>
+                <input type="hidden" id="emailResendWarningMessage"
+                       value="${carlos:forHtmlAttribute(emailComposePendingResendWarning)}"/>
+            </c:if>
+
             <c:choose>
                 <c:when test="${transactionType eq 'EFORM'}">
                     <c:set var="emailSendAction" value="${ctx}/email/emailSendAction?method=sendEFormEmail"/>
@@ -242,6 +254,7 @@
             <input type="hidden" name="isEmailError" id="isEmailError" value="${isEmailError}"/>
             <input type="hidden" name="emailErrorMessage" id="emailErrorMessage" value="${emailErrorMessage}"/>
             <input type="hidden" name="isEmailSuccessful" id="isEmailSuccessful" value="${isEmailSuccessful}"/>
+            <input type="hidden" name="isEmailStatusRecorded" id="isEmailStatusRecorded" value="${isEmailStatusRecorded}"/>
             <input type="hidden" name="emailPatientChartOption" id="emailPatientChartOption"
                    value="${carlos:forHtmlAttribute(empty param.emailPatientChartOption ? emailPatientChartOption : param.emailPatientChartOption)}"/>
             <input type="hidden" name="totalSenderEmails" id="totalSenderEmails" value="${fn:length(senderAccounts)}"/>
@@ -610,11 +623,21 @@
         <%-- the confirmation tags. --%>
         <c:if test="${ not empty isEmailSuccessful }">
             <c:choose>
-                <c:when test="${ emailLog.status eq 'SUCCESS' }">
-				<div class="alert alert-success" role="alert" id="successMessage">
-					<p><fmt:message key="email.compose.msg.sentTo"/> <b>${carlos:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.successfullySent"/></p>
+                <c:when test="${ isEmailSuccessful }">
+					<div class="alert alert-success" role="alert" id="successMessage">
+						<p><fmt:message key="email.compose.msg.sentTo"/> <b>${carlos:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.successfullySent"/></p>
                     </div>
-				<p class="mt-1" id="windowCloseMessage">${emailComposeWindowClosing}</p>
+					<c:if test="${not isEmailStatusRecorded}">
+						<div class="alert alert-warning" role="alert" id="statusTrackingWarning">
+							${carlos:forHtml(emailComposeStatusTrackingFailed)}
+						</div>
+					</c:if>
+					<p class="mt-1" id="windowCloseMessage">${emailComposeWindowClosing}</p>
+                </c:when>
+                <c:when test="${ isEmailDeliveryUnconfirmed }">
+                    <div class="alert alert-warning" role="alert" id="deliveryUnconfirmedWarning">
+                        ${carlos:forHtml(emailComposeDeliveryUnconfirmed)}
+                    </div>
                 </c:when>
                 <c:otherwise>
                     <div class="alert alert-danger" role="alert">
@@ -649,7 +672,8 @@
             // Open EForm again on sent
             openEFormAfterSend();
 
-		if (document.getElementById('isEmailSuccessful').value === 'true') {
+			if (document.getElementById('isEmailSuccessful').value === 'true'
+			        && document.getElementById('isEmailStatusRecorded').value === 'true') {
 			// Close the window after 3 seconds
 			setTimeout(() => {
 				window.close();
@@ -697,6 +721,10 @@
 
     function validateEmailForm() {
         if (!validateForm()) {
+            return false;
+        }
+        const resendWarning = document.getElementById('emailResendWarningMessage');
+        if (resendWarning && !window.confirm(resendWarning.value)) {
             return false;
         }
         ShowSpin(true);
