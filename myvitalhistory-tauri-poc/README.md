@@ -32,7 +32,8 @@ The Playwright smoke test captures the same route at desktop and Pixel 7 viewpor
 ## Browser and desktop development
 
 Prerequisites follow the [Tauri v2 setup guide](https://v2.tauri.app/start/prerequisites/): Node
-22.14 or newer, stable Rust, and the operating system's Tauri webview/build packages.
+22.14 or newer, the pinned Rust 1.98.0 toolchain, and the operating system's Tauri webview/build
+packages.
 
 ```bash
 npm ci
