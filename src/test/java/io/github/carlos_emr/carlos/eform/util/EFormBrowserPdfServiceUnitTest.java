@@ -1123,7 +1123,7 @@ class EFormBrowserPdfServiceUnitTest {
         EFormBrowserPdfService service = new EFormBrowserPdfService();
 
         assertThatThrownBy(() -> service.enforceRenderGates(
-                driver, List.of(), 200, "http://127.0.0.1:8080/carlos", 42))
+                driver, List.of(), 200, "http://127.0.0.1:8080/carlos", 42, new java.util.ArrayList<>()))
                 .isInstanceOf(PDFGenerationException.class)
                 .hasMessageContaining("console error state");
     }
@@ -1149,7 +1149,7 @@ class EFormBrowserPdfServiceUnitTest {
         EFormBrowserPdfService service = new EFormBrowserPdfService();
 
         assertThatThrownBy(() -> service.enforceRenderGates(
-                driver, List.of(), null, GATE_BASE_URL, 42))
+                driver, List.of(), null, GATE_BASE_URL, 42, new java.util.ArrayList<>()))
                 .isInstanceOf(PDFGenerationException.class)
                 .hasMessageContaining("successful eForm page response");
     }
@@ -1161,7 +1161,7 @@ class EFormBrowserPdfServiceUnitTest {
         EFormBrowserPdfService service = new EFormBrowserPdfService();
 
         assertThatThrownBy(() -> service.enforceRenderGates(
-                driver, List.of(), 500, GATE_BASE_URL, 42))
+                driver, List.of(), 500, GATE_BASE_URL, 42, new java.util.ArrayList<>()))
                 .isInstanceOf(PDFGenerationException.class)
                 .hasMessageContaining("status=500");
     }
@@ -1177,7 +1177,7 @@ class EFormBrowserPdfServiceUnitTest {
                         "http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png", 404)));
 
         EFormRenderCompletenessReport report = service.enforceRenderGates(
-                driver, entries, 200, GATE_BASE_URL, 42);
+                driver, entries, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>());
 
         assertThat(report.failedContentResources()).isEqualTo(1);
         assertThat(report.isComplete()).isFalse();
@@ -1194,7 +1194,7 @@ class EFormBrowserPdfServiceUnitTest {
                 perfEntry(cdpMessage("Network.webSocketCreated", "\"url\":\"wss://evil.example/exfil\"")));
 
         assertThatThrownBy(() -> service.enforceRenderGates(
-                driver, entries, 200, GATE_BASE_URL, 42))
+                driver, entries, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>()))
                 .isInstanceOf(PDFGenerationException.class)
                 .hasMessageContaining("liveChannelAttempts=1");
     }
@@ -1211,7 +1211,7 @@ class EFormBrowserPdfServiceUnitTest {
                         "http://127.0.0.1:8080/carlos/share/javascript/faxControl.js", 404)));
 
         EFormRenderCompletenessReport report = service.enforceRenderGates(
-                driver, entries, 200, GATE_BASE_URL, 42);
+                driver, entries, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>());
 
         assertThat(report.failedContentResources()).isEqualTo(2);
         assertThat(report.isComplete()).isFalse();
@@ -1230,7 +1230,7 @@ class EFormBrowserPdfServiceUnitTest {
                 perfEntry("not-json"));
 
         assertThatThrownBy(() -> service.enforceRenderGates(
-                driver, entries, 200, GATE_BASE_URL, 42))
+                driver, entries, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>()))
                 .isInstanceOf(PDFGenerationException.class)
                 .hasMessageContaining("network activity");
     }
@@ -1248,7 +1248,7 @@ class EFormBrowserPdfServiceUnitTest {
                 perfEntry(requestWillBeSentJson("https://evil.example/exfil")));
 
         assertThatCode(() -> service.enforceRenderGates(
-                driver, entries, 200, GATE_BASE_URL, 42))
+                driver, entries, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>()))
                 .doesNotThrowAnyException();
     }
 
@@ -1265,7 +1265,7 @@ class EFormBrowserPdfServiceUnitTest {
                 perfEntry(cdpMessage("Network.webSocketCreated", "\"url\":\"wss://evil.example/exfil\"")));
 
         assertThatThrownBy(() -> service.enforceRenderGates(
-                driver, entries, 200, GATE_BASE_URL, 42))
+                driver, entries, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>()))
                 .isInstanceOf(PDFGenerationException.class)
                 .hasMessageContaining("liveChannelAttempts=1");
     }
@@ -1280,12 +1280,16 @@ class EFormBrowserPdfServiceUnitTest {
                 consoleEntry("http://127.0.0.1:8080/carlos/x 12:3 Uncaught TypeError: x is not a function")));
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)));
+        List<String> severeConsoleDetails = new java.util.ArrayList<>();
 
         EFormRenderCompletenessReport report =
-                service.enforceRenderGates(driver, entries, 200, GATE_BASE_URL, 42);
+                service.enforceRenderGates(driver, entries, 200, GATE_BASE_URL, 42, severeConsoleDetails);
 
         assertThat(report.severeConsoleErrors()).isEqualTo(1);
         assertThat(report.hasBlockingOmissions()).isTrue();
+        // The informed-override screen shows this: a PHI-safe type + source location, and
+        // never the message body or the source URL (which carries the fdid and render token).
+        assertThat(severeConsoleDetails).containsExactly("TypeError (line 12:3)");
     }
 
     @Test
@@ -1301,7 +1305,7 @@ class EFormBrowserPdfServiceUnitTest {
         List<LogEntry> entries = List.of(perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)));
 
         assertThatCode(() -> service.enforceRenderGates(
-                driver, entries, 200, GATE_BASE_URL, 42))
+                driver, entries, 200, GATE_BASE_URL, 42, new java.util.ArrayList<>()))
                 .doesNotThrowAnyException();
     }
 
@@ -1316,7 +1320,7 @@ class EFormBrowserPdfServiceUnitTest {
         List<LogEntry> entries = List.of(perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)));
 
         assertThatThrownBy(() -> service.enforceRenderGates(
-                driver, entries, 500, GATE_BASE_URL, 42))
+                driver, entries, 500, GATE_BASE_URL, 42, new java.util.ArrayList<>()))
                 .isInstanceOf(PDFGenerationException.class)
                 .hasMessageContaining("status=500");
     }
@@ -1667,6 +1671,77 @@ class EFormBrowserPdfServiceUnitTest {
             // An approval minted for a STAMPED render must not release an unstamped one.
             assertThat(EFormBrowserPdfService.withholdsDocument(
                     stampMissing, approvalFor(blocking(), FDID, PROVIDER), FDID, PROVIDER)).isTrue();
+        }
+    }
+
+    /**
+     * {@code describeConsoleError} feeds the informed-override screen: it turns a raw Chrome console
+     * entry into a one-line description the clinician can weigh before approving a possibly-incomplete
+     * render. A form is free to {@code console.error} anything, so the sharp requirement is that the
+     * description carry ONLY developer-authored structure (error type + source line:col) and never
+     * the message body or the source URL (which bears the fdid and the render capability token).
+     */
+    @org.junit.jupiter.api.Nested
+    @DisplayName("describeConsoleError (informed-override, PHI-safe)")
+    class DescribeConsoleError {
+
+        @Test
+        @DisplayName("extracts the error type and source location")
+        void extractsTypeAndLocation() {
+            String description = EFormBrowserPdfService.describeConsoleError(
+                    "http://127.0.0.1:8080/eform/x Uncaught TypeError: foo is not a function 4212:17");
+            assertThat(description).isEqualTo("TypeError (line 4212:17)");
+        }
+
+        @Test
+        @DisplayName("keeps the type when no line:col is present")
+        void typeOnlyWhenNoLocation() {
+            assertThat(EFormBrowserPdfService.describeConsoleError("Uncaught ReferenceError: patientName is not defined"))
+                    .isEqualTo("ReferenceError");
+        }
+
+        @Test
+        @DisplayName("never leaks the message body — even one carrying clinical text")
+        void neverLeaksMessageBody() {
+            // A form is free to console.error PHI. The description must expose only the structural
+            // TYPE, not the free-text payload the form chose to print.
+            String description = EFormBrowserPdfService.describeConsoleError(
+                    "Uncaught TypeError: patient MRN 123456 Jane Doe DOB 1970-01-01 failed at 88:4");
+            // A compound built-in type is surfaced; the free-text payload after it is never carried.
+            assertThat(description).isEqualTo("TypeError (line 88:4)");
+            assertThat(description).doesNotContain("123456").doesNotContain("Jane").doesNotContain("1970");
+        }
+
+        @Test
+        @DisplayName("a bare built-in Error (no compound type) degrades to the safe label, not the body")
+        void bareErrorDegradesToSafeLabel() {
+            // Only the standard SomethingError/SomethingException compound names are recognised;
+            // a bare "Error" is ambiguous, so it degrades to the generic label rather than risk
+            // lifting a matching word out of the free-text body. Either way the body is dropped.
+            String description = EFormBrowserPdfService.describeConsoleError(
+                    "Uncaught Error: patient MRN 123456 failed at 88:4");
+            assertThat(description).isEqualTo("Script error (line 88:4)");
+            assertThat(description).doesNotContain("123456");
+        }
+
+        @Test
+        @DisplayName("strips the source URL so the fdid and render token cannot leak")
+        void stripsSourceUrl() {
+            // The URL carries the fdid and the --url-base capability token; redactUrls runs first.
+            String secretToken = "9f3c1a2b4d5e6f70";
+            String description = EFormBrowserPdfService.describeConsoleError(
+                    "http://127.0.0.1:9515/" + secretToken + "/render?fdid=4242 Uncaught SyntaxError 10:2");
+            assertThat(description).isEqualTo("SyntaxError (line 10:2)");
+            assertThat(description).doesNotContain(secretToken).doesNotContain("4242");
+        }
+
+        @Test
+        @DisplayName("falls back to a stable label for a null, blank or typeless entry")
+        void fallsBackForUnstructuredEntry() {
+            assertThat(EFormBrowserPdfService.describeConsoleError(null)).isEqualTo("Script error");
+            assertThat(EFormBrowserPdfService.describeConsoleError("   ")).isEqualTo("Script error");
+            assertThat(EFormBrowserPdfService.describeConsoleError("something broke somewhere"))
+                    .isEqualTo("Script error");
         }
     }
 }

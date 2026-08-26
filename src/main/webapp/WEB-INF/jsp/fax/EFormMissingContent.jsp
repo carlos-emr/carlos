@@ -75,6 +75,17 @@
             <li><fmt:message key="eform.renderIssue.providerStampMissing"/>: <carlos:encode value="${providerStampMissing}"/></li>
             <li><fmt:message key="eform.renderIssue.timerCompatibilityFailure"/>: <carlos:encode value="${timerCompatibilityFailure}"/></li>
             <li><fmt:message key="eform.renderIssue.severeConsoleErrors"/>: <carlos:encode value="${severeConsoleErrors}"/></li>
+            <c:if test="${not empty severeConsoleErrorDetails}">
+                <%-- PHI-safe per-error descriptions (script error type + source location only) so the
+                     clinician can judge the errors before approving the override. --%>
+                <li><fmt:message key="eform.renderIssue.severeConsoleErrorDetails"/>:
+                    <ul>
+                        <c:forEach var="severeConsoleErrorDetail" items="${severeConsoleErrorDetails}">
+                            <li><carlos:encode value="${severeConsoleErrorDetail}"/></li>
+                        </c:forEach>
+                    </ul>
+                </li>
+            </c:if>
             <li><fmt:message key="eform.renderIssue.containedInteractions"/>: <carlos:encode value="${containedInteractions}"/></li>
             <li><fmt:message key="eform.renderIssue.stabilizationCapped"/>: <carlos:encode value="${stabilizationCapped}"/></li>
             <li><fmt:message key="eform.renderIssue.labDecisionSupportStubbed"/>: <carlos:encode value="${labDecisionSupportStubbed}"/></li>

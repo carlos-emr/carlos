@@ -155,6 +155,8 @@ public class EFormBrowserPdfService {
      */
     /** Cause chains are third-party here and may be cyclic; walking one must always terminate. */
     private static final int MAX_CAUSE_DEPTH = 32;
+    /** Cap on per-error console descriptions shown for informed override; the count is unbounded. */
+    private static final int MAX_CONSOLE_DETAILS = 10;
     static final Duration BACKSTOP_TIMEOUT = Duration.ofSeconds(5);
     /**
      * How long the late-session reaper waits for an abandoned session-create to finish. Longer than
@@ -707,7 +709,8 @@ public class EFormBrowserPdfService {
      * structural — every production path is created via {@code createSecureTempFile} under
      * {@code resolveRendererTempRoot()}.</p>
      */
-    public record RenderedEformPdf(Path path, EFormRenderCompletenessReport completeness)
+    public record RenderedEformPdf(Path path, EFormRenderCompletenessReport completeness,
+            List<String> severeConsoleDetails)
             implements AutoCloseable {
         /**
          * Rejects any path that is not this renderer's own output. {@link #close()} deletes the
@@ -725,6 +728,9 @@ public class EFormBrowserPdfService {
          */
         public RenderedEformPdf {
             completeness = completeness == null ? EFormRenderCompletenessReport.complete() : completeness;
+            // PHI-safe per-error descriptions for the informed-override screen; display only,
+            // never part of the completeness report or the approval digest.
+            severeConsoleDetails = severeConsoleDetails == null ? List.of() : List.copyOf(severeConsoleDetails);
             Objects.requireNonNull(path, "rendered eForm PDF path must not be null");
             Path fileNamePath = path.getFileName();
             String fileName = fileNamePath == null ? "" : fileNamePath.toString();
@@ -745,7 +751,12 @@ public class EFormBrowserPdfService {
          * same statement here.</p>
          */
         public RenderedEformPdf(Path path) {
-            this(path, EFormRenderCompletenessReport.complete());
+            this(path, EFormRenderCompletenessReport.complete(), List.of());
+        }
+
+        /** Convenience for callers that produced no console-error detail. */
+        public RenderedEformPdf(Path path, EFormRenderCompletenessReport completeness) {
+            this(path, completeness, List.of());
         }
 
         @Override
@@ -978,8 +989,9 @@ public class EFormBrowserPdfService {
             int containedInteractions = readContainedInteractionCount(
                     js.executeScript("return window.__carlosRendererInteractionCount || 0;"));
             drainPerformanceLog(driver, performanceEntries);
+            List<String> severeConsoleDetails = new ArrayList<>();
             EFormRenderCompletenessReport completeness = enforceRenderGates(
-                    driver, performanceEntries, latchedMainStatus, baseUrl, fdid)
+                    driver, performanceEntries, latchedMainStatus, baseUrl, fdid, severeConsoleDetails)
                     .merge(new EFormRenderCompletenessReport(
                             0,
                             geometry.excludedCount(),
@@ -998,7 +1010,7 @@ public class EFormBrowserPdfService {
                         completeness.describe(true));
                 throw new EformContentUnavailableException(
                         "The eForm could not be fully rendered. Review the reported omissions before proceeding.",
-                        fdid, completeness);
+                        fdid, completeness, List.copyOf(severeConsoleDetails));
             }
             if (completeness.hasBlockingOmissions()) {
                 logger.warn("Browser eForm renderer proceeding with approved incomplete output: fdid={} issues={}",
@@ -1054,7 +1066,7 @@ public class EFormBrowserPdfService {
                     (printedNanos - gatesFinishedNanos) / 1_000_000L);
             // Carry the report out with the file rather than in a field: renders run concurrently
             // under the slot semaphore, so any per-service mutable state would cross-talk.
-            return new RenderedEformPdf(outputPdfPath, completeness);
+            return new RenderedEformPdf(outputPdfPath, completeness, List.copyOf(severeConsoleDetails));
         } catch (EformContentUnavailableException e) {
             // Re-throw incomplete renders without relabeling them as renderer-integrity failures;
             // the caller displays the sanitized issue report and requires exact approval.
@@ -1918,7 +1930,8 @@ public class EFormBrowserPdfService {
 
     // Package-private for the unit test that pins the console-log-unavailable fail-closed branch.
     EFormRenderCompletenessReport enforceRenderGates(ChromiumDriver driver, List<LogEntry> performanceEntries,
-            Integer latchedMainStatus, String baseUrl, int fdid) throws PDFGenerationException {
+            Integer latchedMainStatus, String baseUrl, int fdid,
+            List<String> severeConsoleDetailsOut) throws PDFGenerationException {
         NetworkGateScan scan = scanNetworkEvents(
                 performanceEntries.stream().map(LogEntry::getMessage).toList(),
                 originOf(baseUrl));
@@ -1936,6 +1949,9 @@ public class EFormBrowserPdfService {
                         && !isResourceLoadConsoleEntry(entry.getMessage())
                         && !isPolicyContainmentConsoleEntry(entry.getMessage())) {
                     severeConsoleEntries++;
+                    if (severeConsoleDetailsOut != null && severeConsoleDetailsOut.size() < MAX_CONSOLE_DETAILS) {
+                        severeConsoleDetailsOut.add(describeConsoleError(entry.getMessage()));
+                    }
                 }
             }
         } catch (RuntimeException e) {
@@ -2049,6 +2065,31 @@ public class EFormBrowserPdfService {
      * embedded objects. Actual egress attempts remain gated by the dead proxy and the network
      * event replay regardless of what the console says.
      */
+    /**
+     * A PHI-safe one-line description of a severe console entry, for the informed-override screen.
+     *
+     * <p>The clinician needs to know WHAT kind of script failure the form hit before approving a
+     * possibly-incomplete render, but a raw console message can carry clinical data (a form is free
+     * to {@code console.error} anything). So this extracts ONLY structural, developer-authored
+     * facts — the error TYPE and its source line:col — and never the message body. The source URL
+     * (which carries the fdid and render token) is stripped first as defence in depth.
+     */
+    static String describeConsoleError(String message) {
+        if (message == null || message.isBlank()) {
+            return "Script error";
+        }
+        String redacted = RenderLogRedaction.redactUrls(message);
+        java.util.regex.Matcher typeMatcher = java.util.regex.Pattern
+                .compile("(?:Uncaught\\s+)?([A-Z][A-Za-z0-9_]*(?:Error|Exception))\\b")
+                .matcher(redacted);
+        String type = typeMatcher.find() ? typeMatcher.group(1) : "Script error";
+        java.util.regex.Matcher locationMatcher = java.util.regex.Pattern
+                .compile("\\b(\\d{1,7}):(\\d{1,7})\\b").matcher(redacted);
+        String location = locationMatcher.find()
+                ? " (line " + locationMatcher.group(1) + ":" + locationMatcher.group(2) + ")" : "";
+        return type + location;
+    }
+
     static boolean isPolicyContainmentConsoleEntry(String message) {
         // Anchored to Chrome's full violation phrase, not a bare "Content Security Policy"
         // substring: a form's own console.error would need to reproduce the exact enforcement

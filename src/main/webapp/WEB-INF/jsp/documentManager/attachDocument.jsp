@@ -62,6 +62,7 @@
 <fmt:message var="lblProviderStampMissing" key="eform.renderIssue.providerStampMissing"/>
 <fmt:message var="lblTimerCompatibilityFailure" key="eform.renderIssue.timerCompatibilityFailure"/>
 <fmt:message var="lblSevereConsoleErrors" key="eform.renderIssue.severeConsoleErrors"/>
+<fmt:message var="lblSevereConsoleErrorDetails" key="eform.renderIssue.severeConsoleErrorDetails"/>
 <fmt:message var="lblContainedInteractions" key="eform.renderIssue.containedInteractions"/>
 <fmt:message var="lblStabilizationCapped" key="eform.renderIssue.stabilizationCapped"/>
 <fmt:message var="lblLabDecisionSupportStubbed" key="eform.renderIssue.labDecisionSupportStubbed"/>
@@ -386,8 +387,17 @@
                             + "\n${carlos:forJavaScript(lblContainedInteractions)}: " + data.containedInteractions
                             + "\n${carlos:forJavaScript(lblStabilizationCapped)}: " + data.stabilizationCapped
                             + "\n${carlos:forJavaScript(lblLabDecisionSupportStubbed)}: " + data.labDecisionSupportStubbed;
+                        // PHI-safe per-error descriptions (script error type + source location only)
+                        // so the clinician can judge the errors before approving the override.
+                        let severeConsoleDetailText = "";
+                        if (Array.isArray(data.severeConsoleErrorDetails) && data.severeConsoleErrorDetails.length) {
+                            severeConsoleDetailText = "\n${carlos:forJavaScript(lblSevereConsoleErrorDetails)}:";
+                            data.severeConsoleErrorDetails.forEach(function (severeConsoleErrorDetail) {
+                                severeConsoleDetailText += "\n  \u2022 " + severeConsoleErrorDetail;
+                            });
+                        }
                         if (data.renderApproval
-                                && confirm(data.errorMessage + details + "\n\nApprove these issues and render?")) {
+                                && confirm(data.errorMessage + details + severeConsoleDetailText + "\n\nApprove these issues and render?")) {
                             getPdf(attachmentName, attachmentId, parameters
                                 + "&renderApproval=" + encodeURIComponent(data.renderApproval));
                         }
