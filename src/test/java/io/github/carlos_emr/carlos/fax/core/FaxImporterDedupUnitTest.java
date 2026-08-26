@@ -69,7 +69,7 @@ import org.openpdf.text.pdf.PdfWriter;
  * whose prior persisted rows prove the document already reached the EMR, and only retry
  * clearing the unread flag on the provider.</p>
  *
- * <p>Follows the setup pattern of {@link FaxImporterPollTest}: the importer is built via
+ * <p>Follows the setup pattern of {@link FaxImporterPollUnitTest}: the importer is built via
  * the package-visible test-seam constructor pointing at scratch directories, and
  * {@code initialize()} is invoked explicitly (in production it is {@code @PostConstruct}).</p>
  *
@@ -559,7 +559,7 @@ class FaxImporterDedupUnitTest extends CarlosUnitTestBase {
 
     /**
      * Creates a minimal single-page PDF (via OpenPDF, same technique as
-     * {@link FaxImporterCriticalGapsTest}) so saveToIncoming's validation passes.
+     * {@link FaxImporterCriticalGapsUnitTest}) so saveToIncoming's validation passes.
      */
     private byte[] createValidPdfBytes() throws Exception {
         File tempFile = File.createTempFile("test-dedup-fax-", ".pdf");

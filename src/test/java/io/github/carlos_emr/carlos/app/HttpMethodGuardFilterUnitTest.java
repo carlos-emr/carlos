@@ -461,7 +461,7 @@ class HttpMethodGuardFilterUnitTest {
         // (ViewAppointment2Action gate). The public JSP path returns 404 at the
         // servlet layer before this filter ever sees it, so the prior test was
         // exercising a dead URL. End-to-end coverage of the gated action path lives in
-        // ViewAppointment2ActionTest.
+        // ViewAppointment2ActionUnitTest.
 
         @Test
         @DisplayName("should block GET to PreventionManager.jsp with formAction=update")
