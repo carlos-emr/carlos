@@ -6,7 +6,9 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 
+import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 
 /**
  * Represents the result of an email status query in the OpenO EMR email system.
@@ -44,6 +46,11 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     private EmailStatus status;
     private String errorMessage;
     private Date created;
+    private EmailConsentStatus consentStatus;
+    private Integer consentId;
+    private Date consentLastUpdateDate;
+    private boolean consentOverride;
+    private String consentOverrideReason;
 
     /**
      * Default constructor for creating an empty EmailStatusResult instance.
@@ -383,6 +390,69 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      */
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    /** @return the consent state captured for the displayed send attempt */
+    public EmailConsentStatus getConsentStatus() {
+        return consentStatus;
+    }
+
+    /**
+     * Copies the persisted consent audit fields into this display result. The mutable consent date
+     * is defensively copied and absent fields remain {@code null} or empty.
+     *
+     * @param emailLog the persisted email log containing the consent snapshot
+     */
+    public void applyConsentSnapshot(EmailLog emailLog) {
+        this.consentStatus = emailLog.getConsentStatus();
+        this.consentId = emailLog.getConsentId();
+        this.consentLastUpdateDate = copyDate(emailLog.getConsentLastUpdateDate());
+        this.consentOverride = emailLog.getConsentOverride();
+        this.consentOverrideReason = emailLog.getConsentOverrideReason();
+    }
+
+    /** @return the source consent-record identifier, or {@code null} */
+    public Integer getConsentId() {
+        return consentId;
+    }
+
+    /** @return a defensive copy of the source consent record's update time */
+    public Date getConsentLastUpdateDate() {
+        return copyDate(consentLastUpdateDate);
+    }
+
+    /** @return whether a documented unknown-consent override permitted the send */
+    public boolean getConsentOverride() {
+        return consentOverride;
+    }
+
+    /** @return the recorded override reason, or {@code null} */
+    public String getConsentOverrideReason() {
+        return consentOverrideReason;
+    }
+
+    /** @return the resource-bundle key for the consent status, or an empty string */
+    public String getConsentMessageKey() {
+        EmailConsentStatus displayStatus = getConsentStatus();
+        return displayStatus != null ? displayStatus.getMessageKey() : "";
+    }
+
+    /**
+     * Formats the snapshotted consent update date as {@code yyyy-MM-dd}, or returns an empty string
+     * when the snapshot has no update date.
+     *
+     * @return the formatted consent update date
+     */
+    public String getConsentLastUpdateDisplay() {
+        Date lastUpdate = getConsentLastUpdateDate();
+        if (lastUpdate == null) {
+            return "";
+        }
+        return new SimpleDateFormat("yyyy-MM-dd").format(lastUpdate);
+    }
+
+    private static Date copyDate(Date date) {
+        return date != null ? new Date(date.getTime()) : null;
     }
 
     /**

@@ -575,7 +575,7 @@ function remoteEmail() {
         return;
     }
 
-    if (emailConsentStatus !== "Explicit Opt-In") {
+    if (emailConsentStatus !== "OPT_IN") {
         const userResponse = prompt("This patient has not explicitly opted-in: [" + emailConsentName + "]\nType 'Yes' to acknowledge you understand the risks before proceeding.", "No");
         if (userResponse === null || userResponse.toLowerCase() !== 'yes') {
             return;

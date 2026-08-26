@@ -17,9 +17,12 @@ non-general_ci session collation caused V1.0.7 to abort and an operator bypassed
 normal fail-fast CLI loop cannot reach V1.0.13 after that failure; use the
 [same-session V1.0.7 recovery procedure](../README.md#mariadb-cli-recovery-for-v107), then continue
 in version order.
+`V1.0.14` through `V1.0.16` widen and index fax job identifiers and add fax direction.
+`V1.0.17__add_email_consent_audit.sql` records the consent decision enforced for each
+provider-to-patient email attempt.
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
 next free number accounts for province deltas too. The highest version in use is the shared
-`V1.0.13`, so the next shared (or Ontario) version is `V1.0.14` (see `../README.md`).
+`V1.0.17`, so the next shared (or Ontario) version is `V1.0.18` (see `../README.md`).
