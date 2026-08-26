@@ -70,6 +70,7 @@ public class EmailSend2Action extends ActionSupport {
     private static final String PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED = "isEmailAttachmentEncrypted";
     private static final int MINIMUM_PDF_PASSWORD_LENGTH = 5;
     private static final int MAXIMUM_MESSAGE_LENGTH = 10_000;
+    private static final int MAXIMUM_CONSENT_OVERRIDE_REASON_LENGTH = 255;
 
     /**
      * Main execution method that routes to specific email handling methods based on the "method" request parameter.
@@ -215,7 +216,10 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("emailPatientChartOption", request.getParameter("patientChartOption"));
         request.setAttribute("internalComment", request.getParameter("internalComment"));
         request.setAttribute("emailAdditionalParams", request.getParameter("additionalURLParams"));
-        request.setAttribute("emailConsentStatus", request.getParameter("emailConsentStatus"));
+        String consentDisplayStatus = emailLog.getConsentStatus() != null
+                ? emailLog.getConsentStatus().getDisplayName()
+                : request.getParameter("emailConsentStatus");
+        request.setAttribute("emailConsentStatus", consentDisplayStatus);
         request.setAttribute("invalidReceiverEmailList", List.of());
 
         String[] recipients = request.getParameterValues("receiverEmailAddress");
@@ -284,6 +288,7 @@ public class EmailSend2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         validateMessageRequirement(request);
         validateEncryptionRequirements(request);
+        validateConsentOverrideReason(request);
         EmailData emailData = prepareEmailFields(request);
         EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
         if (emailLog.getStatus() == EmailStatus.SUCCESS) {
@@ -340,6 +345,21 @@ public class EmailSend2Action extends ActionSupport {
         if (passwordClue == null || passwordClue.trim().isEmpty()) {
             throw new EmailSendValidationException(
                     "A PDF password clue is required for encrypted email");
+        }
+    }
+
+    /**
+     * Rejects an audit reason that cannot be persisted in full before the send path consumes any
+     * compose state.
+     *
+     * @param request request containing the optional consent override reason
+     * @throws EmailSendValidationException when the reason exceeds the database column limit
+     */
+    private void validateConsentOverrideReason(HttpServletRequest request) {
+        String reason = request.getParameter("consentOverrideReason");
+        if (reason != null && reason.trim().length() > MAXIMUM_CONSENT_OVERRIDE_REASON_LENGTH) {
+            throw new EmailSendValidationException(
+                    "Consent override reason must not exceed 255 characters");
         }
     }
 

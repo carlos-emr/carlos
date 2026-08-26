@@ -39,6 +39,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.core.EmailData;
@@ -223,6 +224,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setParameter("transactionType", "DIRECT");
         request.setParameter("patientChartOption", "addFullNote");
         request.setParameter("demographicId", "42");
+        request.setParameter("emailConsentStatus", "Explicit Opt-In");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         EmailAttachment originalAttachment = new EmailAttachment(
@@ -234,6 +236,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         EmailLog emailLog = mock(EmailLog.class);
         EmailConfig emailConfig = mock(EmailConfig.class);
         when(emailLog.getStatus()).thenReturn(EmailStatus.FAILED);
+        when(emailLog.getConsentStatus()).thenReturn(EmailConsentStatus.OPT_OUT);
         when(emailLog.getEmailConfig()).thenReturn(emailConfig);
         when(emailLog.getFromEmail()).thenReturn("clinic@example.test");
         ArgumentCaptor<EmailData> sentEmail = ArgumentCaptor.forClass(EmailData.class);
@@ -254,6 +257,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
         assertThat(request.getAttribute("isEmailAttachmentEncrypted")).isEqualTo(true);
         assertThat(request.getAttribute("subjectEmail")).isEqualTo("Retry subject");
+        assertThat(request.getAttribute("emailConsentStatus")).isEqualTo("Explicit Opt-Out");
         assertThat(request.getAttribute("receiverEmailList"))
                 .isEqualTo(List.of("patient@example.test"));
         assertThat(request.getAttribute("senderAccounts")).isEqualTo(List.of(emailConfig));
@@ -331,6 +335,28 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         assertThat(response.getContentAsString()).contains("must not exceed 10000 characters");
+        verifyNoInteractions(emailManager);
+    }
+
+    @Test
+    @DisplayName("should reject overlong consent override reasons before sending")
+    void shouldRejectConsentOverrideReason_whenLongerThanAuditColumn() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
+        request.setParameter("method", "sendDirectEmail");
+        request.setParameter("message", "Message");
+        request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("consentOverrideReason", "a".repeat(256));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        action.response = response;
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getContentAsString()).contains("must not exceed 255 characters");
         verifyNoInteractions(emailManager);
     }
 
