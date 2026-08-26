@@ -107,17 +107,17 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+      - name: Configure hosted Android NDK
+        run: |
+          test -d "$ANDROID_NDK_LATEST_HOME"
+          echo "NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
       - name: Install pinned Rust toolchain and Android target
         run: >-
           rustup toolchain install 1.98.0 --profile minimal
           --target aarch64-linux-android
       - run: npm ci
       - run: npm run tauri android init -- --ci
-        env:
-          NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
       - run: npm run tauri android build -- --debug --apk --target aarch64 --ci
-        env:
-          NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
       - name: Report Android artifact sizes
         run: find src-tauri/gen/android -type f -name '*.apk' -printf '%p %k KB\n' | sort
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
