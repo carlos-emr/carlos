@@ -10,6 +10,8 @@ echo "[Bootstrap] Seeding initial database files..."
 export MYSQL_PWD="${MARIADB_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD:-password}}"
 mariadb -h db -u root oscar \
     < /workspace/.devcontainer/db/scripts/development_privileges.sql
+mariadb -h db -u root oscar \
+    < /workspace/.devcontainer/db/scripts/development_hrm_cleanup.sql
 
 # The runtime document volume masks directories created in the image. Recreate
 # the configured incoming-document root in that mounted volume so fresh
@@ -18,4 +20,12 @@ mkdir -p /var/lib/OscarDocument/oscar/incomingdocs
 
 # Seeding initial database files for documents
 cp -vn /db-data/documents/* /var/lib/OscarDocument/oscar/document/
+
+hrm_fixture_list=$(mktemp)
+trap 'rm -f "${hrm_fixture_list}"' EXIT
+mariadb -h db -u root --batch --skip-column-names oscar \
+    -e "SELECT reportFile FROM HRMDocument WHERE reportFile IS NOT NULL AND reportFile <> ''" \
+    > "${hrm_fixture_list}"
+sh /workspace/.devcontainer/development/setup/validate_hrm_fixtures.sh \
+    /var/lib/OscarDocument/oscar/document "${hrm_fixture_list}"
 echo "[Bootstrap] Finished copying documents."
