@@ -431,14 +431,10 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
         return consentOverrideReason;
     }
 
-    /**
-     * Returns the consent status label, or an empty string when no snapshot was recorded.
-     *
-     * @return the user-facing consent status
-     */
-    public String getConsentDisplayStatus() {
+    /** @return the resource-bundle key for the consent status, or an empty string */
+    public String getConsentMessageKey() {
         EmailConsentStatus displayStatus = getConsentStatus();
-        return displayStatus != null ? displayStatus.getDisplayName() : "";
+        return displayStatus != null ? displayStatus.getMessageKey() : "";
     }
 
     /**

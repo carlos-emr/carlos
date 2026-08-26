@@ -40,4 +40,16 @@ class EmailStatusResultUnitTest {
 
         assertThat(result.getConsentLastUpdateDate()).isEqualTo(new Date(1_000L));
     }
+
+    @Test
+    @DisplayName("should expose the consent message key from the audit snapshot")
+    void shouldExposeConsentMessageKey_whenSnapshotHasStatus() {
+        EmailLog emailLog = new EmailLog();
+        emailLog.setConsentStatus(EmailLog.EmailConsentStatus.OPT_OUT);
+        EmailStatusResult result = new EmailStatusResult();
+
+        result.applyConsentSnapshot(emailLog);
+
+        assertThat(result.getConsentMessageKey()).isEqualTo("email.consent.status.optOut");
+    }
 }

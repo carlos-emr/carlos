@@ -263,6 +263,7 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("transactionType", TransactionType.DIRECT);
         request.setAttribute("emailConsentName", emailConsent[0]);
         request.setAttribute("emailConsentStatus", emailConsent[1]);
+        request.setAttribute("emailConsentMessageKey", emailConsent[2]);
         request.setAttribute("receiverName", receiverName);
         request.setAttribute("receiverEmailList", receiverEmailList[0]);
         request.setAttribute("invalidReceiverEmailList", receiverEmailList[1]);

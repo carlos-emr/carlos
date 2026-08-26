@@ -224,7 +224,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setParameter("transactionType", "DIRECT");
         request.setParameter("patientChartOption", "addFullNote");
         request.setParameter("demographicId", "42");
-        request.setParameter("emailConsentStatus", "Explicit Opt-In");
+        request.setParameter("emailConsentStatus", "OPT_IN");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         EmailAttachment originalAttachment = new EmailAttachment(
@@ -257,7 +257,9 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
         assertThat(request.getAttribute("isEmailAttachmentEncrypted")).isEqualTo(true);
         assertThat(request.getAttribute("subjectEmail")).isEqualTo("Retry subject");
-        assertThat(request.getAttribute("emailConsentStatus")).isEqualTo("Explicit Opt-Out");
+        assertThat(request.getAttribute("emailConsentStatus")).isEqualTo("OPT_OUT");
+        assertThat(request.getAttribute("emailConsentMessageKey"))
+                .isEqualTo("email.consent.status.optOut");
         assertThat(request.getAttribute("receiverEmailList"))
                 .isEqualTo(List.of("patient@example.test"));
         assertThat(request.getAttribute("senderAccounts")).isEqualTo(List.of(emailConfig));

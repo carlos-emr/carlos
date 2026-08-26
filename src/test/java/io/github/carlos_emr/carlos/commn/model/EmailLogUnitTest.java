@@ -8,6 +8,9 @@ package io.github.carlos_emr.carlos.commn.model;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.ResourceBundle;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -35,5 +38,23 @@ class EmailLogUnitTest {
         returnedDate.setTime(3_000L);
 
         assertThat(emailLog.getConsentLastUpdateDate()).isEqualTo(new Date(1_000L));
+    }
+
+    @Test
+    @DisplayName("should localize every consent status in supported bundles")
+    void shouldLocalizeEveryConsentStatus_forSupportedBundles() {
+        List<Locale> supportedLocales = List.of(
+                Locale.ENGLISH,
+                Locale.FRENCH,
+                Locale.forLanguageTag("es"),
+                Locale.forLanguageTag("pl"),
+                Locale.forLanguageTag("pt-BR"));
+
+        for (Locale locale : supportedLocales) {
+            ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", locale);
+            for (EmailLog.EmailConsentStatus status : EmailLog.EmailConsentStatus.values()) {
+                assertThat(bundle.getString(status.getMessageKey())).isNotBlank();
+            }
+        }
     }
 }

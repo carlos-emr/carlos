@@ -44,4 +44,14 @@ class EmailComposeEncryptionStateJspRegressionTest {
         assertThat(applyState).isGreaterThan(domReady);
         assertThat(applyState).isLessThan(sendResultBranch);
     }
+
+    @Test
+    @DisplayName("should localize consent labels without using them as state")
+    void shouldLocalizeConsentLabel_withoutUsingLabelAsState() throws IOException {
+        String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("<fmt:message key=\"${emailConsentMessageKey}\"");
+        assertThat(jsp).contains("emailConsentStatus eq 'UNKNOWN'");
+        assertThat(jsp).doesNotContain("emailConsentStatus eq 'Unknown'");
+    }
 }

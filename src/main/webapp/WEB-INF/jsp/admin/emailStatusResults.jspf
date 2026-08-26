@@ -1,6 +1,8 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:if test="${not empty emailValidationError}">
 <div class="alert alert-danger mt-1" role="alert">${carlos:forHtml(emailValidationError)}</div>
 </c:if>
@@ -37,7 +39,9 @@
             <tr>
                 <th>Consent</th>
                 <td>
-                    ${carlos:forHtml(emailStatusResult.consentDisplayStatus)}
+                    <c:if test="${not empty emailStatusResult.consentMessageKey}">
+                        <fmt:message key="${emailStatusResult.consentMessageKey}"/>
+                    </c:if>
                     <c:if test="${not empty emailStatusResult.consentId}">
                         (consent #${carlos:forHtml(emailStatusResult.consentId)}<c:if test="${not empty emailStatusResult.consentLastUpdateDisplay}">, as of ${carlos:forHtml(emailStatusResult.consentLastUpdateDisplay)}</c:if>)
                     </c:if>

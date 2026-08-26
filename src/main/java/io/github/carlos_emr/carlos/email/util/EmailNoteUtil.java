@@ -8,6 +8,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.ResourceBundle;
 
 import io.github.carlos_emr.carlos.casemgmt.model.ProviderExt;
 import io.github.carlos_emr.carlos.commn.dao.ProviderExtDao;
@@ -301,7 +302,8 @@ public class EmailNoteUtil {
             return "Not recorded";
         }
         StringBuilder consentLine = new StringBuilder();
-        consentLine.append(emailLog.getConsentStatus().getDisplayName());
+        consentLine.append(ResourceBundle.getBundle("oscarResources", Locale.ENGLISH)
+                .getString(emailLog.getConsentStatus().getMessageKey()));
         if (emailLog.getConsentId() != null) {
             consentLine.append(" (consent #").append(emailLog.getConsentId());
             if (emailLog.getConsentLastUpdateDate() != null) {

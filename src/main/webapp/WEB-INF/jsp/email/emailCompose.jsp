@@ -72,6 +72,9 @@
     <fmt:message key="email.compose.label.consentOverride" var="emailComposeConsentOverrideLabel"/>
     <fmt:message key="email.compose.label.consentOverrideReason" var="emailComposeConsentOverrideReasonLabel"/>
     <fmt:message key="email.compose.msg.consentOverrideReasonRequired" var="emailComposeConsentOverrideReasonRequired"/>
+    <c:if test="${not empty emailConsentMessageKey}">
+        <fmt:message key="${emailConsentMessageKey}" var="emailConsentStatusLabel"/>
+    </c:if>
     <fmt:message key="email.compose.state.on" var="emailComposeStateOn"/>
     <fmt:message key="email.compose.state.off" var="emailComposeStateOff"/>
 
@@ -310,9 +313,9 @@
                                 </div>
                             </div>
                             <div class="card-footer">
-                                <span class="fa-solid fa-triangle-exclamation"></span> ${carlos:forHtml(emailConsentName)}: <b>${carlos:forHtml(emailConsentStatus)}</b>
+                                <span class="fa-solid fa-triangle-exclamation"></span> ${carlos:forHtml(emailConsentName)}: <b>${emailConsentStatusLabel}</b>
                                 <input type="hidden" name="emailConsentStatus" value="${carlos:forHtmlAttribute(emailConsentStatus)}"/>
-                                <c:if test="${emailConsentStatus eq 'Unknown'}">
+                                <c:if test="${emailConsentStatus eq 'UNKNOWN'}">
                                     <div class="form-check mt-2">
                                         <input class="form-check-input" type="checkbox" name="consentOverride" id="consentOverride" value="true"/>
                                         <label class="form-check-label" for="consentOverride">${emailComposeConsentOverrideLabel}</label>

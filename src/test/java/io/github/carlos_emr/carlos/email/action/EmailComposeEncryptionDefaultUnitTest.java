@@ -90,7 +90,7 @@ class EmailComposeEncryptionDefaultUnitTest extends CarlosUnitTestBase {
         request.getSession(false).setAttribute("encryptedMessageEmail", encryptedMessageEmail);
 
         when(emailComposeManager.getEmailConsentStatus(any(), anyInt()))
-                .thenReturn(new String[]{"Consent", "Yes"});
+                .thenReturn(new String[]{"Consent", "OPT_IN", "email.consent.status.optIn"});
         when(demographicManager.getDemographicFormattedName(any(), anyInt()))
                 .thenReturn("Patient One");
         when(emailComposeManager.getRecipients(any(), anyInt()))

@@ -163,7 +163,8 @@ public class EmailCompose2Action extends ActionSupport {
      * <ul>
      *   <li>transactionType (TransactionType) - set to EFORM for transaction logging</li>
      *   <li>emailConsentName (String) - patient consent form name</li>
-     *   <li>emailConsentStatus (String) - patient email consent status (Yes/No)</li>
+     *   <li>emailConsentStatus (String) - stable patient email-consent state code</li>
+     *   <li>emailConsentMessageKey (String) - resource key for the localized state label</li>
      *   <li>receiverName (String) - formatted patient name for display</li>
      *   <li>receiverEmailList (List) - list of valid recipient email addresses</li>
      *   <li>invalidReceiverEmailList (List) - list of invalid email addresses</li>
@@ -274,6 +275,7 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("transactionType", TransactionType.EFORM);
         request.setAttribute("emailConsentName", emailConsent[0]);
         request.setAttribute("emailConsentStatus", emailConsent[1]);
+        request.setAttribute("emailConsentMessageKey", emailConsent[2]);
         request.setAttribute("receiverName", receiverName);
         request.setAttribute("receiverEmailList", receiverEmailList[0]);
         request.setAttribute("invalidReceiverEmailList", receiverEmailList[1]);

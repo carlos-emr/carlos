@@ -67,23 +67,23 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      */
     public enum EmailConsentStatus {
         /** Patient has explicitly opted in to email communication */
-        OPT_IN("Explicit Opt-In"),
+        OPT_IN("email.consent.status.optIn"),
         /** Patient has explicitly opted out of email communication */
-        OPT_OUT("Explicit Opt-Out"),
+        OPT_OUT("email.consent.status.optOut"),
         /** Consent tracking is configured but no consent row exists */
-        UNKNOWN("Unknown"),
+        UNKNOWN("email.consent.status.unknown"),
         /** Email consent tracking is not configured with an active consent type */
-        NOT_CONFIGURED("Not Configured");
+        NOT_CONFIGURED("email.consent.status.notConfigured");
 
-        private final String displayName;
+        private final String messageKey;
 
-        EmailConsentStatus(String displayName) {
-            this.displayName = displayName;
+        EmailConsentStatus(String messageKey) {
+            this.messageKey = messageKey;
         }
 
-        /** @return the user-facing label for this consent state */
-        public String getDisplayName() {
-            return displayName;
+        /** @return the resource-bundle key for the user-facing consent-state label */
+        public String getMessageKey() {
+            return messageKey;
         }
     }
 

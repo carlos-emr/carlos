@@ -37,4 +37,23 @@ class EmailConsentResultUnitTest {
 
         assertThat(result.getConsentLastUpdateDate()).isEqualTo(new Date(1_000L));
     }
+
+    @Test
+    @DisplayName("should expose stable status and message keys")
+    void shouldExposeStableKeys_whenStatusIsResolved() {
+        EmailConsentResult result = new EmailConsentResult(
+                "Email", EmailConsentStatus.OPT_IN, 1, null);
+
+        assertThat(result.getStatusCode()).isEqualTo("OPT_IN");
+        assertThat(result.getMessageKey()).isEqualTo("email.consent.status.optIn");
+    }
+
+    @Test
+    @DisplayName("should fall back to unknown keys when status is absent")
+    void shouldFallBackToUnknownKeys_whenStatusIsAbsent() {
+        EmailConsentResult result = new EmailConsentResult("Email", null, null, null);
+
+        assertThat(result.getStatusCode()).isEqualTo("UNKNOWN");
+        assertThat(result.getMessageKey()).isEqualTo("email.consent.status.unknown");
+    }
 }

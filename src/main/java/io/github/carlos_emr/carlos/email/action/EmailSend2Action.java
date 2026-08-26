@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
@@ -216,10 +217,11 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("emailPatientChartOption", request.getParameter("patientChartOption"));
         request.setAttribute("internalComment", request.getParameter("internalComment"));
         request.setAttribute("emailAdditionalParams", request.getParameter("additionalURLParams"));
-        String consentDisplayStatus = emailLog.getConsentStatus() != null
-                ? emailLog.getConsentStatus().getDisplayName()
-                : request.getParameter("emailConsentStatus");
-        request.setAttribute("emailConsentStatus", consentDisplayStatus);
+        EmailConsentStatus consentStatus = emailLog.getConsentStatus() != null
+                ? emailLog.getConsentStatus()
+                : parseConsentStatus(request.getParameter("emailConsentStatus"));
+        request.setAttribute("emailConsentStatus", consentStatus.name());
+        request.setAttribute("emailConsentMessageKey", consentStatus.getMessageKey());
         request.setAttribute("invalidReceiverEmailList", List.of());
 
         String[] recipients = request.getParameterValues("receiverEmailAddress");
@@ -233,6 +235,14 @@ public class EmailSend2Action extends ActionSupport {
         }
         if (emailLog.getDemographic() != null) {
             request.setAttribute("receiverName", emailLog.getDemographic().getFormattedName());
+        }
+    }
+
+    private EmailConsentStatus parseConsentStatus(String statusCode) {
+        try {
+            return EmailConsentStatus.valueOf(statusCode);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return EmailConsentStatus.UNKNOWN;
         }
     }
 

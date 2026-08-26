@@ -276,12 +276,13 @@ public class EmailComposeManager {
      * Retrieves the email communication consent status for a patient.
      *
      * This method checks the patient's consent status for email communications based on the configured
-     * consent type in user properties. Returns a two-element array containing the consent type name
-     * and the consent status (Unknown, Explicit Opt-In, or Explicit Opt-Out).
+     * consent type in user properties. Returns the consent type name, stable status code, and
+     * resource-bundle key used to localize the status at the view boundary.
      *
      * @param loggedInInfo LoggedInInfo the current logged-in user session information
      * @param demographicId Integer the patient demographic ID to check consent for
-     * @return String[] array with two elements: [0] consent type name, [1] consent status description
+     * @return String[] array with three elements: [0] consent type name, [1] status code,
+     *         [2] status message key
      * @throws RuntimeException if the user lacks the required _email READ privilege
      */
     public String[] getEmailConsentStatus(LoggedInInfo loggedInInfo, Integer demographicId) {
@@ -290,7 +291,7 @@ public class EmailComposeManager {
         }
 
         EmailConsentResult consent = emailConsentResolver.resolve(loggedInInfo, demographicId);
-        return new String[]{consent.getConsentName(), consent.getDisplayStatus()};
+        return new String[]{consent.getConsentName(), consent.getStatusCode(), consent.getMessageKey()};
     }
 
     /**

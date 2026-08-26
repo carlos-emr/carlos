@@ -50,14 +50,18 @@ public class EmailConsentResult {
         return copyDate(consentLastUpdateDate);
     }
 
-    /**
-     * Returns a user-facing consent status, falling back to the {@code UNKNOWN} display name when
-     * this result has no status.
-     *
-     * @return the display status
-     */
-    public String getDisplayStatus() {
-        return status != null ? status.getDisplayName() : EmailConsentStatus.UNKNOWN.getDisplayName();
+    /** @return the stable consent-state code, falling back to {@code UNKNOWN} */
+    public String getStatusCode() {
+        return getStatusOrUnknown().name();
+    }
+
+    /** @return the resource-bundle key for the consent-state label */
+    public String getMessageKey() {
+        return getStatusOrUnknown().getMessageKey();
+    }
+
+    private EmailConsentStatus getStatusOrUnknown() {
+        return status != null ? status : EmailConsentStatus.UNKNOWN;
     }
 
     private static Date copyDate(Date date) {
