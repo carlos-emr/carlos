@@ -11,8 +11,9 @@ services:
       context: ./development
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
-      - "18000:8000"
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8443:8443"
+      - "127.0.0.1:18000:8000"
     volumes:
       - m2-volume:/root/.m2
       - gemini-config:/root/.gemini
