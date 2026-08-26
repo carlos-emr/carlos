@@ -345,16 +345,6 @@ override_dh_makeshlibs:
 # Enable the units but leave starting to the maintainer script: carlos-emr
 # cannot start before postinst has provisioned the database and rendered
 # /etc/carlos-emr/carlos.properties.
-# Pin tmpfiles removal behaviour BEFORE anyone bumps debhelper-compat. At compat
-# 14 dh_installtmpfiles starts generating a purge snippet that would run
-# systemd-tmpfiles --purge over debian/carlos-emr.tmpfiles on purge -- which
-# lists /var/lib/carlos-emr/OscarDocument (the patient document store) and
-# /var/backups/carlos-emr. carlos-emr.postrm exists specifically to guarantee
-# neither is ever deleted by package removal; this keeps that true across a
-# compat bump instead of relying on nobody making one.
-override_dh_installtmpfiles:
-	dh_installtmpfiles --no-purge --no-remove
-
 override_dh_installsystemd:
 	dh_installsystemd --no-start --name=carlos-emr
 	dh_installsystemd --no-start --name=carlos-emr-backup
