@@ -290,11 +290,25 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Retrieves a patient's non-deleted appointment history with available billing details.
+     *
+     * <p>Because {@code demographicNo} is a required path segment, omitting it does not
+     * dispatch to this method and the JAX-RS router returns HTTP 404. The handler retains
+     * defensive validation for direct calls and rejects non-positive identifiers with HTTP 400.
+     *
+     * @param demographicNo demographic whose appointment history is requested
+     * @return scheduling response containing appointments, enriched with billing details when present
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} reaches the handler
+     * as null or non-positive, or HTTP 403 when appointment read access is denied
+     * @since 2026-01-24
+     */
     @POST
     @Path("/{demographicNo}/appointmentHistory")
     @Consumes("application/json")
     @Produces("application/json")
     public SchedulingResponse findExistAppointments(@PathParam("demographicNo") Integer demographicNo) {
+        requireAppointmentReadPrivilege(demographicNo);
         SchedulingResponse response = new SchedulingResponse();
         List<AppointmentTo1> appts = getAppointmentHistoryWithoutDeleted(demographicNo);
 
@@ -308,6 +322,30 @@ public class ScheduleService extends AbstractServiceImpl {
 
         response.setAppointments(appts);
         return response;
+    }
+
+    /**
+     * Enforces patient-level read access to appointment data for the given demographic.
+     *
+     * <p>Guards the appointment-history endpoint so its appointment and billing detail
+     * cannot be read for another patient by altering the {@code demographicNo} in the URL.
+     *
+     * @param demographicNo the demographic whose appointment data is being requested.
+     * @throws WebApplicationException with HTTP 400 when {@code demographicNo} is missing or
+     * non-positive, or HTTP 403 when the current user lacks {@code _appointment} read access
+     */
+    private void requireAppointmentReadPrivilege(Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("demographicNo is required").build());
+        }
+        if (demographicNo <= 0) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("demographicNo must be positive").build());
+        }
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "r", demographicNo)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
     }
 
     private Map<Integer, BillingDetailTo1> getAppointmentIdToBillingDetailMap(Integer demographicNo) {
