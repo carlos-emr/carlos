@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -156,7 +157,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setParameter("emailPDFPassword", "valid-password");
         request.setParameter("emailPDFPasswordClue", "Known to the patient");
         List<EmailAttachment> attachments = List.of(mock(EmailAttachment.class));
-        request.getSession().setAttribute("emailAttachmentList", attachments);
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, attachments);
         when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
 
         EmailSend2Action action = spy(new EmailSend2Action());
@@ -166,7 +167,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-        assertThat(request.getSession().getAttribute("emailAttachmentList")).isSameAs(attachments);
+        assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST))
+                .isSameAs(attachments);
         verifyNoInteractions(emailManager);
     }
 
@@ -231,7 +233,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
                 "result.pdf", "/tmp/original-result.pdf", DocumentType.DOC, 7, 123L);
         originalAttachment.setPreviewToken("preview-token");
         List<EmailAttachment> originalAttachments = List.of(originalAttachment);
-        request.getSession().setAttribute("emailAttachmentList", originalAttachments);
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, originalAttachments);
 
         EmailLog emailLog = mock(EmailLog.class);
         EmailConfig emailConfig = mock(EmailConfig.class);
@@ -263,7 +265,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("receiverEmailList"))
                 .isEqualTo(List.of("patient@example.test"));
         assertThat(request.getAttribute("senderAccounts")).isEqualTo(List.of(emailConfig));
-        assertThat(request.getSession().getAttribute("emailAttachmentList")).isSameAs(originalAttachments);
+        assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST))
+                .isSameAs(originalAttachments);
         assertThat(originalAttachment.getFilePath()).isEqualTo("/tmp/original-result.pdf");
         assertThat(sentEmail.getValue().getAttachments().get(0)).isNotSameAs(originalAttachment);
     }
@@ -302,7 +305,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = encryptedSendRequest();
         request.setParameter("emailPDFPassword", "valid-password");
         request.setParameter("emailPDFPasswordClue", "Known to the patient");
-        request.getSession().setAttribute("emailAttachmentList", List.of(
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, List.of(
                 new EmailAttachment("result.pdf", "/tmp/result.pdf", DocumentType.DOC, 7)));
 
         EmailLog emailLog = mock(EmailLog.class);
@@ -316,7 +319,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         action.sendDirectEmail();
 
-        assertThat(request.getSession().getAttribute("emailAttachmentList")).isNull();
+        assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST)).isNull();
     }
 
     @Test
@@ -369,7 +372,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setMethod("POST");
         request.setParameter("method", "sendDirectEmail");
         List<EmailAttachment> attachments = List.of(mock(EmailAttachment.class));
-        request.getSession().setAttribute("emailAttachmentList", attachments);
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, attachments);
         when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
 
         EmailSend2Action action = spy(new EmailSend2Action());
@@ -380,7 +383,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-        assertThat(request.getSession().getAttribute("emailAttachmentList")).isSameAs(attachments);
+        assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST))
+                .isSameAs(attachments);
         verifyNoInteractions(emailManager);
     }
 

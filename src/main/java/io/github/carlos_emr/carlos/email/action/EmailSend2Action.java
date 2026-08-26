@@ -14,6 +14,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -266,8 +267,11 @@ public class EmailSend2Action extends ActionSupport {
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String cancel() {
-        EmailData emailData = prepareEmailFields(request);
-        request.getSession().removeAttribute("emailAttachmentList");
+        EmailData emailData = new EmailData();
+        emailData.setTransactionType(request.getParameter("transactionType"));
+        if ("POST".equals(request.getMethod())) {
+            request.getSession().removeAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST);
+        }
         String emailRedirect = emailData.getTransactionType().name();
         if (emailData.getTransactionType().equals(EmailLog.TransactionType.EFORM)) {
             try {
@@ -302,7 +306,7 @@ public class EmailSend2Action extends ActionSupport {
         EmailData emailData = prepareEmailFields(request);
         EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
         if (emailLog.getStatus() == EmailStatus.SUCCESS) {
-            request.getSession().removeAttribute("emailAttachmentList");
+            request.getSession().removeAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST);
         }
         return emailLog;
     }
@@ -436,7 +440,8 @@ public class EmailSend2Action extends ActionSupport {
         String additionalParams = request.getParameter("additionalURLParams");
         String consentOverride = request.getParameter("consentOverride");
         String consentOverrideReason = request.getParameter("consentOverrideReason");
-        List<EmailAttachment> emailAttachmentList = (List<EmailAttachment>) request.getSession().getAttribute("emailAttachmentList");
+        List<EmailAttachment> emailAttachmentList = (List<EmailAttachment>) request.getSession()
+                .getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST);
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
