@@ -28,6 +28,9 @@ import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Set;
+import java.util.Objects;
+import java.util.Collection;
 
 /**
  * JPA DAO implementation for durable outbound email archive records.
@@ -51,6 +54,26 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
     }
 
     @Override
+    public OutboundEmailArchive findForRead(Integer archiveId) {
+        if (archiveId == null) {
+            return null;
+        }
+        // Single text block rather than concatenated literals: the repo's SQL-safety hook treats
+        // any '+' inside createQuery(...) as an injection risk, and a constant-only concatenation
+        // is not worth an exception to that rule.
+        TypedQuery<OutboundEmailArchive> query = entityManager.createQuery("""
+                SELECT archive FROM OutboundEmailArchive archive
+                LEFT JOIN FETCH archive.demographic
+                LEFT JOIN FETCH archive.document
+                WHERE archive.id = :archiveId
+                """,
+                OutboundEmailArchive.class);
+        query.setParameter("archiveId", archiveId);
+        List<OutboundEmailArchive> rows = query.getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Override
     public OutboundEmailArchive findForUpdate(Integer archiveId) {
         if (archiveId == null) {
             return null;
@@ -61,6 +84,72 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
         query.setParameter(1, archiveId);
         List<OutboundEmailArchive> rows = query.getResultList();
         return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Override
+    public boolean existsByDocumentNo(Integer documentNo) {
+        if (documentNo == null) {
+            return false;
+        }
+        // Matches the archive's own artifact document OR any attachment's document: both are
+        // eDocs on the patient file, and both are equally part of the record of what was sent.
+        TypedQuery<Long> query = entityManager.createQuery("""
+                SELECT COUNT(archive) FROM OutboundEmailArchive archive
+                WHERE archive.document.documentNo = :documentNo
+                   OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment
+                              WHERE attachment.archive = archive
+                                AND attachment.document.documentNo = :documentNo)
+                """,
+                Long.class);
+        query.setParameter("documentNo", documentNo);
+        return query.getSingleResult() > 0L;
+    }
+
+    @Override
+    public Set<Integer> findExistingDocumentNos(Collection<Integer> documentNos) {
+        if (documentNos == null || documentNos.isEmpty()) {
+            return Set.of();
+        }
+        List<Integer> candidates = documentNos.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (candidates.isEmpty()) {
+            return Set.of();
+        }
+        TypedQuery<Integer> query = entityManager.createQuery("""
+                SELECT DISTINCT document.documentNo FROM Document document
+                WHERE document.documentNo IN :documentNos
+                  AND (EXISTS (SELECT archive.id FROM OutboundEmailArchive archive
+                               WHERE archive.document = document)
+                    OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment
+                               WHERE attachment.document = document))
+                """,
+                Integer.class);
+        query.setParameter("documentNos", candidates);
+        return Set.copyOf(query.getResultList());
+    }
+
+    @Override
+    public boolean existsByFileName(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            return false;
+        }
+        // Filename-only eDoc routes receive Document.docfilename (the generated stored basename).
+        // Do not match attachment.fileName here: it is a sender-facing display name, is not unique,
+        // and may not name a stored eDoc at all. Matching it would let one attachment called
+        // "referral.pdf" globally block unrelated legacy eDocs with that basename.
+        TypedQuery<Long> query = entityManager.createQuery("""
+                SELECT COUNT(archive) FROM OutboundEmailArchive archive
+                WHERE archive.fileName = :fileName
+                   OR archive.document.docfilename = :fileName
+                   OR EXISTS (SELECT attachment.id FROM OutboundEmailArchiveAttachment attachment
+                              WHERE attachment.archive = archive
+                                AND attachment.document.docfilename = :fileName)
+                """,
+                Long.class);
+        query.setParameter("fileName", fileName);
+        return query.getSingleResult() > 0L;
     }
 
     @Override

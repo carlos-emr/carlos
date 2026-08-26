@@ -57,6 +57,50 @@ public interface OutboundEmailArchiveService {
     OutboundEmailArchive archive(LoggedInInfo loggedInInfo, OutboundEmailArchiveDto request) throws IOException;
 
     /**
+     * Returns an archive's metadata for an authorized caller, refusing deleted archives.
+     *
+     * <p>Metadata only. The stored artifact is read through
+     * {@link #readArchivedArtifact(LoggedInInfo, Integer)}, which additionally verifies the
+     * bytes against the recorded size and hash.</p>
+     *
+     * <p>Access is audited: a successful read records who looked at which archive, because the
+     * archive holds retained patient email.</p>
+     *
+     * @param loggedInInfo current user context
+     * @param archiveId persisted archive identifier
+     * @return the archive, with its demographic and document hydrated
+     * @throws IllegalArgumentException when the identifier is null or names no archive
+     * @throws IllegalStateException when the archive, or the eDoc behind it, has been deleted
+     * @throws SecurityException when the caller lacks {@code _edoc r} or access to the patient
+     * @since 2026-08-19
+     */
+    OutboundEmailArchive getActiveArchive(LoggedInInfo loggedInInfo, Integer archiveId);
+
+    /**
+     * Reads a stored archive artifact, verifying it still matches what was archived.
+     *
+     * <p>The archive is the record of what was actually sent to a patient, so bytes that no
+     * longer match the recorded size and SHA-256 are treated as a security event rather than a
+     * read error: the mismatch is audited before the failure propagates. Callers get an
+     * {@link IOException} and no bytes, never partially-verified content.</p>
+     *
+     * <p>The row is read under a write lock so the archive cannot transition to its logically
+     * deleted state between authorization and completion of the read. Controlled deletion
+     * deliberately retains the stored bytes.</p>
+     *
+     * @param loggedInInfo current user context
+     * @param archiveId persisted archive identifier
+     * @return the verified artifact bytes
+     * @throws IllegalArgumentException when the identifier is null or names no archive
+     * @throws IllegalStateException when the archive, or the eDoc behind it, has been deleted
+     * @throws SecurityException when the caller lacks {@code _edoc r} or access to the patient
+     * @throws IOException when metadata is missing, the file is absent or unreadable, or the
+     *         bytes do not match the recorded size or hash
+     * @since 2026-08-19
+     */
+    byte[] readArchivedArtifact(LoggedInInfo loggedInInfo, Integer archiveId) throws IOException;
+
+    /**
      * Marks an archive as deleted and persists a permanent tombstone.
      *
      * <p><b>This is a logical retire, not an erasure, and that is deliberate.</b> An
@@ -68,10 +112,10 @@ public interface OutboundEmailArchiveService {
      * and it does <em>not</em> unlink the stored artifact from {@code DOCUMENT_DIR} —
      * the bytes remain verifiable against the tombstone hash.</p>
      *
-     * <p>Consequences a caller must plan for: the archived artifact stays visible in
-     * the patient's document browser, and this workflow alone does not satisfy a
-     * patient erasure request. Suppressing retired archives from the eDoc view, and any
-     * genuine purge path, belong to the archive UI work and must keep the tombstone.</p>
+     * <p>Consequences a caller must plan for: the archived artifact is suppressed from the
+     * ordinary eDoc views but its row and bytes remain retained, so this workflow alone does
+     * not satisfy a patient erasure request. Any genuine purge path must preserve the
+     * tombstone.</p>
      *
      * <p>Requires {@code _admin.edocdelete w}. Plain {@code _edoc w} is deliberately
      * not sufficient: that is the same right needed to create an archive, so accepting

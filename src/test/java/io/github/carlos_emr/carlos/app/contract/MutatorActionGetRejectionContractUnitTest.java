@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
@@ -419,16 +420,26 @@ class MutatorActionGetRejectionContractUnitTest {
                 Map.of("method", method));
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"GET", "HEAD"})
-    @DisplayName("ManageDocument2Action should reject unsafe methods for addIncomingDocument")
-    void shouldRejectUnsafeMethod_forManageDocumentAddIncomingDocumentDispatch(String httpMethod) throws Exception {
+    @ParameterizedTest(name = "{0} rejects {1}")
+    @CsvSource({
+        "GET, addIncomingDocument",
+        "HEAD, addIncomingDocument",
+        "GET, documentUpdate",
+        "HEAD, documentUpdate",
+        "GET, documentUpdateAjax",
+        "HEAD, documentUpdateAjax",
+        "GET, removeLinkFromDocument",
+        "HEAD, removeLinkFromDocument"
+    })
+    @DisplayName("ManageDocument2Action mutation dispatches should reject unsafe methods")
+    void shouldRejectUnsafeMethod_forManageDocumentMutationDispatch(
+            String httpMethod, String actionMethod) throws Exception {
         assertRejectsUnsafeMethod(
                 "io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action",
                 "_edoc",
                 "w",
                 httpMethod,
-                Map.of("method", "addIncomingDocument"));
+                Map.of("method", actionMethod));
     }
 
     private static void assertRejectsUnsafeMethod(
