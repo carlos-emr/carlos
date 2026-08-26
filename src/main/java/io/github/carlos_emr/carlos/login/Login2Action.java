@@ -631,7 +631,8 @@ public final class Login2Action extends ActionSupport {
                 return beginPendingMfaChallenge(strAuth, security, ip);
             }
 
-            return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
+            return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse,
+                    cl::upgradeValidatedPinIfNeeded);
 
         }
         // Authentication failure handling.
@@ -887,7 +888,8 @@ public final class Login2Action extends ActionSupport {
         // Success audit follows registration persistence so operators do not see a false success row
         // when the OTP was correct but the new secret could not be stored.
         LogAction.addLog(security.getProviderNo(), "login", "mfa_success", "mfa", ip);
-        return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
+        return completeAuthenticatedLogin(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse,
+                null);
     }
 
     /**
@@ -1096,7 +1098,7 @@ public final class Login2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     private String completeAuthenticatedLogin(Security security, String[] strAuth, String ip,
                                               boolean isMobileOptimized, String submitType,
-                                              boolean ajaxResponse) throws IOException {
+                                              boolean ajaxResponse, Runnable deferredPinUpgrade) throws IOException {
         HttpSession session = request.getSession(false);
         Map<String, String> oauthAuthorizationNonces =
                 OAuthAuthorizationSessionState.snapshotNonces(session);
@@ -1212,6 +1214,7 @@ public final class Login2Action extends ActionSupport {
             String newURL = request.getContextPath() + facilityPath + SafeEncode.forUriComponent(where);
 
             response.sendRedirect(newURL);
+            runDeferredPinUpgrade(deferredPinUpgrade);
             return NONE;
         } else if (facilityIds.size() == 1) {
             Facility facility = facilityDao.find(facilityIds.get(0));
@@ -1235,25 +1238,37 @@ public final class Login2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
         LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
 
-        String oauthBindingResult = bindOauthTokenForAuthenticatedSession(provider, ajaxResponse, where, providerNo, ip);
+        String oauthBindingResult = bindOauthTokenForAuthenticatedSession(provider, ajaxResponse, where, providerNo, ip,
+                deferredPinUpgrade);
         if (oauthBindingResult != null) {
             return oauthBindingResult;
         }
 
         if (UserRoleUtils.hasRole(request, "Patient Intake")) {
+            runDeferredPinUpgrade(deferredPinUpgrade);
             return "patientIntake";
         }
 
         if ("provider".equals(where)) {
             response.sendRedirect(buildDefaultProviderSchedulePath());
+            runDeferredPinUpgrade(deferredPinUpgrade);
             return NONE;
         }
 
-        return buildPostAuthenticationResponse(provider, ajaxResponse, where);
+        String postAuthenticationResult = buildPostAuthenticationResponse(provider, ajaxResponse, where);
+        runDeferredPinUpgrade(deferredPinUpgrade);
+        return postAuthenticationResult;
+    }
+
+    private void runDeferredPinUpgrade(Runnable deferredPinUpgrade) {
+        if (deferredPinUpgrade != null) {
+            deferredPinUpgrade.run();
+        }
     }
 
     private String bindOauthTokenForAuthenticatedSession(Provider provider, boolean ajaxResponse,
-                                                        String where, String providerNo, String ip)
+                                                        String where, String providerNo, String ip,
+                                                        Runnable deferredPinUpgrade)
             throws IOException {
         String oauthToken = request.getParameter("oauth_token");
         if (oauthToken == null) {
@@ -1263,7 +1278,9 @@ public final class Login2Action extends ActionSupport {
             logger.warn("Rejected malformed oauth_token during login completion: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(providerNo), LogSafe.sanitize(ip));
             LogAction.addLog(providerNo, LogConst.LOGIN, LogConst.CON_LOGIN, "invalid_oauth_token", ip);
-            return buildPostAuthenticationResponse(provider, ajaxResponse, where);
+            String postAuthenticationResult = buildPostAuthenticationResponse(provider, ajaxResponse, where);
+            runDeferredPinUpgrade(deferredPinUpgrade);
+            return postAuthenticationResult;
         }
         logger.debug("checking oauth_token");
         ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(oauthToken);
