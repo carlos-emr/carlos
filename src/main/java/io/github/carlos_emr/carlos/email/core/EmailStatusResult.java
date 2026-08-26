@@ -169,7 +169,7 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      * @return String the formatted sender's full name
      */
     public String getSenderFullName() {
-        return toCamelCase(senderFirstName) + " " + toCamelCase(senderLastName);
+        return formatFullName(senderFirstName, senderLastName);
     }
 
     /**
@@ -243,7 +243,7 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      * @return String the formatted recipient's full name
      */
     public String getRecipientFullName() {
-        return toCamelCase(recipientFirstName) + " " + toCamelCase(recipientLastName);
+        return formatFullName(recipientFirstName, recipientLastName);
     }
 
     /**
@@ -474,18 +474,39 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     }
 
     /**
-     * Converts a string to Title Case format (first letter uppercase, rest lowercase).
+     * Formats first and last name parts as a display name.
      *
-     * <p><strong>Note:</strong> Despite the method name, this produces Title Case
-     * (e.g., "Firstname") rather than true camelCase (e.g., "firstName"). This is
-     * the expected behavior for formatting person names in this class.</p>
-     *
-     * @param inputString String the input string to convert
-     * @return String the Title Case formatted string
-     * @throws NullPointerException if inputString is null
-     * @throws StringIndexOutOfBoundsException if inputString is empty
+     * @param firstName String the first name part to format
+     * @param lastName String the last name part to format
+     * @return String the formatted full name
      */
+    private String formatFullName(String firstName, String lastName) {
+        String formattedFirstName = toCamelCase(firstName);
+        String formattedLastName = toCamelCase(lastName);
+        if (formattedFirstName.isEmpty()) {
+            return formattedLastName;
+        }
+        if (formattedLastName.isEmpty()) {
+            return formattedFirstName;
+        }
+        return formattedFirstName + " " + formattedLastName;
+    }
+
     private String toCamelCase(String inputString) {
+        if (inputString == null || inputString.isEmpty()) {
+            return "";
+        }
+        if (inputString.startsWith("(") && inputString.endsWith(")")) {
+            return inputString;
+        }
+        int aliasStart = inputString.indexOf(" (");
+        if (aliasStart > 0 && inputString.endsWith(")")) {
+            return toCamelCaseName(inputString.substring(0, aliasStart)) + inputString.substring(aliasStart);
+        }
+        return toCamelCaseName(inputString);
+    }
+
+    private String toCamelCaseName(String inputString) {
         return Character.toUpperCase(inputString.charAt(0)) + inputString.substring(1).toLowerCase();
     }
 
