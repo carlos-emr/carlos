@@ -46,6 +46,19 @@
             <AppenderRef ref="WafFile"/>
             <AppenderRef ref="Console"/>
         </Logger>
+        <!-- The eForm render browser reports its startup probe at INFO ("eForm browser
+             renderer startup check passed.") and its failures at WARN. The root logger
+             defaults to ERROR, so at default verbosity BOTH were invisible: a healthy
+             renderer said nothing, and a broken one showed only the low-level detail
+             line without the summary that names the component. That is the whole
+             diagnostic story for saved-eForm print/fax/archive, and it is what
+             README.Debian and docs/eform-browser-pdf-renderer.md tell operators to look
+             for, so it has to be visible without raising LOG_VERBOSITY for the entire
+             application. Scoped to this package only; INFO here is a handful of lines
+             per start, not per request. -->
+        <Logger name="io.github.carlos_emr.carlos.eform.util" level="info">
+            <AppenderRef ref="Console"/>
+        </Logger>
         <Logger name="org.apache.log4j.xml" level="error">
             <AppenderRef ref="Console"/>
         </Logger>

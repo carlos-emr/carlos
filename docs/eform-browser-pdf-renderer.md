@@ -658,8 +658,13 @@ sudo systemctl status carlos-emr-chromedriver
 sudo journalctl -u carlos-emr-chromedriver -n 50
 ```
 
-At startup the application probes the browser exactly once and reports the outcome. The line to look
-for is:
+At startup the application probes the browser exactly once and reports the outcome. That report is
+visible at default verbosity **only because `log4j2.xml` gives this package its own INFO level** —
+the root logger defaults to ERROR (`LOG_VERBOSITY`), which previously hid a passing probe entirely
+and hid the summary line of a failing one. If you are reading logs from a build that predates that,
+raise `LOG_VERBOSITY` to `info` before concluding the probe did not run.
+
+The line to look for is:
 
 ```
 eForm browser renderer startup check passed.
