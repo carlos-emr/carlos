@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.email.util.EmailNoteUtil;
@@ -142,8 +143,16 @@ public class EmailManager {
         } catch (EmailSendingException e) {
             updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, e.getMessage());
             logger.error("Failed to send email", e);
+        } finally {
+            if (emailData.getWorkingDirectory() != null) {
+                emailData.getWorkingDirectory().close();
+            }
         }
         return emailLog;
+    }
+
+    public boolean hasActiveEmailConfig(int senderConfigId) {
+        return emailConfigDao.findActiveEmailConfigById(senderConfigId) != null;
     }
 
     /**
@@ -183,8 +192,8 @@ public class EmailManager {
         EmailLog emailLog = new EmailLog(emailConfig, emailConfig.getSenderEmail(), emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailStatus.FAILED);
         setEmailAttachments(emailLog, emailData.getAttachments());
         emailLog.setEncryptedMessage(emailData.getEncryptedMessage());
-        emailLog.setPassword(emailData.getPassword());
-        emailLog.setPasswordClue(emailData.getPasswordClue());
+        emailLog.setPassword("");
+        emailLog.setPasswordClue("");
         emailLog.setIsEncrypted(emailData.getIsEncrypted());
         emailLog.setIsAttachmentEncrypted(emailData.getIsAttachmentEncrypted());
         emailLog.setChartDisplayOption(emailData.getChartDisplayOption());
@@ -436,20 +445,19 @@ public class EmailManager {
      * Encrypts the email message and/or attachments as password-protected PDFs.
      *
      * This method handles encryption of PHI content for secure transmission. It converts
-     * the encrypted message to a PDF attachment and encrypts selected attachments, then
-     * appends the password clue to the email body.
+     * the encrypted message to a PDF attachment and encrypts selected attachments.
      *
      * Encryption workflow:
      * 1. Convert encrypted message text to PDF attachment (if present)
      * 2. Collect attachments to encrypt based on isAttachmentEncrypted flag
      * 3. Encrypt all selected attachments with the provided password
      * 4. Update email attachments list with encrypted files
-     * 5. Append password clue to email body
      *
      * @param emailData EmailData the email data containing content to encrypt
      * @throws EmailSendingException if PDF encryption fails
      */
     private void encryptEmail(EmailData emailData) throws EmailSendingException {
+        ensureWorkingDirectory(emailData);
         // Encrypt message and attachment
         List<EmailAttachment> encryptableAttachments = new ArrayList<>();
         if (!StringUtils.isNullOrEmpty(emailData.getEncryptedMessage())) {
@@ -458,7 +466,7 @@ public class EmailManager {
         if (emailData.getIsAttachmentEncrypted() && !emailData.getAttachments().isEmpty()) {
             encryptableAttachments.addAll(emailData.getAttachments());
         }
-        encryptAttachments(encryptableAttachments, emailData.getPassword());
+        encryptAttachments(encryptableAttachments, emailData);
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
         emailAttachments.addAll(encryptableAttachments);
@@ -466,9 +474,6 @@ public class EmailManager {
             emailAttachments.addAll(emailData.getAttachments());
         }
         emailData.setAttachments(emailAttachments);
-
-        //append password clue
-        emailData.setBody(emailData.getBody() + "\n\n*****\n" + emailData.getPasswordClue().trim() + "\n*****\n");
     }
 
     /**
@@ -480,13 +485,19 @@ public class EmailManager {
      * @param emailData EmailData containing the encrypted message text
      * @return EmailAttachment a new attachment with the message PDF, or null if message is empty
      */
-    private EmailAttachment createMessageAttachment(EmailData emailData) {
+    private EmailAttachment createMessageAttachment(EmailData emailData) throws EmailSendingException {
         if (StringUtils.isNullOrEmpty(emailData.getEncryptedMessage())) {
             return null;
         }
         String htmlSafeMessage = Encode.forHtmlContent(emailData.getEncryptedMessage()).replace("\n", "<br>");
         emailData.setEncryptedMessage(htmlSafeMessage);
         Path encryptedMessagePDF = ConvertToEdoc.saveAsTempPDF(emailData);
+        try {
+            encryptedMessagePDF = emailData.getWorkingDirectory().adoptGeneratedPdf(encryptedMessagePDF);
+        } catch (IOException e) {
+            logger.error("Failed to secure generated email message PDF", e);
+            throw new EmailSendingException("Failed to create encrypted email message", e);
+        }
         EmailAttachment emailAttachment = new EmailAttachment("message.pdf", encryptedMessagePDF.toString(), DocumentType.DOC, -1);
         return emailAttachment;
     }
@@ -504,16 +515,31 @@ public class EmailManager {
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    private void encryptAttachments(List<EmailAttachment> encryptableAttachments, String password) throws EmailSendingException {
+    private void encryptAttachments(
+            List<EmailAttachment> encryptableAttachments,
+            EmailData emailData
+    ) throws EmailSendingException {
         for (EmailAttachment attachment : encryptableAttachments) {
             try {
                 Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
-                attachmentPDFPath = PDFEncryptionUtil.encryptPDF(attachmentPDFPath, password);
+                attachmentPDFPath = PDFEncryptionUtil.encryptPDF(attachmentPDFPath, emailData.getPassword());
+                attachmentPDFPath = emailData.getWorkingDirectory().adoptGeneratedPdf(attachmentPDFPath);
                 attachment.setFilePath(attachmentPDFPath.toString());
             } catch (IOException e) {
                 logger.error("Failed to create encrypted email attachments", e);
                 throw new EmailSendingException("Failed to create encrypted email attachments", e);
             }
+        }
+    }
+
+    private static void ensureWorkingDirectory(EmailData emailData) throws EmailSendingException {
+        if (emailData.getWorkingDirectory() != null) {
+            return;
+        }
+        try {
+            emailData.setWorkingDirectory(EmailComposeWorkingDirectory.create());
+        } catch (IOException e) {
+            throw new EmailSendingException("Unable to create secure email working directory", e);
         }
     }
 
@@ -563,7 +589,7 @@ public class EmailManager {
             EmailStatusResult emailStatusResult = new EmailStatusResult(result.getId(), result.getSubject(), emailConfig.getSenderFirstName(),
                     emailConfig.getSenderLastName(), result.getFromEmail(), demographic.getFirstName(),
                     demographic.getLastName(), String.join(", ", result.getToEmail()), provider.getFirstName(), provider.getLastName(),
-                    result.getIsEncrypted(), result.getPassword(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
+                    result.getIsEncrypted(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
             emailStatusResults.add(emailStatusResult);
         }
         Collections.sort(emailStatusResults);
