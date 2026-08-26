@@ -35,35 +35,46 @@ Environment=LC_ALL=C.UTF-8
 # renderer's startup budget expires. The JVM is unaffected because user.home
 # is read from passwd rather than from this variable.
 Environment=HOME=/var/lib/carlos-emr/browser
-# NOT setting EFORM_RENDER_SANDBOX=true, and that is a deliberate, tested
-# decision rather than an oversight.
+# NOT setting EFORM_RENDER_SANDBOX=true. This is where that investigation got
+# to, recorded so the next person does not repeat it.
 #
-# Chromium's OS sandbox is the right posture for this component — the renderer
+# Chromium's OS sandbox is the right posture for this component: the renderer
 # opens clinic-authored eForm HTML, the least trustworthy input this application
-# handles. carlos-emr-eform-renderer therefore SHIPS the AppArmor profile that
+# handles. carlos-emr-eform-renderer therefore ships the AppArmor profile that
 # grants the browser back the `userns` permission Ubuntu 23.10+ removes, and
-# with that profile loaded a sandboxed Chromium starts in about a second when
-# run directly as the carlos user.
+# with it loaded a sandboxed Chromium runs as the carlos user reliably — exit 0
+# in about a second, repeatedly, print-to-PDF included.
 #
-# It does NOT start when the JVM spawns it under this unit. Measured on a clean
-# 26.04 VM: sandboxed, the renderer's session creation never completes and every
-# boot logs "Chromium session creation exceeded the 30s startup budget";
-# unsandboxed, the same probe passes and the browser writes its state normally.
-# Permitting the namespaces Chromium wants (RestrictNamespaces=user pid net mnt)
-# did not change that, so the blocking directive was not isolated.
+# It does not work when the JVM spawns it under this unit. Measured on a clean
+# 26.04 VM, sandboxed, the probe fails every boot with "Chromium session
+# creation exceeded the 30s startup budget"; unsandboxed it passes every time
+# and Chromium writes a full profile. The difference is this unit's own
+# confinement, confirmed by relaxing all of it at once, which made the
+# sandboxed probe pass.
 #
-# EFORM_RENDER_SANDBOX fails CLOSED by design. Turning it on before that is
-# understood would not harden eForm rendering, it would disable it — a strictly
-# worse outcome than the application's own documented default. The profile ships
-# anyway so the opt-in is one drop-in away once the interaction is solved:
+# Narrowing it down did NOT converge. Individually, RestrictNamespaces,
+# ProtectProc, NoNewPrivileges and SystemCallFilter each still failed. Two
+# pairings (RestrictNamespaces + ProtectProc) passed once each and then did not
+# reproduce with the same values written into this file, with orphaned browser
+# processes cleared and a fresh HOME. So the interaction is real but not yet
+# isolated, and anything shipped on the strength of those two runs would be
+# built on noise.
+#
+# EFORM_RENDER_SANDBOX fails CLOSED. Enabling it in that state would not harden
+# eForm rendering, it would make it fail — intermittently, in a clinic, for a
+# security control that was not actually working. The gap is documented rather
+# than papered over. To experiment:
 #
 #   systemctl edit carlos-emr    ->    [Service]
 #                                      Environment=EFORM_RENDER_SANDBOX=true
+#                                      RestrictNamespaces=user pid net mnt
+#                                      ProtectProc=ptraceable
 #
-# The durable fix is not to loosen this unit — that would trade the whole JVM's
-# confinement for one component. It is to run the browser under its own
-# confinement, separate from the EMR's, which is an application change because
-# the renderer spawns chromedriver in-process today.
+# The durable fix is not to loosen this unit — that trades a PHI-handling
+# Tomcat's confinement for one subprocess. It is to run the browser under its
+# own confinement, which is an application change: EFormBrowserPdfService builds
+# its ChromeDriverService with usingDriverExecutable() and spawns chromedriver
+# in-process, so nothing outside the JVM can confine it separately today.
 
 ExecStart=/usr/lib/carlos-emr/carlos-emr-tomcat run
 # catalina.sh run execs the JVM, so systemd's SIGTERM reaches Java directly and
