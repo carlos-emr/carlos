@@ -538,8 +538,54 @@ and in backup.env, to your own obligations.
 
   sudo carlos-ctl check                start here; it names the failure
   sudo carlos-ctl logs -n 200          application server log
-  sudo journalctl -u nginx -n 100     front door
+  sudo carlos-ctl logs -f              follow it live
+  sudo journalctl -u nginx -n 100      front door
+  sudo journalctl -u carlos-emr-chromedriver -n 100
+                                       the eForm render browser (its OWN unit —
+                                       it does not log to the application log)
+  sudo journalctl -u mariadb -n 100    the database
   sudo tail -f /var/log/carlos-emr/modsec/modsec_audit.log
+
+Which log holds what
+  The application, its container and the WAF write to three different places,
+  and looking in the wrong one is the most common way to conclude "nothing is
+  logged".
+
+    carlos-ctl logs                    CARLOS itself and Tomcat. This is the
+                                       journal for carlos-emr.service; the same
+                                       content is on disk under
+                                       /var/log/carlos-emr/tomcat/.
+    journalctl -u carlos-emr-chromedriver
+                                       the browser that renders eForms to PDF.
+                                       Separate service, separate journal — a
+                                       render failure often leaves nothing in the
+                                       application log at all.
+    /var/log/carlos-emr/modsec/        the WAF. A blocked request never reaches
+                                       the application, so it appears here and
+                                       nowhere else.
+    journalctl -u nginx                TLS and the front door, before either.
+
+  Everything the JVM writes to stdout is in the journal, so `carlos-ctl logs`
+  and `journalctl -u carlos-emr` are the same stream. Raising a log level for
+  troubleshooting is fine; put it back afterwards, because DEBUG on this
+  application can put request parameters — which is to say PHI — into the log.
+
+eForm print, fax or archive fails
+  Those three are the only workflows that need a browser, and it runs as its own
+  service. Check, in this order:
+
+    sudo systemctl status carlos-emr-chromedriver
+    sudo journalctl -u carlos-emr-chromedriver -n 50
+    sudo carlos-ctl logs | grep -i "renderer"
+
+  At startup the application probes the browser once and says so. Look for
+  "eForm browser renderer startup check passed." Anything else — most often
+  "Chromium session creation exceeded the 30s startup budget" — means the
+  application could not drive the browser, and the browser's own journal is
+  where the reason will be.
+
+  If the renderer package is not installed at all, that is expected and the
+  application says so once at startup rather than failing a print later.
 
 The application will not start
   Almost always the schema gate or the database. `carlos-ctl db-info` shows the

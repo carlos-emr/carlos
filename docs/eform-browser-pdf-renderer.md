@@ -637,6 +637,45 @@ directory is treated as "nothing to sweep yet," and `runCycle()` catches every `
 category so one bad cycle (a transient I/O failure, a JVM error) never cancels the timer for
 subsequent cycles.
 
+## Reading the logs
+
+The renderer spans two services, so a render failure can leave nothing at all in the application
+log. Check both, in this order:
+
+```
+# 1. Did the application manage to drive the browser?
+sudo carlos-ctl logs | grep -i renderer
+
+# 2. What did the browser itself say? Separate unit, separate journal.
+sudo systemctl status carlos-emr-chromedriver
+sudo journalctl -u carlos-emr-chromedriver -n 50
+```
+
+At startup the application probes the browser exactly once and reports the outcome. The line to look
+for is:
+
+```
+eForm browser renderer startup check passed.
+```
+
+Anything else is a real finding. The two worth recognising:
+
+| What you see | What it means |
+|---|---|
+| `Chromium session creation exceeded the 30s startup budget` | The application reached chromedriver but could not get a usable session. Usually the browser cannot start — check its own journal, not this one. |
+| `The eForm render browser service is unavailable.` | Nothing was listening. `systemctl status carlos-emr-chromedriver`, and check `eform_pdf_browser_service_url`. |
+| `eForm browser renderer startup check is OFF` | The probe is disabled (`eform_pdf_browser_startup_check=off`). Expected in test contexts; on a deployment it means failures will surface at first print instead. |
+
+Two things the messages deliberately will **not** tell you, so do not go looking for them there. The
+service URL never appears in an operator- or clinician-facing message, because it carries the
+`--url-base` capability token — the log line names the *property* instead. And the underlying
+WebDriver exception is never chained into the thrown error, because a downstream handler that logged
+the chain would re-emit whatever the message embedded; the redacted `causedBy=` detail line at the
+failure site is the diagnostic record.
+
+Nothing here is PHI-safe by accident: raising a log level for troubleshooting is fine, but put it
+back, because DEBUG on this application can put request parameters into the log.
+
 ## Verification
 
 Three layers, in increasing cost. **All three are required** — the first two are structurally blind
