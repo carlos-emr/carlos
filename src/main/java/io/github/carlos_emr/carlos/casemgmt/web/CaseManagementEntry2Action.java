@@ -81,6 +81,7 @@ import java.io.PrintWriter;
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.text.ParseException;
+import java.time.Duration;
 import java.util.*;
 import org.owasp.encoder.Encode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -112,6 +113,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     @SuppressWarnings("java:S1075") // fixed allowlist target; making this configurable would weaken redirect hardening
     private static final String CASE_MANAGEMENT_LIST_REDIRECT_PATH = "/CaseManagementView?method=view";
     private static final int REMOVED_ISSUE_MESSAGE_OVERHEAD = 64;
+    static final String NOTE_LOCK_TIMEOUT_MINUTES_PROPERTY = "casemgmt.note_lock_timeout_minutes";
+    static final long DEFAULT_NOTE_LOCK_TIMEOUT_MILLIS = Duration.ofMinutes(5).toMillis();
+    private static final long NOTE_LOCK_RENEW_INTERVAL_MILLIS = Duration.ofSeconds(30).toMillis();
 
     private static String appendRemovedIssueMessage(String noteText, Locale locale, ResourceBundle props, CharSequence issueNames) {
         String originalNote = StringUtils.defaultString(noteText);
@@ -679,43 +683,93 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return note;
     }
 
-    private static synchronized CasemgmtNoteLock isNoteEdited(Long note_id, Integer demographicNo, String providerNo, String ipAddress, String sessionId) {
-        CasemgmtNoteLockDao casemgmtNoteLockDao = SpringUtils.getBean(CasemgmtNoteLockDao.class);
-        CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.findByNoteDemo(demographicNo, note_id);
+    private static CasemgmtNoteLock isNoteEdited(Long noteId, Integer demographicNo,
+            String providerNo, String ipAddress, String sessionId) {
+        CasemgmtNoteLockDao noteLockDao = SpringUtils.getBean(CasemgmtNoteLockDao.class);
+        return acquireNoteLock(noteLockDao, noteId, demographicNo, providerNo, ipAddress,
+                sessionId, new Date(), getNoteLockTimeoutMillis());
+    }
 
-        //We determine the lock status of the note
-        if (casemgmtNoteLock != null) {
-            //it has a lock; check if lock is same user
-            if (casemgmtNoteLock.getProviderNo().equals(providerNo)) {
-                //Same user has this note open elsewhere
-                casemgmtNoteLock.setLockedBySameUser(true);
-            } else if (note_id != 0) {
-                //Another user is editing same note
-                casemgmtNoteLock.setLocked(true);
-            } else if (note_id == 0) {
-                logger.debug("STATIC isNoteEdited CREATING LOCK NOTE ID 0 DEMO: " + demographicNo + " PROVIDER: " + providerNo);
-                casemgmtNoteLock = new CasemgmtNoteLock();
-                casemgmtNoteLock.setDemographicNo(demographicNo);
-                casemgmtNoteLock.setIpAddress(ipAddress);
-                casemgmtNoteLock.setNoteId(note_id);
-                casemgmtNoteLock.setProviderNo(providerNo);
-                casemgmtNoteLock.setSessionId(sessionId);
-                casemgmtNoteLock.setLockAcquired(new Date());
-                casemgmtNoteLockDao.persist(casemgmtNoteLock);
-            }
-        } else {
-            logger.debug("STATIC isNoteEdited CREATING NEW LOCK DEMO: " + demographicNo + " PROVIDER: " + providerNo);
-            casemgmtNoteLock = new CasemgmtNoteLock();
-            casemgmtNoteLock.setDemographicNo(demographicNo);
-            casemgmtNoteLock.setIpAddress(ipAddress);
-            casemgmtNoteLock.setNoteId(note_id);
-            casemgmtNoteLock.setProviderNo(providerNo);
-            casemgmtNoteLock.setSessionId(sessionId);
-            casemgmtNoteLock.setLockAcquired(new Date());
-            casemgmtNoteLockDao.persist(casemgmtNoteLock);
+    /**
+     * Acquires an encounter-note edit lease, recovering an abandoned lease once its configured
+     * inactivity timeout has elapsed. The synchronized boundary preserves the legacy
+     * single-process check-and-create behavior while stale cleanup and replacement occur.
+     */
+    static synchronized CasemgmtNoteLock acquireNoteLock(CasemgmtNoteLockDao noteLockDao,
+            Long noteId, Integer demographicNo, String providerNo, String ipAddress,
+            String sessionId, Date now, long timeoutMillis) {
+        CasemgmtNoteLock noteLock = noteLockDao.findByNoteDemo(demographicNo, noteId);
+
+        if (isNoteLockExpired(noteLock, now, timeoutMillis)) {
+            logger.info("Replacing expired encounter note lock after inactivity timeout");
+            noteLockDao.remove(noteLock.getId());
+            noteLock = null;
         }
 
-        return casemgmtNoteLock;
+        if (noteLock != null) {
+            noteLock.setLocked(false);
+            noteLock.setLockedBySameUser(false);
+            if (Objects.equals(noteLock.getProviderNo(), providerNo)) {
+                noteLock.setLockedBySameUser(true);
+            } else if (noteId != 0) {
+                noteLock.setLocked(true);
+            } else {
+                logger.debug("STATIC isNoteEdited CREATING LOCK NOTE ID 0 DEMO: "
+                        + demographicNo + " PROVIDER: " + providerNo);
+                noteLock = createNoteLock(noteId, demographicNo, providerNo, ipAddress,
+                        sessionId, now);
+                noteLockDao.persist(noteLock);
+            }
+        } else {
+            logger.debug("STATIC isNoteEdited CREATING NEW LOCK DEMO: " + demographicNo
+                    + " PROVIDER: " + providerNo);
+            noteLock = createNoteLock(noteId, demographicNo, providerNo, ipAddress,
+                    sessionId, now);
+            noteLockDao.persist(noteLock);
+        }
+
+        return noteLock;
+    }
+
+    static long parseNoteLockTimeoutMillis(String configuredMinutes) {
+        if (StringUtils.isBlank(configuredMinutes)) {
+            return DEFAULT_NOTE_LOCK_TIMEOUT_MILLIS;
+        }
+        try {
+            long minutes = Long.parseLong(configuredMinutes.trim());
+            if (minutes > 0 && minutes <= Duration.ofDays(1).toMinutes()) {
+                return Duration.ofMinutes(minutes).toMillis();
+            }
+        } catch (NumberFormatException ignored) {
+            // Fall through to the safe default.
+        }
+        return DEFAULT_NOTE_LOCK_TIMEOUT_MILLIS;
+    }
+
+    private static long getNoteLockTimeoutMillis() {
+        String configuredTimeout = CarlosProperties.getInstance()
+                .getProperty(NOTE_LOCK_TIMEOUT_MINUTES_PROPERTY, "5");
+        return parseNoteLockTimeoutMillis(configuredTimeout);
+    }
+
+    static boolean isNoteLockExpired(CasemgmtNoteLock noteLock, Date now, long timeoutMillis) {
+        if (noteLock == null) {
+            return false;
+        }
+        Date lastActivity = noteLock.getLockAcquired();
+        return lastActivity == null || now.getTime() - lastActivity.getTime() >= timeoutMillis;
+    }
+
+    private static CasemgmtNoteLock createNoteLock(Long noteId, Integer demographicNo,
+            String providerNo, String ipAddress, String sessionId, Date now) {
+        CasemgmtNoteLock noteLock = new CasemgmtNoteLock();
+        noteLock.setDemographicNo(demographicNo);
+        noteLock.setIpAddress(ipAddress);
+        noteLock.setNoteId(noteId);
+        noteLock.setProviderNo(providerNo);
+        noteLock.setSessionId(sessionId);
+        noteLock.setLockAcquired(now);
+        return noteLock;
     }
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
@@ -778,17 +832,44 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logger.warn("updateNoteLock: lock not found - lock may have been released");
             return null;
         }
+        CasemgmtNoteLock transferredLock = transferNoteLock(casemgmtNoteLockDao,
+                casemgmtNoteLock, loggedInInfo.getLoggedInProviderNo(), request.getRemoteAddr(),
+                request.getSession().getId(), new Date(), getNoteLockTimeoutMillis());
+        if (transferredLock == null) {
+            logger.warn("updateNoteLock: refusing to transfer an expired or unowned lock");
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            return null;
+        }
 
-        casemgmtNoteLock.setIpAddress(request.getRemoteAddr());
-        String currentSessionId = request.getSession().getId();
-        casemgmtNoteLock.setSessionId(currentSessionId);
-        logger.debug("UPDATING LOCK DEMO {} LOCK IP {}", LogSafe.sanitize(demoNo), LogSafe.sanitize(casemgmtNoteLock.getIpAddress()));
-        casemgmtNoteLockDao.merge(casemgmtNoteLock);
+        logger.debug("UPDATING LOCK DEMO {} LOCK IP {}", LogSafe.sanitize(demoNo), LogSafe.sanitize(transferredLock.getIpAddress()));
 
-        session.setAttribute("casemgmtNoteLock" + demoNo, casemgmtNoteLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("casemgmtNoteLock" + demoNo, transferredLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         return null;
 
+    }
+
+    static boolean canTransferNoteLock(CasemgmtNoteLock noteLock, String providerNo) {
+        return noteLock != null && Objects.equals(noteLock.getProviderNo(), providerNo);
+    }
+
+    static synchronized CasemgmtNoteLock transferNoteLock(CasemgmtNoteLockDao noteLockDao,
+            CasemgmtNoteLock requestedLock, String providerNo, String ipAddress,
+            String sessionId, Date now, long timeoutMillis) {
+        if (requestedLock == null || requestedLock.getId() == null) {
+            return null;
+        }
+        CasemgmtNoteLock databaseLock = noteLockDao.find(requestedLock.getId());
+        if (!canTransferNoteLock(databaseLock, providerNo)
+                || isNoteLockExpired(databaseLock, now, timeoutMillis)) {
+            return null;
+        }
+
+        databaseLock.setIpAddress(ipAddress);
+        databaseLock.setSessionId(sessionId);
+        databaseLock.setLockAcquired(now);
+        noteLockDao.merge(databaseLock);
+        return databaseLock;
     }
 
     private void setChecked_oldCme(List<CheckBoxBean> checkedList, CaseManagementIssue cmi) {
@@ -1931,12 +2012,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     /**
      * Checks whether the current HTTP session holds a valid note lock for the given demographic.
-     * Performs two validations:
+     * Performs three validations:
      * <ol>
      *   <li>The database lock's session ID matches the session-stored lock's session ID
      *       (detects if another window/session has taken over the lock)</li>
      *   <li>The current request's session ID matches the session-stored lock's session ID
      *       (detects session ID staleness after rotation or migration)</li>
+     *   <li>The database lease has not passed its configured inactivity timeout</li>
      * </ol>
      *
      * @param demo String the demographic number to check lock ownership for
@@ -1949,17 +2031,37 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (casemgmtNoteLockSession == null) {
                 return false;
             }
-            CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.find(casemgmtNoteLockSession.getId());
-            if (casemgmtNoteLock == null) {
-                return false;
-            }
-            String currentSessionId = request.getSession().getId();
-            return Objects.equals(casemgmtNoteLock.getSessionId(), casemgmtNoteLockSession.getSessionId())
-                && Objects.equals(currentSessionId, casemgmtNoteLockSession.getSessionId());
+            return renewNoteLock(casemgmtNoteLockDao, casemgmtNoteLockSession,
+                    request.getSession().getId(), new Date(), getNoteLockTimeoutMillis());
         } catch (Exception e) {
             logger.warn("Lock check failed unexpectedly", e);
             return false;
         }
+    }
+
+    /**
+     * Verifies and periodically renews a lock lease while sharing the acquisition monitor.
+     * This prevents a local request from renewing an old row concurrently with stale-lock
+     * replacement by another editor.
+     */
+    static synchronized boolean renewNoteLock(CasemgmtNoteLockDao noteLockDao,
+            CasemgmtNoteLock sessionLock, String currentSessionId, Date now,
+            long timeoutMillis) {
+        CasemgmtNoteLock databaseLock = noteLockDao.find(sessionLock.getId());
+        if (databaseLock == null
+                || !Objects.equals(databaseLock.getSessionId(), sessionLock.getSessionId())
+                || !Objects.equals(currentSessionId, sessionLock.getSessionId())
+                || isNoteLockExpired(databaseLock, now, timeoutMillis)) {
+            return false;
+        }
+
+        Date lastActivity = databaseLock.getLockAcquired();
+        if (now.getTime() - lastActivity.getTime() >= NOTE_LOCK_RENEW_INTERVAL_MILLIS) {
+            databaseLock.setLockAcquired(now);
+            sessionLock.setLockAcquired(now);
+            noteLockDao.merge(databaseLock);
+        }
+        return true;
     }
 
     private void releaseNoteLock(String providerNo, Integer demographicNo, Long noteId) {
