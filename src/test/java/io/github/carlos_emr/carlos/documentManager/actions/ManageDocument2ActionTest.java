@@ -68,6 +68,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -304,6 +305,24 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
             edocUtil.verifyNoInteractions();
         }
+    }
+
+    @Test
+    void shouldRefuseArchiveDocument_beforeDocumentUpdateMutation() {
+        authorizeEdocWrite();
+        request.setMethod("POST");
+        request.setParameter("method", "documentUpdate");
+        request.setParameter("documentId", "42");
+        when(outboundEmailArchiveDao.existsByDocumentNo(42)).thenReturn(true);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        verify(providerInboxRoutingDao, never()).addToProviderInbox(anyString(), anyInt(), anyString());
+        verify(documentDao, never()).getDocument(anyString());
+        verify(documentDao, never()).merge(any(Document.class));
+        verify(ctlDocumentDao, never()).getCtrlDocument(anyInt());
     }
 
     @Test

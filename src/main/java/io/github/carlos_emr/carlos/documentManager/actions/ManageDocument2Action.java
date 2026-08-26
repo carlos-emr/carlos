@@ -269,6 +269,16 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            try {
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            } catch (IOException e) {
+                log.error("Unable to send invalid documentUpdateAjax method response", e);
+            }
+            return;
+        }
+
         if (documentId == null || !documentId.matches("\\d{1,9}")) {
             log.warn("documentUpdateAjax: invalid or missing documentId");
             return;
@@ -427,6 +437,16 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            try {
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            } catch (IOException e) {
+                log.error("Unable to send invalid removeLinkFromDocument method response", e);
+            }
+            return;
+        }
+
         assertNotOutboundEmailArchiveDocument(docId);
 
         providerInboxRoutingDAO.removeLinkFromDocument(docType, Integer.parseInt(docId), providerNo);
@@ -550,11 +570,23 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            try {
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            } catch (IOException e) {
+                log.error("Unable to send invalid documentUpdate method response", e);
+            }
+            return NONE;
+        }
+
         if (documentId == null || documentId.trim().isEmpty()) {
             log.error("Document ID is null or empty, cannot process document update");
             addActionError("Document ID is missing. Cannot process document update.");
             return "error";
         }
+
+        assertNotOutboundEmailArchiveDocument(documentId);
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr());
 
