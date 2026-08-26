@@ -82,31 +82,45 @@
     }
 
     /**
-     * Programmatic equivalent of the capture-phase submit guard below, for callers that submit via
-     * HTMLFormElement.submit(). That API deliberately fires no submit event, so the listener never
-     * runs for the floating toolbar's save paths (remoteSave -> RichTextLetter.submit()) -- only the
-     * legacy SubmitButton.click() path is covered by the listener alone.
+     * Surfaces the advisory timer-failure banner for callers that submit via HTMLFormElement.submit().
+     * That API deliberately fires no submit event, so the capture-phase listener below never runs for
+     * the floating toolbar's save paths (remoteSave -> HTMLFormElement.submit()) -- only the legacy
+     * SubmitButton.click() path is covered by the listener alone.
      *
-     * @return {boolean} true when the caller must abort (a legacy timer failed); the banner is shown.
+     * <p>A failed legacy timer is ADVISORY, not blocking. The server render already treats
+     * timerCompatibilityFailure as an advisory condition and DELIVERS the document (it is counted in
+     * EFormRenderCompletenessReport.advisoryIssueCount, never withheld), so the print/save/fax paths
+     * must reach that server gate rather than dead-ending here -- otherwise the clinician can never
+     * produce a document the server would have delivered with a warning. This shows the notice so the
+     * clinician is informed; it never aborts the submission.</p>
+     *
+     * @return {boolean} whether a legacy timer failed (the banner has been shown). Callers use this to
+     *     warn, not to block.
      */
-    status.shouldBlockSubmission = function shouldBlockSubmission() {
-        if (!status.failed) {
-            return false;
+    status.warnBeforeSubmission = function warnBeforeSubmission() {
+        if (status.failed) {
+            showFailureNotice();
         }
-        showFailureNotice();
-        return true;
+        return status.failed;
     };
 
     function showFailureNotice() {
         if (!document.body || document.getElementById("carlos-eform-timer-compat-error")) {
             return;
         }
+        // Advisory, not an error: a failed legacy timer no longer blocks saving or printing (the
+        // server delivers the document with its own advisory banner), so this warns rather than
+        // alarms -- amber/role="status" to match the toolbar's post-render advisory notice, not the
+        // red/role="alert" of a hard failure. The id stays stable: the PDF render surface hides this
+        // element by that id so the banner never prints (EFormBrowserPdfService render CSS).
         var notice = document.createElement("div");
         notice.id = "carlos-eform-timer-compat-error";
-        notice.setAttribute("role", "alert");
-        notice.style.cssText = "position:fixed;z-index:2147483647;top:0;left:0;right:0;"
-                + "padding:12px;background:#8b0000;color:#fff;font:16px sans-serif;text-align:center";
-        notice.textContent = "This eForm could not run a legacy timer. Review the form before saving or printing.";
+        notice.setAttribute("role", "status");
+        notice.style.cssText = "position:fixed;z-index:2147483647;top:0;left:0;right:0;padding:10px;"
+                + "background:#fff3cd;color:#664d03;border-bottom:1px solid #ffc107;"
+                + "font:14px sans-serif;text-align:center";
+        notice.textContent = "This eForm could not run a legacy timer, so some fields may be missing"
+                + " content. Review it before saving or printing.";
         document.body.insertBefore(notice, document.body.firstChild);
     }
 
@@ -345,10 +359,11 @@
                 delay,
                 Array.prototype.slice.call(arguments, 2));
     };
-    document.addEventListener("submit", function blockSubmitAfterTimerFailure(event) {
+    document.addEventListener("submit", function warnOnSubmitAfterTimerFailure() {
+        // A failed legacy timer is advisory, not blocking (see warnBeforeSubmission): the server
+        // render delivers the document with a warning rather than withholding it, so a native
+        // SubmitButton.click() submit must proceed to that gate. Surface the notice; do not cancel.
         if (status.failed) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
             showFailureNotice();
         }
     }, true);
