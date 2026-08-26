@@ -33,6 +33,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
@@ -75,6 +76,13 @@
                         <c:forEach var="severeConsoleErrorDetail" items="${severeConsoleErrorDetails}">
                             <li><carlos:encode value="${severeConsoleErrorDetail}"/></li>
                         </c:forEach>
+                        <%-- The detail list is capped; when more severe errors occurred than are
+                             shown, say how many are omitted so the list is not silently truncated. --%>
+                        <c:if test="${severeConsoleErrors > fn:length(severeConsoleErrorDetails)}">
+                            <li><fmt:message key="eform.renderIssue.severeConsoleErrorsMore">
+                                <fmt:param value="${severeConsoleErrors - fn:length(severeConsoleErrorDetails)}"/>
+                            </fmt:message></li>
+                        </c:if>
                     </ul>
                 </li>
             </c:if>

@@ -63,6 +63,7 @@
 <fmt:message var="lblTimerCompatibilityFailure" key="eform.renderIssue.timerCompatibilityFailure"/>
 <fmt:message var="lblSevereConsoleErrors" key="eform.renderIssue.severeConsoleErrors"/>
 <fmt:message var="lblSevereConsoleErrorDetails" key="eform.renderIssue.severeConsoleErrorDetails"/>
+<fmt:message var="lblSevereConsoleErrorsMore" key="eform.renderIssue.severeConsoleErrorsMore"/>
 <fmt:message var="lblContainedInteractions" key="eform.renderIssue.containedInteractions"/>
 <fmt:message var="lblStabilizationCapped" key="eform.renderIssue.stabilizationCapped"/>
 <fmt:message var="lblLabDecisionSupportStubbed" key="eform.renderIssue.labDecisionSupportStubbed"/>
@@ -395,6 +396,14 @@
                             data.severeConsoleErrorDetails.forEach(function (severeConsoleErrorDetail) {
                                 severeConsoleDetailText += "\n  \u2022 " + severeConsoleErrorDetail;
                             });
+                            // The detail list is capped; when more severe errors occurred than are
+                            // shown, say how many are omitted so it is not silently truncated.
+                            var severeConsoleErrorsMore =
+                                Number(data.severeConsoleErrors) - data.severeConsoleErrorDetails.length;
+                            if (severeConsoleErrorsMore > 0) {
+                                severeConsoleDetailText += "\n  \u2022 "
+                                    + "${carlos:forJavaScript(lblSevereConsoleErrorsMore)}".replace("{0}", severeConsoleErrorsMore);
+                            }
                         }
                         if (data.renderApproval
                                 && confirm(data.errorMessage + details + severeConsoleDetailText + "\n\nApprove these issues and render?")) {
