@@ -1,0 +1,16 @@
+[Unit]
+Description=Nightly CARLOS EMR backup
+Documentation=file:///usr/share/doc/carlos-emr/README.Debian
+
+[Timer]
+OnCalendar=*-*-* 01:30:00
+# Spread the start across half an hour: several clinics restored from the same
+# image all firing at 01:30:00 against one offsite repository is a
+# self-inflicted outage.
+RandomizedDelaySec=30m
+# A host that was switched off overnight still gets its backup when it comes
+# back, instead of silently skipping a day.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

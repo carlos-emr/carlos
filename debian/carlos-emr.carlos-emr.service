@@ -1,0 +1,93 @@
+[Unit]
+# Bound a crash loop: with 15s restart spacing the default 5-in-10s limiter
+# never trips, and an OOM loop (each crash writing an Xmx-sized PHI heap
+# dump) ran forever. Six failures inside half an hour is a broken
+# deployment — stop, stay failed, page whoever watches the unit. These are
+# [Unit]-section options: in [Service], systemd 259 rejects the key and the
+# bound silently did not exist (live-verified with systemd-analyze).
+StartLimitIntervalSec=30min
+StartLimitBurst=6
+Description=CARLOS EMR application server (Tomcat 11)
+Documentation=file:///usr/share/doc/carlos-emr/README.Debian
+Documentation=https://github.com/carlos-emr/carlos
+# The database is on this host and the application cannot serve a single page
+# without it. Wants+After rather than Requires: a Requires would tear CARLOS
+# down every time MariaDB was restarted for maintenance, and the start wrapper
+# already waits for the database to answer before handing off to Tomcat.
+Wants=mariadb.service network-online.target
+After=mariadb.service network-online.target
+
+[Service]
+Type=exec
+User=carlos
+Group=carlos
+UMask=0027
+
+# Site knobs (heap size, timezone, DB host). Rendered by the package on first
+# install and never overwritten afterwards — it is operator-owned.
+EnvironmentFile=-/etc/carlos-emr/carlos-emr.env
+Environment=LANG=C.UTF-8
+Environment=LC_ALL=C.UTF-8
+
+ExecStart=/usr/lib/carlos-emr/carlos-emr-tomcat run
+# catalina.sh run execs the JVM, so systemd's SIGTERM reaches Java directly and
+# Tomcat performs its normal shutdown. 143 is 128+SIGTERM, which is what a JVM
+# exits with when it is asked to stop; without this systemd records every clean
+# stop as a failure.
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=15s
+# A cold start explodes no WARs but does deploy a very large application and
+# runs the Flyway boot validation against the database. Ten minutes is
+# generous on purpose; the alternative is systemd killing a healthy start.
+TimeoutStartSec=600
+# Give in-flight clinical requests time to finish before the JVM is killed.
+TimeoutStopSec=120
+
+# --- sandboxing -------------------------------------------------------------
+# The application handles PHI and parses untrusted input from the internet
+# (through the WAF). Everything below narrows what a successful code-execution
+# bug can reach. The four ReadWritePaths are the only writable locations:
+# Tomcat's work/temp/logs and the document store.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateUsers=no
+ProtectSystem=strict
+ProtectHome=yes
+ProtectProc=invisible
+# ProcSubset=pid is deliberately NOT set. It would hide /proc/meminfo and
+# /proc/cpuinfo, which the JVM reads to size the heap and the GC thread pool;
+# with them gone HotSpot either misconfigures itself or refuses to start.
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+# MemoryDenyWriteExecute is deliberately NOT set: the HotSpot JIT maps its
+# code cache writable and then executable, and enabling it stops the JVM from
+# starting at all. This is a known, accepted gap in the sandbox for any Java
+# service.
+# AF_NETLINK is needed alongside the obvious three: the JVM enumerates network
+# interfaces through a netlink socket, and without it NetworkInterface calls
+# fail in ways that surface as unrelated integration errors.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+ReadWritePaths=/var/lib/carlos-emr /var/log/carlos-emr /run/carlos-emr
+
+# A large webapp with a 200-connection Tomcat pool and a JDBC pool opens a lot
+# of descriptors; the 1024 default is not enough and the failure looks like
+# random request errors rather than a resource limit.
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
