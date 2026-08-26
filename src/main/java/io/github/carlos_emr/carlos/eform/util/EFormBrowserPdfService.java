@@ -151,6 +151,8 @@ public class EFormBrowserPdfService {
      * Deadline for the teardown backstop. Short on purpose: it runs when something is already
      * wedged, and it must never become a second place a render can hang.
      */
+    /** Cause chains are third-party here and may be cyclic; walking one must always terminate. */
+    private static final int MAX_CAUSE_DEPTH = 32;
     static final Duration BACKSTOP_TIMEOUT = Duration.ofSeconds(5);
     static final Duration DRIVER_START_TIMEOUT = Duration.ofSeconds(30);
 
@@ -1325,7 +1327,12 @@ public class EFormBrowserPdfService {
      * discriminator (the Selenium smoke test carries the same hard-won warning).
      */
     static boolean isServiceUnreachable(Throwable t) {
-        for (Throwable c = t; c != null && c != c.getCause(); c = c.getCause()) {
+        // Bounded rather than guarded on self-reference: `c != c.getCause()` only catches a
+        // throwable that causes ITSELF, and a two-element cycle (a causes b, b causes a) would spin
+        // forever. Java forbids direct self-causation but not a cycle, and this runs on a failure
+        // path where the chain is third-party.
+        int depth = 0;
+        for (Throwable c = t; c != null && depth < MAX_CAUSE_DEPTH; c = c.getCause(), depth++) {
             if (c instanceof java.net.ConnectException
                     || c instanceof java.net.http.HttpConnectTimeoutException
                     || c instanceof org.openqa.selenium.remote.http.ConnectionFailedException) {
