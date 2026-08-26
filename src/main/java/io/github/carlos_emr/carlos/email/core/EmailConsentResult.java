@@ -30,18 +30,22 @@ public class EmailConsentResult {
         this.consentLastUpdateDate = copyDate(consentLastUpdateDate);
     }
 
+    /** @return the configured consent type's display name */
     public String getConsentName() {
         return consentName;
     }
 
+    /** @return the resolved patient email-consent state */
     public EmailConsentStatus getStatus() {
         return status;
     }
 
+    /** @return the source consent-record identifier, or {@code null} */
     public Integer getConsentId() {
         return consentId;
     }
 
+    /** @return a defensive copy of the source consent record's update time */
     public Date getConsentLastUpdateDate() {
         return copyDate(consentLastUpdateDate);
     }

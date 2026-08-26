@@ -539,22 +539,32 @@ public class EmailData {
         this.attachments = attachments != null ? attachments : Collections.emptyList();
     }
 
+    /** @return whether the provider requested an unknown-consent override */
     public boolean getConsentOverride() {
         return consentOverride;
     }
 
+    /** @param consentOverride whether the provider requested an unknown-consent override */
     public void setConsentOverride(boolean consentOverride) {
         this.consentOverride = consentOverride;
     }
 
+    /** @param consentOverride request value; only the exact value {@code true} enables override */
     public void setConsentOverride(String consentOverride) {
         this.consentOverride = "true".equals(consentOverride);
     }
 
+    /** @return the trimmed provider-entered override reason, never {@code null} after assignment */
     public String getConsentOverrideReason() {
         return consentOverrideReason;
     }
 
+    /**
+     * Stores a trimmed consent override reason without losing audit content.
+     *
+     * @param consentOverrideReason provider-entered justification
+     * @throws IllegalArgumentException when the trimmed reason exceeds 255 characters
+     */
     public void setConsentOverrideReason(String consentOverrideReason) {
         String reason = consentOverrideReason != null ? consentOverrideReason.trim() : "";
         if (reason.length() > CONSENT_OVERRIDE_REASON_MAX_LENGTH) {

@@ -81,6 +81,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
             this.displayName = displayName;
         }
 
+        /** @return the user-facing label for this consent state */
         public String getDisplayName() {
             return displayName;
         }
@@ -593,42 +594,52 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
         this.additionalParams = additionalParams;
     }
 
+    /** @return the patient consent state captured when this send was attempted */
     public EmailConsentStatus getConsentStatus() {
         return consentStatus;
     }
 
+    /** @param consentStatus the patient consent state captured for this send attempt */
     public void setConsentStatus(EmailConsentStatus consentStatus) {
         this.consentStatus = consentStatus;
     }
 
+    /** @return the source consent-record identifier, or {@code null} when no record exists */
     public Integer getConsentId() {
         return consentId;
     }
 
+    /** @param consentId the source consent-record identifier, or {@code null} */
     public void setConsentId(Integer consentId) {
         this.consentId = consentId;
     }
 
+    /** @return a defensive copy of the source consent record's update time */
     public Date getConsentLastUpdateDate() {
         return consentLastUpdateDate != null ? new Date(consentLastUpdateDate.getTime()) : null;
     }
 
+    /** @param consentLastUpdateDate source consent update time, defensively copied */
     public void setConsentLastUpdateDate(Date consentLastUpdateDate) {
         this.consentLastUpdateDate = consentLastUpdateDate != null ? new Date(consentLastUpdateDate.getTime()) : null;
     }
 
+    /** @return whether an unknown-consent send was permitted by a documented override */
     public boolean getConsentOverride() {
         return consentOverride;
     }
 
+    /** @param consentOverride whether a documented unknown-consent override was applied */
     public void setConsentOverride(boolean consentOverride) {
         this.consentOverride = consentOverride;
     }
 
+    /** @return the persisted override reason, or {@code null} when no override was applied */
     public String getConsentOverrideReason() {
         return consentOverrideReason;
     }
 
+    /** @param consentOverrideReason the override reason to persist */
     public void setConsentOverrideReason(String consentOverrideReason) {
         this.consentOverrideReason = consentOverrideReason;
     }

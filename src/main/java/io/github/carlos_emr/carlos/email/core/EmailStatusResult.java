@@ -392,6 +392,7 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
         this.password = password;
     }
 
+    /** @return the consent state captured for the displayed send attempt */
     public EmailConsentStatus getConsentStatus() {
         return consentStatus;
     }
@@ -410,18 +411,22 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
         this.consentOverrideReason = emailLog.getConsentOverrideReason();
     }
 
+    /** @return the source consent-record identifier, or {@code null} */
     public Integer getConsentId() {
         return consentId;
     }
 
+    /** @return a defensive copy of the source consent record's update time */
     public Date getConsentLastUpdateDate() {
         return copyDate(consentLastUpdateDate);
     }
 
+    /** @return whether a documented unknown-consent override permitted the send */
     public boolean getConsentOverride() {
         return consentOverride;
     }
 
+    /** @return the recorded override reason, or {@code null} */
     public String getConsentOverrideReason() {
         return consentOverrideReason;
     }
