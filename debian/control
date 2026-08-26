@@ -188,6 +188,15 @@ Description: Headless Chromium renderer for CARLOS EMR eForm PDFs
  eform_pdf_browser_chromium_path and eform_pdf_browser_chromedriver_path at
  them so the renderer never has to download a driver at first use.
  .
- Installing this package also turns the boot-time renderer probe back on, so a
- broken browser is reported once in the journal at startup instead of surfacing
- as a failed print in the middle of a consultation.
+ The browser runs as its own system account (carlos-render, a member of no
+ group) under its own systemd unit, carlos-emr-chromedriver. That unit is the
+ only place on the host where namespace creation is permitted, which is what
+ lets Chromium use its own sandbox: the EMR's service keeps namespaces denied,
+ and a browser the JVM spawned would inherit that and be unable to sandbox
+ itself. The application connects to the browser over loopback and never
+ launches one.
+ .
+ Installing this package also turns the boot-time renderer probe back on and
+ enables Chromium's sandbox, so a broken browser is reported once in the journal
+ at startup instead of surfacing as a failed print in the middle of a
+ consultation.

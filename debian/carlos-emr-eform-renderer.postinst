@@ -9,6 +9,8 @@
 set -e
 
 LIB=/usr/lib/carlos-emr
+SHARE=/usr/share/carlos-emr
+RENDER_ENV=/etc/carlos-emr/render-browser.env
 CHROMIUM="${LIB}/chromium/chrome"
 CHROMEDRIVER="${LIB}/chromium/chromedriver"
 
@@ -42,6 +44,46 @@ case "$1" in
                 echo "carlos-emr-eform-renderer: NOTE: option to run the browser sandboxed is" >&2
                 echo "carlos-emr-eform-renderer: NOTE: unavailable until it loads." >&2
             fi
+        fi
+
+        # The render browser's own settings, including the url-base capability
+        # token. 0640 root:carlos-render: the browser account reads it, and the
+        # `carlos` account deliberately cannot — just as carlos-render cannot read
+        # carlos.properties. Generated once and never rotated automatically;
+        # rotating means updating eform_pdf_browser_service_url to match.
+        if [ ! -e "${RENDER_ENV}" ]; then
+            install -m 0640 -o root -g carlos-render "${SHARE}/skel/render-browser.env" "${RENDER_ENV}"
+        fi
+        chown root:carlos-render "${RENDER_ENV}"
+        chmod 0640 "${RENDER_ENV}"
+        if ! grep -qE '^CARLOS_RENDER_URL_BASE=.+' "${RENDER_ENV}"; then
+            # chromedriver has no authentication and any local uid can reach a
+            # loopback port, so this prefix is what stops another local account
+            # driving a browser as carlos-render. openssl is already a dependency.
+            url_base="$(openssl rand -hex 16)"
+            tmp="$(mktemp "${RENDER_ENV}.XXXXXX")"
+            chmod 0640 "${tmp}"
+            chown root:carlos-render "${tmp}"
+            sed "s|^CARLOS_RENDER_URL_BASE=.*|CARLOS_RENDER_URL_BASE=${url_base}|" \
+                "${RENDER_ENV}" > "${tmp}"
+            mv "${tmp}" "${RENDER_ENV}"
+        fi
+
+        # The drop-in this package ships changes carlos-emr.service (ordering plus
+        # the sandbox flag), so systemd has to be told before either unit starts.
+        systemctl daemon-reload >/dev/null 2>&1 || true
+
+        # Start the browser BEFORE re-rendering config and restarting the EMR: the
+        # application probes the renderer from @PostConstruct, i.e. while Tomcat
+        # deploys, so chromedriver must already be listening or the first boot
+        # after install logs a failure for a deployment that is actually fine.
+        if [ -d /run/systemd/system ]; then
+            deb-systemd-invoke restart carlos-emr-chromedriver.service || {
+                echo "carlos-emr-eform-renderer: WARNING: the render browser service did not" >&2
+                echo "carlos-emr-eform-renderer: WARNING: start; eForm print/fax/archive will fail" >&2
+                echo "carlos-emr-eform-renderer: WARNING: until it does" >&2
+                echo "carlos-emr-eform-renderer: WARNING: (systemctl status carlos-emr-chromedriver)." >&2
+            }
         fi
 
         # Re-render carlos.properties. carlos-ctl owns every property this

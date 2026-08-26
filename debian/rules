@@ -306,6 +306,16 @@ ifeq ($(SKIP_EFORM_RENDERER),)
 	install -d debian/$(RPKG)/etc/apparmor.d
 	install -m 0644 debian/assets/apparmor/carlos-emr-chromium \
 	    debian/$(RPKG)/etc/apparmor.d/carlos-emr-chromium
+	# Drop-in shipped by THIS package, not by carlos-emr: installing the optional
+	# renderer is what adds the ordering and turns the sandbox on, and removing it
+	# takes both away. carlos-emr.service stays free of renderer specifics.
+	install -d debian/$(RPKG)/usr/lib/systemd/system/carlos-emr.service.d
+	install -m 0644 debian/assets/systemd/carlos-emr.service.d/10-eform-renderer.conf \
+	    debian/$(RPKG)/usr/lib/systemd/system/carlos-emr.service.d/10-eform-renderer.conf
+	# Skeleton only: the postinst generates the url-base secret into the real file.
+	install -d debian/$(RPKG)/$(SHAREDIR)/skel
+	install -m 0644 debian/assets/skel/render-browser.env \
+	    debian/$(RPKG)/$(SHAREDIR)/skel/render-browser.env
 endif
 
 # The webapp is thousands of small files that Tomcat serves directly; gzipping
@@ -338,3 +348,6 @@ override_dh_installsystemd:
 	dh_installsystemd --no-start --name=carlos-emr-backup
 	dh_installsystemd --no-start --name=carlos-emr-backup-verify
 	dh_installsystemd --no-start --name=carlos-emr-cert-renew
+	# -p explicitly: override_dh_installsystemd otherwise runs each --name across
+	# every binary package, and this unit belongs only to the renderer.
+	dh_installsystemd --no-start -p carlos-emr-eform-renderer --name=carlos-emr-chromedriver

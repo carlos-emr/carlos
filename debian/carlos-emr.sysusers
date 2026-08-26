@@ -10,6 +10,21 @@
 #                  read-only database credential and the restic passphrase,
 #                  and owns the backup repository — none of which the `carlos`
 #                  uid can read.
+#   carlos-render  runs the headless browser that renders eForms to PDF, and is
+#                  a member of NO group — deliberately, including not `carlos`.
+#
+# Why carlos-render exists at all: chromedriver listens on a loopback TCP port
+# with no authentication, and a WebDriver new-session request can specify the
+# browser binary and its arguments. That makes an exposed chromedriver an
+# arbitrary-code-execution service running as whatever account it was started
+# with. Started as `carlos` it would hand an attacker the uid that owns
+# /var/lib/carlos-emr/OscarDocument (scanned patient records) and can read
+# carlos.properties (database credentials, the stored-credential key). Started as
+# carlos-render it yields a browser owning nothing but a scratch home.
+#
+# This is only possible because the renderer needs no shared filesystem with the
+# application: the rendered PDF comes back inline over the DevTools protocol, not
+# through a file both sides can see.
 #
 # The relationship between them is deliberately ONE-WAY. carlos-backup is a
 # member of the `carlos` group, so it can READ everything the application owns
@@ -24,5 +39,6 @@
 # That account is shared with every other Tomcat webapp on the machine, and on
 # a host running an EMR that is precisely the boundary that has to hold.
 u carlos       - "CARLOS EMR application server" /var/lib/carlos-emr        /usr/sbin/nologin
+u carlos-render - "CARLOS EMR eForm render browser" /var/lib/carlos-emr/render /usr/sbin/nologin
 u carlos-backup - "CARLOS EMR backup" /var/backups/carlos-emr /usr/sbin/nologin
 m carlos-backup carlos

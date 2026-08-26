@@ -41,6 +41,16 @@ d /var/lib/carlos-emr/catalina/prefs              0750 carlos        carlos -
 # stays /var/lib/carlos-emr and DrugRef still resolves
 # ${user.home}/drugref2.properties (verified with -XshowSettings:properties).
 d /var/lib/carlos-emr/browser                     0750 carlos        carlos -
+# HOME for the render browser, owned by carlos-render. Chromium will not start
+# without a writable home — it does not fail cleanly either, it hangs until the
+# renderer's startup budget expires, because its crashpad handler cannot create
+# its database. Mode 0700: nothing else has any business in it, and a rendered
+# page passes through this process.
+#
+# Safe under the LAYOUT RULE above: /var/lib/carlos-emr is root-owned, so the
+# transition into a directory owned by a DIFFERENT unprivileged user is a safe
+# one and systemd-tmpfiles will make it.
+d /var/lib/carlos-emr/render                      0700 carlos-render carlos-render -
 # A heap dump of this application IS a PHI artefact — it contains whatever
 # clinical data was in memory. It must never land in /tmp.
 d /var/lib/carlos-emr/heapdumps                   0750 carlos        carlos -
