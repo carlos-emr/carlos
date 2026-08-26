@@ -94,14 +94,14 @@
      * produce a document the server would have delivered with a warning. This shows the notice so the
      * clinician is informed; it never aborts the submission.</p>
      *
-     * @return {boolean} whether a legacy timer failed (the banner has been shown). Callers use this to
-     *     warn, not to block.
+     * Returns nothing on purpose: a failed timer must never gate a caller's submission, so there is
+     * no block signal to hand back (an earlier version returned status.failed and every caller
+     * discarded it, which invited a future caller to re-read it as the old "should block").
      */
     status.warnBeforeSubmission = function warnBeforeSubmission() {
         if (status.failed) {
             showFailureNotice();
         }
-        return status.failed;
     };
 
     function showFailureNotice() {

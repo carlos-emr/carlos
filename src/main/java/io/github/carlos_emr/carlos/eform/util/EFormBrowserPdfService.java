@@ -157,6 +157,19 @@ public class EFormBrowserPdfService {
     private static final int MAX_CAUSE_DEPTH = 32;
     /** Cap on per-error console descriptions shown for informed override; the count is unbounded. */
     private static final int MAX_CONSOLE_DETAILS = 10;
+    // describeConsoleError parses Chrome's structural entry header only:
+    //   "<source> <line>:<col> [Uncaught ]<Type>: <body>"
+    // Both patterns are anchored to the start of the URL-redacted entry (source already replaced with
+    // [redacted-url]/[redacted-path]) so the free-text <body> — which a form controls and may carry
+    // PHI — can never contribute the surfaced type or location. Compiled once, not per call.
+    private static final java.util.regex.Pattern CONSOLE_HEADER_PATTERN = java.util.regex.Pattern.compile(
+            "^\\s*(?:\\[redacted-(?:url|path)\\]\\s+)?"          // optional redacted source token
+            + "(?:(\\d{1,7}):(\\d{1,7})\\s+)?"                   // optional Chrome line:col (groups 1,2)
+            + "(?:Uncaught\\s+)?"                                // optional Chrome "Uncaught" prefix
+            + "([A-Z][A-Za-z0-9_]{0,40}(?:Error|Exception))\\b"); // group 3: the error type
+    private static final java.util.regex.Pattern CONSOLE_LEADING_LOCATION_PATTERN =
+            java.util.regex.Pattern.compile(
+            "^\\s*(?:\\[redacted-(?:url|path)\\]\\s+)?(\\d{1,7}):(\\d{1,7})\\b");
     static final Duration BACKSTOP_TIMEOUT = Duration.ofSeconds(5);
     /**
      * How long the late-session reaper waits for an abandoned session-create to finish. Longer than
@@ -2079,15 +2092,25 @@ public class EFormBrowserPdfService {
             return "Script error";
         }
         String redacted = RenderLogRedaction.redactUrls(message);
-        java.util.regex.Matcher typeMatcher = java.util.regex.Pattern
-                .compile("(?:Uncaught\\s+)?([A-Z][A-Za-z0-9_]*(?:Error|Exception))\\b")
-                .matcher(redacted);
-        String type = typeMatcher.find() ? typeMatcher.group(1) : "Script error";
-        java.util.regex.Matcher locationMatcher = java.util.regex.Pattern
-                .compile("\\b(\\d{1,7}):(\\d{1,7})\\b").matcher(redacted);
-        String location = locationMatcher.find()
-                ? " (line " + locationMatcher.group(1) + ":" + locationMatcher.group(2) + ")" : "";
-        return type + location;
+        // Parse ONLY the structural header Chrome authors at the START of the entry. The message
+        // BODY (which a form controls and may contain PHI) sits after the type and is never read:
+        // both patterns are anchored to the start, so a NN:NN or a SomethingError token sitting in
+        // the body cannot be lifted into the description — a body-only entry degrades to "Script
+        // error". Residual (accepted): a form whose console text, right at the header position,
+        // literally begins with "<Word>Error:" can surface that made-up type word — a type token
+        // only, never body numbers/names.
+        java.util.regex.Matcher header = CONSOLE_HEADER_PATTERN.matcher(redacted);
+        if (header.find()) {
+            String location = header.group(1) != null
+                    ? " (line " + header.group(1) + ":" + header.group(2) + ")" : "";
+            return header.group(3) + location;
+        }
+        // No structural type; still surface Chrome's leading source line:col when it is present.
+        java.util.regex.Matcher location = CONSOLE_LEADING_LOCATION_PATTERN.matcher(redacted);
+        if (location.find()) {
+            return "Script error (line " + location.group(1) + ":" + location.group(2) + ")";
+        }
+        return "Script error";
     }
 
     static boolean isPolicyContainmentConsoleEntry(String message) {

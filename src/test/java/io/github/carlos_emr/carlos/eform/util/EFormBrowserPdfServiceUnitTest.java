@@ -1685,16 +1685,20 @@ class EFormBrowserPdfServiceUnitTest {
     @DisplayName("describeConsoleError (informed-override, PHI-safe)")
     class DescribeConsoleError {
 
+        // Chrome authors each entry as "<source> <line>:<col> [Uncaught ]<Type>: <body>"; the
+        // fixtures below use that real shape so the parser reads the type/location from the header
+        // and never from <body>.
+
         @Test
-        @DisplayName("extracts the error type and source location")
+        @DisplayName("extracts the error type and source location from the structural header")
         void extractsTypeAndLocation() {
             String description = EFormBrowserPdfService.describeConsoleError(
-                    "http://127.0.0.1:8080/eform/x Uncaught TypeError: foo is not a function 4212:17");
+                    "http://127.0.0.1:8080/eform/x 4212:17 Uncaught TypeError: foo is not a function");
             assertThat(description).isEqualTo("TypeError (line 4212:17)");
         }
 
         @Test
-        @DisplayName("keeps the type when no line:col is present")
+        @DisplayName("keeps the type when no source location is present")
         void typeOnlyWhenNoLocation() {
             assertThat(EFormBrowserPdfService.describeConsoleError("Uncaught ReferenceError: patientName is not defined"))
                     .isEqualTo("ReferenceError");
@@ -1703,25 +1707,48 @@ class EFormBrowserPdfServiceUnitTest {
         @Test
         @DisplayName("never leaks the message body — even one carrying clinical text")
         void neverLeaksMessageBody() {
-            // A form is free to console.error PHI. The description must expose only the structural
-            // TYPE, not the free-text payload the form chose to print.
+            // A form is free to console.error PHI. The description exposes only the structural TYPE
+            // and Chrome's source location (55:10), never the free-text payload after the type.
             String description = EFormBrowserPdfService.describeConsoleError(
-                    "Uncaught TypeError: patient MRN 123456 Jane Doe DOB 1970-01-01 failed at 88:4");
-            // A compound built-in type is surfaced; the free-text payload after it is never carried.
-            assertThat(description).isEqualTo("TypeError (line 88:4)");
+                    "http://127.0.0.1:8080/eform/x 55:10 Uncaught TypeError: patient MRN 123456 Jane Doe DOB 1970-01-01");
+            assertThat(description).isEqualTo("TypeError (line 55:10)");
             assertThat(description).doesNotContain("123456").doesNotContain("Jane").doesNotContain("1970");
+        }
+
+        @Test
+        @DisplayName("does not lift a NN:NN sequence out of the message body as the location")
+        void doesNotLiftLocationFromBody() {
+            // Regression (review finding): the entry has NO structural source location, but its body
+            // contains "12:34". The old unanchored location regex surfaced "(line 12:34)"; the
+            // anchored parser must not — it reports the type alone.
+            String description = EFormBrowserPdfService.describeConsoleError(
+                    "http://127.0.0.1:8080/eform/x Uncaught RangeError: retry appointment at 12:34 today");
+            assertThat(description).isEqualTo("RangeError");
+            assertThat(description).doesNotContain("12:34");
+        }
+
+        @Test
+        @DisplayName("does not lift a SomethingError token out of the message body as the type")
+        void doesNotLiftTypeFromBody() {
+            // Regression (review finding): the body contains an Error-like token ("PatientDataError")
+            // but there is no structural type. The old unanchored type regex surfaced it; the anchored
+            // parser must degrade to the safe label with only Chrome's real source location.
+            String description = EFormBrowserPdfService.describeConsoleError(
+                    "http://127.0.0.1:8080/eform/x 55:10 render failed near PatientDataError token");
+            assertThat(description).isEqualTo("Script error (line 55:10)");
+            assertThat(description).doesNotContain("PatientDataError");
         }
 
         @Test
         @DisplayName("a bare built-in Error (no compound type) degrades to the safe label, not the body")
         void bareErrorDegradesToSafeLabel() {
-            // Only the standard SomethingError/SomethingException compound names are recognised;
-            // a bare "Error" is ambiguous, so it degrades to the generic label rather than risk
-            // lifting a matching word out of the free-text body. Either way the body is dropped.
+            // Only the standard SomethingError/SomethingException compound names are recognised; a bare
+            // "Error" is ambiguous, so it degrades to the generic label. With no structural location,
+            // the body's "88:4" is dropped too.
             String description = EFormBrowserPdfService.describeConsoleError(
                     "Uncaught Error: patient MRN 123456 failed at 88:4");
-            assertThat(description).isEqualTo("Script error (line 88:4)");
-            assertThat(description).doesNotContain("123456");
+            assertThat(description).isEqualTo("Script error");
+            assertThat(description).doesNotContain("123456").doesNotContain("88:4");
         }
 
         @Test
@@ -1730,7 +1757,7 @@ class EFormBrowserPdfServiceUnitTest {
             // The URL carries the fdid and the --url-base capability token; redactUrls runs first.
             String secretToken = "9f3c1a2b4d5e6f70";
             String description = EFormBrowserPdfService.describeConsoleError(
-                    "http://127.0.0.1:9515/" + secretToken + "/render?fdid=4242 Uncaught SyntaxError 10:2");
+                    "http://127.0.0.1:9515/" + secretToken + "/render?fdid=4242 10:2 Uncaught SyntaxError: boom");
             assertThat(description).isEqualTo("SyntaxError (line 10:2)");
             assertThat(description).doesNotContain(secretToken).doesNotContain("4242");
         }
