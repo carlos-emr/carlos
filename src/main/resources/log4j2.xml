@@ -56,10 +56,14 @@
              for, so it has to be visible without raising LOG_VERBOSITY for the entire
              application. Scoped to this package only; INFO here is a handful of lines
              per start, not per request. -->
-        <!-- additivity="false": this logger references Console itself, and without it every
-             event ALSO propagates to the Root logger's Console appender — each renderer
-             probe line printed twice. -->
-        <Logger name="io.github.carlos_emr.carlos.eform.util" level="info" additivity="false">
+        <!-- Scoped to the STARTUP VALIDATOR CLASS, not the eform.util package: the package's
+             per-render INFO lines embed fdid, a PHI-correlating operational identifier that must
+             not become visible at default verbosity. The validator emits only the handful of
+             startup-check lines the docs tell operators to look for, and nothing per-render.
+             additivity="false" because this logger references Console itself — without it every
+             probe line also propagated to the Root logger's Console appender and printed twice. -->
+        <Logger name="io.github.carlos_emr.carlos.eform.util.EFormBrowserRendererStartupValidator"
+                level="info" additivity="false">
             <AppenderRef ref="Console"/>
         </Logger>
         <Logger name="org.apache.log4j.xml" level="error">
