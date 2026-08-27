@@ -61,11 +61,57 @@ directories that user cannot read into. Nothing is downloaded from the network
 by that step — the file is already on disk and you have just checksummed it.
 Installing from a world-traversable directory such as `/tmp` avoids it.
 
-The installer asks a handful of questions (debconf): the host name clinicians
-will use, the listen address, the billing province (Ontario or British
-Columbia — **not changeable later**; the two create different database
-schemas), the Java heap size, and the TLS mode. Everything can be answered
-with the defaults and adjusted afterwards — except the province.
+### The installer's questions
+
+The installer asks a handful of questions through debconf. Every answer has a
+safe default and can be changed afterwards — **except the billing province**,
+which selects the database schema and cannot be switched without starting from
+an empty database. (The dialogs below are rendered from the package's debconf
+templates; on a text terminal debconf shows the same text through `whiptail`.)
+
+**1. Host name** — becomes the nginx `server_name` and the TLS certificate
+subject. Use the fully-qualified name clinicians will reach the server at.
+
+![Host name question](images/install/01-server-name.png)
+
+**2. Listen address** — `0.0.0.0` serves every interface (the usual clinic
+setup); `127.0.0.1` keeps it local while staging or behind a separate proxy.
+The application server and database always listen on loopback only.
+
+![Listen address question](images/install/02-bind-ip.png)
+
+**3. Billing province** — Ontario (`on`) or British Columbia (`bc`).
+**This one is permanent** — the two provinces create different tables.
+
+![Billing province question](images/install/03-province.png)
+
+**4. Java heap** — CARLOS needs at least `2g`; on a dedicated box give it about
+half of physical memory (leave room for MariaDB and ~1 GB for the OS).
+
+![Java heap question](images/install/04-java-heap.png)
+
+**5. TLS mode** — `selfsigned` (HTTPS from minute one, browsers warn until you
+replace it), `acme` (free Let's Encrypt cert; needs public DNS + port 80), or
+`manual` (you supply the chain and key).
+
+![TLS mode question](images/install/05-tls-mode.png)
+
+**6. Let's Encrypt email** — shown only when TLS mode is `acme`. Leave empty to
+skip requesting a certificate now.
+
+![Let's Encrypt email question](images/install/06-acme-email.png)
+
+**7. Replace the seeded admin password** — the migrations seed `carlosdoc` with
+a password published in the source repository. Accept (the default) to replace
+it with random values written to `/etc/carlos-emr/initial-admin.txt`
+(root-only). Decline **only** on a throwaway development machine.
+
+![Reset seeded admin question](images/install/07-reset-seed-admin.png)
+
+**8. Done** — a final note tells you where the initial credentials were written
+and points you at `carlos-ctl check` and `README.Debian`.
+
+![Install complete note](images/install/08-initial-credentials.png)
 
 Installation then provisions the database and its accounts, applies the
 schema with Flyway, replaces the seeded administrator credential with random
