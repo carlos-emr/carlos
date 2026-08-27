@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
+import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
@@ -90,7 +91,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         registerMock(EmailComposeSubmissionStateService.class, composeSubmissionStateService);
         registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
         // EmailSend2Action reads request/response from ServletActionContext in field initializers
-        // (evaluated at construction), so mock the static to keep `new EmailSend2Action()` from
+        // (evaluated at construction), so mock the static to keep `newEmailSend2Action()` from
         // NPEing before each test assigns action.request/response explicitly.
         servletActionContextMock = mockStatic(ServletActionContext.class);
     }
@@ -115,7 +116,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action();
+        EmailSend2Action action = newEmailSend2Action();
         action.request = request;
         action.response = response;
 
@@ -142,7 +143,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
                     EmailComposeSubmissionContext.direct("123"), workingDirectory);
             request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
 
-            EmailSend2Action action = new EmailSend2Action();
+            EmailSend2Action action = newEmailSend2Action();
             action.request = request;
             action.response = new MockHttpServletResponse();
 
@@ -166,7 +167,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action();
+        EmailSend2Action action = newEmailSend2Action();
         action.request = request;
         action.response = response;
 
@@ -206,7 +207,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action();
+        EmailSend2Action action = newEmailSend2Action();
         action.request = request;
         action.response = response;
 
@@ -242,7 +243,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action();
+        EmailSend2Action action = newEmailSend2Action();
         action.request = request;
         action.response = response;
 
@@ -281,7 +282,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action();
+        EmailSend2Action action = newEmailSend2Action();
         action.request = request;
         action.response = response;
 
@@ -307,7 +308,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");
         request.getSession(false).setAttribute("isEmailEncrypted", false);
-        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{"Consent", "Yes"});
+        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{
+                "Consent", "OPT_IN", "email.consent.status.optIn"});
         when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
         when(emailComposeManager.getRecipients(any(), anyInt()))
                 .thenReturn(new List<?>[]{List.of("patient@example.com"), List.of()});
@@ -338,7 +340,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setParameter("demographicId", "123");
         request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
-        EmailSend2Action sendAction = new EmailSend2Action();
+        EmailSend2Action sendAction = newEmailSend2Action();
         sendAction.request = request;
         sendAction.response = response;
 
@@ -370,7 +372,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action();
+        EmailSend2Action action = newEmailSend2Action();
         action.request = request;
         action.response = response;
 
@@ -411,10 +413,11 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         EmailLog emailLog = new EmailLog();
         emailLog.setStatus(EmailLog.EmailStatus.SUCCESS);
         when(emailManager.hasActiveEmailConfig(1)).thenReturn(true);
-        when(emailManager.sendEmail(any(), any())).thenReturn(emailLog);
+        when(emailManager.sendEmailWithResult(any(), any()))
+                .thenReturn(EmailSendResult.accepted(emailLog, true));
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action();
+        EmailSend2Action action = newEmailSend2Action();
         action.request = request;
         action.response = response;
 
@@ -424,6 +427,37 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("fdid")).isEqualTo("456");
         assertThat(request.getAttribute("isOpenEForm")).isEqualTo(true);
         verify(eformDataManager).removeEFormData(loggedInInfo, "456");
+    }
+
+    @Test
+    @DisplayName("should report transport acceptance when persisted status was concurrently resolved")
+    void shouldReportTransportAcceptance_whenPersistedStatusWasConcurrentlyResolved() {
+        EmailManager emailManager = mock(EmailManager.class);
+        registerMock(EmailManager.class, emailManager);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.invalid");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("message", "Body");
+        request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("patientChartOption", "doNotAddAsNote");
+        setComposeToken(request, EXAMPLE_GENERATED_VALUE);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        EmailLog resolvedLog = new EmailLog();
+        resolvedLog.setStatus(EmailLog.EmailStatus.RESOLVED);
+        when(emailManager.hasActiveEmailConfig(1)).thenReturn(true);
+        when(emailManager.sendEmailWithResult(any(), any()))
+                .thenReturn(EmailSendResult.accepted(resolvedLog, false));
+
+        EmailSend2Action action = newEmailSend2Action();
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        assertThat(action.sendDirectEmail()).isEqualTo("success");
+        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
+        assertThat(request.getAttribute("isEmailStatusRecorded")).isEqualTo(false);
+        assertThat(request.getAttribute("emailLog")).isSameAs(resolvedLog);
     }
 
     @Test
@@ -447,7 +481,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         when(emailManager.hasActiveEmailConfig(1)).thenReturn(false);
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action();
+        EmailSend2Action action = newEmailSend2Action();
         action.request = request;
         action.response = response;
 
@@ -458,7 +492,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM))
                 .isEqualTo(request.getParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM));
         assertThat(composeSubmissionStateService.consume(request)).isNotNull();
-        verify(emailManager, never()).sendEmail(any(), any());
+        verify(emailManager, never()).sendEmailWithResult(any(), any());
     }
 
     @Test
@@ -481,7 +515,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action();
+        EmailSend2Action action = newEmailSend2Action();
         action.request = request;
         action.response = response;
 
@@ -493,7 +527,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
                 .isEqualTo(request.getParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM));
         assertThat(composeSubmissionStateService.consume(request)).isNotNull();
         verify(emailManager, never()).hasActiveEmailConfig(anyInt());
-        verify(emailManager, never()).sendEmail(any(), any());
+        verify(emailManager, never()).sendEmailWithResult(any(), any());
     }
 
     @Test
@@ -514,7 +548,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         when(emailManager.hasActiveEmailConfig(1)).thenReturn(true);
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action();
+        EmailSend2Action action = newEmailSend2Action();
         action.request = request;
         action.response = response;
 
@@ -527,7 +561,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("fdid")).isEqualTo("456");
         assertThat(request.getAttribute("openEFormAfterEmail")).isEqualTo(true);
         assertThat(request.getAttribute("deleteEFormAfterEmail")).isEqualTo(true);
-        verify(emailManager, never()).sendEmail(any(), any());
+        verify(emailManager, never()).sendEmailWithResult(any(), any());
 
         String firstCancelToken = (String) request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM);
         request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, firstCancelToken);
@@ -565,7 +599,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action();
+        EmailSend2Action action = newEmailSend2Action();
         action.request = request;
         action.response = response;
 
@@ -604,7 +638,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action();
+        EmailSend2Action action = newEmailSend2Action();
         action.request = request;
         action.response = response;
 
@@ -632,7 +666,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action();
+        EmailSend2Action action = newEmailSend2Action();
         action.request = request;
         action.response = response;
 
@@ -641,6 +675,15 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+    }
+
+    private EmailSend2Action newEmailSend2Action() {
+        return new EmailSend2Action() {
+            @Override
+            protected String encryptedBodyNotice() {
+                return "A secure message is attached.";
+            }
+        };
     }
 
     private void setComposeToken(MockHttpServletRequest request, String emailPDFPassword) {
@@ -661,6 +704,9 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
             List<EmailAttachment> emailAttachmentList,
             EmailComposeSubmissionContext context
     ) {
+        if (request.getParameter("message") == null) {
+            request.setParameter("message", "Body");
+        }
         String token = composeSubmissionStateService.store(
                 request.getSession(),
                 emailPDFPassword,

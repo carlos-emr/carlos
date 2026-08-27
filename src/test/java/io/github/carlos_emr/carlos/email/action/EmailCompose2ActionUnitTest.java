@@ -101,7 +101,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession(false).setAttribute("emailPDFPasswordClue", "example existing note");
         request.getSession(false).setAttribute("isEmailEncrypted", true);
         request.addParameter("fid", "abc\r\nforged-fid");
-        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{"Consent", "Yes"});
+        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{
+                "Consent", "OPT_IN", "email.consent.status.optIn"});
         when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
         when(emailComposeManager.getRecipients(any(), anyInt())).thenReturn(new List<?>[]{List.of(), List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
@@ -146,7 +147,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");
-        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{"Consent", "Yes"});
+        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{
+                "Consent", "OPT_IN", "email.consent.status.optIn"});
         when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
         when(emailComposeManager.getRecipients(any(), anyInt())).thenReturn(new List<?>[]{List.of(), List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
@@ -236,7 +238,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession(true).setAttribute("demographicId", "123");
         request.getSession(false).setAttribute("isEmailAutoSend", true);
         request.getSession(false).setAttribute("isEmailEncrypted", true);
-        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{"Consent", "Yes"});
+        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{
+                "Consent", "OPT_IN", "email.consent.status.optIn"});
         when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
         when(emailComposeManager.getRecipients(any(), anyInt())).thenReturn(new List<?>[]{List.of("patient@example.com"), List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
@@ -276,7 +279,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession(false).setAttribute("openEFormAfterEmail", true);
         request.getSession(false).setAttribute("deleteEFormAfterEmail", false);
         request.getSession(false).setAttribute("isEmailEncrypted", false);
-        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{"Consent", "Yes"});
+        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{
+                "Consent", "OPT_IN", "email.consent.status.optIn"});
         when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
         when(emailComposeManager.getRecipients(any(), anyInt())).thenReturn(new List<?>[]{List.of("patient@example.com"), List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());

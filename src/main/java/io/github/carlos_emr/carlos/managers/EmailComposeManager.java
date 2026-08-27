@@ -17,16 +17,14 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
-import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
-import io.github.carlos_emr.carlos.commn.model.Consent;
-import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
-import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -62,18 +60,15 @@ public class EmailComposeManager {
     @Autowired
     private EmailLogDaoImpl emailLogDao;
     @Autowired
-    private UserPropertyDAO userPropertyDAO;
-
-    @Autowired
     private DemographicManager demographicManager;
     @Autowired
     private DocumentAttachmentManager documentAttachmentManager;
     @Autowired
     private FormsManager formsManager;
     @Autowired
-    private PatientConsentManager patientConsentManager;
-    @Autowired
     private SecurityInfoManager securityInfoManager;
+    @Autowired
+    private EmailConsentResolver emailConsentResolver;
     /**
      * Prepares an existing email for resending by retrieving its log entry.
      *
@@ -328,12 +323,13 @@ public class EmailComposeManager {
      * Retrieves the email communication consent status for a patient.
      *
      * This method checks the patient's consent status for email communications based on the configured
-     * consent type in user properties. Returns a two-element array containing the consent type name
-     * and the consent status (Unknown, Explicit Opt-In, or Explicit Opt-Out).
+     * consent type in user properties. Returns the consent type name, stable status code, and
+     * resource-bundle key used to localize the status at the view boundary.
      *
      * @param loggedInInfo LoggedInInfo the current logged-in user session information
      * @param demographicId Integer the patient demographic ID to check consent for
-     * @return String[] array with two elements: [0] consent type name, [1] consent status description
+     * @return String[] array with three elements: [0] consent type name, [1] status code,
+     *         [2] status message key
      * @throws RuntimeException if the user lacks the required _email READ privilege
      */
     public String[] getEmailConsentStatus(LoggedInInfo loggedInInfo, Integer demographicId) {
@@ -341,24 +337,8 @@ public class EmailComposeManager {
             throw new RuntimeException("missing required sec object (_email)");
         }
 
-        String UNKNOWN = "Unknown", OPTIN = "Explicit Opt-In", OPTOUT = "Explicit Opt-Out";
-        UserProperty userProperty = userPropertyDAO.getProp(UserProperty.EMAIL_COMMUNICATION);
-        if (userProperty == null || StringUtils.isNullOrEmpty(userProperty.getValue())) {
-            return new String[]{"", UNKNOWN};
-        }
-
-        String property = userProperty.getValue().split("[,;\\s()]+")[0];
-        ConsentType consentType = patientConsentManager.getConsentType(property);
-        if (consentType == null || !consentType.isActive()) {
-            return new String[]{"", UNKNOWN};
-        }
-
-        Consent consent = patientConsentManager.getConsentByDemographicAndConsentType(loggedInInfo, demographicId, consentType);
-        if (consent == null) {
-            return new String[]{consentType.getName(), UNKNOWN};
-        }
-
-        return consent.getPatientConsented() ? new String[]{consentType.getName(), OPTIN} : new String[]{consentType.getName(), OPTOUT};
+        EmailConsentResult consent = emailConsentResolver.resolve(loggedInInfo, demographicId);
+        return new String[]{consent.getConsentName(), consent.getStatusCode(), consent.getMessageKey()};
     }
 
     /**
@@ -371,18 +351,7 @@ public class EmailComposeManager {
      * @return Boolean TRUE if email consent is properly configured with an active consent type, FALSE otherwise
      */
     public Boolean isEmailConsentConfigured() {
-        UserProperty userProperty = userPropertyDAO.getProp(UserProperty.EMAIL_COMMUNICATION);
-        if (userProperty == null || StringUtils.isNullOrEmpty(userProperty.getValue())) {
-            return Boolean.FALSE;
-        }
-
-        String property = userProperty.getValue().split("[,;\\s()]+")[0];
-        ConsentType consentType = patientConsentManager.getConsentType(property);
-        if (consentType == null || !consentType.isActive()) {
-            return Boolean.FALSE;
-        }
-
-        return Boolean.TRUE;
+        return emailConsentResolver.isConfigured();
     }
 
     /**
