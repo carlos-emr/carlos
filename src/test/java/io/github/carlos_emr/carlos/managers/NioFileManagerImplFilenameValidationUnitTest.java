@@ -69,6 +69,8 @@ import static org.mockito.Mockito.when;
  *
  * <p>Methods are kept flat (no {@code @Nested}) so they are reliably selected by a
  * {@code -Dtest=NioFileManagerImplFilenameValidationUnitTest} Surefire run.</p>
+ *
+ * @since 2026-08-15
  */
 @Tag("unit")
 @Tag("manager")

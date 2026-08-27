@@ -128,7 +128,9 @@ public class NioFileManagerImpl implements NioFileManager {
         try {
             sanitizedFilename = PathValidationUtils.validatePathComponent(filename, "cache filename");
         } catch (FileValidationException e) {
-            log.error("Filename failed validation: {}", LogSafe.sanitize(filename));
+            // Do not log the filename: a document/cache name can carry PHI, and LogSafe.sanitize
+            // guards against log injection but does not redact it.
+            log.error("Cache filename failed validation");
             return null;
         }
 
@@ -218,10 +220,13 @@ public class NioFileManagerImpl implements NioFileManager {
      *
      * @param loggedInInfo current authenticated user used to resolve the document cache directory
      * @param sourceDirectory directory containing the source PDF; must resolve under the document root or an approved temporary directory
-     * @param filename source PDF filename; path components are stripped by legacy filename sanitization before resolution
+     * @param filename source PDF filename; validated as a single path component (see
+     *        {@link PathValidationUtils#validatePathComponent(String, String)}), so a name containing
+     *        a path component is rejected rather than stripped
      * @param pageNum one-based PDF page number to render
-     * @return cached PNG path, or {@code null} when inputs are missing, paths are unauthorized, source paths traverse outside
-     *         the validated directory, the source PDF is missing, or the requested page is out of range
+     * @return cached PNG path, or {@code null} when inputs are missing or invalid, paths are unauthorized,
+     *         source paths traverse outside the validated directory, the source PDF is missing, or the
+     *         requested page is out of range
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
@@ -242,7 +247,9 @@ public class NioFileManagerImpl implements NioFileManager {
         try {
             sanitizedFilename = PathValidationUtils.validatePathComponent(filename, "source filename");
         } catch (FileValidationException e) {
-            log.error("Filename failed validation: {}", LogSafe.sanitize(filename));
+            // Do not log the filename: a document/source name can carry PHI, and LogSafe.sanitize
+            // guards against log injection but does not redact it.
+            log.error("Source filename failed validation");
             return null;
         }
 
@@ -879,7 +886,9 @@ public class NioFileManagerImpl implements NioFileManager {
         try {
             sanitizedFileName = PathValidationUtils.validatePathComponent(fileName, "document filename");
         } catch (FileValidationException e) {
-            log.error("Invalid filename in getOscarDocument: {}", LogSafe.sanitize(fileName));
+            // Do not log the filename: a document name can carry PHI, and LogSafe.sanitize guards
+            // against log injection but does not redact it.
+            log.error("Invalid filename in getOscarDocument");
             throw new SecurityException("Invalid document filename");
         }
 

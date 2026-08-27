@@ -44,6 +44,8 @@ import static org.mockito.Mockito.mock;
  *
  * <p>The helper is private; it is exercised by reflection because the surrounding {@code Util.zipFiles}
  * entrypoints require a configured export directory and real files on disk.</p>
+ *
+ * @since 2026-08-15
  */
 @Tag("unit")
 @Tag("security")
