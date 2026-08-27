@@ -24,7 +24,9 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Data access contract for durable outbound email archive records.
@@ -58,6 +60,55 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
      * @return locked archive row, or {@code null} when no row exists
      */
     OutboundEmailArchive findForUpdate(Integer archiveId);
+
+    /**
+     * Finds an archive row for reading, with its demographic and document hydrated.
+     *
+     * <p>Takes no lock. Use this for reads that only report archive metadata. Artifact reads
+     * take {@link #findForUpdate(Integer)} instead, so the archive cannot transition to its
+     * logically deleted state while an authorized read is in progress.</p>
+     *
+     * @param archiveId persisted archive identifier
+     * @return the archive with demographic and document fetched, or {@code null} when no row exists
+     */
+    OutboundEmailArchive findForRead(Integer archiveId);
+
+    /**
+     * Reports whether a document backs an outbound email archive, as the artifact or an attachment.
+     *
+     * <p>Archived email is stored as an ordinary patient eDoc, so it is reachable through the
+     * normal document surface — preview, split, re-file, attach, delete. Those paths call this to
+     * refuse it, because editing an archive corrupts the record of what was sent to a patient and
+     * deleting one bypasses the controlled-deletion and legal-hold path entirely.</p>
+     *
+     * <p>Deliberately covers deleted archives too. A tombstoned archive's eDoc must stay just as
+     * untouchable as a live one, or the guard would open exactly when the audit trail matters
+     * most.</p>
+     *
+     * @param documentNo candidate document number
+     * @return {@code true} when any archive or archive attachment references it
+     */
+    boolean existsByDocumentNo(Integer documentNo);
+
+    /**
+     * Batch form of {@link #existsByDocumentNo(Integer)} for call sites holding several documents.
+     *
+     * @param documentNos candidate document numbers; nulls and duplicates are ignored
+     * @return the subset that backs an archive or archive attachment, empty when none do
+     */
+    Set<Integer> findExistingDocumentNos(Collection<Integer> documentNos);
+
+    /**
+     * Reports whether a stored filename belongs to an archive artifact or one of its attachments.
+     *
+     * <p>The filename check exists because parts of the eDoc surface identify a document by its
+     * file rather than its id — a path handed to a preview renderer, say. Guarding only on
+     * document number would leave those paths open.</p>
+     *
+     * @param fileName stored eDoc filename
+     * @return {@code true} when an archive or archive attachment carries that filename
+     */
+    boolean existsByFileName(String fileName);
 
     /**
      * Reads just the demographic number for an archive, without loading the archive.

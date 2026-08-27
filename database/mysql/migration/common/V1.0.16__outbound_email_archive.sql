@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchive` (
     INDEX `idx_outboundEmailArchive_emailLogId` (`emailLogId`, `archivedAt`),
     INDEX `idx_outboundEmailArchive_demographicNo` (`demographicNo`, `archivedAt`),
     INDEX `idx_outboundEmailArchive_documentNo` (`documentNo`),
+    INDEX `idx_outboundEmailArchive_fileName` (`fileName`),
     -- Not read by any current query. Retained because verifying a stored artifact against its
     -- tombstone hash is the point of the table, and that lookup is by hash.
     INDEX `idx_outboundEmailArchive_sha256Hash` (`sha256Hash`),

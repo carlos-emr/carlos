@@ -197,7 +197,7 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(sender::prepareMessageBytes)
                 .isInstanceOf(EmailSendingException.class)
-                .hasMessageContaining("Invalid credentials configured for");
+                .hasMessage("The active SMTP sender configuration is invalid.");
     }
 
     @Test
@@ -207,7 +207,7 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(sender::prepareMessageBytes)
                 .isInstanceOf(EmailSendingException.class)
-                .hasMessageContaining("Invalid credentials configured for");
+                .hasMessage("The active SMTP sender configuration is invalid.");
     }
 
     @Test
@@ -217,7 +217,7 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(sender::prepareMessageBytes)
                 .isInstanceOf(EmailSendingException.class)
-                .hasMessageContaining("Invalid credentials configured for");
+                .hasMessage("The active SMTP sender configuration is invalid.");
     }
 
     @Test
@@ -227,7 +227,7 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(sender::prepareMessageBytes)
                 .isInstanceOf(EmailSendingException.class)
-                .hasMessageContaining("Invalid credentials configured for");
+                .hasMessage("The active SMTP sender configuration is invalid.");
     }
 
     @Test

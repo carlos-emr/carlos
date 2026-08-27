@@ -166,6 +166,9 @@ public class EmailSender {
     public void send() throws EmailSendingException {
         assertEmailWritePrivilege();
 
+        if (emailConfig.getEmailType() == null) {
+            throw new EmailSendingException("Active email configuration has no delivery type.");
+        }
         switch (emailConfig.getEmailType()) {
             case SMTP:
                 createSmtpSender().send();
@@ -279,6 +282,9 @@ public class EmailSender {
      *         is an error during API-based email transmission
      */
     private void sendAPIMail() throws EmailSendingException {
+        if (emailConfig.getEmailProvider() == null) {
+            throw new EmailSendingException("Active email configuration has no provider.");
+        }
         switch (emailConfig.getEmailProvider()) {
             case SENDGRID:
                 APISendGridEmailSender apiSendGridSendHelper = new APISendGridEmailSender(loggedInInfo, emailConfig, recipients, subject, body, additionalParams, attachments);
