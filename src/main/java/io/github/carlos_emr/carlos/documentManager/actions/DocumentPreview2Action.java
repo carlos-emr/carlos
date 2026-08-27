@@ -49,6 +49,8 @@ import java.util.Locale;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -110,6 +112,7 @@ public class DocumentPreview2Action extends ActionSupport {
     private final transient EFormDataDao eFormDataDao = SpringUtils.getBean(EFormDataDao.class);
     private final transient PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
     private final transient HRMDocumentToDemographicDao hrmDocumentToDemographicDao = SpringUtils.getBean(HRMDocumentToDemographicDao.class);
+    private final transient OutboundEmailArchiveDao outboundEmailArchiveDao = SpringUtils.getBean(OutboundEmailArchiveDao.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -385,6 +388,12 @@ public class DocumentPreview2Action extends ActionSupport {
         Path pdfPath = pdfPreviewCapabilityService.resolve(
                 request, loggedInInfo, request.getParameter("previewToken"));
         if (pdfPath == null) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+        if (isOutboundEmailArchiveDocumentPath(pdfPath)) {
+            logger.warn("Blocked direct preview of outbound email archive eDoc: {}",
+                    LogSafe.sanitizeObject(pdfPath.getFileName()));
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
@@ -729,5 +738,21 @@ public class DocumentPreview2Action extends ActionSupport {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+    /**
+     * Reports whether an authorized preview path points at an outbound email archive artifact.
+     *
+     * <p>Matched on the resolved file name rather than a document id, because this route never
+     * sees one -- the preview token resolves straight to a path. The resolver has already
+     * authorized and validated that path, so the only question left here is what the file is.</p>
+     *
+     * <p>A name collision with a file outside the document directory would block a legitimate
+     * preview rather than expose one, which is the safe direction to fail; archive artifacts
+     * carry timestamped generated names, so a real collision is not a practical concern.</p>
+     */
+    private boolean isOutboundEmailArchiveDocumentPath(Path pdfPath) {
+        Path fileName = pdfPath == null ? null : pdfPath.getFileName();
+        return fileName != null
+                && OutboundEmailArchiveDocumentGuard.isArchiveFileName(outboundEmailArchiveDao, fileName.toString());
     }
 }

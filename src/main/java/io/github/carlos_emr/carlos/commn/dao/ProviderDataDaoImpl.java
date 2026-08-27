@@ -291,8 +291,15 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
     @Override
     public List<Object[]> findProviderSecUserRoles(String lastName, String firstName) {
 
-        String queryStr = "select u.id, u.role_name, p.provider_no, p.first_name, p.last_name from provider p LEFT JOIN secUserRole u ON  p.provider_no=u.provider_no "
-                + " where p.last_name like ?1 and p.first_name like ?2 and p.status='1' order by p.first_name, p.last_name, u.role_name";
+        /* activeyn is selected, not filtered on: the admin page lists every assignment so
+         * inactive ones remain manageable, but callers must be able to tell them apart because
+         * only active roles participate in authorization (see SecuserroleDao#findActiveByProviderNo).
+         */
+        String queryStr = """
+                select u.id, u.role_name, p.provider_no, p.first_name, p.last_name, u.activeyn \
+                from provider p LEFT JOIN secUserRole u ON p.provider_no = u.provider_no \
+                where p.last_name like ?1 and p.first_name like ?2 and p.status = '1' \
+                order by p.first_name, p.last_name, u.role_name""";
 
         Query query = entityManager.createNativeQuery(queryStr);
         query.setParameter(1, lastName);

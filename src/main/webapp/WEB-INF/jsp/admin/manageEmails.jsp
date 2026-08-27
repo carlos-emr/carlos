@@ -78,8 +78,13 @@
             border-left: 3px solid #008631 !important;
         }
 
-        .email-status-card .vertical-status-divider-failed {
+        .email-status-card .vertical-status-divider-failed,
+        .email-status-card .vertical-status-divider-blocked {
             border-left: 3px solid #c30010 !important;
+        }
+
+        .email-status-card .vertical-status-divider-pending {
+            border-left: 3px solid #b58105 !important;
         }
 
         .email-status-card .vertical-status-divider-outbox {
@@ -115,9 +120,15 @@
             color: #008631 !important;
         }
 
-        .email-status-card .status-tag-failed {
+        .email-status-card .status-tag-failed,
+        .email-status-card .status-tag-blocked {
             background-color: #ffe1e1 !important;
             color: #c30010 !important;
+        }
+
+        .email-status-card .status-tag-pending {
+            background-color: #fff3cd !important;
+            color: #664d03 !important;
         }
 
         .email-status-card .status-tag-outbox {
@@ -130,8 +141,13 @@
             background-color: #abf7b1 !important;
         }
 
-        .email-status-card .status-tag-failed:hover {
+        .email-status-card .status-tag-failed:hover,
+        .email-status-card .status-tag-blocked:hover {
             background-color: #ffcbd1 !important;
+        }
+
+        .email-status-card .status-tag-pending:hover {
+            background-color: #ffe69c !important;
         }
 
         .email-status-card .status-tag-outbox:hover {
@@ -228,10 +244,18 @@
                 method: 'POST',
                 data: data,
                 success: function (data) {
-                    $('#emailStatus' + emailLogId).removeClass('status-tag-failed').addClass('status-tag-resolved');
-                    $('#cardBody' + emailLogId).removeClass('vertical-status-divider-failed').addClass('vertical-status-divider-resolved');
+                    const statusElement = document.getElementById('emailStatus' + emailLogId);
+                    const popover = bootstrap.Popover.getInstance(statusElement);
+                    if (popover) {
+                        popover.dispose();
+                    }
+                    statusElement.removeAttribute('data-bs-toggle');
+                    statusElement.removeAttribute('data-bs-trigger');
+                    statusElement.removeAttribute('data-bs-content');
+                    $(statusElement).removeClass('status-tag-failed status-tag-pending').addClass('status-tag-resolved');
+                    $('#cardBody' + emailLogId).removeClass('vertical-status-divider-failed vertical-status-divider-pending').addClass('vertical-status-divider-resolved');
                     $("#btnResolve" + emailLogId).remove();
-                    $('#emailStatus' + emailLogId).text(manageEmailsResolved);
+                    $(statusElement).text(manageEmailsResolved);
                     HideSpin();
                 },
                 error: function (xhr, status, error) {
