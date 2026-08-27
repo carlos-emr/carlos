@@ -34,7 +34,7 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
 
             // SECURITY: Only allow localhost variations
             if (!isLocalhost(host)) {
-                throw new EmailSendingException("local provider can only use localhost, got: " + host);
+                throw new EmailSendingException("Local SMTP provider must use localhost.");
             }
             
             mailSender.setHost(host);
@@ -45,8 +45,13 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
             if (jsonNode.has("username")) {
                 mailSender.setUsername(jsonNode.get("username").asText());
             }
-            if (jsonNode.has("password")) {
-                mailSender.setPassword(jsonNode.get("password").asText());
+            JsonNode passwordNode = jsonNode.get("password");
+            if (passwordNode != null && !passwordNode.isNull()) {
+                // LOCAL provider runs with mail.smtp.auth=false, so this optional password is never
+                // used for authentication. It is deliberately NOT decrypted here: doing so would let
+                // a missing/rotated encryption key block a local relay send that does not need the
+                // value. The stored (possibly encrypted) string is harmless when auth is off.
+                mailSender.setPassword(passwordNode.asText());
             }
 
             Properties properties = new Properties();
@@ -55,10 +60,11 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
             properties.put("mail.smtp.starttls.enable", "false");
             properties.put("mail.smtp.starttls.required", "false");
             properties.put("mail.debug", "false");
+            applySmtpTimeouts(properties);
 
             mailSender.setJavaMailProperties(properties);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail(), e);
+        } catch (IOException | RuntimeException e) {
+            throw new EmailSendingException("The active local SMTP sender configuration is invalid.", e);
         }
         return mailSender;
     }

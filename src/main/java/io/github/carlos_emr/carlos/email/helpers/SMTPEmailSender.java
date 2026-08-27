@@ -23,6 +23,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveAttachmentDto;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.email.core.OutboundEmailTransport;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
@@ -33,6 +34,8 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.mail.MailAuthenticationException;
+import org.springframework.mail.MailPreparationException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -71,6 +74,8 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     private static final HexFormat HEX_FORMAT = HexFormat.of();
     private static final String DEFAULT_ATTACHMENT_CONTENT_TYPE = "application/octet-stream";
     private static final String RFC822_CONTENT_TYPE = "message/rfc822";
+    static final int SMTP_CONNECTION_TIMEOUT_MILLIS = 30_000;
+    static final int SMTP_IO_TIMEOUT_MILLIS = 60_000;
 
     private final Logger logger = MiscUtils.getLogger();
     private LoggedInInfo loggedInInfo;
@@ -208,7 +213,7 @@ public class SMTPEmailSender implements OutboundEmailTransport {
             return outputStream.toByteArray();
         } catch (Exception e) {
             deleteAttachmentSnapshots(attachmentSnapshotPaths);
-            throw new EmailSendingException(e.getMessage(), e);
+            throw new EmailSendingException("The SMTP message could not be prepared.", e);
         }
     }
 
@@ -228,8 +233,11 @@ public class SMTPEmailSender implements OutboundEmailTransport {
             javaMailSender.send(preparedMessage);
         } catch (SecurityException | EmailSendingException e) {
             throw e;
+        } catch (MailAuthenticationException | MailPreparationException e) {
+            throw new EmailSendingException("SMTP failed before accepting the message.", e);
         } catch (Exception e) {
-            throw new EmailSendingException(e.getMessage(), e);
+            throw new EmailSendingException(
+                    "SMTP transport did not confirm whether the message was accepted.", e, true);
         } finally {
             discardPrepared();
         }
@@ -344,8 +352,7 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         ObjectMapper objectMapper = new ObjectMapper();
-        String invalidCredentialsMessage = "Invalid credentials configured for "
-                + (emailConfig != null ? emailConfig.getSenderEmail() : "");
+        String invalidCredentialsMessage = "The active SMTP sender configuration is invalid.";
         if (emailConfig == null) {
             throw new EmailSendingException(invalidCredentialsMessage);
         }
@@ -359,7 +366,8 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         String host = requiredConfigValue(jsonNode, "host", invalidCredentialsMessage);
         String port = requiredConfigValue(jsonNode, "port", invalidCredentialsMessage);
         String username = requiredConfigValue(jsonNode, "username", invalidCredentialsMessage);
-        String password = requiredConfigValue(jsonNode, "password", invalidCredentialsMessage);
+        String password = EmailConfigSecrets.decryptSecret(
+                requiredConfigValue(jsonNode, "password", invalidCredentialsMessage));
 
         mailSender.setHost(host);
         mailSender.setPort(parsePort(port, invalidCredentialsMessage));
@@ -373,9 +381,17 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         properties.put("mail.smtp.starttls.required", "true");
         properties.put("mail.smtp.ssl.protocols", "TLSv1.2");
         properties.put("mail.debug", "false");
+        applySmtpTimeouts(properties);
 
         mailSender.setJavaMailProperties(properties);
         return mailSender;
+    }
+
+    static void applySmtpTimeouts(Properties properties) {
+        properties.put("mail.smtp.connectiontimeout",
+                String.valueOf(SMTP_CONNECTION_TIMEOUT_MILLIS));
+        properties.put("mail.smtp.timeout", String.valueOf(SMTP_IO_TIMEOUT_MILLIS));
+        properties.put("mail.smtp.writetimeout", String.valueOf(SMTP_IO_TIMEOUT_MILLIS));
     }
 
     /**

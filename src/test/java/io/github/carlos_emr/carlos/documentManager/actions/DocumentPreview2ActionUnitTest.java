@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
@@ -53,6 +54,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -150,6 +152,9 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         registerMock(EFormRenderApprovalService.class, mockEFormRenderApprovalService);
         registerMock(PdfPreviewCapabilityService.class, mockPdfPreviewCapabilityService);
+        // The preview route now refuses archive artifacts, so it resolves the archive DAO.
+        // Unstubbed it answers false, which is what these preview tests expect.
+        registerMock(OutboundEmailArchiveDao.class, Mockito.mock(OutboundEmailArchiveDao.class));
         registerMock(FormsManager.class, mockFormsManager);
         registerMock(EFormDataDao.class, mockEFormDataDao);
         registerMock(PatientLabRoutingDao.class, mockPatientLabRoutingDao);

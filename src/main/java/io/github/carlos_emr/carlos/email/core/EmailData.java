@@ -1,6 +1,6 @@
 package io.github.carlos_emr.carlos.email.core;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -25,6 +25,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * through optional email encryption with password protection and encrypted attachments. All
  * email transactions are logged for audit trail purposes and can be linked to specific patient
  * charts and healthcare providers.</p>
+ *
+ * <p>Optional fields that downstream email handling expects to be non-null are initialized to
+ * safe defaults. In particular, attachments default to a mutable empty list and chart display defaults
+ * to {@link ChartDisplayOption#WITHOUT_NOTE}.</p>
  * 
  * <p>Typical usage:</p>
  * <pre>
@@ -46,6 +50,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2026-01-14
  */
 public class EmailData {
+    private static final int CONSENT_OVERRIDE_REASON_MAX_LENGTH = 255;
+
     private Integer senderConfigId;
     private String sender;
     private String[] recipients;
@@ -56,20 +62,67 @@ public class EmailData {
     private String passwordClue;
     private boolean isEncrypted;
     private boolean isAttachmentEncrypted;
-    private ChartDisplayOption chartDisplayOption;
+    private ChartDisplayOption chartDisplayOption = ChartDisplayOption.WITHOUT_NOTE;
     private String internalComment;
     private TransactionType transactionType;
     private Integer demographicNo;
     private String providerNo;
     private String additionalParams;
-    private List<EmailAttachment> attachments;
+    private List<EmailAttachment> attachments = new ArrayList<>();
+    private transient EmailComposeWorkingDirectory workingDirectory;
+    private boolean consentOverride;
+    private String consentOverrideReason;
 
     /**
      * Default constructor for creating an empty EmailData instance.
-     * All fields are initialized to their default values (null for objects, false for booleans).
-     * Use setter methods to populate the email data fields.
      */
     public EmailData() {
+    }
+
+    /**
+     * Merges the two legacy content channels ({@code body} and {@code encryptedMessage}) back into
+     * the single "Message" value the compose screen now displays (issue #3118).
+     *
+     * <p>The compose UI has one message field whose delivery is governed by the encryption toggle,
+     * but the underlying EmailLog still stores the cleartext body and the encrypted-PDF
+     * content in separate columns. When seeding the composer (fresh compose or resend), this picks
+     * the channel matching the already-resolved encryption state. The encrypted channel is never
+     * copied into an encryption-off draft; callers must first use
+     * {@link #resolveMergedMessageEncryption(boolean, String, String)} so legacy protected content
+     * fails closed instead of becoming cleartext.</p>
+     *
+     * @param isEncrypted      whether the email is (or defaults to) encrypted
+     * @param body             the cleartext body channel value (may be null)
+     * @param encryptedMessage the encrypted-PDF message channel value (may be null)
+     * @return the single message value to seed into the compose field, never null
+     */
+    public static String mergeMessage(boolean isEncrypted, String body, String encryptedMessage) {
+        String preferred = isEncrypted ? encryptedMessage : body;
+        if (!StringUtils.isNullOrEmpty(preferred)) {
+            return preferred;
+        }
+        if (isEncrypted && body != null) {
+            return body;
+        }
+        return "";
+    }
+
+    /**
+     * Resolves the encryption state used when legacy body/encrypted-message fields are merged.
+     *
+     * <p>An explicitly unencrypted draft remains unencrypted when its body is populated. If its
+     * body is empty but the legacy encrypted-message channel contains content, encryption is forced
+     * on so resending or reopening the draft cannot move that content into the cleartext body.</p>
+     *
+     * @param isEncrypted      the stored or requested encryption state
+     * @param body             the cleartext body channel value (may be null)
+     * @param encryptedMessage the encrypted-PDF message channel value (may be null)
+     * @return {@code true} when encryption was already enabled or protected content is the only
+     *         message available
+     */
+    public static boolean resolveMergedMessageEncryption(boolean isEncrypted, String body, String encryptedMessage) {
+        return isEncrypted
+                || (StringUtils.isNullOrEmpty(body) && !StringUtils.isNullOrEmpty(encryptedMessage));
     }
 
     /**
@@ -223,20 +276,18 @@ public class EmailData {
     }
 
     /**
-     * Gets the password hint/clue for the encrypted email.
+     * Gets the non-secret password delivery instruction for the encrypted email.
      * 
-     * @return String the password clue, or empty string if not set
+     * @return String the password delivery instruction, or empty string if not set
      */
     public String getPasswordClue() {
         return passwordClue;
     }
 
     /**
-     * Sets the password hint/clue for the encrypted email.
-     * This clue is sent to the recipient to help them remember or derive the password
-     * needed to decrypt the email content.
+     * Sets the non-secret password delivery instruction for the encrypted email.
      * 
-     * @param passwordClue String the password hint/clue; null values are converted to empty string
+     * @param passwordClue String the password delivery instruction; null values are converted to empty string
      */
     public void setPasswordClue(String passwordClue) {
         this.passwordClue = passwordClue != null ? passwordClue : "";
@@ -383,25 +434,33 @@ public class EmailData {
      * @param transactionType String one of "EFORM", "CONSULTATION", "TICKLER", or any other value
      *                       (including null) which defaults to DIRECT
      */
+    public void setTransactionType(String transactionType) {
+        this.transactionType = parseTransactionType(transactionType);
+    }
+
+    /**
+     * Parses a transaction type string, defaulting to DIRECT for null or unrecognized values.
+     *
+     * @param transactionType String one of "EFORM", "CONSULTATION", "TICKLER", or any other value
+     *                       (including null) which defaults to DIRECT
+     * @return parsed transaction type
+     * @since 2026-07-22
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public void setTransactionType(String transactionType) {
+    public static TransactionType parseTransactionType(String transactionType) {
         if (transactionType == null) {
             transactionType = "DIRECT";
         }
         switch (transactionType.toUpperCase()) {
             case "EFORM":
-                this.transactionType = TransactionType.EFORM;
-                break;
+                return TransactionType.EFORM;
             case "CONSULTATION":
-                this.transactionType = TransactionType.CONSULTATION;
-                break;
+                return TransactionType.CONSULTATION;
             case "TICKLER":
-                this.transactionType = TransactionType.TICKLER;
-                break;
+                return TransactionType.TICKLER;
             default:
-                this.transactionType = TransactionType.DIRECT;
-                break;
+                return TransactionType.DIRECT;
         }
     }
 
@@ -486,8 +545,50 @@ public class EmailData {
      * @param attachments List&lt;EmailAttachment&gt; the list of attachments; null values are converted to empty list
      */
     public void setAttachments(List<EmailAttachment> attachments) {
-        this.attachments = attachments != null ? attachments : Collections.emptyList();
+        this.attachments = attachments != null ? attachments : new ArrayList<>();
+    }
+
+    /** @return whether the provider requested an unknown-consent override */
+    public boolean getConsentOverride() {
+        return consentOverride;
+    }
+
+    /** @param consentOverride whether the provider requested an unknown-consent override */
+    public void setConsentOverride(boolean consentOverride) {
+        this.consentOverride = consentOverride;
+    }
+
+    /** @param consentOverride request value; only the exact value {@code true} enables override */
+    public void setConsentOverride(String consentOverride) {
+        this.consentOverride = "true".equals(consentOverride);
+    }
+
+    /** @return the trimmed provider-entered override reason, never {@code null} after assignment */
+    public String getConsentOverrideReason() {
+        return consentOverrideReason;
+    }
+
+    /**
+     * Stores a trimmed consent override reason without losing audit content.
+     *
+     * @param consentOverrideReason provider-entered justification
+     * @throws IllegalArgumentException when the trimmed reason exceeds 255 characters
+     */
+    public void setConsentOverrideReason(String consentOverrideReason) {
+        String reason = consentOverrideReason != null ? consentOverrideReason.trim() : "";
+        if (reason.length() > CONSENT_OVERRIDE_REASON_MAX_LENGTH) {
+            throw new IllegalArgumentException("Consent override reason must not exceed 255 characters");
+        }
+        this.consentOverrideReason = reason;
+    }
+
+    /** Returns the server-only owner for temporary files created while sending this email. */
+    public EmailComposeWorkingDirectory getWorkingDirectory() {
+        return workingDirectory;
+    }
+
+    /** Sets the server-only owner for generated compose and encryption artifacts. */
+    public void setWorkingDirectory(EmailComposeWorkingDirectory workingDirectory) {
+        this.workingDirectory = workingDirectory;
     }
 }
-
-

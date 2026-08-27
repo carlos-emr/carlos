@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveAttachmentDto;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.email.core.OutboundEmailTransport;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
@@ -153,6 +154,8 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
      * @throws EmailSendingException if endpoint validation, transport, or the response status fails
      */
     private void postPayload(byte[] payloadBytes) throws EmailSendingException {
+        boolean requestDispatched = false;
+        boolean accepted = false;
         try {
             String endPoint = getEndPoint();
             ValidatedHttpEndpoint validatedEndpoint = validateEndpoint(endPoint);
@@ -183,14 +186,25 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
                 httpPost.setHeader("Authorization", "Bearer " + getAPIKey());
 
                 httpPost.setEntity(new ByteArrayEntity(payloadBytes, ContentType.APPLICATION_JSON));
+                requestDispatched = true;
                 try (var response = httpClient.execute(httpPost)) {
                     assertAccepted(response.getCode());
+                    accepted = true;
                 }
             }
         } catch (EmailSendingException e) {
             throw e;
-        } catch (IOException | GeneralSecurityException e) {
-            throw new EmailSendingException(e.getMessage(), e);
+        } catch (IOException | RuntimeException e) {
+            if (accepted) {
+                return;
+            }
+            if (requestDispatched) {
+                throw new EmailSendingException(
+                        "SendGrid did not confirm whether the message was accepted.", e, true);
+            }
+            throw new EmailSendingException("The SendGrid request could not be prepared.", e);
+        } catch (GeneralSecurityException e) {
+            throw new EmailSendingException("The SendGrid request could not be prepared.", e);
         }
     }
 
@@ -223,7 +237,7 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
             validatedEndpoint = ValidatedHttpEndpoint.resolve(
                     endpoint, "carlos.email.sendgrid.allowedHosts");
         } catch (ValidatedHttpEndpoint.ValidationException e) {
-            throw new EmailSendingException("Configured email endpoint was rejected: " + e.getMessage());
+            throw new EmailSendingException("Configured email endpoint was rejected.", e);
         }
         if (!validatedEndpoint.isHttps()) {
             throw new EmailSendingException("Configured email endpoint must use HTTPS.");
@@ -231,7 +245,7 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
         return validatedEndpoint;
     }
 
-    private String createEmailJSON() throws EmailSendingException {
+    String createEmailJSON() throws EmailSendingException {
         ObjectNode emailJson = objectMapper.createObjectNode();
         addTo(emailJson);
         addFrom(emailJson);
@@ -416,12 +430,16 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
         emailJson.put("additionalParams", additionalParams);
     }
 
-    private String getAPIKey() throws EmailSendingException {
+    String getAPIKey() throws EmailSendingException {
         JsonNode apiKeyNode = parseConfigDetails().get("api_key");
         if (apiKeyNode == null || !apiKeyNode.isTextual() || apiKeyNode.asText().isBlank()) {
             throw invalidCredentialsException(null);
         }
-        return apiKeyNode.asText();
+        String apiKey = EmailConfigSecrets.decryptSecret(apiKeyNode.asText());
+        if (apiKey.isBlank()) {
+            throw invalidCredentialsException(null);
+        }
+        return apiKey;
     }
 
     private String getEndPoint() throws EmailSendingException {
@@ -448,7 +466,7 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
     }
 
     private EmailSendingException invalidCredentialsException(Throwable cause) {
-        String message = "Invalid credentials configured for " + emailConfig.getSenderEmail();
+        String message = "The active SendGrid sender configuration is invalid.";
         return cause != null ? new EmailSendingException(message, cause) : new EmailSendingException(message);
     }
 }

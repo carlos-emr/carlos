@@ -40,7 +40,9 @@ import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -64,6 +66,7 @@ public class CombinePDF2Action extends ActionSupport {
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient OutboundEmailArchiveDao outboundEmailArchiveDao = SpringUtils.getBean(OutboundEmailArchiveDao.class);
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
@@ -82,7 +85,13 @@ public class CombinePDF2Action extends ActionSupport {
             File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
             Path filePath;
             for (int i = 0; i < files.length; i++) {
+                if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao, files[i])) {
+                    throw new SecurityException(OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE);
+                }
                 String filename = docData.getDocumentName(files[i]);
+                if (OutboundEmailArchiveDocumentGuard.isArchiveFileName(outboundEmailArchiveDao, filename)) {
+                    throw new SecurityException(OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE);
+                }
                 filePath = PathValidationUtils.validateExistingPath(new File(documentDir, filename), documentDir).toPath();
                 alist.add(filePath.toAbsolutePath().toString());
             }
