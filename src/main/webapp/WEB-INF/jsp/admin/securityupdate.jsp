@@ -91,9 +91,15 @@
 
             int rowsAffected = 0;
 
+            // security.user_name is varchar(30); the form maxlength is browser-side only, so
+            // blank or over-length input from a direct POST must be rejected before the save
+            // (an unchecked value fails as a DB truncation error page).
+            String newUserName = request.getParameter("user_name") == null ? "" : request.getParameter("user_name").trim();
+            boolean isUserNameValid = !newUserName.isEmpty() && newUserName.length() <= 30;
+
             Security s = securityDao.find(Integer.parseInt(request.getParameter("security_no")));
-            if (s != null) {
-                s.setUserName(request.getParameter("user_name"));
+            if (s != null && isUserNameValid) {
+                s.setUserName(newUserName);
                 s.setProviderNo(request.getParameter("provider_no"));
                 s.setBExpireset(request.getParameter("b_ExpireSet") == null ? 0 : Integer.parseInt(request.getParameter("b_ExpireSet")));
                 s.setDateExpiredate(MyDateFormat.getSysDate(request.getParameter("date_ExpireDate")));

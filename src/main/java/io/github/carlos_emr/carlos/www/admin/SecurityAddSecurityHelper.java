@@ -49,6 +49,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  */
 public class SecurityAddSecurityHelper {
 
+    // security.user_name is varchar(30); the JSP maxlength mirrors this but is browser-side
+    // only, so this server-side bound is the authoritative check.
+    private static final int MAX_USER_NAME_LENGTH = 30;
+
     private SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
 	private final SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
 
@@ -69,14 +73,19 @@ public class SecurityAddSecurityHelper {
 
 		String digestedPassword = this.securityManager.encodePassword(request.getParameter("password"));
 
+        String userName = request.getParameter("user_name") == null ? "" : request.getParameter("user_name").trim();
+        if (userName.isEmpty() || userName.length() > MAX_USER_NAME_LENGTH) {
+            return "admin.securityaddsecurity.msgUserNameInvalidLength";
+        }
+
         boolean isUserRecordAlreadyCreatedForProvider = !securityDao.findByProviderNo(request.getParameter("provider_no")).isEmpty();
         if (isUserRecordAlreadyCreatedForProvider) return "admin.securityaddsecurity.msgLoginAlreadyExistsForProvider";
 
-        boolean isUserAlreadyExists = securityDao.findByUserName(request.getParameter("user_name")).size() > 0;
+        boolean isUserAlreadyExists = securityDao.findByUserName(userName).size() > 0;
         if (isUserAlreadyExists) return "admin.securityaddsecurity.msgAdditionFailureDuplicate";
 
         Security s = new Security();
-        s.setUserName(request.getParameter("user_name"));
+        s.setUserName(userName);
         s.setPassword(digestedPassword);
         s.setProviderNo(request.getParameter("provider_no"));
         s.setPin(request.getParameter("pin"));
@@ -105,7 +114,7 @@ public class SecurityAddSecurityHelper {
         securityDao.persist(s);
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(pageContext.getSession());
-        LogAction.addLog(loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null, LogConst.ADD, LogConst.CON_SECURITY, request.getParameter("user_name"), request.getRemoteAddr());
+        LogAction.addLog(loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null, LogConst.ADD, LogConst.CON_SECURITY, userName, request.getRemoteAddr());
 
         return "admin.securityaddsecurity.msgAdditionSuccess";
     }

@@ -241,7 +241,7 @@
                         <div align="right"><fmt:message key="admin.securityrecord.formUserName"/>:
                         </div>
                     </td>
-                    <td><input type="text" name="user_name" size="20" maxlength="10">
+                    <td><input type="text" name="user_name" size="30" maxlength="30">
                     </td>
                 </tr>
                 <tr>
