@@ -3,6 +3,20 @@ Section: web
 Priority: optional
 Maintainer: CARLOS EMR Maintainers <maintainers@carlos-emr.invalid>
 Build-Depends:
+# DO NOT BUMP THIS WITHOUT READING THIS PARAGRAPH.
+#
+# dh_installtmpfiles only generates its remove/purge snippet when NOT compat 13
+# (see the `! compat(13)` guard in /usr/bin/dh_installtmpfiles). At compat 14 it
+# would start running `systemd-tmpfiles --purge` over debian/carlos-emr.tmpfiles
+# when this package is purged -- and that file lists
+# /var/lib/carlos-emr/OscarDocument, the scanned patient record store, and
+# /var/backups/carlos-emr. carlos-emr.postrm exists precisely to guarantee that
+# removing this package never deletes either.
+#
+# debhelper 13.31 has no --no-purge/--no-remove to opt out with (the flags are
+# referenced in the tool but not wired to command-line options), so on a compat
+# bump the guard must be re-established some other way -- verify what purge does
+# to those two paths BEFORE the bump, not after.
  debhelper-compat (= 13),
 # dh_installsysusers and the `installsysusers` sequence addon arrived in
 # debhelper 13.6; compat 13 alone is satisfied by older versions that would
@@ -13,7 +27,12 @@ Build-Depends:
  tomcat11,
  ca-certificates,
  git,
- xz-utils
+ xz-utils,
+# curl and unzip fetch and unpack the pinned Chromium for
+# carlos-emr-eform-renderer (debian/fetch-chromium.sh). Not needed when the
+# build supplies CHROMIUM_DIST or sets SKIP_EFORM_RENDERER.
+ curl,
+ unzip
 Standards-Version: 4.7.0
 Homepage: https://github.com/carlos-emr/carlos
 Vcs-Git: https://github.com/carlos-emr/carlos.git
@@ -34,6 +53,13 @@ Depends:
  modsecurity-crs,
  openssl,
  ca-certificates,
+# libXrender.so.1 is a link-time dependency of the wkhtmltopdf native library
+# bundled in the WAR (ultrabuk-htmltopdf-java), which renders encounter forms,
+# HRM documents, form faxes and encrypted-email PDFs. Nothing else in this
+# dependency set pulls libXrender in on a server install, so without it every
+# one of those renders died with UnsatisfiedLinkError at request time while the
+# rest of the application looked healthy.
+ libxrender1,
  restic,
  adduser,
 # deb-systemd-invoke, used by the maintainer scripts so that policy-rc.d is
@@ -56,6 +82,11 @@ Recommends:
 # /etc/nginx/sites-available/carlos-emr, which is a dpkg conffile.
  certbot,
  carlos-emr-drugref (= ${binary:Version}),
+# The eForm-to-PDF renderer. Recommended, not required: it carries a vendored
+# Chromium (~150 MB) and only saved-eForm print/fax/archive needs it. Without
+# it those three workflows are unavailable and the package says so at install
+# time; every other PDF in CARLOS is produced by a pure-Java library.
+ carlos-emr-eform-renderer (= ${binary:Version}),
 # logrotate consumes /etc/logrotate.d/carlos-emr; without it the ModSecurity
 # audit log grows unbounded, so this is a strong recommendation rather than a
 # suggestion.
@@ -109,3 +140,81 @@ Description: DrugRef2 drug reference service for CARLOS EMR
  The package creates the drugref2 database, loads the Health Canada Drug
  Product Database seed shipped with CARLOS, and points the EMR at the local
  service. Without it, CARLOS prescription drug lookups return no results.
+
+Package: carlos-emr-eform-renderer
+Architecture: amd64
+Depends:
+ ${misc:Depends},
+# Exact version: the renderer's properties are written into carlos.properties by
+# carlos-emr's carlos-ctl, and this package's postinst calls it to do so.
+ carlos-emr (= ${binary:Version}),
+ init-system-helpers (>= 1.54),
+# addgroup/adduser in the postinst fallback that creates carlos-render when
+# systemd-sysusers has not run (chroot/container image builds).
+ adduser,
+# Chromium's direct DT_NEEDED set, minus what the Essential/base system already
+# guarantees (libc6, libgcc-s1). Derived by reading the shipped binary's dynamic
+# section, not copied from a wiki page: dh_shlibdeps cannot compute it here
+# because the binary is vendored rather than built by this source package.
+#
+# libc6 and libgcc-s1 are listed even though they are effectively always
+# present: dh_shlibdeps normally adds them, and with it skipped nothing else
+# would declare the C runtime that this package's ELF actually links against.
+ libc6,
+ libgcc-s1,
+ libasound2t64,
+ libatk-bridge2.0-0t64,
+ libatk1.0-0t64,
+ libatspi2.0-0t64,
+ libcairo2,
+ libcups2t64,
+ libdbus-1-3,
+ libexpat1,
+ libgbm1,
+ libglib2.0-0t64,
+ libnspr4,
+ libnss3,
+ libpango-1.0-0,
+ libudev1,
+ libx11-6,
+ libxcb1,
+ libxcomposite1,
+ libxdamage1,
+ libxext6,
+ libxfixes3,
+ libxkbcommon0,
+ libxrandr2,
+# Not a link-time dependency: Chromium resolves fonts through fontconfig at
+# render time, and on a font-less server every eForm PDF comes out with the
+# glyphs missing rather than failing loudly.
+ fontconfig,
+ fonts-dejavu-core,
+# apparmor supplies apparmor_parser, which the maintainer scripts use to load
+# the profile that makes Chromium's own sandbox usable on this distribution.
+ apparmor
+Description: Headless Chromium renderer for CARLOS EMR eForm PDFs
+ Saved-eForm print, fax and archive in CARLOS are produced by rendering the
+ form in a real browser and printing it to PDF over the Chrome DevTools
+ Protocol. There is no legacy fallback path: without a browser those three
+ workflows are unavailable.
+ .
+ Ubuntu 26.04 ships Chromium only as a snap, and a confined snap cannot read
+ the renderer's working directories under /var/lib/carlos-emr. This package
+ therefore installs a pinned, unconfined Chromium and a chromedriver built from
+ the same revision into /usr/lib/carlos-emr/chromium, runs the driver as the
+ carlos-emr-chromedriver service, and points eform_pdf_browser_service_url
+ (plus eform_pdf_browser_chromium_path for the browser binary) at it, so the
+ application connects to a running service and never downloads a driver.
+ .
+ The browser runs as its own system account (carlos-render, a member of no
+ group) under its own systemd unit, carlos-emr-chromedriver. That unit is the
+ only place on the host where namespace creation is permitted, which is what
+ lets Chromium use its own sandbox: the EMR's service keeps namespaces denied,
+ and a browser the JVM spawned would inherit that and be unable to sandbox
+ itself. The application connects to the browser over loopback and never
+ launches one.
+ .
+ Installing this package also turns the boot-time renderer probe back on and
+ enables Chromium's sandbox, so a broken browser is reported once in the journal
+ at startup instead of surfacing as a failed print in the middle of a
+ consultation.

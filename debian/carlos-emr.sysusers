@@ -10,6 +10,36 @@
 #                  read-only database credential and the restic passphrase,
 #                  and owns the backup repository — none of which the `carlos`
 #                  uid can read.
+#   carlos-render  runs the headless browser that renders eForms to PDF, and is
+#                  a member of NO group — deliberately, including not `carlos`.
+#                  DECLARED IN carlos-emr-eform-renderer.sysusers, not here: the
+#                  account and the directory it owns must be created by the same
+#                  package, or carlos-emr's tmpfiles run first on a clean install
+#                  and fail with "Failed to resolve user 'carlos-render'".
+#
+# Why carlos-render exists at all: chromedriver listens on a loopback TCP port
+# with no authentication, and a WebDriver new-session request can specify the
+# browser binary and its arguments. That makes an exposed chromedriver an
+# arbitrary-code-execution service running as whatever account it was started
+# with. Started as `carlos` it would hand an attacker the uid that owns
+# /var/lib/carlos-emr/OscarDocument (scanned patient records) and can read
+# carlos.properties (database credentials, the stored-credential key). Started as
+# carlos-render it yields a browser owning nothing but a scratch home.
+#
+# This is only possible because the renderer needs no shared filesystem with the
+# application: the rendered PDF comes back inline over the DevTools protocol, not
+# through a file both sides can see.
+#
+# The account split is the ONLY real control here, which is why it is not
+# optional. The --url-base token is a speed bump, not a boundary: systemd expands
+# it into the process's argv and /proc/<pid>/cmdline is world-readable, so any
+# local uid can read it. Do not reason as though it protects the port.
+#
+# And be precise about what carlos-render does reach: it is outside the EMR's
+# data, but it is inside the PHI boundary of the form being rendered, and it can
+# talk to Tomcat, DrugRef and MariaDB on loopback — i.e. the application's own
+# HTTP surface with nginx and ModSecurity bypassed. Compromising it is not
+# nothing; it is bounded.
 #
 # The relationship between them is deliberately ONE-WAY. carlos-backup is a
 # member of the `carlos` group, so it can READ everything the application owns

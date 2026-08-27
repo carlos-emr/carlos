@@ -641,7 +641,12 @@ public class AddEForm2Action extends ActionSupport {
         request.setAttribute("failedContentResources", report.failedContentResources());
         request.setAttribute("excludedContentElements", report.excludedContentElements());
         request.setAttribute("severeConsoleErrors", report.severeConsoleErrors());
+        // PHI-safe per-error descriptions (type + line:col) for the informed-override screen.
+        // Display only: NOT part of the completeness report and NOT bound into the approval
+        // digest, which stays anchored to the counts above.
+        request.setAttribute("severeConsoleErrorDetails", e.getSevereConsoleDetails());
         request.setAttribute("containedInteractions", report.containedInteractions());
+        request.setAttribute("decorativeExcludedElements", report.decorativeExcludedElements());
         request.setAttribute("signatureMissing", report.signatureMissing());
         request.setAttribute("timerCompatibilityFailure", report.timerCompatibilityFailure());
         request.setAttribute("stabilizationCapped", report.stabilizationCapped());

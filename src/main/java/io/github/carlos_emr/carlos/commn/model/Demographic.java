@@ -1557,7 +1557,14 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
     @jakarta.persistence.Transient
 
-    public GregorianCalendar getBirthDay() {
+    // Declared as Calendar, not GregorianCalendar, to match setBirthDay(Calendar).
+    // A JavaBean property whose getter and setter disagree on type is malformed:
+    // property introspectors look for a setter matching the GETTER's return type,
+    // so a GregorianCalendar return made them demand setBirthDay(GregorianCalendar)
+    // and fail when it was absent. Live-caught as EclipseLink MOXy aborting the
+    // whole JAXB context ("No JAXB context can be created") on any deployment
+    // that exercised it. The instance returned is still a GregorianCalendar.
+    public Calendar getBirthDay() {
         GregorianCalendar cal = null;
 
         if (dateOfBirth != null && monthOfBirth != null && yearOfBirth != null) {

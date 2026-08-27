@@ -14,7 +14,7 @@ import re
 
 from . import util
 from .util import (
-    CONF_DIR, ENV_FILE, LIB, PROPERTIES, SHARE, STATE,
+    CHROMIUM_DIR, CONF_DIR, ENV_FILE, LIB, PROPERTIES, RENDER_BROWSER_ENV, SHARE, STATE,
     die, env_get, log, prop_comment, prop_get, prop_set, run, warn,
 )
 
@@ -119,9 +119,51 @@ def cmd_init_config(argv) -> int:
     # DrugRef is co-deployed in this Tomcat, loopback-only.
     prop_set(PROPERTIES, "drugref_url", "http://127.0.0.1:18080/drugref2/DrugrefService")
 
-    # The shipped image carries no Chromium; the boot-time browser probe for
-    # the eForm-to-PDF renderer can only fail and log an error burst.
-    prop_set(PROPERTIES, "eform_pdf_browser_startup_check", "off")
+    # eForm-to-PDF renderer. carlos-emr-eform-renderer ships a pinned Chromium
+    # and a chromedriver built from the same revision, run as the dedicated
+    # carlos-emr-chromedriver service; the application CONNECTS to that service
+    # (eform_pdf_browser_service_url) and never spawns or downloads a driver.
+    #
+    # The probe follows the browser rather than being hard-off: with no browser
+    # installed it could only fail and log an error burst on every boot, but
+    # once one IS installed a silent probe is worse than none — a broken
+    # renderer then surfaces as a failed print mid-consultation instead of one
+    # WARN at startup. "warn" is the application's own documented default; it
+    # logs and continues, and never blocks deployment.
+    chromium = f"{CHROMIUM_DIR}/chrome"
+    chromedriver = f"{CHROMIUM_DIR}/chromedriver"
+    if os.path.exists(chromium) and os.path.exists(chromedriver):
+        prop_set(PROPERTIES, "eform_pdf_browser_chromium_path", chromium)
+        # The application CONNECTS to chromedriver; it no longer spawns one. The
+        # url-base is a bearer credential generated into render-browser.env at
+        # install, and the two files are read by two accounts that deliberately
+        # cannot read each other's — hence the value is composed here rather than
+        # shared. A missing/empty url-base is tolerated HERE so init-config never
+        # blocks, but the chromedriver unit itself refuses to start on an empty
+        # CARLOS_RENDER_URL_BASE (its ExecStartPre guard): a bare-root endpoint
+        # would silently drop the capability-token defence, and everything else in
+        # this design fails closed. The renderer package's postinst generates the
+        # token, so this branch only matters mid-install or after manual edits.
+        port, url_base = _render_browser_endpoint()
+        service_url = f"http://127.0.0.1:{port}"
+        if url_base:
+            service_url = f"{service_url}/{url_base}"
+        prop_set(PROPERTIES, "eform_pdf_browser_service_url", service_url)
+        # Retired with the spawning code path. Comment out rather than delete so
+        # an operator can see it was deliberately retired, not silently dropped.
+        prop_comment(PROPERTIES, "eform_pdf_browser_chromedriver_path")
+        prop_set(PROPERTIES, "eform_pdf_browser_startup_check", "warn")
+    else:
+        # No browser installed. Comment the endpoint out rather than leaving it
+        # pointing at a service that is no longer running — the renderer fails
+        # closed, so a stale value would turn every eForm print into an error
+        # naming a URL the operator just deliberately removed. The binary paths
+        # are retracted for the same reason: they would otherwise keep naming
+        # files the renderer package's removal just deleted.
+        prop_comment(PROPERTIES, "eform_pdf_browser_service_url")
+        prop_comment(PROPERTIES, "eform_pdf_browser_chromium_path")
+        prop_comment(PROPERTIES, "eform_pdf_browser_chromedriver_path")
+        prop_set(PROPERTIES, "eform_pdf_browser_startup_check", "off")
 
     # --- paths the upstream skeleton still aims at the OLD FHS location -----
     # The stock carlos.properties predates this packaging and carries several
@@ -228,6 +270,27 @@ def cmd_init_config(argv) -> int:
     return 0
 
 
+
+def _render_browser_endpoint() -> tuple:
+    """Port and url-base the render browser service is configured with.
+
+    Read from /etc/carlos-emr/render-browser.env, which the renderer package's
+    postinst generates. Returns the documented default port and an empty prefix
+    when the file is absent, so a partially-installed system still produces a
+    usable URL rather than a crash.
+    """
+    port, url_base = "9515", ""
+    try:
+        with open(RENDER_BROWSER_ENV, encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if line.startswith("CARLOS_RENDER_PORT="):
+                    port = line.split("=", 1)[1].strip() or port
+                elif line.startswith("CARLOS_RENDER_URL_BASE="):
+                    url_base = line.split("=", 1)[1].strip()
+    except OSError:
+        pass
+    return port, url_base
 def _write(path: str, content: str) -> None:
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(content)

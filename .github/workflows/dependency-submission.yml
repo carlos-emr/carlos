@@ -62,6 +62,12 @@ jobs:
           echo "Validating dependencies"
           echo "Lock file: dependencies-lock.json"
           echo "========================================="
+          # The formerly-JitPack coordinates (ultrabuk, openpdf 3.x) are vendored in
+          # local_repo with different bytes than JitPack ever served; a restored Maven
+          # cache from before the vendoring still holds the old jars, and Maven prefers
+          # ~/.m2 over any repository — so the integrity check fails forever until the
+          # stale copies are evicted and re-resolved from local_repo.
+          rm -rf ~/.m2/repository/com/github/openosp ~/.m2/repository/com/github/librepdf
           mvn validate
 
       - name: Submit dependency graph

@@ -29,6 +29,10 @@ d /var/lib/carlos-emr/catalina/work               0750 carlos        carlos -
 d /var/lib/carlos-emr/catalina/temp               0750 carlos        carlos -
 d /var/lib/carlos-emr/catalina/lib                0750 carlos        carlos -
 d /var/lib/carlos-emr/catalina/prefs              0750 carlos        carlos -
+# (The former /var/lib/carlos-emr/browser HOME for an in-JVM-spawned Chromium is
+# gone: the render browser now runs under carlos-emr-chromedriver as
+# carlos-render with its own /var/lib/carlos-emr/render HOME, owned by that
+# package's tmpfiles. The JVM's user.home comes from passwd and never needed it.)
 # A heap dump of this application IS a PHI artefact — it contains whatever
 # clinical data was in memory. It must never land in /tmp.
 d /var/lib/carlos-emr/heapdumps                   0750 carlos        carlos -

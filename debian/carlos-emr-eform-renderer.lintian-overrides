@@ -1,0 +1,19 @@
+# This package ships ONE artefact: an upstream Chromium build, unpacked. Every
+# tag below is a property of that binary, not a packaging decision, and none of
+# them can be resolved without building Chromium from source — which is not a
+# thing this project can carry. Ubuntu 26.04 offers no Chromium .deb to depend
+# on instead (the archive's chromium-* packages are transitional shims for the
+# snap, and a confined snap cannot read the renderer's working directories
+# under /var/lib/carlos-emr). See debian/copyright for the licensing, and
+# debian/chromium.pin for the exact revision and its checksums.
+
+# Chromium statically links its own copies of these. That is upstream's build
+# configuration; the distribution copies are not interchangeable with the
+# versions Chromium was tested and shipped against.
+embedded-library
+
+# Deliberately not stripped. debian/rules skips dh_strip for this package
+# because the binary is vendored rather than built here: stripping a prebuilt
+# Chromium discards the symbols its own crash handler needs, and would make any
+# renderer crash report unusable. The size cost is accepted for that reason.
+unstripped-binary-or-object

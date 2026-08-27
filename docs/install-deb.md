@@ -35,8 +35,31 @@ byte for byte). Download the pair, verify, install:
 ```bash
 sha256sum -c carlos-emr_<version>_all.deb.sha256
 sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
-sudo apt install ./carlos-emr_<version>_all.deb ./carlos-emr-drugref_<version>_all.deb
+sha256sum -c carlos-emr-eform-renderer_<version>_amd64.deb.sha256
+sudo apt install ./carlos-emr_<version>_all.deb \
+                 ./carlos-emr-drugref_<version>_all.deb \
+                 ./carlos-emr-eform-renderer_<version>_amd64.deb
 ```
+
+Three packages, and it is worth knowing what each is for:
+
+| Package | What it does | Leave it out? |
+|---|---|---|
+| `carlos-emr` | The EMR itself: application, database schema, nginx front door, WAF, TLS, backups. | No. |
+| `carlos-emr-drugref` | Drug and interaction lookups when prescribing. | Only if you never prescribe — searches return nothing without it. |
+| `carlos-emr-eform-renderer` | The browser that turns saved eForms into PDFs. | Only if the clinic does not use eForms — **there is no fallback**, so eForm print, fax and archive simply do not work without it. |
+
+apt may print this while installing local files. It is harmless:
+
+```
+Notice: Download is performed unsandboxed as root as file '...deb'
+couldn't be accessed by user '_apt'. - pkgAcquire::Run (13: Permission denied)
+```
+
+apt drops to an unprivileged user to fetch packages, and Ubuntu creates home
+directories that user cannot read into. Nothing is downloaded from the network
+by that step — the file is already on disk and you have just checksummed it.
+Installing from a world-traversable directory such as `/tmp` avoids it.
 
 The installer asks a handful of questions (debconf): the host name clinicians
 will use, the listen address, the billing province (Ontario or British
@@ -65,7 +88,40 @@ lookup, schema state, and backup freshness:
 sudo carlos-ctl check
 ```
 
-**2. Log in.** The initial administrator credentials were generated at
+Then confirm the eForm render browser specifically, because `carlos-ctl check`
+covers the EMR rather than that service:
+
+```bash
+sudo systemctl status carlos-emr-chromedriver          # should be active
+sudo carlos-ctl logs | grep -i "renderer startup check"
+```
+
+You want `eForm browser renderer startup check passed.` The browser runs as its
+own account (`carlos-render`) under its own service, sandboxed — if it cannot
+start, eForm print/fax/archive fail rather than quietly producing PDFs from an
+unsandboxed browser, and the line above tells you so at boot instead of at the
+moment a clinician tries to print.
+
+**2. Know where the logs are.** Before anything goes wrong, not after. CARLOS
+spans several services and each writes to its own place — looking in the wrong
+one is the most common way to conclude "nothing is logged":
+
+```bash
+sudo carlos-ctl logs -n 200        # the EMR and Tomcat  (= journalctl -u carlos-emr)
+sudo carlos-ctl logs -f            # follow it live
+sudo journalctl -u carlos-emr-chromedriver -n 50   # the eForm render browser
+sudo journalctl -u nginx -n 50     # TLS and the front door
+sudo tail -f /var/log/carlos-emr/modsec/modsec_audit.log   # the WAF
+```
+
+Two that catch people out:
+
+- A request **blocked by the WAF never reaches the application**, so it appears
+  in the modsec log and nowhere else. `carlos-ctl waf tail` explains why.
+- The **render browser is a separate service with a separate journal**. A failed
+  eForm print can leave the application log completely silent.
+
+**3. Log in.** The initial administrator credentials were generated at
 install time and written, readable only by root, to:
 
 ```bash
@@ -79,7 +135,7 @@ because the generated password exists in a file on disk. Complete the reset,
 create real named accounts for each clinician, disable the seeded account,
 and delete the credentials file.
 
-**3. Point backups off the host.** The default backup repository is a local
+**4. Point backups off the host.** The default backup repository is a local
 directory — a real first tier, but not disaster recovery. Set an offsite
 `RESTIC_REPOSITORY` in `/etc/carlos-emr/backup.env`, **copy the
 `RESTIC_PASSWORD` somewhere off this machine** (without it every backup is
@@ -90,7 +146,7 @@ sudo carlos-ctl backup full
 sudo carlos-ctl backup verify   # restores the newest dump into a scratch db
 ```
 
-**4. Real TLS.** Once the host name resolves in public DNS and port 80 is
+**5. Real TLS.** Once the host name resolves in public DNS and port 80 is
 reachable:
 
 ```bash

@@ -10,7 +10,7 @@ import time
 
 from . import config, dbops, util
 from .util import (
-    BACKUP_ENV, CONF_DIR, GREEN, LIB, RED, RESET, YELLOW, need_root, out, run,
+    BACKUP_ENV, CONF_DIR, GREEN, LIB, PROPERTIES, RED, RESET, YELLOW, need_root, out, run,
 )
 
 _failures = 0
@@ -140,6 +140,89 @@ def cmd_check(argv) -> int:
         else:
             _bad("no AppArmor profile loaded for mariadbd — the file-access control the "
                  "MariaDB drop-in documents is missing")
+
+    # The eForm render browser is optional (Recommends:), so probe it only when its
+    # env file says it is installed. Every check here maps to a way it silently breaks:
+    # the unit not running, the AppArmor userns grant missing on a kernel that enforces
+    # apparmor_restrict_unprivileged_userns (Chromium aborts "No usable sandbox!" and
+    # every eForm print/fax/archive fails closed), or carlos.properties pointing the
+    # JVM at a different port/token than the driver actually serves.
+    # Gate on the chromedriver BINARY, which a plain `apt remove` deletes — not on
+    # render-browser.env, which survives until purge: keying on the env file made check
+    # report a broken renderer on hosts where the operator deliberately removed the
+    # package. Binary-present-but-env-missing IS a fault (postinst never completed).
+    render_env = "/etc/carlos-emr/render-browser.env"
+    render_driver = "/usr/lib/carlos-emr/chromium/chromedriver"
+    if os.path.exists(render_driver) and not os.path.exists(render_env):
+        print("\neForm render browser")
+        _bad("the renderer package is installed but render-browser.env is missing — its "
+             "postinst never completed (sudo apt install --reinstall carlos-emr-eform-renderer)")
+    elif not os.path.exists(render_driver) and os.path.exists(render_env):
+        print("\neForm render browser")
+        _note("render-browser.env is left over from a removed carlos-emr-eform-renderer "
+              "(it holds the url-base token and is deleted on purge); the renderer itself "
+              "is not installed, so its checks are skipped")
+    elif os.path.exists(render_driver):
+        print("\neForm render browser")
+        if run(["systemctl", "is-active", "--quiet", "carlos-emr-chromedriver"]).returncode == 0:
+            _ok("carlos-emr-chromedriver is running")
+        else:
+            _bad("carlos-emr-chromedriver is NOT running "
+                 "(systemctl status carlos-emr-chromedriver)")
+        try:
+            with open(profiles, encoding="utf-8", errors="replace") as fh:
+                entries = fh.read()
+        except OSError:
+            entries = ""
+        restricted = "0"
+        try:
+            with open("/proc/sys/kernel/apparmor_restrict_unprivileged_userns",
+                      encoding="ascii") as fh:
+                restricted = fh.read().strip()
+        except OSError:
+            pass
+        if re.search(r"^carlos-emr-chromium ", entries, re.M):
+            _ok("AppArmor profile carlos-emr-chromium is loaded (userns grant for the sandbox)")
+        elif restricted == "1":
+            _bad("AppArmor profile carlos-emr-chromium is NOT loaded and this kernel "
+                 "restricts unprivileged user namespaces — the sandboxed browser cannot "
+                 "start and eForm PDF rendering fails closed "
+                 "(sudo apparmor_parser -r /etc/apparmor.d/carlos-emr-chromium)")
+        else:
+            _note("AppArmor profile carlos-emr-chromium is not loaded; the sandbox works "
+                  "anyway because this kernel does not restrict unprivileged user namespaces")
+        port, url_base = config._render_browser_endpoint()
+        prop_url = None
+        try:
+            with open(PROPERTIES, encoding="utf-8", errors="replace") as fh:
+                # prop_set writes "key = value"; tolerate any spacing around "=" and an
+                # unspaced hand edit alike, or this check reports every healthy install
+                # as misconfigured.
+                m = re.search(r"^eform_pdf_browser_service_url\s*=\s*(\S+)", fh.read(), re.M)
+                prop_url = m.group(1) if m else None
+        except OSError:
+            pass
+        # Mirror config.py's composition exactly, including the empty-url-base shape it
+        # deliberately writes mid-install: a base-less URL is then EXPECTED, and the broken
+        # thing is the missing token — whose fix is the renderer postinst, not init-config.
+        expected = None
+        if port:
+            expected = f"http://127.0.0.1:{port}/{url_base}" if url_base else f"http://127.0.0.1:{port}"
+        if prop_url and expected and prop_url == expected:
+            if url_base:
+                _ok("eform_pdf_browser_service_url matches render-browser.env")
+            else:
+                _bad("CARLOS_RENDER_URL_BASE is empty in render-browser.env — the chromedriver "
+                     "unit refuses to start without the token; reinstall the renderer package "
+                     "(its postinst regenerates it): sudo apt install --reinstall "
+                     "carlos-emr-eform-renderer")
+        elif prop_url is None:
+            _bad("carlos.properties has no eform_pdf_browser_service_url — the JVM cannot "
+                 "reach the render browser (sudo carlos-ctl init-config)")
+        else:
+            _bad("eform_pdf_browser_service_url does not match render-browser.env — the JVM "
+                 "and chromedriver disagree on port or url-base token "
+                 "(sudo carlos-ctl init-config, then systemctl restart carlos-emr)")
 
     print("\nTLS")
     run([os.path.join(LIB, "carlos-emr-cert"), "status"])
