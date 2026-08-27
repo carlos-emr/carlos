@@ -8,6 +8,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.ResourceBundle;
 
 import io.github.carlos_emr.carlos.casemgmt.model.ProviderExt;
 import io.github.carlos_emr.carlos.commn.dao.ProviderExtDao;
@@ -279,7 +280,28 @@ public class EmailNoteUtil {
         noteBuilder.append("From: ").append(emailLog.getFromEmail()).append("\n");
         noteBuilder.append("To: ").append(getRecipientEmail()).append("\n");
         noteBuilder.append("Sent: ").append(getEmailTime()).append(" on ").append(getEmailDate()).append("\n");
+        noteBuilder.append("Consent: ").append(getConsentLine(emailLog)).append("\n");
         noteBuilder.append("Unique Email Log ID: ").append(emailLog.getId());
+    }
+
+    private String getConsentLine(EmailLog emailLog) {
+        if (emailLog.getConsentStatus() == null) {
+            return "Not recorded";
+        }
+        StringBuilder consentLine = new StringBuilder();
+        consentLine.append(ResourceBundle.getBundle("oscarResources", Locale.ENGLISH)
+                .getString(emailLog.getConsentStatus().getMessageKey()));
+        if (emailLog.getConsentId() != null) {
+            consentLine.append(" (consent #").append(emailLog.getConsentId());
+            if (emailLog.getConsentLastUpdateDate() != null) {
+                consentLine.append(", as of ").append(getFormattedDate(emailLog.getConsentLastUpdateDate()));
+            }
+            consentLine.append(")");
+        }
+        if (emailLog.getConsentOverride() && !StringUtils.isNullOrEmpty(emailLog.getConsentOverrideReason())) {
+            consentLine.append("; override reason: ").append(emailLog.getConsentOverrideReason());
+        }
+        return consentLine.toString();
     }
 
     private void addInternalComment(EmailLog emailLog, StringBuilder noteBuilder) {

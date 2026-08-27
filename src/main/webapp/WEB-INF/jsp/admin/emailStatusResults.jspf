@@ -1,6 +1,8 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:if test="${not empty emailValidationError}">
 <div class="alert alert-danger mt-1" role="alert">${carlos:forHtml(emailValidationError)}</div>
 </c:if>
@@ -34,6 +36,21 @@
                         <i class="fa-solid fa-unlock"></i> Unencrypted
                     </c:otherwise>
                 </c:choose>
+                </td>
+            </tr>
+            <tr>
+                <th>Consent</th>
+                <td>
+                    <c:if test="${not empty emailStatusResult.consentMessageKey}">
+                        <fmt:message key="${emailStatusResult.consentMessageKey}"/>
+                    </c:if>
+                    <c:if test="${not empty emailStatusResult.consentId}">
+                        (consent #${carlos:forHtml(emailStatusResult.consentId)}<c:if test="${not empty emailStatusResult.consentLastUpdateDisplay}">, as of ${carlos:forHtml(emailStatusResult.consentLastUpdateDisplay)}</c:if>)
+                    </c:if>
+                    <c:if test="${emailStatusResult.consentOverride}">
+                        <span class="badge bg-warning text-dark">Override</span>
+                        <div>${carlos:forHtml(emailStatusResult.consentOverrideReason)}</div>
+                    </c:if>
                 </td>
             </tr>
         </table>
