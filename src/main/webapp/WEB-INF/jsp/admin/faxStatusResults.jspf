@@ -42,27 +42,33 @@ if(!authed) {
 	String type;
 	int count = 0;
 	for( FaxJob faxJob : faxJobs ) {
-	    
+
 	    type = "";
-	    
+
 		/*
-		* Instead of relying on the unreliable method of identifying fax transaction types from generated PDF names, 
-		* it is recommended to save fax logs in the FaxClientLog table with appropriate transaction types.
+		* The persisted direction column is authoritative when present: inbound rows are
+		* received faxes regardless of filename shape (SRFax inbound names carry no "fax"
+		* substring), and outbound rows can never be "RECEIVED FAX". Filename inference is
+		* kept only as a legacy fallback for rows persisted before the direction column.
 		*/
-	    if( faxJob.getFile_name().indexOf("Consult") > -1 ) {
+	    if( faxJob.getDirection() == FaxJob.Direction.IN ) {
+			type = "RECEIVED FAX";
+	    }
+	    else if( faxJob.getFile_name() != null && faxJob.getFile_name().indexOf("Consult") > -1 ) {
 			type = "CONSULT";
 	    }
-	    else if( faxJob.getFile_name().indexOf("prescription") > -1 ) {
+	    else if( faxJob.getFile_name() != null && faxJob.getFile_name().indexOf("prescription") > -1 ) {
 			type = "PRESCRIPTION";
 	    }
-	    else if( faxJob.getFile_name().indexOf("fax") > -1 ) {
+	    else if( faxJob.getDirection() != FaxJob.Direction.OUT
+	            && faxJob.getFile_name() != null && faxJob.getFile_name().indexOf("fax") > -1 ) {
 			type = "RECEIVED FAX";
 	    } else {
 	        type = "EFORM";
 	    }
 
 		/*
-		* Utilizing logs (FaxClientLog) to display transaction types when presenting fax records 
+		* Utilizing logs (FaxClientLog) to display transaction types when presenting fax records
 		* and retaining the old code for identifying fax types due to the presence of old records
 		* that have not been added to the fax log table.
 		*/
@@ -84,21 +90,33 @@ if(!authed) {
 				}
 			}
 		}
-    
+
 	    String providerName = "N/A";
 	    String demographicName = "N/A";
 	    String oscarUser = faxJob.getOscarUser();
 	    if( oscarUser != null ) {
-			    
-	    	ProviderData providerData = providerDataDao.find(faxJob.getOscarUser());
-	    	providerName = providerData.getLastName() + ", " + providerData.getFirstName();
-	    		
+
+		ProviderData providerData = providerDataDao.find(faxJob.getOscarUser());
+		// A missing provider row (e.g. a since-removed account) must not 500 the whole queue view.
+		if (providerData != null) {
+			providerName = providerData.getLastName() + ", " + providerData.getFirstName();
+		} else {
+			providerName = oscarUser;
+		}
+
 	    }
-	    
+
 	    if( faxJob.getDemographicNo() != null && faxJob.getDemographicNo() > 0 ) {
-			
+
 			Demographic demographic = demographicDao.getDemographic(String.valueOf(faxJob.getDemographicNo()));
-			demographicName = demographic.getDisplayName();
+			// A fax row can carry a demographic_no that no longer resolves (merged/removed
+			// record, or an unvalidated value persisted by the Rx fax servlet). Like the
+			// provider lookup above, one bad row must not 500 the whole queue view.
+			if (demographic != null) {
+				demographicName = demographic.getDisplayName();
+			} else {
+				demographicName = String.valueOf(faxJob.getDemographicNo());
+			}
 	    }
 %>
 		<tr>
@@ -106,7 +124,9 @@ if(!authed) {
 			<td class="small"><carlos:encode value='<%= providerName %>' context="html"/>(<carlos:encode value='<%= faxJob.getUser() %>' context="html"/>)</td>
 			<td id="patientName_<%=faxJob.getId()%>" class="small"><carlos:encode value='<%= demographicName %>' context="html"/></td>
 			<td class="small"><carlos:encode value='<%= faxJob.getRecipient() %>' context="html"/></td>
-			<td id="status<%=count%>" class="small" ><carlos:encode value='<%= faxJob.getStatus() %>' context="html"/></td>
+			<%-- getStatus() is an enum; <carlos:encode> takes a String, and passing the enum
+			     fails JSP compilation at runtime (jspc does not precompile standalone .jspf results). --%>
+			<td id="status<%=count%>" class="small" ><carlos:encode value='<%= faxJob.getStatus() == null ? "" : faxJob.getStatus().name() %>' context="html"/></td>
 			<td class="small" title="<carlos:encode value='<%= faxJob.getStatusString() %>' context="htmlAttribute"/>" style="max-width: 150px; width: 100px; text-overflow: ellipsis; overflow: hidden;">
 			<carlos:encode value='<%= faxJob.getStatusString() %>' context="html"/></td>
 			<td class="small"><%=DateFormatUtils.format(faxJob.getStamp(), "yyyy-MM-dd HH:mm:ss")%></td>
@@ -114,29 +134,37 @@ if(!authed) {
 <div class="btn-group">
 				<button class="btn btn-link btn-view" title="Open a preview image of this fax" onclick="view(<%=faxJob.getId()%>)">view</button>
 <%
-			if( ! FaxJob.STATUS.RECEIVED.equals(faxJob.getStatus()) ) {			    
-			    
+			if( ! FaxJob.STATUS.RECEIVED.equals(faxJob.getStatus()) ) {
+
 			    if( FaxJob.STATUS.ERROR.equals(faxJob.getStatus()) || FaxJob.STATUS.COMPLETE.equals(faxJob.getStatus())) {
-					if(FaxManager.isEnabled()) {
-%>			    
-						<security:oscarSec roleName="<%=roleName2$%>" objectName="_admin" rights="r" reverse="<%=false%>">
+					/*
+					* Resend is an OUTBOUND operation only. An inbound ERROR row (e.g. "Downloaded but
+					* import failed - pending retry") carries no fax_line, so a resent clone would sit
+					* WAITING forever, and rewriting the original row to RESENT would destroy the
+					* jobId dedup marker the importer relies on - the next poll would then file the
+					* same fax as a duplicate document. The mutating endpoints require write rights,
+					* so the buttons render only for users who can actually use them.
+					*/
+					if(FaxManager.isEnabled() && faxJob.getDirection() != FaxJob.Direction.IN) {
+%>
+						<security:oscarSec roleName="<%=roleName2$%>" objectName="_admin,_admin.fax" rights="w" reverse="<%=false%>">
 							<button class="btn btn-link btn-resend" title="Re-send this fax to the fax gateway service for delivery" id="resend_<%=faxJob.getId()%>" onclick="resend(<%=faxJob.getId()%>,'<%=faxJob.getDestination()%>','status<%=count%>')">resend</button>
-						</security:oscarSec>						
+						</security:oscarSec>
 <%
 					}
 					if( faxJob.getStatus().equals(FaxJob.STATUS.ERROR) ) {
 %>
-							<security:oscarSec roleName="<%=roleName2$%>" objectName="_admin" rights="r" reverse="<%=false%>">
+							<security:oscarSec roleName="<%=roleName2$%>" objectName="_admin,_admin.fax" rights="w" reverse="<%=false%>">
 								<button class="btn btn-link btn-complete" title="Clear the error status of this fax" id="complete_<%=faxJob.getId()%>" onclick="complete(<%=faxJob.getId()%>,'status<%=count%>')">resolve</button>
-							</security:oscarSec>						
-<%					    
+							</security:oscarSec>
+<%
 					}
 				}
 				else if( FaxJob.STATUS.SENT.equals(faxJob.getStatus())  || FaxJob.STATUS.WAITING.equals(faxJob.getStatus())) {
 %>
-				<security:oscarSec roleName="<%=roleName2$%>" objectName="_admin" rights="r" reverse="<%=false%>">
+				<security:oscarSec roleName="<%=roleName2$%>" objectName="_admin,_admin.fax" rights="w" reverse="<%=false%>">
 					<button class="btn btn-link btn-cancel" title="Cancel this fax before it is sent to the destination by the fax gateway service" id="cancel_<%=faxJob.getId()%>" onclick="cancel(<%=faxJob.getId()%>,'status<%=count%>')">cancel</button>
-				</security:oscarSec>						
+				</security:oscarSec>
 
 <%
 				}
@@ -145,7 +173,7 @@ if(!authed) {
 </div>
 			</td>
 		</tr>
-		
+
 <%
 		++count;
 	}

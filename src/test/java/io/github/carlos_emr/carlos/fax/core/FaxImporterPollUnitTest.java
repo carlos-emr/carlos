@@ -51,7 +51,7 @@ import org.junit.jupiter.api.Test;
  * <p>These tests focus on the poll() method's control flow: skipping inactive/download-disabled
  * configs, continuing after provider errors, and handling empty config lists. The deeper
  * import pipeline (saveAndInsertIntoQueue, PDF validation, etc.) is tested separately in
- * {@link FaxImporterCriticalGapsTest}.</p>
+ * {@link FaxImporterCriticalGapsUnitTest}.</p>
  *
  * <p><strong>Note:</strong> FaxImporter has static fields (DOCUMENT_DIR, FAX_TEMP_DIR) that
  * are initialized at class load time via CarlosProperties. This class loads successfully in

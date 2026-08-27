@@ -54,7 +54,7 @@ import static org.mockito.Mockito.*;
  * dependencies) to confirm that invalid eform_link values do <b>not</b>
  * produce a session attribute write, while valid values do.</p>
  *
- * <p>Complements {@link AddEForm2ActionEformLinkValidationTest} which tests
+ * <p>Complements {@link AddEForm2ActionEformLinkValidationUnitTest} which tests
  * the {@link AddEForm2Action#validateEformLink(String)} helper in isolation.</p>
  *
  * @since 2026-04-09
