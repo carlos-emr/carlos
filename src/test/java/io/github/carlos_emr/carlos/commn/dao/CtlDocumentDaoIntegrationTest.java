@@ -87,6 +87,7 @@ public class CtlDocumentDaoIntegrationTest extends CarlosTestBase {
         @BeforeEach
         void setUp() {
             createCtlDocument(20001, "demographic", "A");
+            createCtlDocument(20001, "provider", "A");
             createCtlDocument(20002, "demographic", "A");
             createCtlDocument(20003, "encounter", "A");
         }
@@ -108,8 +109,23 @@ public class CtlDocumentDaoIntegrationTest extends CarlosTestBase {
                     List.of(20001, 20002, 20003, 20001));
 
             assertThat(results)
-                    .extracting(document -> document.getId().getDocumentNo())
-                    .containsExactlyInAnyOrder(20001, 20002, 20003);
+                    .extracting(
+                            document -> document.getId().getDocumentNo(),
+                            document -> document.getId().getModule())
+                    .containsExactlyInAnyOrder(
+                            tuple(20001, "demographic"),
+                            tuple(20001, "provider"),
+                            tuple(20002, "demographic"),
+                            tuple(20003, "encounter"));
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty for null, empty, or all-null document numbers")
+        void shouldReturnEmpty_forNoUsableDocumentNos() {
+            assertThat(ctlDocumentDao.findByDocumentNos(null)).isEmpty();
+            assertThat(ctlDocumentDao.findByDocumentNos(List.of())).isEmpty();
+            assertThat(ctlDocumentDao.findByDocumentNos(java.util.Arrays.asList(null, null))).isEmpty();
         }
 
         @Test
