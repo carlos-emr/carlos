@@ -344,40 +344,40 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     }
 
     /**
-     * Sanitizes a filename for use in incoming documents to prevent path traversal attacks.
-     * Uses Apache Commons IO FilenameUtils for robust path traversal prevention.
+     * Validates an incoming-document upload filename, returning {@code null} (rather than throwing)
+     * when the name is unusable so this AJAX upload handler can surface a friendly
+     * "invalid filename" error instead of a 500.
      *
-     * @param fileName the original filename
-     * @return sanitized filename safe for filesystem operations
+     * <p>The single-component filename rules are delegated to
+     * {@link PathValidationUtils#validatePathComponent(String, String)} so this upload path cannot
+     * drift from the centralized validator (issue #2213). {@link FilenameUtils#getName(String)}
+     * first reduces the client-supplied value to its <em>basename</em>, stripping any directory
+     * prefix — so a path-like input such as {@code ../secret.pdf} is reduced to {@code secret.pdf}
+     * and accepted (filesystem-safe), <strong>not</strong> rejected. The centralized check then
+     * accepts the basename only if it is a safe single component and otherwise rejects it — for
+     * example (non-exhaustively) a blank, hidden ({@code .env}), traversal ({@code .}/{@code ..}),
+     * null-byte, or otherwise unparseable component; see
+     * {@link PathValidationUtils#validatePathComponent(String, String)} for the full contract. The
+     * resulting basename is otherwise preserved exactly — the downstream {@code .pdf} check and
+     * {@link PathValidationUtils#validateGeneratedChildPath} containment check both rely on it being
+     * unchanged. The non-throwing {@code null} contract is deliberate and specific to this handler;
+     * {@link FileValidationException} (a {@link SecurityException}) is translated to {@code null}.</p>
+     *
+     * @param fileName the original client-supplied filename
+     * @return the validated basename (directory prefix stripped by {@link FilenameUtils#getName}) when
+     *         centralized validation succeeds, or {@code null} when the resulting basename is not a
+     *         safe single component (blank, hidden, traversal, null-byte, unparseable, ...)
      */
     private String sanitizeFileNameForIncomingDocs(String fileName) {
         if (fileName == null || fileName.trim().isEmpty()) {
             return null;
         }
 
-        String baseName;
         try {
-            baseName = FilenameUtils.getName(fileName);
-        } catch (IllegalArgumentException e) {
+            return PathValidationUtils.validatePathComponent(FilenameUtils.getName(fileName), "incoming document filename");
+        } catch (IllegalArgumentException | FileValidationException e) {
             return null;
         }
-
-        // Ensure baseName doesn't contain any path separators
-        if (baseName.contains("/") || baseName.contains("\\") || baseName.contains("..")) {
-            return null;
-        }
-
-        // Reject filenames starting with . (hidden files)
-        if (baseName.startsWith(".")) {
-            return null;
-        }
-
-        // Ensure baseName is not empty
-        if (baseName.trim().isEmpty()) {
-            return null;
-        }
-
-        return baseName;
     }
 
     public String setUploadDestination() {
