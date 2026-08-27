@@ -2855,10 +2855,17 @@ public class EFormBrowserPdfService {
         if (path.endsWith("/")) {
             throw new IllegalArgumentException("Render browser service URL must not end in '/'");
         }
-        // Possessive quantifiers: the operator-supplied path cannot trigger catastrophic
-        // backtracking (SpotBugs REDOS) — the character classes are disjoint from '/' so
-        // possessiveness rejects exactly the same strings the greedy form did.
-        if (!path.isEmpty() && !path.matches("(/[A-Za-z0-9._~-]++)++")) {
+        // Linear-time equivalent of the old (/[A-Za-z0-9._~-]+)+ grammar, restructured because
+        // SpotBugs' REDOS detector matches the nested-quantifier SHAPE (it flagged the greedy
+        // and the possessive spelling alike, though possessive cannot backtrack). One-or-more
+        // segments of allowed characters joined by single slashes == every character in class,
+        // leading slash, no empty segment, no trailing slash. Each check is a single pass.
+        boolean usablePath = path.isEmpty()
+                || (path.startsWith("/")
+                        && !path.endsWith("/")
+                        && !path.contains("//")
+                        && path.matches("[/A-Za-z0-9._~-]+"));
+        if (!usablePath) {
             throw new IllegalArgumentException("Render browser service URL path is not a usable url-base prefix");
         }
         return uri;
