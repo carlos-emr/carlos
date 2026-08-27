@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "MyVitalHistory Tauri POC",
+  "productName": "MyVitalHistory Evaluation",
   "version": "0.1.0",
   "identifier": "ca.carlos.myvitalhistory.poc",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "MyVitalHistory — Tauri evaluation",
+        "title": "MyVitalHistory Evaluation — sample data only",
         "width": 1100,
         "height": 760,
         "minWidth": 360,

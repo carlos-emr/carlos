@@ -24,6 +24,10 @@ describe("MyVitalHistory Tauri evaluation", () => {
 
     expect(screen.getByRole("heading", { name: "Your health records, kept by you" })).toBeVisible();
     expect(screen.getByText("Sample referral letter")).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "What this evaluation can—and cannot—answer" }),
+    ).toBeVisible();
+    expect(screen.getByText("Sample mode always on")).toBeVisible();
     expect(await screen.findByText("Hello from test Rust")).toBeVisible();
     expect(screen.getByText("test-os")).toBeVisible();
   });
@@ -43,6 +47,29 @@ describe("MyVitalHistory Tauri evaluation", () => {
     expect(await screen.findByText("fictional-record.pdf")).toBeVisible();
     expect(screen.getByText("fictional-record.pdf was added for this session only.")).toBeVisible();
     expect(screen.getByText("Session only", { exact: true })).toBeVisible();
+  });
+
+  it("removes session-only metadata when the evaluation is reset", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        bridge={bridge({
+          selectPdf: vi.fn().mockResolvedValue({ name: "synthetic-reset-test.pdf", sizeBytes: 1024 }),
+        })}
+      />,
+    );
+
+    const reset = screen.getByRole("button", { name: "Reset session" });
+    expect(reset).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Choose a sample PDF" }));
+    expect(await screen.findByText("synthetic-reset-test.pdf")).toBeVisible();
+    expect(reset).toBeEnabled();
+
+    await user.click(reset);
+    expect(screen.queryByText("synthetic-reset-test.pdf")).not.toBeInTheDocument();
+    expect(screen.getByText("Evaluation reset. Only the three built-in sample records are shown.")).toBeVisible();
+    expect(screen.getByText("3 items")).toBeVisible();
   });
 
   it("handles picker cancellation without changing the library", async () => {

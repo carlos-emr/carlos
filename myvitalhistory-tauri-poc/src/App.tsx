@@ -42,6 +42,45 @@ const sampleDocuments: DemoDocument[] = [
   },
 ];
 
+const evaluationChecks = [
+  {
+    title: "Responsive patient UI",
+    result: "Ready to review",
+    detail: "One interface adapts to desktop and phone-sized screens.",
+    state: "demonstrated",
+  },
+  {
+    title: "Rust boundary",
+    result: "Demonstrated",
+    detail: "Runtime information crosses a typed Tauri command boundary.",
+    state: "demonstrated",
+  },
+  {
+    title: "Native document picker",
+    result: "Ready to try",
+    detail: "Only the selected PDF's name is displayed; its contents are not read.",
+    state: "demonstrated",
+  },
+  {
+    title: "Encrypted clinical storage",
+    result: "Not implemented",
+    detail: "Encryption, recovery, backup, and secure deletion need a separate spike.",
+    state: "excluded",
+  },
+  {
+    title: "Accounts and CARLOS integration",
+    result: "Not connected",
+    detail: "There is no sign-in, patient lookup, API, analytics, or network service.",
+    state: "excluded",
+  },
+  {
+    title: "Production distribution",
+    result: "Not implemented",
+    detail: "Signing, store submission, updates, monitoring, and support are out of scope.",
+    state: "excluded",
+  },
+] as const;
+
 function formatBytes(size?: number): string | undefined {
   if (size === undefined) return undefined;
   if (size < 1024) return `${size} B`;
@@ -113,6 +152,11 @@ export default function App({ bridge = defaultBridge }: AppProps) {
     }
   }
 
+  function resetEvaluation() {
+    setDocuments(sampleDocuments);
+    setNotice("Evaluation reset. Only the three built-in sample records are shown.");
+  }
+
   return (
     <div className="app-shell">
       <div className="evaluation-banner" role="note">
@@ -125,12 +169,12 @@ export default function App({ bridge = defaultBridge }: AppProps) {
           <span className="brand-mark" aria-hidden="true">♥</span>
           <span>
             <strong>MyVitalHistory</strong>
-            <small>Tauri proof of concept</small>
+            <small>Evaluation lab · not a patient product</small>
           </span>
         </a>
         <nav aria-label="Primary navigation">
           <a href="#library" aria-current="page">My records</a>
-          <a href="#evaluation">About this POC</a>
+          <a href="#evaluation">Evaluation lab</a>
         </nav>
       </header>
 
@@ -193,9 +237,9 @@ export default function App({ bridge = defaultBridge }: AppProps) {
             </div>
           </section>
 
-          <aside className="evaluation-card" id="evaluation" aria-labelledby="evaluation-title">
+          <aside className="evaluation-card" aria-labelledby="runtime-title">
             <p className="eyebrow">Native bridge</p>
-            <h2 id="evaluation-title">Hello from Tauri</h2>
+            <h2 id="runtime-title">Hello from Tauri</h2>
             {runtime ? (
               <>
                 <p className="runtime-message">{runtime.message}</p>
@@ -217,11 +261,50 @@ export default function App({ bridge = defaultBridge }: AppProps) {
             </div>
           </aside>
         </div>
+
+        <section className="evaluation-lab" id="evaluation" aria-labelledby="evaluation-title">
+          <div className="evaluation-lab-heading">
+            <div>
+              <p className="eyebrow">Decision support</p>
+              <h2 id="evaluation-title">What this evaluation can—and cannot—answer</h2>
+              <p>
+                Use this build to judge the cross-platform shell, responsive experience, and
+                narrow native bridge. It is deliberately incapable of holding clinical data.
+              </p>
+            </div>
+            <span className="sample-mode">Sample mode always on</span>
+          </div>
+
+          <div className="evaluation-checks">
+            {evaluationChecks.map((check) => (
+              <article className="evaluation-check" key={check.title}>
+                <span className={`check-state ${check.state}`} aria-hidden="true">
+                  {check.state === "demonstrated" ? "✓" : "—"}
+                </span>
+                <div>
+                  <strong>{check.title}</strong>
+                  <span className={`result-label ${check.state}`}>{check.result}</span>
+                  <p>{check.detail}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="evaluation-actions">
+            <div>
+              <strong>Safe evaluation task</strong>
+              <p>Choose a synthetic PDF, confirm its name appears, then reset the session.</p>
+            </div>
+            <button className="secondary-action" onClick={resetEvaluation} disabled={sessionCount === 0}>
+              Reset session
+            </button>
+          </div>
+        </section>
       </main>
 
       <footer>
         <span>Related to CARLOS issue #3474</span>
-        <span>No accounts · No clinical integration · No persistence</span>
+        <span>Evaluation build · Synthetic data only · No persistence</span>
       </footer>
     </div>
   );

@@ -1,4 +1,4 @@
-# MyVitalHistory Tauri proof of concept
+# MyVitalHistory Tauri evaluation
 
 > **Evaluation only — do not use real patient files.** This app does not encrypt, persist, copy,
 > upload, or render selected files. It is not connected to CARLOS EMR.
@@ -8,12 +8,17 @@ shell for the patient-held record proposed in
 [`carlos-emr/carlos#3474`](https://github.com/carlos-emr/carlos/issues/3474). It uses one responsive
 React/TypeScript web UI with a narrow Rust boundary and Tauri's native document picker.
 
+Use [`EVALUATION.md`](EVALUATION.md) to run the evaluation and record decision evidence. The app
+also presents the demonstrated and deliberately excluded capabilities on screen so screenshots and
+test sessions cannot be mistaken for evidence of production readiness.
+
 ## What it demonstrates
 
 - The same responsive library screen in a browser, desktop webview, Android webview, and iOS webview.
 - A typed `runtime_info` command crossing from TypeScript to Rust.
 - A native PDF picker exposed through the minimal `dialog:allow-open` capability.
 - Session-only display of the selected file's basename; no path or file contents are retained.
+- An in-product evaluation scorecard and reset control that removes session-only metadata.
 - Frontend unit tests, browser viewport tests, Rust tests, and unsigned debug builds in CI.
 
 It deliberately does **not** demonstrate a secure vault, encryption or key recovery, PDF rendering,
