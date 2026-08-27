@@ -296,11 +296,11 @@ ifeq ($(SKIP_EFORM_RENDERER),)
 	cp -a $(BUILDDIR)/chromium/chrome-linux/. debian/$(RPKG)/$(LIBDIR)/chromium/
 	install -m 0755 $(BUILDDIR)/chromium/chromedriver debian/$(RPKG)/$(LIBDIR)/chromium/chromedriver
 	# The setuid sandbox helper ships non-setuid on purpose. The browser IS
-	# sandboxed now, but via unprivileged user namespaces (the AppArmor profile
-	# grants userns and the browser unit permits namespaces) — the setuid path
-	# is not used,
-	# and a setuid root binary inside a clinical package is not something to
-	# install for a code path that is off unless EFORM_RENDER_SANDBOX=true.
+	# sandboxed (EFORM_RENDER_SANDBOX=true is set unconditionally by the shipped
+	# drop-in), but via unprivileged user namespaces — the AppArmor profile
+	# grants userns and the browser unit permits namespaces — so the setuid
+	# fallback path is never used, and a setuid root binary inside a clinical
+	# package is not something to install for a path that never runs.
 	chmod 0755 debian/$(RPKG)/$(LIBDIR)/chromium/chrome_sandbox || true
 	# AppArmor profile that hands back the `userns` permission Ubuntu 23.10+
 	# removes system-wide. Without it Chromium aborts with "No usable sandbox!"

@@ -28,11 +28,14 @@ case "$1" in
         done
 
         # Load the AppArmor profile that grants the browser back the `userns`
-        # permission Ubuntu 23.10+ removes system-wide. Chromium's own sandbox
-        # is NOT enabled by default here (see the comment in carlos-emr.service
-        # for why), so a profile that fails to load is not fatal today — it only
-        # removes the ability to opt in. Report it rather than failing the
-        # install.
+        # permission Ubuntu 23.10+ removes system-wide. The shipped drop-in sets
+        # EFORM_RENDER_SANDBOX=true unconditionally, so on a kernel that enforces
+        # apparmor_restrict_unprivileged_userns this profile is LOAD-BEARING:
+        # without it Chromium aborts ("No usable sandbox!") and every eForm
+        # print/fax/archive fails closed. In exactly that case a failed load
+        # fails the configure — a package that installs 100% broken must not
+        # report success to unattended installs. Where the restriction is off,
+        # the sandbox works without the profile and a failed load stays a WARNING.
         if [ -e /sys/module/apparmor/parameters/enabled ] \
            && [ "$(cat /sys/module/apparmor/parameters/enabled 2>/dev/null)" = "Y" ]; then
             if apparmor_parser -r -T -W /etc/apparmor.d/carlos-emr-chromium 2>/dev/null; then
@@ -48,6 +51,17 @@ case "$1" in
                 echo "carlos-emr-eform-renderer: WARNING: it loads, because the render browser is" >&2
                 echo "carlos-emr-eform-renderer: WARNING: sandboxed and the sandbox needs it." >&2
                 echo "carlos-emr-eform-renderer: WARNING: Try: systemctl reload apparmor" >&2
+                if [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null)" = "1" ]; then
+                    # The kernel enforces the userns restriction, so the missing grant is
+                    # not a degradation but a total outage of eForm PDF workflows. Fail
+                    # the configure so apt/automation surfaces it instead of shipping a
+                    # green install that breaks in a clinician's hands.
+                    echo "carlos-emr-eform-renderer: ERROR: this kernel restricts unprivileged" >&2
+                    echo "carlos-emr-eform-renderer: ERROR: user namespaces, so the profile is" >&2
+                    echo "carlos-emr-eform-renderer: ERROR: required for the sandboxed renderer" >&2
+                    echo "carlos-emr-eform-renderer: ERROR: to work at all. Aborting configure." >&2
+                    exit 1
+                fi
             fi
         fi
 
@@ -89,6 +103,10 @@ case "$1" in
         # without one, so a silent miss here is a failed install rather than a
         # silent security downgrade — but handle both properly regardless.
         if ! grep -q '^CARLOS_RENDER_URL_BASE=' "${RENDER_ENV}"; then
+            # An operator-edited file may lack a trailing newline; appending onto its
+            # last line would fuse the key into it and the guard above would re-append
+            # on every configure.
+            [ ! -s "${RENDER_ENV}" ] || [ -z "$(tail -c1 "${RENDER_ENV}")" ] || echo >> "${RENDER_ENV}"
             printf 'CARLOS_RENDER_URL_BASE=%s\n' "$(openssl rand -hex 16)" >> "${RENDER_ENV}"
         elif ! grep -qE '^CARLOS_RENDER_URL_BASE=.+' "${RENDER_ENV}"; then
             # chromedriver has no authentication and any local uid can reach a

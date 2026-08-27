@@ -10,7 +10,7 @@ import time
 
 from . import config, dbops, util
 from .util import (
-    BACKUP_ENV, CONF_DIR, GREEN, LIB, RED, RESET, YELLOW, need_root, out, run,
+    BACKUP_ENV, CONF_DIR, GREEN, LIB, PROPERTIES, RED, RESET, YELLOW, need_root, out, run,
 )
 
 _failures = 0
@@ -140,6 +140,61 @@ def cmd_check(argv) -> int:
         else:
             _bad("no AppArmor profile loaded for mariadbd — the file-access control the "
                  "MariaDB drop-in documents is missing")
+
+    # The eForm render browser is optional (Recommends:), so probe it only when its
+    # env file says it is installed. Every check here maps to a way it silently breaks:
+    # the unit not running, the AppArmor userns grant missing on a kernel that enforces
+    # apparmor_restrict_unprivileged_userns (Chromium aborts "No usable sandbox!" and
+    # every eForm print/fax/archive fails closed), or carlos.properties pointing the
+    # JVM at a different port/token than the driver actually serves.
+    render_env = "/etc/carlos-emr/render-browser.env"
+    if os.path.exists(render_env):
+        print("\neForm render browser")
+        if run(["systemctl", "is-active", "--quiet", "carlos-emr-chromedriver"]).returncode == 0:
+            _ok("carlos-emr-chromedriver is running")
+        else:
+            _bad("carlos-emr-chromedriver is NOT running "
+                 "(systemctl status carlos-emr-chromedriver)")
+        try:
+            with open(profiles, encoding="utf-8", errors="replace") as fh:
+                entries = fh.read()
+        except OSError:
+            entries = ""
+        restricted = "0"
+        try:
+            with open("/proc/sys/kernel/apparmor_restrict_unprivileged_userns",
+                      encoding="ascii") as fh:
+                restricted = fh.read().strip()
+        except OSError:
+            pass
+        if re.search(r"^carlos-emr-chromium ", entries, re.M):
+            _ok("AppArmor profile carlos-emr-chromium is loaded (userns grant for the sandbox)")
+        elif restricted == "1":
+            _bad("AppArmor profile carlos-emr-chromium is NOT loaded and this kernel "
+                 "restricts unprivileged user namespaces — the sandboxed browser cannot "
+                 "start and eForm PDF rendering fails closed "
+                 "(sudo apparmor_parser -r /etc/apparmor.d/carlos-emr-chromium)")
+        else:
+            _note("AppArmor profile carlos-emr-chromium is not loaded; the sandbox works "
+                  "anyway because this kernel does not restrict unprivileged user namespaces")
+        port, url_base = config._render_browser_endpoint()
+        prop_url = None
+        try:
+            with open(PROPERTIES, encoding="utf-8", errors="replace") as fh:
+                m = re.search(r"^eform_pdf_browser_service_url=(\S+)", fh.read(), re.M)
+                prop_url = m.group(1) if m else None
+        except OSError:
+            pass
+        expected = f"http://127.0.0.1:{port}/{url_base}" if port and url_base else None
+        if prop_url and expected and prop_url == expected:
+            _ok("eform_pdf_browser_service_url matches render-browser.env")
+        elif prop_url is None:
+            _bad("carlos.properties has no eform_pdf_browser_service_url — the JVM cannot "
+                 "reach the render browser (sudo carlos-ctl init-config)")
+        else:
+            _bad("eform_pdf_browser_service_url does not match render-browser.env — the JVM "
+                 "and chromedriver disagree on port or url-base token "
+                 "(sudo carlos-ctl init-config, then systemctl restart carlos-emr)")
 
     print("\nTLS")
     run([os.path.join(LIB, "carlos-emr-cert"), "status"])

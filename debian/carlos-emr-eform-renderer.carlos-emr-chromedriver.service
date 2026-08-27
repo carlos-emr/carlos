@@ -69,6 +69,15 @@ ExecStart=/usr/lib/carlos-emr/chromium/chromedriver \
     --readable-timestamp
 Restart=always
 RestartSec=5s
+# Back off toward 5 minutes on a persistent failure (a blanked token, a deleted
+# env file — the ExecStartPre guard refuses those on purpose). Without this,
+# Restart=always plus StartLimitIntervalSec=0 retried a non-self-healing
+# misconfiguration every 5s forever (~17k journal entries/day). The transient
+# cases the fast retry exists for (the install-window race before the renderer
+# postinst writes the env file, an OOM-killed driver) recover within the first
+# few attempts, before the delay has grown past a few seconds.
+RestartSteps=10
+RestartMaxDelaySec=5min
 TimeoutStopSec=20
 # Stated explicitly although it is the default: `systemctl stop|restart` on this
 # unit tears down chromedriver AND every browser it launched. That is the
