@@ -132,6 +132,18 @@ SystemCallFilter=@system-service @mount @sandbox
 # than a graceful degradation nobody can interpret.
 TasksMax=4096
 LimitNOFILE=16384
+# Memory ceiling for the WHOLE browser tree (chromedriver + every Chromium it
+# spawns share this cgroup). Above MemoryHigh the kernel throttles and reclaims;
+# at MemoryMax it OOM-kills inside this unit instead of letting an ungoverned
+# render push the host into memory pressure -- on a small clinic box the browser
+# must be the thing that dies, never the EMR next to it. A kill mid-render
+# surfaces as a failed (retryable) render via the JVM's fail-closed error path,
+# and Restart=always recycles the driver. Sized for the steady state: up to two
+# concurrent renders (each further bounded by the JVM's --js-flags V8 heap cap
+# and --renderer-process-limit) plus chromedriver, with headroom.
+MemoryAccounting=yes
+MemoryHigh=1G
+MemoryMax=1536M
 
 [Install]
 WantedBy=multi-user.target

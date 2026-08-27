@@ -155,6 +155,19 @@ public class EFormBrowserPdfService {
      */
     /** Cause chains are third-party here and may be cyclic; walking one must always terminate. */
     private static final int MAX_CAUSE_DEPTH = 32;
+    /**
+     * V8 old-space cap (MB) for each renderer process. An eForm is a single small document; a page
+     * that genuinely needs more heap than this is runaway form script, and capping it turns a
+     * box-wide memory squeeze into that one render failing (surfaced through the normal
+     * fail-closed render error, which is retryable).
+     */
+    static final int RENDERER_V8_HEAP_MB = 256;
+    /**
+     * Cap on renderer processes per browser. All render content is same-origin loopback (off-origin
+     * is dead-proxied), so Chromium's default one-renderer-per-site-instance fan-out cannot pay for
+     * itself here; four covers the page plus embedded same-origin iframes with room to spare.
+     */
+    static final int RENDERER_PROCESS_LIMIT = 4;
     /** Cap on per-error console descriptions shown for informed override; the count is unbounded. */
     private static final int MAX_CONSOLE_DETAILS = 10;
     // describeConsoleError parses Chrome's structural entry header only:
@@ -1202,7 +1215,18 @@ public class EFormBrowserPdfService {
                 "--disable-background-networking",
                 "--disable-extensions",
                 "--no-first-run",
-                "--no-default-browser-check");
+                "--no-default-browser-check",
+                // Memory governors. This surface renders ONE small same-origin document per session,
+                // so Chromium's desktop-scale defaults (unbounded V8 heaps, one renderer per site
+                // instance, a GPU process) are pure overhead — and on small deployments the burst of
+                // an ungoverned browser tree is what pushes the whole box into memory pressure.
+                // Deliberately NOT --single-process/--no-zygote (would break the sandbox) and NOT
+                // disabling site isolation (a security posture change): these only cap size/fan-out.
+                "--js-flags=--max-old-space-size=" + RENDERER_V8_HEAP_MB,
+                "--renderer-process-limit=" + RENDERER_PROCESS_LIMIT,
+                // Headless print-to-PDF rasters through Skia in software; the GPU process buys
+                // nothing here and costs a process plus its mappings.
+                "--disable-gpu");
         if (unsandboxed) {
             // Default posture: OS-level containment is delegated to the container boundary. The operator
             // can restore Chromium's OS sandbox with EFORM_RENDER_SANDBOX=true — see sandboxEnabled().

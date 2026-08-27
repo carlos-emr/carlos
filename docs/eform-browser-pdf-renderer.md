@@ -86,6 +86,18 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 
 ## Deployment requirements
 
+> **Memory footprint is deliberately bounded.** The launch options cap each renderer's V8 heap
+> (`--js-flags=--max-old-space-size=256`) and the renderer-process fan-out
+> (`--renderer-process-limit=4`, all render content is same-origin loopback), and drop the GPU
+> process (`--disable-gpu`; headless print rasters in software). On the `.deb`, the
+> `carlos-emr-chromedriver` unit additionally carries a cgroup ceiling for the whole browser tree
+> (`MemoryHigh=1G`, `MemoryMax=1536M`): under pressure the kernel throttles and, at the limit,
+> OOM-kills **inside the unit** — a runaway form's render fails (retryably, via the normal
+> fail-closed render error, with `Restart=always` recycling the driver) instead of the browser
+> squeezing the EMR beside it. Size hosts for steady state: up to `MAX_CONCURRENT_RENDERS` (2)
+> concurrent Chromium instances of roughly 150–300 MB each, plus chromedriver (~20 MB), on top of
+> the Tomcat JVM. Deployments that raise concurrency must raise the unit ceiling to match.
+
 > **Containerized deployments MUST run an init process (zombie reaping).** Each render launches a
 > Chromium process tree; on an abnormal teardown (a killed chromedriver, a deploy mid-render, an
 > OOM-killed helper) orphaned helper processes reparent to PID 1 and become zombies. A container

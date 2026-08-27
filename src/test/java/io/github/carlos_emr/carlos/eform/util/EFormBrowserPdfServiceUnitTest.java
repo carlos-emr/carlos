@@ -437,6 +437,15 @@ class EFormBrowserPdfServiceUnitTest {
                 .contains("--force-webrtc-ip-handling-policy=disable_non_proxied_udp")
                 // The no-op --disable-features=WebRtc flag must not be relied upon.
                 .doesNotContain("--disable-features=WebRtc")
+                // Memory governors: bound each renderer's V8 heap and the process fan-out so a
+                // runaway form script fails ITS render instead of squeezing the whole box. The
+                // dangerous shortcuts must stay absent — they would break or weaken the sandbox.
+                .contains("--js-flags=--max-old-space-size=" + EFormBrowserPdfService.RENDERER_V8_HEAP_MB)
+                .contains("--renderer-process-limit=" + EFormBrowserPdfService.RENDERER_PROCESS_LIMIT)
+                .contains("--disable-gpu")
+                .doesNotContain("--single-process")
+                .doesNotContain("--no-zygote")
+                .doesNotContain("--disable-features=site-per-process")
                 .contains("--window-size=1800,3200")
                 .contains("--force-device-scale-factor=1")
                 .contains("--no-sandbox")
