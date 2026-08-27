@@ -238,10 +238,10 @@
             <table cellspacing="0" cellpadding="2" width="90%" border="0">
                 <tr>
                     <td>
-                        <div align="right"><fmt:message key="admin.securityrecord.formUserName"/>:
+                        <div align="right"><label for="user_name"><fmt:message key="admin.securityrecord.formUserName"/></label>:
                         </div>
                     </td>
-                    <td><input type="text" name="user_name" size="30" maxlength="30">
+                    <td><input type="text" name="user_name" id="user_name" size="30" maxlength="30">
                     </td>
                 </tr>
                 <tr>
@@ -303,9 +303,9 @@
                 </tr>
                 <!-- new sec -->
                 <tr>
-                    <td align="right" nowrap><fmt:message key="admin.securityrecord.formExpiryDate"/>:
+                    <td align="right" nowrap><label for="b_ExpireSet"><fmt:message key="admin.securityrecord.formExpiryDate"/></label>:
                     </td>
-                    <td><input type="checkbox" name="b_ExpireSet" value="1" <%="checked" %> /> <fmt:message key="admin.securityrecord.formDate"/>: <input type="text" name="date_ExpireDate"
+                    <td><input type="checkbox" name="b_ExpireSet" id="b_ExpireSet" value="1" <%="checked" %> /> <label for="date_ExpireDate"><fmt:message key="admin.securityrecord.formDate"/></label>: <input type="text" name="date_ExpireDate"
                                                                           id="date_ExpireDate"
                                                                           value="" size="10" readonly/> <img
                             src="<%= request.getContextPath() %>/images/cal.gif"
