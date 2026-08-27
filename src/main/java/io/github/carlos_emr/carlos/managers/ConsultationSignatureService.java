@@ -123,6 +123,11 @@ public class ConsultationSignatureService {
     public ConsultationStampOutcome saveConsultationStamp(LoggedInInfo loggedInInfo, String providerNo, Integer demographicNo) {
         ConsultationStampOutcome invalidSessionOutcome = validateDigitalSignatureSession(loggedInInfo);
         if (invalidSessionOutcome != null) {
+            // Warn only on an actual save attempt (not the shared preview path), so the
+            // "signature expected but silently not saved" condition is diagnosable
+            // without debug logging, yet normal consult-form views stay quiet.
+            MiscUtils.getLogger().warn("Consultation stamp not saved (" + invalidSessionOutcome.status()
+                + "); check session facility and Administration > Facility > Enable Digital Signatures");
             return invalidSessionOutcome;
         }
         if (!canUseProviderStamp(loggedInInfo, providerNo)) {
@@ -251,16 +256,17 @@ public class ConsultationSignatureService {
 
     @SuppressWarnings("java:S1168")
     private ConsultationStampOutcome validateDigitalSignatureSession(LoggedInInfo loggedInInfo) {
-        // These fire only when a consultation signature/stamp save is actually being
-        // attempted, so they indicate the signature was expected but could not be
-        // stored. Log at warn (not debug) so the "signature silently not saved"
-        // condition is diagnosable without turning on debug logging.
+        // Keep these at debug: this validator is also called on the stamp-PREVIEW path
+        // (resolvePreviewSignatureImage), which runs on normal consult-form views, so a
+        // warn here would spam logs on every view when a facility legitimately runs with
+        // signatures disabled. The genuine "signature expected but not saved" warn is
+        // emitted by saveConsultationStamp (an actual save attempt) instead.
         if (loggedInInfo == null || loggedInInfo.getCurrentFacility() == null) {
-            MiscUtils.getLogger().warn("No facility in session - consultation stamp not saved");
+            MiscUtils.getLogger().debug("No facility in session - consultation stamp not saved");
             return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.NO_SESSION);
         }
         if (!loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()) {
-            MiscUtils.getLogger().warn("Digital signatures disabled for facility (Administration > Facility > Enable Digital Signatures) - consultation stamp not saved");
+            MiscUtils.getLogger().debug("Digital signatures disabled for facility - consultation stamp not saved");
             return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.SIGNATURES_DISABLED);
         }
         return null;

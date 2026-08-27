@@ -180,6 +180,26 @@ case "$1" in
         install_once "${SHARE}/skel/carlos.properties" "${PROPERTIES}" 0640 root:carlos
         install_once "${SHARE}/skel/backup.env" "${BACKUP_ENV}" 0640 root:carlos-backup
 
+        # One-time migration (2026.08): earlier packages shipped
+        # consultation_signature_enabled=false. install_once copied that into the
+        # persistent /etc override, and carlos-emr-tomcat loads that file as the
+        # final override source, so the new stock default of true does NOT take
+        # effect on an upgraded install — the affected population for this fix.
+        # Flip ONLY the exact old stock line, ONLY on upgrade, and ONLY once
+        # (guarded by a sentinel): an operator who has set true, or re-applies
+        # false after this runs, keeps their choice because the sentinel stops the
+        # migration re-running, and the exact whole-line match ignores any value
+        # that is not the old stock false.
+        CONSULT_SIG_SENTINEL="${STATE}/.consult-signature-default-migrated"
+        if [ -n "${2:-}" ] && [ ! -e "${CONSULT_SIG_SENTINEL}" ] && [ -f "${PROPERTIES}" ]; then
+            if grep -qx 'consultation_signature_enabled=false' "${PROPERTIES}"; then
+                sed -i 's/^consultation_signature_enabled=false$/consultation_signature_enabled=true/' "${PROPERTIES}"
+                echo "carlos-emr: enabled consultation signatures (migrated the old stock default off -> on)"
+            fi
+            mkdir -p "${STATE}"
+            : > "${CONSULT_SIG_SENTINEL}"
+        fi
+
         # Fold the debconf answers into the operator-owned settings file.
         db_get carlos-emr/server-name; SERVER_NAME="${RET:-localhost}"
         db_get carlos-emr/bind-ip;     BIND_IP="${RET:-0.0.0.0}"

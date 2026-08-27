@@ -452,17 +452,26 @@
                 //     no window.refresh() function anywhere; and
                 //   - the else branch navigated to /rx/searchDrug, whose SUCCESS result
                 //     is the legacy ChooseDrug.jsp, not the Rx write screen.
-                if (window.history.length > 1) {
+                // Use the browser Back button only when the PREVIOUS page really is a
+                // CARLOS Rx screen — verified via document.referrer, which is actual
+                // provenance. (history.length counts the whole tab session, not what the
+                // previous entry is, so a bookmarked/direct visit in a tab with prior
+                // history could Back into an unrelated page or an external site.) Going
+                // Back this way preserves the in-progress prescription staged in the Rx
+                // window.
+                var ctx = "<%= request.getContextPath() %>";
+                var rxPrefix = window.location.origin + ctx + "/rx/";
+                if ((document.referrer || "").indexOf(rxPrefix) === 0) {
                     window.history.back();
                     return;
                 }
-                // Fallback only when there is no history to go back to (page opened
-                // directly): re-enter the Rx module for this patient. choosePatient
-                // starts a fresh RxSessionBean, but in this no-history case there is no
-                // staged stash to preserve anyway. providerNo comes from the session.
+                // Otherwise (opened directly/bookmarked, or from outside the Rx module)
+                // re-enter the Rx module for this patient. choosePatient starts a fresh
+                // RxSessionBean, but in this case there is no staged stash to preserve.
+                // providerNo comes from the session.
                 var demoField = document.getElementById("demographicNo");
                 var demo = demoField ? demoField.value : "";
-                window.location.href = "<%= request.getContextPath() %>/rx/choosePatient"
+                window.location.href = ctx + "/rx/choosePatient"
                     + (demo ? "?demographicNo=" + encodeURIComponent(demo) : "");
             }
 

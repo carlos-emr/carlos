@@ -1713,7 +1713,9 @@ public class ManageDocument2Action extends ActionSupport {
             pageNum = "1";
         }
 
-        String lowerName = sanitizedPdfName.toLowerCase();
+        // Locale.ROOT so the extension check is deterministic regardless of the server
+        // locale (matches createIncomingCacheVersion's .pdf check above).
+        String lowerName = sanitizedPdfName.toLowerCase(Locale.ROOT);
         boolean isPdf = lowerName.endsWith(".pdf");
         boolean isImage = lowerName.endsWith(".png") || lowerName.endsWith(".jpg")
                 || lowerName.endsWith(".jpeg") || lowerName.endsWith(".gif");

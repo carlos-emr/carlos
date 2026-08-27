@@ -172,8 +172,10 @@
                 function removeMember(memberId, groupId) {
                     if (memberId) {
                         $.post(ctx + "/messenger?method=remove&member=" + memberId).done(function () {
-                            // Remove from groups view display
-                            $('div#manageGroups i[id^=' + memberId + ']').parent().parent().remove();
+                            // Remove from groups view display. Quote the attribute value:
+                            // provider ids are numeric, and i[id^=123] is an invalid CSS
+                            // identifier that would silently match nothing.
+                            $('div#manageGroups i[id^="' + memberId + '"]').parent().parent().remove();
                         });
                     }
                 }
