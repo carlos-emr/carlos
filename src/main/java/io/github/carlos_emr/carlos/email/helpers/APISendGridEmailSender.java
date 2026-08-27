@@ -6,7 +6,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 
@@ -21,13 +26,18 @@ import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.io.HttpClientConnectionManager;
-import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.ssl.SSLContexts;
 import org.apache.hc.core5.util.Timeout;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveAttachmentDto;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
+import io.github.carlos_emr.carlos.email.core.OutboundEmailTransport;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -46,7 +56,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * <p>The HTTP client pins the validated DNS result, rejects redirects, and applies bounded
  * connection and response timeouts. Attachments are encoded into the SendGrid JSON request.</p>
  */
-public class APISendGridEmailSender {
+public class APISendGridEmailSender implements OutboundEmailTransport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final LoggedInInfo loggedInInfo;
@@ -58,7 +68,13 @@ public class APISendGridEmailSender {
     private final String body;
     private final String additionalParams;
     private static final String DEFAULT_END_POINT = "https://api.sendgrid.com/v3/mail/send";
+    private static final String JSON_CONTENT_TYPE = "application/json";
+    private static final String SENDGRID_ATTACHMENT_CONTENT_TYPE = "application/pdf";
+    private static final HexFormat HEX_FORMAT = HexFormat.of();
     private final List<EmailAttachment> attachments;
+
+    private byte[] preparedPayloadBytes;
+    private List<OutboundEmailArchiveAttachmentDto> preparedAttachmentMetadata = List.of();
 
     /**
      * Constructs an APISendGridEmailSender with email parameters and attachments.
@@ -124,10 +140,22 @@ public class APISendGridEmailSender {
      * @throws RuntimeException if the logged-in user does not have _email WRITE privilege
      */
     public void send() throws EmailSendingException {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
-        }
+        assertEmailWritePrivilege();
+        postPayload(createEmailJSON().getBytes(StandardCharsets.UTF_8));
+    }
 
+    /**
+     * POSTs an already-serialized SendGrid payload to the validated endpoint.
+     *
+     * <p>Shared by {@link #send()} and {@link #sendPrepared()} so the archived bytes and the
+     * transmitted bytes cannot drift apart through two separate request paths.</p>
+     *
+     * @param payloadBytes the exact JSON payload to transmit
+     * @throws EmailSendingException if endpoint validation, transport, or the response status fails
+     */
+    private void postPayload(byte[] payloadBytes) throws EmailSendingException {
+        boolean requestDispatched = false;
+        boolean accepted = false;
         try {
             String endPoint = getEndPoint();
             ValidatedHttpEndpoint validatedEndpoint = validateEndpoint(endPoint);
@@ -157,16 +185,26 @@ public class APISendGridEmailSender {
                 httpPost.setHeader("Content-Type", "application/json");
                 httpPost.setHeader("Authorization", "Bearer " + getAPIKey());
 
-                StringEntity entity = new StringEntity(createEmailJSON(), ContentType.APPLICATION_JSON);
-                httpPost.setEntity(entity);
+                httpPost.setEntity(new ByteArrayEntity(payloadBytes, ContentType.APPLICATION_JSON));
+                requestDispatched = true;
                 try (var response = httpClient.execute(httpPost)) {
                     assertAccepted(response.getCode());
+                    accepted = true;
                 }
             }
         } catch (EmailSendingException e) {
             throw e;
-        } catch (IOException | GeneralSecurityException e) {
-            throw new EmailSendingException(e.getMessage(), e);
+        } catch (IOException | RuntimeException e) {
+            if (accepted) {
+                return;
+            }
+            if (requestDispatched) {
+                throw new EmailSendingException(
+                        "SendGrid did not confirm whether the message was accepted.", e, true);
+            }
+            throw new EmailSendingException("The SendGrid request could not be prepared.", e);
+        } catch (GeneralSecurityException e) {
+            throw new EmailSendingException("The SendGrid request could not be prepared.", e);
         }
     }
 
@@ -199,7 +237,7 @@ public class APISendGridEmailSender {
             validatedEndpoint = ValidatedHttpEndpoint.resolve(
                     endpoint, "carlos.email.sendgrid.allowedHosts");
         } catch (ValidatedHttpEndpoint.ValidationException e) {
-            throw new EmailSendingException("Configured email endpoint was rejected: " + e.getMessage());
+            throw new EmailSendingException("Configured email endpoint was rejected.", e);
         }
         if (!validatedEndpoint.isHttps()) {
             throw new EmailSendingException("Configured email endpoint must use HTTPS.");
@@ -207,7 +245,7 @@ public class APISendGridEmailSender {
         return validatedEndpoint;
     }
 
-    private String createEmailJSON() throws EmailSendingException {
+    String createEmailJSON() throws EmailSendingException {
         ObjectNode emailJson = objectMapper.createObjectNode();
         addTo(emailJson);
         addFrom(emailJson);
@@ -261,6 +299,11 @@ public class APISendGridEmailSender {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void addAttachments(ObjectNode emailJson) throws EmailSendingException {
         ArrayNode jsonAttachments = objectMapper.createArrayNode();
+        // Archive metadata is captured from the same byte[] that is encoded into the payload
+        // below, never from a second read of the file. A re-read could observe different bytes
+        // (the temp file is regenerated per compose), which would make the recorded hash
+        // describe something other than what the patient received.
+        List<OutboundEmailArchiveAttachmentDto> attachmentMetadata = new ArrayList<>();
         for (EmailAttachment emailAttachment : attachments) {
             if (emailAttachment == null
                     || emailAttachment.getFilePath() == null
@@ -270,44 +313,160 @@ public class APISendGridEmailSender {
             try {
                 ObjectNode jsonAttachment = objectMapper.createObjectNode();
                 Path path = PathValidationUtils.resolveTrustedPath(new File(emailAttachment.getFilePath())).toPath();
-                jsonAttachment.put("content", Base64.encodeBase64String(Files.readAllBytes(path)));
+                byte[] attachmentBytes = Files.readAllBytes(path);
+                jsonAttachment.put("content", Base64.encodeBase64String(attachmentBytes));
                 jsonAttachment.put("filename", emailAttachment.getFileName());
-                jsonAttachment.put("type", "application/pdf");
+                jsonAttachment.put("type", SENDGRID_ATTACHMENT_CONTENT_TYPE);
                 jsonAttachment.put("disposition", "attachment");
                 jsonAttachments.add(jsonAttachment);
+                attachmentMetadata.add(describeAttachment(emailAttachment, attachmentBytes));
             } catch (IOException | SecurityException e) {
                 throw new EmailSendingException("An email attachment could not be read.", e);
             }
         }
         emailJson.put("attachments", jsonAttachments);
+        preparedAttachmentMetadata = List.copyOf(attachmentMetadata);
+    }
+
+    private OutboundEmailArchiveAttachmentDto describeAttachment(EmailAttachment attachment, byte[] attachmentBytes)
+            throws EmailSendingException {
+        OutboundEmailArchiveAttachmentDto attachmentDto = new OutboundEmailArchiveAttachmentDto();
+        attachmentDto.setFileName(attachment.getFileName());
+        // The declared type, not a sniffed one: this records what SendGrid was told the part is.
+        attachmentDto.setContentType(SENDGRID_ATTACHMENT_CONTENT_TYPE);
+        attachmentDto.setSha256Hash(sha256Hex(attachmentBytes));
+        attachmentDto.setByteSize((long) attachmentBytes.length);
+        attachmentDto.setSourceDocumentType(attachment.getDocumentType() != null ? attachment.getDocumentType().name() : null);
+        attachmentDto.setSourceDocumentId(attachment.getDocumentId());
+        return attachmentDto;
+    }
+
+    private String sha256Hex(byte[] content) throws EmailSendingException {
+        try {
+            return HEX_FORMAT.formatHex(MessageDigest.getInstance("SHA-256").digest(content));
+        } catch (NoSuchAlgorithmException e) {
+            throw new EmailSendingException("SHA-256 is required to archive outbound email attachments.", e);
+        }
+    }
+
+    // --- OutboundEmailTransport -----------------------------------------------------------------
+
+    /**
+     * Serializes the SendGrid request body once and keeps it for {@link #sendPrepared()}.
+     *
+     * <p>Attachment metadata is captured during serialization, so it describes the encoded parts
+     * rather than being reconstructed by parsing the JSON back out.</p>
+     */
+    @Override
+    public byte[] prepareArtifactBytes() throws EmailSendingException {
+        assertEmailWritePrivilege();
+        if (preparedPayloadBytes != null) {
+            throw new EmailSendingException("SendGrid payload has already been prepared");
+        }
+        try {
+            // Fail malformed credentials and rejected endpoints before a durable archive is
+            // written. The endpoint is validated again immediately before transport so the
+            // request still uses a fresh, pinned DNS result.
+            getAPIKey();
+            validateEndpoint(getEndPoint());
+            byte[] payloadBytes = createEmailJSON().getBytes(StandardCharsets.UTF_8);
+            preparedPayloadBytes = payloadBytes;
+            return payloadBytes;
+        } catch (EmailSendingException | RuntimeException e) {
+            discardPrepared();
+            throw e;
+        }
+    }
+
+    @Override
+    public void sendPrepared() throws EmailSendingException {
+        try {
+            assertEmailWritePrivilege();
+            if (preparedPayloadBytes == null) {
+                throw new EmailSendingException("SendGrid payload must be prepared before sending");
+            }
+            postPayload(preparedPayloadBytes);
+        } finally {
+            discardPrepared();
+        }
+    }
+
+    @Override
+    public void discardPrepared() {
+        preparedPayloadBytes = null;
+        preparedAttachmentMetadata = List.of();
+    }
+
+    @Override
+    public List<OutboundEmailArchiveAttachmentDto> describePreparedAttachments() throws EmailSendingException {
+        if (preparedPayloadBytes == null) {
+            throw new EmailSendingException("SendGrid payload must be prepared before describing its attachments");
+        }
+        return preparedAttachmentMetadata;
+    }
+
+    @Override
+    public String getArchiveArtifactType() {
+        return OutboundEmailArchive.ARTIFACT_TYPE_API_PAYLOAD;
+    }
+
+    @Override
+    public String getArchiveContentType() {
+        return JSON_CONTENT_TYPE;
+    }
+
+    @Override
+    public String getArchiveFileName(EmailLog emailLog) {
+        return "outbound-email-" + (emailLog != null ? emailLog.getId() : null) + "-sendgrid.json";
+    }
+
+    private void assertEmailWritePrivilege() {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
     }
 
     private void addAdditionalParams(ObjectNode emailJson) throws EmailSendingException {
         emailJson.put("additionalParams", additionalParams);
     }
 
-    private String getAPIKey() throws EmailSendingException {
-        String apiKey;
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            apiKey = jsonNode.get("api_key").asText();
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+    String getAPIKey() throws EmailSendingException {
+        JsonNode apiKeyNode = parseConfigDetails().get("api_key");
+        if (apiKeyNode == null || !apiKeyNode.isTextual() || apiKeyNode.asText().isBlank()) {
+            throw invalidCredentialsException(null);
+        }
+        String apiKey = EmailConfigSecrets.decryptSecret(apiKeyNode.asText());
+        if (apiKey.isBlank()) {
+            throw invalidCredentialsException(null);
         }
         return apiKey;
     }
 
-
     private String getEndPoint() throws EmailSendingException {
-        StringBuilder endPointBuilder = new StringBuilder();
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            endPointBuilder.append(jsonNode.get("end_point") != null ? jsonNode.get("end_point").asText() : DEFAULT_END_POINT);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+        JsonNode endPointNode = parseConfigDetails().get("end_point");
+        if (endPointNode == null || endPointNode.isNull()) {
+            return DEFAULT_END_POINT;
         }
-        return endPointBuilder.toString();
+        if (!endPointNode.isTextual() || endPointNode.asText().isBlank()) {
+            throw invalidCredentialsException(null);
+        }
+        return endPointNode.asText();
+    }
+
+    private JsonNode parseConfigDetails() throws EmailSendingException {
+        try {
+            JsonNode configDetails = objectMapper.readTree(emailConfig.getConfigDetailsJson());
+            if (configDetails == null || !configDetails.isObject()) {
+                throw invalidCredentialsException(null);
+            }
+            return configDetails;
+        } catch (IOException | IllegalArgumentException e) {
+            throw invalidCredentialsException(e);
+        }
+    }
+
+    private EmailSendingException invalidCredentialsException(Throwable cause) {
+        String message = "The active SendGrid sender configuration is invalid.";
+        return cause != null ? new EmailSendingException(message, cause) : new EmailSendingException(message);
     }
 }

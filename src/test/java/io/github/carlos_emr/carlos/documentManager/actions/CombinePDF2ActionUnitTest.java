@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Document;
@@ -61,6 +62,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private CtlDocumentDao ctlDocumentDao;
     private DocumentDao documentDao;
+    private OutboundEmailArchiveDao outboundEmailArchiveDao;
     private SecurityInfoManager securityInfoManager;
     private LoggedInInfo loggedInInfo;
     private CombinePDF2Action action;
@@ -70,9 +72,11 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
         securityInfoManager = mock(SecurityInfoManager.class);
         ctlDocumentDao = mock(CtlDocumentDao.class);
         documentDao = mock(DocumentDao.class);
+        outboundEmailArchiveDao = mock(OutboundEmailArchiveDao.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(CtlDocumentDao.class, ctlDocumentDao);
         registerMock(DocumentDao.class, documentDao);
+        registerMock(OutboundEmailArchiveDao.class, outboundEmailArchiveDao);
 
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
@@ -104,7 +108,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-        verifyNoInteractions(ctlDocumentDao, documentDao);
+        verifyNoInteractions(ctlDocumentDao, documentDao, outboundEmailArchiveDao);
     }
 
     @Test
@@ -130,7 +134,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_edoc");
 
-        verifyNoInteractions(ctlDocumentDao, documentDao);
+        verifyNoInteractions(ctlDocumentDao, documentDao, outboundEmailArchiveDao);
     }
 
     @Test
@@ -148,6 +152,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
         verify(documentDao).find(321);
+        verifyNoInteractions(outboundEmailArchiveDao);
     }
 
     @Test

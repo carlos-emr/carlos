@@ -73,13 +73,17 @@ git push --force-with-lease
 #### Manual DCO Confirmation (Alternate)
 
 If you cannot amend your commits (e.g., force-push is not possible), an authorized user
-can retroactively confirm DCO sign-off by posting a PR comment with the exact phrase:
+with `write` or higher repository permission can retroactively confirm DCO sign-off after
+reviewing the connected history. The comment must contain the exact phrase followed by
+the current full 40-character PR head SHA:
 
-> Confirming DCO sign off for all commits
+```text
+Confirming DCO sign off for all commits at <full-pr-head-sha>
+```
 
-This will re-trigger the DCO check and allow it to pass. Only users with an established
-repository relationship (OWNER, MEMBER, COLLABORATOR, or CONTRIBUTOR) can use this
-alternate confirmation. First-time contributors must use the commit sign-off method.
+This will re-trigger the DCO check and allow it to pass only for that exact revision. Any
+subsequent push changes the PR head SHA and requires a new maintainer confirmation.
+Contributors without `write` access must use the commit sign-off method.
 
 ## Ways to Contribute
 
