@@ -84,9 +84,12 @@
                         <c:forEach var="severeConsoleErrorDetail" items="${severeConsoleErrorDetails}">
                             <li><carlos:encode value="${severeConsoleErrorDetail}"/></li>
                         </c:forEach>
-                        <%-- The detail list is capped; when more severe errors occurred than are
-                             shown, say how many are omitted so the list is not silently truncated. --%>
-                        <c:if test="${severeConsoleErrors > fn:length(severeConsoleErrorDetails)}">
+                        <%-- The detail list is deduplicated and capped (10 mirrors the renderer's
+                             MAX_CONSOLE_DETAILS / packet MAX_PACKET_CONSOLE_DETAILS). Show the
+                             overflow line only when the cap actually truncated the list: below the
+                             cap, a count above the list size means repeats of the shown lines, not
+                             hidden distinct errors. --%>
+                        <c:if test="${fn:length(severeConsoleErrorDetails) ge 10 and severeConsoleErrors > fn:length(severeConsoleErrorDetails)}">
                             <li><fmt:message key="eform.renderIssue.severeConsoleErrorsMore">
                                 <fmt:param value="${severeConsoleErrors - fn:length(severeConsoleErrorDetails)}"/>
                             </fmt:message></li>
@@ -95,6 +98,7 @@
                 </li>
             </c:if>
             <li><fmt:message key="eform.renderIssue.containedInteractions"/>: <carlos:encode value="${containedInteractions}"/></li>
+            <li><fmt:message key="eform.renderIssue.decorativeExcludedElements"/>: <carlos:encode value="${decorativeExcludedElements}"/></li>
             <li><fmt:message key="eform.renderIssue.stabilizationCapped"/>: <carlos:encode value="${stabilizationCapped}"/></li>
             <li><fmt:message key="eform.renderIssue.labDecisionSupportStubbed"/>: <carlos:encode value="${labDecisionSupportStubbed}"/></li>
         </ul>

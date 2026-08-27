@@ -65,6 +65,7 @@
 <fmt:message var="lblSevereConsoleErrorDetails" key="eform.renderIssue.severeConsoleErrorDetails"/>
 <fmt:message var="lblSevereConsoleErrorsMore" key="eform.renderIssue.severeConsoleErrorsMore"/>
 <fmt:message var="lblContainedInteractions" key="eform.renderIssue.containedInteractions"/>
+<fmt:message var="lblDecorativeExcludedElements" key="eform.renderIssue.decorativeExcludedElements"/>
 <fmt:message var="lblStabilizationCapped" key="eform.renderIssue.stabilizationCapped"/>
 <fmt:message var="lblLabDecisionSupportStubbed" key="eform.renderIssue.labDecisionSupportStubbed"/>
 
@@ -386,6 +387,7 @@
                             + "\n${carlos:forJavaScript(lblTimerCompatibilityFailure)}: " + data.timerCompatibilityFailure
                             + "\n${carlos:forJavaScript(lblSevereConsoleErrors)}: " + data.severeConsoleErrors
                             + "\n${carlos:forJavaScript(lblContainedInteractions)}: " + data.containedInteractions
+                            + "\n${carlos:forJavaScript(lblDecorativeExcludedElements)}: " + data.decorativeExcludedElements
                             + "\n${carlos:forJavaScript(lblStabilizationCapped)}: " + data.stabilizationCapped
                             + "\n${carlos:forJavaScript(lblLabDecisionSupportStubbed)}: " + data.labDecisionSupportStubbed;
                         // PHI-safe per-error descriptions (script error type + source location only)
@@ -396,11 +398,13 @@
                             data.severeConsoleErrorDetails.forEach(function (severeConsoleErrorDetail) {
                                 severeConsoleDetailText += "\n  \u2022 " + severeConsoleErrorDetail;
                             });
-                            // The detail list is capped; when more severe errors occurred than are
-                            // shown, say how many are omitted so it is not silently truncated.
+                            // The detail list is deduplicated and capped (10 mirrors the renderer's
+                            // MAX_CONSOLE_DETAILS). Show the overflow only when the cap actually
+                            // truncated the list — below the cap, a higher count means repeats of the
+                            // shown lines, not hidden distinct errors.
                             var severeConsoleErrorsMore =
                                 Number(data.severeConsoleErrors) - data.severeConsoleErrorDetails.length;
-                            if (severeConsoleErrorsMore > 0) {
+                            if (data.severeConsoleErrorDetails.length >= 10 && severeConsoleErrorsMore > 0) {
                                 severeConsoleDetailText += "\n  \u2022 "
                                     + "${carlos:forJavaScript(lblSevereConsoleErrorsMore)}".replace("{0}", severeConsoleErrorsMore);
                             }

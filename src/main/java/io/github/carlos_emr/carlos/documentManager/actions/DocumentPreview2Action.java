@@ -588,6 +588,7 @@ public class DocumentPreview2Action extends ActionSupport {
             }
         }
         json.put("containedInteractions", report.containedInteractions());
+        json.put("decorativeExcludedElements", report.decorativeExcludedElements());
         json.put("stabilizationCapped", report.stabilizationCapped());
         json.put("labDecisionSupportStubbed", report.labDecisionSupportStubbed());
         response.setContentType("application/json");
