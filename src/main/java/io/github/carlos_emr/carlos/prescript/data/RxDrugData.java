@@ -644,7 +644,19 @@ public class RxDrugData {
      */
     public DrugMonograph getDrug(String pKey) throws Exception {
         RxDrugRef d = new RxDrugRef();
-        return new DrugMonograph(d.getDrug(pKey, Boolean.TRUE));
+        Hashtable h = d.getDrug(pKey, Boolean.TRUE);
+        if (h == null) {
+            // Deliberately a throw, not an empty monograph. Both callers built their control flow
+            // on "not found" leaving the try block: RxAddAllergy2Action keeps its fallback
+            // regionalIdentifier (losing it silently disables drug-allergy interaction checks for
+            // that allergy), and RxChooseDrug2Action stages nothing rather than a nameless
+            // prescription item. When the constructor became null-tolerant for the display-only
+            // paths, an empty monograph started flowing THROUGH those catches and overwrote the
+            // fallbacks with nulls — this restores the old outcome as an intentional signal
+            // instead of the accidental NPE it used to be.
+            throw new java.util.NoSuchElementException("DrugRef has no record for drug id " + pKey);
+        }
+        return new DrugMonograph(h);
     }
 
 

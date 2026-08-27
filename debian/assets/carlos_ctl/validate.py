@@ -181,13 +181,27 @@ def cmd_check(argv) -> int:
         prop_url = None
         try:
             with open(PROPERTIES, encoding="utf-8", errors="replace") as fh:
-                m = re.search(r"^eform_pdf_browser_service_url=(\S+)", fh.read(), re.M)
+                # prop_set writes "key = value"; tolerate any spacing around "=" and an
+                # unspaced hand edit alike, or this check reports every healthy install
+                # as misconfigured.
+                m = re.search(r"^eform_pdf_browser_service_url\s*=\s*(\S+)", fh.read(), re.M)
                 prop_url = m.group(1) if m else None
         except OSError:
             pass
-        expected = f"http://127.0.0.1:{port}/{url_base}" if port and url_base else None
+        # Mirror config.py's composition exactly, including the empty-url-base shape it
+        # deliberately writes mid-install: a base-less URL is then EXPECTED, and the broken
+        # thing is the missing token — whose fix is the renderer postinst, not init-config.
+        expected = None
+        if port:
+            expected = f"http://127.0.0.1:{port}/{url_base}" if url_base else f"http://127.0.0.1:{port}"
         if prop_url and expected and prop_url == expected:
-            _ok("eform_pdf_browser_service_url matches render-browser.env")
+            if url_base:
+                _ok("eform_pdf_browser_service_url matches render-browser.env")
+            else:
+                _bad("CARLOS_RENDER_URL_BASE is empty in render-browser.env — the chromedriver "
+                     "unit refuses to start without the token; reinstall the renderer package "
+                     "(its postinst regenerates it): sudo apt install --reinstall "
+                     "carlos-emr-eform-renderer")
         elif prop_url is None:
             _bad("carlos.properties has no eform_pdf_browser_service_url — the JVM cannot "
                  "reach the render browser (sudo carlos-ctl init-config)")

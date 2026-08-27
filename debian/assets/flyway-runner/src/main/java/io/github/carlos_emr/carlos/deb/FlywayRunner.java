@@ -81,8 +81,15 @@ public final class FlywayRunner {
      * <p>The logger is named by string rather than by class so this stays
      * compilable, and harmless, if OpenTelemetry ever leaves the classpath.
      */
+    // Held in a static field on purpose: LogManager keeps loggers WEAKLY, so a logger nothing
+    // references can be collected — and recreated at default level — between this call and
+    // Flyway's first touch of the OpenTelemetry API, making the suppressed INFO line reappear
+    // intermittently under GC pressure.
+    private static Logger openTelemetryLogger;
+
     private static void quietenOpenTelemetry() {
-        Logger.getLogger("io.opentelemetry.api.GlobalOpenTelemetry").setLevel(Level.WARNING);
+        openTelemetryLogger = Logger.getLogger("io.opentelemetry.api.GlobalOpenTelemetry");
+        openTelemetryLogger.setLevel(Level.WARNING);
     }
 
     /**

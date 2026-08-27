@@ -107,9 +107,10 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 > container with `docker run --init` (or tini/dumb-init as PID 1, or a systemd-managed service) so
 > orphans are reaped.
 
-> **Runbook: provision the browser before using eForm PDF workflows.** Install Chromium and a
-> matching chromedriver (and set `eform_pdf_browser_chromium_path` /
-> `eform_pdf_browser_chromedriver_path`) before the webapp deploys. CARLOS probes the renderer at
+> **Runbook: provision the browser before using eForm PDF workflows.** Run a chromedriver as its
+> own service and point `eform_pdf_browser_service_url` at it (the `.deb` does both via
+> `carlos-emr-eform-renderer`); set `eform_pdf_browser_chromium_path` to the browser binary the
+> driver should launch. CARLOS never spawns a chromedriver itself. It probes the renderer at
 > startup and logs a warning if it is unavailable, but continues deploying so other application
 > workflows remain available. Confirm `eForm browser renderer startup check passed.` in the log
 > before relying on eForm print/fax/archive.
@@ -129,9 +130,10 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 > | `required` | Legacy compatibility value; behaves like `warn` and no longer aborts startup. |
 > | `off` | Skip the probe entirely. Integration-test Spring contexts set this so the gate never launches Chromium in the test JVM. |
 >
-> Before upgrading, install Chromium/Chrome and a matching `chromedriver` (or confirm the host can
-> reach Selenium Manager to download one), and configure `eform_pdf_browser_chromium_path` /
-> `eform_pdf_browser_chromedriver_path` per the bullets below. The renderer is unsandboxed by default
+> Before upgrading, install Chromium/Chrome and a matching `chromedriver` running as a service,
+> and configure `eform_pdf_browser_service_url` / `eform_pdf_browser_chromium_path` per the
+> bullets below — `eform_pdf_browser_chromedriver_path` is retired and ignored (a startup WARN
+> names it if still set). The renderer is unsandboxed by default
 > (see "Security operations note"), so the readiness probe launches Chromium with `--no-sandbox` and
 > does not fail merely because the host lacks user namespaces. If you have opted into the OS sandbox
 > with `EFORM_RENDER_SANDBOX=true` and it cannot start, the readiness probe fails the same as a real

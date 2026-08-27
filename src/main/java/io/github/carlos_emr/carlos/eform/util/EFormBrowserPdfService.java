@@ -592,7 +592,11 @@ public class EFormBrowserPdfService {
             + "  const beforeFirst = (carlosPageOrder(el, firstPage) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;\n"
             + "  const afterLast = (carlosPageOrder(el, lastPage) & Node.DOCUMENT_POSITION_PRECEDING) !== 0;\n"
             + "  if (!beforeFirst && !afterLast) { return false; }\n"
-            + "  if (el.querySelector('input, textarea, select, button, [contenteditable]')) { return false; }\n"
+            + "  const carlosControls = 'input, textarea, select, button, [contenteditable]';\n"
+            // Self AND descendants, exactly like the media check below: a BARE off-page control
+            // (a top-level textarea holding clinical default text) must stay in the BLOCKING
+            // bucket, and querySelector alone only sees descendants.
+            + "  if (el.matches(carlosControls) || el.querySelector(carlosControls)) { return false; }\n"
             // Off-page imagery is far more likely a signature preview or a rendered clinical
             // figure than a badge logo, and unlike short text it cannot be judged from a count
             // alone -- media keeps the element in the BLOCKING excludedContentElements bucket.
@@ -1511,14 +1515,18 @@ public class EFormBrowserPdfService {
                 // the HTTP-client wiring in the ChromiumDriver constructor tail failed), that
                 // session's browser is unaddressable from here — the constructor never returned,
                 // so no session id exists in this JVM. Like the start-timeout case it is an
-                // about:blank browser holding no PHI, and the startup sweep plus the unit's
-                // PartOf=/MemoryMax reclaim it — but the leak must be VISIBLE, not silent,
-                // because a fault in the constructor tail repeats on every render and each
-                // attempt can strand one browser tree.
+                // about:blank browser holding no PHI. NOTHING in-process ever reaps it: the only
+                // sweep is for temp FILES, and chromedriver has no session timeout. What bounds
+                // it is the driver service's lifecycle — on the .deb, PartOf= ties it to every
+                // carlos-emr restart and the unit's MemoryMax caps the trees' total memory; on
+                // other deployments the operator restart named in the WARN is the reclaim. The
+                // leak must be VISIBLE, not silent, because a fault in the constructor tail
+                // repeats on every render and each attempt can strand one browser tree.
                 logger.warn("Chromium session constructor failed; if chromedriver had already "
                         + "created the session, that browser is unaddressable from this JVM and "
-                        + "will persist until the renderer service restarts or the startup sweep "
-                        + "runs (about:blank only — no document was loaded).");
+                        + "persists until the driver service restarts — repeated failures here "
+                        + "strand one browser per attempt: restart the chromedriver service "
+                        + "(about:blank only — no document was loaded).");
                 Throwable cause = failure.getCause();
                 if (cause instanceof RuntimeException runtime) {
                     throw runtime;
@@ -2010,15 +2018,21 @@ public class EFormBrowserPdfService {
         Integer mainDocumentStatus = latchedMainStatus != null ? latchedMainStatus : scan.mainDocumentStatus();
 
         int severeConsoleEntries = 0;
+        // Dedupe on the RAW message BEFORE describeConsoleError: a form erroring in a
+        // rAF/interval loop emits thousands of identical entries per render, and describing
+        // each one pays URL-redaction regex work on the hot render path while the description
+        // dedupe below keeps the list too small for the cap guard to short-circuit. Distinct
+        // raws mapping to one description are still collapsed by the contains() check.
+        java.util.Set<String> describedRawMessages = new java.util.HashSet<>();
         try {
             for (LogEntry entry : driver.manage().logs().get(LogType.BROWSER)) {
                 if (entry.getLevel().intValue() >= Level.SEVERE.intValue()
                         && !isResourceLoadConsoleEntry(entry.getMessage())
                         && !isPolicyContainmentConsoleEntry(entry.getMessage())) {
                     severeConsoleEntries++;
-                    if (severeConsoleDetailsOut != null && severeConsoleDetailsOut.size() < MAX_CONSOLE_DETAILS) {
-                        // De-duplicated, matching the fax-packet aggregation: a form erroring in a
-                        // loop otherwise fills the list with one repeated line while the COUNT
+                    if (severeConsoleDetailsOut != null && severeConsoleDetailsOut.size() < MAX_CONSOLE_DETAILS
+                            && describedRawMessages.add(entry.getMessage())) {
+                        // De-duplicated, matching the fax-packet aggregation: the COUNT
                         // (severeConsoleEntries, unbounded) still reports every occurrence.
                         String consoleErrorDescription = describeConsoleError(entry.getMessage());
                         if (!severeConsoleDetailsOut.contains(consoleErrorDescription)) {
@@ -2877,6 +2891,19 @@ public class EFormBrowserPdfService {
      * operator remediations, and one message covering both is one nobody can act on.
      */
     void verifyConfiguredServiceUrl() throws PDFGenerationException {
+        // Migration tripwire: the spawn-a-driver property is retired and silently ignoring it
+        // would strand a deployment configured per the old docs — the renderer would quietly try
+        // the default service URL instead of the operator's chromedriver, and every render would
+        // fail with a message that never mentions the actual misconfiguration. One WARN at
+        // startup names the retirement and the replacement.
+        String retiredPath = CarlosProperties.getInstance()
+                .getProperty("eform_pdf_browser_chromedriver_path", "");
+        if (!retiredPath.isBlank()) {
+            logger.warn("eform_pdf_browser_chromedriver_path is RETIRED and ignored: CARLOS no "
+                    + "longer spawns chromedriver. Run chromedriver as a service and set {} "
+                    + "instead (the .deb's carlos-emr-eform-renderer package does both).",
+                    SERVICE_URL_PROPERTY);
+        }
         try {
             validateBrowserServiceUrl(resolveBrowserServiceUrl());
         } catch (IllegalArgumentException e) {
