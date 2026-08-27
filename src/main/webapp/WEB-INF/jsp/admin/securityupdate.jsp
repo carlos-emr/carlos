@@ -91,11 +91,12 @@
 
             int rowsAffected = 0;
 
-            // security.user_name is varchar(30); the form maxlength is browser-side only, so
-            // blank or over-length input from a direct POST must be rejected before the save
-            // (an unchecked value fails as a DB truncation error page).
+            // Must stay aligned with the Login2Action username pattern and security.user_name
+            // varchar(30): the form maxlength is browser-side only, so a direct POST outside
+            // this charset or length must be rejected before the save (an over-length value
+            // fails as a DB truncation error page; other charsets are rejected at login).
             String newUserName = request.getParameter("user_name") == null ? "" : request.getParameter("user_name").trim();
-            boolean isUserNameValid = !newUserName.isEmpty() && newUserName.length() <= 30;
+            boolean isUserNameValid = newUserName.matches("[a-zA-Z0-9]{1,30}");
 
             Security s = securityDao.find(Integer.parseInt(request.getParameter("security_no")));
             if (s != null && isUserNameValid) {
@@ -142,6 +143,10 @@
         <p>
         <h2><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="html"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         </h2>
+        <%
+        } else if (!isUserNameValid) {
+        %>
+        <h1><fmt:message key="admin.securityupdate.msgUserNameInvalid"/></h1>
         <%
         } else {
         %>

@@ -266,14 +266,20 @@
                     <td><select name="provider_no" id="provider_no">
                         <option value="">-- select one --</option>
                         <%
+                            // One query for every existing login record instead of a per-provider
+                            // lookup while rendering (avoids N+1 on installs with many providers).
+                            Set<String> providerNosWithLogin = new HashSet<String>();
+                            for (Security existingLogin : securityDao.findAllOrderBy("userName")) {
+                                providerNosWithLogin.add(existingLogin.getProviderNo());
+                            }
+
                             // Site-scoped filtering relies on providersite rows, which only exist when
                             // multisites is enabled (Add Provider writes them solely in that mode and no
                             // Flyway seed populates the table). Without the multisites gate, a standalone
                             // install where the admin holds _site_access_privacy renders an empty dropdown.
                             if (isSiteAccessPrivacy && IsPropertiesOn.isMultisitesEnable()) {
                                 for (Provider p : providerSiteDao.findActiveProvidersBySharedSites(curProvider_no)) {
-                                    List<Security> s = securityDao.findByProviderNo(p.getProviderNo());
-                                    if (s.isEmpty()) {
+                                    if (!providerNosWithLogin.contains(p.getProviderNo())) {
                         %>
                         <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                         </option>
@@ -284,8 +290,7 @@
 
                         } else {
                             for (Provider p : providerDao.getActiveProviders()) {
-                                List<Security> s = securityDao.findByProviderNo(p.getProviderNo());
-                                if (s.isEmpty()) {
+                                if (!providerNosWithLogin.contains(p.getProviderNo())) {
                         %>
                         <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                         </option>

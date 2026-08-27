@@ -53,14 +53,16 @@ class SecurityAddRecordAssetRegressionTest {
 
         assertThat(jsp)
                 .contains("ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);")
-                .contains("List<Security> s = securityDao.findByProviderNo(p.getProviderNo());")
-                .contains("if (s.isEmpty()) {")
+                // Existing login records are loaded once into a set, not queried per provider
+                // (avoids N+1 while rendering the dropdown).
+                .contains("securityDao.findAllOrderBy(\"userName\")")
                 // The multisites gate is load-bearing: providersite rows only exist in multisite
                 // deployments, so site-scoped filtering on a standalone install yields an empty
                 // provider dropdown (2026.08 alpha regression).
                 .containsPattern("if \\(isSiteAccessPrivacy && IsPropertiesOn\\.isMultisitesEnable\\(\\)\\) \\{\\s+"
-                        + "for \\(Provider p : providerSiteDao\\.findActiveProvidersBySharedSites\\(curProvider_no\\)\\)")
-                .doesNotContain("if (s.size() > 0) {")
+                        + "for \\(Provider p : providerSiteDao\\.findActiveProvidersBySharedSites\\(curProvider_no\\)\\) \\{\\s+"
+                        + "if \\(!providerNosWithLogin\\.contains\\(p\\.getProviderNo\\(\\)\\)\\) \\{")
+                .doesNotContain("securityDao.findByProviderNo(p.getProviderNo())")
                 .doesNotContain("providerSiteDao.findActiveProvidersWithSites(curProvider_no)")
                 .doesNotContainPattern("if \\(isSiteAccessPrivacy\\) \\{\\s+"
                         + "for \\(Provider p : providerSiteDao\\.findActiveProvidersBySharedSites");
@@ -73,8 +75,7 @@ class SecurityAddRecordAssetRegressionTest {
 
         assertThat(jsp)
                 .containsPattern("\\} else \\{\\s+for \\(Provider p : providerDao\\.getActiveProviders\\(\\)\\) \\{\\s+"
-                        + "List<Security> s = securityDao\\.findByProviderNo\\(p\\.getProviderNo\\(\\)\\);\\s+"
-                        + "if \\(s\\.isEmpty\\(\\)\\) \\{");
+                        + "if \\(!providerNosWithLogin\\.contains\\(p\\.getProviderNo\\(\\)\\)\\) \\{");
     }
 
     private static String readSecurityAddRecordJsp() throws IOException {

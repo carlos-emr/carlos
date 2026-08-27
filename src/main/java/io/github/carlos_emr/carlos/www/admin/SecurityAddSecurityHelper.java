@@ -49,9 +49,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  */
 public class SecurityAddSecurityHelper {
 
-    // security.user_name is varchar(30); the JSP maxlength mirrors this but is browser-side
-    // only, so this server-side bound is the authoritative check.
-    private static final int MAX_USER_NAME_LENGTH = 30;
+    // Must stay aligned with the Login2Action username pattern and security.user_name
+    // varchar(30): a name outside this charset or length could be created here but would be
+    // rejected at login. The JSP maxlength mirrors the length but is browser-side only, so
+    // this server-side check is the authoritative one.
+    private static final String USER_NAME_PATTERN = "[a-zA-Z0-9]{1,30}";
 
     private SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
 	private final SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
@@ -74,8 +76,8 @@ public class SecurityAddSecurityHelper {
 		String digestedPassword = this.securityManager.encodePassword(request.getParameter("password"));
 
         String userName = request.getParameter("user_name") == null ? "" : request.getParameter("user_name").trim();
-        if (userName.isEmpty() || userName.length() > MAX_USER_NAME_LENGTH) {
-            return "admin.securityaddsecurity.msgUserNameInvalidLength";
+        if (!userName.matches(USER_NAME_PATTERN)) {
+            return "admin.securityaddsecurity.msgUserNameInvalid";
         }
 
         boolean isUserRecordAlreadyCreatedForProvider = !securityDao.findByProviderNo(request.getParameter("provider_no")).isEmpty();
