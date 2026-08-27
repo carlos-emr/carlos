@@ -11,6 +11,7 @@ import jakarta.mail.internet.MimeMessage;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -157,7 +158,13 @@ public class SMTPEmailSender {
             String host = jsonNode.get("host").asText();
             String port = jsonNode.get("port").asText();
             String username = jsonNode.get("username").asText();
-            String password = jsonNode.get("password").asText();
+            // Decrypt the at-rest credential only here, at send time. Legacy plaintext passwords
+            // pass through unchanged during the migration window. A missing/null password node is
+            // tolerated (null) rather than throwing an NPE before the send is even attempted.
+            JsonNode passwordNode = jsonNode.get("password");
+            String password = (passwordNode != null && !passwordNode.isNull())
+                    ? EmailConfigSecrets.decryptSecret(passwordNode.asText())
+                    : null;
 
             mailSender.setHost(host);
             mailSender.setPort(Integer.parseInt(port));

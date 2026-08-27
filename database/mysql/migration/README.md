@@ -21,6 +21,7 @@ migration/
            V1.0.14__widen_faxes_jobid_to_bigint.sql
            V1.0.15__add_faxes_direction.sql
            V1.0.16__add_faxes_jobid_index.sql
+           V1.0.17__add_email_consent_audit.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -33,12 +34,12 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.16`, and the
-next free number for ANY location — shared or province — is `V1.0.17`. The version line is global:
+`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.17`, and the
+next free number for ANY location — shared or province — is `V1.0.18`. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — `common/V1.0.16` today. A hypothetical new `bc/V1.0.11` would apply fine on a fresh install
-(version order places it before `common/V1.0.16`) but would silently never run on existing BC
+run — `common/V1.0.17` today. A hypothetical new `bc/V1.0.11` would apply fine on a fresh install
+(version order places it before `common/V1.0.17`) but would silently never run on existing BC
 databases and would fail `flyway validate` there — so never number a new migration at or below the
 global high-water mark, even if that number was only ever used under the other province.
 

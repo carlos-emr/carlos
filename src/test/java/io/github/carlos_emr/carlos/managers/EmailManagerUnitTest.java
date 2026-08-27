@@ -6,6 +6,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -19,15 +20,20 @@ import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
+import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -43,6 +49,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -57,6 +64,9 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     private DemographicManager demographicManager;
     private ProviderManager2 providerManager;
     private SecurityInfoManager securityInfoManager;
+    private EmailConsentResolver emailConsentResolver;
+    private EmailSenderFactory emailSenderFactory;
+    private EmailSender emailSender;
     private LoggedInInfo loggedInInfo;
     private Demographic demographic;
     private Provider provider;
@@ -68,6 +78,9 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         demographicManager = mock(DemographicManager.class);
         providerManager = mock(ProviderManager2.class);
         securityInfoManager = mock(SecurityInfoManager.class);
+        emailConsentResolver = mock(EmailConsentResolver.class);
+        emailSenderFactory = mock(EmailSenderFactory.class);
+        emailSender = mock(EmailSender.class);
         loggedInInfo = mock(LoggedInInfo.class);
         demographic = new Demographic();
         demographic.setDemographicNo(123);
@@ -77,7 +90,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         provider.setFirstName("Provider");
         provider.setLastName("Example");
 
-        emailManager = new EmailManager();
+        emailManager = new EmailManager(emailConsentResolver, emailSenderFactory);
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "caseManagementManager", mock(CaseManagementManager.class));
@@ -110,6 +123,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         verify(emailLogDao, never()).persist(any(EmailLog.class));
         verify(demographicManager, never()).getDemographic(any(LoggedInInfo.class), anyInt());
         verify(providerManager, never()).getProvider(any(LoggedInInfo.class), anyString());
+        verifyNoInteractions(emailConsentResolver, emailSenderFactory, emailSender);
         assertThat(result.getDemographic()).isNull();
         assertThat(result.getProvider()).isNull();
         assertThat(result.getEmailAttachments()).singleElement().satisfies(attachment -> {
@@ -138,6 +152,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         verify(emailLogDao, never()).persist(any(EmailLog.class));
         verify(demographicManager, never()).getDemographic(any(LoggedInInfo.class), anyInt());
         verify(providerManager, never()).getProvider(any(LoggedInInfo.class), anyString());
+        verifyNoInteractions(emailConsentResolver, emailSenderFactory, emailSender);
         assertThat(result.getDemographic()).isNull();
         assertThat(result.getProvider()).isNull();
     }
@@ -161,6 +176,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         verify(emailLogDao, never()).persist(any(EmailLog.class));
         verify(demographicManager, never()).getDemographic(any(LoggedInInfo.class), anyInt());
         verify(providerManager, never()).getProvider(any(LoggedInInfo.class), anyString());
+        verifyNoInteractions(emailConsentResolver, emailSenderFactory, emailSender);
         assertThat(result.getEmailAttachments()).isEmpty();
     }
 
@@ -187,6 +203,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
                 .doesNotContain("raw-password")
                 .doesNotContain("sendgridApiKey")
                 .doesNotContain("smtpPassword");
+        verifyNoInteractions(emailConsentResolver, emailSenderFactory, emailSender);
     }
 
     @Test
@@ -250,6 +267,121 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(result.getRecipientFullName()).isEqualTo("(CJ Patient)");
     }
 
+    @Test
+    @DisplayName("should block send and skip sender when patient opted out")
+    void shouldBlockSendAndSkipSender_whenPatientOptedOut() {
+        EmailData emailData = emailData(10);
+        when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(emailConfig());
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult("Email", EmailConsentStatus.OPT_OUT, 55, new Date()));
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
+        assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.OPT_OUT);
+        assertThat(emailLog.getConsentId()).isEqualTo(55);
+        verify(emailLogDao).persist(any(EmailLog.class));
+        verify(emailLogDao).merge(emailLog);
+        verify(emailLogDao).updateEmailStatus(
+                eq(emailLog.getId()), eq(EmailStatus.BLOCKED), any(), any(Date.class));
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    @Test
+    @DisplayName("should block send when patient opted out even with override")
+    void shouldBlockSend_whenPatientOptedOutEvenWithOverride() {
+        EmailData emailData = emailData(10);
+        emailData.setConsentOverride(true);
+        emailData.setConsentOverrideReason("Patient verbally confirmed email consent");
+        when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(emailConfig());
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult("Email", EmailConsentStatus.OPT_OUT, 55, new Date()));
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
+        assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.OPT_OUT);
+        assertThat(emailLog.getConsentOverride()).isFalse();
+        assertThat(emailLog.getConsentOverrideReason()).isEmpty();
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    @Test
+    @DisplayName("should block send when email consent is not configured even with override")
+    void shouldBlockSend_whenEmailConsentNotConfiguredEvenWithOverride() {
+        EmailData emailData = emailData(10);
+        emailData.setConsentOverride(true);
+        emailData.setConsentOverrideReason("Patient verbally confirmed email consent");
+        when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(emailConfig());
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult("", EmailConsentStatus.NOT_CONFIGURED, null, null));
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
+        assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.NOT_CONFIGURED);
+        assertThat(emailLog.getConsentOverride()).isFalse();
+        assertThat(emailLog.getConsentOverrideReason()).isEmpty();
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    @Test
+    @DisplayName("should block send and skip sender when consent is unknown without override")
+    void shouldBlockSendAndSkipSender_whenConsentUnknownWithoutOverride() {
+        EmailData emailData = emailData(10);
+        when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(emailConfig());
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult("Email", EmailConsentStatus.UNKNOWN, null, null));
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
+        assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.UNKNOWN);
+        assertThat(emailLog.getConsentOverride()).isFalse();
+        verify(emailSenderFactory, never()).create(any(), any(), any());
+        verifyNoInteractions(emailSender);
+    }
+
+    @Test
+    @DisplayName("should block send when unknown-consent override reason is blank")
+    void shouldBlockSend_whenUnknownConsentOverrideReasonIsBlank() {
+        EmailData emailData = emailData(10);
+        emailData.setConsentOverride(true);
+        emailData.setConsentOverrideReason("   ");
+        when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(emailConfig());
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult("Email", EmailConsentStatus.UNKNOWN, null, null));
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
+        verify(emailSenderFactory, never()).create(any(), any(), any());
+        verifyNoInteractions(emailSender);
+    }
+
+    @Test
+    @DisplayName("should send and persist override when consent is unknown with override")
+    void shouldSendAndPersistOverride_whenConsentUnknownWithOverride() throws Exception {
+        EmailData emailData = emailData(10);
+        emailData.setConsentOverride(true);
+        emailData.setConsentOverrideReason("Patient verbally confirmed email consent");
+        when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(emailConfig());
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult("Email", EmailConsentStatus.UNKNOWN, null, null));
+        when(emailSenderFactory.create(any(), any(), any())).thenReturn(emailSender);
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.SUCCESS);
+        assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.UNKNOWN);
+        assertThat(emailLog.getConsentOverride()).isTrue();
+        assertThat(emailLog.getConsentOverrideReason())
+                .isEqualTo("Patient verbally confirmed email consent");
+        verify(emailSender).send();
+        verify(emailLogDao).updateEmailStatus(
+                eq(emailLog.getId()), eq(EmailStatus.SUCCESS), eq(""), any(Date.class));
+    }
+
     private void assertMisconfiguredSenderFailure(EmailLog result) {
         assertThat(result.getStatus()).isEqualTo(EmailStatus.FAILED);
         assertThat(result.getErrorMessage()).isEqualTo(EmailManager.SENDER_CONFIG_MISCONFIGURATION_ERROR);
@@ -275,5 +407,13 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         emailData.setAdditionalParams("");
         emailData.setAttachments(Collections.emptyList());
         return emailData;
+    }
+
+    private EmailConfig emailConfig() {
+        EmailConfig emailConfig = new EmailConfig();
+        emailConfig.setSenderEmail("sender@example.org");
+        emailConfig.setSenderFirstName("Sender");
+        emailConfig.setSenderLastName("Provider");
+        return emailConfig;
     }
 }
