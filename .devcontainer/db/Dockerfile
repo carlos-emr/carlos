@@ -15,6 +15,10 @@ COPY ./.devcontainer/db/scripts/populate_db.sh /docker-entrypoint-initdb.d/popul
 RUN mkdir /scripts
 COPY ./.devcontainer/db/scripts/development.sql /scripts/development.sql
 COPY ./.devcontainer/db/scripts/development_privileges.sql /scripts/development_privileges.sql
+COPY ./.devcontainer/db/scripts/demo-name-sanitization.sql /scripts/demo-name-sanitization.sql
+COPY ./.devcontainer/db/scripts/demo-name-sanitization-on.sql /scripts/demo-name-sanitization-on.sql
+COPY ./.devcontainer/db/scripts/demo-specialists.sql /scripts/demo-specialists.sql
+COPY ./.devcontainer/db/scripts/demo-provider-links.sql /scripts/demo-provider-links.sql
 COPY ./database /database
 COPY ./.devcontainer/development/config/shared/my.cnf /etc/mysql/my.cnf
 

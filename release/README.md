@@ -63,8 +63,11 @@ unprivileged account behind an nginx/ModSecurity front door.
   `opr2017.sql`, `DoBC_dashboard.sql`, `bc_billing_dashboard.sql`,
   `indicatorTemplatePANEL.sql`, `tallMAN*.sql`, `RNGPA.sql`, `special.sql`,
   `OfficeCodes.sql`, `drugref.sql`).
-- Demo data (`demo.sql`, `unDemo.sql`) — development only; never load it on a
-  system that will hold patient information.
+- Demo data (`demo.sql`, `unDemo.sql`) — legacy OSCAR demo data, development
+  only; never load it on a system that will hold patient information. The
+  supported demo dataset for the deb install is the optional
+  `carlos-ctl demo-data` load (see `docs/install-deb.md`), built from
+  `.devcontainer/db/scripts/development.sql`.
 - eForm bundles and their assets (`ndss.zip`/`ndss.sql`, `rbr2014.zip`,
   `RourkeEform*.sql`, `Document/`, `OPR-2017*.png`, `4422-84v9-1.png`,
   `labDecisionSupport.js`, `editControl2.js`).
