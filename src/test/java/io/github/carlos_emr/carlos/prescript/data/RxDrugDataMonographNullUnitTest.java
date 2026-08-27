@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  *
  * <p>RxDrugRef.getDrug2 and getDrugByDIN both return null for an empty XML-RPC
  * result, and RxDrugData hands that straight to this constructor. It used to
- * dereference the hash immediately, so a drug DrugRef has no record for threw
+ * dereference the hash immediately, so a drug that DrugRef has no record for threw a
  * NullPointerException out of RxWriteScript2Action.createNewRx. That reaches the
  * browser as a 500 on the staging XHR, whose success handler is the only thing
  * that reveals the prescription stage — so the drug the clinician picked failed

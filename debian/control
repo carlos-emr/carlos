@@ -201,9 +201,10 @@ Description: Headless Chromium renderer for CARLOS EMR eForm PDFs
  Ubuntu 26.04 ships Chromium only as a snap, and a confined snap cannot read
  the renderer's working directories under /var/lib/carlos-emr. This package
  therefore installs a pinned, unconfined Chromium and a chromedriver built from
- the same revision into /usr/lib/carlos-emr/chromium, and points
- eform_pdf_browser_chromium_path and eform_pdf_browser_chromedriver_path at
- them so the renderer never has to download a driver at first use.
+ the same revision into /usr/lib/carlos-emr/chromium, runs the driver as the
+ carlos-emr-chromedriver service, and points eform_pdf_browser_service_url
+ (plus eform_pdf_browser_chromium_path for the browser binary) at it, so the
+ application connects to a running service and never downloads a driver.
  .
  The browser runs as its own system account (carlos-render, a member of no
  group) under its own systemd unit, carlos-emr-chromedriver. That unit is the

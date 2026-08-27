@@ -56,7 +56,10 @@
              for, so it has to be visible without raising LOG_VERBOSITY for the entire
              application. Scoped to this package only; INFO here is a handful of lines
              per start, not per request. -->
-        <Logger name="io.github.carlos_emr.carlos.eform.util" level="info">
+        <!-- additivity="false": this logger references Console itself, and without it every
+             event ALSO propagates to the Root logger's Console appender — each renderer
+             probe line printed twice. -->
+        <Logger name="io.github.carlos_emr.carlos.eform.util" level="info" additivity="false">
             <AppenderRef ref="Console"/>
         </Logger>
         <Logger name="org.apache.log4j.xml" level="error">

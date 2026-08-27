@@ -120,9 +120,9 @@ def cmd_init_config(argv) -> int:
     prop_set(PROPERTIES, "drugref_url", "http://127.0.0.1:18080/drugref2/DrugrefService")
 
     # eForm-to-PDF renderer. carlos-emr-eform-renderer ships a pinned Chromium
-    # and a chromedriver built from the same revision; point the renderer at
-    # both so it never falls back to Selenium Manager downloading a driver at
-    # first use (which a clinic host may not be able to reach at all).
+    # and a chromedriver built from the same revision, run as the dedicated
+    # carlos-emr-chromedriver service; the application CONNECTS to that service
+    # (eform_pdf_browser_service_url) and never spawns or downloads a driver.
     #
     # The probe follows the browser rather than being hard-off: with no browser
     # installed it could only fail and log an error burst on every boot, but
@@ -138,8 +138,12 @@ def cmd_init_config(argv) -> int:
         # url-base is a bearer credential generated into render-browser.env at
         # install, and the two files are read by two accounts that deliberately
         # cannot read each other's — hence the value is composed here rather than
-        # shared. A missing/empty url-base is not an error: the service then runs
-        # at the bare root path, which still works, just without that defence.
+        # shared. A missing/empty url-base is tolerated HERE so init-config never
+        # blocks, but the chromedriver unit itself refuses to start on an empty
+        # CARLOS_RENDER_URL_BASE (its ExecStartPre guard): a bare-root endpoint
+        # would silently drop the capability-token defence, and everything else in
+        # this design fails closed. The renderer package's postinst generates the
+        # token, so this branch only matters mid-install or after manual edits.
         port, url_base = _render_browser_endpoint()
         service_url = f"http://127.0.0.1:{port}"
         if url_base:
@@ -153,8 +157,12 @@ def cmd_init_config(argv) -> int:
         # No browser installed. Comment the endpoint out rather than leaving it
         # pointing at a service that is no longer running — the renderer fails
         # closed, so a stale value would turn every eForm print into an error
-        # naming a URL the operator just deliberately removed.
+        # naming a URL the operator just deliberately removed. The binary paths
+        # are retracted for the same reason: they would otherwise keep naming
+        # files the renderer package's removal just deleted.
         prop_comment(PROPERTIES, "eform_pdf_browser_service_url")
+        prop_comment(PROPERTIES, "eform_pdf_browser_chromium_path")
+        prop_comment(PROPERTIES, "eform_pdf_browser_chromedriver_path")
         prop_set(PROPERTIES, "eform_pdf_browser_startup_check", "off")
 
     # --- paths the upstream skeleton still aims at the OLD FHS location -----

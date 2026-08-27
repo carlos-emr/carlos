@@ -59,14 +59,6 @@ public final class FlywayRunner {
     }
 
     /**
-     * Entry point invoked by {@code carlos-ctl db-migrate}.
-     *
-     * @param args {@code args[0]} is the Flyway command (info, validate,
-     *             migrate, baseline or repair); {@code args[1]} is the
-     *             comma-separated migration location list, restricted to the
-     *             classpath locations this package ships.
-     */
-    /**
      * Silence one INFO line OpenTelemetry emits on first use.
      *
      * <p>This runner's classpath is the deployed WAR's, which carries the
@@ -93,6 +85,14 @@ public final class FlywayRunner {
         Logger.getLogger("io.opentelemetry.api.GlobalOpenTelemetry").setLevel(Level.WARNING);
     }
 
+    /**
+     * Entry point invoked by {@code carlos-ctl db-migrate}.
+     *
+     * @param args {@code args[0]} is the Flyway command (info, validate,
+     *             migrate, baseline or repair); {@code args[1]} is the
+     *             comma-separated migration location list, restricted to the
+     *             classpath locations this package ships.
+     */
     public static void main(String[] args) {
         quietenOpenTelemetry();
         if (args.length < 2) {

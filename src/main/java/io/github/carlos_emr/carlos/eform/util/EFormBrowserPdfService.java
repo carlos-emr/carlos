@@ -2828,6 +2828,10 @@ public class EFormBrowserPdfService {
      * would point the renderer at Tomcat or nginx. A path component IS permitted -- that is the
      * chromedriver {@code --url-base} prefix, which this deployment uses as a capability token.
      */
+    // IMPROPER_UNICODE: equalsIgnoreCase on the literal "http" is an intended case-insensitive
+    // scheme comparison per RFC 3986; no locale-sensitive or trust-path case folding is involved.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "intended case-insensitive URI scheme comparison against a literal")
     static URI validateBrowserServiceUrl(String rawUrl) {
         if (rawUrl == null || rawUrl.isBlank()) {
             throw new IllegalArgumentException("Render browser service URL must not be blank");
@@ -2851,7 +2855,10 @@ public class EFormBrowserPdfService {
         if (path.endsWith("/")) {
             throw new IllegalArgumentException("Render browser service URL must not end in '/'");
         }
-        if (!path.isEmpty() && !path.matches("(/[A-Za-z0-9._~-]+)+")) {
+        // Possessive quantifiers: the operator-supplied path cannot trigger catastrophic
+        // backtracking (SpotBugs REDOS) — the character classes are disjoint from '/' so
+        // possessiveness rejects exactly the same strings the greedy form did.
+        if (!path.isEmpty() && !path.matches("(/[A-Za-z0-9._~-]++)++")) {
             throw new IllegalArgumentException("Render browser service URL path is not a usable url-base prefix");
         }
         return uri;
