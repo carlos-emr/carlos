@@ -666,12 +666,17 @@ public class ConsultationWebService extends AbstractServiceImpl {
     }
 
     private List<FaxConfigTo1> getFaxList() {
+        // Only active accounts are usable send lines, and the provider account id (faxUser —
+        // for SRFax this is the API access_id) is a credential-adjacent value no consultation
+        // client needs; expose the fax number only (mirrors FaxManagerImpl.getFaxGatewayAccounts).
         List<FaxConfigTo1> faxList = new ArrayList<FaxConfigTo1>();
         List<FaxConfig> faxConfigList = faxConfigDao.findAll(null, null);
         for (FaxConfig faxConfig : faxConfigList) {
+            if (!faxConfig.isActive()) {
+                continue;
+            }
             FaxConfigTo1 faxConfigTo1 = new FaxConfigTo1();
             faxList.add(faxConfigTo1);
-            faxConfigTo1.setFaxUser(faxConfig.getFaxUser());
             faxConfigTo1.setFaxNumber(faxConfig.getFaxNumber());
         }
         return faxList;

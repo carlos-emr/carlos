@@ -10,11 +10,12 @@ This directory contains technical documentation for CARLOS EMR (Clinical Assisti
 
 | Category | Documents | Description |
 |----------|-----------|-------------|
+| **Installation & Deployment** | [Installing CARLOS (.deb packages)](install-deb.md) | Single-server production install on Ubuntu 26.04: packages, quickstart, day-two administration, backups, TLS. Development environments use the [devcontainer](../.devcontainer/README.md); a container-based deployment is under development at [carlos-podman](https://github.com/carlos-emr/carlos-podman) |
 | **Testing** | [📂 test/](test/)<br>[📂 ui-tests/](ui-tests/)<br>[eForm PDF Render Smoke Test](ui-tests/eform-pdf-render-smoke-test.md) | Modern test framework docs, browser-backed UI testing, and the eForm PDF smoke runbook |
 | **Architecture** | [Struts Actions Summary](struts-actions-summary.md)<br>[Struts Actions Detailed](struts-actions-detailed.md)<br>[Struts Web Endpoints](struts-web-endpoints.md)<br>[Integrator System Architecture](integrator-system-architecture.md) | System architecture, action mappings, and current endpoint/JSP routing rules |
 | **Security** | [Password System](Password_System.md) | Authentication and security architecture |
 | **APIs** | [API Collections Index](api-collections-index.md) | REST API documentation and collections |
-| **Development** | [DS Guideline](dsGuideline.md)<br>[Copyright Header (Magenta)](copyright-header-magenta.md) | Development standards and guidelines |
+| **Development** | [Release Process](release-process.md)<br>[DS Guideline](dsGuideline.md)<br>[Copyright Header (Magenta)](copyright-header-magenta.md) | Branching, releases, and development standards |
 
 ### 🧪 Testing Documentation
 
@@ -34,7 +35,6 @@ Key testing resources:
 | Document | Description |
 |----------|-------------|
 | [MyDrugref](MyDrugref.md) | Drug reference system documentation |
-| [Legacy HAPI Dynamic Loading](legacy-hapi-dynamic-loading.md) | HL7 HAPI integration patterns |
 | [Form Resources README](README-form-resources.md) | Medical forms and resources |
 
 ### 🔧 Technical References
@@ -43,6 +43,7 @@ Key testing resources:
 |----------|-------------|
 | [Runtime Directories](runtime-directories.md) | Required filesystem directories and permissions |
 | [Resources Directory](resources-directory.md) | Application resources structure |
+| [Provider-to-Patient Email Operations](email/provider-to-patient-email-operations.md) | Email workflow setup, monitoring, and safety runbook |
 | [GitHub Issue Management](github-issue-management.md) | Issue tracking and workflow |
 | [Testing Exclusions](Testing_Exclusion_of_MCEDT_and_HinValidator_tests.md) | Excluded test documentation |
 
@@ -50,19 +51,21 @@ Key testing resources:
 
 ### For Developers
 
-1. **Writing Tests**: Start with [test/README.md](test/README.md)
-2. **Struts Migration**: Review [Struts Actions Summary](struts-actions-summary.md)
-3. **New Pages and JSP Routing**: Review [Struts Web Endpoints](struts-web-endpoints.md)
-4. **APIs**: Check [API Collections Index](api-collections-index.md)
-5. **Security**: Understand [Password System](Password_System.md)
+1. **Branches and Releases**: Follow the [Release Process](release-process.md)
+2. **Writing Tests**: Start with [test/README.md](test/README.md)
+3. **Struts Migration**: Review [Struts Actions Summary](struts-actions-summary.md)
+4. **New Pages and JSP Routing**: Review [Struts Web Endpoints](struts-web-endpoints.md)
+5. **APIs**: Check [API Collections Index](api-collections-index.md)
+6. **Security**: Understand [Password System](Password_System.md)
 
 ### For New Team Members
 
-1. Read the main project context: `/workspace/CLAUDE.md`
-2. Review development guidelines: [DS Guideline](dsGuideline.md)
-3. Understand the test framework: [test/](test/)
-4. Study the architecture: [Struts Actions](struts-actions-summary.md)
-5. Read the endpoint conventions: [Struts Web Endpoints](struts-web-endpoints.md)
+1. Read the main project context: [CLAUDE.md](../CLAUDE.md)
+2. Follow the branch and release policy: [Release Process](release-process.md)
+3. Review development guidelines: [DS Guideline](dsGuideline.md)
+4. Understand the test framework: [test/](test/)
+5. Study the architecture: [Struts Actions](struts-actions-summary.md)
+6. Read the endpoint conventions: [Struts Web Endpoints](struts-web-endpoints.md)
 
 ## Project Context
 
@@ -101,7 +104,7 @@ When adding new documentation:
 ## Support
 
 For questions about documentation:
-1. Check the main project file: `/workspace/CLAUDE.md`
+1. Check the main project file: [CLAUDE.md](../CLAUDE.md)
 2. Review related documentation in this directory
 3. Consult the test framework guides in [test/](test/)
 

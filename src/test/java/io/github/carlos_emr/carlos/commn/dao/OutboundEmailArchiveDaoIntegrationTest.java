@@ -458,9 +458,29 @@ class OutboundEmailArchiveDaoIntegrationTest extends CarlosTestBase {
             Integer demographicNo = outboundEmailArchiveDao.findDemographicNoById(id);
 
             assertThat(demographicNo).isEqualTo(demographic.getDemographicNo());
-            // The point of the scalar projection: the archive stays out of the persistence
-            // context, so a following findForUpdate still hydrates under its lock.
-            assertThat(entityManager.contains(archive)).isFalse();
+
+            // Observable check, rather than entityManager.contains(archive). That instance was
+            // detached by the clear() above, so contains() answers false whatever the scalar
+            // lookup did -- it would still pass if findDemographicNoById had hydrated a second,
+            // managed instance of the same row, which is the failure this test exists to catch.
+            //
+            // Instead, change the row out from under JPA and make the locked read prove it saw
+            // the change. If the scalar lookup had put the archive in the persistence context,
+            // findForUpdate would hand back that cached pre-lock instance and legalHold would
+            // still read true. That is exactly the staleness OutboundEmailArchiveServiceImpl
+            // relies on this projection to avoid.
+            entityManager.createNativeQuery(
+                            "UPDATE outboundEmailArchive SET legalHold = FALSE WHERE id = :id")
+                    .setParameter("id", id)
+                    .executeUpdate();
+
+            OutboundEmailArchive locked = outboundEmailArchiveDao.findForUpdate(id);
+            assertThat(locked).isNotNull();
+            assertThat(locked.isLegalHold())
+                    .as("findForUpdate must read the row under its lock, not a copy the scalar "
+                            + "projection left in the persistence context")
+                    .isFalse();
+
             assertThat(outboundEmailArchiveDao.findDemographicNoById(999_999)).isNull();
         }
     }

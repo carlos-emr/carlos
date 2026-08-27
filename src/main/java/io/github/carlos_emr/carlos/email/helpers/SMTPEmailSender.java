@@ -11,6 +11,7 @@ import jakarta.mail.internet.MimeMessage;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -18,6 +19,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.mail.MailAuthenticationException;
+import org.springframework.mail.MailPreparationException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -53,6 +56,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * @since 2026-01-24
  */
 public class SMTPEmailSender {
+    static final int SMTP_CONNECTION_TIMEOUT_MILLIS = 30_000;
+    static final int SMTP_IO_TIMEOUT_MILLIS = 60_000;
+
     private final Logger logger = MiscUtils.getLogger();
     private LoggedInInfo loggedInInfo;
 
@@ -113,18 +119,35 @@ public class SMTPEmailSender {
             throw new RuntimeException("missing required sec object (_email)");
         }
 
-        javaMailSender = createTLSMailSender(emailConfig);
-        MimeMessage message = javaMailSender.createMimeMessage();
+        MimeMessage message;
         try {
+            javaMailSender = createTLSMailSender(emailConfig);
+            message = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
             helper.setFrom(emailConfig.getSenderEmail(), emailConfig.getSenderFullName());
             helper.setTo(recipients);
             helper.setSubject(subject);
             helper.setText(body, false);
             addAttachments(helper, attachments);
-            javaMailSender.send(message);
+        } catch (EmailSendingException e) {
+            throw e;
         } catch (Exception e) {
-            throw new EmailSendingException(e.getMessage(), e);
+            throw new EmailSendingException("The SMTP message could not be prepared.", e);
+        }
+
+        try {
+            javaMailSender.send(message);
+        } catch (MailAuthenticationException | MailPreparationException e) {
+            // Authentication and local preparation failures occur before SMTP can accept the
+            // message, so these are safe to present as conclusive failures.
+            throw new EmailSendingException(
+                    "SMTP failed before accepting the message.", e);
+        } catch (Exception e) {
+            // Once Jakarta Mail begins the SMTP transaction, a timeout or lost response cannot
+            // prove the server rejected the message. Treat the outcome as uncertain so callers do
+            // not encourage a duplicate send.
+            throw new EmailSendingException(
+                    "SMTP transport did not confirm whether the message was accepted.", e, true);
         }
     }
 
@@ -157,7 +180,13 @@ public class SMTPEmailSender {
             String host = jsonNode.get("host").asText();
             String port = jsonNode.get("port").asText();
             String username = jsonNode.get("username").asText();
-            String password = jsonNode.get("password").asText();
+            // Decrypt the at-rest credential only here, at send time. Legacy plaintext passwords
+            // pass through unchanged during the migration window. A missing/null password node is
+            // tolerated (null) rather than throwing an NPE before the send is even attempted.
+            JsonNode passwordNode = jsonNode.get("password");
+            String password = (passwordNode != null && !passwordNode.isNull())
+                    ? EmailConfigSecrets.decryptSecret(passwordNode.asText())
+                    : null;
 
             mailSender.setHost(host);
             mailSender.setPort(Integer.parseInt(port));
@@ -171,12 +200,24 @@ public class SMTPEmailSender {
             properties.put("mail.smtp.starttls.required", "true");
             properties.put("mail.smtp.ssl.protocols", "TLSv1.2");
             properties.put("mail.debug", "false");
+            applySmtpTimeouts(properties);
 
             mailSender.setJavaMailProperties(properties);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail(), e);
+        } catch (IOException | RuntimeException e) {
+            throw new EmailSendingException("The active SMTP sender configuration is invalid.", e);
         }
         return mailSender;
+    }
+
+    /**
+     * Prevents an unreachable or unresponsive SMTP server from holding a request indefinitely.
+     * Jakarta Mail expects these timeout values in milliseconds.
+     */
+    static void applySmtpTimeouts(Properties properties) {
+        properties.put("mail.smtp.connectiontimeout",
+                String.valueOf(SMTP_CONNECTION_TIMEOUT_MILLIS));
+        properties.put("mail.smtp.timeout", String.valueOf(SMTP_IO_TIMEOUT_MILLIS));
+        properties.put("mail.smtp.writetimeout", String.valueOf(SMTP_IO_TIMEOUT_MILLIS));
     }
 
     /**
