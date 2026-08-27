@@ -147,8 +147,22 @@ def cmd_check(argv) -> int:
     # apparmor_restrict_unprivileged_userns (Chromium aborts "No usable sandbox!" and
     # every eForm print/fax/archive fails closed), or carlos.properties pointing the
     # JVM at a different port/token than the driver actually serves.
+    # Gate on the chromedriver BINARY, which a plain `apt remove` deletes — not on
+    # render-browser.env, which survives until purge: keying on the env file made check
+    # report a broken renderer on hosts where the operator deliberately removed the
+    # package. Binary-present-but-env-missing IS a fault (postinst never completed).
     render_env = "/etc/carlos-emr/render-browser.env"
-    if os.path.exists(render_env):
+    render_driver = "/usr/lib/carlos-emr/chromium/chromedriver"
+    if os.path.exists(render_driver) and not os.path.exists(render_env):
+        print("\neForm render browser")
+        _bad("the renderer package is installed but render-browser.env is missing — its "
+             "postinst never completed (sudo apt install --reinstall carlos-emr-eform-renderer)")
+    elif not os.path.exists(render_driver) and os.path.exists(render_env):
+        print("\neForm render browser")
+        _note("render-browser.env is left over from a removed carlos-emr-eform-renderer "
+              "(it holds the url-base token and is deleted on purge); the renderer itself "
+              "is not installed, so its checks are skipped")
+    elif os.path.exists(render_driver):
         print("\neForm render browser")
         if run(["systemctl", "is-active", "--quiet", "carlos-emr-chromedriver"]).returncode == 0:
             _ok("carlos-emr-chromedriver is running")
