@@ -891,13 +891,18 @@ function renderRxStage() {
                                                             <label for="naturalRemedy"><fmt:message key="SearchDrug.drugCategory.natural"/></label>
                                                         </fieldset>
                                                         <fieldset id="searchParamSet">
+                                                            <%-- The default is deliberately "Any" (wildcard=false: each word matched
+                                                                 anywhere, so "ramip 10" finds RAMIPRIL 10MG). "Exact" (wildcard=true)
+                                                                 anchors the query to the start of the drug name. A prior label/i18n
+                                                                 rework left checked on the Exact radio, regressing partial-name
+                                                                 searches. --%>
                                                             <input type="radio" id="wildCardRight" name="wildcard"
-                                                                   value="true" checked="checked" />
+                                                                   value="true" />
                                                             <label title="<fmt:message key="SearchDrug.searchParam.exactTitle"/>"
                                                                    for="wildCardRight"><fmt:message key="SearchDrug.searchParam.exact"/></label>
 
                                                             <input type="radio" id="wildCardBoth" name="wildcard"
-                                                                   value="false" />
+                                                                   value="false" checked="checked" />
                                                             <label title="<fmt:message key="SearchDrug.searchParam.anyTitle"/>"
                                                                    for="wildCardBoth"><fmt:message key="SearchDrug.searchParam.any"/></label>
                                                         </fieldset>
