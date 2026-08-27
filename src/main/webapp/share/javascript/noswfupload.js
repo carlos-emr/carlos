@@ -329,15 +329,16 @@
                     }
                     if (formdata) {
                         xhr.send(formdata);
-                    } else if (handler.file.getAsBinary) {
-                        var boundary = "AjaxUploadBoundary" + (new Date).getTime();
-                        xhr.setRequestHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
-                        xhr[xhr.sendAsBinary ? "sendAsBinary" : "send"](multipart(boundary, handler.name, handler.file));
                     } else {
-                        xhr.setRequestHeader("Content-Type", "multipart/form-data");
-                        xhr.setRequestHeader("X-Name", handler.name);
-                        xhr.setRequestHeader("X-Filename", handler.file.fileName);
-                        xhr.send(handler.file);
+                        // FormData is available in every browser CARLOS supports, so this
+                        // path is only reached if FormData construction itself failed.
+                        // The former fallbacks hand-built a multipart body; one set
+                        // Content-Type: multipart/form-data with NO boundary and sent the
+                        // raw File, which nginx/ModSecurity rejects as a malformed multipart
+                        // body (HTTP 400). Never emit an invalid request — fail loudly.
+                        if (isFunction(handler.onerror)) {
+                            handler.onerror("This browser is not supported for file upload.");
+                        }
                     }
                     ;
                     return handler;

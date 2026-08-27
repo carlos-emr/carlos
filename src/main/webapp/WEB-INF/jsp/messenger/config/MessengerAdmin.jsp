@@ -79,13 +79,17 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
             <title><fmt:message key="messenger.config.MessengerAdmin.title"/></title>
 
+            <%-- global-head.jspf provides jQuery 3.7.1 core + jquery-compat, Bootstrap
+                 (JS bundle + CSS), jQuery UI CSS, Font Awesome, the CSRFGuard client
+                 script (so the $.post calls below to the CSRF-protected /messenger
+                 route carry the token instead of being rejected 403), and carlos-ajax.
+                 This page previously loaded jQuery UI's JS with NO jQuery core, so $
+                 was undefined and every handler and autocomplete on the page died. --%>
+            <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+            <%-- jQuery UI JS is page-specific (needed here for the provider
+                 autocomplete); load it after jQuery core from the include above. --%>
             <script type="text/javascript"
                     src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
-            <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet"
-                  type="text/css"/>
-            <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css">
-            <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
-            <script type="text/javascript" src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
             <style type="text/css">
                 summary {
                     cursor: pointer;
@@ -150,7 +154,7 @@
                  * @param {string} groupId - The ID of the group to add the member to
                  */
                 function addMember(memberId, groupId) {
-                    $.post(ctx + "/messenger?method=add&member=" + memberId + "&group=" + groupId).success(function () {
+                    $.post(ctx + "/messenger?method=add&member=" + memberId + "&group=" + groupId).done(function () {
                         // Reload the group member list to show the new member
                         $('#group-member-list-' + groupId).load(ctx + '/messenger?method=fetch #group-member-list-' + groupId);
                         // Check the appropriate checkbox in the member list display
@@ -167,7 +171,7 @@
                  */
                 function removeMember(memberId, groupId) {
                     if (memberId) {
-                        $.post(ctx + "/messenger?method=remove&member=" + memberId).success(function () {
+                        $.post(ctx + "/messenger?method=remove&member=" + memberId).done(function () {
                             // Remove from groups view display
                             $('div#manageGroups i[id^=' + memberId + ']').parent().parent().remove();
                         });
@@ -176,7 +180,7 @@
 
                 function removeGroupMember(memberId, groupId) {
                     if (memberId) {
-                        $.post(ctx + "/messenger?method=remove&member=" + memberId + "&group=" + groupId).success(function () {
+                        $.post(ctx + "/messenger?method=remove&member=" + memberId + "&group=" + groupId).done(function () {
                             /*
                              * Add the group id back into selector as it is used to make the id's unique.
                              * Remove the selected value from the user interface
@@ -187,20 +191,64 @@
                 }
 
                 function createGroup(groupName) {
-                    $.post(ctx + "/messenger?method=create&groupName=" + groupName);
-                    $('#manageGroups').load(ctx + '/messenger?method=fetch #manageGroups');
+                    // Wait for the create to commit before reloading the panel (the
+                    // previous code raced the reload against the POST), then re-attach
+                    // the provider autocomplete to the freshly-loaded search boxes.
+                    $.post(ctx + "/messenger?method=create&groupName=" + encodeURIComponent(groupName)).done(function () {
+                        $('#manageGroups').load(ctx + '/messenger?method=fetch #manageGroups', function () {
+                            if (window.initProviderAutocomplete) { window.initProviderAutocomplete(); }
+                        });
+                    });
                 }
 
                 function deleteGroup(groupId) {
-                    $.post(ctx + "/messenger?method=remove&group=" + groupId);
-                    $('#manageGroups').load(ctx + '/messenger?method=fetch #manageGroups');
+                    $.post(ctx + "/messenger?method=remove&group=" + encodeURIComponent(groupId)).done(function () {
+                        $('#manageGroups').load(ctx + '/messenger?method=fetch #manageGroups', function () {
+                            if (window.initProviderAutocomplete) { window.initProviderAutocomplete(); }
+                        });
+                    });
                 }
 
+                // Build the provider list for the group-search typeahead. The source
+                // spans are class="provider-name" — the previous selector
+                // "span.providers-name" matched nothing, so the autocomplete had an
+                // empty source and offered no options.
+                function collectProviders() {
+                    var providers = [];
+                    $("span.provider-name").each(function () {
+                        providers.push({value: this.id, label: $(this).text().trim()});
+                    });
+                    return providers;
+                }
+
+                // Attach the provider typeahead to each group's search box. The input
+                // is class="search-provider" (the previous ".search-providers" matched
+                // nothing). Exposed on window and idempotent so it can be re-run after
+                // createGroup()/deleteGroup() reload the #manageGroups panel.
+                window.initProviderAutocomplete = function () {
+                    var providers = collectProviders();
+                    $(".search-provider").each(function () {
+                        if ($(this).data("uiAutocomplete")) {
+                            return; // already initialised on this input
+                        }
+                        $(this).autocomplete({
+                            source: providers,
+                            focus: function (event, ui) {
+                                $(this).val(ui.item.label);
+                                return false;
+                            },
+                            select: function (event, ui) {
+                                $(this).val(ui.item.label);
+                                $("#add-member-id-" + this.id).val(ui.item.value);
+                                return false;
+                            }
+                        });
+                    });
+                };
+
                 $(document).ready(function () {
-                    // create the providers name array
-                    var providers = new Array();
-
-
+                    // Contact checkboxes live in #addContacts, which is not reloaded,
+                    // so a direct binding is fine here.
                     $("input:checkbox").on("change", function () {
                         if (this.checked) {
                             addMember(this.value, 0);
@@ -209,24 +257,27 @@
                         }
                     });
 
-                    $(".add-member-btn").on("click", function () {
-                        var groupId = this.id;
-                        groupId = groupId.replace("add-", '');
+                    // The group-management controls live inside #manageGroups, which
+                    // createGroup()/deleteGroup() replace via .load(). Bind these with
+                    // event delegation on document so they keep working after a reload
+                    // (previously the direct bindings were lost on the first reload).
+                    $(document).on("click", ".add-member-btn", function () {
+                        var groupId = this.id.replace("add-", '');
                         var memberId = $("#add-member-id-" + groupId).val();
                         if (memberId) {
-                            addMember(memberId, groupId)
-                            $(".search-providers").val('');
+                            addMember(memberId, groupId);
+                            $(".search-provider").val('');
                         }
                     });
 
-                    $("#add-group-btn").on("click", function () {
+                    $(document).on("click", "#add-group-btn", function () {
                         var groupName = $("#new-group-name").val();
                         if (groupName) {
                             createGroup(groupName);
                         }
                     });
 
-                    $(".delete-group-btn").on("click", function () {
+                    $(document).on("click", ".delete-group-btn", function () {
                         var groupId = this.id;
                         if (groupId) {
                             groupId = groupId.replace("delete-", '');
@@ -234,24 +285,7 @@
                         }
                     });
 
-
-                    $("span.providers-name").each(function () {
-                        var provider = {value: this.id, label: $(this).text().trim()}
-                        providers.push(provider);
-                    });
-
-                    $(".search-providers").autocomplete({
-                        source: providers,
-                        focus: function (event, ui) {
-                            $(this).val(ui.item.label);
-                            return false;
-                        },
-                        select: function (event, ui) {
-                            $(this).val(ui.item.label);
-                            $("#add-member-id-" + this.id).val(ui.item.value);
-                            return false;
-                        }
-                    });
+                    window.initProviderAutocomplete();
                 });
             </script>
 

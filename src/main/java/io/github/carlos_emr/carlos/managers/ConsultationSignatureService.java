@@ -251,12 +251,16 @@ public class ConsultationSignatureService {
 
     @SuppressWarnings("java:S1168")
     private ConsultationStampOutcome validateDigitalSignatureSession(LoggedInInfo loggedInInfo) {
+        // These fire only when a consultation signature/stamp save is actually being
+        // attempted, so they indicate the signature was expected but could not be
+        // stored. Log at warn (not debug) so the "signature silently not saved"
+        // condition is diagnosable without turning on debug logging.
         if (loggedInInfo == null || loggedInInfo.getCurrentFacility() == null) {
-            MiscUtils.getLogger().debug("No facility in session - consultation stamp not saved");
+            MiscUtils.getLogger().warn("No facility in session - consultation stamp not saved");
             return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.NO_SESSION);
         }
         if (!loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()) {
-            MiscUtils.getLogger().debug("Digital signatures disabled for facility - consultation stamp not saved");
+            MiscUtils.getLogger().warn("Digital signatures disabled for facility (Administration > Facility > Enable Digital Signatures) - consultation stamp not saved");
             return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.SIGNATURES_DISABLED);
         }
         return null;

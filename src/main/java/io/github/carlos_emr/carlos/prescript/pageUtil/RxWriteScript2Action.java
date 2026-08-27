@@ -578,6 +578,23 @@ public final class RxWriteScript2Action extends ActionSupport {
             logger.debug("requesting drug from drugref id=" + drugId);
             RxDrugData.DrugMonograph dmono = drugData.getDrug2(drugId);
 
+            // A DrugRef id that resolves to no product surfaces here as an empty
+            // monograph (name/product null): typically an autocomplete row that is a
+            // drug class or ingredient rather than a prescribable product, or an id
+            // absent from a partially-populated drugref2. Previously this either NPEd
+            // (components) or staged a nameless entry, and createNewRx's blanket catch
+            // returned an empty pane with no message. Tell the clinician instead.
+            if (dmono == null
+                    || (dmono.name == null
+                        && (dmono.getProduct() == null || dmono.getProduct().isEmpty()))) {
+                logger.warn("createNewRx: no prescribable DrugRef product for drug id " + drugId);
+                request.setAttribute("rxStageError",
+                    "The selected item could not be added as a prescription. "
+                    + "Please choose a specific drug product (a brand or a strength), "
+                    + "not a drug class or ingredient.");
+                return success;
+            }
+
 			// this is the drug name the user selected from the autocomplete interface
 			rx.setDrugPrescribed(text);
 
@@ -704,6 +721,12 @@ public final class RxWriteScript2Action extends ActionSupport {
             List<RxPrescriptionData.Prescription> listRxDrugs = new ArrayList();
             if (RxUtil.isRxUniqueInStash(bean, rx)) {
                 listRxDrugs.add(rx);
+            } else {
+                // Duplicate of something already staged: the stash de-dupes, but the
+                // pane is re-rendered from listRxDrugs, so leaving it empty blanked the
+                // pane with no explanation. Surface a notice instead of a silent blank.
+                request.setAttribute("rxStageError",
+                    "That prescription is already staged.");
             }
             int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
             bean.setStashIndex(rxStashIndex);
@@ -722,6 +745,10 @@ public final class RxWriteScript2Action extends ActionSupport {
             request.setAttribute("listRxDrugs", listRxDrugs);
         } catch (Exception e) {
             logger.error("Error", e);
+            // Fail loud: prescribe.jsp renders this notice in the staging pane rather
+            // than returning an empty 200 that looks like "nothing happened" to the user.
+            request.setAttribute("rxStageError",
+                "Could not load the selected drug. Please try again or choose another product.");
         }
         logger.debug("=============END createNewRx RxWriteScript2Action.java===============");
 

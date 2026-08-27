@@ -135,13 +135,19 @@ public class RxDrugData {
                 }
             }
 
+            // DrugRef records for some products (and partially-populated drugref2
+            // databases) omit the "components" key entirely; guard it the same way
+            // as "drugRoute" above so a monograph without components still constructs
+            // instead of NPEing and silently blanking the Rx staging pane.
             Vector comps = (Vector) hash.get("components");
-            for (int i = 0; i < comps.size(); i++) {
+            if (comps != null) {
+                for (int i = 0; i < comps.size(); i++) {
 
-                Hashtable h = (Hashtable) comps.get(i);
-                DrugComponent comp = new DrugComponent(h);
-                components.add(comp);
-                drugComponentList.add(comp);
+                    Hashtable h = (Hashtable) comps.get(i);
+                    DrugComponent comp = new DrugComponent(h);
+                    components.add(comp);
+                    drugComponentList.add(comp);
+                }
             }
 
 //			gcnCode = (String) hash.get("gcnCode");
