@@ -622,6 +622,9 @@
          Its @Autowired FaxDocumentManager/FaxSchedulerJob dependencies are mocked below (a real
          FaxSchedulerJob would start a Timer in the test JVM). -->
     <bean id="faxManager" class="io.github.carlos_emr.carlos.managers.FaxManagerImpl" autowire="byName" />
+    <!-- Real EmailManager so EmailManagerTransactionIntegrationTest exercises its @Transactional
+         boundary through a Spring proxy. Unrelated document/provider dependencies are mocked below. -->
+    <bean id="emailManager" class="io.github.carlos_emr.carlos.managers.EmailManager" autowire="byName" />
     <bean id="clientRestrictionManager" class="io.github.carlos_emr.carlos.PMmodule.service.ClientRestrictionManagerImpl" autowire="byName" />
     <bean id="admissionManager" class="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManagerImpl" autowire="byType" />
     <bean id="oscarSuperManager" class="io.github.carlos_emr.carlos.service.OscarSuperManagerImpl" autowire="byName" />
@@ -657,6 +660,12 @@
     </bean>
     <bean id="faxSchedulerJob" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
         <property name="mockType" value="io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob" />
+    </bean>
+    <bean id="documentAttachmentManager" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
+        <property name="mockType" value="io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager" />
+    </bean>
+    <bean id="providerManager2" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
+        <property name="mockType" value="io.github.carlos_emr.carlos.managers.ProviderManager2" />
     </bean>
 
     <bean id="caseManagementManager" class="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManagerImpl" autowire="byName">
