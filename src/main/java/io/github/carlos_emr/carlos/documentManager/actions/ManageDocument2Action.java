@@ -1715,6 +1715,9 @@ public class ManageDocument2Action extends ActionSupport {
 
         // Locale.ROOT so the extension check is deterministic regardless of the server
         // locale (matches createIncomingCacheVersion's .pdf check above).
+        // IMPROPER_UNICODE: case-insensitive file-extension comparison for content-type
+        // routing; Locale.ROOT is deterministic; not a security or authorization decision.
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive file-extension comparison for content-type routing; Locale.ROOT is deterministic; not a security or authorization decision")
         String lowerName = sanitizedPdfName.toLowerCase(Locale.ROOT);
         boolean isPdf = lowerName.endsWith(".pdf");
         boolean isImage = lowerName.endsWith(".png") || lowerName.endsWith(".jpg")
@@ -1743,6 +1746,15 @@ public class ManageDocument2Action extends ActionSupport {
                 // through the PDF rasteriser, which rejected non-PDFs and blanked the pane.
                 // nosemgrep: java.lang.security.httpservlet-path-traversal -- queueId/pdfDir/pdfName are traversal-screened above and resolveIncomingImageFile validates directory containment via PathValidationUtils.validateExistingPath
                 File imageFile = resolveIncomingImageFile(queueId, pdfDir, sanitizedPdfName);
+                // Check existence BEFORE touching the response: validateExistingPath
+                // enforces containment but not existence, and a missing file must be a
+                // clean 404 rather than a 500 emitted after the output stream was opened.
+                if (!imageFile.isFile()) {
+                    if (!response.isCommitted()) {
+                        response.sendError(HttpServletResponse.SC_NOT_FOUND, "This document is not available.");
+                    }
+                    return;
+                }
                 response.setContentType(imageContentType(lowerName));
                 response.setHeader("Content-Disposition", "inline;filename=\"" + sanitizeHeaderValue(sanitizedPdfName) + "\"");
                 outs = response.getOutputStream();

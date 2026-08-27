@@ -1,3 +1,21 @@
+carlos-emr (2026.09.0~snapshot2) resolute; urgency=medium
+
+  * Fix nine clinician-facing bugs reported by alpha testers on the .deb
+    deployment (only reproducible through the nginx + ModSecurity front door):
+    Rx staging (Hibernate 7 HQL "order by drugid" regression), pharmacy
+    "Return to RX", messenger group admin (missing jQuery core + selectors),
+    eChart history 403 and document-upload 400 (WAF clinical-workflow
+    exclusions), X-ray incoming-doc blank iframe, consultation signatures, and
+    the Consultations tab dropping provider-orphaned rows.
+  * WAF: ship package-managed per-route clinical exclusions (ids 1000-1999) and
+    operator-owned local-exclusions-{before,after}-crs.conf (ids 5000-5999);
+    document the carlos-ctl waf tail -> exclude -> reload -> check workflow.
+  * Enable consultation signatures by default, with a one-time upgrade migration
+    that flips the old stock consultation_signature_enabled=false to true while
+    preserving an operator's explicit choice.
+
+ -- CARLOS EMR Maintainers <maintainers@carlos-emr.invalid>  Thu, 27 Aug 2026 19:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot1) resolute; urgency=medium
 
   * Initial Debian/Ubuntu packaging for a single-VM CARLOS EMR deployment,
