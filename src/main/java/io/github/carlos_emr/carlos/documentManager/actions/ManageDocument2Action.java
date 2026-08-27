@@ -1741,10 +1741,12 @@ public class ManageDocument2Action extends ActionSupport {
                 // The incoming file is already an image (e.g. an X-ray). Stream it
                 // directly with the correct content type rather than routing every file
                 // through the PDF rasteriser, which rejected non-PDFs and blanked the pane.
+                // nosemgrep: java.lang.security.httpservlet-path-traversal -- queueId/pdfDir/pdfName are traversal-screened above and resolveIncomingImageFile validates directory containment via PathValidationUtils.validateExistingPath
                 File imageFile = resolveIncomingImageFile(queueId, pdfDir, sanitizedPdfName);
                 response.setContentType(imageContentType(lowerName));
                 response.setHeader("Content-Disposition", "inline;filename=\"" + sanitizeHeaderValue(sanitizedPdfName) + "\"");
                 outs = response.getOutputStream();
+                // nosemgrep: java.lang.security.httpservlet-path-traversal -- imageFile was containment-validated by PathValidationUtils.validateExistingPath in resolveIncomingImageFile
                 bfis = new BufferedInputStream(new FileInputStream(imageFile));
                 org.apache.commons.io.IOUtils.copy(bfis, outs);
                 outs.flush();
@@ -1760,6 +1762,7 @@ public class ManageDocument2Action extends ActionSupport {
                 response.setContentType("image/png");
                 response.setHeader("Content-Disposition", "inline;filename=\"" + sanitizeHeaderValue(sanitizedPdfName) + "\"");
                 outs = response.getOutputStream();
+                // nosemgrep: java.lang.security.httpservlet-path-traversal -- outfile is the PathValidationUtils-validated cache file from createIncomingCacheVersion and is re-checked by validateFilePath immediately above
                 bfis = new BufferedInputStream(new FileInputStream(outfile));
                 org.apache.commons.io.IOUtils.copy(bfis, outs);
                 outs.flush();
