@@ -186,7 +186,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject missing documents before resolving their paths")
-    void shouldRejectMissingDocumentsBeforeResolvingPaths() {
+    void shouldRejectMissingDocuments_beforeResolvingPaths() {
         when(ctlDocumentDao.findByDocumentNos(List.of(321)))
                 .thenReturn(List.of(demographicLink(321, 123)));
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
@@ -200,7 +200,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject callers without eDoc write access before querying documents")
-    void shouldRejectCallerWithoutEdocWriteAccessBeforeQueryingDocuments() {
+    void shouldRejectCallerWithoutEdocWriteAccess_beforeQueryingDocuments() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)).thenReturn(false);
 
         assertThatThrownBy(action::execute)
@@ -212,7 +212,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject documents outside the caller's patient-record access")
-    void shouldRejectDocumentsOutsidePatientRecordAccess() {
+    void shouldRejectDocuments_outsidePatientRecordAccess() {
         Document document = new Document();
         document.setDocfilename("patient-document.pdf");
         when(ctlDocumentDao.findByDocumentNos(List.of(321)))
@@ -229,7 +229,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should allow an existing demographic within the caller's patient-record access")
-    void shouldAllowExistingDemographicWithinPatientRecordAccess() {
+    void shouldAllowExistingDemographic_withinPatientRecordAccess() {
         Document document = new Document();
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
 
@@ -244,7 +244,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @ValueSource(ints = {-1, 0})
     @DisplayName("should reject unmatched or invalid demographic links")
-    void shouldRejectNonPositiveDemographicLinks(int demographicNo) {
+    void shouldRejectNonPositiveDemographicLinks_whenUnmatchedOrInvalid(int demographicNo) {
         Document document = new Document();
 
         boolean authorized = action.isAuthorizedDocumentScope(
@@ -256,7 +256,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject demographic links that do not resolve to a patient")
-    void shouldRejectNonexistentDemographicLinks() {
+    void shouldRejectNonexistentDemographicLinks_whenPatientDoesNotResolve() {
         Document document = new Document();
         when(demographicDao.getDemographicById(456)).thenReturn(null);
 
@@ -269,7 +269,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should use an explicit provider link when a demographic link is unmatched")
-    void shouldUseProviderLinkWhenDemographicLinkIsUnmatched() {
+    void shouldUseProviderLink_whenDemographicLinkIsUnmatched() {
         Document document = new Document();
         document.setPublic1(0);
 
@@ -283,7 +283,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject when any valid demographic link is outside patient-record access")
-    void shouldRejectWhenAnyValidDemographicLinkIsUnauthorized() {
+    void shouldRejectDocument_whenAnyValidDemographicLinkIsUnauthorized() {
         Document document = new Document();
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 456)).thenReturn(false);
@@ -299,7 +299,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject documents outside the current facility")
-    void shouldRejectDocumentsOutsideCurrentFacility() {
+    void shouldRejectDocuments_outsideCurrentFacility() {
         Document document = new Document();
         document.setProgramId(77);
         when(programManager.hasAccessBasedOnCurrentFacility(loggedInInfo, 77)).thenReturn(false);
@@ -313,7 +313,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject program-restricted documents outside the provider domain")
-    void shouldRejectProgramRestrictedDocumentsOutsideProviderDomain() {
+    void shouldRejectProgramRestrictedDocuments_outsideProviderDomain() {
         Document document = new Document();
         document.setProgramId(77);
         document.setRestrictToProgram(true);
@@ -328,7 +328,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should allow program-restricted documents inside the provider domain")
-    void shouldAllowProgramRestrictedDocumentsInsideProviderDomain() {
+    void shouldAllowProgramRestrictedDocuments_insideProviderDomain() {
         Document document = new Document();
         document.setProgramId(77);
         document.setRestrictToProgram(true);
@@ -346,7 +346,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should honor disabled facility filtering")
-    void shouldHonorDisabledFacilityFiltering() {
+    void shouldHonorFacilitySetting_whenFilteringIsDisabled() {
         CarlosProperties.getInstance().setProperty("FILTER_ON_FACILITY", "false");
         Document document = new Document();
         document.setProgramId(77);
@@ -361,7 +361,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should allow public provider documents with mixed-case legacy links")
-    void shouldAllowPublicProviderDocumentsWithMixedCaseLegacyLinks() {
+    void shouldAllowPublicProviderDocuments_withMixedCaseLegacyLinks() {
         Document document = new Document();
         document.setPublic1(1);
 
@@ -373,7 +373,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should enforce patient access for mixed-case demographic links")
-    void shouldEnforcePatientAccessForMixedCaseDemographicLinks() {
+    void shouldEnforcePatientAccess_forMixedCaseDemographicLinks() {
         Document document = new Document();
         document.setPublic1(1);
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
@@ -388,7 +388,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should allow private provider documents only for the linked provider")
-    void shouldAllowPrivateProviderDocumentsOnlyForLinkedProvider() {
+    void shouldAllowPrivateProviderDocuments_forLinkedProviderOnly() {
         Document document = new Document();
         document.setPublic1(0);
 
@@ -400,7 +400,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should mark PDF responses private and non-cacheable")
-    void shouldConfigurePdfResponsesAsPrivateAndNonCacheable() {
+    void shouldConfigurePdfResponses_asPrivateAndNonCacheable() {
         action.configurePdfResponse("inline");
 
         assertThat(response.getContentType()).isEqualTo("application/pdf");
@@ -413,7 +413,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should audit every document read for a combined PDF")
-    void shouldAuditEveryDocumentReadForCombinedPdf() {
+    void shouldAuditEveryDocumentRead_forCombinedPdf() {
         Document first = new Document();
         first.setDocumentNo(321);
         Document second = new Document();

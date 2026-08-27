@@ -88,6 +88,19 @@ public class CombinePDF2Action extends ActionSupport {
     private final transient ProgramManager programManager;
     private final transient ProgramManager2 programManager2;
 
+    /**
+     * Authorizes access to every requested eDoc and streams their combined PDF.
+     *
+     * <p>The caller must have the {@code _edoc} write privilege; otherwise this method throws a
+     * {@link SecurityException}. Invalid, unauthorized, missing, or excessive requests return
+     * {@link #NONE} with HTTP 400, 403, 404, or 413 respectively. PDF output is streamed directly
+     * and also returns {@code NONE}. When no {@code docNo} values are supplied, no response is
+     * streamed and {@link #SUCCESS} is returned.
+     *
+     * @return {@link #NONE} when the request is rejected or handled directly, otherwise
+     *         {@link #SUCCESS}
+     * @throws SecurityException when the caller lacks the {@code _edoc} write privilege
+     */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String execute() {
@@ -245,7 +258,19 @@ public class CombinePDF2Action extends ActionSupport {
             return false;
         }
 
-        boolean hasValidDemographicLink = false;
+        DemographicAuthorization demographicAuthorization = evaluateDemographicAuthorization(
+                loggedInInfo, documentLinks, demographicExistence);
+        if (demographicAuthorization != DemographicAuthorization.NO_VALID_LINK) {
+            return demographicAuthorization == DemographicAuthorization.AUTHORIZED;
+        }
+        return isAuthorizedProviderScope(loggedInInfo, document, documentLinks);
+    }
+
+    private DemographicAuthorization evaluateDemographicAuthorization(
+            LoggedInInfo loggedInInfo,
+            List<CtlDocument> documentLinks,
+            Map<Integer, Boolean> demographicExistence) {
+        boolean hasValidLink = false;
         for (CtlDocument documentLink : documentLinks) {
             String module = documentLink.getId().getModule();
             Integer moduleId = documentLink.getId().getModuleId();
@@ -253,16 +278,19 @@ public class CombinePDF2Action extends ActionSupport {
                 if (!isExistingDemographic(moduleId, demographicExistence)) {
                     continue;
                 }
-                hasValidDemographicLink = true;
+                hasValidLink = true;
                 if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, moduleId)) {
-                    return false;
+                    return DemographicAuthorization.DENIED;
                 }
             }
         }
-        if (hasValidDemographicLink) {
-            return true;
-        }
+        return hasValidLink
+                ? DemographicAuthorization.AUTHORIZED
+                : DemographicAuthorization.NO_VALID_LINK;
+    }
 
+    private boolean isAuthorizedProviderScope(
+            LoggedInInfo loggedInInfo, Document document, List<CtlDocument> documentLinks) {
         boolean hasProviderLink = documentLinks.stream()
                 .anyMatch(documentLink -> EDocUtil.isProviderModule(documentLink.getId().getModule()));
         if (!hasProviderLink) {
@@ -275,6 +303,12 @@ public class CombinePDF2Action extends ActionSupport {
         return providerNo != null && documentLinks.stream()
                 .anyMatch(documentLink -> EDocUtil.isProviderModule(documentLink.getId().getModule())
                         && providerNo.equals(documentLink.getId().getModuleId()));
+    }
+
+    private enum DemographicAuthorization {
+        AUTHORIZED,
+        DENIED,
+        NO_VALID_LINK
     }
 
     private Set<Long> getProgramDomain(LoggedInInfo loggedInInfo) {
