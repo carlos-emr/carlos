@@ -73,6 +73,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -265,8 +266,11 @@
                     <td><select name="provider_no" id="provider_no">
                         <option value="">-- select one --</option>
                         <%
-                            List<Map<String, Object>> resultList;
-                            if (isSiteAccessPrivacy) {
+                            // Site-scoped filtering relies on providersite rows, which only exist when
+                            // multisites is enabled (Add Provider writes them solely in that mode and no
+                            // Flyway seed populates the table). Without the multisites gate, a standalone
+                            // install where the admin holds _site_access_privacy renders an empty dropdown.
+                            if (isSiteAccessPrivacy && IsPropertiesOn.isMultisitesEnable()) {
                                 for (Provider p : providerSiteDao.findActiveProvidersBySharedSites(curProvider_no)) {
                                     List<Security> s = securityDao.findByProviderNo(p.getProviderNo());
                                     if (s.isEmpty()) {
@@ -280,10 +284,13 @@
 
                         } else {
                             for (Provider p : providerDao.getActiveProviders()) {
+                                List<Security> s = securityDao.findByProviderNo(p.getProviderNo());
+                                if (s.isEmpty()) {
                         %>
                         <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                         </option>
                         <%
+                                    }
                                 }
                             }
                         %>
@@ -293,7 +300,7 @@
                 <tr>
                     <td align="right" nowrap><fmt:message key="admin.securityrecord.formExpiryDate"/>:
                     </td>
-                    <td><input type="checkbox" name="b_ExpireSet" value="1" <%="checked" %>" /> <fmt:message key="admin.securityrecord.formDate"/>: <input type="text" name="date_ExpireDate"
+                    <td><input type="checkbox" name="b_ExpireSet" value="1" <%="checked" %> /> <fmt:message key="admin.securityrecord.formDate"/>: <input type="text" name="date_ExpireDate"
                                                                           id="date_ExpireDate"
                                                                           value="" size="10" readonly/> <img
                             src="<%= request.getContextPath() %>/images/cal.gif"
