@@ -41,6 +41,17 @@ class RxPrescriptionSignatureFlowIntegrationTest {
         String strutsPrescription = Files.readString(STRUTS_PRESCRIPTION_XML, StandardCharsets.UTF_8);
         String strutsIntegration = Files.readString(STRUTS_INTEGRATION_XML, StandardCharsets.UTF_8);
         String viewScript = Files.readString(VIEW_SCRIPT_JSP, StandardCharsets.UTF_8);
+        int signatureFrame = viewScript.indexOf("id=\"signatureFrame\"");
+        int signatureGate = viewScript.lastIndexOf("<% if (CarlosProperties", signatureFrame);
+        int signatureGateClose = viewScript.indexOf("<%}%>", signatureGate);
+        int drugInfo = viewScript.indexOf("ViewScript.msgDrugInfo", signatureFrame);
+
+        assertThat(signatureGate).isNotNegative();
+        assertThat(signatureFrame).isGreaterThan(signatureGate);
+        assertThat(signatureGateClose).isGreaterThan(signatureFrame);
+        assertThat(drugInfo).isGreaterThan(signatureGateClose);
+
+        String signatureCaptureBlock = viewScript.substring(signatureGate, drugInfo);
 
         assertThat(strutsIntegration)
                 .contains("<action name=\"signature_pad/SaveSignatureUpload\"")
@@ -52,9 +63,6 @@ class RxPrescriptionSignatureFlowIntegrationTest {
                 .contains("<allowed-methods>saveDigitalSignature</allowed-methods>");
 
         assertThat(viewScript)
-                .contains("isRxSignatureEnabled()")
-                .contains("loggedInInfo.getCurrentFacility() != null")
-                .contains("loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()")
                 .contains("id=\"signatureFrame\"")
                 .contains("saveToDB=true")
                 .contains("ModuleType.PRESCRIPTION")
@@ -62,6 +70,10 @@ class RxPrescriptionSignatureFlowIntegrationTest {
                 .contains("method=saveDigitalSignature")
                 .contains("setDigitalSignatureToRx(signId")
                 .contains("refreshImage();");
+        assertThat(signatureCaptureBlock)
+                .containsPattern("isRxSignatureEnabled\\(\\)\\s*&&\\s*"
+                        + "loggedInInfo\\.getCurrentFacility\\(\\)\\s*!=\\s*null\\s*&&\\s*"
+                        + "loggedInInfo\\.getCurrentFacility\\(\\)\\.isEnableDigitalSignatures\\(\\)");
     }
 
     @Test

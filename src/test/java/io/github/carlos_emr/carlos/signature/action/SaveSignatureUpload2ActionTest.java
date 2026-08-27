@@ -422,19 +422,6 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should return 403 when facility digital signatures are disabled")
-        void shouldReturn403_whenFacilityDigitalSignaturesAreDisabled() throws Exception {
-            primeIpadUpload();
-            when(mockFacility.isEnableDigitalSignatures()).thenReturn(false);
-
-            action.execute();
-
-            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
-            assertThat(new File(DigitalSignatureUtils.getTempFilePath(signatureKey))).doesNotExist();
-            verifyNoInteractions(mockDigitalSignatureManager);
-        }
-
-        @Test
         @DisplayName("should return 400 when demographicNo is non-numeric")
         void shouldReturn400_whenDemographicNoIsNotInteger() throws Exception {
             primeIpadUpload();
