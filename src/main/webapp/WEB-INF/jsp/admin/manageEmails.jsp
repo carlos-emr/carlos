@@ -78,7 +78,8 @@
             border-left: 3px solid #008631 !important;
         }
 
-        .email-status-card .vertical-status-divider-failed {
+        .email-status-card .vertical-status-divider-failed,
+        .email-status-card .vertical-status-divider-blocked {
             border-left: 3px solid #c30010 !important;
         }
 
@@ -119,7 +120,8 @@
             color: #008631 !important;
         }
 
-        .email-status-card .status-tag-failed {
+        .email-status-card .status-tag-failed,
+        .email-status-card .status-tag-blocked {
             background-color: #ffe1e1 !important;
             color: #c30010 !important;
         }
@@ -139,7 +141,8 @@
             background-color: #abf7b1 !important;
         }
 
-        .email-status-card .status-tag-failed:hover {
+        .email-status-card .status-tag-failed:hover,
+        .email-status-card .status-tag-blocked:hover {
             background-color: #ffcbd1 !important;
         }
 

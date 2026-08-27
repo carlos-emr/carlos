@@ -91,6 +91,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
     void shouldShowComposeError_whenResendingEmailLogWithoutPatientContext() {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        grantManageEmailsRead(loggedInInfo);
         request.setParameter("logId", "42");
         when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(new EmailLog());
 
@@ -102,7 +103,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("emailErrorMessage"))
                 .isEqualTo("This email cannot be copied because it is not associated with a patient. Please generate a new email instead.");
         verify(emailComposeManager).prepareEmailForResend(loggedInInfo, 42);
-        verifyNoInteractions(demographicManager, documentAttachmentManager, emailManager, formsManager, securityInfoManager);
+        verifyNoInteractions(demographicManager, documentAttachmentManager, emailManager, formsManager);
     }
     @Test
     @DisplayName("should refuse every dispatch without email read privilege")
@@ -291,6 +292,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         // unboxes that number.
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        grantManageEmailsRead(loggedInInfo);
         request.setParameter("logId", "42");
         EmailLog emailLog = new EmailLog();
         emailLog.setDemographic(new Demographic());
@@ -310,8 +312,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         // reached the patient -- or may have died before sending. The admin decides.
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
-                .thenReturn(true);
+        grantManageEmailsRead(loggedInInfo);
         request.setParameter("logId", "42");
         stubComposeLookups(loggedInInfo);
         EmailLog pending = pendingEmailLog();
@@ -331,6 +332,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
     void shouldBlockResend_whenPendingEmailMayStillBeSending() {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        grantManageEmailsRead(loggedInInfo);
         request.setParameter("logId", "42");
         EmailLog pending = pendingEmailLog();
         when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(pending);
@@ -350,8 +352,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         // send is the normal resend case and must stay friction-free.
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
-                .thenReturn(true);
+        grantManageEmailsRead(loggedInInfo);
         request.setParameter("logId", "42");
         EmailLog failed = pendingEmailLog();
         failed.setStatus(EmailLog.EmailStatus.FAILED);
@@ -364,7 +365,8 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
 
     /** Stubs the lookups resendEmail() fans out to once it has a usable log. */
     private void stubComposeLookups(LoggedInInfo loggedInInfo) {
-        when(emailComposeManager.getEmailConsentStatus(loggedInInfo, 123)).thenReturn(new String[]{"consent", "GRANTED"});
+        when(emailComposeManager.getEmailConsentStatus(loggedInInfo, 123)).thenReturn(new String[]{
+                "Consent", "OPT_IN", "email.consent.status.optIn"});
         when(emailComposeManager.getRecipients(loggedInInfo, 123))
                 .thenReturn(new java.util.List<?>[]{java.util.List.of(), java.util.List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(java.util.List.of());
@@ -373,6 +375,8 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
     private void grantManageEmailsRead(LoggedInInfo loggedInInfo) {
         when(securityInfoManager.hasPrivilege(
                 loggedInInfo, "_admin.email", SecurityInfoManager.READ, null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(
+                loggedInInfo, "_email", SecurityInfoManager.READ, null)).thenReturn(true);
     }
 
     private EmailLog pendingEmailLog() {

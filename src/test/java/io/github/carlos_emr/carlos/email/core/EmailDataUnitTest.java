@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 CARLOS EMR Contributors. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -12,26 +12,27 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.email.core;
 
+import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
-
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Unit tests for merged email content and consent-audit validation in {@link EmailData}.
+ *
+ * @since 2026-07-06
+ */
 @Tag("unit")
 @Tag("fast")
-@Tag("email")
 @DisplayName("EmailData")
 class EmailDataUnitTest {
 
@@ -54,5 +55,65 @@ class EmailDataUnitTest {
         emailData.getAttachments().add(new EmailAttachment());
 
         assertThat(emailData.getAttachments()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("should prefer the encrypted-message channel when encryption is on")
+    void shouldReturnEncryptedMessage_whenEncryptionOn() {
+        assertThat(EmailData.mergeMessage(true, "cleartext body", "secret pdf content"))
+                .isEqualTo("secret pdf content");
+    }
+
+    @Test
+    @DisplayName("should fall back to the body channel when encrypted-message is empty and encryption is on")
+    void shouldFallBackToBody_whenEncryptedMessageEmptyAndEncryptionOn() {
+        assertThat(EmailData.mergeMessage(true, "cleartext body", "")).isEqualTo("cleartext body");
+    }
+
+    @Test
+    @DisplayName("should prefer the body channel when encryption is off")
+    void shouldReturnBody_whenEncryptionOff() {
+        assertThat(EmailData.mergeMessage(false, "cleartext body", "secret pdf content"))
+                .isEqualTo("cleartext body");
+    }
+
+    @Test
+    @DisplayName("should not move encrypted-message content into an encryption-off draft")
+    void shouldNotReturnEncryptedMessage_whenBodyEmptyAndEncryptionOff() {
+        assertThat(EmailData.mergeMessage(false, null, "secret pdf content")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should force encryption on when protected content is the only available message")
+    void shouldForceEncryptionOn_whenEncryptedMessageIsOnlyContent() {
+        boolean encrypted = EmailData.resolveMergedMessageEncryption(false, null, "secret pdf content");
+
+        assertThat(encrypted).isTrue();
+        assertThat(EmailData.mergeMessage(encrypted, null, "secret pdf content"))
+                .isEqualTo("secret pdf content");
+    }
+
+    @Test
+    @DisplayName("should preserve encryption off when the cleartext body is populated")
+    void shouldPreserveEncryptionOff_whenBodyPopulated() {
+        assertThat(EmailData.resolveMergedMessageEncryption(
+                false, "cleartext body", "stale encrypted content")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should return an empty string when both channels are null")
+    void shouldReturnEmpty_whenBothChannelsNull() {
+        assertThat(EmailData.mergeMessage(true, null, null)).isEmpty();
+        assertThat(EmailData.mergeMessage(false, null, null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should reject consent override reasons that cannot be persisted in full")
+    void shouldRejectConsentOverrideReason_whenLongerThanColumnLimit() {
+        EmailData emailData = new EmailData();
+
+        assertThatThrownBy(() -> emailData.setConsentOverrideReason("a".repeat(256)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Consent override reason must not exceed 255 characters");
     }
 }

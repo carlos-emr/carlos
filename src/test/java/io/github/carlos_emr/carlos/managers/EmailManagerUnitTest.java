@@ -15,7 +15,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.MockedConstruction;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
@@ -28,14 +27,18 @@ import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
+import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
@@ -51,12 +54,12 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -72,6 +75,9 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     private DemographicManager demographicManager;
     private ProviderManager2 providerManager;
     private SecurityInfoManager securityInfoManager;
+    private EmailConsentResolver emailConsentResolver;
+    private EmailSenderFactory emailSenderFactory;
+    private EmailSender emailSender;
     private LoggedInInfo loggedInInfo;
     private Demographic demographic;
     private Provider provider;
@@ -84,6 +90,9 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         demographicManager = mock(DemographicManager.class);
         providerManager = mock(ProviderManager2.class);
         securityInfoManager = mock(SecurityInfoManager.class);
+        emailConsentResolver = mock(EmailConsentResolver.class);
+        emailSenderFactory = mock(EmailSenderFactory.class);
+        emailSender = mock(EmailSender.class);
         loggedInInfo = mock(LoggedInInfo.class);
         demographic = new Demographic();
         demographic.setDemographicNo(123);
@@ -93,7 +102,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         provider.setFirstName("Provider");
         provider.setLastName("Example");
 
-        emailManager = new EmailManager();
+        emailManager = new EmailManager(emailConsentResolver, emailSenderFactory);
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "oscarLogDao", oscarLogDao);
@@ -108,6 +117,10 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(demographicManager.getDemographic(loggedInInfo, 123)).thenReturn(demographic);
         when(providerManager.getProvider(loggedInInfo, "999998")).thenReturn(provider);
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult(
+                        "Email", EmailConsentStatus.OPT_IN, null, null));
+        when(emailSenderFactory.create(any(), any(), any())).thenReturn(emailSender);
         when(emailLogDao.transitionEmailStatus(
                 nullable(Integer.class), any(EmailStatus.class), any(EmailStatus.class),
                 nullable(String.class), any(Date.class))).thenReturn(1);
@@ -119,17 +132,14 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         EmailData emailData = emailData(null);
         emailData.setAttachments(Collections.singletonList(new EmailAttachment("lab.pdf", "/tmp/lab.pdf", DocumentType.LAB, 99)));
 
-        EmailLog result;
-        try (MockedConstruction<EmailSender> emailSenders = mockConstruction(EmailSender.class)) {
-            result = emailManager.sendEmail(loggedInInfo, emailData);
+        EmailLog result = emailManager.sendEmail(loggedInInfo, emailData);
 
-            assertMisconfiguredSenderFailure(result);
-            assertThat(emailSenders.constructed()).isEmpty();
-        }
+        assertMisconfiguredSenderFailure(result);
         verify(emailConfigDao, never()).findActiveEmailConfigById(anyInt());
         verify(emailLogDao, never()).persist(any(EmailLog.class));
         verify(demographicManager, never()).getDemographic(any(LoggedInInfo.class), anyInt());
         verify(providerManager, never()).getProvider(any(LoggedInInfo.class), anyString());
+        verifyNoInteractions(emailConsentResolver, emailSenderFactory, emailSender);
         assertThat(result.getDemographic()).isNull();
         assertThat(result.getProvider()).isNull();
         assertThat(result.getEmailAttachments()).singleElement().satisfies(attachment -> {
@@ -147,17 +157,14 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         EmailData emailData = emailData(123);
         when(emailConfigDao.findActiveEmailConfigById(123)).thenReturn(null);
 
-        EmailLog result;
-        try (MockedConstruction<EmailSender> emailSenders = mockConstruction(EmailSender.class)) {
-            result = emailManager.sendEmail(loggedInInfo, emailData);
+        EmailLog result = emailManager.sendEmail(loggedInInfo, emailData);
 
-            assertMisconfiguredSenderFailure(result);
-            assertThat(emailSenders.constructed()).isEmpty();
-        }
+        assertMisconfiguredSenderFailure(result);
         verify(emailConfigDao).findActiveEmailConfigById(123);
         verify(emailLogDao, never()).persist(any(EmailLog.class));
         verify(demographicManager, never()).getDemographic(any(LoggedInInfo.class), anyInt());
         verify(providerManager, never()).getProvider(any(LoggedInInfo.class), anyString());
+        verifyNoInteractions(emailConsentResolver, emailSenderFactory, emailSender);
         assertThat(result.getDemographic()).isNull();
         assertThat(result.getProvider()).isNull();
     }
@@ -170,17 +177,14 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         emailData.setSubject("Subject");
         emailData.setBody("Body");
 
-        EmailLog result;
-        try (MockedConstruction<EmailSender> emailSenders = mockConstruction(EmailSender.class)) {
-            result = emailManager.sendEmail(loggedInInfo, emailData);
+        EmailLog result = emailManager.sendEmail(loggedInInfo, emailData);
 
-            assertMisconfiguredSenderFailure(result);
-            assertThat(emailSenders.constructed()).isEmpty();
-        }
+        assertMisconfiguredSenderFailure(result);
         verify(emailConfigDao, never()).findActiveEmailConfigById(anyInt());
         verify(emailLogDao, never()).persist(any(EmailLog.class));
         verify(demographicManager, never()).getDemographic(any(LoggedInInfo.class), anyInt());
         verify(providerManager, never()).getProvider(any(LoggedInInfo.class), anyString());
+        verifyNoInteractions(emailConsentResolver, emailSenderFactory, emailSender);
         assertThat(result.getEmailAttachments()).isEmpty();
     }
 
@@ -192,12 +196,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         emailData.setAdditionalParams("sendgridApiKey=SG.raw-secret-token;smtpPassword=raw-password");
         when(emailConfigDao.findActiveEmailConfigById(456)).thenReturn(null);
 
-        EmailLog result;
-        try (MockedConstruction<EmailSender> emailSenders = mockConstruction(EmailSender.class)) {
-            result = emailManager.sendEmail(loggedInInfo, emailData);
-
-            assertThat(emailSenders.constructed()).isEmpty();
-        }
+        EmailLog result = emailManager.sendEmail(loggedInInfo, emailData);
 
         assertThat(result.getErrorMessage()).isEqualTo(EmailManager.SENDER_CONFIG_MISCONFIGURATION_ERROR);
         assertThat(result.getErrorMessage())
@@ -207,6 +206,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
                 .doesNotContain("raw-password")
                 .doesNotContain("sendgridApiKey")
                 .doesNotContain("smtpPassword");
+        verifyNoInteractions(emailConsentResolver, emailSenderFactory, emailSender);
         ArgumentCaptor<OscarLog> auditCaptor = ArgumentCaptor.forClass(OscarLog.class);
         verify(oscarLogDao).persist(auditCaptor.capture());
         assertThat(auditCaptor.getValue().getAction())
@@ -231,25 +231,21 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
             return null;
         }).when(emailLogDao).persist(any(EmailLog.class));
 
-        EmailLog result;
-        try (MockedConstruction<EmailSender> emailSenders = mockConstruction(EmailSender.class)) {
-            result = emailManager.sendEmail(loggedInInfo, emailData);
+        EmailLog result = emailManager.sendEmail(loggedInInfo, emailData);
 
-            assertThat(emailSenders.constructed()).hasSize(1);
-            org.mockito.InOrder lifecycle = inOrder(emailLogDao, emailSenders.constructed().get(0));
-            lifecycle.verify(emailLogDao).persist(any(EmailLog.class));
-            lifecycle.verify(emailSenders.constructed().get(0)).send();
-            lifecycle.verify(emailLogDao).transitionEmailStatus(
-                    nullable(Integer.class), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS),
-                    eq(""), any(Date.class));
-        }
+        org.mockito.InOrder lifecycle = inOrder(emailLogDao, emailSender);
+        lifecycle.verify(emailLogDao).persist(any(EmailLog.class));
+        lifecycle.verify(emailSender).send();
+        lifecycle.verify(emailLogDao).transitionEmailStatus(
+                nullable(Integer.class), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS),
+                eq(""), any(Date.class));
 
         assertThat(result.getStatus()).isEqualTo(EmailStatus.SUCCESS);
     }
 
     @Test
     @DisplayName("should record failed when transport reports a send failure")
-    void shouldRecordFailed_whenTransportReportsFailure() {
+    void shouldRecordFailed_whenTransportReportsFailure() throws EmailSendingException {
         EmailData emailData = emailData(123);
         when(emailConfigDao.findActiveEmailConfigById(123)).thenReturn(activeSenderConfig());
         doAnswer(invocation -> {
@@ -258,13 +254,9 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
             return null;
         }).when(emailLogDao).persist(any(EmailLog.class));
 
-        EmailLog result;
-        try (MockedConstruction<EmailSender> ignored = mockConstruction(
-                EmailSender.class,
-                (sender, context) -> doThrow(new EmailSendingException("transport failed"))
-                        .when(sender).send())) {
-            result = emailManager.sendEmail(loggedInInfo, emailData);
-        }
+        doThrow(new EmailSendingException("transport failed")).when(emailSender).send();
+
+        EmailLog result = emailManager.sendEmail(loggedInInfo, emailData);
 
         assertThat(result.getStatus()).isEqualTo(EmailStatus.FAILED);
         assertThat(result.getErrorMessage()).isEqualTo("transport failed");
@@ -275,7 +267,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should audit a definite failure when its status cannot be persisted")
-    void shouldAuditDefiniteFailure_whenFailedStatusWriteFails() {
+    void shouldAuditDefiniteFailure_whenFailedStatusWriteFails() throws EmailSendingException {
         EmailData emailData = emailData(123);
         when(emailConfigDao.findActiveEmailConfigById(123)).thenReturn(activeSenderConfig());
         doThrow(new IllegalStateException("database unavailable"))
@@ -283,13 +275,9 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
                         nullable(Integer.class), eq(EmailStatus.PENDING), eq(EmailStatus.FAILED),
                         eq("transport failed"), any(Date.class));
 
-        EmailSendResult result;
-        try (MockedConstruction<EmailSender> ignored = mockConstruction(
-                EmailSender.class,
-                (sender, context) -> doThrow(new EmailSendingException("transport failed"))
-                        .when(sender).send())) {
-            result = emailManager.sendEmailWithResult(loggedInInfo, emailData);
-        }
+        doThrow(new EmailSendingException("transport failed")).when(emailSender).send();
+
+        EmailSendResult result = emailManager.sendEmailWithResult(loggedInInfo, emailData);
 
         assertThat(result.getEmailLog().getStatus()).isEqualTo(EmailStatus.FAILED);
         assertThat(result.isTransportOutcomeRecorded()).isFalse();
@@ -303,18 +291,15 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should keep pending when transport cannot confirm whether dispatch succeeded")
-    void shouldKeepPending_whenTransportOutcomeIsUnconfirmed() {
+    void shouldKeepPending_whenTransportOutcomeIsUnconfirmed() throws EmailSendingException {
         EmailData emailData = emailData(123);
         when(emailConfigDao.findActiveEmailConfigById(123)).thenReturn(activeSenderConfig());
 
-        EmailSendResult result;
-        try (MockedConstruction<EmailSender> ignored = mockConstruction(
-                EmailSender.class,
-                (sender, context) -> doThrow(new EmailSendingException(
-                        "transport timed out", new java.io.IOException("timeout"), true))
-                        .when(sender).send())) {
-            result = emailManager.sendEmailWithResult(loggedInInfo, emailData);
-        }
+        doThrow(new EmailSendingException(
+                "transport timed out", new java.io.IOException("timeout"), true))
+                .when(emailSender).send();
+
+        EmailSendResult result = emailManager.sendEmailWithResult(loggedInInfo, emailData);
 
         assertThat(result.isDeliveryUnconfirmed()).isTrue();
         assertThat(result.isTransportAccepted()).isFalse();
@@ -342,15 +327,131 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
                         nullable(Integer.class), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS),
                         eq(""), any(Date.class));
 
-        EmailSendResult result;
-        try (MockedConstruction<EmailSender> ignored = mockConstruction(EmailSender.class)) {
-            result = emailManager.sendEmailWithResult(loggedInInfo, emailData);
-        }
+        EmailSendResult result = emailManager.sendEmailWithResult(loggedInInfo, emailData);
 
         assertThat(result.isTransportAccepted()).isTrue();
         assertThat(result.isTransportOutcomeRecorded()).isFalse();
         assertThat(persistedLog.get()).isNotNull();
         assertThat(persistedLog.get().getStatus()).isEqualTo(EmailStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("should block send and skip sender when patient opted out")
+    void shouldBlockSendAndSkipSender_whenPatientOptedOut() {
+        EmailData emailData = emailData(10);
+        when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(activeSenderConfig());
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult(
+                        "Email", EmailConsentStatus.OPT_OUT, 55, new Date()));
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
+        assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.OPT_OUT);
+        assertThat(emailLog.getConsentId()).isEqualTo(55);
+        verify(emailLogDao).persist(any(EmailLog.class));
+        verify(emailLogDao).merge(emailLog);
+        verify(emailLogDao).transitionEmailStatus(
+                eq(emailLog.getId()), eq(EmailStatus.PENDING), eq(EmailStatus.BLOCKED),
+                anyString(), any(Date.class));
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    @Test
+    @DisplayName("should block send when patient opted out even with override")
+    void shouldBlockSend_whenPatientOptedOutEvenWithOverride() {
+        EmailData emailData = emailData(10);
+        emailData.setConsentOverride(true);
+        emailData.setConsentOverrideReason("Patient verbally confirmed email consent");
+        when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(activeSenderConfig());
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult(
+                        "Email", EmailConsentStatus.OPT_OUT, 55, new Date()));
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
+        assertThat(emailLog.getConsentOverride()).isFalse();
+        assertThat(emailLog.getConsentOverrideReason()).isEmpty();
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    @Test
+    @DisplayName("should block send when email consent is not configured even with override")
+    void shouldBlockSend_whenEmailConsentNotConfiguredEvenWithOverride() {
+        EmailData emailData = emailData(10);
+        emailData.setConsentOverride(true);
+        emailData.setConsentOverrideReason("Patient verbally confirmed email consent");
+        when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(activeSenderConfig());
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult(
+                        "", EmailConsentStatus.NOT_CONFIGURED, null, null));
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
+        assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.NOT_CONFIGURED);
+        assertThat(emailLog.getConsentOverride()).isFalse();
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    @Test
+    @DisplayName("should block send and skip sender when consent is unknown without override")
+    void shouldBlockSendAndSkipSender_whenConsentUnknownWithoutOverride() {
+        EmailData emailData = emailData(10);
+        when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(activeSenderConfig());
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult(
+                        "Email", EmailConsentStatus.UNKNOWN, null, null));
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
+        assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.UNKNOWN);
+        assertThat(emailLog.getConsentOverride()).isFalse();
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    @Test
+    @DisplayName("should block send when unknown-consent override reason is blank")
+    void shouldBlockSend_whenUnknownConsentOverrideReasonIsBlank() {
+        EmailData emailData = emailData(10);
+        emailData.setConsentOverride(true);
+        emailData.setConsentOverrideReason("   ");
+        when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(activeSenderConfig());
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult(
+                        "Email", EmailConsentStatus.UNKNOWN, null, null));
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.BLOCKED);
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    @Test
+    @DisplayName("should send and persist override when consent is unknown with override")
+    void shouldSendAndPersistOverride_whenConsentUnknownWithOverride()
+            throws EmailSendingException {
+        EmailData emailData = emailData(10);
+        emailData.setConsentOverride(true);
+        emailData.setConsentOverrideReason("Patient verbally confirmed email consent");
+        when(emailConfigDao.findActiveEmailConfigById(10)).thenReturn(activeSenderConfig());
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult(
+                        "Email", EmailConsentStatus.UNKNOWN, null, null));
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.SUCCESS);
+        assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.UNKNOWN);
+        assertThat(emailLog.getConsentOverride()).isTrue();
+        assertThat(emailLog.getConsentOverrideReason())
+                .isEqualTo("Patient verbally confirmed email consent");
+        verify(emailSender).send();
+        verify(emailLogDao).transitionEmailStatus(
+                eq(emailLog.getId()), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS),
+                eq(""), any(Date.class));
     }
 
     @Test
@@ -510,10 +611,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
                 eq(""), any(Date.class))).thenReturn(0);
         when(emailLogDao.find(nullable(Integer.class))).thenReturn(resolved);
 
-        EmailSendResult result;
-        try (MockedConstruction<EmailSender> ignored = mockConstruction(EmailSender.class)) {
-            result = emailManager.sendEmailWithResult(loggedInInfo, emailData);
-        }
+        EmailSendResult result = emailManager.sendEmailWithResult(loggedInInfo, emailData);
 
         assertThat(result.isTransportAccepted()).isTrue();
         assertThat(result.isTransportOutcomeRecorded()).isFalse();
