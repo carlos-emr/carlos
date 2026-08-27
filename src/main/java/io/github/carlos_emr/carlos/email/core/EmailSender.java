@@ -2,17 +2,16 @@ package io.github.carlos_emr.carlos.email.core;
 
 import java.util.List;
 
-
-import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.email.helpers.APISendGridEmailSender;
 import io.github.carlos_emr.carlos.email.helpers.LocalSMTPEmailSender;
 import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -46,7 +45,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @since 2026-01-24
  */
 public class EmailSender {
-    private final Logger logger = MiscUtils.getLogger();
     private LoggedInInfo loggedInInfo;
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -57,6 +55,7 @@ public class EmailSender {
     private String body;
     private String additionalParams;
     private List<EmailAttachment> attachments;
+    private OutboundEmailTransport preparedTransport;
 
     /**
      * Private no-argument constructor to prevent direct instantiation without required parameters.
@@ -138,83 +137,165 @@ public class EmailSender {
     }
 
     /**
-     * Sends the email using the configured provider and delivery method.
+     * Refuses the legacy direct-send path because it cannot create the required durable archive.
      *
-     * <p>This method performs security validation to ensure the current user has the "_email"
-     * privilege with WRITE access before attempting to send. This is critical for HIPAA/PIPEDA
-     * compliance as it prevents unauthorized users from sending emails that may contain
-     * patient health information (PHI).</p>
+     * <p>Use {@code EmailManager.sendEmail} for production delivery. It owns the persisted
+     * {@link EmailLog}, archives the prepared transport artifact, and only then sends those same
+     * prepared bytes. Keeping this method as a fail-closed compatibility shim avoids an abrupt
+     * source-level break for downstream branches while preventing a silent retention gap.</p>
      *
-     * <p>The email is dispatched based on the configured email type:</p>
-     * <ul>
-     *   <li><strong>SMTP:</strong> Uses either LocalSMTPEmailSender for local providers or
-     *       SMTPEmailSender for external SMTP servers</li>
-     *   <li><strong>API:</strong> Delegates to sendAPIMail() which handles API-based providers
-     *       like SendGrid</li>
-     * </ul>
-     *
-     * <p>All email sending operations are logged for audit trail purposes, which is required
-     * for healthcare compliance and security monitoring.</p>
-     *
-     * @throws RuntimeException if the current user lacks the required "_email" security privilege
-     * @throws EmailSendingException if there is an error during email transmission, including
-     *         invalid configuration, network issues, authentication failures, or provider-specific errors
+     * @throws SecurityException if the current user lacks the required "_email" security privilege
+     * @throws EmailSendingException always, directing the caller to archive-first orchestration
+     * @deprecated use {@code EmailManager.sendEmail}
      */
+    @Deprecated(since = "2026-08-24", forRemoval = false)
     public void send() throws EmailSendingException {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
-        }
+        assertEmailWritePrivilege();
+        throw new EmailSendingException(
+                "Direct email sending without outbound archiving is disabled; use EmailManager.sendEmail");
+    }
 
+    /**
+     * Resolves the configured transport, or refuses the send.
+     *
+     * <p>This is the single place that decides which transports exist. Both {@link #send()} and
+     * {@link #prepareOutboundArchive(EmailLog)} route through it, so "can this configuration
+     * send?" and "can this configuration be archived?" cannot give different answers — every
+     * transport reachable here is an {@link OutboundEmailTransport} and therefore describes its
+     * own archive artifact.</p>
+     *
+     * <p>An unconfigured or unrecognised transport throws rather than falling through to an
+     * unarchived send. Adding a provider means adding a branch here, and a branch can only be
+     * added by supplying something that implements the archive contract.</p>
+     *
+     * @return the transport for this configuration
+     * @throws EmailSendingException if the configuration names no supported transport
+     */
+    private OutboundEmailTransport createTransport() throws EmailSendingException {
+        if (emailConfig == null || emailConfig.getEmailType() == null) {
+            throw new EmailSendingException("Invalid email configuration");
+        }
         switch (emailConfig.getEmailType()) {
             case SMTP:
-                SMTPEmailSender smtpSendHelper;
-
-                // Use specialized sender for a LOCAL provider
-                if (emailConfig.getEmailProvider() == EmailConfig.EmailProvider.LOCAL) {
-                    smtpSendHelper = new LocalSMTPEmailSender(loggedInInfo, emailConfig, recipients, subject, body, attachments);
-                } else {
-                    smtpSendHelper = new SMTPEmailSender(loggedInInfo, emailConfig, recipients, subject, body, attachments);
-                }
-
-                smtpSendHelper.send();
-                break;
+                return createSmtpSender();
             case API:
-                sendAPIMail();
-                break;
+                return createApiSender();
             default:
                 throw new EmailSendingException("Invalid email configuration");
         }
     }
 
     /**
-     * Sends email using API-based providers.
+     * Captures the exact payload this configuration will transmit and wraps it in an archive request.
      *
-     * <p>This private helper method handles email delivery through API-based email services
-     * rather than traditional SMTP. It routes the email to the appropriate provider-specific
-     * sender implementation based on the configured email provider.</p>
+     * <p>Must run before {@link #sendPrepared()}: the point of preparing is that the bytes handed
+     * to the archive are the bytes later put on the wire, not a reconstruction of them.</p>
+     *
+     * <p>There is no "is archiving supported?" question to ask first. Any configuration that can
+     * send resolves to an {@link OutboundEmailTransport} through {@link #createTransport()}, and
+     * every such transport supplies its own artifact; a configuration that resolves to nothing
+     * throws here exactly as it would from {@link #send()}.</p>
+     *
+     * @param emailLog persisted email log that owns the archive artifact
+     * @return archive request containing the transport's artifact and attachment metadata
+     * @throws EmailSendingException if the configuration names no transport, or preparation fails
+     * @throws SecurityException if the current user lacks the required "_email" write privilege
+     * @since 2026-07-20
+     */
+    public OutboundEmailArchiveDto prepareOutboundArchive(EmailLog emailLog) throws EmailSendingException {
+        assertEmailWritePrivilege();
+        if (preparedTransport != null) {
+            throw new EmailSendingException("Outbound message has already been prepared");
+        }
+
+        preparedTransport = createTransport();
+        try {
+            byte[] artifactBytes = preparedTransport.prepareArtifactBytes();
+
+            OutboundEmailArchiveDto archiveRequest = new OutboundEmailArchiveDto();
+            archiveRequest.setEmailLog(emailLog);
+            archiveRequest.setArtifactBytes(artifactBytes);
+            archiveRequest.setFileName(preparedTransport.getArchiveFileName(emailLog));
+            archiveRequest.setContentType(preparedTransport.getArchiveContentType());
+            archiveRequest.setArtifactType(preparedTransport.getArchiveArtifactType());
+            archiveRequest.setTransportType(emailConfig.getEmailType().name());
+            archiveRequest.setProviderName(emailConfig.getEmailProvider() != null ? emailConfig.getEmailProvider().name() : null);
+            archiveRequest.setAttachments(preparedTransport.describePreparedAttachments());
+            return archiveRequest;
+        } catch (EmailSendingException | RuntimeException e) {
+            discardPrepared();
+            throw e;
+        }
+    }
+
+    /**
+     * Sends the payload previously captured for outbound archiving.
+     *
+     * @throws EmailSendingException if nothing has been prepared or transport delivery fails
+     * @throws SecurityException if the current user lacks the required "_email" write privilege
+     * @since 2026-07-20
+     */
+    public void sendPrepared() throws EmailSendingException {
+        try {
+            assertEmailWritePrivilege();
+            if (preparedTransport == null) {
+                throw new EmailSendingException("Outbound message must be prepared before sending");
+            }
+            preparedTransport.sendPrepared();
+        } finally {
+            discardPrepared();
+        }
+    }
+
+    /**
+     * Releases a prepared payload when archiving or another pre-send step fails.
+     */
+    public void discardPrepared() {
+        if (preparedTransport != null) {
+            preparedTransport.discardPrepared();
+            preparedTransport = null;
+        }
+    }
+
+    /**
+     * Resolves the API-based transport for the configured provider.
      *
      * <p>Currently supported API providers:</p>
      * <ul>
-     *   <li><strong>SendGrid:</strong> Uses the SendGrid Web API for email delivery with
-     *       support for templates, tracking, and advanced features</li>
+     *   <li><strong>SendGrid:</strong> the SendGrid Web API v3 mail/send endpoint</li>
      * </ul>
      *
-     * <p>This method is called internally by send() when the email configuration specifies
-     * an API-based delivery method.</p>
+     * <p>An API configuration naming any other provider throws. That is deliberate and it is the
+     * same refusal the caller would get for an unknown {@code EmailType}: the enum permits
+     * providers that have no implementation, and a send that cannot be archived is a retention
+     * gap in a legal record, so the configuration is rejected rather than sent unrecorded.</p>
      *
-     * @throws EmailSendingException if the configured provider is not supported or if there
-     *         is an error during API-based email transmission
+     * @return the SendGrid transport
+     * @throws EmailSendingException if the configured API provider has no implementation
      */
-    private void sendAPIMail() throws EmailSendingException {
+    private OutboundEmailTransport createApiSender() throws EmailSendingException {
+        if (emailConfig.getEmailProvider() == null) {
+            throw new EmailSendingException("Invalid email configuration");
+        }
         switch (emailConfig.getEmailProvider()) {
             case SENDGRID:
-                APISendGridEmailSender apiSendGridSendHelper = new APISendGridEmailSender(loggedInInfo, emailConfig, recipients, subject, body, additionalParams, attachments);
-                apiSendGridSendHelper.send();
-                break;
+                return new APISendGridEmailSender(loggedInInfo, emailConfig, recipients, subject, body, additionalParams, attachments);
             default:
                 throw new EmailSendingException("Invalid email configuration");
         }
     }
 
-    // For debugging
+    private SMTPEmailSender createSmtpSender() {
+        if (emailConfig.getEmailProvider() == EmailConfig.EmailProvider.LOCAL) {
+            return new LocalSMTPEmailSender(loggedInInfo, emailConfig, recipients, subject, body, attachments);
+        }
+        return new SMTPEmailSender(loggedInInfo, emailConfig, recipients, subject, body, attachments);
+    }
+
+    private void assertEmailWritePrivilege() {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
+    }
+
 }

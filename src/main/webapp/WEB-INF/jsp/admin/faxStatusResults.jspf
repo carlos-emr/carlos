@@ -42,9 +42,9 @@ if(!authed) {
 	String type;
 	int count = 0;
 	for( FaxJob faxJob : faxJobs ) {
-	    
+
 	    type = "";
-	    
+
 		/*
 		* The persisted direction column is authoritative when present: inbound rows are
 		* received faxes regardless of filename shape (SRFax inbound names carry no "fax"
@@ -68,7 +68,7 @@ if(!authed) {
 	    }
 
 		/*
-		* Utilizing logs (FaxClientLog) to display transaction types when presenting fax records 
+		* Utilizing logs (FaxClientLog) to display transaction types when presenting fax records
 		* and retaining the old code for identifying fax types due to the presence of old records
 		* that have not been added to the fax log table.
 		*/
@@ -90,22 +90,22 @@ if(!authed) {
 				}
 			}
 		}
-    
+
 	    String providerName = "N/A";
 	    String demographicName = "N/A";
 	    String oscarUser = faxJob.getOscarUser();
 	    if( oscarUser != null ) {
-			    
-	    	ProviderData providerData = providerDataDao.find(faxJob.getOscarUser());
-	    	// A missing provider row (e.g. a since-removed account) must not 500 the whole queue view.
-	    	if (providerData != null) {
-	    		providerName = providerData.getLastName() + ", " + providerData.getFirstName();
-	    	} else {
-	    		providerName = oscarUser;
-	    	}
-	    		
+
+		ProviderData providerData = providerDataDao.find(faxJob.getOscarUser());
+		// A missing provider row (e.g. a since-removed account) must not 500 the whole queue view.
+		if (providerData != null) {
+			providerName = providerData.getLastName() + ", " + providerData.getFirstName();
+		} else {
+			providerName = oscarUser;
+		}
+
 	    }
-	    
+
 	    if( faxJob.getDemographicNo() != null && faxJob.getDemographicNo() > 0 ) {
 
 			Demographic demographic = demographicDao.getDemographic(String.valueOf(faxJob.getDemographicNo()));
@@ -173,7 +173,7 @@ if(!authed) {
 </div>
 			</td>
 		</tr>
-		
+
 <%
 		++count;
 	}

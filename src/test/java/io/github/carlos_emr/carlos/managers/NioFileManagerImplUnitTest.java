@@ -723,6 +723,24 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("should create purge-managed owner-only temporary files")
+    void shouldCreateManagedTempFile_underApplicationPurgeRoot() throws Exception {
+        Path managedFile = nioFileManager.createManagedTempFile("smtp-snapshot-", ".tmp");
+        try {
+            assertThat(managedFile.getParent().getFileName().toString())
+                    .isEqualTo(PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
+            if (managedFile.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+                assertThat(Files.getPosixFilePermissions(managedFile))
+                        .containsExactlyInAnyOrder(
+                                PosixFilePermission.OWNER_READ,
+                                PosixFilePermission.OWNER_WRITE);
+            }
+        } finally {
+            Files.deleteIfExists(managedFile);
+        }
+    }
+
     private static Path createApplicationTempDirectory(String prefix) throws IOException {
         Path applicationParent = Files.createDirectories(
                 Path.of(System.getProperty("java.io.tmpdir"), PathValidationUtils.APPLICATION_TEMP_ROOT_NAME));

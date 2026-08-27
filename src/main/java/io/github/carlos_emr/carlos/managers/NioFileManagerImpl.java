@@ -46,6 +46,9 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.EnumSet;
 
 import jakarta.servlet.ServletContext;
 
@@ -801,6 +804,24 @@ public class NioFileManagerImpl implements NioFileManager {
 
     public final Path saveTempFile(final String fileName, ByteArrayOutputStream os) throws IOException {
         return saveTempFile(fileName, os, null);
+    }
+
+    @Override
+    public Path createManagedTempFile(String prefix, String suffix) throws IOException {
+        String validatedPrefix = PathValidationUtils.validateGeneratedFileName(prefix);
+        Path tempRoot = applicationTempParent();
+        try {
+            return Files.createTempFile(
+                    tempRoot,
+                    validatedPrefix,
+                    suffix,
+                    PosixFilePermissions.asFileAttribute(EnumSet.of(
+                            PosixFilePermission.OWNER_READ,
+                            PosixFilePermission.OWNER_WRITE)));
+        } catch (UnsupportedOperationException e) {
+            log.debug("POSIX permissions unsupported for managed temp file; using platform defaults");
+            return Files.createTempFile(tempRoot, validatedPrefix, suffix);
+        }
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use

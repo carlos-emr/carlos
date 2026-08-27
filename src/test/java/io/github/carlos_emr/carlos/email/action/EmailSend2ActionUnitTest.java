@@ -17,6 +17,10 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,16 +30,37 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext;
+import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
+import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
+import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION;
+import static io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link EmailSend2Action} redirect safety.
@@ -47,16 +72,26 @@ import static org.mockito.Mockito.mockStatic;
 @Tag("email")
 @DisplayName("EmailSend2Action")
 class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
+    private static final String EXAMPLE_GENERATED_VALUE = "example-generated-value";
+    private static final String EXAMPLE_ATTACHMENT_VALUE = "example-attachment-value";
+    private static final String EXAMPLE_FIRST_VALUE = "example-first-value";
+    private static final String EXAMPLE_SECOND_VALUE = "example-second-value";
+    private static final String EXAMPLE_SINGLE_USE_VALUE = "example-single-use-value";
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
+    private EmailComposeSubmissionStateService composeSubmissionStateService;
 
     @BeforeEach
     void setUp() {
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(EmailManager.class, mock(EmailManager.class));
         registerMock(EformDataManager.class, mock(EformDataManager.class));
+        registerMock(EmailPdfPasswordService.class, mock(EmailPdfPasswordService.class));
+        composeSubmissionStateService = new EmailComposeSubmissionStateService();
+        registerMock(EmailComposeSubmissionStateService.class, composeSubmissionStateService);
+        registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
         // EmailSend2Action reads request/response from ServletActionContext in field initializers
-        // (evaluated at construction), so mock the static to keep `new EmailSend2Action()` from
+        // (evaluated at construction), so mock the static to keep `newEmailSend2Action()` from
         // NPEing before each test assigns action.request/response explicitly.
         servletActionContextMock = mockStatic(ServletActionContext.class);
     }
@@ -65,6 +100,9 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
     void tearDown() {
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
+        }
+        if (composeSubmissionStateService != null) {
+            composeSubmissionStateService.shutdown();
         }
     }
 
@@ -78,7 +116,7 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action();
+        EmailSend2Action action = newEmailSend2Action();
         action.request = request;
         action.response = response;
 
@@ -88,5 +126,593 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getRedirectedUrl()).isEqualTo(
                 "/carlos/eform/efmshowform_data?fdid="
                         + "123%26parentAjaxId%3Devil%23fragment%2525%20%2B%2F&parentAjaxId=eforms");
+    }
+
+    @Test
+    @DisplayName("should remove generated files when compose is cancelled")
+    void shouldRemoveGeneratedFiles_whenComposeCancelled() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("transactionType", "DIRECT");
+        EmailComposeWorkingDirectory workingDirectory = EmailComposeWorkingDirectory.create();
+        try {
+            Path generatedPdf = Files.createTempFile("email-cancel-test-", ".pdf");
+            Path ownedPdf = workingDirectory.adoptGeneratedPdf(generatedPdf);
+            String token = composeSubmissionStateService.store(
+                    request.getSession(), EXAMPLE_GENERATED_VALUE,
+                    DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION, List.of(),
+                    EmailComposeSubmissionContext.direct("123"), workingDirectory);
+            request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
+
+            EmailSend2Action action = newEmailSend2Action();
+            action.request = request;
+            action.response = new MockHttpServletResponse();
+
+            assertThat(action.cancel()).isEqualTo("DIRECT");
+            assertThat(Files.exists(ownedPdf.getParent())).isFalse();
+        } finally {
+            workingDirectory.close();
+        }
+    }
+
+    @Test
+    @DisplayName("should show compose state error when token is missing during send")
+    void shouldShowComposeStateError_whenTokenMissingDuringSend() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("demographicId", "123\" autofocus onfocus=alert(1)");
+        request.setParameter("fdid", "<script>alert(1)</script>");
+        request.setParameter("openEFormAfterEmail", "true");
+        request.setParameter("deleteEFormAfterEmail", "not-a-boolean");
+        request.setParameter("isEmailAttachmentEncrypted", "TRUE");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = newEmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        String result = action.sendDirectEmail();
+
+        assertThat(result).isEqualTo("success");
+        assertThat(request.getAttribute("isEmailError")).isEqualTo(true);
+        assertThat(request.getAttribute("isEmailComposeStateError")).isEqualTo(true);
+        assertThat(request.getAttribute("emailErrorMessage"))
+                .isEqualTo(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+        assertThat(request.getAttribute("emailAttachmentList")).isEqualTo(List.of());
+        assertThat(request.getAttribute("demographicId")).isEqualTo("");
+        assertThat(request.getAttribute("fdid")).isEqualTo("");
+        assertThat(request.getAttribute("openEFormAfterEmail")).isEqualTo(true);
+        assertThat(request.getAttribute("deleteEFormAfterEmail")).isEqualTo(false);
+        assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
+        assertThat(request.getAttribute("isEmailAttachmentEncrypted")).isEqualTo(false);
+    }
+
+    @Test
+    @DisplayName("should ignore submitted PDF password and use generated compose-state password")
+    void shouldIgnorePassword_whenSubmittedPdfPasswordIsTampered() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "Encrypted message");
+        request.setParameter("emailPDFPassword", "example-submitted-value");
+        request.setParameter("emailPDFPasswordClue", "example delivery note");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        setComposeToken(request, EXAMPLE_GENERATED_VALUE);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = newEmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        EmailData emailData = ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
+
+        assertThat(emailData.getPassword()).isEqualTo(EXAMPLE_GENERATED_VALUE);
+        assertThat(emailData.getPasswordClue())
+                .isEqualTo(DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION);
+        assertThat(request.getSession().getAttribute("emailPDFPassword")).isNull();
+        assertThat(request.getSession().getAttribute("emailPDFPasswordClue")).isNull();
+    }
+
+    @Test
+    @DisplayName("should use generated compose-state password when attachments are encrypted")
+    void shouldUseGeneratedComposeStatePassword_whenAttachmentsEncrypted() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "");
+        request.setParameter("emailPDFPassword", "example-submitted-value");
+        request.setParameter("emailPDFPasswordClue", "example delivery note");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "true");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        setComposeToken(
+                request,
+                EXAMPLE_ATTACHMENT_VALUE,
+                List.of(new EmailAttachment("lab.pdf", "/tmp/lab.pdf", DocumentType.LAB, 1)));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = newEmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        EmailData emailData = ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
+
+        assertThat(emailData.getPassword()).isEqualTo(EXAMPLE_ATTACHMENT_VALUE);
+        assertThat(emailData.getPasswordClue())
+                .isEqualTo(DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION);
+        assertThat(emailData.getIsEncrypted()).isTrue();
+        assertThat(emailData.getIsAttachmentEncrypted()).isTrue();
+        assertThat(emailData.getAttachments()).hasSize(1);
+        assertThat(request.getSession().getAttribute("emailPDFPassword")).isNull();
+        assertThat(request.getSession().getAttribute("emailPDFPasswordClue")).isNull();
+    }
+
+    @Test
+    @DisplayName("should ignore stale attachment encryption when email encryption is disabled")
+    void shouldIgnoreAttachmentEncryption_whenEmailEncryptionDisabled() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "");
+        request.setParameter("emailPDFPassword", "example-submitted-value");
+        request.setParameter("emailPDFPasswordClue", "example delivery note");
+        request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("isEmailAttachmentEncrypted", "true");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        setComposeToken(
+                request,
+                EXAMPLE_ATTACHMENT_VALUE,
+                List.of(new EmailAttachment("lab.pdf", "/tmp/lab.pdf", DocumentType.LAB, 1)));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = newEmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        EmailData emailData = ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
+
+        assertThat(emailData.getPassword()).isEmpty();
+        assertThat(emailData.getPasswordClue()).isEmpty();
+        assertThat(emailData.getIsEncrypted()).isFalse();
+        assertThat(emailData.getIsAttachmentEncrypted()).isFalse();
+        assertThat(emailData.getAttachments()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("should use generated compose token password when encryption is enabled after compose opens")
+    void shouldUseGeneratedPassword_whenEncryptionEnabledAfterComposeOpensUnencrypted() throws Exception {
+        DemographicManager demographicManager = mock(DemographicManager.class);
+        EmailComposeManager emailComposeManager = mock(EmailComposeManager.class);
+        EmailPdfPasswordService emailPdfPasswordService = mock(EmailPdfPasswordService.class);
+        registerMock(DemographicManager.class, demographicManager);
+        registerMock(EmailComposeManager.class, emailComposeManager);
+        registerMock(EmailPdfPasswordService.class, emailPdfPasswordService);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        request.getSession(true).setAttribute("demographicId", "123");
+        request.getSession(false).setAttribute("isEmailEncrypted", false);
+        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{
+                "Consent", "OPT_IN", "email.consent.status.optIn"});
+        when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
+        when(emailComposeManager.getRecipients(any(), anyInt()))
+                .thenReturn(new List<?>[]{List.of("patient@example.com"), List.of()});
+        when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
+        when(emailComposeManager.prepareEFormAttachments(any(), any(), any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareEDocAttachments(any(), any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareLabAttachments(any(), any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareHRMAttachments(any(), any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareFormAttachments(any(), any(), any(), anyInt(), any())).thenReturn(List.of());
+        when(emailPdfPasswordService.generatePassphrase()).thenReturn(EXAMPLE_GENERATED_VALUE);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+        EmailCompose2Action composeAction = new EmailCompose2Action();
+
+        assertThat(composeAction.prepareComposeEFormMailer()).isEqualTo("compose");
+        String token = (String) request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM);
+        assertThat(token).isNotBlank();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "Encrypted message");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        EmailSend2Action sendAction = newEmailSend2Action();
+        sendAction.request = request;
+        sendAction.response = response;
+
+        EmailData emailData = ReflectionTestUtils.invokeMethod(sendAction, "prepareEmailFields", request);
+
+        try {
+            assertThat(emailData.getPassword()).isEqualTo(EXAMPLE_GENERATED_VALUE);
+            assertThat(emailData.getIsEncrypted()).isTrue();
+        } finally {
+            emailData.getWorkingDirectory().close();
+        }
+    }
+
+    @Test
+    @DisplayName("should use demographic bound to compose token instead of submitted hidden field")
+    void shouldUseDemographicBoundToComposeToken_whenSubmittedDemographicIsTampered() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "Encrypted message");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "999");
+        setComposeToken(request, EXAMPLE_GENERATED_VALUE, List.of(), EmailComposeSubmissionContext.direct("123"));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = newEmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        EmailData emailData = ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
+
+        assertThat(emailData.getDemographicNo()).isEqualTo(123);
+        assertThat(emailData.getTransactionType()).isEqualTo(EmailLog.TransactionType.DIRECT);
+    }
+
+    @Test
+    @DisplayName("should use eForm context bound to compose token when deleting after send")
+    void shouldUseEFormContextBoundToComposeToken_whenDeletingAfterSend() {
+        EmailManager emailManager = mock(EmailManager.class);
+        EformDataManager eformDataManager = mock(EformDataManager.class);
+        registerMock(EmailManager.class, emailManager);
+        registerMock(EformDataManager.class, eformDataManager);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "");
+        request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "999");
+        request.setParameter("fdid", "999");
+        request.setParameter("deleteEFormAfterEmail", "false");
+        request.setParameter("openEFormAfterEmail", "false");
+        setComposeToken(
+                request,
+                EXAMPLE_GENERATED_VALUE,
+                List.of(),
+                EmailComposeSubmissionContext.eform("123", "456", true, true));
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        EmailLog emailLog = new EmailLog();
+        emailLog.setStatus(EmailLog.EmailStatus.SUCCESS);
+        when(emailManager.hasActiveEmailConfig(1)).thenReturn(true);
+        when(emailManager.sendEmailWithResult(any(), any()))
+                .thenReturn(EmailSendResult.accepted(emailLog, true));
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = newEmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        String result = action.sendEFormEmail();
+
+        assertThat(result).isEqualTo("success");
+        assertThat(request.getAttribute("fdid")).isEqualTo("456");
+        assertThat(request.getAttribute("isOpenEForm")).isEqualTo(true);
+        verify(eformDataManager).removeEFormData(loggedInInfo, "456");
+    }
+
+    @Test
+    @DisplayName("should report transport acceptance when persisted status was concurrently resolved")
+    void shouldReportTransportAcceptance_whenPersistedStatusWasConcurrentlyResolved() {
+        EmailManager emailManager = mock(EmailManager.class);
+        registerMock(EmailManager.class, emailManager);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.invalid");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("message", "Body");
+        request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("patientChartOption", "doNotAddAsNote");
+        setComposeToken(request, EXAMPLE_GENERATED_VALUE);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        EmailLog resolvedLog = new EmailLog();
+        resolvedLog.setStatus(EmailLog.EmailStatus.RESOLVED);
+        when(emailManager.hasActiveEmailConfig(1)).thenReturn(true);
+        when(emailManager.sendEmailWithResult(any(), any()))
+                .thenReturn(EmailSendResult.accepted(resolvedLog, false));
+
+        EmailSend2Action action = newEmailSend2Action();
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        assertThat(action.sendDirectEmail()).isEqualTo("success");
+        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
+        assertThat(request.getAttribute("isEmailStatusRecorded")).isEqualTo(false);
+        assertThat(request.getAttribute("emailLog")).isSameAs(resolvedLog);
+    }
+
+    @Test
+    @DisplayName("should not consume compose token when sender config is no longer active")
+    void shouldNotConsumeComposeToken_whenSenderConfigInactive() {
+        EmailManager emailManager = mock(EmailManager.class);
+        registerMock(EmailManager.class, emailManager);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "Encrypted message");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        setComposeToken(request, EXAMPLE_GENERATED_VALUE);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        when(emailManager.hasActiveEmailConfig(1)).thenReturn(false);
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = newEmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        String result = action.sendDirectEmail();
+
+        assertThat(result).isEqualTo("success");
+        assertThat(request.getAttribute("isEmailComposeStateError")).isEqualTo(true);
+        assertThat(request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM))
+                .isEqualTo(request.getParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM));
+        assertThat(composeSubmissionStateService.consume(request)).isNotNull();
+        verify(emailManager, never()).sendEmailWithResult(any(), any());
+    }
+
+    @Test
+    @DisplayName("should not consume compose token when sender config is non-numeric")
+    void shouldNotConsumeComposeToken_whenSenderConfigNonNumeric() {
+        EmailManager emailManager = mock(EmailManager.class);
+        registerMock(EmailManager.class, emailManager);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "not-a-number");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "Encrypted message");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        setComposeToken(request, EXAMPLE_GENERATED_VALUE);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = newEmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        String result = action.sendDirectEmail();
+
+        assertThat(result).isEqualTo("success");
+        assertThat(request.getAttribute("isEmailComposeStateError")).isEqualTo(true);
+        assertThat(request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM))
+                .isEqualTo(request.getParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM));
+        assertThat(composeSubmissionStateService.consume(request)).isNotNull();
+        verify(emailManager, never()).hasActiveEmailConfig(anyInt());
+        verify(emailManager, never()).sendEmailWithResult(any(), any());
+    }
+
+    @Test
+    @DisplayName("should preserve token-bound eForm routing when transaction type is mismatched")
+    void shouldPreserveBoundEFormContext_whenTransactionTypeMismatched() {
+        EmailManager emailManager = mock(EmailManager.class);
+        registerMock(EmailManager.class, emailManager);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "999");
+        request.setParameter("fdid", "888");
+        setComposeToken(
+                request,
+                EXAMPLE_GENERATED_VALUE,
+                List.of(),
+                EmailComposeSubmissionContext.eform("123", "456", true, true));
+        when(emailManager.hasActiveEmailConfig(1)).thenReturn(true);
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = newEmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        String result = action.sendDirectEmail();
+
+        assertThat(result).isEqualTo("success");
+        assertThat(request.getAttribute("isEmailComposeStateError")).isEqualTo(true);
+        assertThat(request.getAttribute("transactionType")).isEqualTo(EmailLog.TransactionType.EFORM);
+        assertThat(request.getAttribute("demographicId")).isEqualTo("123");
+        assertThat(request.getAttribute("fdid")).isEqualTo("456");
+        assertThat(request.getAttribute("openEFormAfterEmail")).isEqualTo(true);
+        assertThat(request.getAttribute("deleteEFormAfterEmail")).isEqualTo(true);
+        verify(emailManager, never()).sendEmailWithResult(any(), any());
+
+        String firstCancelToken = (String) request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM);
+        request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, firstCancelToken);
+
+        assertThat(action.sendDirectEmail()).isEqualTo("success");
+        assertThat(request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM))
+                .isNotEqualTo(firstCancelToken);
+
+        request.setParameter(
+                EMAIL_PDF_PASSWORD_TOKEN_PARAM,
+                (String) request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM));
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("fdid", "888");
+
+        assertThat(action.cancel()).isEqualTo("EFORM");
+        assertThat(response.getRedirectedUrl())
+                .isEqualTo("/eform/efmshowform_data?fdid=456&parentAjaxId=eforms");
+    }
+
+    @Test
+    @DisplayName("should fail when encrypted email is missing generated compose-state password")
+    void shouldFail_whenEncryptedPdfPasswordMissingFromComposeState() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "Encrypted message");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        setComposeToken(request, "");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = newEmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+    }
+
+    @Test
+    @DisplayName("should use passphrase bound to submitted compose token")
+    void shouldUsePassphrase_whenBoundToSubmittedComposeToken() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "Encrypted message");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        String firstToken = composeSubmissionStateService.store(
+                request.getSession(),
+                EXAMPLE_FIRST_VALUE,
+                DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION,
+                List.of(),
+                EmailComposeSubmissionContext.direct("123"));
+        composeSubmissionStateService.store(
+                request.getSession(),
+                EXAMPLE_SECOND_VALUE,
+                DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION,
+                List.of(),
+                EmailComposeSubmissionContext.direct("123"));
+        request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, firstToken);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = newEmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        EmailData emailData = ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
+
+        assertThat(emailData.getPassword()).isEqualTo(EXAMPLE_FIRST_VALUE);
+        composeSubmissionStateService.clear(request.getSession().getId());
+    }
+
+    @Test
+    @DisplayName("should consume compose token once")
+    void shouldConsumeComposeToken_onFirstUseOnly() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "Encrypted message");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        setComposeToken(request, EXAMPLE_SINGLE_USE_VALUE);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = newEmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
+
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+    }
+
+    private EmailSend2Action newEmailSend2Action() {
+        return new EmailSend2Action() {
+            @Override
+            protected String encryptedBodyNotice() {
+                return "A secure message is attached.";
+            }
+        };
+    }
+
+    private void setComposeToken(MockHttpServletRequest request, String emailPDFPassword) {
+        setComposeToken(request, emailPDFPassword, List.of());
+    }
+
+    private void setComposeToken(
+            MockHttpServletRequest request,
+            String emailPDFPassword,
+            List<EmailAttachment> emailAttachmentList
+    ) {
+        setComposeToken(request, emailPDFPassword, emailAttachmentList, EmailComposeSubmissionContext.direct("123"));
+    }
+
+    private void setComposeToken(
+            MockHttpServletRequest request,
+            String emailPDFPassword,
+            List<EmailAttachment> emailAttachmentList,
+            EmailComposeSubmissionContext context
+    ) {
+        if (request.getParameter("message") == null) {
+            request.setParameter("message", "Body");
+        }
+        String token = composeSubmissionStateService.store(
+                request.getSession(),
+                emailPDFPassword,
+                DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION,
+                emailAttachmentList,
+                context);
+        request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
     }
 }
