@@ -56,7 +56,12 @@ final class RenderLogRedaction {
                 .replaceAll("(?i)[a-z][a-z0-9+.-]*://[^\\s'\"<>]+", "[redacted-url]")
                 .replaceAll("\\\\\\\\[^\\s'\"<>]+", REDACTED_PATH)
                 .replaceAll("(?i)(?<![\\w:])[a-z]:[\\\\/][^\\s'\"<>]*", REDACTED_PATH)
-                .replaceAll("(?<![\\w./])/[\\w./-]{2,}", REDACTED_PATH);
+                // The class includes ~ and % because the --url-base capability-token grammar
+                // (validateBrowserServiceUrl: A-Za-z0-9._~-) permits ~, and percent-escapes appear
+                // in path segments — a token containing either must not survive a bare-path (no
+                // scheme) appearance in a third-party error message, e.g. a URISyntaxException that
+                // quotes the endpoint path without its http:// prefix.
+                .replaceAll("(?<![\\w./])/[\\w./~%-]{2,}", REDACTED_PATH);
     }
 
     /**

@@ -130,8 +130,11 @@ class EFormBrowserRemoteDriverUnitTest {
         RuntimeException second = new RuntimeException("second", first);
         first.initCause(second);
 
-        assertThatCode(() -> EFormBrowserPdfService.isServiceUnreachable(first))
-                .doesNotThrowAnyException();
+        // Preemptive timeout: a regression to the old `c != c.getCause()` guard must FAIL
+        // this test, not hang the whole build on an infinite walk.
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(5),
+                () -> EFormBrowserPdfService.isServiceUnreachable(first));
     }
 
     @Test
@@ -165,7 +168,24 @@ class EFormBrowserRemoteDriverUnitTest {
         // Replaces the old "service is non-null on both paths" invariant. Both are captured at
         // creation: the session id because quit() nulls its own even when it FAILS, and the URI
         // because re-reading the property at teardown could send the force-delete elsewhere.
-        assertThatThrownBy(() -> new EFormBrowserPdfService.RendererBrowser(null, null, null))
-                .isInstanceOf(NullPointerException.class);
+        // Three cases, each nulling exactly ONE component with the other two real: the
+        // all-null form only ever exercised the FIRST requireNonNull, so deleting the
+        // serviceUri or sessionId check — the two invariants that replaced the old
+        // non-null-service one — left the test green.
+        org.openqa.selenium.chromium.ChromiumDriver realDriver =
+                org.mockito.Mockito.mock(org.openqa.selenium.chromium.ChromiumDriver.class);
+        java.net.URI realUri = java.net.URI.create("http://127.0.0.1:9515/token");
+        org.openqa.selenium.remote.SessionId realSession =
+                new org.openqa.selenium.remote.SessionId("abc123");
+
+        assertThatThrownBy(() -> new EFormBrowserPdfService.RendererBrowser(null, realUri, realSession))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("driver");
+        assertThatThrownBy(() -> new EFormBrowserPdfService.RendererBrowser(realDriver, null, realSession))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("serviceUri");
+        assertThatThrownBy(() -> new EFormBrowserPdfService.RendererBrowser(realDriver, realUri, null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("sessionId");
     }
 }

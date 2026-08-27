@@ -593,6 +593,11 @@ public class EFormBrowserPdfService {
             + "  const afterLast = (carlosPageOrder(el, lastPage) & Node.DOCUMENT_POSITION_PRECEDING) !== 0;\n"
             + "  if (!beforeFirst && !afterLast) { return false; }\n"
             + "  if (el.querySelector('input, textarea, select, button, [contenteditable]')) { return false; }\n"
+            // Off-page imagery is far more likely a signature preview or a rendered clinical
+            // figure than a badge logo, and unlike short text it cannot be judged from a count
+            // alone -- media keeps the element in the BLOCKING excludedContentElements bucket.
+            + "  const carlosMedia = 'img, canvas, svg, video, iframe, object, embed';\n"
+            + "  if (el.matches(carlosMedia) || el.querySelector(carlosMedia)) { return false; }\n"
             + "  return true;\n"
             + "};\n"
             // DESCEND, don't skip, through elements that merely CONTAIN a page div. Scanning only
@@ -1005,12 +1010,13 @@ public class EFormBrowserPdfService {
             // form's own @page rules or Chromium's default paper drive natural pagination.
             PageGeometry geometry = readPageGeometry(js.executeScript(COMPUTE_PAGE_GEOMETRY_JS));
             if (geometry.decorativeExcludedCount() > 0) {
-                // Transparency for a clinical gate: an off-page license/attribution badge or
-                // branding masthead was reclassified as non-clinical decoration and does NOT
-                // withhold the document, so it never reaches the blocking excludedContentElements
-                // count. A count only (no content) — nothing here can carry PHI.
-                logger.info("Browser eForm renderer treated {} off-page element(s) as non-clinical "
-                        + "decoration (not blocking): fdid={}", geometry.decorativeExcludedCount(), fdid);
+                // An off-page license/attribution badge, masthead or boilerplate disclaimer was
+                // reclassified as non-clinical decoration: it does NOT withhold the document, but
+                // it is never silent either — the count enters the completeness report as the
+                // ADVISORY decorativeExcludedElements component below, so every delivery surface
+                // discloses that something was removed. A count only (no content/PHI).
+                logger.info("Browser eForm renderer excluded {} off-page element(s) as non-clinical "
+                        + "decoration (advisory, disclosed): fdid={}", geometry.decorativeExcludedCount(), fdid);
             }
             int containedInteractions = readContainedInteractionCount(
                     js.executeScript("return window.__carlosRendererInteractionCount || 0;"));
@@ -1023,6 +1029,7 @@ public class EFormBrowserPdfService {
                             geometry.excludedCount(),
                             0,
                             containedInteractions,
+                            geometry.decorativeExcludedCount(),
                             geometry.signatureBroken(),
                             geometry.timerCompatibilityFailure(),
                             stabilizationCapped,
@@ -1487,10 +1494,31 @@ public class EFormBrowserPdfService {
                 return pending.get(DRIVER_START_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
             } catch (TimeoutException timeout) {
                 reapLateSession(pending, created, abandoned);
+                // KNOWN OVERSHOOT: the caller's finally releases this render's slot now, while the
+                // reaper may keep the late session's browser alive for up to LATE_SESSION_REAP_TIMEOUT.
+                // Under repeated start-timeouts (a memory-starved host — the same condition that causes
+                // them) live browser TREES can therefore briefly exceed MAX_CONCURRENT_RENDERS. Total
+                // browser-tree MEMORY stays bounded regardless: the carlos-emr-chromedriver unit's
+                // MemoryHigh/MemoryMax cgroup ceiling covers every tree the driver spawned, so the
+                // overshoot cannot compound the pressure that caused it. Holding the slot until the
+                // reaper resolves would close the gap but moves slot ownership across threads —
+                // deliberately not done without test scaffolding for that handoff.
                 throw new IllegalStateException(
                         "Chromium session creation exceeded the " + DRIVER_START_TIMEOUT.toSeconds()
                         + "s startup budget", timeout);
             } catch (ExecutionException failure) {
+                // The constructor threw. If it threw AFTER chromedriver created the session (e.g.
+                // the HTTP-client wiring in the ChromiumDriver constructor tail failed), that
+                // session's browser is unaddressable from here — the constructor never returned,
+                // so no session id exists in this JVM. Like the start-timeout case it is an
+                // about:blank browser holding no PHI, and the startup sweep plus the unit's
+                // PartOf=/MemoryMax reclaim it — but the leak must be VISIBLE, not silent,
+                // because a fault in the constructor tail repeats on every render and each
+                // attempt can strand one browser tree.
+                logger.warn("Chromium session constructor failed; if chromedriver had already "
+                        + "created the session, that browser is unaddressable from this JVM and "
+                        + "will persist until the renderer service restarts or the startup sweep "
+                        + "runs (about:blank only — no document was loaded).");
                 Throwable cause = failure.getCause();
                 if (cause instanceof RuntimeException runtime) {
                     throw runtime;
@@ -1596,7 +1624,9 @@ public class EFormBrowserPdfService {
      * before the render slot was released. This JVM no longer owns that process; what it can still do
      * is address the one session by id.
      */
-    private static void teardownQuietly(RendererBrowser browser) {
+    // Package-private for EFormBrowserRemoteDriverFakeChromedriverUnitTest, which pins the
+    // quit-failure -> targeted-DELETE escalation against a fake chromedriver.
+    static void teardownQuietly(RendererBrowser browser) {
         if (browser == null) {
             return;
         }
@@ -1987,7 +2017,13 @@ public class EFormBrowserPdfService {
                         && !isPolicyContainmentConsoleEntry(entry.getMessage())) {
                     severeConsoleEntries++;
                     if (severeConsoleDetailsOut != null && severeConsoleDetailsOut.size() < MAX_CONSOLE_DETAILS) {
-                        severeConsoleDetailsOut.add(describeConsoleError(entry.getMessage()));
+                        // De-duplicated, matching the fax-packet aggregation: a form erroring in a
+                        // loop otherwise fills the list with one repeated line while the COUNT
+                        // (severeConsoleEntries, unbounded) still reports every occurrence.
+                        String consoleErrorDescription = describeConsoleError(entry.getMessage());
+                        if (!severeConsoleDetailsOut.contains(consoleErrorDescription)) {
+                            severeConsoleDetailsOut.add(consoleErrorDescription);
+                        }
                     }
                 }
             }

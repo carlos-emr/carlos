@@ -452,6 +452,20 @@ class EFormBrowserPdfServiceUnitTest {
                 // INVARIANT: these flags would enable local file reads and must never be present.
                 .doesNotContain("--allow-file-access-from-files")
                 .doesNotContain("--disable-web-security");
+
+        // Exactly ONE --js-flags argument: Chromium keeps only the LAST occurrence, so a
+        // second one added later would silently discard the V8 heap cap.
+        assertThat(args.stream().filter(arg -> arg.startsWith("--js-flags=")).count()).isEqualTo(1);
+
+        // The capability the ENTIRE gate evidence chain rides on: without BROWSER at SEVERE
+        // the console gate silently sees zero script errors on every render, and without
+        // PERFORMANCE at ALL the network-event replay has nothing to replay. (The performance
+        // leg fails loudly when the log type is missing; the console leg would not.)
+        org.openqa.selenium.logging.LoggingPreferences loggingPreferences =
+                (org.openqa.selenium.logging.LoggingPreferences) capabilities.get("goog:loggingPrefs");
+        assertThat(loggingPreferences).isNotNull();
+        assertThat(loggingPreferences.getLevel(LogType.BROWSER)).isEqualTo(Level.SEVERE);
+        assertThat(loggingPreferences.getLevel(LogType.PERFORMANCE)).isEqualTo(Level.ALL);
     }
 
     @Test
@@ -1334,6 +1348,56 @@ class EFormBrowserPdfServiceUnitTest {
                 .hasMessageContaining("status=500");
     }
 
+    @Test
+    @DisplayName("should give the late-session reaper more time than the start budget")
+    void shouldGiveReaper_moreTimeThanStartBudget() {
+        // The reaper waits on the SAME future whose timeout abandoned it; a reap window shorter
+        // than the start budget could never observe the late session it exists to tear down.
+        assertThat(EFormBrowserPdfService.LATE_SESSION_REAP_TIMEOUT)
+                .isGreaterThan(EFormBrowserPdfService.DRIVER_START_TIMEOUT);
+    }
+
+    @Test
+    @DisplayName("should cap the informed-override details at ten while counting every occurrence")
+    void shouldCapDetails_whileCountingEveryOccurrence() throws Exception {
+        // Twelve DISTINCT severe errors: the details list is a display sample capped at
+        // MAX_CONSOLE_DETAILS (10); the report's count stays the full, gate-driving twelve.
+        LogEntry[] entries = new LogEntry[12];
+        for (int i = 0; i < 12; i++) {
+            entries[i] = consoleEntry("http://127.0.0.1:8080/carlos/x " + (i + 1) + ":1 Uncaught TypeError: boom");
+        }
+        ChromeDriver driver = driverWithConsole(browserConsole(entries));
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> perf = List.of(perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)));
+        List<String> details = new java.util.ArrayList<>();
+
+        EFormRenderCompletenessReport report =
+                service.enforceRenderGates(driver, perf, 200, GATE_BASE_URL, 42, details);
+
+        assertThat(report.severeConsoleErrors()).isEqualTo(12);
+        assertThat(details).hasSize(10);
+    }
+
+    @Test
+    @DisplayName("should deduplicate repeated identical errors in the details while counting each")
+    void shouldDeduplicateDetails_whileCountingEachOccurrence() throws Exception {
+        // A form erroring in a loop repeats ONE line: the list shows it once (matching the
+        // fax-packet aggregation), the count still reports every occurrence, and the display
+        // surfaces suppress their \"N more\" overflow below the cap so repeats are not
+        // presented as hidden distinct errors.
+        LogEntry repeated = consoleEntry("http://127.0.0.1:8080/carlos/x 7:2 Uncaught RangeError: loop");
+        ChromeDriver driver = driverWithConsole(browserConsole(repeated, repeated, repeated, repeated, repeated));
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> perf = List.of(perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)));
+        List<String> details = new java.util.ArrayList<>();
+
+        EFormRenderCompletenessReport report =
+                service.enforceRenderGates(driver, perf, 200, GATE_BASE_URL, 42, details);
+
+        assertThat(report.severeConsoleErrors()).isEqualTo(5);
+        assertThat(details).containsExactly("RangeError (line 7:2)");
+    }
+
     private static LogEntry perfEntry(String cdpJson) {
         // Performance-log entries reach enforceRenderGates as LogEntry whose message is the raw CDP
         // JSON; the level/timestamp are irrelevant to the network scan.
@@ -1447,10 +1511,21 @@ class EFormBrowserPdfServiceUnitTest {
     @DisplayName("should invalidate the render grant when the render fails before the browser starts")
     void shouldInvalidateRenderGrant_whenRenderFailsBeforeBrowserStart(@TempDir Path tempDir) {
         CarlosProperties properties = CarlosProperties.getInstance();
-        String originalChromedriverPath = properties.getProperty("eform_pdf_browser_chromedriver_path");
+        String originalServiceUrl = properties.getProperty("eform_pdf_browser_service_url");
         String originalCatalinaBase = System.getProperty("catalina.base");
-        properties.setProperty("eform_pdf_browser_chromedriver_path",
-                tempDir.resolve("missing-chromedriver").toString());
+        // A port the OS just handed out and we immediately released: connecting to it is
+        // deterministically refused. The old fixture set the long-dead
+        // eform_pdf_browser_chromedriver_path property, which made this test pass for an
+        // unrelated reason — and left it doing a REAL connect to the default :9515, where a
+        // listening chromedriver on a dev box would launch a real browser from a unit test.
+        int refusedPort;
+        try (java.net.ServerSocket socket = new java.net.ServerSocket(0)) {
+            refusedPort = socket.getLocalPort();
+        } catch (IOException e) {
+            throw new IllegalStateException("could not allocate a local port", e);
+        }
+        properties.setProperty("eform_pdf_browser_service_url",
+                "http://127.0.0.1:" + refusedPort);
         System.setProperty("catalina.base", tempDir.toString());
 
         EFormRenderTokenService tokenService = EFormRenderTokenService.getInstance();
@@ -1465,10 +1540,10 @@ class EFormBrowserPdfServiceUnitTest {
             // a live token is a loopback render capability (the exact bug this pins).
             assertThat(tokenService.size()).isEqualTo(grantsBefore);
         } finally {
-            if (originalChromedriverPath == null) {
-                properties.remove("eform_pdf_browser_chromedriver_path");
+            if (originalServiceUrl == null) {
+                properties.remove("eform_pdf_browser_service_url");
             } else {
-                properties.setProperty("eform_pdf_browser_chromedriver_path", originalChromedriverPath);
+                properties.setProperty("eform_pdf_browser_service_url", originalServiceUrl);
             }
             if (originalCatalinaBase == null) {
                 System.clearProperty("catalina.base");
