@@ -1,5 +1,16 @@
 <!DOCTYPE html>
 
+<%--
+  Purpose: Presents the provider-to-patient email composer.
+  Key features: Selects sender and recipients, composes one message, controls message and
+  attachment encryption, manages attachments, and displays send or validation results.
+  Request attributes: senderAccounts, receiverEmailList, invalidReceiverEmailList, message,
+  emailAttachmentList, isEmailEncrypted, isEmailAttachmentEncrypted, and emailLog.
+  Request parameters: demographicId, transactionType, senderConfigId, subjectEmail, message,
+  isEmailEncrypted, isEmailAttachmentEncrypted, and patientChartOption.
+  @since 2023-12-21
+--%>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -27,16 +38,17 @@
     <fmt:message key="email.compose.msg.additionalSnippets" var="emailComposeAdditionalSnippets"/>
     <fmt:message key="email.compose.msg.warningAdditionalSnippets" var="emailComposeWarningAdditionalSnippets"/>
     <fmt:message key="email.compose.msg.correctEmailBeforeProceeding" var="emailComposeCorrectEmailBeforeProceeding"/>
-    <fmt:message key="email.compose.heading.body" var="emailComposeBodyLabel"/>
-    <fmt:message key="email.compose.placeholder.body" var="emailComposeBodyPlaceholder"/>
-    <fmt:message key="email.compose.msg.unencryptedBody" var="emailComposeUnencryptedBody"/>
+    <fmt:message key="email.compose.heading.message" var="emailComposeMessageLabel"/>
+    <fmt:message key="email.compose.placeholder.message" var="emailComposeMessagePlaceholder"/>
+    <fmt:message key="email.compose.msg.encryptedMessageNotice" var="emailComposeEncryptedMessageNotice"/>
     <fmt:message key="email.compose.msg.unencryptedSubject" var="emailComposeUnencryptedSubject"/>
     <fmt:message key="email.compose.msg.encryptionDisabledWarning" var="emailComposeEncryptionDisabledWarning"/>
+    <fmt:message key="email.compose.modal.disableEncryption.title" var="emailComposeDisableEncryptionTitle"/>
+    <fmt:message key="email.compose.modal.disableEncryption.body" var="emailComposeDisableEncryptionBody"/>
+    <fmt:message key="email.compose.modal.disableEncryption.confirm" var="emailComposeDisableEncryptionConfirm"/>
+    <fmt:message key="email.compose.modal.disableEncryption.cancel" var="emailComposeDisableEncryptionCancel"/>
     <fmt:message key="email.compose.label.encryption" var="emailComposeEncryptionLabel"/>
     <fmt:message key="email.compose.tooltip.encryption" var="emailComposeEncryptionTooltip"/>
-    <fmt:message key="email.compose.label.encryptedMessage" var="emailComposeEncryptedMessageLabel"/>
-    <fmt:message key="email.compose.tooltip.encryptedMessage" var="emailComposeEncryptedMessageTooltip"/>
-    <fmt:message key="email.compose.placeholder.encryptedMessage" var="emailComposeEncryptedMessagePlaceholder"/>
     <fmt:message key="email.compose.label.password" var="emailComposePasswordLabel"/>
     <fmt:message key="email.compose.placeholder.password" var="emailComposePasswordPlaceholder"/>
     <fmt:message key="email.compose.label.clue" var="emailComposeClueLabel"/>
@@ -52,13 +64,22 @@
     <fmt:message key="email.compose.msg.windowClosing" var="emailComposeWindowClosing"/>
     <fmt:message key="email.compose.btn.close" var="emailComposeClose"/>
     <fmt:message key="email.compose.msg.subjectRequired" var="emailComposeSubjectRequired"/>
-    <fmt:message key="email.compose.msg.bodyRequired" var="emailComposeBodyRequired"/>
+    <fmt:message key="email.compose.msg.messageRequired" var="emailComposeMessageRequired"/>
     <fmt:message key="email.compose.msg.passwordRequired" var="emailComposePasswordRequired"/>
     <fmt:message key="email.compose.msg.clueRequired" var="emailComposeClueRequired"/>
     <fmt:message key="email.compose.msg.passwordMinLength" var="emailComposePasswordMinLength"/>
     <fmt:message key="email.compose.msg.minimumRecipient" var="emailComposeMinimumRecipient"/>
+    <fmt:message key="email.compose.label.consentOverride" var="emailComposeConsentOverrideLabel"/>
+    <fmt:message key="email.compose.label.consentOverrideReason" var="emailComposeConsentOverrideReasonLabel"/>
+    <fmt:message key="email.compose.msg.consentOverrideReasonRequired" var="emailComposeConsentOverrideReasonRequired"/>
+    <c:if test="${not empty emailConsentMessageKey}">
+        <fmt:message key="${emailConsentMessageKey}" var="emailConsentStatusLabel"/>
+    </c:if>
     <fmt:message key="email.compose.state.on" var="emailComposeStateOn"/>
     <fmt:message key="email.compose.state.off" var="emailComposeStateOff"/>
+    <fmt:message key="email.compose.msg.pendingResendWarning" var="emailComposePendingResendWarning"/>
+    <fmt:message key="email.compose.msg.statusTrackingFailed" var="emailComposeStatusTrackingFailed"/>
+    <fmt:message key="email.compose.msg.deliveryUnconfirmed" var="emailComposeDeliveryUnconfirmed"/>
 
     <title>${emailComposeTitle}</title>
 
@@ -230,6 +251,15 @@
 
         <div id="page-body">
 
+            <c:if test="${isPendingEmailResend}">
+                <div class="alert alert-warning" id="emailResendWarning" role="alert">
+                    <span class="fa-solid fa-triangle-exclamation" aria-hidden="true"></span>
+                    ${carlos:forHtml(emailComposePendingResendWarning)}
+                </div>
+                <input type="hidden" id="emailResendWarningMessage"
+                       value="${carlos:forHtmlAttribute(emailComposePendingResendWarning)}"/>
+            </c:if>
+
             <c:choose>
                 <c:when test="${transactionType eq 'EFORM'}">
                     <c:set var="emailSendAction" value="${ctx}/email/emailSendAction?method=sendEFormEmail"/>
@@ -239,9 +269,16 @@
                 </c:when>
             </c:choose>
 
-            <input type="hidden" name="isEmailError" id="isEmailError" value="${isEmailError}"/>
-            <input type="hidden" name="emailErrorMessage" id="emailErrorMessage" value="${emailErrorMessage}"/>
-            <input type="hidden" name="isEmailSuccessful" id="isEmailSuccessful" value="${isEmailSuccessful}"/>
+            <input type="hidden" name="isEmailError" id="isEmailError"
+                   value="${carlos:forHtmlAttribute(isEmailError)}"/>
+            <input type="hidden" name="isEmailComposeStateError" id="isEmailComposeStateError"
+                   value="${carlos:forHtmlAttribute(isEmailComposeStateError)}"/>
+            <input type="hidden" name="emailErrorMessage" id="emailErrorMessage"
+                   value="${carlos:forHtmlAttribute(emailErrorMessage)}"/>
+            <input type="hidden" name="isEmailSuccessful" id="isEmailSuccessful"
+                   value="${carlos:forHtmlAttribute(isEmailSuccessful)}"/>
+            <input type="hidden" name="isEmailStatusRecorded" id="isEmailStatusRecorded"
+                   value="${carlos:forHtmlAttribute(isEmailStatusRecorded)}"/>
             <input type="hidden" name="emailPatientChartOption" id="emailPatientChartOption"
                    value="${carlos:forHtmlAttribute(empty param.emailPatientChartOption ? emailPatientChartOption : param.emailPatientChartOption)}"/>
             <input type="hidden" name="totalSenderEmails" id="totalSenderEmails" value="${fn:length(senderAccounts)}"/>
@@ -249,15 +286,25 @@
                    value="${fn:length(receiverEmailList)}"/>
             <input type="hidden" name="totalInvalidRecipintEmails" id="totalInvalidRecipintEmails"
                    value="${fn:length(invalidReceiverEmailList)}"/>
+            <c:if test="${isEmailComposeStateError}">
+                <div class="alert alert-danger mt-3" role="alert">
+                    ${carlos:forHtmlContent(emailErrorMessage)}
+                </div>
+            </c:if>
 
             <form id="emailComposeForm" class="email-compose-form" action='${ emailSendAction }' method="post"
                   onsubmit="return validateEmailForm()" novalidate>
-                <input type="hidden" name="demographicId" value="${demographicId}"/>
-                <input type="hidden" name="fdid" value="${fdid}"/>
+                <input type="hidden" name="demographicId" value="${carlos:forHtmlAttribute(demographicId)}"/>
+                <input type="hidden" name="fdid" value="${carlos:forHtmlAttribute(fdid)}"/>
                 <input type="hidden" name="fid" id="fid" value="${carlos:forHtmlAttribute(fid)}"/>
-                <input type="hidden" name="openEFormAfterEmail" value="${openEFormAfterEmail}"/>
-                <input type="hidden" name="deleteEFormAfterEmail" value="${deleteEFormAfterEmail}"/>
-                <input type="hidden" name="transactionType" id="transactionType" value="${transactionType}"/>
+                <input type="hidden" name="openEFormAfterEmail"
+                       value="${carlos:forHtmlAttribute(openEFormAfterEmail)}"/>
+                <input type="hidden" name="deleteEFormAfterEmail"
+                       value="${carlos:forHtmlAttribute(deleteEFormAfterEmail)}"/>
+                <input type="hidden" name="transactionType" id="transactionType"
+                       value="${carlos:forHtmlAttribute(transactionType)}"/>
+                <input type="hidden" name="emailPDFPasswordToken"
+                       value="${carlos:forHtmlAttribute(emailPDFPasswordToken)}"/>
 
                 <%-- To and From sit side by side: recipient (To) first/leftmost, sender (From) on the right.
                      Equal-height cards keep the row tidy when the To card grows with extra recipients. --%>
@@ -295,8 +342,17 @@
                                 </div>
                             </div>
                             <div class="card-footer">
-                                <span class="fa-solid fa-triangle-exclamation"></span> ${carlos:forHtml(emailConsentName)}: <b>${carlos:forHtml(emailConsentStatus)}</b>
+                                <span class="fa-solid fa-triangle-exclamation"></span> ${carlos:forHtml(emailConsentName)}: <b>${emailConsentStatusLabel}</b>
                                 <input type="hidden" name="emailConsentStatus" value="${carlos:forHtmlAttribute(emailConsentStatus)}"/>
+                                <c:if test="${emailConsentStatus eq 'UNKNOWN'}">
+                                    <div class="form-check mt-2">
+                                        <input class="form-check-input" type="checkbox" name="consentOverride" id="consentOverride" value="true"/>
+                                        <label class="form-check-label" for="consentOverride">${emailComposeConsentOverrideLabel}</label>
+                                    </div>
+                                    <label class="form-label mt-2" for="consentOverrideReason">${emailComposeConsentOverrideReasonLabel}</label>
+                                    <textarea class="form-control" name="consentOverrideReason" id="consentOverrideReason" rows="2" maxlength="255"></textarea>
+                                    <div class="invalid-feedback d-block" id="consentOverrideReasonError"></div>
+                                </c:if>
                             </div>
                         </div>
                     </div>
@@ -403,65 +459,76 @@
                     </div>
                 </div>
 
+                <%-- Message + encryption combined into a single card (issue #3118 follow-up): the one
+                     "Message" field and the controls that govern its protection now live together — the
+                     encryption toggle in this header, and the password / clue / encrypt-attachments in the
+                     body below. Delivery is governed entirely by the toggle: when encryption is ON the
+                     message is rendered into the password-protected PDF (server-side routing in
+                     EmailSend2Action maps it to encryptedMessage) and the visible email body is a fixed,
+                     PHI-free notice; when OFF it is sent as the cleartext MIME body. The initial value is
+                     seeded server-side into the "message" request attribute (from bodyEmail/encryptedMessage
+                     on compose and resend) so the client can never populate both channels. All element ids
+                     are unchanged, so showEncryptionOptions() keeps swapping the options and footer
+                     notice/warning on toggle to keep the protection unambiguous. --%>
                 <div class="card mt-4">
-                    <div class="card-header">
-                        <h5 class="card-title">${emailComposeBodyLabel}</h5>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">${emailComposeMessageLabel}</h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fa-solid fa-lock"></span>
+                            <span>${emailComposeEncryptionLabel}</span>
+                            <span id="encryptionOptionsInfo" class="fa-solid fa-circle-info"
+                                  data-bs-toggle="tooltip" data-bs-placement="right"
+                                  title="${emailComposeEncryptionTooltip}"></span>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="encryptionSwitch"
+                                       onClick="showEncryptionOptions()" ${ isEmailEncrypted ? 'checked' : '' }>
+                                <label class="form-check-label" for="encryptionSwitch" id="isEncryption">${emailComposeStateOn}</label>
+                            </div>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12">
-                                    <textarea class="form-control" name="bodyEmail" id="bodyEmail" rows="7"
-                                              placeholder="${emailComposeBodyPlaceholder}">${carlos:forHtml(empty param.bodyEmail ? bodyEmail : param.bodyEmail)}</textarea>
-                                    <div class="error-message" id="bodyError"></div>
+                                    <%-- Visually-hidden label: the visible "Message" heading lives in the card
+                                         header, but the textarea still needs a programmatically associated label
+                                         for accessibility (SonarCloud Web:InputWithoutLabelCheck). The submitted
+                                         content is preserved across a failed-send re-render server-side, by
+                                         EmailSend2Action re-seeding the "message" request attribute. --%>
+                                    <label for="message" class="visually-hidden">${emailComposeMessageLabel}</label>
+                                    <textarea class="form-control" name="message" id="message" rows="7"
+                                              maxlength="10000"
+                                              placeholder="${emailComposeMessagePlaceholder}"><carlos:encode value="${message}"/></textarea>
+                                    <div class="error-message" id="messageError"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="card-footer text-danger">
-                        <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeUnencryptedBody}
+                    <div class="card-footer text-success ${ isEmailEncrypted ? '' : 'd-none' }" id="messageEncryptedNotice">
+                        <span class="fa-solid fa-lock me-2"></span> ${emailComposeEncryptedMessageNotice}
                     </div>
-                </div>
-
-                <div class="card mt-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">
-                            <span class="fa-solid fa-lock"></span> ${emailComposeEncryptionLabel} <span id="encryptionOptionsInfo"
-                                                                             class="fa-solid fa-circle-info"
-                                                                             data-bs-toggle="tooltip"
-                                                                             data-bs-placement="right"
-                                                                             title="${emailComposeEncryptionTooltip}"></span>
-                        </h5>
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" id="encryptionSwitch"
-                                   onClick="showEncryptionOptions()" ${ isEmailEncrypted ? 'checked' : '' }>
-                            <label class="form-check-label" for="encryptionSwitch" id="isEncryption">${emailComposeStateOn}</label>
-                        </div>
-                    </div>
+                    <%-- Encryption controls for the message above (issue #3118 follow-up): the disable-off
+                         warning plus the password / clue / encrypt-attachments controls now live in this
+                         same card, governed by the encryption toggle in the header. Ids are unchanged so
+                         showEncryptionOptions() keeps toggling them. --%>
                     <div class="alert alert-danger rounded-0 border-0 mb-0 d-flex align-items-center ${ isEmailEncrypted ? 'd-none' : '' }" id="encryptionDisabledWarning" role="alert">
                         <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeEncryptionDisabledWarning}
                     </div>
                     <div class="card-body" id="encryptionOptions">
                         <div class="container">
-                            <div class="row">
-                                <div class="col-sm-12 mb-3">
-                                    <label>${emailComposeEncryptedMessageLabel} <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
-                                                                   data-bs-toggle="tooltip" data-bs-placement="right"
-                                                                   title="${emailComposeEncryptedMessageTooltip}"></span></label>
-                                    <textarea class="form-control" name="encryptedMessage" id="encryptedMessage"
-                                              rows="5" placeholder="${emailComposeEncryptedMessagePlaceholder}">${carlos:forHtml(empty param.encryptedMessageEmail ? encryptedMessageEmail : param.encryptedMessageEmail)}</textarea>
-                                    <div class="error-message" id="encryptedMessageError"></div>
-                                </div>
-                            </div>
+                            <%-- The message content itself now lives in the single "Message" field above;
+                                 this card only carries the password / clue / encrypt-attachments controls
+                                 that govern how that message (and any attachments) are protected. --%>
                             <div class="row mt-3 mb-3 align-items-center">
                                 <div class="col-sm-3">
                                     <label class="col-form-label" for="emailPDFPassword">${emailComposePasswordLabel}</label>
                                 </div>
                                 <div class="col-sm-9">
-                                    <input class="form-control" type="text" name="emailPDFPassword"
+                                    <input class="form-control" type="text"
                                            id="emailPDFPassword" placeholder="${emailComposePasswordPlaceholder}"
-                                           value="${carlos:forHtmlAttribute(not empty param.passwordEmail ? param.passwordEmail : emailPDFPassword)}"
-                                           autocomplete="off"/>
+                                           value="${carlos:forHtmlAttribute(emailPDFPassword)}"
+                                           autocomplete="off" spellcheck="false" autocapitalize="none"
+                                           autocorrect="off" readonly/>
                                     <div class="error-message" id="emailPDFPasswordError"></div>
                                 </div>
                             </div>
@@ -472,8 +539,8 @@
                                                       title="${emailComposeClueTooltip}"></span></label>
                                 </div>
                                 <div class="col-sm-9">
-                                    <textarea class="form-control" name="emailPDFPasswordClue" id="emailPDFPasswordClue"
-                                              rows="2" placeholder="${emailComposeCluePlaceholder}">${carlos:forHtml(not empty param.passwordClueEmail ? param.passwordClueEmail : emailPDFPasswordClue)}</textarea>
+                                    <textarea class="form-control" id="emailPDFPasswordClue"
+                                              rows="2" placeholder="${emailComposeCluePlaceholder}" readonly>${carlos:forHtmlContent(emailPDFPasswordClue)}</textarea>
                                     <div class="error-message" id="emailPDFPasswordClueError"></div>
                                 </div>
                             </div>
@@ -494,6 +561,31 @@
                                    value="${ isEmailAttachmentEncrypted ? 'true' : 'false' }"/>
                             <input type="hidden" name="isEmailEncrypted" id="isEmailEncrypted"
                                    value="${ isEmailEncrypted ? 'true' : 'false' }"/>
+                        </div>
+                    </div>
+                </div>
+
+                <%-- Confirmation gate shown when the provider turns encryption OFF. Disabling encryption
+                     sends the message and any attachments as unencrypted plain text, so require an explicit
+                     acknowledgement before applying it; dismissing/cancelling reverts the toggle to ON
+                     (see showEncryptionOptions / confirmDisableEncryption). --%>
+                <div class="modal fade" id="disableEncryptionModal" tabindex="-1"
+                     aria-labelledby="disableEncryptionModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title text-danger" id="disableEncryptionModalLabel">
+                                    <span class="fa-solid fa-triangle-exclamation me-2"></span>${emailComposeDisableEncryptionTitle}
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="${emailComposeClose}"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-0">${emailComposeDisableEncryptionBody}</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${emailComposeDisableEncryptionCancel}</button>
+                                <button type="button" class="btn btn-danger" id="confirmDisableEncryptionBtn" onclick="confirmDisableEncryption()">${emailComposeDisableEncryptionConfirm}</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -557,7 +649,7 @@
                                                  data-bs-parent="#emailAttachmentList">
                                                 <div class="accordion-body">
                                                     <object id="emailAttachmentPDF${loop.count}"
-                                                            data="${ctx}/previewDocs?method=renderPDF&amp;previewToken=${emailAttachment.previewToken}"
+                                                            data="${carlos:forHtmlAttribute(ctx)}/previewDocs?method=renderPDF&amp;previewToken=${carlos:forHtmlAttribute(carlos:forUriComponent(emailAttachment.previewToken))}"
                                                             type="application/pdf" width="100%" height="500">
                                                         <%-- Accessible fallback shown when the browser cannot render the inline PDF preview. --%>
                                                         <p class="text-muted mb-0">${carlos:forHtml(emailAttachment.fileName)}</p>
@@ -610,11 +702,21 @@
         <%-- the confirmation tags. --%>
         <c:if test="${ not empty isEmailSuccessful }">
             <c:choose>
-                <c:when test="${ emailLog.status eq 'SUCCESS' }">
-				<div class="alert alert-success" role="alert" id="successMessage">
-					<p><fmt:message key="email.compose.msg.sentTo"/> <b>${carlos:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.successfullySent"/></p>
+                <c:when test="${ isEmailSuccessful }">
+					<div class="alert alert-success" role="alert" id="successMessage">
+						<p><fmt:message key="email.compose.msg.sentTo"/> <b>${carlos:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.successfullySent"/></p>
                     </div>
-				<p class="mt-1" id="windowCloseMessage">${emailComposeWindowClosing}</p>
+					<c:if test="${not isEmailStatusRecorded}">
+						<div class="alert alert-warning" role="alert" id="statusTrackingWarning">
+							${carlos:forHtml(emailComposeStatusTrackingFailed)}
+						</div>
+					</c:if>
+					<p class="mt-1" id="windowCloseMessage">${emailComposeWindowClosing}</p>
+                </c:when>
+                <c:when test="${ isEmailDeliveryUnconfirmed }">
+                    <div class="alert alert-warning" role="alert" id="deliveryUnconfirmedWarning">
+                        ${carlos:forHtml(emailComposeDeliveryUnconfirmed)}
+                    </div>
                 </c:when>
                 <c:otherwise>
                     <div class="alert alert-danger" role="alert">
@@ -637,24 +739,49 @@
             new bootstrap.Tooltip(el);
         });
 
+        // Synchronize every visible control with the server-resolved encryption state before any
+        // success/error branch returns. This is especially important after a failed cleartext send:
+        // the label and password controls must not imply encryption while the hidden value is false.
+        applyEncryptionState();
+
+        // If the disable-encryption confirmation is dismissed (Cancel / X / Esc / backdrop) without
+        // confirming, revert the toggle back to ON so encryption is never silently disabled.
+        const disableEncryptionModalEl = document.getElementById("disableEncryptionModal");
+        if (disableEncryptionModalEl) {
+            disableEncryptionModalEl.addEventListener("hidden.bs.modal", function () {
+                if (!disableEncryptionConfirmed) {
+                    document.getElementById("encryptionSwitch").checked = true;
+                    applyEncryptionState();
+                }
+            });
+        }
+
         // Check if any error
         if (document.getElementById('isEmailError').value === 'true') {
+            if (document.getElementById('isEmailComposeStateError').value === 'true') {
+                convertAttachmentSize();
+                showEncryptionOptions();
+                selectPatientChartOption();
+                toggleInternalTextArea();
+                disableForm();
+                return;
+            }
             // Open EForm again on sent
             showErrorAndClose();
             return;
         }
 
-        // After sending email
-        if (document.getElementById('isEmailSuccessful').value === 'true' || document.getElementById('isEmailSuccessful').value === 'false') {
-            // Open EForm again on sent
+        // A successful send is terminal for this composer. A failed send deliberately continues
+        // through normal initialization below so the fully restored form remains usable for retry.
+        if (document.getElementById('isEmailSuccessful').value === 'true') {
             openEFormAfterSend();
 
-		if (document.getElementById('isEmailSuccessful').value === 'true') {
-			// Close the window after 3 seconds
-			setTimeout(() => {
-				window.close();
-			}, 3000);
-		}
+            if (document.getElementById('isEmailStatusRecorded').value === 'true') {
+                // Close the window after 3 seconds only when the accepted outcome was recorded.
+                setTimeout(() => {
+                    window.close();
+                }, 3000);
+            }
             return;
         }
 
@@ -666,9 +793,6 @@
 
         // Display an error if there are 0 senders, 0 recipients, or if the recipients' addresses are invalid.
         displayErrorOnInvalidEmail();
-
-        // Show encryption options
-        showEncryptionOptions();
 
         // Select chart option from user's preference
         selectPatientChartOption();
@@ -687,16 +811,21 @@
     });
 
     const emailComposeSubjectRequiredMsg = "<carlos:encode value='${emailComposeSubjectRequired}' context="javaScript"/>";
-    const emailComposeBodyRequiredMsg = "<carlos:encode value='${emailComposeBodyRequired}' context="javaScript"/>";
+    const emailComposeMessageRequiredMsg = "<carlos:encode value='${emailComposeMessageRequired}' context="javaScript"/>";
     const emailComposePasswordRequiredMsg = "<carlos:encode value='${emailComposePasswordRequired}' context="javaScript"/>";
     const emailComposeClueRequiredMsg = "<carlos:encode value='${emailComposeClueRequired}' context="javaScript"/>";
     const emailComposePasswordMinLengthMsg = "<carlos:encode value='${emailComposePasswordMinLength}' context="javaScript"/>";
     const emailComposeMinimumRecipientMsg = "<carlos:encode value='${emailComposeMinimumRecipient}' context="javaScript"/>";
+    const emailComposeConsentOverrideReasonRequiredMsg = "<carlos:encode value='${emailComposeConsentOverrideReasonRequired}' context="javaScript"/>";
     const emailComposeStateOnMsg = "<carlos:encode value='${emailComposeStateOn}' context="javaScript"/>";
     const emailComposeStateOffMsg = "<carlos:encode value='${emailComposeStateOff}' context="javaScript"/>";
 
     function validateEmailForm() {
         if (!validateForm()) {
+            return false;
+        }
+        const resendWarning = document.getElementById('emailResendWarningMessage');
+        if (resendWarning && !window.confirm(resendWarning.value)) {
             return false;
         }
         ShowSpin(true);
@@ -705,15 +834,17 @@
 
     function validateForm() {
         const subjectEmail = document.getElementById('subjectEmail');
-        const bodyEmail = document.getElementById('bodyEmail');
+        const message = document.getElementById('message');
         const isEncrypted = document.getElementById('encryptionSwitch').checked;
-        const hasEncryptedMessage = document.getElementById('encryptedMessage').value.trim() !== '';
         const isAttachmentEncrypted = document.getElementById('encryptAttachmentSwitch').checked;
         const emailPDFPassword = document.getElementById('emailPDFPassword');
         const emailPDFPasswordClue = document.getElementById('emailPDFPasswordClue');
+        const hasMessage = message.value.trim() !== '';
         const hasAttachments = document.querySelectorAll('.emailAttachmentItem').length > 0;
         const hasSender = document.getElementById('totalSenderEmails') && document.getElementById('totalSenderEmails').value > 0;
         const hasRecipint = document.getElementById('totalRecipintEmails') && document.getElementById('totalRecipintEmails').value > 0;
+        const consentOverride = document.getElementById('consentOverride');
+        const consentOverrideReason = document.getElementById('consentOverrideReason');
 
         if (!hasSender || !hasRecipint) {
             return false;
@@ -722,18 +853,26 @@
         const errors = {};
 
         validateField(subjectEmail, emailComposeSubjectRequiredMsg, errors, 'subjectError');
-        validateField(bodyEmail, emailComposeBodyRequiredMsg, errors, 'bodyError');
+        validateField(message, emailComposeMessageRequiredMsg, errors, 'messageError');
+        // When encryption is on the message is rendered into the password-protected PDF, so a
+        // password/clue is required whenever there is a message to encrypt (there always is, since
+        // the message field is mandatory) or encrypted attachments are being sent.
         if (isEncrypted) {
-            if (hasEncryptedMessage) {
-                validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
-                validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
-            } else if (hasAttachments && isAttachmentEncrypted) {
+            if (hasMessage || (hasAttachments && isAttachmentEncrypted)) {
                 validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
                 validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
             } else {
                 clearError('emailPDFPasswordError');
                 clearError('emailPDFPasswordClueError');
             }
+        } else {
+            clearError('emailPDFPasswordError');
+            clearError('emailPDFPasswordClueError');
+        }
+        if (consentOverride && consentOverride.checked) {
+            validateField(consentOverrideReason, emailComposeConsentOverrideReasonRequiredMsg, errors, 'consentOverrideReasonError');
+        } else if (consentOverrideReason) {
+            clearError('consentOverrideReasonError', consentOverrideReason);
         }
 
         if (Object.keys(errors).length === 0) {
@@ -743,42 +882,75 @@
     }
 
     function validateField(field, errorMessage, errors, errorElementId) {
-        clearError(errorElementId);
+        clearError(errorElementId, field);
 
         if (field.value.trim() === '') {
             errors[field.name] = errorMessage;
-            displayError(errorElementId, errorMessage);
+            displayError(errorElementId, errorMessage, field);
         } else if (field.value.trim().length < 5 && field.id === 'emailPDFPassword') {
             errorMessage = emailComposePasswordMinLengthMsg;
             errors[field.name] = errorMessage;
-            displayError(errorElementId, errorMessage);
+            displayError(errorElementId, errorMessage, field);
         }
     }
 
-    function displayError(errorElementId, errorMessage) {
+    function displayError(errorElementId, errorMessage, field) {
         const errorElement = document.getElementById(errorElementId);
         errorElement.innerHTML = errorMessage;
-        errorElement.parentNode.firstElementChild.classList.add("is-invalid");
+        const invalidField = field || errorElement.parentNode.firstElementChild;
+        invalidField.classList.add("is-invalid");
         setTimeout(function () {
             errorElement.scrollIntoView({block: 'center'});
         }, 100);
     }
 
-    function clearError(errorElementId) {
+    function clearError(errorElementId, field) {
         const errorElement = document.getElementById(errorElementId);
         errorElement.innerHTML = '';
-        errorElement.parentNode.firstElementChild.classList.remove("is-invalid");
+        const invalidField = field || errorElement.parentNode.firstElementChild;
+        invalidField.classList.remove("is-invalid");
     }
 
-    function showEncryptionOptions() {
+    let disableEncryptionConfirmed = false;
+
+    // Applies the current encryption toggle state to the form: shows/hides the password/clue/attachment
+    // options, updates the hidden isEmailEncrypted flag and the On/Off label, and swaps the single
+    // message notice (green "secure PDF" when on) for the "encryption is off" warning (when off).
+    function applyEncryptionState() {
         const checkbox = document.getElementById("encryptionSwitch");
         document.getElementById("encryptionOptions").classList.toggle('d-none', !checkbox.checked);
         document.getElementById("isEmailEncrypted").value = checkbox.checked ? "true" : "false";
         document.getElementById("isEncryption").innerHTML = checkbox.checked ? emailComposeStateOnMsg : emailComposeStateOffMsg;
         document.getElementById("isEncryption").classList.toggle("off", !checkbox.checked);
-        // Make the risk explicit whenever encryption is turned off: the message and any
-        // attachments will leave CARLOS unencrypted, so PHI must not be included.
         document.getElementById("encryptionDisabledWarning").classList.toggle('d-none', checkbox.checked);
+        if (!checkbox.checked) {
+            const encryptAttachmentSwitch = document.getElementById("encryptAttachmentSwitch");
+            encryptAttachmentSwitch.checked = false;
+            document.getElementById("isEmailAttachmentEncrypted").value = "false";
+        }
+        document.getElementById("messageEncryptedNotice").classList.toggle('d-none', !checkbox.checked);
+    }
+
+    // Guards the encryption toggle. Turning encryption OFF sends the message and any attachments as
+    // plain text, so require an explicit confirmation via the modal before applying the off state;
+    // dismissing/cancelling the modal reverts the toggle to ON (handled by the hidden.bs.modal
+    // listener registered on load). Turning encryption back ON needs no confirmation.
+    function showEncryptionOptions() {
+        const checkbox = document.getElementById("encryptionSwitch");
+        if (!checkbox.checked) {
+            disableEncryptionConfirmed = false;
+            bootstrap.Modal.getOrCreateInstance(document.getElementById("disableEncryptionModal")).show();
+            return;
+        }
+        applyEncryptionState();
+    }
+
+    // Invoked by the modal's confirm button: the provider has acknowledged the risk, so record the
+    // confirmation, close the modal and apply the encryption-off state.
+    function confirmDisableEncryption() {
+        disableEncryptionConfirmed = true;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("disableEncryptionModal")).hide();
+        applyEncryptionState();
     }
 
     function toggleEncryptAttachmentStatus(checkbox) {
@@ -797,16 +969,17 @@
 
     // Open EForm again on sent
     function openEFormAfterSend() {
-        const isOpenEForm = "${isOpenEForm}" === "true";
+        const isOpenEForm = '${carlos:forJavaScript(isOpenEForm)}' === 'true';
         if (isOpenEForm) {
-            window.open("${ctx}/eform/efmshowform_data?fdid=${fdid}", "_blank", "width=800,height=600");
+            const fdid = '${carlos:forJavaScript(fdid)}';
+            window.open("${ctx}/eform/efmshowform_data?fdid=" + encodeURIComponent(fdid), "_blank", "width=800,height=600");
         }
     }
 
     // Auto-send email
     function autoSendEmail() {
         const emailComposeForm = document.getElementById('emailComposeForm');
-        const isAutoSend = "${isEmailAutoSend}" === "true";
+        const isAutoSend = '${carlos:forJavaScript(isEmailAutoSend)}' === 'true';
         if (isAutoSend && validateForm()) {
             ShowSpin(true);
             emailComposeForm.submit();
@@ -867,8 +1040,10 @@
 
     function disableForm() {
         const emailComposeFormFields = document.getElementById("emailComposeForm").getElementsByTagName('*');
+        // Disabled controls are omitted from submission; Cancel still needs routing and cleanup state.
+        const cancelFieldNames = new Set(["close", "transactionType", "fdid", "emailPDFPasswordToken"]);
         for (let i = 0; i < emailComposeFormFields.length; i++) {
-            if (emailComposeFormFields[i].name === "close") {
+            if (cancelFieldNames.has(emailComposeFormFields[i].name)) {
                 continue;
             }
             emailComposeFormFields[i].disabled = true;
@@ -877,7 +1052,8 @@
 
     function openDemographicPage(event) {
         event.preventDefault();
-        window.open("${ctx}/demographic/DemographicEdit?demographic_no=${demographicId}", "_blank", "width=1027,height=700");
+        const demographicId = '${carlos:forJavaScript(demographicId)}';
+        window.open("${ctx}/demographic/DemographicEdit?demographic_no=" + encodeURIComponent(demographicId), "_blank", "width=1027,height=700");
     }
 
     function cancelEmail() {
@@ -893,7 +1069,7 @@
     function showAdditionalParamOption() {
         const senderEmailAddress = document.getElementById('senderEmailAddress');
         const selectedSender = senderEmailAddress.options[senderEmailAddress.selectedIndex];
-        if (selectedSender === null) {
+        if (!selectedSender) {
             return;
         }
 

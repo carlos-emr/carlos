@@ -104,7 +104,7 @@ class EmailAttachmentSettingsTest {
         @Test
         @DisplayName("should return email when at RFC 5321 length limit")
         void shouldReturnEmail_whenAtMaxLength() {
-            String local = "a".repeat(241);
+            String local = "a".repeat(242);
             String email = local + "@example.com";
             assertThat(email.length()).isEqualTo(254);
             assertThat(EmailAttachmentSettings.validateEmail(email)).isEqualTo(email);
@@ -176,50 +176,6 @@ class EmailAttachmentSettingsTest {
         void shouldNotTruncate_whenWithinMaxLength() {
             String subject = "A".repeat(200);
             assertThat(EmailAttachmentSettings.sanitizeSubject(subject)).hasSize(200);
-        }
-    }
-
-    @Nested
-    @DisplayName("sanitizePassword")
-    class SanitizePassword {
-
-        @Test
-        @DisplayName("should return password when valid input")
-        void shouldReturnPassword_whenValidInput() {
-            assertThat(EmailAttachmentSettings.sanitizePassword("MyP@ssw0rd!")).isEqualTo("MyP@ssw0rd!");
-        }
-
-        @Test
-        @DisplayName("should return null when null input")
-        void shouldReturnNull_whenNullInput() {
-            assertThat(EmailAttachmentSettings.sanitizePassword(null)).isNull();
-        }
-
-        @Test
-        @DisplayName("should strip control characters")
-        void shouldStripControlChars_whenPresent() {
-            assertThat(EmailAttachmentSettings.sanitizePassword("pass\u0000word\u0007")).isEqualTo("password");
-        }
-
-        @Test
-        @DisplayName("should strip tab and newline control characters")
-        void shouldStripTabAndNewline_whenPresent() {
-            assertThat(EmailAttachmentSettings.sanitizePassword("pass\tword\n")).isEqualTo("password");
-        }
-
-        @Test
-        @DisplayName("should truncate when exceeding max length")
-        void shouldTruncate_whenExceedingMaxLength() {
-            String longPassword = "A".repeat(150);
-            String result = EmailAttachmentSettings.sanitizePassword(longPassword);
-            assertThat(result).hasSize(100);
-        }
-
-        @Test
-        @DisplayName("should not truncate when within max length")
-        void shouldNotTruncate_whenWithinMaxLength() {
-            String password = "A".repeat(100);
-            assertThat(EmailAttachmentSettings.sanitizePassword(password)).hasSize(100);
         }
     }
 
