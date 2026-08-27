@@ -54,7 +54,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 @DisplayName("oscarResources bundle parse regression")
 @Tag("unit")
 @Tag("i18n")
-class OscarResourcesBundleParseTest {
+class OscarResourcesBundleParseUnitTest {
 
     private static final Path RESOURCE_DIR = Path.of("src/main/resources");
     private static final Path MFA_HANDLER_JSP =
@@ -97,7 +97,7 @@ class OscarResourcesBundleParseTest {
         for (String locale : LOCALES) {
             String resource = "/oscarResources_" + locale + ".properties";
             assertThatCode(() -> {
-                try (InputStream is = OscarResourcesBundleParseTest.class.getResourceAsStream(resource)) {
+                try (InputStream is = OscarResourcesBundleParseUnitTest.class.getResourceAsStream(resource)) {
                     assertThat(is).as("resource %s must exist on the classpath", resource).isNotNull();
                     Properties p = new Properties();
                     p.load(is);
@@ -261,7 +261,7 @@ class OscarResourcesBundleParseTest {
 
     private Properties loadBundle(String locale) throws Exception {
         String resource = "/oscarResources_" + locale + ".properties";
-        try (InputStream is = OscarResourcesBundleParseTest.class.getResourceAsStream(resource)) {
+        try (InputStream is = OscarResourcesBundleParseUnitTest.class.getResourceAsStream(resource)) {
             assertThat(is).as("resource %s must exist on the classpath", resource).isNotNull();
             Properties p = new Properties();
             p.load(is);
