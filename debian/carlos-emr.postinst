@@ -218,6 +218,13 @@ case "$1" in
         db_get carlos-emr/tls-mode    || RET=""; TLS_MODE="${RET:-selfsigned}"
         db_get carlos-emr/acme-email  || RET=""; ACME_EMAIL="${RET:-}"
         db_get carlos-emr/reset-seed-admin || RET=""; RESET_ADMIN="${RET:-true}"
+        # `|| RET=""` here too, though DEMO_DATA is only compared against the
+        # literal `true` below: on a failed lookup a bare `|| true` would leave
+        # RET holding the previous key's value (or the error text), and
+        # ${RET:-false} would then read that stale value — loading demo data on
+        # a system that never asked for it. Empty RET falls back to the safe
+        # default of false.
+        db_get carlos-emr/install-demo-data || RET=""; DEMO_DATA="${RET:-false}"
 
         # Three sources in order of authority: /etc/timezone (Debian
         # tradition), timedatectl, the /etc/localtime symlink target. Modern
@@ -389,6 +396,19 @@ case "$1" in
                 echo "carlos-emr: WARNING: the seeded 'carlosdoc' account keeps the password" >&2
                 echo "carlos-emr: published in the CARLOS source repository. Do not put patient" >&2
                 echo "carlos-emr: data on this system until you have changed it." >&2
+            fi
+            # Optional fictitious demonstration dataset. The answer is
+            # consumed transiently each configure — every destructive-looking
+            # path is re-guarded inside the verb (empty-demographic check +
+            # completion marker), so an upgrade or dpkg-reconfigure re-asking
+            # the question is harmless by construction. Non-fatal on failure,
+            # like the other provisioning steps above: a demo problem must
+            # never block the apt transaction.
+            if [ "${DEMO_DATA}" = true ] && [ "${MIGRATION_OK}" = 1 ]; then
+                carlos-ctl demo-data || {
+                    echo "carlos-emr: WARNING: the demonstration dataset was NOT loaded (see" >&2
+                    echo "carlos-emr: above). Fix the cause, then run 'sudo carlos-ctl demo-data'." >&2
+                }
             fi
         else
             MIGRATION_OK=0

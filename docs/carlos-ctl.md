@@ -114,6 +114,7 @@ it. Everything runs with `sudo`.
 | `db-apply-settings` | Restart MariaDB if it is not running the settings in the CARLOS drop-in |
 | `db-dump` | Consistent dump to stdout |
 | `db-users` | (Re)create the databases and least-privilege accounts |
+| `demo-data` | Load the fictitious demonstration dataset (~3000 `FAKE-` patients, 60 fake specialists) into an **empty**, freshly migrated database — what answering yes to the installer's demonstration-data question runs; refuses on any database holding patients, and the only removal is `destroy-data` |
 
 ### Certificates
 

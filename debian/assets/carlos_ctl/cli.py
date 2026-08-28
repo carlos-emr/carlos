@@ -38,6 +38,10 @@ _USAGE = """carlos-ctl — administration for a CARLOS EMR host
                                   settings in the CARLOS drop-in
   carlos-ctl db-dump              consistent dump to stdout
   carlos-ctl db-users             (re)create the databases and accounts
+  carlos-ctl demo-data            load the fictitious demonstration dataset
+                                  into an EMPTY, freshly migrated database
+                                  (refuses on any database with patients;
+                                  NEVER for production systems)
 
   carlos-ctl cert status          what certificate is being served
   carlos-ctl cert selfsigned      (re)generate the self-signed certificate
@@ -173,6 +177,7 @@ _VERBS = {
     "db-baseline": dbops.make_flyway_cmd("baseline"),
     "db-repair": dbops.make_flyway_cmd("repair"),
     "db-apply-settings": dbops.cmd_db_apply_settings,
+    "demo-data": dbops.cmd_demo_data,
     "cert": _cmd_cert,
     "cert-renew": _cmd_cert_renew,
     "waf": waf.cmd_waf,

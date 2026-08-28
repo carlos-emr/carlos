@@ -130,13 +130,21 @@ it with random values written to `/etc/carlos-emr/initial-admin.txt`
 
 ![Reset seeded admin question](images/install/07-reset-seed-admin.png)
 
-**8. Done (only if you accepted the seeded-admin replacement)** — a final
+**8. Load the fictitious demonstration dataset** — default **no**. Accept only
+on an evaluation, training or development machine: it fills the new database
+with ~3000 `FAKE-`-prefixed patients and demonstration providers, and there is
+no way to remove it short of destroying the database. See
+[Optional demonstration data](#optional-demonstration-data).
+
+![Demonstration data question](images/install/08-install-demo-data.png)
+
+**9. Done (only if you accepted the seeded-admin replacement)** — a final
 note tells you where the initial credentials were written and points you at
 `carlos-ctl check` and `README.Debian`. If you declined at step 7 — or the
 replacement failed, which the install log warns about loudly — no completion
 note is shown.
 
-![Install complete note (shown only after the seeded-admin replacement)](images/install/08-initial-credentials.png)
+![Install complete note (shown only after the seeded-admin replacement)](images/install/09-initial-credentials.png)
 
 Installation then provisions the database and its accounts, applies the
 schema with Flyway, replaces the seeded administrator credential with random
@@ -266,6 +274,44 @@ files whose loss would make retained data unreadable. Deliberate
 decommissioning is its own explicit command
 (`carlos-ctl destroy-data --confirm <server-name>`), which requires typing
 the host's own configured name back to it.
+
+## Optional demonstration data
+
+For evaluation, training, and development installs, the installer can fill
+the new database with a fictitious practice: about 3000 fake patients (every
+name carries a `FAKE-` prefix), demonstration providers, appointments,
+clinical notes, labs, prescriptions, and 60 clearly-fake referral
+specialists. Answer **yes** to the `Load the FICTITIOUS demonstration
+dataset?` question during install, or run it later by hand:
+
+```bash
+sudo carlos-ctl demo-data
+```
+
+What it does — and refuses to do:
+
+- **Empty databases only.** The load refuses to run against any database
+  that already holds a demographic record. There is no force flag.
+- **Additive to the migrations.** It only *adds* to the reference data the
+  Flyway migrations install — on any collision the migrated row wins. The
+  one exception: on a British Columbia install it **replaces** the seeded
+  provincial specialist directory (`billingreferral`,
+  `professionalSpecialists`, and their `serviceSpecialists` links) with the
+  fake demonstration list, so demo systems never carry the real physician
+  directory.
+- **Once.** A completed load leaves a marker table; re-runs (including
+  `dpkg-reconfigure carlos-emr`) are no-ops.
+- **No removal short of destruction.** The only supported way to get the
+  demonstration data out is `carlos-ctl destroy-data` and re-provisioning.
+
+A note on credentials: the demonstration data works with the seeded
+`carlosdoc` account. If you accepted the default *replace the seeded
+administrator password* question, log in with the random credentials from
+`/etc/carlos-emr/initial-admin.txt`; on a disposable demo box you may prefer
+to decline that question and keep the well-known development credentials.
+
+A system holding this dataset contains publicly-known demonstration content
+and must **never** hold real patient information.
 
 ## Troubleshooting
 

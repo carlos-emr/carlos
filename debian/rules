@@ -173,6 +173,30 @@ override_dh_auto_install:
 	cp -a database/mysql/migration $(STAGE)/$(SHAREDIR)/schema/
 	install -d $(STAGE)/$(SHAREDIR)/lib
 	install -m 0644 $(BUILDDIR)/carlos-flyway-runner.jar $(STAGE)/$(SHAREDIR)/lib/
+	# Optional fictitious demonstration dataset (loaded only when the operator
+	# opts in via the carlos-emr/install-demo-data debconf question; see
+	# carlos-ctl demo-data). Generated per province from the dev snapshot at
+	# build time, gated by the additive-contract check (INSERT IGNORE only, no
+	# real names, no tables outside the province's Flyway schema), and shipped
+	# compressed. gzip -n keeps the artifact reproducible.
+	install -d $(STAGE)/$(SHAREDIR)/demo
+	set -e; for prov in on bc; do \
+	  scripts/build-demo-additive.sh .devcontainer/db/scripts/development.sql \
+	      $$prov $(BUILDDIR)/demo-additive-$$prov.sql; \
+	  scripts/check-demo-additive.sh $(BUILDDIR)/demo-additive-$$prov.sql \
+	      $$prov .devcontainer/db/scripts/development.sql; \
+	  gzip -9n < $(BUILDDIR)/demo-additive-$$prov.sql \
+	      > $(STAGE)/$(SHAREDIR)/demo/demo-additive-$$prov.sql.gz; \
+	done
+	install -m 0644 \
+	    .devcontainer/db/scripts/demo-name-sanitization.sql \
+	    .devcontainer/db/scripts/demo-name-sanitization-on.sql \
+	    .devcontainer/db/scripts/demo-specialists.sql \
+	    .devcontainer/db/scripts/demo-provider-links.sql \
+	    database/mysql/updates/update-2012-07-12.sql \
+	    database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql \
+	    database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql \
+	    $(STAGE)/$(SHAREDIR)/demo/
 	# Tomcat's global web.xml and catalina.properties come from the
 	# distribution's own tomcat11 package (a build dependency) rather than
 	# being vendored into this repo: they then track the Tomcat the runtime

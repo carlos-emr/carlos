@@ -13,7 +13,7 @@ script whenever ``debian/carlos-emr.templates`` changes.
 
 The questions are asked in the order ``debian/carlos-emr.config`` asks them
 (server-name, bind-ip, province, java-heap, tls-mode, acme-email,
-reset-seed-admin), followed by the ``initial-credentials`` note that
+reset-seed-admin, install-demo-data), followed by the ``initial-credentials`` note that
 ``debian/carlos-emr.postinst`` shows after a successful seeded-admin
 replacement. Two deliberate divergences from a live install, both noted in
 the doc: the host-name field shows the template default (``localhost``)
@@ -61,7 +61,9 @@ DIALOGS = [
     ("05-tls-mode.png", "tls-mode", "selfsigned generates a certificate now"),
     ("06-acme-email.png", "acme-email", "warn you if a certificate is about to"),
     ("07-reset-seed-admin.png", "reset-seed-admin", "own test suite"),
-    ("08-initial-credentials.png", "initial-credentials",
+    ("08-install-demo-data.png", "install-demo-data",
+     "fictitious practice"),
+    ("09-initial-credentials.png", "initial-credentials",
      "initial administrator password and PIN"),
 ]
 
@@ -99,7 +101,7 @@ set -e
 db_x_loadtemplatefile "$CARLOS_TEMPLATES" carlos-emr
 db_title "Configuring carlos-emr"
 for q in server-name bind-ip province java-heap tls-mode acme-email \\
-         reset-seed-admin initial-credentials; do
+         reset-seed-admin install-demo-data initial-credentials; do
     db_input high carlos-emr/$q || true
     db_go || true
 done
