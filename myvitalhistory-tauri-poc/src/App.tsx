@@ -9,6 +9,7 @@ import {
 type Category = "Test results" | "Letters" | "Imaging" | "Prescriptions" | "Other";
 type Filter = "All" | Category;
 type ViewMode = "list" | "grid";
+type AppSection = "records" | "recent" | "starred" | "trash" | "security" | "health";
 type IconName =
   | "activity"
   | "camera"
@@ -49,7 +50,17 @@ interface DemoDocument {
   added: string;
   category: Category;
   icon: IconName;
+  starred?: boolean;
   sessionOnly?: boolean;
+}
+
+interface TrashItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  previousLocation: string;
+  countdown: string;
+  icon: IconName;
 }
 
 const sampleFolders: FolderItem[] = [
@@ -67,6 +78,7 @@ const sampleDocuments: DemoDocument[] = [
     added: "12 Aug 2026",
     category: "Test results",
     icon: "flask",
+    starred: true,
   },
   {
     id: "sample-cardiology",
@@ -76,6 +88,7 @@ const sampleDocuments: DemoDocument[] = [
     added: "19 Aug 2026",
     category: "Letters",
     icon: "letter",
+    starred: true,
   },
   {
     id: "sample-xray",
@@ -85,6 +98,7 @@ const sampleDocuments: DemoDocument[] = [
     added: "1 Aug 2026",
     category: "Imaging",
     icon: "image",
+    starred: true,
   },
   {
     id: "sample-prescription",
@@ -103,6 +117,25 @@ const sampleDocuments: DemoDocument[] = [
     added: "14 Jul 2026",
     category: "Other",
     icon: "camera",
+  },
+];
+
+const sampleTrashItems: TrashItem[] = [
+  {
+    id: "trash-thyroid",
+    title: "Bloodwork — thyroid",
+    subtitle: "Deleted 3 days ago",
+    previousLocation: "Maple Creek Medical",
+    countdown: "Gone in 27 days",
+    icon: "flask",
+  },
+  {
+    id: "trash-scans",
+    title: "Scans to sort out",
+    subtitle: "Deleted yesterday · 4 items",
+    previousLocation: "My records",
+    countdown: "Gone in 29 days",
+    icon: "folder",
   },
 ];
 
@@ -219,10 +252,18 @@ export default function App({ bridge = defaultBridge }: AppProps) {
   const [runtimeError, setRuntimeError] = useState(false);
   const [importing, setImporting] = useState(false);
   const [notice, setNotice] = useState("Showing synthetic records for evaluation.");
+  const [activeSection, setActiveSection] = useState<AppSection>("records");
   const [filter, setFilter] = useState<Filter>("All");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<ViewMode>("list");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [trashItems, setTrashItems] = useState(sampleTrashItems);
+  const [cloudBackup, setCloudBackup] = useState(true);
+  const [driveBackup, setDriveBackup] = useState(false);
+  const [biometricUnlock, setBiometricUnlock] = useState(true);
+  const [autoLock, setAutoLock] = useState("15 minutes");
+  const [appleHealth, setAppleHealth] = useState(false);
+  const [healthConnect, setHealthConnect] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -247,25 +288,45 @@ export default function App({ bridge = defaultBridge }: AppProps) {
   const filteredDocuments = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
     return documents.filter((document) => {
-      const matchesFilter = filter === "All" || document.category === filter;
+      const matchesSection =
+        activeSection === "records" ||
+        activeSection === "recent" ||
+        (activeSection === "starred" && document.starred);
+      const matchesFilter = activeSection !== "records" || filter === "All" || document.category === filter;
       const matchesQuery =
         normalizedQuery.length === 0 ||
         `${document.title} ${document.source} ${document.category}`
           .toLocaleLowerCase()
           .includes(normalizedQuery);
-      return matchesFilter && matchesQuery;
+      return matchesSection && matchesFilter && matchesQuery;
     });
-  }, [documents, filter, query]);
+  }, [activeSection, documents, filter, query]);
 
   const filteredFolders = useMemo(() => {
-    if (filter !== "All") return [];
+    if (activeSection !== "records" || filter !== "All") return [];
     const normalizedQuery = query.trim().toLocaleLowerCase();
     if (!normalizedQuery) return folders;
     return folders.filter((folder) => folder.title.toLocaleLowerCase().includes(normalizedQuery));
-  }, [filter, folders, query]);
+  }, [activeSection, filter, folders, query]);
 
   const visibleCount = filteredFolders.length + filteredDocuments.length;
-  const hasSessionChanges = sessionDocumentCount + sessionFolderCount > 0;
+  const hasSessionChanges =
+    sessionDocumentCount + sessionFolderCount > 0 ||
+    trashItems.length !== sampleTrashItems.length ||
+    !cloudBackup ||
+    driveBackup ||
+    !biometricUnlock ||
+    autoLock !== "15 minutes" ||
+    appleHealth ||
+    healthConnect;
+  const libraryTitle =
+    activeSection === "recent" ? "Recent" : activeSection === "starred" ? "Starred" : "My records";
+  const libraryDescription =
+    activeSection === "recent"
+      ? "Records you recently opened or added"
+      : activeSection === "starred"
+        ? `${filteredDocuments.length} records kept close at hand`
+        : `${folders.length} folders · ${documents.length} documents · sample data`;
 
   async function chooseDocument() {
     setImporting(true);
@@ -310,9 +371,17 @@ export default function App({ bridge = defaultBridge }: AppProps) {
   function resetEvaluation() {
     setFolders(sampleFolders);
     setDocuments(sampleDocuments);
+    setTrashItems(sampleTrashItems);
+    setActiveSection("records");
     setFilter("All");
     setQuery("");
     setSelectedIds([]);
+    setCloudBackup(true);
+    setDriveBackup(false);
+    setBiometricUnlock(true);
+    setAutoLock("15 minutes");
+    setAppleHealth(false);
+    setHealthConnect(false);
     setNotice("Evaluation reset. Only the built-in sample records are shown.");
   }
 
@@ -323,12 +392,34 @@ export default function App({ bridge = defaultBridge }: AppProps) {
   }
 
   function setCategory(nextFilter: Filter) {
+    setActiveSection("records");
     setFilter(nextFilter);
     setSelectedIds([]);
   }
 
-  function showPlaceholder(label: string) {
-    setNotice(`${label} is shown for visual evaluation but is not implemented in this slice.`);
+  function showSection(section: AppSection) {
+    setActiveSection(section);
+    setQuery("");
+    setSelectedIds([]);
+    setNotice(
+      section === "records"
+        ? "Showing synthetic records for evaluation."
+        : `${section[0].toLocaleUpperCase()}${section.slice(1)} is a session-only demonstration.`,
+    );
+  }
+
+  function restoreTrashItem(item: TrashItem) {
+    setTrashItems((current) => current.filter((candidate) => candidate.id !== item.id));
+    setNotice(`${item.title} was restored for this demonstration.`);
+  }
+
+  function emptyTrash() {
+    setTrashItems([]);
+    setNotice("The sample trash was emptied for this session only.");
+  }
+
+  function noteDemoAction(action: string) {
+    setNotice(`${action} is demonstrated visually; no security material was created or changed.`);
   }
 
   return (
@@ -346,6 +437,22 @@ export default function App({ bridge = defaultBridge }: AppProps) {
             <span className="unlock-pill"><Icon name="lock-open" /> Unlocked</span>
           </header>
 
+          <label className="mobile-section-picker">
+            <span>Section</span>
+            <select
+              aria-label="Section"
+              value={activeSection}
+              onChange={(event) => showSection(event.target.value as AppSection)}
+            >
+              <option value="records">My records</option>
+              <option value="recent">Recent</option>
+              <option value="starred">Starred</option>
+              <option value="trash">Trash</option>
+              <option value="security">Security & backup</option>
+              <option value="health">Health data</option>
+            </select>
+          </label>
+
           <div className="app-body">
             <aside className="sidebar">
               <div className="brand">
@@ -357,44 +464,46 @@ export default function App({ bridge = defaultBridge }: AppProps) {
               </div>
 
               <nav className="side-nav" aria-label="Record library">
-                <button className={filter === "All" ? "selected" : ""} type="button" onClick={() => setCategory("All")}>
+                <button className={activeSection === "records" && filter === "All" ? "selected" : ""} type="button" onClick={() => setCategory("All")}>
                   <Icon name="folder" /> My records
                 </button>
-                <button type="button" onClick={() => showPlaceholder("Recent records")}><Icon name="clock" /> Recent</button>
-                <button type="button" onClick={() => showPlaceholder("Starred records")}><Icon name="star" /> Starred <span className="nav-count">3</span></button>
-                <button type="button" onClick={() => showPlaceholder("Trash")}><Icon name="trash" /> Trash <span className="nav-count">2</span></button>
+                <button className={activeSection === "recent" ? "selected" : ""} type="button" onClick={() => showSection("recent")}><Icon name="clock" /> Recent</button>
+                <button className={activeSection === "starred" ? "selected" : ""} type="button" onClick={() => showSection("starred")}><Icon name="star" /> Starred <span className="nav-count">3</span></button>
+                <button className={activeSection === "trash" ? "selected" : ""} type="button" onClick={() => showSection("trash")}><Icon name="trash" /> Trash <span className="nav-count">{trashItems.length}</span></button>
 
                 <span className="nav-label">By kind</span>
-                <button className={filter === "Test results" ? "selected" : ""} type="button" onClick={() => setCategory("Test results")}>
+                <button className={activeSection === "records" && filter === "Test results" ? "selected" : ""} type="button" onClick={() => setCategory("Test results")}>
                   <Icon name="flask" /> Test results <span className="nav-count">18</span>
                 </button>
-                <button className={filter === "Letters" ? "selected" : ""} type="button" onClick={() => setCategory("Letters")}>
+                <button className={activeSection === "records" && filter === "Letters" ? "selected" : ""} type="button" onClick={() => setCategory("Letters")}>
                   <Icon name="letter" /> Letters <span className="nav-count">11</span>
                 </button>
-                <button className={filter === "Imaging" ? "selected" : ""} type="button" onClick={() => setCategory("Imaging")}>
+                <button className={activeSection === "records" && filter === "Imaging" ? "selected" : ""} type="button" onClick={() => setCategory("Imaging")}>
                   <Icon name="image" /> Imaging <span className="nav-count">6</span>
                 </button>
-                <button className={filter === "Prescriptions" ? "selected" : ""} type="button" onClick={() => setCategory("Prescriptions")}><Icon name="pill" /> Prescriptions <span className="nav-count">7</span></button>
+                <button className={activeSection === "records" && filter === "Prescriptions" ? "selected" : ""} type="button" onClick={() => setCategory("Prescriptions")}><Icon name="pill" /> Prescriptions <span className="nav-count">7</span></button>
 
                 <span className="nav-label">Settings</span>
-                <button type="button" onClick={() => showPlaceholder("Security and backup")}><Icon name="shield" /> Security & backup</button>
-                <button type="button" onClick={() => showPlaceholder("Health data")}><Icon name="heart" /> Health data</button>
+                <button className={activeSection === "security" ? "selected" : ""} type="button" onClick={() => showSection("security")}><Icon name="shield" /> Security & backup</button>
+                <button className={activeSection === "health" ? "selected" : ""} type="button" onClick={() => showSection("health")}><Icon name="heart" /> Health data</button>
               </nav>
 
               <div className="storage">
-                <span>Backup not connected</span>
+                <span>Backup concept only</span>
                 <div className="storage-meter"><span /></div>
                 <small>Evaluation data stays in this session</small>
               </div>
             </aside>
 
+            {(activeSection === "records" || activeSection === "recent" || activeSection === "starred") && (
             <main className="library-main">
-              <div className="breadcrumb"><strong>My records</strong></div>
+              <div className="breadcrumb"><strong>{libraryTitle}</strong></div>
               <div className="main-head">
                 <div>
-                  <h1>My records</h1>
-                  <p>{folders.length} folders · {documents.length} documents · sample data</p>
+                  <h1>{libraryTitle}</h1>
+                  <p>{libraryDescription}</p>
                 </div>
+                {activeSection === "records" && (
                 <div className="head-actions">
                   <button className="button" type="button" onClick={createFolder}>
                     <Icon name="folder-plus" /><span>New folder</span>
@@ -409,6 +518,7 @@ export default function App({ bridge = defaultBridge }: AppProps) {
                     <Icon name="plus" /><span>{importing ? "Opening…" : "New"}</span>
                   </button>
                 </div>
+                )}
               </div>
 
               <label className="search">
@@ -423,6 +533,7 @@ export default function App({ bridge = defaultBridge }: AppProps) {
               </label>
 
               <div className="viewbar">
+                {activeSection === "records" && (
                 <div className="filter-chips" aria-label="Filter records">
                   {filters.map((option) => (
                     <button
@@ -436,6 +547,7 @@ export default function App({ bridge = defaultBridge }: AppProps) {
                     </button>
                   ))}
                 </div>
+                )}
                 <div className="view-controls">
                   <button className="sort-button" type="button"><Icon name="sort" /> Newest first <span>⌄</span></button>
                   <span className="segment" aria-label="Choose record view">
@@ -542,6 +654,209 @@ export default function App({ bridge = defaultBridge }: AppProps) {
                 </div>
               )}
             </main>
+            )}
+
+            {activeSection === "trash" && (
+              <main className="library-main purpose-screen">
+                <div className="breadcrumb"><strong>Trash</strong></div>
+                <div className="main-head">
+                  <div>
+                    <h1>Trash</h1>
+                    <p>Kept for 30 days, then deleted for good</p>
+                  </div>
+                  <div className="head-actions">
+                    <button className="button danger" type="button" onClick={emptyTrash} disabled={trashItems.length === 0}>
+                      <Icon name="trash" /> Empty trash
+                    </button>
+                  </div>
+                </div>
+
+                <div className="purpose-note">
+                  <Icon name="info" />
+                  <span>Deleted medical records remain recoverable here for 30 days. Restoring puts an item back where it was.</span>
+                </div>
+                <p className="status-line" role="status" aria-live="polite">{notice}</p>
+
+                <div className="filelist trash-list" aria-label={`${trashItems.length} items in trash`}>
+                  <div className="file-head" aria-hidden="true">
+                    <span />
+                    <span className="sorted">Name</span>
+                    <span className="column">Where it was</span>
+                    <span className="column">Deleted</span>
+                    <span />
+                  </div>
+                  {trashItems.map((item) => (
+                    <article className="file-row" key={item.id}>
+                      <span className="trash-marker"><Icon name="trash" /></span>
+                      <div className="file-name">
+                        <span className={`document-icon ${item.icon}`}><Icon name={item.icon} /></span>
+                        <span className="name-copy"><strong>{item.title}</strong><small>{item.subtitle}</small></span>
+                      </div>
+                      <span className="column">{item.previousLocation}</span>
+                      <span className="column countdown">{item.countdown}</span>
+                      <button className="restore-button" type="button" onClick={() => restoreTrashItem(item)}>Restore</button>
+                    </article>
+                  ))}
+                  {trashItems.length === 0 && (
+                    <div className="empty-state"><Icon name="trash" /><strong>Trash is empty</strong><span>Deleted records would remain here for 30 days.</span></div>
+                  )}
+                </div>
+              </main>
+            )}
+
+            {activeSection === "security" && (
+              <main className="library-main purpose-screen">
+                <div className="main-head">
+                  <div>
+                    <h1>Security & backup</h1>
+                    <p>How your records would be protected and copied</p>
+                  </div>
+                </div>
+                <div className="purpose-note warning">
+                  <Icon name="info" />
+                  <span><strong>Evaluation controls only.</strong> These settings change this screen for the current session; no encryption keys or backups are created.</span>
+                </div>
+                <p className="status-line" role="status" aria-live="polite">{notice}</p>
+
+                <div className="setting-list">
+                  <section className="setting-row">
+                    <div>
+                      <h2>Encryption <span className="state-pill">On — always</span></h2>
+                      <p>Your records would be scrambled on this device using your passphrase. This cannot be turned off.</p>
+                    </div>
+                  </section>
+
+                  <section className="setting-row">
+                    <div>
+                      <h2>Recovery sheet <span className="state-pill warning">Not created</span></h2>
+                      <p>A printable recovery sheet could reopen the vault if the passphrase is forgotten. Printing a new one would invalidate the old sheet.</p>
+                    </div>
+                    <button className="button" type="button" onClick={() => noteDemoAction("Recovery sheet creation")}><span>Preview sheet</span></button>
+                  </section>
+
+                  <section className="setting-row">
+                    <div>
+                      <h2>Backup to iCloud <span className={`state-pill ${cloudBackup ? "" : "off"}`}>{cloudBackup ? "On" : "Off"}</span></h2>
+                      <p>The production concept copies records while they are still scrambled, so the cloud provider cannot read them.</p>
+                    </div>
+                    <button
+                      className={`toggle ${cloudBackup ? "" : "off"}`}
+                      type="button"
+                      aria-label="Backup to iCloud demo"
+                      aria-pressed={cloudBackup}
+                      onClick={() => setCloudBackup((current) => !current)}
+                    />
+                  </section>
+
+                  <section className="setting-row">
+                    <div>
+                      <h2>Backup to a folder or drive <span className={`state-pill ${driveBackup ? "" : "off"}`}>{driveBackup ? "On" : "Off"}</span></h2>
+                      <p>A second encrypted copy could be stored on a USB drive or in a folder chosen by the patient.</p>
+                    </div>
+                    <button
+                      className={`toggle ${driveBackup ? "" : "off"}`}
+                      type="button"
+                      aria-label="Backup to a folder demo"
+                      aria-pressed={driveBackup}
+                      onClick={() => setDriveBackup((current) => !current)}
+                    />
+                  </section>
+
+                  <section className="setting-row">
+                    <div>
+                      <h2>Lock automatically</h2>
+                      <p>Closes the vault after a period without use.</p>
+                    </div>
+                    <label className="select-control">
+                      <span className="sr-only">Automatic lock delay</span>
+                      <select value={autoLock} onChange={(event) => setAutoLock(event.target.value)}>
+                        <option>1 minute</option>
+                        <option>5 minutes</option>
+                        <option>15 minutes</option>
+                        <option>1 hour</option>
+                        <option>Never</option>
+                      </select>
+                    </label>
+                  </section>
+
+                  <section className="setting-row">
+                    <div>
+                      <h2>Unlock with biometrics <span className={`state-pill ${biometricUnlock ? "" : "off"}`}>{biometricUnlock ? "On" : "Off"}</span></h2>
+                      <p>Face ID, Touch ID, or the Android device credential could unlock the app; the passphrase would still be required after restarting.</p>
+                    </div>
+                    <button
+                      className={`toggle ${biometricUnlock ? "" : "off"}`}
+                      type="button"
+                      aria-label="Biometric unlock demo"
+                      aria-pressed={biometricUnlock}
+                      onClick={() => setBiometricUnlock((current) => !current)}
+                    />
+                  </section>
+
+                  <section className="setting-row">
+                    <div>
+                      <h2>Change passphrase</h2>
+                      <p>A real change would re-lock every record with the new passphrase.</p>
+                    </div>
+                    <button className="button" type="button" onClick={() => noteDemoAction("Passphrase change")}><span>Show purpose</span></button>
+                  </section>
+                </div>
+              </main>
+            )}
+
+            {activeSection === "health" && (
+              <main className="library-main purpose-screen">
+                <div className="main-head">
+                  <div>
+                    <h1>Health data</h1>
+                    <p>Readings from your phone and devices, alongside your records</p>
+                  </div>
+                </div>
+
+                <div className="purpose-note warning">
+                  <Icon name="flask" />
+                  <span><strong>Concept only — mobile devices.</strong> Apple Health and Health Connect store readings such as blood pressure and weight, not letters or reports. No health permission is requested by this evaluation.</span>
+                </div>
+
+                <div className="setting-list health-connections">
+                  <section className="setting-row">
+                    <div>
+                      <h2>Apple Health <span className={`state-pill ${appleHealth ? "" : "off"}`}>{appleHealth ? "Demo connected" : "Not connected"}</span></h2>
+                      <p>On iPhone, the patient could choose to read blood pressure, weight, and steps. Nothing would be written back.</p>
+                    </div>
+                    <button className="button" type="button" aria-pressed={appleHealth} onClick={() => setAppleHealth((current) => !current)}>{appleHealth ? "Disconnect demo" : "Connect demo"}</button>
+                  </section>
+
+                  <section className="setting-row">
+                    <div>
+                      <h2>Health Connect <span className={`state-pill ${healthConnect ? "" : "off"}`}>{healthConnect ? "Demo connected" : "Not connected"}</span></h2>
+                      <p>The Android equivalent could provide the same kinds of readings through a separate permission.</p>
+                    </div>
+                    <button className="button" type="button" aria-pressed={healthConnect} onClick={() => setHealthConnect((current) => !current)}>{healthConnect ? "Disconnect demo" : "Connect demo"}</button>
+                  </section>
+                </div>
+
+                {appleHealth || healthConnect ? (
+                  <section className="health-preview" aria-label="Synthetic health reading preview">
+                    <div className="health-preview-heading">
+                      <div><span className="eyebrow">Synthetic preview</span><h2>Sample health snapshot</h2></div>
+                      <span className="state-pill">Demo data</span>
+                    </div>
+                    <div className="metric-grid">
+                      <article><Icon name="heart" /><strong>122/78</strong><span>Blood pressure · mmHg</span></article>
+                      <article><Icon name="activity" /><strong>6,420</strong><span>Steps today</span></article>
+                      <article><Icon name="clock" /><strong>72 bpm</strong><span>Resting heart rate</span></article>
+                    </div>
+                  </section>
+                ) : (
+                  <div className="health-empty">
+                    <span className="brand-mark"><Icon name="activity" /></span>
+                    <h2>Nothing connected</h2>
+                    <p>A production connection could place trends beside clinic documents, giving the patient one view of the whole picture.</p>
+                  </div>
+                )}
+              </main>
+            )}
           </div>
         </section>
 

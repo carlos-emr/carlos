@@ -84,6 +84,78 @@ describe("MyVitalHistory Tauri evaluation", () => {
     expect(screen.getByRole("button", { name: "Grid view" })).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("demonstrates recent, starred, and prescription views", async () => {
+    const user = userEvent.setup();
+    render(<App bridge={bridge()} />);
+
+    await user.click(screen.getByRole("button", { name: "Recent" }));
+    expect(screen.getByRole("heading", { name: "Recent" })).toBeVisible();
+    expect(screen.getByText("Records you recently opened or added")).toBeVisible();
+    expect(screen.queryByText("Heart & blood pressure")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Starred/ }));
+    expect(screen.getByRole("heading", { name: "Starred" })).toBeVisible();
+    expect(screen.getByText("Chest X-ray report")).toBeVisible();
+    expect(screen.queryByText("Prescription — ramipril 5mg")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Prescriptions/ }));
+    expect(screen.getByRole("heading", { name: "My records" })).toBeVisible();
+    expect(screen.getByText("Prescription — ramipril 5mg")).toBeVisible();
+    expect(screen.queryByText("Bloodwork — cholesterol and liver panel")).not.toBeInTheDocument();
+  });
+
+  it("demonstrates recoverable deletion in trash", async () => {
+    const user = userEvent.setup();
+    render(<App bridge={bridge()} />);
+
+    await user.click(screen.getByRole("button", { name: /Trash/ }));
+    expect(screen.getByRole("heading", { name: "Trash" })).toBeVisible();
+    expect(screen.getByText("Bloodwork — thyroid")).toBeVisible();
+    expect(screen.getByText("Gone in 27 days")).toBeVisible();
+
+    await user.click(screen.getAllByRole("button", { name: "Restore" })[0]);
+    expect(screen.queryByText("Bloodwork — thyroid")).not.toBeInTheDocument();
+    expect(screen.getByText("Bloodwork — thyroid was restored for this demonstration.")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Empty trash" }));
+    expect(screen.getByText("Trash is empty")).toBeVisible();
+  });
+
+  it("demonstrates security and backup controls without creating security material", async () => {
+    const user = userEvent.setup();
+    render(<App bridge={bridge()} />);
+
+    await user.click(screen.getByRole("button", { name: "Security & backup" }));
+    expect(screen.getByRole("heading", { name: "Security & backup" })).toBeVisible();
+    expect(screen.getByText("Evaluation controls only.")).toBeVisible();
+
+    const cloudBackup = screen.getByRole("button", { name: "Backup to iCloud demo" });
+    expect(cloudBackup).toHaveAttribute("aria-pressed", "true");
+    await user.click(cloudBackup);
+    expect(cloudBackup).toHaveAttribute("aria-pressed", "false");
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Automatic lock delay" }), "5 minutes");
+    expect(screen.getByRole("combobox", { name: "Automatic lock delay" })).toHaveValue("5 minutes");
+
+    await user.click(screen.getByRole("button", { name: "Preview sheet" }));
+    expect(screen.getByText(/no security material was created or changed/i)).toBeVisible();
+  });
+
+  it("demonstrates the mobile health-data concept with synthetic readings", async () => {
+    const user = userEvent.setup();
+    render(<App bridge={bridge()} />);
+
+    await user.click(screen.getByRole("button", { name: "Health data" }));
+    expect(screen.getByRole("heading", { name: "Health data" })).toBeVisible();
+    expect(screen.getByText("Concept only — mobile devices.")).toBeVisible();
+    expect(screen.getByText("Nothing connected")).toBeVisible();
+
+    await user.click(screen.getAllByRole("button", { name: "Connect demo" })[0]);
+    expect(screen.getByRole("heading", { name: "Sample health snapshot" })).toBeVisible();
+    expect(screen.getByText("122/78")).toBeVisible();
+    expect(screen.getByText("Demo connected")).toBeVisible();
+  });
+
   it("handles picker cancellation without changing the library", async () => {
     const user = userEvent.setup();
     render(<App bridge={bridge()} />);

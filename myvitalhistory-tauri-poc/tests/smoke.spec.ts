@@ -33,3 +33,41 @@ test("imports browser-selected PDF metadata for the session", async ({ page }) =
   await expect(page.getByText("fictional-browser-record.pdf", { exact: true })).not.toBeVisible();
   await expect(page.getByText("Evaluation reset. Only the built-in sample records are shown.")).toBeVisible();
 });
+
+test("shows the purpose of the library navigation sections", async ({ page }, testInfo) => {
+  await page.goto("/");
+
+  async function openSection(value: string, label: string) {
+    if (testInfo.project.name === "phone") {
+      await page.getByRole("combobox", { name: "Section" }).selectOption(value);
+    } else {
+      await page.getByRole("button", { name: new RegExp(`^${label}`) }).click();
+    }
+  }
+
+  await openSection("recent", "Recent");
+  await expect(page.getByRole("heading", { name: "Recent" })).toBeVisible();
+
+  await openSection("starred", "Starred");
+  await expect(page.getByRole("heading", { name: "Starred" })).toBeVisible();
+  await expect(page.getByText("Prescription — ramipril 5mg")).not.toBeVisible();
+
+  await openSection("trash", "Trash");
+  await expect(page.getByText("Gone in 27 days")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("trash.png"), fullPage: true });
+  await page.getByRole("button", { name: "Restore" }).first().click();
+  await expect(page.getByText("Bloodwork — thyroid", { exact: true })).not.toBeVisible();
+
+  await openSection("security", "Security & backup");
+  const cloudBackup = page.getByRole("button", { name: "Backup to iCloud demo" });
+  await expect(cloudBackup).toHaveAttribute("aria-pressed", "true");
+  await page.screenshot({ path: testInfo.outputPath("security.png"), fullPage: true });
+  await cloudBackup.click();
+  await expect(cloudBackup).toHaveAttribute("aria-pressed", "false");
+
+  await openSection("health", "Health data");
+  await expect(page.getByText("Nothing connected")).toBeVisible();
+  await page.getByRole("button", { name: "Connect demo" }).first().click();
+  await expect(page.getByRole("heading", { name: "Sample health snapshot" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("health.png"), fullPage: true });
+});

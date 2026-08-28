@@ -24,7 +24,13 @@ simulator/device where available:
 4. Reset the session and confirm the imported filename disappears.
 5. Open **Evaluation details** and confirm it reports a Rust command in a Tauri build and
    `Browser preview` in Vite.
-6. Check keyboard navigation, screen-reader labels, text scaling, rotation, and reduced motion.
+6. Open Recent, Starred, and the record-kind filters to confirm their intended filing views.
+7. In Trash, restore one synthetic item and confirm the 30-day countdown remains visible on phone.
+8. Review the Security & backup controls and confirm every real security capability is labelled as
+   a concept or session-only demonstration.
+9. Connect one Health data demo and confirm only synthetic readings appear and no operating-system
+   health permission is requested.
+10. Check keyboard navigation, screen-reader labels, text scaling, rotation, and reduced motion.
 
 ## Decision questions
 
