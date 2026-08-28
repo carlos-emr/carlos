@@ -232,7 +232,7 @@ The loop is: edit the file, run the verb beside it.
 |---|---|
 | `/etc/carlos-emr/carlos-emr.env` (host name, listen address, heap, timezone) | `sudo carlos-ctl init-config` — re-renders *and applies*: nginx reload, certificate refresh, and it tells you if a restart is also needed |
 | `/etc/carlos-emr/carlos.properties` (application settings) | `sudo carlos-ctl restart` |
-| `/etc/carlos-emr/backup.env` | nothing — the next timer run reads it; prove it with `carlos-ctl backup full` |
+| `/etc/carlos-emr/backup.env` | nothing — the next timer run reads it; prove it with `sudo carlos-ctl backup full` |
 | `/etc/carlos-emr/modsecurity/` (WAF policy, site exclusions) | `sudo carlos-ctl waf reload` |
 
 `carlos-ctl --help` lists every verb; `man carlos-ctl` documents them, and
@@ -280,7 +280,7 @@ sudo carlos-ctl check
 | Symptom | Where to look | Usual cause |
 |---|---|---|
 | Browser cannot connect at all | `sudo journalctl -u nginx -n 50` | nginx not running, or the listen address is `127.0.0.1` while you are connecting remotely |
-| Certificate warning in the browser | `sudo carlos-ctl cert status` | Expected with the default self-signed certificate — the connection is still encrypted; switch with `carlos-ctl cert acme <email>` |
+| Certificate warning in the browser | `sudo carlos-ctl cert status` | Expected with the default self-signed certificate — the connection is still encrypted; switch with `sudo carlos-ctl cert acme <email>` |
 | "502 Bad Gateway" or a long spinner right after install/restart | `sudo carlos-ctl logs -f` | The webapp takes about two minutes to deploy; if it never comes up, the log says why |
 | Login rejected with the seeded credentials | `sudo cat /etc/carlos-emr/initial-admin.txt` | Using the repository's published dev password instead of the generated one. Also: the PIN must be exactly four digits — a longer PIN fails with a message blaming the *password* |
 | A specific page or action fails, but nothing in the application log | `sudo carlos-ctl waf tail` | The WAF blocked the request before it reached the application — the tail explains which rule and why |

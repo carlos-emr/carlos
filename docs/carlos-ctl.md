@@ -66,7 +66,7 @@ covers this end to end; the short version, in the order that retires the most
 risk first:
 
 1. **Verify** — `sudo carlos-ctl check`, and confirm the eForm render browser
-   (`systemctl status carlos-emr-chromedriver`).
+   (`sudo systemctl status carlos-emr-chromedriver`).
 2. **Credentials** — `sudo cat /etc/carlos-emr/initial-admin.txt`, log in,
    complete the forced password reset, create real named accounts, disable
    the seeded `carlosdoc` account, delete the file. If the install-time
@@ -105,7 +105,7 @@ it. Everything runs with `sudo`.
 
 | Verb | What it does |
 |---|---|
-| `db [args]` | SQL shell on the EMR database as root (interactive with no args; `-e` and redirects pass through, e.g. `carlos-ctl db < f.sql`) |
+| `db [args]` | SQL shell on the EMR database as root (interactive with no args; `-e` and redirects pass through, e.g. `sudo carlos-ctl db < f.sql`) |
 | `db-info` | Show the Flyway schema migration state |
 | `db-validate` | Verify the schema matches the deployed WAR |
 | `db-migrate` | Apply pending migrations — **back up first** |
