@@ -90,6 +90,7 @@ carlos-emr carlos-emr/tls-mode select selfsigned
 carlos-emr carlos-emr/acme-email string
 carlos-emr carlos-emr/java-heap string 2g
 carlos-emr carlos-emr/reset-seed-admin boolean false
+carlos-emr carlos-emr/install-demo-data boolean true
 EOF
 lxc file push /tmp/carlos-preseed.txt carlos-test/root/
 lxc file push ../carlos-emr_*_all.deb ../carlos-emr-drugref_*_all.deb \
@@ -114,45 +115,29 @@ Every line must be `OK` (services, loopback-only Tomcat/MariaDB, WAF blocking a
 probe SQLi with 403, live DrugRef lookup, renderer service, Flyway history).
 Do not continue on a failing check — every later step assumes this baseline.
 
-## 4. Load the demo dataset and test fixtures
+## 4. Demo dataset and test fixtures
 
-The packaged install seeds reference data only. The checks need the development
-demo dataset plus a handful of fixtures. **Order matters** — this mirrors
-`.devcontainer/db/scripts/populate_db.sh`, which is the authority if the two
-ever disagree:
+`install-demo-data=true` in the preseed above makes the installer load the
+package's own demonstration dataset (`carlos-ctl demo-data`): the additive
+per-province patient snapshot, the referral-specialist and provider-link
+seeds, the name sanitization, and the Rich Text Letter chain including the
+attachment-route fix. Being additive (`INSERT IGNORE` only), it never touches
+the Flyway-seeded rows, so the V1.0.17 digital-signatures default survives.
+(The devcontainer counterpart is `.devcontainer/db/scripts/populate_db.sh`;
+if the two ever disagree about the RTL chain, that script and
+`debian/assets/carlos_ctl/dbops.py` are the authorities.)
+
+One database tweak and three fixtures remain:
 
 ```bash
-# Push the demo SQL into the VM
-for f in .devcontainer/db/scripts/development.sql \
-         .devcontainer/db/scripts/development_privileges.sql \
-         database/mysql/updates/update-2025-11-06-demo-name-sanitization.sql \
-         database/mysql/updates/update-2012-07-12.sql \
-         database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql \
-         database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql \
-         database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql; do
-  lxc file push "$f" carlos-test/root/demo/
-done
-
-lxc exec carlos-test -- bash -c '
-  cd /root/demo
-  for f in development.sql development_privileges.sql \
-           update-2025-11-06-demo-name-sanitization.sql \
-           update-2012-07-12.sql \
-           update-2026-03-22-rtl-2026.3.0-modernize.sql \
-           update-2026-03-12-rtl-enable-direct.sql \
-           update-2026-06-29-rtl-attachment-route-fix.sql; do
-    mariadb -u root oscar < "$f"
-  done
-  # development.sql truncate-reloads Facility with the old snapshot default;
-  # re-assert the product default (V1.0.17) so signature workflows run.
-  mariadb -u root oscar -e "UPDATE Facility SET enableDigitalSignatures = 1;"
-  # The seed row ships forcePasswordReset=1; the checks need a direct login.
-  # (login-playwright-checks.js exercises the forced-reset flow itself and
-  # restores whatever state it changes.)
-  mariadb -u root oscar -e "UPDATE security SET forcePasswordReset=0 WHERE user_name=\"carlosdoc\";"'
+# The seed row ships forcePasswordReset=1; the checks need a direct login.
+# (login-playwright-checks.js exercises the forced-reset flow itself and
+# restores whatever state it changes.)
+lxc exec carlos-test -- mariadb -u root oscar \
+  -e "UPDATE security SET forcePasswordReset=0 WHERE user_name='carlosdoc';"
 ```
 
-Fixtures the SQL alone does not provide:
+Fixtures the dataset alone does not provide:
 
 ```bash
 # a) Demo document FILES. The dump ships document table rows; the PDFs they
@@ -167,6 +152,8 @@ lxc exec carlos-test -- bash -c \
 
 # b) Provider stamp for the consultation-signature checks: any small PNG,
 #    named consult_sig_<providerNo>.png in the eForm image directory.
+#    (Any PNG will do, e.g.: convert -size 240x80 xc:white consult_sig_999998.png,
+#    or reuse a repo image such as release/4422-84v9-1.png renamed.)
 lxc file push consult_sig_999998.png \
   carlos-test/var/lib/carlos-emr/OscarDocument/carlos/eform/images/
 lxc exec carlos-test -- bash -c \
@@ -225,6 +212,7 @@ export CONSULT_STAMP_PROVIDER_NO=999998 CONSULT_UNSIGNED_REQUEST_ID=3
 export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
 
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
+  case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below
   timeout 300 node "$s" && echo "PASS $s" || echo "FAIL $s"
 done
 ```
