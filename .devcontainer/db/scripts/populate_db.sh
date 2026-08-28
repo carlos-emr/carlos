@@ -86,8 +86,15 @@ echo 'Loading demo data for development...'
 $SQL oscar < /scripts/development.sql
 echo 'Restoring current Administration privileges...'
 $SQL oscar < /scripts/development_privileges.sql
-echo 'Preparing demographic names for development environment...'
-$SQL oscar < /database/mysql/updates/update-2025-11-06-demo-name-sanitization.sql
+echo 'Seeding fake referral specialists and provider links...'
+$SQL oscar < /scripts/demo-provider-links.sql
+$SQL oscar < /scripts/demo-specialists.sql
+# Name sanitization v2: FAKE- prefixes across all person-name tables plus
+# replacement of known real names. The -on supplement covers Ontario-only
+# form tables; this devcontainer loads the Ontario schema, so both apply.
+echo 'Preparing demographic and provider names for development environment...'
+$SQL oscar < /scripts/demo-name-sanitization.sql
+$SQL oscar < /scripts/demo-name-sanitization-on.sql
 echo 'Seeding Rich Text Letter eForm...'
 $SQL oscar < /database/mysql/updates/update-2012-07-12.sql
 echo 'Modernizing Rich Text Letter eForm to 2026.3.0...'

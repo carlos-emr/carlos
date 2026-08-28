@@ -84,6 +84,27 @@ verb).
 Write a consistent dump to standard output. It is never written to a default
 path: a dump is the entire clinical record in one file and the operator must
 choose, and secure, where it lands.
+.TP
+.B demo-data
+Load the fictitious demonstration dataset (~3000 patients whose names all
+carry a
+.B FAKE\-
+prefix, demonstration providers, and 60 clearly\-fake referral specialists)
+into an
+.B empty,
+freshly migrated database. This is what answering yes to the
+.B carlos\-emr/install\-demo\-data
+debconf question runs at install time. It refuses to run against any database
+that already holds a demographic record, and a completed load leaves a marker
+table that makes re\-runs no\-ops. The load only adds to the reference data
+the migrations install, with one exception: on a British Columbia install it
+replaces the seeded provincial specialist directory
+.RI ( billingreferral ", " professionalSpecialists " and their " serviceSpecialists " links)"
+with the fake demonstration list. A system holding this dataset carries known
+development credentials and must
+.B never
+hold real patient data; the only supported removal is
+.BR "destroy-data" .
 .SS Certificates
 .TP
 .B cert status

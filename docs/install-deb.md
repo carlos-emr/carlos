@@ -64,8 +64,10 @@ Installing from a world-traversable directory such as `/tmp` avoids it.
 The installer asks a handful of questions (debconf): the host name clinicians
 will use, the listen address, the billing province (Ontario or British
 Columbia — **not changeable later**; the two create different database
-schemas), the Java heap size, and the TLS mode. Everything can be answered
-with the defaults and adjusted afterwards — except the province.
+schemas), the Java heap size, the TLS mode, and whether to load the
+fictitious demonstration dataset (default: no — see
+[Optional demonstration data](#optional-demonstration-data)). Everything can
+be answered with the defaults and adjusted afterwards — except the province.
 
 Installation then provisions the database and its accounts, applies the
 schema with Flyway, replaces the seeded administrator credential with random
@@ -181,6 +183,44 @@ files whose loss would make retained data unreadable. Deliberate
 decommissioning is its own explicit command
 (`carlos-ctl destroy-data --confirm <server-name>`), which requires typing
 the host's own configured name back to it.
+
+## Optional demonstration data
+
+For evaluation, training, and development installs, the installer can fill
+the new database with a fictitious practice: about 3000 fake patients (every
+name carries a `FAKE-` prefix), demonstration providers, appointments,
+clinical notes, labs, prescriptions, and 60 clearly-fake referral
+specialists. Answer **yes** to the `Load the FICTITIOUS demonstration
+dataset?` question during install, or run it later by hand:
+
+```bash
+sudo carlos-ctl demo-data
+```
+
+What it does — and refuses to do:
+
+- **Empty databases only.** The load refuses to run against any database
+  that already holds a demographic record. There is no force flag.
+- **Additive to the migrations.** It only *adds* to the reference data the
+  Flyway migrations install — on any collision the migrated row wins. The
+  one exception: on a British Columbia install it **replaces** the seeded
+  provincial specialist directory (`billingreferral`,
+  `professionalSpecialists`, and their `serviceSpecialists` links) with the
+  fake demonstration list, so demo systems never carry the real physician
+  directory.
+- **Once.** A completed load leaves a marker table; re-runs (including
+  `dpkg-reconfigure carlos-emr`) are no-ops.
+- **No removal short of destruction.** The only supported way to get the
+  demonstration data out is `carlos-ctl destroy-data` and re-provisioning.
+
+A note on credentials: the demonstration data works with the seeded
+`carlosdoc` account. If you accepted the default *replace the seeded
+administrator password* question, log in with the random credentials from
+`/etc/carlos-emr/initial-admin.txt`; on a disposable demo box you may prefer
+to decline that question and keep the well-known development credentials.
+
+A system holding this dataset contains publicly-known demonstration content
+and must **never** hold real patient information.
 
 ## The full operator reference
 

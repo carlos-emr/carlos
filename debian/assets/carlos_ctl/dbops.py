@@ -629,6 +629,182 @@ backup.
     return 0
 
 
+# --- demonstration dataset (verb: demo-data) --------------------------------
+
+# Shipped by the carlos-emr package when built with the demo artifacts; the
+# debconf question carlos-emr/install-demo-data opts a fresh install into the
+# load, and this verb is what the postinst runs — so an administrator can
+# re-run exactly the same thing by hand after fixing whatever stopped it.
+DEMO_DIR = os.path.join(SHARE, "demo")
+
+# Written only after the whole stream loaded successfully, in a separate
+# statement: a load killed part-way leaves NO marker, so a re-run refuses on
+# the partial data instead of silently declaring victory (the drugref seed
+# taught this lesson).
+DEMO_MARKER_TABLE = "_carlos_demo_seed_complete"
+
+
+def _demo_count(s, sql: str, what: str) -> int:
+    """Single-value COUNT query for the demo-data guards. A failed query is
+    fatal, never treated as zero: 'could not check' and 'nothing there' must
+    stay different answers (same discipline as bootstrap-admin's seeded-hash
+    probe)."""
+    cp = db_root(["-N", "-B", s.db_name, "-e", sql], capture_output=True)
+    if cp.returncode != 0:
+        die(f"could not check {what}: {cp.stderr.strip()}")
+    return int(cp.stdout.strip())
+
+
+def cmd_demo_data(argv) -> int:
+    """Load the fictitious demonstration dataset into an EMPTY, freshly
+    migrated database. Additive by construction: the shipped artifact is
+    INSERT IGNORE-only (build-gated by scripts/check-demo-additive.sh in the
+    source tree), so on any key collision the Flyway-seeded row wins. The one
+    sanctioned exception, on BC only, is replacing the Flyway-seeded
+    provincial specialist directory (billingreferral) with the 60-entry
+    clearly-fake demo list — an explicit product decision so demo/dev systems
+    never carry the real physician directory."""
+    if argv:
+        die("demo-data takes no arguments")
+    need_root("demo-data")
+    require_db_root()
+    s = config.load()
+
+    artifact = os.path.join(DEMO_DIR, f"demo-additive-{s.province}.sql.gz")
+    if not os.path.isfile(artifact):
+        die(f"{artifact} is missing — this carlos-emr package was built "
+            "without the demonstration dataset (reinstall the package)")
+
+    # Guard A: the schema must be migrated. Loading demo rows into a
+    # half-created schema produces exactly the kind of partial state the
+    # marker exists to detect.
+    have = _demo_count(
+        s,
+        "SELECT COUNT(*) FROM information_schema.tables "
+        f"WHERE table_schema='{s.db_name}' "
+        "AND table_name IN ('flyway_schema_history','demographic')",
+        "the schema migration state")
+    if have != 2:
+        die("the schema is not migrated yet — run 'carlos-ctl db-migrate' first")
+
+    # Guard B: already loaded -> idempotent no-op, so dpkg-reconfigure and
+    # upgrades can re-answer the debconf question without consequence.
+    marker = _demo_count(
+        s,
+        "SELECT COUNT(*) FROM information_schema.tables "
+        f"WHERE table_schema='{s.db_name}' AND table_name='{DEMO_MARKER_TABLE}'",
+        "the demo-data marker")
+    if marker:
+        log("the demonstration dataset is already loaded; leaving it alone")
+        return 0
+
+    # Guard C: the database must hold NO patients. There is no --force: a
+    # populated database is either a real system (this tool must never touch
+    # it) or the wreck of an interrupted demo load (recoverable only by
+    # re-provisioning). The BC billingreferral replacement below is only
+    # reachable behind this guard, so it can never fire against live data.
+    patients = _demo_count(s, "SELECT COUNT(*) FROM demographic", "the patient count")
+    if patients:
+        die(f"the database already holds {patients} demographic record(s) and no "
+            "demo-data marker. Either this is a real system (do NOT load demo "
+            "data on it), or a previous demo load was interrupted — recover "
+            "with 'carlos-ctl destroy-data --confirm <server-name>' and "
+            "re-provision, then re-run 'carlos-ctl demo-data'.")
+
+    import gzip
+    import tempfile
+
+    # One fully assembled stream, one client session (the populate_db.sh
+    # discipline): the collation pin below must hold for every statement, and
+    # a partially fed pipe must not leave half a file applied because a later
+    # piece failed to read.
+    pieces = [
+        os.path.join(DEMO_DIR, "demo-provider-links.sql"),
+        os.path.join(DEMO_DIR, "demo-specialists.sql"),
+        # Rich Text Letter eform, for parity with the devcontainer's dev
+        # seeding. Purely additive: the Flyway baseline seeds zero eform rows
+        # and these files only touch the row the first one inserts.
+        os.path.join(DEMO_DIR, "update-2012-07-12.sql"),
+        os.path.join(DEMO_DIR, "update-2026-03-22-rtl-2026.3.0-modernize.sql"),
+        os.path.join(DEMO_DIR, "update-2026-03-12-rtl-enable-direct.sql"),
+        os.path.join(DEMO_DIR, "demo-name-sanitization.sql"),
+    ]
+    if s.province == "on":
+        # formLabReq07/10 exist only in the Ontario schema; the BC load would
+        # fail on the missing tables.
+        pieces.append(os.path.join(DEMO_DIR, "demo-name-sanitization-on.sql"))
+    for p in pieces:
+        if not os.path.isfile(p):
+            die(f"{p} is missing — reinstall carlos-emr")
+
+    log("loading the demonstration dataset (fictitious patients; a few minutes)...")
+    with tempfile.NamedTemporaryFile("w", suffix=".sql", delete=False) as out:
+        stream = out.name
+        out.write("SET SESSION sql_log_bin = 0;\n")
+        # MariaDB 11.4+ ships character_set_collations mapping utf8mb4 to
+        # uca1400_ai_ci; the schema (and the checksum-frozen migrations) are
+        # utf8mb4_general_ci, so pin the session before any row lands.
+        out.write("SET NAMES utf8mb4 COLLATE utf8mb4_general_ci;\n")
+        # The packaged MariaDB drop-in runs with an empty sql_mode (the
+        # OSCAR-lineage schema expects coercion, README.Debian section 6);
+        # pin the session too so this load does not depend on the server's
+        # strictness — the legacy eform seed has no defaults for NOT NULL
+        # columns added after 2012.
+        out.write("SET SESSION sql_mode='';\n")
+        out.write("SET FOREIGN_KEY_CHECKS=0;\n")
+        if s.province == "bc":
+            # The sanctioned exception to add-only: swap the real BC
+            # specialist directory for the fake demo list. bc/V1.0.6 seeds it
+            # into THREE tables — billingreferral (~10,700 referring
+            # practitioners), professionalSpecialists (~14,000 consultation
+            # specialists) and the serviceSpecialists links derived from
+            # them — so all three are cleared; the demo artifact and
+            # demo-specialists.sql then repopulate them with fake entries
+            # only. Plain DELETEs are correct here because guards B and C
+            # proved a fresh Flyway-only database — these tables can hold
+            # nothing but the V1.0.6 seed, and shipping row-match lists would
+            # just duplicate the data being removed.
+            out.write("DELETE FROM serviceSpecialists;\n")
+            out.write("DELETE FROM professionalSpecialists;\n")
+            out.write("DELETE FROM billingreferral;\n")
+        with gzip.open(artifact, "rt", encoding="utf-8") as fh:
+            for line in fh:
+                out.write(line)
+        for p in pieces:
+            with open(p, encoding="utf-8") as fh:
+                out.write("\n")
+                out.write(fh.read())
+        out.write("\nSET FOREIGN_KEY_CHECKS=1;\n")
+
+    try:
+        with open(stream, encoding="utf-8") as fh:
+            cp = db_root([s.db_name], stdin=fh)
+    finally:
+        os.unlink(stream)
+    if cp.returncode != 0:
+        die("the demonstration load FAILED part-way; the database is in a "
+            "partial state. Recover with 'carlos-ctl destroy-data --confirm "
+            "<server-name>', re-provision (dpkg-reconfigure carlos-emr), then "
+            "re-run 'carlos-ctl demo-data'.")
+
+    cp = db_root([s.db_name, "-e",
+                  f"CREATE TABLE `{DEMO_MARKER_TABLE}` "
+                  "(loaded_at DATETIME NOT NULL) ENGINE=InnoDB; "
+                  f"INSERT INTO `{DEMO_MARKER_TABLE}` VALUES (NOW())"],
+                 capture_output=True)
+    if cp.returncode != 0:
+        die(f"the demonstration data loaded but the completion marker could not "
+            f"be written: {cp.stderr.strip()} — re-run 'carlos-ctl demo-data' "
+            "only after fixing the cause (without the marker a re-run will "
+            "refuse on the populated database).")
+
+    log("demonstration dataset loaded: ~3000 FAKE- patients, demo providers, "
+        "and 60 fake referral specialists.")
+    log("this system now holds publicly-known demonstration content and known "
+        "development credentials — it must NEVER hold real patient data.")
+    return 0
+
+
 # --- deliberate decommissioning (verb: destroy-data) ------------------------
 
 def cmd_destroy_data(argv) -> int:

@@ -1,0 +1,118 @@
+# Tables excluded from the additive demo transform (build-demo-additive.sh).
+#
+# The additive demo artifact must only ADD to what the Flyway migrations
+# create — Flyway data always wins. Tables listed here are dropped from the
+# transformed development.sql because appending the dev snapshot's rows to
+# them would pollute or contradict Flyway-owned data. One table per line;
+# '#' starts a comment. Categories:
+#
+#   REF     Flyway-owned reference catalog. The snapshot's copy is a stale
+#           duplicate of (or diverges from) what V1/V1.0.x seed; even
+#           additive stale rows would corrupt the catalog.
+#   SEC     Security data. The snapshot carries the published carlosdoc dev
+#           hash that carlos-ctl bootstrap-admin exists to remove, and a
+#           stale secObjPrivilege snapshot whose extra rows would ADD
+#           privileges. Never re-introduced by the demo load.
+#   OPS     Operational noise (logs, runtime properties) with no demo value.
+#   SPECIAL Replaced by a guarded seed file instead of the raw snapshot.
+#
+# check-demo-additive.sh fails the build if development.sql ever inserts into
+# a table that is neither transformable (present in a province schema) nor
+# listed here — new snapshot tables must be classified consciously.
+
+# --- REF: Flyway-owned reference catalogs ---
+access_type
+agency
+app_lookuptable
+app_lookuptable_fields
+appointment_status
+billcenter
+billing_on_errorCode
+billing_payment_type
+billingservice
+caisi_role
+CdsFormOption
+clinic
+clinic_location
+clinic_nbr
+config_Immunization
+consentType
+ContactSpecialty
+consultationServices
+country_codes
+criteria_type
+criteria_type_option
+ctl_billingservice
+ctl_billingservice_premium
+ctl_diagcode
+ctl_doc_class
+ctl_doctype
+ctl_document
+ctl_frequency
+ctl_specialinstructions
+CtlRelationships
+default_role_access
+diagnosticcode
+documentDescriptionTemplate
+dxCodeTranslations
+encounterForm
+encountertemplate
+Facility
+fax_config
+frm_labreq_preset
+FunctionalCentre
+groups_tbl
+gstControl
+HL7HandlerMSHMapping
+HRMCategory
+icd9
+Icd9Synonym
+ichppccode
+issue
+LookupList
+LookupListItem
+lst_field_category
+lst_gender
+lst_orgcd
+lst_service_restriction
+measurementGroup
+measurementGroupStyle
+measurementMap
+measurementType
+OscarCode
+OscarJob
+OscarJobType
+oscar_msg_type
+oscarcommlocations
+queue
+quickList
+report
+reportprovider
+scheduleholiday
+scheduletemplatecode
+specialistsJavascript
+tickler_category
+tickler_text_suggest
+validations
+
+# --- SEC: security data ---
+security
+secObjPrivilege
+secObjectName
+secPrivilege
+secRole
+secUserRole
+ServiceClient
+ServiceAccessToken
+ServiceRequestToken
+
+# --- OPS: operational noise ---
+log
+table_modification
+property
+emailConfig
+
+# --- SPECIAL: replaced by guarded seed files ---
+# provider_facility is Flyway-seeded and FK-constrained; the guarded
+# demo-provider-links.sql adds the dev links instead.
+provider_facility

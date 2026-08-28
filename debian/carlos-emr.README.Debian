@@ -313,6 +313,26 @@ The baseline is stamped at 1.0.2, not 1. Stamping at 1 would make Flyway re-run
 the province migrations, and those DROP and recreate province tables — data
 loss.
 
+The demonstration dataset. Answering yes to the carlos-emr/install-demo-data
+debconf question (default: no) loads a fictitious practice into the freshly
+migrated database — about 3000 fake patients whose names all carry a FAKE-
+prefix, demonstration providers, appointments, notes, labs, prescriptions,
+and 60 clearly-fake referral specialists. The postinst runs the same verb an
+administrator can run by hand:
+
+  sudo carlos-ctl demo-data
+
+It refuses to run against any database that already holds a demographic
+record (no force flag), only ADDS to the reference data the migrations
+install — with one exception: on a British Columbia install it REPLACES the
+seeded provincial specialist directory (billingreferral,
+professionalSpecialists and their serviceSpecialists links) with the fake
+demonstration list — and a completed load leaves a marker table
+(_carlos_demo_seed_complete) that makes re-runs no-ops. The only supported
+removal is `carlos-ctl destroy-data` and re-provisioning. A system holding
+this dataset carries publicly-known demonstration content and must NEVER
+hold real patient information.
+
 
 7. Backups and restore   (DECIDE THIS)
 --------------------------------------
@@ -521,6 +541,9 @@ and in backup.env, to your own obligations.
   - It does not configure a host firewall. Ubuntu ships ufw and nftables;
     which one a site uses, and what else the machine serves, is not something
     a package should decide. Allow 22, 80 and 443 and deny the rest.
+  - It does not load demonstration data unless you explicitly answer yes to
+    the carlos-emr/install-demo-data debconf question (default: no), and
+    even then only into a database with no patients in it (section 6).
   - It does not set up an observability stack. Use the journal
     (`carlos-ctl logs`), or the carlos-podman deployment if you want metrics
     and log search.
