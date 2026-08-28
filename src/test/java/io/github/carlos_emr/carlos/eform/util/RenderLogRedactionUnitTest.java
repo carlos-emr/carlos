@@ -52,8 +52,8 @@ class RenderLogRedactionUnitTest {
         // Non-http schemes and bare filesystem paths are redacted too.
         assertThat(RenderLogRedaction.redactUrls("open file:///etc/passwd failed"))
                 .doesNotContain("/etc/passwd").contains("[redacted-url]");
-        assertThat(RenderLogRedaction.redactUrls("cannot read /var/lib/OscarDocument/secret.pdf"))
-                .doesNotContain("/var/lib/OscarDocument/secret.pdf").contains("[redacted-path]");
+        assertThat(RenderLogRedaction.redactUrls("cannot read /var/lib/CarlosDocument/secret.pdf"))
+                .doesNotContain("/var/lib/CarlosDocument/secret.pdf").contains("[redacted-path]");
         // Windows drive-letter and UNC paths are redacted too.
         assertThat(RenderLogRedaction.redactUrls("cannot read C:\\Users\\clinic\\secret.pdf"))
                 .doesNotContain("Users").doesNotContain("secret.pdf").contains("[redacted-path]");

@@ -39,7 +39,7 @@ STATE_DIR=/var/backups/carlos-emr
 # failures that aborted without one.
 ALERTED=0
 WORK_DIR="${STATE_DIR}/work"
-DOCS_DIR=/var/lib/carlos-emr/OscarDocument
+DOCS_DIR=/var/lib/carlos-emr/CarlosDocument
 LOG_TAG=carlos-emr-backup
 
 log()  { printf '%s: %s\n' "${LOG_TAG}" "$*"; }
@@ -474,7 +474,7 @@ cmd_run() {
 
     # The binlog leg may fail (grant revoked, logging off) — it alerts and
     # must fail the UNIT, but it must not starve the legs after it: while a
-    # grant stayed broken, every nightly stopped here and OscarDocument and
+    # grant stayed broken, every nightly stopped here and CarlosDocument and
     # carlos.properties (the AES key a restore depends on) were never
     # shipped. Remember the failure, finish the run, exit non-zero at the
     # end. Review finding, confirmed by inspection.
@@ -643,10 +643,13 @@ cmd_verify() {
             exit 1
             ;;
     esac
+    # Both spellings pass: a snapshot taken before the 2026.09.0~snapshot4
+    # directory rename carries OscarDocument paths, and the drill restores
+    # the NEWEST snapshot — which right after an upgrade is still pre-rename.
     case "${files_list}" in
-        *OscarDocument*) : ;;
+        *CarlosDocument*|*OscarDocument*) : ;;
         *)
-            alert "restore drill failed" "the newest files snapshot contains no OscarDocument paths — patient documents are NOT being backed up."
+            alert "restore drill failed" "the newest files snapshot contains no CarlosDocument paths — patient documents are NOT being backed up."
             exit 1
             ;;
     esac

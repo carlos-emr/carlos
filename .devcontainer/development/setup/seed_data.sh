@@ -14,8 +14,8 @@ mariadb -h db -u root carlos \
 # The runtime document volume masks directories created in the image. Recreate
 # the configured incoming-document root in that mounted volume so fresh
 # devcontainers can render lazily-created queue children as empty queues.
-mkdir -p /var/lib/OscarDocument/oscar/incomingdocs
+mkdir -p /var/lib/CarlosDocument/carlos/incomingdocs
 
 # Seeding initial database files for documents
-cp -vn /db-data/documents/* /var/lib/OscarDocument/oscar/document/
+cp -vn /db-data/documents/* /var/lib/CarlosDocument/carlos/document/
 echo "[Bootstrap] Finished copying documents."

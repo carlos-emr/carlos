@@ -82,6 +82,26 @@ case "$1" in
             adduser --quiet carlos-backup carlos
         fi
 
+        # One-time migration (2026.09.0~snapshot4): the document store default
+        # was renamed OscarDocument -> CarlosDocument. Runs BEFORE the tmpfiles
+        # call below, which would otherwise create a fresh empty CarlosDocument
+        # and turn this mv into the refused both-exist case. Version-gated like
+        # the database rename: a directory literally named OscarDocument that
+        # an operator creates after this boundary is their choice and is left
+        # alone. The compat symlink keeps absolute paths already stored in the
+        # database (faxes.filename, emailAttachment.filePath) resolving.
+        if [ -n "${2:-}" ] && dpkg --compare-versions "$2" lt "2026.09.0~snapshot4" \
+            && [ -d "${STATE}/OscarDocument" ] && [ ! -L "${STATE}/OscarDocument" ]; then
+            if [ ! -e "${STATE}/CarlosDocument" ]; then
+                mv "${STATE}/OscarDocument" "${STATE}/CarlosDocument"
+                ln -sn CarlosDocument "${STATE}/OscarDocument"
+                echo "carlos-emr: renamed the document store OscarDocument -> CarlosDocument (a compat symlink keeps stored paths valid)"
+            else
+                echo "carlos-emr: WARNING: both ${STATE}/OscarDocument and ${STATE}/CarlosDocument exist;" >&2
+                echo "carlos-emr: WARNING: refusing to merge patient document stores — resolve by hand." >&2
+            fi
+        fi
+
         # --- directories ----------------------------------------------------
         # systemd-tmpfiles owns this on a systemd host; run it explicitly so a
         # fresh install has its directories before anything below writes into
@@ -101,7 +121,7 @@ case "$1" in
                 "${STATE}/catalina/lib" "${STATE}/catalina/prefs" \
                 "${STATE}/heapdumps"
             install -d -m 2750 -o carlos -g carlos \
-                "${STATE}/OscarDocument" "${STATE}/OscarDocument/carlos"
+                "${STATE}/CarlosDocument" "${STATE}/CarlosDocument/carlos"
             install -d -m 0750 -o www-data -g www-data "${STATE}/modsecurity"
             install -d -m 0700 -o www-data -g www-data \
                 "${STATE}/modsecurity/tmp" "${STATE}/modsecurity/data"
@@ -131,17 +151,17 @@ case "$1" in
         ( cd "${SHARE}/document-skeleton/carlos" && find . -type d -printf '%P\n' ) | \
         while IFS= read -r d; do
             [ -n "${d}" ] || continue
-            if [ ! -d "${STATE}/OscarDocument/carlos/${d}" ]; then
-                install -d -m 2750 -o carlos -g carlos "${STATE}/OscarDocument/carlos/${d}"
+            if [ ! -d "${STATE}/CarlosDocument/carlos/${d}" ]; then
+                install -d -m 2750 -o carlos -g carlos "${STATE}/CarlosDocument/carlos/${d}"
             fi
         done
         ( cd "${SHARE}/document-skeleton/carlos" && find . -type f -printf '%P\n' ) | \
         while IFS= read -r f; do
             [ -n "${f}" ] || continue
-            if [ ! -e "${STATE}/OscarDocument/carlos/${f}" ]; then
+            if [ ! -e "${STATE}/CarlosDocument/carlos/${f}" ]; then
                 install -m 0640 -o carlos -g carlos \
                     "${SHARE}/document-skeleton/carlos/${f}" \
-                    "${STATE}/OscarDocument/carlos/${f}"
+                    "${STATE}/CarlosDocument/carlos/${f}"
             fi
         done
 

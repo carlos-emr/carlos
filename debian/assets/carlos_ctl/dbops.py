@@ -971,7 +971,7 @@ def cmd_destroy_data(argv) -> int:
         print(f"""carlos-ctl: this destroys the clinical record on this host and cannot be undone.
 
 It will DROP the '{s.db_name}' and 'drugref2' databases, and delete every
-patient document under {STATE}/OscarDocument, every JVM heap dump, and the
+patient document under {STATE}/CarlosDocument, every JVM heap dump, and the
 application logs.
 
 To proceed you must name the host you are destroying:
@@ -1025,7 +1025,7 @@ DROP USER IF EXISTS 'backup'@'127.0.0.1';
     rm_errors = []
     def _collect(_fn, path, exc):
         rm_errors.append(f"{path}: {exc[1]}")
-    for p in (f"{STATE}/OscarDocument", f"{STATE}/heapdumps",
+    for p in (f"{STATE}/CarlosDocument", f"{STATE}/heapdumps",
               "/var/log/carlos-emr/tomcat", "/var/log/carlos-emr/modsec"):
         if os.path.exists(p):
             shutil.rmtree(p, onerror=_collect)

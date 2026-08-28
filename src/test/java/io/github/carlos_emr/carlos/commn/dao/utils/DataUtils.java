@@ -167,7 +167,7 @@ public class DataUtils {
 		String docDir = System.getProperty("DOCUMENT_DIR"); 
 		if (docDir == null || docDir.trim().equals("")) {
 			docDir = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-			docDir = "/var/lib/OscarDocument";
+			docDir = "/var/lib/CarlosDocument";
 		}
 		
 	    String savePath = docDir  + "/" + fileName;

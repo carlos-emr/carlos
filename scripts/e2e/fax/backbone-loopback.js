@@ -23,7 +23,7 @@ const { cfg } = require('./lib');
 const MARIADB = (process.env.MARIADB || 'mariadb').split(/\s+/);
 const DB = process.env.CARLOS_DB_NAME || 'carlos';
 const DOCDIR = process.env.CARLOS_DOCUMENT_DIR
-  || '/var/lib/carlos-emr/OscarDocument/carlos/document';
+  || '/var/lib/carlos-emr/CarlosDocument/carlos/document';
 
 function sql(q) {
   const [cmd, ...pre] = MARIADB;

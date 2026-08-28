@@ -14,10 +14,10 @@ Instructions on how to customize Oscar's new login page with clinic and support 
 
 ## Resource Directory
 
-All the custom resources must be placed inside a directory named "login" and then placed inside the root of OscarDocument
+All the custom resources must be placed inside a directory named "login" and then placed inside the root of CarlosDocument
 
 ```
-/var/lib/OscarDocument/login
+/var/lib/CarlosDocument/login
 ```
 
 The login directory must be accessible to the Tomcat user. 
@@ -29,7 +29,7 @@ The login directory must be accessible to the Tomcat user.
 All of the text data is placed in a key-value properties file named ".env" located in the root of the login directory. A file example is included at the end of this document.
 
 ```
-/var/lib/OscarDocument/login/.env
+/var/lib/CarlosDocument/login/.env
 ```
 
 ### *tabName*
@@ -87,7 +87,7 @@ Images must be placed in the root of the login directory. The image names must b
 ### *clinicLogo.png*
 
 ```
-/var/lib/OscarDocument/login/clinicLogo.png
+/var/lib/CarlosDocument/login/clinicLogo.png
 ```
 - This image is placed directly below the login dialog. 
 - It must be formated as a PNG.
@@ -97,7 +97,7 @@ Images must be placed in the root of the login directory. The image names must b
 ### *supportLogo.png*
 
 ```
-/var/lib/OscarDocument/login/supportLogo.png
+/var/lib/CarlosDocument/login/supportLogo.png
 ```
 - This image is placed at the very top at the login page above the login dialog. 
 - It must be formated as a PNG.
@@ -110,7 +110,7 @@ The Acceptable Use Agreement should be saved as a text file inside the root of t
 Enable the AUA with the show_aua key in the carlos.properties file. 
 
 ```
-/var/lib/OscarDocument/login/AcceptableUseAgreement.txt
+/var/lib/CarlosDocument/login/AcceptableUseAgreement.txt
 ```
 
 ## Login Page Diagram

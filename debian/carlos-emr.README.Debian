@@ -86,7 +86,7 @@ inputs, including how to skip the Maven compile with a prebuilt WAR).
   /etc/nginx/sites-available/carlos-emr  the front door (conffile)
   /etc/mysql/mariadb.conf.d/60-carlos-emr.cnf   MariaDB settings (conffile)
 
-  /var/lib/carlos-emr/OscarDocument/     PATIENT DOCUMENTS
+  /var/lib/carlos-emr/CarlosDocument/     PATIENT DOCUMENTS
   /var/lib/carlos-emr/catalina/          Tomcat's writable state
   /var/lib/carlos-emr/heapdumps/         JVM heap dumps (PHI — see below)
   /var/log/carlos-emr/tomcat/            application, container and access logs
@@ -403,7 +403,7 @@ sequence has been exercised end to end (DROP DATABASE and back):
   sudo systemctl stop carlos-emr-backup.service carlos-emr-backup-verify.service
   # 0. ON A REBUILT/REPLACEMENT HOST ONLY (skip if you are restoring in place
   #    and the documents + /etc/carlos-emr are intact): restore the FILES
-  #    snapshot — the scanned patient documents under OscarDocument AND
+  #    snapshot — the scanned patient documents under CarlosDocument AND
   #    /etc/carlos-emr/carlos.properties, which carries encryption.util.secret.key.
   #    This MUST precede the database load: the DB holds third-party credentials
   #    encrypted under that AES key, so a fresh key (which the package generates
@@ -413,9 +413,9 @@ sequence has been exercised end to end (DROP DATABASE and back):
   sudo carlos-ctl backup restic restore latest --tag files \
       --target /var/backups/carlos-emr/dr-files
   #    Move the documents into place (owned by the application user):
-  sudo rsync -a /var/backups/carlos-emr/dr-files/var/lib/carlos-emr/OscarDocument/ \
-      /var/lib/carlos-emr/OscarDocument/
-  sudo chown -R carlos:carlos /var/lib/carlos-emr/OscarDocument
+  sudo rsync -a /var/backups/carlos-emr/dr-files/var/lib/carlos-emr/CarlosDocument/ \
+      /var/lib/carlos-emr/CarlosDocument/
+  sudo chown -R carlos:carlos /var/lib/carlos-emr/CarlosDocument
   #    Restore the AES key line into the freshly-generated carlos.properties
   #    (copy encryption.util.secret.key from the restored copy, or restore the
   #    whole file if this host has no newer local settings):

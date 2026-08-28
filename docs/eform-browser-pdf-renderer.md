@@ -231,7 +231,7 @@ heuristic.
   DevTools is a parent-process pipe rather than a localhost TCP port another local process could
   connect to.
 - **No local file access.** A malicious eForm cannot read server files (`file:///etc/passwd`,
-  `/var/lib/OscarDocument/...`) into the rendered PDF. Two layers: Chromium's default cross-scheme
+  `/var/lib/CarlosDocument/...`) into the rendered PDF. Two layers: Chromium's default cross-scheme
   policy blocks `file://` subresources from the http render origin, and the renderer's request
   gate classifies any non-web scheme (`file:`, `filesystem:`, `chrome:`, `view-source:`, …)
   **other than** the non-network pseudo-schemes `data:`/`blob:`/`about:` as a disallowed request

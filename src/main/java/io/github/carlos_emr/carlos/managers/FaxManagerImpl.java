@@ -1113,7 +1113,7 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         // Use PathValidationUtils for document-root validation only after the temp-root fast path.
-        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
+        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/CarlosDocument/"));
         PathValidationUtils.validateExistingPath(file, documentDir);
     }
 
@@ -1143,7 +1143,7 @@ public class FaxManagerImpl implements FaxManager {
         if (PathValidationUtils.isInApplicationTempDirectory(file)) {
             resolvedPath = file.getCanonicalFile().toPath();
         } else {
-            File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
+            File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/CarlosDocument/"));
             resolvedPath = PathValidationUtils.validateExistingPath(file, documentDir).toPath();
         }
 

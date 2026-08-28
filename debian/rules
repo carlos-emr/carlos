@@ -273,7 +273,7 @@ override_dh_auto_install:
 	install -m 0644 debian/assets/skel/carlos-emr.env $(STAGE)/$(SHAREDIR)/skel/carlos-emr.env
 	install -m 0644 debian/assets/skel/backup.env $(STAGE)/$(SHAREDIR)/skel/backup.env
 	install -m 0644 debian/assets/nginx/proxy-params.conf $(STAGE)/$(SHAREDIR)/skel/proxy-params.conf
-	# OscarDocument skeleton. Every directory that a property SET by carlos-ctl
+	# CarlosDocument skeleton. Every directory that a property SET by carlos-ctl
 	# names must be here: Startup.checkAndSetProperty only auto-creates
 	# directories for properties it derives itself (i.e. UNSET ones), so a
 	# configured INVOICE_DIR or ONEDT_INBOX pointing at a missing directory is

@@ -42,8 +42,8 @@ d /var/lib/carlos-emr/heapdumps                   0750 carlos        carlos -
 # without being given the application uid. The setgid bit makes every file the
 # application creates inherit the group, so the backup keeps working without a
 # periodic chmod sweep. Nobody else on the host can even list it.
-d /var/lib/carlos-emr/OscarDocument               2750 carlos        carlos -
-d /var/lib/carlos-emr/OscarDocument/carlos        2750 carlos        carlos -
+d /var/lib/carlos-emr/CarlosDocument               2750 carlos        carlos -
+d /var/lib/carlos-emr/CarlosDocument/carlos        2750 carlos        carlos -
 # ModSecurity's request-body spool and persistent collections, owned by the
 # nginx worker uid at 0700: a spooled body is an unfiltered request that may
 # contain PHI.
