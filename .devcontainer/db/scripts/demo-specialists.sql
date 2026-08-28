@@ -19,7 +19,8 @@
 --     would duplicate on re-run).
 --   * serviceSpecialists links join on consultationServices.serviceDesc
 --     (identical label catalogs in ON and BC) rather than hard-coded
---     serviceIds, and are NOT EXISTS-guarded (the table has no primary key).
+--     serviceIds, and are guarded by WHERE NOT EXISTS (the table has no
+--     primary key, so INSERT IGNORE alone could not deduplicate re-runs).
 -- ---------------------------------------------------------------------------
 
 INSERT IGNORE INTO professionalSpecialists

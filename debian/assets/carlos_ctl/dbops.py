@@ -655,6 +655,55 @@ def _demo_count(s, sql: str, what: str) -> int:
     return int(cp.stdout.strip())
 
 
+def _demo_assemble_stream(s, out, artifact: str, pieces: list) -> None:
+    """Write the complete demo SQL stream — session pins, the BC directory
+    replacement, the gunzipped artifact, and the companion pieces — to the
+    open temp file and close it. One fully assembled stream, one client
+    session (the populate_db.sh discipline): the collation pin must hold for
+    every statement, and a partially fed pipe must not leave half a file
+    applied because a later piece failed to read. Raises the underlying
+    OSError/EOFError/UnicodeDecodeError/zlib.error on a corrupt or unreadable
+    input; the caller turns that into a controlled die()."""
+    import gzip
+
+    out.write("SET SESSION sql_log_bin = 0;\n")
+    # MariaDB 11.4+ ships character_set_collations mapping utf8mb4 to
+    # uca1400_ai_ci; the schema (and the checksum-frozen migrations) are
+    # utf8mb4_general_ci, so pin the session before any row lands.
+    out.write("SET NAMES utf8mb4 COLLATE utf8mb4_general_ci;\n")
+    # The packaged MariaDB drop-in runs with an empty sql_mode (the
+    # OSCAR-lineage schema expects coercion, README.Debian section 6);
+    # pin the session too so this load does not depend on the server's
+    # strictness — the legacy eform seed has no defaults for NOT NULL
+    # columns added after 2012.
+    out.write("SET SESSION sql_mode='';\n")
+    out.write("SET FOREIGN_KEY_CHECKS=0;\n")
+    if s.province == "bc":
+        # The sanctioned exception to add-only: swap the real BC
+        # specialist directory for the fake demo list. bc/V1.0.6 seeds it
+        # into THREE tables — billingreferral (~10,700 referring
+        # practitioners), professionalSpecialists (~14,000 consultation
+        # specialists) and the serviceSpecialists links derived from
+        # them — so all three are cleared; the demo artifact and
+        # demo-specialists.sql then repopulate them with fake entries
+        # only. Plain DELETEs are correct here because guards B and C
+        # proved a fresh Flyway-only database — these tables can hold
+        # nothing but the V1.0.6 seed, and shipping row-match lists would
+        # just duplicate the data being removed.
+        out.write("DELETE FROM serviceSpecialists;\n")
+        out.write("DELETE FROM professionalSpecialists;\n")
+        out.write("DELETE FROM billingreferral;\n")
+    with gzip.open(artifact, "rt", encoding="utf-8") as fh:
+        for line in fh:
+            out.write(line)
+    for p in pieces:
+        with open(p, encoding="utf-8") as fh:
+            out.write("\n")
+            out.write(fh.read())
+    out.write("\nSET FOREIGN_KEY_CHECKS=1;\n")
+    out.close()
+
+
 def cmd_demo_data(argv) -> int:
     """Load the fictitious demonstration dataset into an EMPTY, freshly
     migrated database. Additive by construction: the shipped artifact is
@@ -724,8 +773,8 @@ def cmd_demo_data(argv) -> int:
             "with 'carlos-ctl destroy-data --confirm <server-name>' and "
             "re-provision, then re-run 'carlos-ctl demo-data'.")
 
-    import gzip
     import tempfile
+    import zlib
 
     # One fully assembled stream, one client session (the populate_db.sh
     # discipline): the collation pin below must hold for every statement, and
@@ -761,42 +810,15 @@ def cmd_demo_data(argv) -> int:
                                       delete=False)
     stream = out.name
     try:
-        out.write("SET SESSION sql_log_bin = 0;\n")
-        # MariaDB 11.4+ ships character_set_collations mapping utf8mb4 to
-        # uca1400_ai_ci; the schema (and the checksum-frozen migrations) are
-        # utf8mb4_general_ci, so pin the session before any row lands.
-        out.write("SET NAMES utf8mb4 COLLATE utf8mb4_general_ci;\n")
-        # The packaged MariaDB drop-in runs with an empty sql_mode (the
-        # OSCAR-lineage schema expects coercion, README.Debian section 6);
-        # pin the session too so this load does not depend on the server's
-        # strictness — the legacy eform seed has no defaults for NOT NULL
-        # columns added after 2012.
-        out.write("SET SESSION sql_mode='';\n")
-        out.write("SET FOREIGN_KEY_CHECKS=0;\n")
-        if s.province == "bc":
-            # The sanctioned exception to add-only: swap the real BC
-            # specialist directory for the fake demo list. bc/V1.0.6 seeds it
-            # into THREE tables — billingreferral (~10,700 referring
-            # practitioners), professionalSpecialists (~14,000 consultation
-            # specialists) and the serviceSpecialists links derived from
-            # them — so all three are cleared; the demo artifact and
-            # demo-specialists.sql then repopulate them with fake entries
-            # only. Plain DELETEs are correct here because guards B and C
-            # proved a fresh Flyway-only database — these tables can hold
-            # nothing but the V1.0.6 seed, and shipping row-match lists would
-            # just duplicate the data being removed.
-            out.write("DELETE FROM serviceSpecialists;\n")
-            out.write("DELETE FROM professionalSpecialists;\n")
-            out.write("DELETE FROM billingreferral;\n")
-        with gzip.open(artifact, "rt", encoding="utf-8") as fh:
-            for line in fh:
-                out.write(line)
-        for p in pieces:
-            with open(p, encoding="utf-8") as fh:
-                out.write("\n")
-                out.write(fh.read())
-        out.write("\nSET FOREIGN_KEY_CHECKS=1;\n")
-        out.close()
+        # Assembly failures (corrupt artifact, unreadable piece, disk full)
+        # must die() like every other provisioning verb, not traceback; the
+        # outer finally still unlinks the partial stream either way.
+        try:
+            _demo_assemble_stream(s, out, artifact, pieces)
+        except (OSError, EOFError, UnicodeDecodeError, zlib.error) as e:
+            die(f"could not assemble the demonstration SQL stream: {e} — the "
+                "demo artifact or a companion file is corrupt or unreadable; "
+                "reinstall carlos-emr and re-run 'carlos-ctl demo-data'")
         with open(stream, encoding="utf-8") as fh:
             cp = db_root([s.db_name], stdin=fh)
     finally:
