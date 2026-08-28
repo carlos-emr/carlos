@@ -1,0 +1,150 @@
+name: MyVitalHistory Tauri POC
+
+on:
+  pull_request:
+    paths:
+      - "myvitalhistory-tauri-poc/**"
+      - ".github/workflows/myvitalhistory-tauri-poc.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: myvitalhistory-tauri-poc-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: myvitalhistory-tauri-poc
+
+jobs:
+  web:
+    name: Web UI and browser tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: myvitalhistory-tauri-poc/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Upload responsive screenshots and traces
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: myvitalhistory-browser-evidence
+          path: |
+            myvitalhistory-tauri-poc/test-results
+            myvitalhistory-tauri-poc/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+  desktop:
+    name: Linux desktop debug build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Install Linux webview dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install -y
+          libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+        working-directory: .
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: myvitalhistory-tauri-poc/package-lock.json
+      - name: Install pinned Rust toolchain
+        run: >-
+          rustup toolchain install 1.98.0 --profile minimal
+          --component rustfmt --component clippy
+      - run: npm ci
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - run: npm run tauri build -- --debug --bundles deb
+      - name: Report desktop artifact sizes
+        run: find src-tauri/target/debug/bundle -type f -printf '%p %k KB\n' | sort
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: myvitalhistory-linux-debug
+          path: myvitalhistory-tauri-poc/src-tauri/target/debug/bundle
+          retention-days: 7
+
+  android:
+    name: Android debug build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: myvitalhistory-tauri-poc/package-lock.json
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Configure hosted Android NDK
+        run: |
+          test -d "$ANDROID_NDK_LATEST_HOME"
+          echo "NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
+      - name: Install pinned Rust toolchain and Android target
+        run: >-
+          rustup toolchain install 1.98.0 --profile minimal
+          --target aarch64-linux-android
+      - run: npm ci
+      - run: npm run tauri android init -- --ci
+      - run: npm run tauri android build -- --debug --apk --target aarch64 --ci
+      - name: Report Android artifact sizes
+        run: find src-tauri/gen/android -type f -name '*.apk' -printf '%p %k KB\n' | sort
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: myvitalhistory-android-debug
+          path: myvitalhistory-tauri-poc/src-tauri/gen/android/app/build/outputs/apk
+          retention-days: 7
+
+  ios:
+    name: iOS simulator debug build
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: myvitalhistory-tauri-poc/package-lock.json
+      - name: Install pinned Rust toolchain and iOS simulator target
+        run: >-
+          rustup toolchain install 1.98.0 --profile minimal
+          --target aarch64-apple-ios-sim
+      - run: npm ci
+      - run: npm run tauri ios init -- --ci
+      - run: npm run tauri ios build -- --debug --target aarch64-sim --no-sign --ci
+      - name: Report iOS simulator artifact sizes
+        run: find src-tauri/gen/apple/build -type d -name '*.app' -exec du -sh {} \;
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: myvitalhistory-ios-simulator-debug
+          path: myvitalhistory-tauri-poc/src-tauri/gen/apple/build/**/*.app
+          if-no-files-found: error
+          retention-days: 7

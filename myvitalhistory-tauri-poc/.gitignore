@@ -1,0 +1,9 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+coverage/
+src-tauri/target/
+src-tauri/gen/schemas/
+*.log
+*.local
