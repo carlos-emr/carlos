@@ -75,6 +75,11 @@ Description: Java heap size for the CARLOS application server:
  server give it roughly half of physical memory, leaving room for MariaDB's
  buffer pool and about 1 GB for the operating system.
  .
+ On a fresh install the value offered is sized from this machine's memory
+ (half of RAM, between 2g and 8g); on reconfiguration or upgrade it is the
+ currently configured value. Accept it unless the host is shared with other
+ services or the database runs elsewhere.
+ .
  Use the JVM's own notation, for example 4g or 6144m.
 
 Template: carlos-emr/reset-seed-admin
