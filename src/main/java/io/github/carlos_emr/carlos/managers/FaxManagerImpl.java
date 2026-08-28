@@ -1084,20 +1084,13 @@ public class FaxManagerImpl implements FaxManager {
     }
 
     /**
-     * Validates that a file path is safe and within allowed directories.
-     * Prevents path traversal attacks by checking for malicious patterns and
-     * validating the path is within whitelisted directories.
-     *
-     * @param filePath the file path to validate
-     * @throws SecurityException if the path is invalid or outside allowed directories
-     */
-    /**
-     * The document-store root that fax file paths are contained within. Prefers the configured
-     * or derived document directory ({@code DOCUMENT_DIR}, else {@code BASE_DOCUMENT_DIR/document})
-     * so the containment boundary matches the actual store rather than the broader base — a
-     * mis-set {@code DOCUMENT_DIR} must not let non-document paths under the store root pass
-     * validation. Falls back to the base only if derivation is impossible (neither property set),
-     * which never happens in a real deployment but keeps this from throwing on a bare config.
+     * The document-store root that fax file paths are contained within. When {@code DOCUMENT_DIR}
+     * is set it is used verbatim (the operator's configured store); when it is unset the boundary
+     * is derived as {@code BASE_DOCUMENT_DIR/document} rather than the broader store base, so an
+     * unset {@code DOCUMENT_DIR} does not silently widen containment to let non-document paths
+     * under the base pass validation. Falls back to the base only if derivation is impossible
+     * (neither property set), which never happens in a real deployment but keeps this from
+     * throwing on a bare config.
      */
     private File documentRootForValidation() {
         CarlosProperties properties = CarlosProperties.getInstance();
@@ -1112,6 +1105,14 @@ public class FaxManagerImpl implements FaxManager {
         return new File(documentDir);
     }
 
+    /**
+     * Validates that a file path is safe and within allowed directories.
+     * Prevents path traversal attacks by checking for malicious patterns and
+     * validating the path is within whitelisted directories.
+     *
+     * @param filePath the file path to validate
+     * @throws SecurityException if the path is invalid or outside allowed directories
+     */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
