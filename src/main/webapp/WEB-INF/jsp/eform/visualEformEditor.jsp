@@ -270,6 +270,8 @@ FOR STAND ALONE USE
 <c:set var="i18n_textCheckbox"><fmt:message key="eform.visual.editor.text.checkbox"/></c:set>
 <c:set var="i18n_textTrash"><fmt:message key="eform.visual.editor.text.trash"/></c:set>
 <c:set var="i18n_textAddWetSignature"><fmt:message key="eform.visual.editor.text.addWetSignature"/></c:set>
+<c:set var="i18n_textWetSignatureSignHint"><fmt:message key="eform.visual.editor.text.wetSignatureSignHint"/></c:set>
+<c:set var="i18n_textNoSignatureStamp"><fmt:message key="eform.visual.editor.text.noSignatureStamp"/></c:set>
 <c:set var="i18n_textControls"><fmt:message key="eform.visual.editor.text.controls"/></c:set>
 <c:set var="i18n_textGuideOptions"><fmt:message key="eform.visual.editor.text.guideOptions"/></c:set>
 <script>
@@ -373,6 +375,8 @@ var EFORM_I18N = {
     textCheckbox: '${carlos:forJavaScript(i18n_textCheckbox)}',
     textTrash: '${carlos:forJavaScript(i18n_textTrash)}',
     textAddWetSignature: '${carlos:forJavaScript(i18n_textAddWetSignature)}',
+    textWetSignatureSignHint: '${carlos:forJavaScript(i18n_textWetSignatureSignHint)}',
+    textNoSignatureStamp: '${carlos:forJavaScript(i18n_textNoSignatureStamp)}',
     textControls: '${carlos:forJavaScript(i18n_textControls)}',
     textGuideOptions: '${carlos:forJavaScript(i18n_textGuideOptions)}'
 };
@@ -2354,11 +2358,9 @@ var EFORM_I18N = {
                 class: "stamp",
                 onclick: "toggleMe(this);"
             });
-            $img.on("error", function() {
-                if (this.src.indexOf("BNK.png") === -1) {
-                    this.src = getBlankSignatureStampSrc();
-                }
-            });
+            /* No onerror fallback here: when the provider signature image 404s, the caller
+               (initSignatureTemplateTab) hides the whole stamp frame and shows a warning. The
+               <img> stays in the DOM so nothing broken is placeable/serializable onto an eForm. */
             $widget.append($img);
             $parent.append($widget);
             makeDraggable($widget, true, ".gen-layer1, .gen-layer2");
@@ -2824,6 +2826,11 @@ var EFORM_I18N = {
 					}
 					if ($(this).is('#Stamp')){
                         $(this).attr("src", getSignatureStampPreviewSrc());
+                        /* A stamp already placed on a saved eForm keeps the blank-stamp
+                           fallback (rather than the hide/warn behaviour used for the palette
+                           template in addDraggableStamp): a placed stamp is meant to resolve
+                           to the signing provider's signature at render time, so the <img>
+                           must stay in the form and must not be hidden or warned on here. */
                         $(this).on("error", function() {
                             if (this.src.indexOf("BNK.png") === -1) {
                                 this.src = getBlankSignatureStampSrc();
@@ -4169,10 +4176,60 @@ var EFORM_I18N = {
             var src = getSignatureStampPreviewSrc();
             addDraggableStamp($dragFrame51, "signatureStamp", 255, 50, src, "signatureStamp");
             $tab.append($dragFrame51);
-            var $label = $("<label>").text('  Add Signature Stamp: ');
-            $label.css("fontSize", 12);
-            $label.attr('id', "stampLabel");
-            $dragFrame51.before($label);
+            var $stampLabel = $("<label>").text('  Add Signature Stamp: ');
+            $stampLabel.css("fontSize", 12);
+            $stampLabel.attr('id', "stampLabel");
+            $dragFrame51.before($stampLabel);
+            /* The stamp is only usable once its provider-signature image has loaded. Keep the
+               stamp label/frame hidden until the load result is known so it cannot be dragged
+               onto a form while still loading — a dropped clone would otherwise show a broken
+               image if the provider signature then 404s. Reveal it on success; on failure keep
+               it hidden and show a warning at the BOTTOM of the tab (in the palette, never
+               inside a draggable/serialized widget). Guard the warning against a duplicate if
+               the tab is initialised more than once. */
+            $stampLabel.hide();
+            $dragFrame51.hide();
+            var showSignatureStamp = function() {
+                $stampLabel.show();
+                $dragFrame51.show();
+            };
+            var showNoSignatureStampWarning = function() {
+                $stampLabel.hide();
+                $dragFrame51.hide();
+                if ($tab.find(".noSignatureStampWarning").length === 0) {
+                    $tab.append($("<div>", {
+                        text: EFORM_I18N.textNoSignatureStamp,
+                        class: "noSignatureStampWarning",
+                        // role=alert so screen readers announce this dynamically inserted warning
+                        role: "alert",
+                        style: 'font-size:14px; color:#b00; margin-top:6px;'
+                    }));
+                }
+            };
+            var $stampImg = $dragFrame51.find("img.stamp");
+            /* Capture the provider-signature endpoint up front: toggleMe() rewrites img.src to a
+               blank placeholder when a loaded stamp is clicked, so img.src is not reliable later. */
+            var stampSrc = $stampImg.attr("src");
+            /* The <img> "error" event carries no HTTP status, so a transient/permission/server
+               failure (401/403/500) is indistinguishable from a missing signature (404). Probe
+               the provider-signature endpoint to classify: only a 404 means "no signature on
+               file" — for any other failure leave the stamp hidden without the misleading
+               message. Checking stampSrc (not the current img.src) also means a click that
+               toggles the stamp to a missing blank placeholder never reverts a real signature
+               to the warning. */
+            var warnIfMissingSignature = function() {
+                fetch(stampSrc, { credentials: "same-origin" })
+                    .then(function(resp) {
+                        if (resp.status === 404) {
+                            showNoSignatureStampWarning();
+                        }
+                    })
+                    .catch(function() {
+                        /* network/CSP error: leave the stamp hidden, do not guess a reason */
+                    });
+            };
+            $stampImg.on("load", showSignatureStamp);
+            $stampImg.on("error", warnIfMissingSignature);
 
             if (!signaturePadLoaded) {
                 $tab.append($("<span>", {
@@ -4184,11 +4241,40 @@ var EFORM_I18N = {
                 var $dragFrame52 = createStitchFrame();
                 addDraggableSignaturePad($dragFrame52, "signaturePad", 255, 50, "signaturePad");
                 $tab.append($dragFrame52);
-                $label = $("<label>").text('  Add Wet Signature: ');
-                $label.css("fontSize", 12);
-                $label.attr('id', "padLabel");
-                $dragFrame52.before($label);
+                var $padLabel = $("<label>").text('  Add Wet Signature: ');
+                $padLabel.css("fontSize", 12);
+                $padLabel.attr('id', "padLabel");
+                $dragFrame52.before($padLabel);
+                /* The wet-signature pad can only be drawn on in interact mode. While the
+                   Form Building panel is open the editor is in drag/build mode (widgets carry
+                   a transparent overlay so they can be positioned), which blocks drawing.
+                   Tell the user to open another panel to actually sign. Guard against a
+                   duplicate id if the tab is ever initialised more than once. */
+                if ($tab.find("#padSignHint").length === 0) {
+                    $tab.append($("<div>", {
+                        text: EFORM_I18N.textWetSignatureSignHint,
+                        id: "padSignHint",
+                        style: 'font-size:14px; color:#555; margin-top:4px;'
+                    }));
+                }
             }
+
+            /* addDraggableStamp set the src before the load/error handlers above were attached,
+               so the image may have already resolved (e.g. a cached response) and fired its
+               event before we were listening. Apply the outcome explicitly. Run last — AFTER
+               the wet-signature hint — so a synchronous warning is still appended below the
+               hint, matching the async error-event ordering. Both branches are idempotent
+               (show is a no-op if already shown; the warning is de-duplicated). */
+            $stampImg.each(function() {
+                if (!this.getAttribute("src") || !this.complete) {
+                    return;
+                }
+                if (this.naturalWidth === 0) {
+                    warnIfMissingSignature();
+                } else {
+                    showSignatureStamp();
+                }
+            });
         }
 
         function init_input_controls($element) {
