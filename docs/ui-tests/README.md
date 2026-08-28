@@ -269,7 +269,7 @@ See [smoke-test-results.md](./smoke-test-results.md) for detailed test results f
 
 ### Database Connection
 - **Host**: db (Docker service name)
-- **Database**: oscar
+- **Database**: carlos
 - **Username**: root
 - **Password**: password
 - **Port**: 3306
@@ -280,7 +280,7 @@ See [smoke-test-results.md](./smoke-test-results.md) for detailed test results f
 
 ```bash
 # Connect to database
-mariadb -h db -uroot -ppassword oscar
+mariadb -h db -uroot -ppassword carlos
 
 # Reset specific test user password
 UPDATE security
@@ -305,7 +305,7 @@ To reload:
 server stop
 
 # Reload database
-mariadb -h db -uroot -ppassword oscar < .devcontainer/db/scripts/development.sql
+mariadb -h db -uroot -ppassword carlos < .devcontainer/db/scripts/development.sql
 
 # Start application
 server start
@@ -381,11 +381,11 @@ mariadb -h db -uroot -ppassword -e "SHOW DATABASES;"
 
 ```bash
 # Check if user exists
-mariadb -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword carlos -e \
   "SELECT user_name, pin, forcePasswordReset FROM security WHERE user_name='carlosdoc';"
 
 # Reset password
-mariadb -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword carlos -e \
   "UPDATE security SET password='{bcrypt}\$2a\$12\$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO', forcePasswordReset=0 WHERE user_name='carlosdoc';"
 ```
 
@@ -470,7 +470,7 @@ make install && server start
 curl http://localhost:8080/oscar/index.jsp
 
 # 3. Check test user
-mariadb -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword carlos -e \
   "SELECT user_name, pin FROM security WHERE user_name='carlosdoc';"
 
 # 4. Run UI tests (via Playwright MCP)

@@ -38,7 +38,7 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=oscar
+ *   MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
  *   ADD_LOGIN_SITE_ID=<site id to assign to the seeded provider>
  *   ADD_LOGIN_SCREENSHOT_DIR=/tmp/carlos-add-login-account-playwright
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
@@ -60,7 +60,7 @@ const testPin = process.env.TEST_PIN || '2026';
 const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const screenshotDir = process.env.ADD_LOGIN_SCREENSHOT_DIR || '/tmp/carlos-add-login-account-playwright';
 const fixturePassword = process.env.ADD_LOGIN_NEW_PASSWORD || 'E2eAccount1!';
 const fixturePin = process.env.ADD_LOGIN_NEW_PIN || '1234';

@@ -52,7 +52,7 @@ user-facing error handling?
    before that change:
 
    ```bash
-   mysql -h db -u root -p"$MYSQL_ROOT_PASSWORD" oscar \
+   mysql -h db -u root -p"$MYSQL_ROOT_PASSWORD" carlos \
      < database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql
    ```
 

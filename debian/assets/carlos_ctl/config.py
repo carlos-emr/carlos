@@ -30,7 +30,7 @@ class Settings:
         self.province = (env_get(ENV_FILE, "CARLOS_PROVINCE") or "on").lower()
         self.db_host = env_get(ENV_FILE, "CARLOS_DB_HOST") or "127.0.0.1"
         self.db_port = env_get(ENV_FILE, "CARLOS_DB_PORT") or "3306"
-        self.db_name = env_get(ENV_FILE, "CARLOS_DB_NAME") or "oscar"
+        self.db_name = env_get(ENV_FILE, "CARLOS_DB_NAME") or "carlos"
         # The database name is interpolated into backtick-quoted DDL run as
         # database root (db-users, destroy-data). The file it comes from is
         # root-owned, so this is hardening rather than a live injection path —

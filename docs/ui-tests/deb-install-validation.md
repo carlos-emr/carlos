@@ -133,7 +133,7 @@ One database tweak and three fixtures remain:
 # The seed row ships forcePasswordReset=1; the checks need a direct login.
 # (login-playwright-checks.js exercises the forced-reset flow itself and
 # restores whatever state it changes.)
-lxc exec carlos-test -- mariadb -u root oscar \
+lxc exec carlos-test -- mariadb -u root carlos \
   -e "UPDATE security SET forcePasswordReset=0 WHERE user_name='carlosdoc';"
 ```
 
@@ -163,7 +163,7 @@ lxc exec carlos-test -- bash -c \
 # c) The three LOCAL_SEED_OBEC_REPORT appointments that
 #    patient-list-by-appointment-export-playwright-checks.js documents as its
 #    operator-provisioned fixture contract (see that script's header):
-lxc exec carlos-test -- mariadb -u root oscar -e "
+lxc exec carlos-test -- mariadb -u root carlos -e "
 INSERT INTO appointment (provider_no, appointment_date, start_time, end_time,
     name, demographic_no, notes, reason, location, resources, type, style,
     billing, status, createdatetime, creator)
@@ -202,7 +202,7 @@ export BASE_URL=https://127.0.0.1/carlos
 export TEST_USER=carlosdoc TEST_PASSWORD=carlos2026 TEST_PIN=2026
 # DB-backed checks: root over the MariaDB unix socket (the password value is
 # ignored by unix_socket auth but the scripts require it to be set).
-export MYSQL_HOST=localhost MYSQL_USER=root MYSQL_PASSWORD=dummy MYSQL_DATABASE=oscar
+export MYSQL_HOST=localhost MYSQL_USER=root MYSQL_PASSWORD=dummy MYSQL_DATABASE=carlos
 # Published seed hash for carlos2026 (from database/mysql/migration/on/V1.0.2__on_data.sql)
 export TEST_PASSWORD_HASH='{bcrypt}$2a$10$RcoNeqhcLzkfBzAoTQ5C5.nnsOs15iOasQCp0/smjDAuTtkMQ.Uju'
 # Record pointers into the demo dataset:

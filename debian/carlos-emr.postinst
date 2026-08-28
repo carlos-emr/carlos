@@ -326,6 +326,65 @@ case "$1" in
             echo "carlos-emr: COPY IT OFF THIS HOST. Without it the backups cannot be read."
         fi
 
+        # One-time migration (2026.09.0~snapshot4): the default database name
+        # changed from the inherited `oscar` to `carlos`. Same discipline as
+        # the consult-signature migration above: sentinel + upgrade-only +
+        # exact old-stock-value match, so an operator's explicit choice is
+        # never overridden — CARLOS_DB_NAME set to anything but the old stock
+        # `oscar` (an absent key IS the old stock default: config.py fell back
+        # to `oscar`) never matches, now or later. The schema itself is moved
+        # (carlos-ctl db-rename-schema: atomic multi-pair RENAME TABLE, carries
+        # flyway_schema_history), because `oscar` on an alpha install is the
+        # old default, not a choice. Placed BEFORE init-config so the rewritten
+        # env value is what init-config renders into carlos.properties.
+        # Failure paths write NO sentinel so the next configure retries;
+        # the env keeps naming the schema the data actually lives in, so the
+        # system stays consistent while deferred.
+        DB_NAME_SENTINEL="${STATE}/.db-name-default-migrated"
+        if [ ! -e "${DB_NAME_SENTINEL}" ]; then
+            CUR_DB_NAME="$(sed -n 's/^CARLOS_DB_NAME=//p' "${ENV_FILE}" 2>/dev/null | head -1)"
+            if [ -n "${2:-}" ] && dpkg --compare-versions "$2" lt "2026.09.0~snapshot4" \
+                && { [ "${CUR_DB_NAME}" = "oscar" ] || [ -z "${CUR_DB_NAME}" ]; }; then
+                if mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
+                    if carlos-ctl db-rename-schema oscar carlos; then
+                        if [ "${CUR_DB_NAME}" = "oscar" ]; then
+                            sed -i 's/^CARLOS_DB_NAME=oscar$/CARLOS_DB_NAME=carlos/' "${ENV_FILE}"
+                        fi
+                        if grep -qx 'CARLOS_BACKUP_DB_NAME=oscar' "${BACKUP_ENV}" 2>/dev/null; then
+                            sed -i 's/^CARLOS_BACKUP_DB_NAME=oscar$/CARLOS_BACKUP_DB_NAME=carlos/' "${BACKUP_ENV}"
+                        fi
+                        mkdir -p "${STATE}"
+                        : > "${DB_NAME_SENTINEL}"
+                        echo "carlos-emr: renamed the database oscar -> carlos (one-time default migration)"
+                    else
+                        # Keep the system consistent while deferred: with the
+                        # key absent, the NEW fallback (carlos) would name a
+                        # schema that does not exist yet — pin the old name
+                        # explicitly. Still the old stock value, so the retry
+                        # gate above keeps matching.
+                        if [ -z "${CUR_DB_NAME}" ]; then
+                            printf 'CARLOS_DB_NAME=oscar\n' >> "${ENV_FILE}"
+                        fi
+                        echo "carlos-emr: WARNING: could not rename the database oscar -> carlos." >&2
+                        echo "carlos-emr: WARNING: the install continues on the existing name; inspect the" >&2
+                        echo "carlos-emr: WARNING: messages above, then run: sudo carlos-ctl db-rename-schema oscar carlos" >&2
+                        echo "carlos-emr: WARNING: followed by: sudo dpkg-reconfigure carlos-emr" >&2
+                    fi
+                else
+                    if [ -z "${CUR_DB_NAME}" ]; then
+                        printf 'CARLOS_DB_NAME=oscar\n' >> "${ENV_FILE}"
+                    fi
+                    echo "carlos-emr: WARNING: MariaDB is not reachable; the oscar -> carlos database" >&2
+                    echo "carlos-emr: WARNING: rename is deferred to the next configure (dpkg-reconfigure carlos-emr)." >&2
+                fi
+            else
+                # Fresh install, custom name, or post-boundary upgrade: the
+                # default-rename can never apply again.
+                mkdir -p "${STATE}"
+                : > "${DB_NAME_SENTINEL}"
+            fi
+        fi
+
         # --- render, provision, migrate -------------------------------------
         # Guarded: init-config exits non-zero when nginx cannot be tested or
         # reloaded — including for reasons OUTSIDE this package (another

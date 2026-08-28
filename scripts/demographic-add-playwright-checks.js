@@ -62,7 +62,7 @@ const config = {
 const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 
 // Unique, clearly synthetic name so a failed cleanup is identifiable and a
 // stray record can never be mistaken for a real patient.

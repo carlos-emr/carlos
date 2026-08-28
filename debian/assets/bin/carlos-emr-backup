@@ -11,7 +11,7 @@
 #
 # What a run produces, as three separately-tagged restic snapshots:
 #
-#   db       a consistent logical dump of the `oscar` schema, taken with
+#   db       a consistent logical dump of the `carlos` schema, taken with
 #            --single-transaction so it does not lock clinicians out, and with
 #            --source-data=2 so the dump records the binary-log coordinates it
 #            corresponds to. Those coordinates are the anchor that makes
@@ -62,7 +62,7 @@ DB_USER="${CARLOS_BACKUP_DB_USER:-backup}"
 DB_PASS="${CARLOS_BACKUP_DB_PASSWORD:-}"
 DB_HOST="${CARLOS_BACKUP_DB_HOST:-127.0.0.1}"
 DB_PORT="${CARLOS_BACKUP_DB_PORT:-3306}"
-DB_NAME="${CARLOS_BACKUP_DB_NAME:-oscar}"
+DB_NAME="${CARLOS_BACKUP_DB_NAME:-carlos}"
 KEEP="${CARLOS_BACKUP_KEEP:---keep-daily 7 --keep-weekly 5 --keep-monthly 12}"
 # How long shipped binary logs stay restorable. This bounds the
 # point-in-time window: a dump OLDER than this can still be restored, but

@@ -21,7 +21,7 @@ const { cfg } = require('./lib');
 // so nothing is ever parsed by a shell. execFileSync takes an argv array — no
 // shell, so DB names/queries cannot be shell-injected.
 const MARIADB = (process.env.MARIADB || 'mariadb').split(/\s+/);
-const DB = process.env.CARLOS_DB_NAME || 'oscar';
+const DB = process.env.CARLOS_DB_NAME || 'carlos';
 const DOCDIR = process.env.CARLOS_DOCUMENT_DIR
   || '/var/lib/carlos-emr/OscarDocument/carlos/document';
 

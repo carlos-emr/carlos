@@ -85,6 +85,90 @@ def cmd_db_dump(argv) -> int:
     raise AssertionError("unreachable: execvp replaces the process")
 
 
+# --- one-time schema rename (verb: db-rename-schema) ------------------------
+
+def cmd_db_rename_schema(argv) -> int:
+    """Move every table of one schema into another, then drop the emptied
+    source. Exists for the one-time oscar -> carlos default rename (postinst,
+    2026.09.0~snapshot4); idempotent so a deferred or interrupted run can be
+    retried with the same command. MariaDB has no RENAME DATABASE, so this is
+    the supported equivalent: a single multi-pair RENAME TABLE, which is
+    atomic and carries flyway_schema_history (and its checksums) unchanged.
+    Deliberately binlogged — unlike credential ops, the rename must replay
+    during point-in-time recovery or the restored server diverges from the
+    live one."""
+    import re as _re
+    need_root("db-rename-schema")
+    if len(argv) != 2:
+        die("usage: carlos-ctl db-rename-schema <old> <new>")
+    old, new = argv
+    for name in (old, new):
+        # Same identifier policy as CARLOS_DB_NAME: these names land in
+        # backtick-quoted DDL run as database root.
+        if not _re.fullmatch(r"[A-Za-z0-9_]+", name):
+            die(f"schema name ('{name}') must be a plain identifier (A-Za-z0-9_)")
+    if old.lower() == new.lower():
+        die("old and new schema names are the same")
+    require_db_root()
+
+    def _tables(schema: str) -> list:
+        out = db_root(["-N", "-B", "-e",
+                       "SELECT TABLE_NAME FROM information_schema.TABLES "
+                       f"WHERE TABLE_SCHEMA='{schema}' AND TABLE_TYPE='BASE TABLE' "
+                       "ORDER BY TABLE_NAME"],
+                      capture_output=True, text=True)
+        if out.returncode != 0:
+            die(f"could not list tables of '{schema}': {out.stderr.strip()}")
+        return [t for t in out.stdout.splitlines() if t]
+
+    def _exists(schema: str) -> bool:
+        out = db_root(["-N", "-B", "-e",
+                       "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA "
+                       f"WHERE SCHEMA_NAME='{schema}'"],
+                      capture_output=True, text=True)
+        return bool(out.stdout.strip())
+
+    old_exists, new_exists = _exists(old), _exists(new)
+    if not old_exists:
+        if new_exists:
+            log(f"schema '{old}' is gone and '{new}' exists — nothing to do")
+            return 0
+        die(f"neither '{old}' nor '{new}' exists; refusing to guess")
+    if new_exists and _tables(new):
+        # Never merge into (or clobber) a schema that already holds tables:
+        # on a PHI host the only safe answer is a human decision.
+        die(f"target schema '{new}' already contains tables; refusing to merge. "
+            f"Inspect both schemas and either drop the unwanted one or move "
+            f"tables by hand, then re-run.")
+    if not new_exists:
+        if db_root(["-e",
+                    f"CREATE DATABASE `{new}` CHARACTER SET utf8mb4 "
+                    "COLLATE utf8mb4_general_ci"]).returncode != 0:
+            die(f"CREATE DATABASE `{new}` failed")
+    tables = _tables(old)
+    if tables:
+        # One multi-pair statement: atomic, so a crash mid-way cannot leave
+        # half the clinical record in each schema.
+        pairs = ", ".join(f"`{old}`.`{t}` TO `{new}`.`{t}`" for t in tables)
+        if db_root(["-e", f"RENAME TABLE {pairs}"]).returncode != 0:
+            die(f"RENAME TABLE from '{old}' to '{new}' failed; both schemas "
+                "are intact — inspect and re-run")
+        log(f"moved {len(tables)} tables from '{old}' to '{new}'")
+    leftover = db_root(["-N", "-B", "-e",
+                        "SELECT TABLE_NAME FROM information_schema.TABLES "
+                        f"WHERE TABLE_SCHEMA='{old}'"],
+                       capture_output=True, text=True).stdout.strip()
+    if leftover:
+        # Views (or tables created mid-run) stay the operator's to deal with;
+        # dropping the schema would silently take them along.
+        warn(f"schema '{old}' still holds objects after the rename; leaving it in place")
+    elif db_root(["-e", f"DROP DATABASE `{old}`"]).returncode != 0:
+        warn(f"could not drop the emptied schema '{old}'; drop it by hand")
+    else:
+        log(f"dropped the emptied schema '{old}'")
+    return 0
+
+
 # Passwords that ship in the upstream source trees (carlos.properties in the
 # WAR, drugref2's defaults). Treated as "not set" everywhere a password is
 # re-used, so they can never become a live credential.
@@ -145,7 +229,7 @@ def cmd_db_users(argv) -> int:
     # The drill DROPs every table in this schema and reloads it from the
     # dump. The read-only contract on the live database holds ONLY because
     # the grant below is scoped to a throwaway schema — this check is the
-    # enforcement of that. Without it, verify_db=oscar armed the weekly
+    # enforcement of that. Without it, verify_db=carlos armed the weekly
     # drill to roll the live clinical record back to last night's backup,
     # with ALL PRIVILEGES granted here making it possible.
     if verify_db.lower() in (s.db_name.lower(), "drugref2", "mysql",
