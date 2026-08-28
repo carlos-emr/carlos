@@ -21,4 +21,12 @@
 -- the operator re-disables once post-upgrade if desired. The postinst twin for
 -- the carlos.properties consultation_signature_enabled flag makes the same
 -- accepted tradeoff for its exact old-stock line.
+--
+-- One more dimension of that override, for the release note: on a converted
+-- pre-Flyway datadir adopted at baseline 1.0.2 (so this migration then runs),
+-- "id = 1" is whatever the legacy datadir's first Facility row is. That is the
+-- Default Facility on essentially every install, but a legacy multi-facility
+-- site whose PRIMARY clinic occupies id 1 with a deliberate off-choice would
+-- have it flipped. Same accepted "a boolean can't distinguish chosen-off"
+-- tradeoff, just widened from "the seeded default row" to "whatever row is id 1".
 UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;

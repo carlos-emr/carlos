@@ -335,6 +335,15 @@ async function findExistingLibraryEform(context, formName) {
   try {
     await gotoApp(page, '/eform/efmformmanager');
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    // Confirm the manager page itself rendered before waiting for a specific
+    // form row: otherwise a 500/broken manager page yields a row-wait
+    // TimeoutError that the caller's TimeoutError->skip catch would silently
+    // downgrade to "form absent". A missing table is a real failure (plain
+    // Error, not a TimeoutError), so it propagates.
+    if ((await page.locator('#eformTbl').count()) === 0) {
+      const body = await page.locator('body').innerText().catch(() => '');
+      throw new Error(`eForm manager page did not render its table (#eformTbl absent) — not a form-absent condition. body: ${body.slice(0, 200).replace(/\s+/g, ' ')}`);
+    }
     const row = page.locator('#eformTbl tbody tr', { hasText: formName }).first();
     await row.waitFor({ state: 'visible', timeout: 15000 });
     const editHref = await row.locator('a[href*="efmformmanageredit?fid="]').first().getAttribute('href');
