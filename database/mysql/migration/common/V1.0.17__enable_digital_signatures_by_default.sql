@@ -11,4 +11,14 @@
 -- have it overridden on multi-facility installs. Runs once: a site that
 -- prefers signatures off can disable the setting afterwards and it will not
 -- be flipped back.
+--
+-- DELIBERATE, ONE-TIME OVERRIDE, worth a release note: a boolean flag cannot
+-- distinguish "still the seeded default (off)" from "operator explicitly turned
+-- it off via Administration > Facility". This is the standard changing-a-default
+-- migration and treats both the same, so an upgrade that ships this migration
+-- WILL re-enable signatures on the Default Facility even where an operator had
+-- deliberately disabled them. That is intended (the whole point is default-on);
+-- the operator re-disables once post-upgrade if desired. The postinst twin for
+-- the carlos.properties consultation_signature_enabled flag makes the same
+-- accepted tradeoff for its exact old-stock line.
 UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;
