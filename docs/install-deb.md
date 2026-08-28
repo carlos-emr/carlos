@@ -159,7 +159,9 @@ waits and says so.
 To build the packages from source instead, see the header of
 [`debian/rules`](../debian/rules) — including how to reuse a prebuilt WAR —
 and [`release/README.md`](../release/README.md) for where the packaging
-lives and why.
+lives and why. To validate a build end to end — install into a disposable VM
+with the demo dataset and run the whole Playwright suite through the WAF —
+follow [`docs/ui-tests/deb-install-validation.md`](ui-tests/deb-install-validation.md).
 
 ## Quickstart — the first hour
 
