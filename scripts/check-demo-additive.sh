@@ -84,6 +84,9 @@ if grep -qE 'Pomedli|AZIZI|Jacky Jones' "$ARTIFACT"; then
 fi
 
 # --- target tables ------------------------------------------------------------
+# The target-name extractions below accept both `table` and bare table names:
+# the transform always emits backticks today, but the gate must stay closed
+# even if a future snapshot or transform change drops the quoting.
 LIVE_TABLES="$(mktemp)"
 EXCLUDES="$(mktemp)"
 trap 'rm -f "$LIVE_TABLES" "$EXCLUDES"' EXIT
@@ -106,7 +109,7 @@ while IFS= read -r table; do
   if grep -qx "$table" "$EXCLUDES"; then
     err "artifact inserts into excluded table '$table'"
   fi
-done < <(grep -oP '^[[:space:]]*INSERT[[:space:]]+IGNORE[[:space:]]+INTO[[:space:]]+`\K[A-Za-z0-9_]+' "$ARTIFACT" | LC_ALL=C sort -u)
+done < <(grep -oP '^[[:space:]]*INSERT[[:space:]]+IGNORE[[:space:]]+INTO[[:space:]]+`?\K[A-Za-z0-9_]+' "$ARTIFACT" | LC_ALL=C sort -u)
 
 # --- classification completeness ---------------------------------------------
 # Every table the snapshot inserts into must exist in SOME province schema or
@@ -129,7 +132,7 @@ if [ -n "$SOURCE" ]; then
     if ! grep -qx "$table" "$UNION_TABLES" && ! grep -qx "$table" "$EXCLUDES"; then
       err "development.sql inserts into unclassified table '$table' (not in any province schema, not excluded) — classify it in scripts/demo-additive-exclude.txt or refresh the snapshot"
     fi
-  done < <(grep -oP '^[[:space:]]*INSERT[[:space:]]+INTO[[:space:]]+`\K[A-Za-z0-9_]+' "$SOURCE" | LC_ALL=C sort -u)
+  done < <(grep -oP '^[[:space:]]*INSERT[[:space:]]+INTO[[:space:]]+`?\K[A-Za-z0-9_]+' "$SOURCE" | LC_ALL=C sort -u)
 fi
 
 if [ "$fail" -ne 0 ]; then
