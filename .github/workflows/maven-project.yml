@@ -144,8 +144,13 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: Purge stale local_repo artifacts from Maven cache
+        # Both formerly-JitPack groupIds are vendored in local_repo with bytes
+        # that differ from what JitPack ever served; a restored cache copy
+        # shadows local_repo (Maven prefers ~/.m2 and never re-verifies cached
+        # bytes), so evict them and let them re-copy from file://local_repo.
         run: |
-          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
+          rm -rf .m2-cache/repository/com/github/openosp \
+                 .m2-cache/repository/com/github/librepdf
 
       - name: Build dev container (fallback)
         if: steps.pull-image.outputs.pulled != 'true'
@@ -292,8 +297,13 @@ jobs:
           "
 
       - name: Purge stale local_repo artifacts from Maven cache
+        # Both formerly-JitPack groupIds are vendored in local_repo with bytes
+        # that differ from what JitPack ever served; a restored cache copy
+        # shadows local_repo (Maven prefers ~/.m2 and never re-verifies cached
+        # bytes), so evict them and let them re-copy from file://local_repo.
         run: |
-          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
+          rm -rf .m2-cache/repository/com/github/openosp \
+                 .m2-cache/repository/com/github/librepdf
 
       - name: Run tests
         run: |
@@ -437,8 +447,13 @@ jobs:
           "
 
       - name: Purge stale local_repo artifacts from Maven cache
+        # Both formerly-JitPack groupIds are vendored in local_repo with bytes
+        # that differ from what JitPack ever served; a restored cache copy
+        # shadows local_repo (Maven prefers ~/.m2 and never re-verifies cached
+        # bytes), so evict them and let them re-copy from file://local_repo.
         run: |
-          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
+          rm -rf .m2-cache/repository/com/github/openosp \
+                 .m2-cache/repository/com/github/librepdf
 
       - name: Compile JSPs
         run: |
