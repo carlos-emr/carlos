@@ -114,5 +114,5 @@ $SQL oscar < /database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.
 # signature workflows (consultation stamps, signature pad) like a stock
 # install does.
 echo 'Enabling digital signatures on the demo facility...'
-$SQL oscar -e "UPDATE Facility SET enableDigitalSignatures = 1;"
+$SQL oscar -e "UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;"
 echo 'Database initialization complete!'

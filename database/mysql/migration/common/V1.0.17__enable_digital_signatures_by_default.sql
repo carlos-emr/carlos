@@ -1,9 +1,14 @@
 -- Digital signatures (consultation stamps and signature-pad capture on
 -- consultations and prescriptions) are gated per facility by
--- Facility.enableDigitalSignatures, and the seeded Default Facility shipped
--- with it OFF - so on a stock install the signature UI silently never
--- appears until an operator finds Administration > Facility > Enable
--- Digital Signatures. Signatures are a supported, tested workflow; make
--- them the default. Runs once: a site that prefers them off can disable
--- the setting afterwards and it will not be flipped back.
-UPDATE Facility SET enableDigitalSignatures = 1;
+-- Facility.enableDigitalSignatures, and the genesis-seeded facility (id 1,
+-- "Default Facility") shipped with it OFF - so on a stock install the
+-- signature UI silently never appears until an operator finds
+-- Administration > Facility > Enable Digital Signatures. Signatures are a
+-- supported, tested workflow; make them the default.
+--
+-- Scoped to the seeded facility only: facilities created later through the
+-- admin UI carry an explicit operator choice for this checkbox and must not
+-- have it overridden on multi-facility installs. Runs once: a site that
+-- prefers signatures off can disable the setting afterwards and it will not
+-- be flipped back.
+UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;
