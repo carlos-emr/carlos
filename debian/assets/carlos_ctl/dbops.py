@@ -675,20 +675,23 @@ def cmd_demo_data(argv) -> int:
         die(f"{artifact} is missing — this carlos-emr package was built "
             "without the demonstration dataset (reinstall the package)")
 
-    # Guard A: the schema must be migrated. Loading demo rows into a
-    # half-created schema produces exactly the kind of partial state the
-    # marker exists to detect.
-    have = _demo_count(
-        s,
-        "SELECT COUNT(*) FROM information_schema.tables "
-        f"WHERE table_schema='{s.db_name}' "
-        "AND table_name IN ('flyway_schema_history','demographic')",
-        "the schema migration state")
-    if have != 2:
-        die("the schema is not migrated yet — run 'carlos-ctl db-migrate' first")
+    import fcntl
 
-    # Guard B: already loaded -> idempotent no-op, so dpkg-reconfigure and
+    # One loader at a time. A concurrent invocation (postinst overlapping a
+    # manual run, or two administrators) could pass every guard below before
+    # either has written the marker, then race the BC deletes and duplicate
+    # rows in the no-PK link tables. The lock is held for the life of the
+    # process (the fd stays open) and vanishes with it.
+    lock = open(os.path.join(STATE, ".demo-data.lock"), "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        die("another 'carlos-ctl demo-data' is already running; wait for it "
+            "to finish and re-run (a completed load makes re-runs no-ops)")
+
+    # Guard A: already loaded -> idempotent no-op, so dpkg-reconfigure and
     # upgrades can re-answer the debconf question without consequence.
+    # Checked first so the no-op path stays cheap.
     marker = _demo_count(
         s,
         "SELECT COUNT(*) FROM information_schema.tables "
@@ -697,6 +700,16 @@ def cmd_demo_data(argv) -> int:
     if marker:
         log("the demonstration dataset is already loaded; leaving it alone")
         return 0
+
+    # Guard B: the schema must be FULLY migrated. Table existence is not
+    # enough — a migration that failed part-way leaves flyway_schema_history
+    # and the early tables in place, exactly the partial schema this guard
+    # exists to refuse. Flyway validate is the authoritative check: it fails
+    # on failed, pending, and checksum-drifted migrations against the
+    # deployed WAR's own migration set (the same check the app runs at boot).
+    if run_flyway("validate") != 0:
+        die("the schema is not fully migrated (flyway validate failed above) — "
+            "run 'carlos-ctl db-migrate' first")
 
     # Guard C: the database must hold NO patients. There is no --force: a
     # populated database is either a real system (this tool must never touch
@@ -738,8 +751,16 @@ def cmd_demo_data(argv) -> int:
             die(f"{p} is missing — reinstall carlos-emr")
 
     log("loading the demonstration dataset (fictitious patients; a few minutes)...")
-    with tempfile.NamedTemporaryFile("w", suffix=".sql", delete=False) as out:
-        stream = out.name
+    # The stream is unlinked by the finally below, which covers the ASSEMBLY
+    # too, not just the load: a corrupt artifact or I/O error mid-write must
+    # not strand a 30 MB partial stream in the temp directory on every failed
+    # install. Encoding is pinned — the artifact and pieces are read as UTF-8,
+    # and the process locale (a minimal chroot may be POSIX/ASCII) must not
+    # decide how the accented demo names get written back out.
+    out = tempfile.NamedTemporaryFile("w", suffix=".sql", encoding="utf-8",
+                                      delete=False)
+    stream = out.name
+    try:
         out.write("SET SESSION sql_log_bin = 0;\n")
         # MariaDB 11.4+ ships character_set_collations mapping utf8mb4 to
         # uca1400_ai_ci; the schema (and the checksum-frozen migrations) are
@@ -775,11 +796,11 @@ def cmd_demo_data(argv) -> int:
                 out.write("\n")
                 out.write(fh.read())
         out.write("\nSET FOREIGN_KEY_CHECKS=1;\n")
-
-    try:
+        out.close()
         with open(stream, encoding="utf-8") as fh:
             cp = db_root([s.db_name], stdin=fh)
     finally:
+        out.close()
         os.unlink(stream)
     if cp.returncode != 0:
         die("the demonstration load FAILED part-way; the database is in a "

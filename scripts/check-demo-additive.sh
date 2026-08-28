@@ -50,19 +50,32 @@ fi
 # session-scoped scaffolding that leaves no schema behind — TEMPORARY tables
 # named _tmp_* (vanish with the session) and procedures named dev_* that the
 # artifact itself drops after CALLing. Everything else fails.
-if grep -E '^[[:space:]]*(CREATE|ALTER|DROP)[[:space:]]' "$ARTIFACT" \
-   | grep -qvE '^[[:space:]]*((CREATE|DROP)[[:space:]]+TEMPORARY[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+(NOT[[:space:]]+)?EXISTS[[:space:]]+)?`?_tmp_|(CREATE|DROP)[[:space:]]+PROCEDURE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?`?dev_)'; then
-  err "artifact contains DDL (must not add tables Flyway does not baseline)"
+#
+# COUNT the violations rather than `grep pattern | grep -qv allowlist`: under
+# pipefail, -q exits on the first hit and can SIGPIPE the producer, turning
+# the whole pipeline non-zero and silently SKIPPING the err branch (live-
+# reproduced: an artifact whose first INSERT was plain passed the old check).
+# grep -c always reads all input, so the pipeline status is deterministic;
+# `|| true` covers the count-of-zero exit-1 case.
+bad_ddl=$(grep -E '^[[:space:]]*(CREATE|ALTER|DROP)[[:space:]]' "$ARTIFACT" \
+  | grep -cvE '^[[:space:]]*((CREATE|DROP)[[:space:]]+TEMPORARY[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+(NOT[[:space:]]+)?EXISTS[[:space:]]+)?`?_tmp_|(CREATE|DROP)[[:space:]]+PROCEDURE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?`?dev_)' || true)
+if [ "${bad_ddl}" -gt 0 ]; then
+  err "artifact contains ${bad_ddl} DDL statement(s) outside the _tmp_*/dev_* scaffolding (must not add schema Flyway does not baseline)"
 fi
 # Every dev_* procedure must be dropped after use — a leftover procedure
-# would be persistent schema.
+# would be persistent schema. Aggregate-count heuristic: fail only when there
+# are fewer drops than creates (the DDL allowlist above admits DROP PROCEDURE
+# with or without IF EXISTS, so count both forms; equal counts mean every
+# created procedure has a matching drop).
 creates=$(grep -cE '^[[:space:]]*CREATE[[:space:]]+PROCEDURE[[:space:]]+`?dev_' "$ARTIFACT" || true)
-drops=$(grep -cE '^[[:space:]]*DROP[[:space:]]+PROCEDURE[[:space:]]+IF[[:space:]]+EXISTS[[:space:]]+`?dev_' "$ARTIFACT" || true)
-if [ "$creates" -gt 0 ] && [ "$drops" -le "$creates" ]; then
+drops=$(grep -cE '^[[:space:]]*DROP[[:space:]]+PROCEDURE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?`?dev_' "$ARTIFACT" || true)
+if [ "$creates" -gt 0 ] && [ "$drops" -lt "$creates" ]; then
   err "a dev_* procedure is created but not dropped afterwards"
 fi
-if grep -E '^[[:space:]]*INSERT[[:space:]]' "$ARTIFACT" | grep -qvE '^[[:space:]]*INSERT[[:space:]]+IGNORE[[:space:]]+INTO[[:space:]]'; then
-  err "artifact contains a plain INSERT (must be INSERT IGNORE so Flyway rows win)"
+plain_inserts=$(grep -E '^[[:space:]]*INSERT[[:space:]]' "$ARTIFACT" \
+  | grep -cvE '^[[:space:]]*INSERT[[:space:]]+IGNORE[[:space:]]+INTO[[:space:]]' || true)
+if [ "${plain_inserts}" -gt 0 ]; then
+  err "artifact contains ${plain_inserts} plain INSERT statement(s) (must be INSERT IGNORE so Flyway rows win)"
 fi
 
 # --- real-name blocklist ------------------------------------------------------
