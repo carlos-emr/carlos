@@ -13,8 +13,13 @@ carlos-emr (2026.09.0~snapshot2) resolute; urgency=medium
   * Enable consultation signatures by default, with a one-time upgrade migration
     that flips the old stock consultation_signature_enabled=false to true while
     preserving an operator's explicit choice.
+  * Packaging: reload systemd on upgrade before restarting carlos-emr so a
+    changed unit file takes effect without a manual daemon-reload; on purge,
+    remove the generated carlos-emr.env and the consultation-signature migration
+    sentinel so a later reinstall is genuinely fresh (province/timezone answers
+    are honoured again); guard the debconf db_get calls against set -e.
 
- -- CARLOS EMR Maintainers <maintainers@carlos-emr.invalid>  Thu, 27 Aug 2026 19:00:00 +0000
+ -- CARLOS EMR Maintainers <maintainers@carlos-emr.invalid>  Fri, 28 Aug 2026 12:00:00 +0000
 
 carlos-emr (2026.09.0~snapshot1) resolute; urgency=medium
 

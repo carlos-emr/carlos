@@ -201,13 +201,18 @@ case "$1" in
         fi
 
         # Fold the debconf answers into the operator-owned settings file.
-        db_get carlos-emr/server-name; SERVER_NAME="${RET:-localhost}"
-        db_get carlos-emr/bind-ip;     BIND_IP="${RET:-0.0.0.0}"
-        db_get carlos-emr/province;    PROVINCE="${RET:-on}"
-        db_get carlos-emr/java-heap;   HEAP="${RET:-2g}"
-        db_get carlos-emr/tls-mode;    TLS_MODE="${RET:-selfsigned}"
-        db_get carlos-emr/acme-email;  ACME_EMAIL="${RET:-}"
-        db_get carlos-emr/reset-seed-admin; RESET_ADMIN="${RET:-true}"
+        # db_get returns 10 for an unregistered item; under set -e that would
+        # abort configure. All these keys are registered (templates + config),
+        # but guard anyway so a debconf DB that ever falls out of sync degrades
+        # to the RET defaults instead of failing the install (matching the
+        # db_get calls further down at the tls/reset-admin steps).
+        db_get carlos-emr/server-name || true; SERVER_NAME="${RET:-localhost}"
+        db_get carlos-emr/bind-ip     || true; BIND_IP="${RET:-0.0.0.0}"
+        db_get carlos-emr/province    || true; PROVINCE="${RET:-on}"
+        db_get carlos-emr/java-heap   || true; HEAP="${RET:-2g}"
+        db_get carlos-emr/tls-mode    || true; TLS_MODE="${RET:-selfsigned}"
+        db_get carlos-emr/acme-email  || true; ACME_EMAIL="${RET:-}"
+        db_get carlos-emr/reset-seed-admin || true; RESET_ADMIN="${RET:-true}"
 
         # Three sources in order of authority: /etc/timezone (Debian
         # tradition), timedatectl, the /etc/localtime symlink target. Modern
@@ -476,6 +481,15 @@ esac
 # Everything below runs AFTER the debhelper snippets, so the units exist and
 # are enabled by the time we start them.
 if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
+    # dh_installsystemd runs with --no-start (the service cannot come up before
+    # this script has provisioned the DB and rendered carlos.properties), and
+    # --no-start suppresses debhelper's own daemon-reload along with the start.
+    # So on an UPGRADE that ships a changed unit, systemd still holds the old
+    # fragment: without an explicit reload here the start below launches the
+    # stale unit and prints "unit file ... changed on disk. Run daemon-reload".
+    # deb-systemd-invoke has no reload verb, so call systemctl directly (as the
+    # renderer's postinst already does). Best-effort; never fail configure.
+    systemctl --system daemon-reload >/dev/null 2>&1 || true
     if [ "${MIGRATION_OK:-1}" = 0 ]; then
         echo "carlos-emr: NOT starting the service — the schema is not ready (see above)." >&2
         echo "carlos-emr: the unit stays enabled; it will start on the next boot or when you" >&2
