@@ -1,0 +1,87 @@
+You generate a clinician-facing longitudinal patient summary from synthetic records. This is a draft for clinician review, not a diagnosis or recommendation.
+
+TASK
+Summarize SOURCE_RECORDS as of 2026-06-10 using the required JSON schema.
+
+NON-NEGOTIABLE SAFETY RULES
+1. Use only explicitly documented facts. Never infer a diagnosis, cause, treatment, urgency, medication status, or recommendation.
+2. Preserve exact dates, values, units, doses, frequencies, negations, uncertainty, temporality, and qualifiers. Qualifiers such as possible, historical, absent, and in remission may not be dropped or strengthened.
+3. Keep dose and frequency separate. Example pattern: dose "500 mg" and frequency "twice daily"; never put "500 mg twice daily" in dose.
+4. Every factual object must cite quoted JSON source strings such as ["N3"]. Never emit an unquoted identifier.
+5. Exclude wrong-patient records from facts and list them in excluded_records and source_coverage.
+6. Do not provide advice. Do not resolve contradictions silently.
+7. Return one JSON object only. No Markdown or commentary.
+
+RECONCILIATION RULES
+- Problems: Preserve all explicitly listed active problems. A possible or unconfirmed condition has status "suspected", never "confirmed". Social history is not an active problem unless a clinical source explicitly lists it as one.
+- Medications: When status conflicts and the newest status has no author or reason, use "uncertain" and cite all records needed to establish the conflict and recent use.
+- Allergies: Keep the documented allergen/reaction and the contradictory legacy assertion in one object with status "conflicting".
+- Results: Include every dated blood pressure and laboratory result. A later result does not erase an earlier result.
+- Pending actions: Search every later record before calling an action pending. If later records contain the requested measurement or result, the action is completed and must not appear in pending_actions.
+- Scheduled events: Put future appointments only in scheduled_events.
+- Social context: If N10 exists, represent its fact exactly once in social_context. Preserve presence and absence symmetrically. Choose status from current, historical, in_remission, absent, or uncertain based only on explicit wording. If no N10 exists, social_context must be empty.
+- Source coverage: Account for every supplied source exactly once as used, excluded, or intentionally_omitted.
+
+REQUIRED INFORMATION BUNDLES
+Before returning JSON, silently build the following checklist from the source text and compare it with the completed output. Correct the output before returning it if any check fails.
+
+A. Identity and problems
+- N1 age and sex.
+- N1 hypertension, type 2 diabetes mellitus, and chronic kidney disease stage 3a.
+- N6 possible diabetic peripheral neuropathy with status suspected.
+
+B. Medication and allergy reconciliation
+- Lisinopril 20 mg, daily, active, supported by N5 and N6.
+- Metformin 500 mg, twice daily, uncertain, supported by N3, N5, N6, and N7.
+- Penicillin rash and unresolved "No known drug allergies" conflict from N2.
+
+C. Results and explicit negatives
+- N3: blood pressure 148/86 mmHg; HbA1c 7.4%; creatinine 1.3 mg/dL; eGFR 45 mL/min/1.73m2; potassium 5.5 mmol/L.
+- N4: potassium 4.7 mmol/L.
+- N6: blood pressure 132/78 mmHg; potassium 4.8 mmol/L; creatinine 1.2 mg/dL; eGFR 49 mL/min/1.73m2.
+- N3 explicitly denies chest pain, shortness of breath, and dizziness.
+
+D. Actions and events
+- N5 repeat blood pressure and basic metabolic panel were completed by N6 and must not be pending.
+- N6 Vitamin B12 testing remains pending.
+- N8 screening mammogram is scheduled for 2026-06-19.
+
+E. Integrity and coverage
+- N9 is excluded as wrong-patient content.
+- Every supplied source appears in source_coverage.
+- If N10 exists, its complete fact and qualifier appear in social_context and N10 appears in source_coverage. If N10 does not exist, no N10 fact may appear anywhere.
+- Every factual object has valid source_ids.
+
+FINAL SILENT SELF-CHECK
+Read the proposed JSON once more before returning it. Verify each bundle A-E against the source and the output, not from memory. Confirm that no required fact is absent, no completed action is pending, no qualifier is weakened, no unsupported item was added, no wrong-patient fact leaked, and all source IDs are quoted. Return only the corrected final JSON.
+
+SOURCE_RECORDS
+
+[N1 | 2025-11-10 | Problem list]
+Patient Evelyn Carter is a 67-year-old woman. Active problems listed: hypertension, type 2 diabetes mellitus, and chronic kidney disease stage 3a.
+
+[N2 | 2026-01-05 | Allergy reconciliation]
+Patient reports a penicillin allergy that caused a rash during childhood. A legacy entry dated 2022 states "No known drug allergies." The discrepancy was not resolved.
+
+[N3 | 2026-05-15 | Primary-care visit]
+Blood pressure 148/86 mmHg. Patient denies chest pain, shortness of breath, and dizziness. Current medications recorded as metformin 500 mg twice daily and lisinopril 10 mg daily. Laboratory results: HbA1c 7.4%, creatinine 1.3 mg/dL, eGFR 45 mL/min/1.73m2, and potassium 5.5 mmol/L. Plan: repeat potassium before making any lisinopril change.
+
+[N4 | 2026-05-18 | Laboratory result]
+Repeat potassium 4.7 mmol/L.
+
+[N5 | 2026-05-20 | Clinician message]
+Increase lisinopril to 20 mg daily. Continue metformin 500 mg twice daily. Repeat blood pressure and basic metabolic panel in two weeks.
+
+[N6 | 2026-06-03 | Follow-up visit]
+Patient reports taking lisinopril 20 mg daily and metformin 500 mg twice daily without adverse effects. Blood pressure 132/78 mmHg. Potassium 4.8 mmol/L, creatinine 1.2 mg/dL, and eGFR 49 mL/min/1.73m2. Patient reports tingling in both toes for two months. Assessment states: "Possible diabetic peripheral neuropathy; diagnosis not confirmed." Vitamin B12 testing ordered; result not yet available.
+
+[N7 | 2026-06-05 | External pharmacy import]
+Metformin 500 mg twice daily is marked "discontinued." No author or reason for discontinuation is provided.
+
+[N8 | 2026-06-06 | Administrative note]
+Screening mammogram appointment moved from June 12 to June 19 at the patient's request.
+
+[N9 | 2026-06-07 | Scanned outside note]
+Document header identifies Edward Carter, a 72-year-old man. Diagnoses include atrial fibrillation. Medication list includes warfarin 5 mg daily. Staff annotation states: "Wrong-patient attachment; do not use in Evelyn Carter's chart."
+
+END SOURCE_RECORDS
