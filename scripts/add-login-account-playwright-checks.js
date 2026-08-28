@@ -209,19 +209,59 @@ function sharedSiteId(providerNo) {
   return out || '1';
 }
 
-function seedProvider(providerNo, siteId) {
+async function seedProviderViaUi(page, providerNo, siteId) {
+  // Create the provider through the app's own Add Provider form rather than a
+  // direct SQL INSERT: getActiveProviders() is @Cacheable (ACTIVE_PROVIDERS,
+  // 5-minute TTL), so a provider inserted behind the app's back stays missing
+  // from the add-login dropdown until the cache expires — exactly the failure
+  // this check produced on the packaged (.deb) install, where earlier page
+  // loads had already warmed the cache. saveProvider() evicts that cache, so
+  // creating the provider the way an administrator actually does keeps the
+  // dropdown fresh — and exercises the real add-provider path as a bonus.
   const numericSiteId = Number(siteId);
   assert(Number.isInteger(numericSiteId), `ADD_LOGIN_SITE_ID must be an integer, got ${siteId}`);
-  sql(
-    `INSERT INTO provider`
-      + ` (provider_no, last_name, first_name, provider_type, specialty, sex, status, lastUpdateDate)`
-      + ` VALUES`
-      + ` ('${escapeSql(providerNo)}', 'Playwright', 'Account', 'doctor', 'GP', 'M', '1', NOW())`
+  const uniqueFirstName = `Account${providerNo}`;
+
+  await page.goto('admin/ViewProviderAddARecordHtm', { waitUntil: 'networkidle', timeout: 30000 });
+  const providerNoInput = page.locator('form[name="searchprovider"] input[name="provider_no"]').first();
+  await providerNoInput.waitFor({ state: 'visible', timeout: 15000 });
+  // With provider_no_auto the field is readonly "-new-" and the app assigns
+  // the number; otherwise fill the fixture id. Either way the created row is
+  // recovered below by its unique name stamp.
+  const autoNumbered = (await providerNoInput.getAttribute('readonly')) !== null;
+  if (!autoNumbered) {
+    await providerNoInput.fill(providerNo);
+  }
+  await page.locator('input[name="last_name"]').fill('Playwright');
+  await page.locator('input[name="first_name"]').fill(uniqueFirstName);
+  await page.locator('select[name="provider_type"]').selectOption('doctor');
+  await page.locator('input[name="specialty"]').fill('GP');
+  await page.locator('select[name="sex"]').selectOption('M');
+  await Promise.all([
+    page.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {}),
+    page.locator('form[name="searchprovider"] input[type="submit"]').first().click(),
+  ]);
+  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+
+  const createdNo = sql(
+    `SELECT provider_no FROM provider`
+      + ` WHERE last_name='Playwright' AND first_name='${escapeSql(uniqueFirstName)}'`
+      + ` ORDER BY provider_no DESC LIMIT 1`
   );
-  sql(
-    `INSERT INTO providersite(provider_no, site_id)`
-      + ` VALUES ('${escapeSql(providerNo)}', ${numericSiteId})`
-  );
+  assert(createdNo, `Add Provider form did not create provider ${providerNo} (last page: ${page.url()})`);
+
+  // Multisite installs scope the dropdown by providersite; Add Provider only
+  // writes that row when multisites is enabled, so backfill it if absent.
+  const siteRows = Number(sql(
+    `SELECT COUNT(*) FROM providersite WHERE provider_no='${escapeSql(createdNo)}'`
+  ));
+  if (siteRows === 0) {
+    sql(
+      `INSERT INTO providersite(provider_no, site_id)`
+        + ` VALUES ('${escapeSql(createdNo)}', ${numericSiteId})`
+    );
+  }
+  return createdNo;
 }
 
 function cleanupRows(providerNo, username) {
@@ -316,7 +356,6 @@ async function run() {
     };
 
     cleanupRows(providerNo, username);
-    seedProvider(providerNo, siteId);
 
     const launchOptions = { headless: true };
     if (chromePath) {
@@ -335,6 +374,13 @@ async function run() {
 
     await login(page);
     result.steps.push('logged in as admin');
+
+    // Adopt the number the app actually assigned (differs from the fixture id
+    // when provider_no_auto is on) so the dropdown assertions and cleanup all
+    // target the row that exists.
+    providerNo = await seedProviderViaUi(page, providerNo, siteId);
+    result.providerNo = providerNo;
+    result.steps.push(`created provider ${providerNo} via the Add Provider form`);
 
     await page.goto('admin/ViewSecurityAddARecord', { waitUntil: 'networkidle', timeout: 30000 });
     const initialOptions = await providerOptions(page);

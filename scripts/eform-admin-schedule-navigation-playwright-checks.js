@@ -255,6 +255,8 @@ async function importZip(page, zipPath) {
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
     context = await browser.newContext({
       acceptDownloads: true,
+      // The packaged deployment serves a self-signed certificate by default.
+      ignoreHTTPSErrors: true,
       viewport: { width: 1440, height: 1400 },
     });
     const landingPage = await login(context, config, recorder);
