@@ -163,6 +163,38 @@ class ConsultationPDFCreatorUnitTest {
     }
 
     @Test
+    @DisplayName("formats appointment time without a null minute literal")
+    void shouldFormatAppointmentTime_whenMinuteNull() {
+        String result = ConsultationPDFCreator.formatAppointmentTime("9", null, "am");
+
+        assertThat(result).isEqualTo("9 am");
+    }
+
+    @Test
+    @DisplayName("formats appointment time with a minute separator")
+    void shouldFormatAppointmentTime_whenMinutePresent() {
+        String result = ConsultationPDFCreator.formatAppointmentTime("9", "05", "am");
+
+        assertThat(result).isEqualTo("9:05 am");
+    }
+
+    @Test
+    @DisplayName("formats blank appointment time when the hour is missing")
+    void shouldFormatAppointmentTime_whenHourMissing() {
+        String result = ConsultationPDFCreator.formatAppointmentTime(null, "05", "pm");
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("formats blank appointment time when all parts are null")
+    void shouldFormatAppointmentTime_whenAllPartsNull() {
+        String result = ConsultationPDFCreator.formatAppointmentTime(null, null, null);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
     @DisplayName("returns null when the stored signature cannot be found")
     void shouldReturnNull_whenStoredSignatureMissing() {
         DigitalSignatureManager mgr = mock(DigitalSignatureManager.class);
