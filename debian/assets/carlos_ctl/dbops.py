@@ -150,9 +150,24 @@ def cmd_db_rename_schema(argv) -> int:
             return 0
         die(f"neither '{old}' nor '{new}' exists; refusing to guess")
     if new_exists and _objects(new):
-        # Never merge into (or clobber) a schema that already holds ANY
-        # object — views and routines count, not just base tables: on a PHI
-        # host the only safe answer is a human decision.
+        if not _objects(old):
+            # `new` holds data but `old` is an empty shell: a prior run's
+            # RENAME TABLE completed and its DROP DATABASE was interrupted (or
+            # `old` was emptied by hand). This is a COMPLETED move, not a merge
+            # conflict — the data already lives in `new`. Finish it idempotently
+            # (drop the empty `old`, report success) so the caller repoints its
+            # config at `new` and seals the migration, instead of refusing and
+            # leaving the data stranded in `new` behind config still on `old`.
+            log(f"schema '{old}' is an empty shell and '{new}' already holds the "
+                f"data — finishing a previously interrupted rename")
+            if db_root(["-e", f"DROP DATABASE `{old}`"]).returncode != 0:
+                warn(f"could not drop the emptied schema '{old}'; drop it by hand")
+            else:
+                log(f"dropped the emptied schema '{old}'")
+            return 0
+        # Both schemas hold objects — never merge into (or clobber) a schema
+        # that already holds ANY object (views and routines count, not just
+        # base tables): on a PHI host the only safe answer is a human decision.
         die(f"target schema '{new}' already contains objects; refusing to merge. "
             f"Inspect both schemas and either drop the unwanted one or move "
             f"objects by hand, then re-run.")
@@ -173,6 +188,8 @@ def cmd_db_rename_schema(argv) -> int:
                        f"WHERE ROUTINE_SCHEMA='{old}'"),
         ("event(s)", "SELECT COUNT(*) FROM information_schema.EVENTS "
                      f"WHERE EVENT_SCHEMA='{old}'"),
+        ("sequence(s)", "SELECT COUNT(*) FROM information_schema.TABLES "
+                        f"WHERE TABLE_SCHEMA='{old}' AND TABLE_TYPE='SEQUENCE'"),
     ):
         out = db_root(["-N", "-B", "-e", sql], capture_output=True, text=True)
         n = (out.stdout or "").strip()

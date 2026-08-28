@@ -125,7 +125,7 @@ case "$1" in
                 fi
                 if [ ! -e "${STATE}/CarlosDocument" ]; then
                     mv "${STATE}/OscarDocument" "${STATE}/CarlosDocument"
-                    ln -sn CarlosDocument "${STATE}/OscarDocument"
+                    ln -sfn CarlosDocument "${STATE}/OscarDocument"
                     echo "carlos-emr: renamed the document store OscarDocument -> CarlosDocument (a compat symlink keeps stored paths valid)"
                 else
                     echo "carlos-emr: ERROR: ${STATE}/CarlosDocument still present after clearing its empty" >&2
@@ -143,7 +143,7 @@ case "$1" in
                 # pre-boundary / no-prior-version window so a genuinely fresh
                 # install (CarlosDocument not yet created by tmpfiles at this
                 # point) never gains a spurious symlink.
-                ln -sn CarlosDocument "${STATE}/OscarDocument"
+                ln -sfn CarlosDocument "${STATE}/OscarDocument"
                 echo "carlos-emr: restored the OscarDocument -> CarlosDocument compat symlink after an interrupted rename"
             fi
         fi
@@ -451,27 +451,30 @@ case "$1" in
                     OSCAR_SCHEMA="$(mariadb --protocol=socket --user=root -N -B \
                         -e "SHOW DATABASES LIKE 'oscar'" 2>/dev/null || true)"
                     if [ -z "${OSCAR_SCHEMA}" ]; then
-                        # `oscar` is gone — but "gone" has two causes (review
-                        # finding), and they must not be conflated:
+                        # `oscar` is gone, so `carlos` is the correct target in
+                        # every sub-case here (review finding):
                         #  (a) A completed-but-unbookkept rename. db-rename-schema
                         #      DROPs `oscar` after moving its tables to `carlos`;
                         #      the env rewrite + sentinel happen after it, in a
-                        #      small non-atomic window. If a prior configure was
-                        #      killed in that window, `carlos` now holds the data
-                        #      while the env still says `oscar`. Treating this as
-                        #      "fresh" would provision a NEW EMPTY `oscar` in
-                        #      front of clinicians while the real PHI sits in
-                        #      `carlos`. So if `carlos` holds tables, finish the
-                        #      bookkeeping instead.
-                        #  (b) Genuinely fresh: neither schema has data.
+                        #      small non-atomic window. A prior configure killed
+                        #      in that window leaves the data in `carlos` while
+                        #      the env still says `oscar`.
+                        #  (b) Genuinely fresh: nothing anywhere, and `carlos` is
+                        #      the new stock default.
+                        # Repoint the env UNCONDITIONALLY rather than gate it on a
+                        # `carlos` table count: a transient failure of that COUNT
+                        # would mask (a) as 0, skip the rewrite, yet still write
+                        # the sentinel below — permanently stranding the app on
+                        # the dropped `oscar`. The count now only picks the log
+                        # line.
                         CARLOS_ROWS="$(mariadb --protocol=socket --user=root -N -B \
                             -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='carlos'" \
                             2>/dev/null || echo 0)"
+                        sed -i 's/^CARLOS_DB_NAME=oscar$/CARLOS_DB_NAME=carlos/' "${ENV_FILE}"
+                        if grep -qx 'CARLOS_BACKUP_DB_NAME=oscar' "${BACKUP_ENV}" 2>/dev/null; then
+                            sed -i 's/^CARLOS_BACKUP_DB_NAME=oscar$/CARLOS_BACKUP_DB_NAME=carlos/' "${BACKUP_ENV}"
+                        fi
                         if [ "${CARLOS_ROWS:-0}" -gt 0 ] 2>/dev/null; then
-                            sed -i 's/^CARLOS_DB_NAME=oscar$/CARLOS_DB_NAME=carlos/' "${ENV_FILE}"
-                            if grep -qx 'CARLOS_BACKUP_DB_NAME=oscar' "${BACKUP_ENV}" 2>/dev/null; then
-                                sed -i 's/^CARLOS_BACKUP_DB_NAME=oscar$/CARLOS_BACKUP_DB_NAME=carlos/' "${BACKUP_ENV}"
-                            fi
                             echo "carlos-emr: completed a prior interrupted oscar -> carlos rename (the schema was already moved to carlos)"
                         fi
                         mkdir -p "${STATE}"
