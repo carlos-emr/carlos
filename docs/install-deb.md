@@ -107,11 +107,12 @@ The application server and database always listen on loopback only.
 
 ![Billing province question](images/install/03-province.png)
 
-**4. Java heap** — the installer pre-fills a recommendation sized from the
-machine's memory: half of physical RAM, between `2g` and `8g`. Accept it on a
-dedicated box; lower it only if the host is shared or the database runs
-elsewhere (CARLOS needs at least `2g`; the rest of RAM is left for MariaDB
-and ~1 GB for the OS).
+**4. Java heap** — on a fresh install the installer pre-fills a recommendation
+sized from the machine's memory: half of physical RAM, between `2g` and `8g`
+(on reconfiguration or upgrade it offers the currently configured value).
+Accept it on a dedicated box; lower it only if the host is shared or the
+database runs elsewhere (CARLOS needs at least `2g`; the rest of RAM is left
+for MariaDB and ~1 GB for the OS).
 
 ![Java heap question](images/install/04-java-heap.png)
 
