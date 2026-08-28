@@ -84,9 +84,18 @@ async function openFocusedManager(page) {
     `Manage eForms link did not retain scheduleNav=1: ${managerHref}`,
   );
   await managerLink.click();
+  // Wait for BOTH iframes' forms before counting: count() does not auto-wait,
+  // and on a cold install (first JSP compile) the import frame finishes well
+  // after the upload frame, which made this check flake on fresh VMs.
   await page.frameLocator('#uploadFrame')
     .locator('form[action$="/eform/uploadHtml"]')
     .waitFor({ state: 'visible', timeout: 15000 });
+  // attached, not visible: the import form is styled hidden until its tab
+  // is opened, but its scheduleNav input is already in the DOM once loaded.
+  await page.frameLocator('#importFrame')
+    .locator('form')
+    .first()
+    .waitFor({ state: 'attached', timeout: 15000 });
   assert(
     await page.frameLocator('#uploadFrame').locator('input[name="scheduleNav"][value="1"]').count(),
     'HTML Upload form did not receive scheduleNav=1',
