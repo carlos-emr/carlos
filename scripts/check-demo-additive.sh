@@ -132,7 +132,7 @@ if [ -n "$SOURCE" ]; then
     if ! grep -qx "$table" "$UNION_TABLES" && ! grep -qx "$table" "$EXCLUDES"; then
       err "development.sql inserts into unclassified table '$table' (not in any province schema, not excluded) — classify it in scripts/demo-additive-exclude.txt or refresh the snapshot"
     fi
-  done < <(grep -oP '^[[:space:]]*INSERT[[:space:]]+INTO[[:space:]]+`?\K[A-Za-z0-9_]+' "$SOURCE" | LC_ALL=C sort -u)
+  done < <(grep -oP '^[[:space:]]*INSERT[[:space:]]+(IGNORE[[:space:]]+)?INTO[[:space:]]+`?\K[A-Za-z0-9_]+' "$SOURCE" | LC_ALL=C sort -u)
 fi
 
 if [ "$fail" -ne 0 ]; then
