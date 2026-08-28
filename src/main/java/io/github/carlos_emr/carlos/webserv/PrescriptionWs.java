@@ -57,6 +57,7 @@ public class PrescriptionWs extends AbstractWs {
         Prescription prescription = prescriptionManager.getPrescription(loggedInInfo, prescriptionId);
 
         if (prescription != null) {
+            requirePrivilege("_rx", "r", prescription.getDemographicId() != null ? prescription.getDemographicId().toString() : null);
             List<Drug> drugs = prescriptionManager.getDrugsByScriptNo(loggedInInfo, prescription.getId(), false);
             return (PrescriptionTransfer.toTransfer(prescription, drugs));
         }
@@ -65,18 +66,21 @@ public class PrescriptionWs extends AbstractWs {
     }
 
     public PrescriptionTransfer[] getPrescriptionUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
+        requirePrivilege("_rx", "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prescription> prescriptions = prescriptionManager.getPrescriptionUpdatedAfterDate(loggedInInfo, updatedAfterThisDateExclusive, itemsToReturn);
         return (PrescriptionTransfer.getTransfers(loggedInInfo, prescriptions));
     }
 
     public PrescriptionTransfer[] getPrescriptionsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn) {
+        requirePrivilege("_rx", "r", demographicId != null ? demographicId.toString() : null);
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prescription> prescriptions = prescriptionManager.getPrescriptionsByProgramProviderDemographicDate(loggedInInfo, programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
         return (PrescriptionTransfer.getTransfers(loggedInInfo, prescriptions));
     }
 
     public PrescriptionTransfer[] getPrescriptionsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
+        requirePrivilege("_rx", "r", demographicId != null ? demographicId.toString() : null);
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prescription> prescriptions = prescriptionManager.getPrescriptionByDemographicIdUpdatedAfterDate(loggedInInfo, demographicId, lastUpdate.getTime());
         return (PrescriptionTransfer.getTransfers(loggedInInfo, prescriptions));
