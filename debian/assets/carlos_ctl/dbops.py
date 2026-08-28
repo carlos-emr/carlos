@@ -782,6 +782,14 @@ def cmd_demo_data(argv) -> int:
     # piece failed to read.
     pieces = [
         os.path.join(DEMO_DIR, "demo-provider-links.sql"),
+        # Both guarded replacements for statements the additive transform
+        # excludes (see scripts/demo-additive-exclude.txt SPECIAL section):
+        # the program-10034 enrolments the snapshot loses to PK collision,
+        # and the demo-only 'ExternalNote' issue-catalog row the snapshot's
+        # casemgmt_issue rows reference. Must run after the additive
+        # snapshot (program 10034 and the demo providers arrive with it).
+        os.path.join(DEMO_DIR, "demo-program-links.sql"),
+        os.path.join(DEMO_DIR, "demo-issue-codes.sql"),
         os.path.join(DEMO_DIR, "demo-specialists.sql"),
         # Rich Text Letter eform, for parity with the devcontainer's dev
         # seeding. Purely additive: the Flyway baseline seeds zero eform rows
@@ -789,6 +797,13 @@ def cmd_demo_data(argv) -> int:
         os.path.join(DEMO_DIR, "update-2012-07-12.sql"),
         os.path.join(DEMO_DIR, "update-2026-03-22-rtl-2026.3.0-modernize.sql"),
         os.path.join(DEMO_DIR, "update-2026-03-12-rtl-enable-direct.sql"),
+        # Must run after the modernize update: it string-replaces the dead
+        # public-JSP attachment paths (attachEform.jsp/displayAttachedFiles.jsp)
+        # that 2026.3.0 still carries with the gated Struts routes. Without it
+        # the seeded RTL's Attach flow 404s (populate_db.sh applies the same
+        # file in the devcontainer flow; the eform-rtl-attachment-* Playwright
+        # checks pin this).
+        os.path.join(DEMO_DIR, "update-2026-06-29-rtl-attachment-route-fix.sql"),
         os.path.join(DEMO_DIR, "demo-name-sanitization.sql"),
     ]
     if s.province == "on":

@@ -46,7 +46,10 @@ user-facing error handling?
 
 6. Set `CHROME_PATH` only if Playwright cannot find Chromium automatically.
 
-7. Confirm the database has the Rich Text Letter attachment-route migration applied:
+7. Confirm the database has the Rich Text Letter attachment-route migration applied.
+   `populate_db.sh` now applies it as part of the demo-data load, so a freshly built
+   devcontainer database already has it; apply it manually only to a database seeded
+   before that change:
 
    ```bash
    mysql -h db -u root -p"$MYSQL_ROOT_PASSWORD" oscar \

@@ -47,7 +47,6 @@ ctl_billingservice_premium
 ctl_diagcode
 ctl_doc_class
 ctl_doctype
-ctl_document
 ctl_frequency
 ctl_specialinstructions
 CtlRelationships
@@ -68,6 +67,9 @@ HRMCategory
 icd9
 Icd9Synonym
 ichppccode
+# issue: the snapshot's catalog additionally carries the demo-only
+# 'ExternalNote' row (id 73) that the additively-loaded casemgmt_issue rows
+# reference; the guarded demo-issue-codes.sql seeds that one row.
 issue
 LookupList
 LookupListItem
@@ -116,3 +118,9 @@ emailConfig
 # provider_facility is Flyway-seeded and FK-constrained; the guarded
 # demo-provider-links.sql adds the dev links instead.
 provider_facility
+# program_provider is Flyway-seeded with auto-increment ids 1-33 and the
+# snapshot's rows carry explicit ids in that same range, so under INSERT
+# IGNORE every snapshot row (the program-10034 enrolments that make demo
+# patients' eCharts reachable) is dropped by PK collision. The guarded
+# demo-program-links.sql adds them without explicit ids instead.
+program_provider

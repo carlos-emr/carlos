@@ -88,6 +88,13 @@ echo 'Restoring current Administration privileges...'
 $SQL oscar < /scripts/development_privileges.sql
 echo 'Seeding fake referral specialists and provider links...'
 $SQL oscar < /scripts/demo-provider-links.sql
+# Guarded no-ops here (development.sql truncate-reloads both tables with
+# these rows), kept for parity with the deb's carlos-ctl demo-data flow,
+# where the additive transform excludes the raw statements and these files
+# are the only source of the program-10034 enrolments and the ExternalNote
+# issue row. See scripts/demo-additive-exclude.txt (SPECIAL section).
+$SQL oscar < /scripts/demo-program-links.sql
+$SQL oscar < /scripts/demo-issue-codes.sql
 $SQL oscar < /scripts/demo-specialists.sql
 # Name sanitization v2: FAKE- prefixes across all person-name tables plus
 # replacement of known real names. The -on supplement covers Ontario-only
@@ -100,4 +107,19 @@ $SQL oscar < /database/mysql/updates/update-2012-07-12.sql
 echo 'Modernizing Rich Text Letter eForm to 2026.3.0...'
 $SQL oscar < /database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql
 $SQL oscar < /database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
+# Must run AFTER the modernize update above: it string-replaces the dead
+# public-JSP attachment paths (attachEform.jsp / displayAttachedFiles.jsp)
+# that 2026.3.0 still carries with the gated Struts routes, and switches
+# fid/demographic_no lookup to the hidden inputs the saved-instance render
+# provides. Without it the seeded RTL's Attach flow 404s on every install -
+# the eform-rtl-attachment-* Playwright checks pin this.
+echo 'Rewiring Rich Text Letter attachment routes...'
+$SQL oscar < /database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql
+# development.sql truncate-reloads Facility with the old snapshot's
+# enableDigitalSignatures=0, undoing the V1.0.17 migration applied above.
+# Re-assert the product default so the demo environment exercises the
+# signature workflows (consultation stamps, signature pad) like a stock
+# install does.
+echo 'Enabling digital signatures on the demo facility...'
+$SQL oscar -e "UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;"
 echo 'Database initialization complete!'

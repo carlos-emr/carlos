@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxDrugData.DrugMonograph.DrugC
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.util.StringUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -575,7 +576,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 				drugId = Encode.forJava(drugId);
 			}
 
-            logger.debug("requesting drug from drugref id=" + drugId);
+            logger.debug("requesting drug from drugref id={}", LogSafe.sanitize(drugId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             RxDrugData.DrugMonograph dmono = drugData.getDrug2(drugId);
 
             // A DrugRef id that resolves to no product surfaces here as an empty
@@ -587,7 +588,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             if (dmono == null
                     || (dmono.name == null
                         && (dmono.getProduct() == null || dmono.getProduct().isEmpty()))) {
-                logger.warn("createNewRx: no prescribable DrugRef product for drug id " + drugId);
+                logger.warn("createNewRx: no prescribable DrugRef product for drug id {}", LogSafe.sanitize(drugId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 request.setAttribute("rxStageError",
                     "The selected item could not be added as a prescription. "
                     + "Please choose a specific drug product (a brand or a strength), "
