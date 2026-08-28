@@ -306,6 +306,12 @@ check fails anyway): the filtered demo snapshot carries `casemgmt_note_link`
 rows whose TICKLER target no longer exists (new ticklers reuse those ids and
 "inherit" orphaned notes — `tickler-note-dialog` purges them in setup); the HRM
 parser logs `FileNotFoundException` for lab files the dump references but does
-not ship (cosmetic); and nullable `consultationRequests` columns
-(`providerNo`, `urgency`, `status`) occur naturally in the dump — pages must
-render them, and regressions there have been 500s in the past.
+not ship (cosmetic); the Rich Text Letter page logs a 404 + MIME-refusal
+console error for `displayImage.do?imagefile=stamps.js` on every stock install
+(by design — `EFormAssetDeployer` never auto-deploys `stamps.js` because it
+holds clinic-specific signature stamps; the editor works without it); and
+`consultationRequests.providerNo`/`urgency`/`status` are nullable in the
+SCHEMA but always populated in the dump — regressions on the null path have
+been 500s in the past, so exercise it by nulling a row explicitly
+(`UPDATE consultationRequests SET providerNo=NULL, urgency=NULL WHERE
+requestId=<id>;`) rather than assuming the dump provides one.
