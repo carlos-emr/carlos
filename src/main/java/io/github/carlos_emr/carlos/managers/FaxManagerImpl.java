@@ -1091,6 +1091,27 @@ public class FaxManagerImpl implements FaxManager {
      * @param filePath the file path to validate
      * @throws SecurityException if the path is invalid or outside allowed directories
      */
+    /**
+     * The document-store root that fax file paths are contained within. Prefers the configured
+     * or derived document directory ({@code DOCUMENT_DIR}, else {@code BASE_DOCUMENT_DIR/document})
+     * so the containment boundary matches the actual store rather than the broader base — a
+     * mis-set {@code DOCUMENT_DIR} must not let non-document paths under the store root pass
+     * validation. Falls back to the base only if derivation is impossible (neither property set),
+     * which never happens in a real deployment but keeps this from throwing on a bare config.
+     */
+    private File documentRootForValidation() {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        String documentDir = properties.getProperty("DOCUMENT_DIR");
+        if (documentDir == null || documentDir.trim().isEmpty()) {
+            try {
+                documentDir = properties.getDocumentDirectory();
+            } catch (RuntimeException e) {
+                documentDir = "/var/lib/CarlosDocument/";
+            }
+        }
+        return new File(documentDir);
+    }
+
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
@@ -1113,7 +1134,7 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         // Use PathValidationUtils for document-root validation only after the temp-root fast path.
-        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/CarlosDocument/"));
+        File documentDir = documentRootForValidation();
         PathValidationUtils.validateExistingPath(file, documentDir);
     }
 
@@ -1143,7 +1164,7 @@ public class FaxManagerImpl implements FaxManager {
         if (PathValidationUtils.isInApplicationTempDirectory(file)) {
             resolvedPath = file.getCanonicalFile().toPath();
         } else {
-            File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/CarlosDocument/"));
+            File documentDir = documentRootForValidation();
             resolvedPath = PathValidationUtils.validateExistingPath(file, documentDir).toPath();
         }
 

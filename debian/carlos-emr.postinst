@@ -421,7 +421,29 @@ case "$1" in
                     OSCAR_SCHEMA="$(mariadb --protocol=socket --user=root -N -B \
                         -e "SHOW DATABASES LIKE 'oscar'" 2>/dev/null || true)"
                     if [ -z "${OSCAR_SCHEMA}" ]; then
-                        # Genuinely fresh: nothing to adopt, ever again.
+                        # `oscar` is gone — but "gone" has two causes (review
+                        # finding), and they must not be conflated:
+                        #  (a) A completed-but-unbookkept rename. db-rename-schema
+                        #      DROPs `oscar` after moving its tables to `carlos`;
+                        #      the env rewrite + sentinel happen after it, in a
+                        #      small non-atomic window. If a prior configure was
+                        #      killed in that window, `carlos` now holds the data
+                        #      while the env still says `oscar`. Treating this as
+                        #      "fresh" would provision a NEW EMPTY `oscar` in
+                        #      front of clinicians while the real PHI sits in
+                        #      `carlos`. So if `carlos` holds tables, finish the
+                        #      bookkeeping instead.
+                        #  (b) Genuinely fresh: neither schema has data.
+                        CARLOS_ROWS="$(mariadb --protocol=socket --user=root -N -B \
+                            -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='carlos'" \
+                            2>/dev/null || echo 0)"
+                        if [ "${CARLOS_ROWS:-0}" -gt 0 ] 2>/dev/null; then
+                            sed -i 's/^CARLOS_DB_NAME=oscar$/CARLOS_DB_NAME=carlos/' "${ENV_FILE}"
+                            if grep -qx 'CARLOS_BACKUP_DB_NAME=oscar' "${BACKUP_ENV}" 2>/dev/null; then
+                                sed -i 's/^CARLOS_BACKUP_DB_NAME=oscar$/CARLOS_BACKUP_DB_NAME=carlos/' "${BACKUP_ENV}"
+                            fi
+                            echo "carlos-emr: completed a prior interrupted oscar -> carlos rename (the schema was already moved to carlos)"
+                        fi
                         mkdir -p "${STATE}"
                         : > "${DB_NAME_SENTINEL}"
                     elif carlos-ctl db-rename-schema oscar carlos; then
@@ -433,21 +455,46 @@ case "$1" in
                         : > "${DB_NAME_SENTINEL}"
                         echo "carlos-emr: renamed the database oscar -> carlos (one-time default migration)"
                     else
-                        # The `oscar` schema exists but could not be adopted
-                        # (e.g. a conflicting non-empty `carlos`). Keep the
-                        # system consistent while deferred: point the env at
-                        # the schema the data actually lives in — still the
-                        # old stock value, so the retry gate keeps matching —
-                        # and write NO sentinel so the next configure retries.
-                        if [ -z "${CUR_DB_NAME}" ]; then
-                            printf 'CARLOS_DB_NAME=oscar\n' >> "${ENV_FILE}"
+                        # The rename failed. Distinguish two causes, because
+                        # they need opposite handling (review finding):
+                        #
+                        #  (a) A conflicting NON-EMPTY `carlos` already holds
+                        #      data — the verb refuses to merge. This happens
+                        #      on the no-prior-version path when the reinstall
+                        #      skel already wrote CARLOS_DB_NAME=carlos and the
+                        #      live data is in `carlos`, with a stale leftover
+                        #      `oscar` beside it. Repointing the env to `oscar`
+                        #      here would send the app at the WRONG (stale)
+                        #      schema and, with no sentinel, loop forever. So:
+                        #      leave the env untouched, WRITE the sentinel (a
+                        #      two-populated-schemas conflict is a human call,
+                        #      never an automatic retry), and say so.
+                        #  (b) A transient failure with `carlos` absent/empty —
+                        #      the data is still in `oscar`. Pin the env at
+                        #      `oscar` (the schema the data lives in) and write
+                        #      NO sentinel so the next configure retries.
+                        CARLOS_ROWS="$(mariadb --protocol=socket --user=root -N -B \
+                            -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='carlos'" \
+                            2>/dev/null || echo 0)"
+                        if [ "${CARLOS_ROWS:-0}" -gt 0 ] 2>/dev/null; then
+                            mkdir -p "${STATE}"
+                            : > "${DB_NAME_SENTINEL}"
+                            echo "carlos-emr: WARNING: both an \`oscar\` and a non-empty \`carlos\` schema exist." >&2
+                            echo "carlos-emr: WARNING: NOT renaming or repointing — the application stays on the" >&2
+                            echo "carlos-emr: WARNING: configured schema. Consolidate the two by hand (the live data" >&2
+                            echo "carlos-emr: WARNING: is in whichever you have been running), drop the stale one, then" >&2
+                            echo "carlos-emr: WARNING: 'sudo dpkg-reconfigure carlos-emr' if the name needs correcting." >&2
                         else
-                            sed -i 's/^CARLOS_DB_NAME=carlos$/CARLOS_DB_NAME=oscar/' "${ENV_FILE}"
+                            if [ -z "${CUR_DB_NAME}" ]; then
+                                printf 'CARLOS_DB_NAME=oscar\n' >> "${ENV_FILE}"
+                            else
+                                sed -i 's/^CARLOS_DB_NAME=carlos$/CARLOS_DB_NAME=oscar/' "${ENV_FILE}"
+                            fi
+                            echo "carlos-emr: WARNING: could not rename the database oscar -> carlos." >&2
+                            echo "carlos-emr: WARNING: the install continues on the existing name; inspect the" >&2
+                            echo "carlos-emr: WARNING: messages above, then run: sudo carlos-ctl db-rename-schema oscar carlos" >&2
+                            echo "carlos-emr: WARNING: followed by: sudo dpkg-reconfigure carlos-emr" >&2
                         fi
-                        echo "carlos-emr: WARNING: could not rename the database oscar -> carlos." >&2
-                        echo "carlos-emr: WARNING: the install continues on the existing name; inspect the" >&2
-                        echo "carlos-emr: WARNING: messages above, then run: sudo carlos-ctl db-rename-schema oscar carlos" >&2
-                        echo "carlos-emr: WARNING: followed by: sudo dpkg-reconfigure carlos-emr" >&2
                     fi
                 else
                     # Cannot probe. On the upgrade path the data is known to
