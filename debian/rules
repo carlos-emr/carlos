@@ -227,6 +227,13 @@ override_dh_auto_install:
 	    $(STAGE)/etc/carlos-emr/modsecurity/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf
 	install -m 0644 debian/assets/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf \
 	    $(STAGE)/etc/carlos-emr/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf
+	# Operator-owned exclusion files (shipped empty, never changed by the package
+	# so site edits never hit a dpkg conffile merge prompt). Under /etc, so
+	# debhelper auto-registers them as conffiles like the files above.
+	install -m 0644 debian/assets/modsecurity/local-exclusions-before-crs.conf \
+	    $(STAGE)/etc/carlos-emr/modsecurity/local-exclusions-before-crs.conf
+	install -m 0644 debian/assets/modsecurity/local-exclusions-after-crs.conf \
+	    $(STAGE)/etc/carlos-emr/modsecurity/local-exclusions-after-crs.conf
 	# MariaDB tuning drop-in
 	install -d $(STAGE)/etc/mysql/mariadb.conf.d
 	install -m 0644 debian/assets/mariadb/60-carlos-emr.cnf $(STAGE)/etc/mysql/mariadb.conf.d/60-carlos-emr.cnf

@@ -237,16 +237,26 @@ described under "Log retention", and it is checkable on a running system:
 every record has `request.headers` and no `request.body`.
 
 CARLOS is a large application of OSCAR lineage and a clinical workflow you use
-may trip a rule the packaged exclusions do not cover. The supported response
-is: reproduce it, read `carlos-ctl waf tail` for the rule id and the matched
-variable, and add the NARROWEST exclusion that works to
+may trip a rule the packaged exclusions do not cover. The package already ships
+clinical-workflow exclusions for the known free-text and base64 routes (see
+REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf, ids 1000-1999 — package-managed).
+For anything else, the supported response is: reproduce it, read
+`carlos-ctl waf tail` for the rule id and the matched variable, and add the
+NARROWEST exclusion that works to one of YOUR OWN exclusion files:
 
-  /etc/carlos-emr/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf
+  /etc/carlos-emr/modsecurity/local-exclusions-before-crs.conf  (ids 5000-5999;
+      request-keyed ctl:ruleRemove* that must act before the rules load)
+  /etc/carlos-emr/modsecurity/local-exclusions-after-crs.conf   (SecRuleUpdate*
+      that modifies an already-loaded rule)
 
-which is a conffile, so your entries survive upgrades. Prefer
+These two files are shipped empty and are never changed by the package, so your
+entries survive upgrades AND never trigger a dpkg merge prompt (do not edit the
+package-managed REQUEST-900/RESPONSE-999 files for site tuning). Prefer
 `SecRuleUpdateTargetById 942100 "!ARGS:fieldname"` over
 `SecRuleRemoveById 942100`: the first unhooks one field from one rule, the
-second turns the rule off for the whole application.
+second turns the rule off for the whole application. After editing, run
+`sudo carlos-ctl waf reload` and then `sudo carlos-ctl check` to confirm the
+SQL-injection probe is still blocked.
 
 Do not leave a system holding patient data in detect-only mode.
 

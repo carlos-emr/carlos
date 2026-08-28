@@ -271,9 +271,15 @@ public class EctViewConsultationRequestsUtil {
               vSpecialist.add(specialistName);
               urgency.add(consult.getUrgency());
               patientWillBook.add(""+consult.isPatientWillBook());
-              date.add(DateFormatUtils.ISO_DATE_FORMAT.format(consult.getReferralDate()));
-              
-              Provider cProv = providerDao.getProvider(consult.getProviderNo());
+              // The whole loop shares one catch, so a single null here (legacy/imported
+              // consults can carry a null referralDate or providerNo) would NPE and hide
+              // EVERY consult from the patient's Consultations tab. Guard both so one
+              // imperfect row cannot blank the list.
+              Date referralDate = consult.getReferralDate();
+              date.add(referralDate != null ? DateFormatUtils.ISO_DATE_FORMAT.format(referralDate) : "");
+
+              String cProvNo = consult.getProviderNo();
+              Provider cProv = (cProvNo != null && !cProvNo.isEmpty()) ? providerDao.getProvider(cProvNo) : null;
               consultProvider.add(cProv);
           }
       } catch (Exception e) {         

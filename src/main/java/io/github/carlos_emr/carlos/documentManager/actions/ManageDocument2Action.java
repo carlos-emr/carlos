@@ -1713,36 +1713,132 @@ public class ManageDocument2Action extends ActionSupport {
             pageNum = "1";
         }
 
+        // Locale.ROOT so the extension check is deterministic regardless of the server
+        // locale (matches createIncomingCacheVersion's .pdf check above).
+        // IMPROPER_UNICODE: case-insensitive file-extension comparison for content-type
+        // routing; Locale.ROOT is deterministic; not a security or authorization decision.
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive file-extension comparison for content-type routing; Locale.ROOT is deterministic; not a security or authorization decision")
+        String lowerName = sanitizedPdfName.toLowerCase(Locale.ROOT);
+        boolean isPdf = lowerName.endsWith(".pdf");
+        boolean isImage = lowerName.endsWith(".png") || lowerName.endsWith(".jpg")
+                || lowerName.endsWith(".jpeg") || lowerName.endsWith(".gif");
+
+        // Anything that is neither a rasterisable PDF nor a directly-viewable image
+        // cannot be previewed here. Previously an unsupported type (e.g. an X-ray
+        // image) threw a SecurityException INSIDE the try below, after the output
+        // stream had been opened, and the blanket catch swallowed it — producing an
+        // empty HTTP 200 that the viewer rendered as a blank iframe. Fail loud instead.
+        if (!isPdf && !isImage) {
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE,
+                    "This document cannot be previewed (only PDF and image files are supported).");
+            }
+            return;
+        }
+
         BufferedInputStream bfis = null;
         ServletOutputStream outs = null;
 
         try {
+            if (isImage) {
+                // The incoming file is already an image (e.g. an X-ray). Stream it
+                // directly with the correct content type rather than routing every file
+                // through the PDF rasteriser, which rejected non-PDFs and blanked the pane.
+                // nosemgrep: java.lang.security.httpservlet-path-traversal -- queueId/pdfDir/pdfName are traversal-screened above and resolveIncomingImageFile validates directory containment via PathValidationUtils.validateExistingPath
+                File imageFile = resolveIncomingImageFile(queueId, pdfDir, sanitizedPdfName);
+                // Check existence BEFORE touching the response: validateExistingPath
+                // enforces containment but not existence, and a missing file must be a
+                // clean 404 rather than a 500 emitted after the output stream was opened.
+                if (!imageFile.isFile()) {
+                    if (!response.isCommitted()) {
+                        response.sendError(HttpServletResponse.SC_NOT_FOUND, "This document is not available.");
+                    }
+                    return;
+                }
+                response.setContentType(imageContentType(lowerName));
+                response.setHeader("Content-Disposition", "inline;filename=\"" + sanitizeHeaderValue(sanitizedPdfName) + "\"");
+                outs = response.getOutputStream();
+                // nosemgrep: java.lang.security.httpservlet-path-traversal -- imageFile was containment-validated by PathValidationUtils.validateExistingPath in resolveIncomingImageFile
+                bfis = new BufferedInputStream(new FileInputStream(imageFile));
+                org.apache.commons.io.IOUtils.copy(bfis, outs);
+                outs.flush();
+                return;
+            }
+
             Integer pn = Integer.parseInt(pageNum);
             File outfile = createIncomingCacheVersion(queueId, pdfDir, sanitizedPdfName, pn);
-            outs = response.getOutputStream();
 
             if (outfile != null) {
                 // Security: Validate the file path before accessing
                 validateFilePath(outfile);
-                bfis = new BufferedInputStream(new FileInputStream(outfile));
-
-
                 response.setContentType("image/png");
                 response.setHeader("Content-Disposition", "inline;filename=\"" + sanitizeHeaderValue(sanitizedPdfName) + "\"");
+                outs = response.getOutputStream();
+                // nosemgrep: java.lang.security.httpservlet-path-traversal -- outfile is the PathValidationUtils-validated cache file from createIncomingCacheVersion and is re-checked by validateFilePath immediately above
+                bfis = new BufferedInputStream(new FileInputStream(outfile));
                 org.apache.commons.io.IOUtils.copy(bfis, outs);
                 outs.flush();
 
             } else {
                 log.info("Unable to retrieve content for {}/{}/{}", LogSafe.sanitize(queueId), LogSafe.sanitize(pdfDir), LogSafe.sanitize(pdfName)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                if (!response.isCommitted()) {
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND,
+                        "This document page is not available.");
+                }
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-
+            // Fail loud: a blank iframe hides the failure from the clinician. Emit a
+            // real error status/message when nothing has been written yet.
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "Unable to render this document.");
+            }
         } finally {
             if (bfis != null) {
                 bfis.close();
             }
         }
+    }
+
+    /**
+     * Resolves and path-validates a directly-viewable incoming image file (png/jpg/
+     * jpeg/gif) within the configured incoming-document directory, mirroring the
+     * containment checks {@link #createIncomingCacheVersion} performs for PDFs.
+     *
+     * @param queueId String the incoming document queue identifier (already checked for traversal)
+     * @param pdfDir String the subdirectory type (already checked for traversal)
+     * @param sanitizedPdfName String the filename (already basename-sanitized)
+     * @return File the validated image file within the allowed directory
+     * @throws Exception if the directory is not configured or the path escapes the base directory
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    private File resolveIncomingImageFile(String queueId, String pdfDir, String sanitizedPdfName) throws Exception {
+        String incomingDocPath = IncomingDocUtil.getIncomingDocumentFilePath(queueId, pdfDir);
+        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        if (incomingDocDir == null || incomingDocDir.isEmpty()) {
+            throw new IllegalStateException("INCOMINGDOCUMENT_DIR not configured");
+        }
+        File baseDir = new File(incomingDocDir);
+        File file = new File(new File(incomingDocPath), sanitizedPdfName);
+        return PathValidationUtils.validateExistingPath(file, baseDir);
+    }
+
+    /**
+     * Maps a lower-cased image filename to its inline content type.
+     *
+     * @param lowerName String the lower-cased filename
+     * @return String the image MIME type (defaults to image/jpeg for jpg/jpeg)
+     */
+    private String imageContentType(String lowerName) {
+        if (lowerName.endsWith(".png")) {
+            return "image/png";
+        }
+        if (lowerName.endsWith(".gif")) {
+            return "image/gif";
+        }
+        return "image/jpeg";
     }
 
     /**

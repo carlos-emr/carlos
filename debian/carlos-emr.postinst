@@ -180,15 +180,51 @@ case "$1" in
         install_once "${SHARE}/skel/carlos.properties" "${PROPERTIES}" 0640 root:carlos
         install_once "${SHARE}/skel/backup.env" "${BACKUP_ENV}" 0640 root:carlos-backup
 
+        # One-time migration (2026.08): earlier packages shipped
+        # consultation_signature_enabled=false. install_once copied that into the
+        # persistent /etc override, and carlos-emr-tomcat loads that file as the
+        # final override source, so the new stock default of true does NOT take
+        # effect on an upgraded install — the affected population for this fix.
+        # Flip ONLY the exact old stock line, ONLY on upgrade, and ONLY once
+        # (guarded by a sentinel): an operator who has set true, or re-applies
+        # false after this runs, keeps their choice because the sentinel stops the
+        # migration re-running, and the exact whole-line match ignores any value
+        # that is not the old stock false.
+        CONSULT_SIG_SENTINEL="${STATE}/.consult-signature-default-migrated"
+        if [ -n "${2:-}" ] && [ ! -e "${CONSULT_SIG_SENTINEL}" ] && [ -f "${PROPERTIES}" ]; then
+            if grep -qx 'consultation_signature_enabled=false' "${PROPERTIES}"; then
+                sed -i 's/^consultation_signature_enabled=false$/consultation_signature_enabled=true/' "${PROPERTIES}"
+                echo "carlos-emr: enabled consultation signatures (migrated the old stock default off -> on)"
+            fi
+            mkdir -p "${STATE}"
+            : > "${CONSULT_SIG_SENTINEL}"
+        fi
+
         # Fold the debconf answers into the operator-owned settings file.
-        db_get carlos-emr/server-name; SERVER_NAME="${RET:-localhost}"
-        db_get carlos-emr/bind-ip;     BIND_IP="${RET:-0.0.0.0}"
-        db_get carlos-emr/province;    PROVINCE="${RET:-on}"
-        db_get carlos-emr/java-heap;   HEAP="${RET:-2g}"
-        db_get carlos-emr/tls-mode;    TLS_MODE="${RET:-selfsigned}"
-        db_get carlos-emr/acme-email;  ACME_EMAIL="${RET:-}"
-        db_get carlos-emr/reset-seed-admin; RESET_ADMIN="${RET:-true}"
-        db_get carlos-emr/install-demo-data; DEMO_DATA="${RET:-false}"
+        # db_get returns 10 for an unregistered item; under set -e that would
+        # abort configure. All these keys are registered (templates + config),
+        # but guard anyway so a debconf DB that ever falls out of sync degrades
+        # to the defaults instead of failing the install. The guard must be
+        # `|| RET=""`, not `|| true`: confmodule's _db_cmd sets RET to the
+        # frontend's ERROR TEXT on failure ("<question> doesn't exist"), so with
+        # a bare `|| true` the ${RET:-...} fallback would never trigger and the
+        # error text would be written into carlos-emr.env as the value. (The
+        # db_get calls further down get away with `|| true` because they only
+        # compare RET against exact literals.)
+        db_get carlos-emr/server-name || RET=""; SERVER_NAME="${RET:-localhost}"
+        db_get carlos-emr/bind-ip     || RET=""; BIND_IP="${RET:-0.0.0.0}"
+        db_get carlos-emr/province    || RET=""; PROVINCE="${RET:-on}"
+        db_get carlos-emr/java-heap   || RET=""; HEAP="${RET:-2g}"
+        db_get carlos-emr/tls-mode    || RET=""; TLS_MODE="${RET:-selfsigned}"
+        db_get carlos-emr/acme-email  || RET=""; ACME_EMAIL="${RET:-}"
+        db_get carlos-emr/reset-seed-admin || RET=""; RESET_ADMIN="${RET:-true}"
+        # `|| RET=""` here too, though DEMO_DATA is only compared against the
+        # literal `true` below: on a failed lookup a bare `|| true` would leave
+        # RET holding the previous key's value (or the error text), and
+        # ${RET:-false} would then read that stale value — loading demo data on
+        # a system that never asked for it. Empty RET falls back to the safe
+        # default of false.
+        db_get carlos-emr/install-demo-data || RET=""; DEMO_DATA="${RET:-false}"
 
         # Three sources in order of authority: /etc/timezone (Debian
         # tradition), timedatectl, the /etc/localtime symlink target. Modern
@@ -220,7 +256,18 @@ case "$1" in
         }
         set_env_key CARLOS_SERVER_NAME "${SERVER_NAME}"
         set_env_key CARLOS_BIND_IP "${BIND_IP}"
-        set_env_key CARLOS_JAVA_XMS "${HEAP}"
+        # The single debconf heap answer round-trips through CARLOS_JAVA_XMX
+        # only (the config script seeds the question from Xmx), so Xms has no
+        # debconf voice of its own. Follow the answer with Xms ONLY while the
+        # operator has kept Xms == Xmx (the skel default and the common case):
+        # an operator who deliberately diverged them — a legitimate tuning the
+        # skel itself documents — must not have Xms silently reset to Xmx on
+        # the next upgrade. Read both BEFORE either write lands.
+        CUR_XMS="$(sed -n 's/^CARLOS_JAVA_XMS=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
+        CUR_XMX="$(sed -n 's/^CARLOS_JAVA_XMX=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
+        if [ -z "${CUR_XMS}" ] || [ "${CUR_XMS}" = "${CUR_XMX}" ]; then
+            set_env_key CARLOS_JAVA_XMS "${HEAP}"
+        fi
         set_env_key CARLOS_JAVA_XMX "${HEAP}"
         # Fresh install only: CARLOS_TZ is not round-tripped through debconf
         # like the keys above, so re-deriving it from /etc/timezone on every
@@ -470,6 +517,15 @@ esac
 # Everything below runs AFTER the debhelper snippets, so the units exist and
 # are enabled by the time we start them.
 if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
+    # dh_installsystemd runs with --no-start (the service cannot come up before
+    # this script has provisioned the DB and rendered carlos.properties), and
+    # --no-start suppresses debhelper's own daemon-reload along with the start.
+    # So on an UPGRADE that ships a changed unit, systemd still holds the old
+    # fragment: without an explicit reload here the start below launches the
+    # stale unit and prints "unit file ... changed on disk. Run daemon-reload".
+    # deb-systemd-invoke has no reload verb, so call systemctl directly (as the
+    # renderer's postinst already does). Best-effort; never fail configure.
+    systemctl --system daemon-reload >/dev/null 2>&1 || true
     if [ "${MIGRATION_OK:-1}" = 0 ]; then
         echo "carlos-emr: NOT starting the service — the schema is not ready (see above)." >&2
         echo "carlos-emr: the unit stays enabled; it will start on the next boot or when you" >&2

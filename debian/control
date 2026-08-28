@@ -1,7 +1,7 @@
 Source: carlos-emr
 Section: web
 Priority: optional
-Maintainer: CARLOS EMR Maintainers <maintainers@carlos-emr.invalid>
+Maintainer: CARLOS EMR Maintainers <michael@maplecreekmedical.ca>
 Build-Depends:
 # DO NOT BUMP THIS WITHOUT READING THIS PARAGRAPH.
 #

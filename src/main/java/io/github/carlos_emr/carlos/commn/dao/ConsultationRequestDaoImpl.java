@@ -63,8 +63,17 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
     }
 
     public List<ConsultationRequest> getConsults(Integer demoNo) {
-        StringBuilder sql = new StringBuilder("select cr from ConsultationRequest cr, Demographic d, Provider p where d.demographicNo = cr.demographicId and p.providerNo = cr.providerNo and cr.demographicId = ?1");
-        Query query = entityManager.createQuery(sql.toString());
+        // A consultation request belongs to the PATIENT and must appear in the
+        // patient's chart regardless of the state of the ordering provider's record.
+        // The previous query cross-joined Demographic AND Provider purely as existence
+        // filters (neither table is projected), so a consult whose providerNo was null
+        // or referenced a provider row that no longer exists was silently dropped from
+        // the Consultations tab. The demographic constraint (cr.demographicId = ?1)
+        // already scopes the result to this patient, and the caller
+        // (EctViewConsultationRequestsUtil) null-tolerantly re-resolves the provider
+        // and demographic per row, so select on the demographic alone.
+        Query query = entityManager.createQuery(
+                "select cr from ConsultationRequest cr where cr.demographicId = ?1");
         query.setParameter(1, demoNo);
 
         List<ConsultationRequest> results = query.getResultList();

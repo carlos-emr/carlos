@@ -438,14 +438,41 @@
 
 
             function returnToRx() {
-                var rx_enhance = <%=CarlosProperties.getInstance().getProperty("rx_enhance")%>;
-
-                if (rx_enhance) {
-                    opener.window.refresh();
-                    window.close();
-                } else {
-                    window.location.href = "<%= request.getContextPath() %>/rx/searchDrug";
+                // The pharmacy screen is reached by a same-tab link from the Rx write
+                // screen, so the browser's own back navigation is the reliable return:
+                // it restores the write screen (SearchDrug3.jsp) with the staged
+                // prescriptions still held in the server-side RxSessionBean.
+                //
+                // The previous implementation was broken three ways and did nothing:
+                //   - it interpolated the rx_enhance property UNQUOTED into a JS literal
+                //     (a non-literal value threw a SyntaxError that killed the whole
+                //     script block, so no page handler ran);
+                //   - on the truthy branch it called opener.window.refresh(), but this
+                //     page has no opener (same-tab link, not window.open) and there is
+                //     no window.refresh() function anywhere; and
+                //   - the else branch navigated to /rx/searchDrug, whose SUCCESS result
+                //     is the legacy ChooseDrug.jsp, not the Rx write screen.
+                // Use the browser Back button only when the PREVIOUS page really is a
+                // CARLOS Rx screen — verified via document.referrer, which is actual
+                // provenance. (history.length counts the whole tab session, not what the
+                // previous entry is, so a bookmarked/direct visit in a tab with prior
+                // history could Back into an unrelated page or an external site.) Going
+                // Back this way preserves the in-progress prescription staged in the Rx
+                // window.
+                var ctx = "<%= request.getContextPath() %>";
+                var rxPrefix = window.location.origin + ctx + "/rx/";
+                if ((document.referrer || "").indexOf(rxPrefix) === 0) {
+                    window.history.back();
+                    return;
                 }
+                // Otherwise (opened directly/bookmarked, or from outside the Rx module)
+                // re-enter the Rx module for this patient. choosePatient starts a fresh
+                // RxSessionBean, but in this case there is no staged stash to preserve.
+                // providerNo comes from the session.
+                var demoField = document.getElementById("demographicNo");
+                var demo = demoField ? demoField.value : "";
+                window.location.href = ctx + "/rx/choosePatient"
+                    + (demo ? "?demographicNo=" + encodeURIComponent(demo) : "");
             }
 
 			function formatTimestamp(timestamp) {
