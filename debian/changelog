@@ -17,7 +17,10 @@ carlos-emr (2026.09.0~snapshot2) resolute; urgency=medium
     changed unit file takes effect without a manual daemon-reload; on purge,
     remove the generated carlos-emr.env and the consultation-signature migration
     sentinel so a later reinstall is genuinely fresh (province/timezone answers
-    are honoured again); guard the debconf db_get calls against set -e.
+    are honoured again); guard the debconf db_get calls against set -e; stop
+    resetting an operator-diverged CARLOS_JAVA_XMS back to Xmx on upgrade;
+    document the deb pre-release version ladder in README.source (a ~rc after
+    a shipped ~snapshot would sort as a downgrade).
 
  -- CARLOS EMR Maintainers <maintainers@carlos-emr.invalid>  Fri, 28 Aug 2026 12:00:00 +0000
 

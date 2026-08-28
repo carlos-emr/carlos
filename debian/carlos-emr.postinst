@@ -249,7 +249,18 @@ case "$1" in
         }
         set_env_key CARLOS_SERVER_NAME "${SERVER_NAME}"
         set_env_key CARLOS_BIND_IP "${BIND_IP}"
-        set_env_key CARLOS_JAVA_XMS "${HEAP}"
+        # The single debconf heap answer round-trips through CARLOS_JAVA_XMX
+        # only (the config script seeds the question from Xmx), so Xms has no
+        # debconf voice of its own. Follow the answer with Xms ONLY while the
+        # operator has kept Xms == Xmx (the skel default and the common case):
+        # an operator who deliberately diverged them — a legitimate tuning the
+        # skel itself documents — must not have Xms silently reset to Xmx on
+        # the next upgrade. Read both BEFORE either write lands.
+        CUR_XMS="$(sed -n 's/^CARLOS_JAVA_XMS=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
+        CUR_XMX="$(sed -n 's/^CARLOS_JAVA_XMX=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
+        if [ -z "${CUR_XMS}" ] || [ "${CUR_XMS}" = "${CUR_XMX}" ]; then
+            set_env_key CARLOS_JAVA_XMS "${HEAP}"
+        fi
         set_env_key CARLOS_JAVA_XMX "${HEAP}"
         # Fresh install only: CARLOS_TZ is not round-tripped through debconf
         # like the keys above, so re-deriving it from /etc/timezone on every
