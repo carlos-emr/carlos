@@ -19,9 +19,11 @@ simulator/device where available:
 
 1. Confirm the evaluation warning is visible without scrolling.
 2. Review the synthetic record library at desktop and phone widths.
-3. Choose a synthetic PDF and confirm only its filename appears as `Session only`.
+3. Choose a synthetic PDF with the **New** button and confirm only its filename appears with the
+   `session only` label.
 4. Reset the session and confirm the imported filename disappears.
-5. Confirm the runtime card reports a Rust command in a Tauri build and `Browser preview` in Vite.
+5. Open **Evaluation details** and confirm it reports a Rust command in a Tauri build and
+   `Browser preview` in Vite.
 6. Check keyboard navigation, screen-reader labels, text scaling, rotation, and reduced motion.
 
 ## Decision questions
