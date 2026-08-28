@@ -119,10 +119,19 @@ public class RxPharmacyData {
     /**
      * Returns the latest data about a pharmacy.
      *
+     * <p>Every caller hands this a request-sourced string (the Rx preview and
+     * view pages, the pharmacy-info AJAX action, the customized-PDF servlet)
+     * and each already handles a null result, so a value that is not a plain
+     * numeric id answers null here rather than letting
+     * {@code Integer.parseInt} throw and 500 the whole page.</p>
+     *
      * @param ID pharmacy id
-     * @return returns a pharmacy class corresponding latest data from the pharmacy ID
+     * @return the pharmacy, or null when the id is not numeric or is unknown
      */
     public PharmacyInfo getPharmacy(String ID) {
+        if (ID == null || !ID.matches("\\d{1,9}")) {
+            return null;
+        }
         PharmacyInfo pharmacyInfo = pharmacyInfoDao.getPharmacy(Integer.parseInt(ID));
         return pharmacyInfo;
     }
