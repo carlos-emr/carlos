@@ -1088,9 +1088,11 @@ public class FaxManagerImpl implements FaxManager {
      * is set it is used verbatim (the operator's configured store); when it is unset the boundary
      * is derived as {@code BASE_DOCUMENT_DIR/document} rather than the broader store base, so an
      * unset {@code DOCUMENT_DIR} does not silently widen containment to let non-document paths
-     * under the base pass validation. Falls back to the base only if derivation is impossible
-     * (neither property set), which never happens in a real deployment but keeps this from
-     * throwing on a bare config.
+     * under the base pass validation. Falls back to the literal {@code /var/lib/CarlosDocument/}
+     * only when the directory cannot be resolved to a non-blank path at all — a present-but-blank
+     * {@code DOCUMENT_DIR} (where {@code getDocumentDirectory()} also yields blank), or neither
+     * property set — which never happens in a real deployment but keeps this from making the
+     * current working directory the containment base.
      */
     // FindSecBugs PATH_TRAVERSAL_IN: root derived from trusted server config (DOCUMENT_DIR / getDocumentDirectory()), not request input; used only as the containment root for subsequent PathValidationUtils checks
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "root derived from trusted server config (DOCUMENT_DIR / getDocumentDirectory()), not request input; used only as the containment root for subsequent PathValidationUtils checks")
@@ -1101,8 +1103,15 @@ public class FaxManagerImpl implements FaxManager {
             try {
                 documentDir = properties.getDocumentDirectory();
             } catch (RuntimeException e) {
-                documentDir = "/var/lib/CarlosDocument/";
+                documentDir = null;
             }
+        }
+        // getDocumentDirectory() only derives a path when DOCUMENT_DIR is null, not when it is
+        // present-but-blank, so it can hand back an empty string for a blank DOCUMENT_DIR. Re-check
+        // and pin the literal default rather than let new File("") make the current working
+        // directory the containment base (a review finding) — that would widen the boundary.
+        if (documentDir == null || documentDir.trim().isEmpty()) {
+            documentDir = "/var/lib/CarlosDocument/";
         }
         return new File(documentDir);
     }
