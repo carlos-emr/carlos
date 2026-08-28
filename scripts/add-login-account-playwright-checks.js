@@ -243,10 +243,13 @@ async function seedProviderViaUi(page, providerNo, siteId) {
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
+  // Newest row first by the audit timestamp, not by provider_no: provider_no is
+  // a VARCHAR, so ordering by it is lexicographic ('9' > '10'), and a stale row
+  // from a prior failed run could otherwise win the tie.
   const createdNo = sql(
     `SELECT provider_no FROM provider`
       + ` WHERE last_name='Playwright' AND first_name='${escapeSql(uniqueFirstName)}'`
-      + ` ORDER BY provider_no DESC LIMIT 1`
+      + ` ORDER BY lastUpdateDate DESC, provider_no DESC LIMIT 1`
   );
   assert(createdNo, `Add Provider form did not create provider ${providerNo} (last page: ${page.url()})`);
 
