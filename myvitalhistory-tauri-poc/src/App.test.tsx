@@ -104,6 +104,48 @@ describe("MyVitalHistory Tauri evaluation", () => {
     expect(screen.queryByText("Bloodwork — cholesterol and liver panel")).not.toBeInTheDocument();
   });
 
+  it("opens, stars, deletes, and restores a document across library sections", async () => {
+    const user = userEvent.setup();
+    render(<App bridge={bridge()} />);
+
+    await user.click(screen.getByRole("button", { name: "More options for Prescription — ramipril 5mg" }));
+    expect(screen.getByRole("dialog", { name: "Prescription — ramipril 5mg" })).toBeVisible();
+    expect(screen.getByText("Preview placeholder — this evaluation does not read the selected file.")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Add to Starred" }));
+    await user.click(screen.getByRole("button", { name: "Close document preview" }));
+    await user.click(screen.getByRole("button", { name: /Starred/ }));
+    expect(screen.getByText("Prescription — ramipril 5mg")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "More options for Prescription — ramipril 5mg" }));
+    await user.click(screen.getByRole("button", { name: "Move to Trash" }));
+    expect(screen.queryByText("Prescription — ramipril 5mg")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Trash/ }));
+    expect(screen.getByText("Prescription — ramipril 5mg")).toBeVisible();
+    expect(screen.getByText("Gone in 30 days")).toBeVisible();
+    await user.click(within(screen.getByText("Prescription — ramipril 5mg").closest("article")!).getByRole("button", { name: "Restore" }));
+
+    await user.click(screen.getByRole("button", { name: "My records" }));
+    expect(screen.getByText("Prescription — ramipril 5mg")).toBeVisible();
+    expect(screen.getByText("Prescription — ramipril 5mg was restored to My records.")).toBeVisible();
+  });
+
+  it("applies bulk star and trash actions to selected documents", async () => {
+    const user = userEvent.setup();
+    render(<App bridge={bridge()} />);
+
+    await user.click(screen.getByRole("button", { name: "Select Prescription — ramipril 5mg" }));
+    await user.click(screen.getByRole("button", { name: "Star" }));
+    await user.click(screen.getByRole("button", { name: /Starred/ }));
+    expect(screen.getByText("Prescription — ramipril 5mg")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Select Prescription — ramipril 5mg" }));
+    await user.click(screen.getByRole("button", { name: "Trash" }));
+    expect(screen.queryByText("Prescription — ramipril 5mg")).not.toBeInTheDocument();
+    expect(screen.getByText("Prescription — ramipril 5mg was moved to Trash.")).toBeVisible();
+  });
+
   it("demonstrates recoverable deletion in trash", async () => {
     const user = userEvent.setup();
     render(<App bridge={bridge()} />);
@@ -115,7 +157,7 @@ describe("MyVitalHistory Tauri evaluation", () => {
 
     await user.click(screen.getAllByRole("button", { name: "Restore" })[0]);
     expect(screen.queryByText("Bloodwork — thyroid")).not.toBeInTheDocument();
-    expect(screen.getByText("Bloodwork — thyroid was restored for this demonstration.")).toBeVisible();
+    expect(screen.getByText("Bloodwork — thyroid was restored to My records.")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Empty trash" }));
     expect(screen.getByText("Trash is empty")).toBeVisible();

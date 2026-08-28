@@ -18,10 +18,12 @@ of production readiness.
 
 - The same responsive, mock-aligned filing-cabinet screen in a browser, desktop webview, Android
   webview, and iOS webview.
-- Working search, record-kind filters, list/grid views, selection, and session-only sample folders.
-- Purpose-level Recent, Starred, Trash, Security & backup, and Health data screens. Their controls
-  update synthetic session state only and do not invoke storage, encryption, cloud, biometric, or
-  health APIs.
+- Working search, record-kind filters, list/grid views, bulk record actions, and session-only sample
+  folders.
+- A synthetic document preview and connected Recent → Starred → Trash → Restore workflow. Actions
+  update all affected library sections in memory until refresh, close, or reset.
+- Purpose-level Security & backup and Health data screens. Their controls update synthetic session
+  state only and do not invoke storage, encryption, cloud, biometric, or health APIs.
 - A typed `runtime_info` command crossing from TypeScript to Rust.
 - A native PDF picker exposed through the minimal `dialog:allow-open` capability.
 - Session-only display of the selected file's basename; no path or file contents are retained.

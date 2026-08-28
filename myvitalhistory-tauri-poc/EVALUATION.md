@@ -24,8 +24,9 @@ simulator/device where available:
 4. Reset the session and confirm the imported filename disappears.
 5. Open **Evaluation details** and confirm it reports a Rust command in a Tauri build and
    `Browser preview` in Vite.
-6. Open Recent, Starred, and the record-kind filters to confirm their intended filing views.
-7. In Trash, restore one synthetic item and confirm the 30-day countdown remains visible on phone.
+6. Open a document preview, add it to Starred, and confirm opening it places it at the top of Recent.
+7. Move that document to Trash, confirm it disappears from the library, then restore it and confirm
+   it returns to My records. Check that the 30-day countdown remains visible on phone.
 8. Review the Security & backup controls and confirm every real security capability is labelled as
    a concept or session-only demonstration.
 9. Connect one Health data demo and confirm only synthetic readings appear and no operating-system

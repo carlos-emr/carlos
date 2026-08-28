@@ -71,3 +71,36 @@ test("shows the purpose of the library navigation sections", async ({ page }, te
   await expect(page.getByRole("heading", { name: "Sample health snapshot" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("health.png"), fullPage: true });
 });
+
+test("carries a record through starred, trash, and restore", async ({ page }, testInfo) => {
+  await page.goto("/");
+
+  async function openSection(value: string, label: string) {
+    if (testInfo.project.name === "phone") {
+      await page.getByRole("combobox", { name: "Section" }).selectOption(value);
+    } else {
+      await page.getByRole("button", { name: new RegExp(`^${label}`) }).click();
+    }
+  }
+
+  const title = "Prescription — ramipril 5mg";
+  await page.getByRole("button", { name: `More options for ${title}` }).click();
+  await expect(page.getByRole("dialog", { name: title })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("record-preview.png"), fullPage: true });
+  await page.getByRole("button", { name: "Add to Starred" }).click();
+  await page.getByRole("button", { name: "Close document preview" }).click();
+
+  await openSection("starred", "Starred");
+  await expect(page.getByText(title, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: `More options for ${title}` }).click();
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(page.getByText(title, { exact: true })).not.toBeVisible();
+
+  await openSection("trash", "Trash");
+  const deletedRow = page.locator("article").filter({ hasText: title });
+  await expect(page.getByText("Gone in 30 days")).toBeVisible();
+  await deletedRow.getByRole("button", { name: "Restore" }).click();
+
+  await openSection("records", "My records");
+  await expect(page.getByText(title, { exact: true })).toBeVisible();
+});

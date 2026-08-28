@@ -61,6 +61,7 @@ interface TrashItem {
   previousLocation: string;
   countdown: string;
   icon: IconName;
+  document?: DemoDocument;
 }
 
 const sampleFolders: FolderItem[] = [
@@ -138,6 +139,8 @@ const sampleTrashItems: TrashItem[] = [
     icon: "folder",
   },
 ];
+
+const sampleRecentIds = ["sample-cardiology", "sample-bloodwork", "sample-xray"];
 
 const filters: Filter[] = ["All", "Test results", "Letters", "Imaging"];
 
@@ -258,6 +261,8 @@ export default function App({ bridge = defaultBridge }: AppProps) {
   const [view, setView] = useState<ViewMode>("list");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [trashItems, setTrashItems] = useState(sampleTrashItems);
+  const [recentIds, setRecentIds] = useState(sampleRecentIds);
+  const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
   const [cloudBackup, setCloudBackup] = useState(true);
   const [driveBackup, setDriveBackup] = useState(false);
   const [biometricUnlock, setBiometricUnlock] = useState(true);
@@ -276,10 +281,15 @@ export default function App({ bridge = defaultBridge }: AppProps) {
     };
   }, [bridge]);
 
-  const sessionDocumentCount = useMemo(
-    () => documents.filter((document) => document.sessionOnly).length,
-    [documents],
-  );
+  useEffect(() => {
+    if (!activeDocumentId) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setActiveDocumentId(null);
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [activeDocumentId]);
+
   const sessionFolderCount = useMemo(
     () => folders.filter((folder) => folder.sessionOnly).length,
     [folders],
@@ -287,10 +297,10 @@ export default function App({ bridge = defaultBridge }: AppProps) {
 
   const filteredDocuments = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
-    return documents.filter((document) => {
+    const matchingDocuments = documents.filter((document) => {
       const matchesSection =
         activeSection === "records" ||
-        activeSection === "recent" ||
+        (activeSection === "recent" && recentIds.includes(document.id)) ||
         (activeSection === "starred" && document.starred);
       const matchesFilter = activeSection !== "records" || filter === "All" || document.category === filter;
       const matchesQuery =
@@ -300,7 +310,9 @@ export default function App({ bridge = defaultBridge }: AppProps) {
           .includes(normalizedQuery);
       return matchesSection && matchesFilter && matchesQuery;
     });
-  }, [activeSection, documents, filter, query]);
+    if (activeSection !== "recent") return matchingDocuments;
+    return matchingDocuments.sort((left, right) => recentIds.indexOf(left.id) - recentIds.indexOf(right.id));
+  }, [activeSection, documents, filter, query, recentIds]);
 
   const filteredFolders = useMemo(() => {
     if (activeSection !== "records" || filter !== "All") return [];
@@ -310,8 +322,12 @@ export default function App({ bridge = defaultBridge }: AppProps) {
   }, [activeSection, filter, folders, query]);
 
   const visibleCount = filteredFolders.length + filteredDocuments.length;
+  const selectedDocuments = documents.filter((document) => selectedIds.includes(document.id));
+  const activeDocument = documents.find((document) => document.id === activeDocumentId) ?? null;
+  const starredCount = documents.filter((document) => document.starred).length;
   const hasSessionChanges =
-    sessionDocumentCount + sessionFolderCount > 0 ||
+    documents !== sampleDocuments ||
+    folders !== sampleFolders ||
     trashItems.length !== sampleTrashItems.length ||
     !cloudBackup ||
     driveBackup ||
@@ -340,7 +356,9 @@ export default function App({ bridge = defaultBridge }: AppProps) {
         setNotice("This evaluation accepts PDF files only.");
         return;
       }
-      setDocuments((current) => [toDemoDocument(selected), ...current]);
+      const document = toDemoDocument(selected);
+      setDocuments((current) => [document, ...current]);
+      setRecentIds((current) => [document.id, ...current]);
       setFilter("All");
       setQuery("");
       setNotice(`${selected.name} was added for this session only.`);
@@ -372,6 +390,8 @@ export default function App({ bridge = defaultBridge }: AppProps) {
     setFolders(sampleFolders);
     setDocuments(sampleDocuments);
     setTrashItems(sampleTrashItems);
+    setRecentIds(sampleRecentIds);
+    setActiveDocumentId(null);
     setActiveSection("records");
     setFilter("All");
     setQuery("");
@@ -389,6 +409,56 @@ export default function App({ bridge = defaultBridge }: AppProps) {
     setSelectedIds((current) =>
       current.includes(id) ? current.filter((selectedId) => selectedId !== id) : [...current, id],
     );
+  }
+
+  function openDocument(document: DemoDocument) {
+    setActiveDocumentId(document.id);
+    setRecentIds((current) => [document.id, ...current.filter((id) => id !== document.id)].slice(0, 8));
+    setNotice(`${document.title} was opened in the evaluation preview.`);
+  }
+
+  function toggleStar(document: DemoDocument) {
+    const nextStarred = !document.starred;
+    setDocuments((current) =>
+      current.map((candidate) =>
+        candidate.id === document.id ? { ...candidate, starred: nextStarred } : candidate,
+      ),
+    );
+    setNotice(`${document.title} was ${nextStarred ? "added to" : "removed from"} Starred.`);
+  }
+
+  function moveDocumentsToTrash(items: DemoDocument[]) {
+    if (items.length === 0) return;
+    const ids = new Set(items.map((document) => document.id));
+    const deletedItems = items.map<TrashItem>((document) => ({
+      id: `deleted-${document.id}`,
+      title: document.title,
+      subtitle: "Deleted just now",
+      previousLocation: document.source,
+      countdown: "Gone in 30 days",
+      icon: document.icon,
+      document,
+    }));
+    setDocuments((current) => current.filter((document) => !ids.has(document.id)));
+    setTrashItems((current) => [...deletedItems, ...current]);
+    setRecentIds((current) => current.filter((id) => !ids.has(id)));
+    setSelectedIds((current) => current.filter((id) => !ids.has(id)));
+    setActiveDocumentId(null);
+    setNotice(
+      items.length === 1
+        ? `${items[0].title} was moved to Trash.`
+        : `${items.length} documents were moved to Trash.`,
+    );
+  }
+
+  function starSelectedDocuments() {
+    if (selectedDocuments.length === 0) return;
+    const ids = new Set(selectedDocuments.map((document) => document.id));
+    setDocuments((current) =>
+      current.map((document) => (ids.has(document.id) ? { ...document, starred: true } : document)),
+    );
+    setSelectedIds([]);
+    setNotice(`${selectedDocuments.length} document${selectedDocuments.length === 1 ? "" : "s"} added to Starred.`);
   }
 
   function setCategory(nextFilter: Filter) {
@@ -410,7 +480,19 @@ export default function App({ bridge = defaultBridge }: AppProps) {
 
   function restoreTrashItem(item: TrashItem) {
     setTrashItems((current) => current.filter((candidate) => candidate.id !== item.id));
-    setNotice(`${item.title} was restored for this demonstration.`);
+    const restoredDocument = item.document ?? {
+      id: `restored-${item.id}`,
+      title: item.title,
+      subtitle: "Restored sample · PDF",
+      source: item.previousLocation,
+      added: "Restored just now",
+      category: "Other",
+      icon: item.icon,
+      sessionOnly: true,
+    };
+    setDocuments((current) => [restoredDocument, ...current]);
+    setRecentIds((current) => [restoredDocument.id, ...current.filter((id) => id !== restoredDocument.id)]);
+    setNotice(`${item.title} was restored to My records.`);
   }
 
   function emptyTrash() {
@@ -468,7 +550,7 @@ export default function App({ bridge = defaultBridge }: AppProps) {
                   <Icon name="folder" /> My records
                 </button>
                 <button className={activeSection === "recent" ? "selected" : ""} type="button" onClick={() => showSection("recent")}><Icon name="clock" /> Recent</button>
-                <button className={activeSection === "starred" ? "selected" : ""} type="button" onClick={() => showSection("starred")}><Icon name="star" /> Starred <span className="nav-count">3</span></button>
+                <button className={activeSection === "starred" ? "selected" : ""} type="button" onClick={() => showSection("starred")}><Icon name="star" /> Starred <span className="nav-count">{starredCount}</span></button>
                 <button className={activeSection === "trash" ? "selected" : ""} type="button" onClick={() => showSection("trash")}><Icon name="trash" /> Trash <span className="nav-count">{trashItems.length}</span></button>
 
                 <span className="nav-label">By kind</span>
@@ -572,8 +654,12 @@ export default function App({ bridge = defaultBridge }: AppProps) {
               {selectedIds.length > 0 && (
                 <div className="bulkbar" role="status">
                   <strong>{selectedIds.length} selected</strong>
-                  <span>Selection is visual only in this evaluation.</span>
-                  <button type="button" onClick={() => setSelectedIds([])}>Clear</button>
+                  <span>{selectedDocuments.length > 0 ? "Apply an action to the selected documents." : "Choose a document to use record actions."}</span>
+                  <div className="bulk-actions">
+                    <button type="button" onClick={starSelectedDocuments} disabled={selectedDocuments.length === 0}>Star</button>
+                    <button type="button" onClick={() => moveDocumentsToTrash(selectedDocuments)} disabled={selectedDocuments.length === 0}>Trash</button>
+                    <button type="button" onClick={() => setSelectedIds([])}>Clear</button>
+                  </div>
                 </div>
               )}
 
@@ -620,13 +706,13 @@ export default function App({ bridge = defaultBridge }: AppProps) {
                       <div className="file-name">
                         <span className={`document-icon ${document.icon}`}><Icon name={document.icon} /></span>
                         <span className="name-copy">
-                          <strong>{document.title}</strong>
+                          <button className="record-open" type="button" onClick={() => openDocument(document)}>{document.title}</button>
                           <small>{document.subtitle}{document.sessionOnly ? " · session only" : ""}</small>
                         </span>
                       </div>
                       <span className="column">{document.source}</span>
                       <span className="column">{document.added}</span>
-                      <button className="more-button" type="button" aria-label={`More options for ${document.title}`}><Icon name="more" /></button>
+                      <button className="more-button" type="button" aria-label={`More options for ${document.title}`} onClick={() => openDocument(document)}><Icon name="more" /></button>
                     </article>
                   ))}
 
@@ -644,8 +730,10 @@ export default function App({ bridge = defaultBridge }: AppProps) {
                   ))}
                   {filteredDocuments.map((document) => (
                     <article className="file-tile" key={document.id}>
-                      <span className="tile-preview paper-preview"><i /><i /><i /><i /></span>
-                      <div className="tile-caption"><span className={`document-icon ${document.icon}`}><Icon name={document.icon} /></span><span><strong>{document.title}</strong><small>{document.added}</small></span></div>
+                      <button className="tile-open" type="button" onClick={() => openDocument(document)}>
+                        <span className="tile-preview paper-preview"><i /><i /><i /><i /></span>
+                        <span className="tile-caption"><span className={`document-icon ${document.icon}`}><Icon name={document.icon} /></span><span><strong>{document.title}</strong><small>{document.added}</small></span></span>
+                      </button>
                     </article>
                   ))}
                   {visibleCount === 0 && (
@@ -858,6 +946,48 @@ export default function App({ bridge = defaultBridge }: AppProps) {
               </main>
             )}
           </div>
+
+          {activeDocument && (
+            <div className="dialog-backdrop" role="presentation" onMouseDown={() => setActiveDocumentId(null)}>
+              <section
+                className="record-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="record-dialog-title"
+                onMouseDown={(event) => event.stopPropagation()}
+              >
+                <header className="dialog-head">
+                  <div>
+                    <span className="eyebrow">Synthetic document preview</span>
+                    <h2 id="record-dialog-title">{activeDocument.title}</h2>
+                  </div>
+                  <button className="dialog-close" type="button" aria-label="Close document preview" onClick={() => setActiveDocumentId(null)}>×</button>
+                </header>
+
+                <div className="document-preview" aria-label="Placeholder document contents">
+                  <span className={`document-icon ${activeDocument.icon}`}><Icon name={activeDocument.icon} /></span>
+                  <div className="preview-paper" aria-hidden="true"><i /><i /><i /><i /><i /></div>
+                  <p>Preview placeholder — this evaluation does not read the selected file.</p>
+                </div>
+
+                <dl className="record-metadata">
+                  <div><dt>Kind</dt><dd>{activeDocument.category}</dd></div>
+                  <div><dt>Sent by</dt><dd>{activeDocument.source}</dd></div>
+                  <div><dt>Date added</dt><dd>{activeDocument.added}</dd></div>
+                  <div><dt>File</dt><dd>{activeDocument.subtitle}</dd></div>
+                </dl>
+
+                <footer className="dialog-actions">
+                  <button className="button" type="button" onClick={() => toggleStar(activeDocument)}>
+                    <Icon name="star" /> {activeDocument.starred ? "Remove star" : "Add to Starred"}
+                  </button>
+                  <button className="button danger" type="button" onClick={() => moveDocumentsToTrash([activeDocument])}>
+                    <Icon name="trash" /> Move to Trash
+                  </button>
+                </footer>
+              </section>
+            </div>
+          )}
         </section>
 
         <details className="evaluation-details">
