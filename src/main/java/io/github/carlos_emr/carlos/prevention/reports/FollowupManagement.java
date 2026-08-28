@@ -35,6 +35,8 @@ import java.util.Hashtable;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
+
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.WriteNewMeasurements;
@@ -93,7 +95,7 @@ public class FollowupManagement {
     }
 
     private void writeProcedure(final String followUpType, final String followUpValue, final String demographicNo, final String providerNo, final Date dateObserved, final String comment) {
-        log.debug("Calling WriteProcedure for " + demographicNo);
+        log.debug("Calling WriteProcedure for {}", LogSafe.sanitize(demographicNo));
         Hashtable measure = new Hashtable();
         measure.put("value", followUpValue);
         measure.put("type", followUpType);

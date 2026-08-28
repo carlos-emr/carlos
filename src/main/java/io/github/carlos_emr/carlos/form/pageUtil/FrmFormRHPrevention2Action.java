@@ -41,6 +41,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -121,7 +122,10 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
         String workflowId = request.getParameter("workflowId");
         String state = request.getParameter("state");
 
-        MiscUtils.getLogger().debug("FrmFormRHPrevention2Action demographic " + demographicNo);
+        MiscUtils.getLogger().debug(
+        "FrmFormRHPrevention2Action demographic {}",
+        LogSafe.sanitize(demographicNo)
+        );
         String af = SUCCESS;
 
         int workId = -1;
@@ -132,7 +136,11 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
         ArrayList currentWorkFlows = flow.getActiveWorkFlowList(demographicNo);
 
         String dateToParse = request.getParameter("edd");
-        MiscUtils.getLogger().debug("New workflow for " + demographicNo + " EDD " + dateToParse);
+        MiscUtils.getLogger().debug(
+        "New workflow for {} EDD {}",
+        LogSafe.sanitize(demographicNo),
+        LogSafe.sanitize(dateToParse)
+        );
         Date endDate = UtilDateUtilities.StringToDate(dateToParse);
 
         //Currently open work flows ?
@@ -143,7 +151,11 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
             String currentId = (String) h.get("ID");
             if (workflowId != null) {
                 //LOG CHANGE NOW
-                MiscUtils.getLogger().debug("Changing workflow for  " + demographicNo + " to " + state);
+                MiscUtils.getLogger().debug(
+                "Changing workflow for {} to {}",
+                LogSafe.sanitize(demographicNo),
+                LogSafe.sanitize(state)
+                );
 
                 WorkFlowState wfs = new WorkFlowState();
 

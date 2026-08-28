@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
 import io.github.carlos_emr.carlos.managers.DHIRSubmissionManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -345,7 +346,7 @@ public class PreventionData {
     }
 
     public static String getPreventionComment(String id) {
-        log.debug("Calling getPreventionComment " + id);
+        log.debug("Calling getPreventionComment {}", LogSafe.sanitize(id));
         String comment = null;
 
         try {
@@ -512,7 +513,7 @@ public class PreventionData {
                 }
                 addToHashIfNotNull(h, "summary", summary);
                 log.debug("1" + h.get("preventionType") + " " + h.size());
-                log.debug("id" + h.get("id"));
+                log.debug("id {}", LogSafe.sanitizeObject(h.get("id")));
 
             }
         } catch (Exception e) {
