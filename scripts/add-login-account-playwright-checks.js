@@ -267,11 +267,24 @@ async function seedProviderViaUi(page, providerNo, siteId) {
   return createdNo;
 }
 
-function cleanupRows(providerNo, username) {
+function cleanupRows(providerNo, username, firstName) {
+  // Also match the fixture's unique Playwright/<firstName> provider row by NAME,
+  // not just by provider_no: with provider_no_auto the app assigns a number that
+  // differs from the fixture id, so a run that fails mid-seed would otherwise
+  // leave that row (and its providersite) behind — cleanup by the fixture id
+  // alone never matches it. The name is stamped from the fixture id and is
+  // unique per run, so this cannot touch another run's provider. providersite is
+  // cleared before provider (FK), and its name-match resolves the provider_no
+  // via a subquery on the still-present provider row.
+  const nameMatch = firstName
+    ? `last_name='Playwright' AND first_name='${escapeSql(firstName)}'`
+    : null;
   const statements = [
     `DELETE FROM security WHERE user_name='${escapeSql(username)}' OR provider_no='${escapeSql(providerNo)}'`,
-    `DELETE FROM providersite WHERE provider_no='${escapeSql(providerNo)}'`,
-    `DELETE FROM provider WHERE provider_no='${escapeSql(providerNo)}'`,
+    `DELETE FROM providersite WHERE provider_no='${escapeSql(providerNo)}'`
+      + (nameMatch ? ` OR provider_no IN (SELECT provider_no FROM provider WHERE ${nameMatch})` : ''),
+    `DELETE FROM provider WHERE provider_no='${escapeSql(providerNo)}'`
+      + (nameMatch ? ` OR (${nameMatch})` : ''),
   ];
 
   const errors = [];
@@ -335,6 +348,10 @@ async function providerOptions(page) {
 async function run() {
   let providerNo = null;
   let username = null;
+  // Stable across the providerNo reassignment below: seedProviderViaUi names the
+  // created row Account<fixture id>, so cleanup can find it by name even after
+  // providerNo is replaced with the app-assigned number.
+  let fixtureFirstName = null;
   let browser = null;
 
   try {
@@ -347,6 +364,7 @@ async function run() {
     const fixture = chooseFixture();
     providerNo = fixture.providerNo;
     username = fixture.username;
+    fixtureFirstName = `Account${fixture.providerNo}`;
     const result = {
       baseUrl: baseUrl.toString(),
       adminProviderNo: adminNo,
@@ -358,7 +376,7 @@ async function run() {
       steps: [],
     };
 
-    cleanupRows(providerNo, username);
+    cleanupRows(providerNo, username, fixtureFirstName);
 
     const launchOptions = { headless: true };
     if (chromePath) {
@@ -467,7 +485,7 @@ async function run() {
     } finally {
       try {
         if (providerNo && username) {
-          cleanupRows(providerNo, username);
+          cleanupRows(providerNo, username, fixtureFirstName);
         }
       } finally {
         cleanupMysqlDefaultsFile();
