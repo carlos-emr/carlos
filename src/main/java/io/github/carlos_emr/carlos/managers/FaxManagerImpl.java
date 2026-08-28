@@ -1092,6 +1092,8 @@ public class FaxManagerImpl implements FaxManager {
      * (neither property set), which never happens in a real deployment but keeps this from
      * throwing on a bare config.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: root derived from trusted server config (DOCUMENT_DIR / getDocumentDirectory()), not request input; used only as the containment root for subsequent PathValidationUtils checks
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "root derived from trusted server config (DOCUMENT_DIR / getDocumentDirectory()), not request input; used only as the containment root for subsequent PathValidationUtils checks")
     private File documentRootForValidation() {
         CarlosProperties properties = CarlosProperties.getInstance();
         String documentDir = properties.getProperty("DOCUMENT_DIR");

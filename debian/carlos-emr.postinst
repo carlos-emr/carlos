@@ -95,26 +95,56 @@ case "$1" in
         # creates under the old name after the boundary is their choice.
         # The compat symlink keeps absolute paths already stored in the
         # database (faxes.filename, emailAttachment.filePath) resolving.
-        if { [ -z "${2:-}" ] || dpkg --compare-versions "$2" lt "2026.09.0~snapshot4"; } \
-            && [ -d "${STATE}/OscarDocument" ] && [ ! -L "${STATE}/OscarDocument" ]; then
-            if [ ! -e "${STATE}/CarlosDocument" ]; then
-                mv "${STATE}/OscarDocument" "${STATE}/CarlosDocument"
+        if [ -z "${2:-}" ] || dpkg --compare-versions "$2" lt "2026.09.0~snapshot4"; then
+            if [ -d "${STATE}/OscarDocument" ] && [ ! -L "${STATE}/OscarDocument" ]; then
+                if [ -e "${STATE}/CarlosDocument" ] \
+                    && [ -n "$(find "${STATE}/CarlosDocument" -mindepth 1 \( -type f -o -type l \) -print -quit 2>/dev/null)" ]; then
+                    # Two REAL document stores that BOTH hold files is the one
+                    # state that risks silently splitting patient documents:
+                    # continuing would configure the application and the
+                    # backups onto CarlosDocument while records still sitting
+                    # only in OscarDocument fall out of both. Fail the configure
+                    # loudly (a review finding); dpkg leaves the package
+                    # unconfigured and the operator resolves, then re-runs.
+                    echo "carlos-emr: ERROR: both ${STATE}/OscarDocument and ${STATE}/CarlosDocument exist" >&2
+                    echo "carlos-emr: ERROR: as real directories holding files. Refusing to merge or pick a" >&2
+                    echo "carlos-emr: ERROR: patient document store. Consolidate the two trees by hand (typically:" >&2
+                    echo "carlos-emr: ERROR: move the contents of the one that is stale, remove the emptied dir)," >&2
+                    echo "carlos-emr: ERROR: then re-run: sudo dpkg --configure carlos-emr" >&2
+                    exit 1
+                fi
+                # CarlosDocument is absent, or an empty boot-time skeleton:
+                # systemd-tmpfiles can lay down an empty CarlosDocument/carlos
+                # between an interrupted upgrade's unpack and its configure, and
+                # refusing on that empty tree would wedge the apt transaction
+                # (review finding). Clear the empty skeleton, then adopt — this
+                # mirrors the DB side, which merges into an object-empty
+                # `carlos` rather than refusing.
+                if [ -e "${STATE}/CarlosDocument" ]; then
+                    find "${STATE}/CarlosDocument" -depth -type d -empty -delete 2>/dev/null || true
+                fi
+                if [ ! -e "${STATE}/CarlosDocument" ]; then
+                    mv "${STATE}/OscarDocument" "${STATE}/CarlosDocument"
+                    ln -sn CarlosDocument "${STATE}/OscarDocument"
+                    echo "carlos-emr: renamed the document store OscarDocument -> CarlosDocument (a compat symlink keeps stored paths valid)"
+                else
+                    echo "carlos-emr: ERROR: ${STATE}/CarlosDocument still present after clearing its empty" >&2
+                    echo "carlos-emr: ERROR: skeleton; refusing to merge document stores. Consolidate by hand," >&2
+                    echo "carlos-emr: ERROR: then re-run: sudo dpkg --configure carlos-emr" >&2
+                    exit 1
+                fi
+            elif [ -d "${STATE}/CarlosDocument" ] && [ ! -e "${STATE}/OscarDocument" ]; then
+                # Convergence heal (review finding): a prior migration was
+                # interrupted between the mv (an atomic rename) and the compat
+                # symlink, so CarlosDocument holds the data but the
+                # OscarDocument -> CarlosDocument symlink was never created and
+                # DB-stored absolute paths under .../OscarDocument stopped
+                # resolving. Recreate it. Idempotent, and gated to the
+                # pre-boundary / no-prior-version window so a genuinely fresh
+                # install (CarlosDocument not yet created by tmpfiles at this
+                # point) never gains a spurious symlink.
                 ln -sn CarlosDocument "${STATE}/OscarDocument"
-                echo "carlos-emr: renamed the document store OscarDocument -> CarlosDocument (a compat symlink keeps stored paths valid)"
-            else
-                # Two REAL document stores is the one state that risks
-                # silently splitting patient documents: continuing would
-                # configure the application and the backups onto
-                # CarlosDocument while records still sitting only in
-                # OscarDocument fall out of both. Fail the configure loudly
-                # (a review finding); dpkg leaves the package unconfigured
-                # and the operator resolves, then re-runs the install.
-                echo "carlos-emr: ERROR: both ${STATE}/OscarDocument and ${STATE}/CarlosDocument exist" >&2
-                echo "carlos-emr: ERROR: as real directories. Refusing to merge or pick a patient document" >&2
-                echo "carlos-emr: ERROR: store. Consolidate the two trees by hand (typically: move the" >&2
-                echo "carlos-emr: ERROR: contents of the one that is stale, remove the emptied directory)," >&2
-                echo "carlos-emr: ERROR: then re-run: sudo dpkg --configure carlos-emr" >&2
-                exit 1
+                echo "carlos-emr: restored the OscarDocument -> CarlosDocument compat symlink after an interrupted rename"
             fi
         fi
 
@@ -511,7 +541,18 @@ case "$1" in
                 fi
             else
                 # Custom name, or post-boundary upgrade: the default-rename
-                # can never apply again.
+                # can never apply again. One catch-up first (review finding): a
+                # prior successful rename interrupted between rewriting
+                # carlos-emr.env (-> carlos) and backup.env leaves backup.env
+                # pinned at the now-dropped `oscar`, so the nightly backup would
+                # dump a missing schema forever. The sentinel written just below
+                # closes this block for good, so reconcile it here — the last
+                # chance to catch that split.
+                if [ "${CUR_DB_NAME}" = "carlos" ] \
+                    && grep -qx 'CARLOS_BACKUP_DB_NAME=oscar' "${BACKUP_ENV}" 2>/dev/null; then
+                    sed -i 's/^CARLOS_BACKUP_DB_NAME=oscar$/CARLOS_BACKUP_DB_NAME=carlos/' "${BACKUP_ENV}"
+                    echo "carlos-emr: reconciled backup.env to the carlos schema after a prior interrupted rename"
+                fi
                 mkdir -p "${STATE}"
                 : > "${DB_NAME_SENTINEL}"
             fi
