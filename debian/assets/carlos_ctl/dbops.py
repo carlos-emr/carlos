@@ -128,18 +128,62 @@ def cmd_db_rename_schema(argv) -> int:
                       capture_output=True, text=True)
         return bool(out.stdout.strip())
 
+    def _objects(schema: str) -> str:
+        # Everything DROP DATABASE would take along that is not a base
+        # table: any TABLES row (views included), routines, and events.
+        out = db_root(["-N", "-B", "-e",
+                       "SELECT TABLE_NAME FROM information_schema.TABLES "
+                       f"WHERE TABLE_SCHEMA='{schema}' "
+                       "UNION ALL SELECT ROUTINE_NAME FROM information_schema.ROUTINES "
+                       f"WHERE ROUTINE_SCHEMA='{schema}' "
+                       "UNION ALL SELECT EVENT_NAME FROM information_schema.EVENTS "
+                       f"WHERE EVENT_SCHEMA='{schema}'"],
+                      capture_output=True, text=True)
+        if out.returncode != 0:
+            die(f"could not list objects of '{schema}': {out.stderr.strip()}")
+        return out.stdout.strip()
+
     old_exists, new_exists = _exists(old), _exists(new)
     if not old_exists:
         if new_exists:
             log(f"schema '{old}' is gone and '{new}' exists — nothing to do")
             return 0
         die(f"neither '{old}' nor '{new}' exists; refusing to guess")
-    if new_exists and _tables(new):
-        # Never merge into (or clobber) a schema that already holds tables:
-        # on a PHI host the only safe answer is a human decision.
-        die(f"target schema '{new}' already contains tables; refusing to merge. "
+    if new_exists and _objects(new):
+        # Never merge into (or clobber) a schema that already holds ANY
+        # object — views and routines count, not just base tables: on a PHI
+        # host the only safe answer is a human decision.
+        die(f"target schema '{new}' already contains objects; refusing to merge. "
             f"Inspect both schemas and either drop the unwanted one or move "
-            f"tables by hand, then re-run.")
+            f"objects by hand, then re-run.")
+    # Preflight objects RENAME TABLE cannot carry across schemas: MariaDB
+    # refuses to move a table that has TRIGGERS, and views/routines/events
+    # stay bound to the source schema. The stock CARLOS Flyway schema ships
+    # none of these, so this only fires on site-added objects — and then
+    # the right answer is a human migration (mariadb-dump --no-data
+    # --routines --triggers --events, rename, re-import), never a partial
+    # move that strands half the clinical logic behind.
+    blockers = []
+    for what, sql in (
+        ("trigger(s)", "SELECT COUNT(*) FROM information_schema.TRIGGERS "
+                       f"WHERE TRIGGER_SCHEMA='{old}'"),
+        ("view(s)", "SELECT COUNT(*) FROM information_schema.TABLES "
+                    f"WHERE TABLE_SCHEMA='{old}' AND TABLE_TYPE='VIEW'"),
+        ("routine(s)", "SELECT COUNT(*) FROM information_schema.ROUTINES "
+                       f"WHERE ROUTINE_SCHEMA='{old}'"),
+        ("event(s)", "SELECT COUNT(*) FROM information_schema.EVENTS "
+                     f"WHERE EVENT_SCHEMA='{old}'"),
+    ):
+        out = db_root(["-N", "-B", "-e", sql], capture_output=True, text=True)
+        n = (out.stdout or "").strip()
+        if n and n != "0":
+            blockers.append(f"{n} {what}")
+    if blockers:
+        die(f"schema '{old}' holds {', '.join(blockers)} — RENAME TABLE cannot carry "
+            f"these across schemas, so the rename is refused rather than done "
+            f"partially. Export them (mariadb-dump --no-data --routines --triggers "
+            f"--events), drop them from '{old}', re-run this command, then re-import "
+            f"into '{new}'.")
     if not new_exists:
         if db_root(["-e",
                     f"CREATE DATABASE `{new}` CHARACTER SET utf8mb4 "
@@ -148,19 +192,18 @@ def cmd_db_rename_schema(argv) -> int:
     tables = _tables(old)
     if tables:
         # One multi-pair statement: atomic, so a crash mid-way cannot leave
-        # half the clinical record in each schema.
-        pairs = ", ".join(f"`{old}`.`{t}` TO `{new}`.`{t}`" for t in tables)
+        # half the clinical record in each schema. Backticks inside a
+        # (legal) table name are escaped by doubling.
+        pairs = ", ".join(
+            "`{0}`.`{2}` TO `{1}`.`{2}`".format(old, new, t.replace("`", "``"))
+            for t in tables)
         if db_root(["-e", f"RENAME TABLE {pairs}"]).returncode != 0:
             die(f"RENAME TABLE from '{old}' to '{new}' failed; both schemas "
                 "are intact — inspect and re-run")
         log(f"moved {len(tables)} tables from '{old}' to '{new}'")
-    leftover = db_root(["-N", "-B", "-e",
-                        "SELECT TABLE_NAME FROM information_schema.TABLES "
-                        f"WHERE TABLE_SCHEMA='{old}'"],
-                       capture_output=True, text=True).stdout.strip()
-    if leftover:
-        # Views (or tables created mid-run) stay the operator's to deal with;
-        # dropping the schema would silently take them along.
+    if _objects(old):
+        # Anything created mid-run stays the operator's to deal with;
+        # dropping the schema would silently take it along.
         warn(f"schema '{old}' still holds objects after the rename; leaving it in place")
     elif db_root(["-e", f"DROP DATABASE `{old}`"]).returncode != 0:
         warn(f"could not drop the emptied schema '{old}'; drop it by hand")
