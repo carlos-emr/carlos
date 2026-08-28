@@ -58,15 +58,24 @@ class SaveSignatureUpload2ActionFacilityGateUnitTest extends CarlosUnitTestBase 
         Facility facility = mock(Facility.class);
         when(facility.isEnableDigitalSignatures()).thenReturn(false);
 
-        assertPersistentUploadIsRejected(facility);
+        assertUploadResult(facility, true, HttpServletResponse.SC_FORBIDDEN);
     }
 
     @Test
     void shouldReturn403_whenCurrentFacilityIsMissing() throws Exception {
-        assertPersistentUploadIsRejected(null);
+        assertUploadResult(null, true, HttpServletResponse.SC_FORBIDDEN);
     }
 
-    private void assertPersistentUploadIsRejected(Facility facility) throws Exception {
+    @Test
+    void shouldReturn200_whenPersistenceIsNotRequestedForDisabledFacility() throws Exception {
+        Facility facility = mock(Facility.class);
+        when(facility.isEnableDigitalSignatures()).thenReturn(false);
+
+        assertUploadResult(facility, false, HttpServletResponse.SC_OK);
+    }
+
+    private void assertUploadResult(Facility facility, boolean saveToDB, int expectedStatus)
+            throws Exception {
         SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
         DigitalSignatureManager digitalSignatureManager =
                 createAndRegisterMock(DigitalSignatureManager.class);
@@ -82,7 +91,7 @@ class SaveSignatureUpload2ActionFacilityGateUnitTest extends CarlosUnitTestBase 
         request.setParameter(
                 "signatureImage",
                 "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAAC0lEQVR42mNgAAIAAAUAAeImBZsAAAAASUVORK5CYII=");
-        request.setParameter("saveToDB", "true");
+        request.setParameter("saveToDB", Boolean.toString(saveToDB));
 
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("w"), isNull()))
                 .thenReturn(true);
@@ -99,8 +108,16 @@ class SaveSignatureUpload2ActionFacilityGateUnitTest extends CarlosUnitTestBase 
             String result = new SaveSignatureUpload2Action().execute();
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
-            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
-            assertThat(tempFile).doesNotExist();
+            assertThat(response.getStatus()).isEqualTo(expectedStatus);
+            if (expectedStatus == HttpServletResponse.SC_OK) {
+                assertThat(response.getContentAsString())
+                        .contains("name=\"signatureId\"")
+                        .contains("value=\"\"");
+                assertThat(tempFile).exists();
+                assertThat(tempFile.length()).isPositive();
+            } else {
+                assertThat(tempFile).doesNotExist();
+            }
             verifyNoInteractions(digitalSignatureManager);
         } finally {
             tempFile.delete();
