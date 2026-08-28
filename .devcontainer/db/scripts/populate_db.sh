@@ -88,6 +88,13 @@ echo 'Restoring current Administration privileges...'
 $SQL oscar < /scripts/development_privileges.sql
 echo 'Seeding fake referral specialists and provider links...'
 $SQL oscar < /scripts/demo-provider-links.sql
+# Guarded no-ops here (development.sql truncate-reloads both tables with
+# these rows), kept for parity with the deb's carlos-ctl demo-data flow,
+# where the additive transform excludes the raw statements and these files
+# are the only source of the program-10034 enrolments and the ExternalNote
+# issue row. See scripts/demo-additive-exclude.txt (SPECIAL section).
+$SQL oscar < /scripts/demo-program-links.sql
+$SQL oscar < /scripts/demo-issue-codes.sql
 $SQL oscar < /scripts/demo-specialists.sql
 # Name sanitization v2: FAKE- prefixes across all person-name tables plus
 # replacement of known real names. The -on supplement covers Ontario-only

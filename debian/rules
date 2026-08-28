@@ -193,6 +193,8 @@ override_dh_auto_install:
 	    .devcontainer/db/scripts/demo-name-sanitization-on.sql \
 	    .devcontainer/db/scripts/demo-specialists.sql \
 	    .devcontainer/db/scripts/demo-provider-links.sql \
+	    .devcontainer/db/scripts/demo-program-links.sql \
+	    .devcontainer/db/scripts/demo-issue-codes.sql \
 	    database/mysql/updates/update-2012-07-12.sql \
 	    database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql \
 	    database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql \

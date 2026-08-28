@@ -782,6 +782,14 @@ def cmd_demo_data(argv) -> int:
     # piece failed to read.
     pieces = [
         os.path.join(DEMO_DIR, "demo-provider-links.sql"),
+        # Both guarded replacements for statements the additive transform
+        # excludes (see scripts/demo-additive-exclude.txt SPECIAL section):
+        # the program-10034 enrolments the snapshot loses to PK collision,
+        # and the demo-only 'ExternalNote' issue-catalog row the snapshot's
+        # casemgmt_issue rows reference. Must run after the additive
+        # snapshot (program 10034 and the demo providers arrive with it).
+        os.path.join(DEMO_DIR, "demo-program-links.sql"),
+        os.path.join(DEMO_DIR, "demo-issue-codes.sql"),
         os.path.join(DEMO_DIR, "demo-specialists.sql"),
         # Rich Text Letter eform, for parity with the devcontainer's dev
         # seeding. Purely additive: the Flyway baseline seeds zero eform rows
