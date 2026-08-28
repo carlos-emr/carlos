@@ -264,6 +264,7 @@
                         document.adddemographic.ver.value = lastTwo;
                     }
 				// Validate Alberta HIN (9 digits) if province is AB
+				}
             }
 
             function formatPhoneNum(el) {
