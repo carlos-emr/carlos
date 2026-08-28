@@ -1,3 +1,13 @@
+carlos-emr (2026.09.0~snapshot3) resolute; urgency=medium
+
+  * Install wizard: recommend a Java heap sized from the machine's memory
+    instead of a static 2g — half of physical RAM, rounded to the nearest GB,
+    clamped to 2g..8g — as the pre-filled answer to the java-heap question on
+    first install (successor to the OSCAR-19 packaging's 60%-of-RAM sizing).
+    Preseeded, reconfigured and upgraded installs keep their existing answer.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Fri, 28 Aug 2026 14:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot2) resolute; urgency=medium
 
   * Fix nine clinician-facing bugs reported by alpha testers on the .deb
