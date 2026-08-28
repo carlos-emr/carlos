@@ -92,4 +92,13 @@ class RxPharmacyDataUnitTest extends CarlosUnitTestBase {
         assertThat(rxPharmacyData.getPharmacy("1234567890")).isNull();
         verifyNoInteractions(pharmacyInfoDao);
     }
+
+    @Test
+    @DisplayName("should return null for Unicode digits even though parseInt would accept them")
+    void shouldReturnNull_forUnicodeDigits() {
+        // Arabic-Indic "123": Integer.parseInt would parse this to 123, so the
+        // guard must reject it explicitly to keep ids ASCII-only.
+        assertThat(rxPharmacyData.getPharmacy("١٢٣")).isNull();
+        verifyNoInteractions(pharmacyInfoDao);
+    }
 }

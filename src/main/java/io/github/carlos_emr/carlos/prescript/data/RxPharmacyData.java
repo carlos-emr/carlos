@@ -129,7 +129,11 @@ public class RxPharmacyData {
      * @return the pharmacy, or null when the id is not numeric or is unknown
      */
     public PharmacyInfo getPharmacy(String ID) {
-        if (ID == null || !ID.matches("\\d{1,9}")) {
+        // [0-9] spelled out rather than \d for explicitness: without
+        // UNICODE_CHARACTER_CLASS the two are equivalent (ASCII-only), and
+        // the guard must stay narrower than Integer.parseInt, which DOES
+        // accept Unicode digits.
+        if (ID == null || !ID.matches("[0-9]{1,9}")) {
             return null;
         }
         PharmacyInfo pharmacyInfo = pharmacyInfoDao.getPharmacy(Integer.parseInt(ID));
