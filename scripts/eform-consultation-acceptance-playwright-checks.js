@@ -616,7 +616,14 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
     const landingPage = await login(context);
     await landingPage.close();
 
-    libraryFid = await findExistingLibraryEform(context, libraryEformName).catch(() => null);
+    // Skip the probe only when the form is genuinely absent (the row wait times
+    // out); let any other failure (a 500 on the manager page, a broken lookup)
+    // propagate rather than be silently downgraded to "[skip]".
+    libraryFid = await findExistingLibraryEform(context, libraryEformName)
+      .catch((error) => {
+        if (error && error.name === 'TimeoutError') return null;
+        throw error;
+      });
     if (libraryFid) {
       const libraryTemplateHtml = await readManagerTemplateHtml(context, libraryFid);
       assert(libraryTemplateHtml.includes('${oscar_image_path}'), `Existing library eForm ${libraryEformName} did not retain oscar_image_path image references`);
