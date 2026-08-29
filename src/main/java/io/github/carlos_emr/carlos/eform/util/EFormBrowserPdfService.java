@@ -1052,6 +1052,28 @@ public class EFormBrowserPdfService {
             // form (the Rich Text Letter) authored no pageN divs, so we inject no @page size and let the
             // form's own @page rules or Chromium's default paper drive natural pagination.
             PageGeometry geometry = readPageGeometry(js.executeScript(COMPUTE_PAGE_GEOMETRY_JS));
+            // Emitted HERE, immediately after the scan and before any branch below can throw.
+            // The withheld case is the one that most needs this, and it exits through
+            // EformContentUnavailableException a few lines down — logging it later would make the
+            // identity unavailable in exactly the situation it exists for.
+            //
+            // The counts reach the operator through the completeness report, which is counts and
+            // booleans by construction: enough to withhold a clinical document, not enough to fix
+            // one. Nobody can act on "1 element" without knowing which. This is the only place the
+            // identity exists at all — the scan runs inside the render browser, against a URL the
+            // front door cannot reach.
+            //
+            // Structure only: tag, id, class, height, and the character COUNT of the text. Never
+            // the text: an off-page block is exactly where clinical prose ends up, and this line
+            // goes to the application log.
+            if (!geometry.excludedDetails().isEmpty()) {
+                logger.debug("Browser eForm renderer excluded element(s): fdid={} elements={}",
+                        fdid, geometry.excludedDetails());
+            }
+            if (!geometry.decorativeDetails().isEmpty()) {
+                logger.debug("Browser eForm renderer decoration element(s): fdid={} elements={}",
+                        fdid, geometry.decorativeDetails());
+            }
             if (geometry.decorativeExcludedCount() > 0) {
                 // An off-page element the FORM EXPLICITLY MARKED as decoration (a license or
                 // attribution badge, a masthead, a boilerplate disclaimer) was treated as
@@ -1113,25 +1135,6 @@ public class EFormBrowserPdfService {
                         + "outside the authored page divs from the printed PDF (legacy region-capture parity; "
                         + "the on-screen eForm still shows them): fdid={}",
                         geometry.excludedCount(), Math.round(geometry.excludedHeight()), fdid);
-                // The WARN above says HOW MANY, which is all the completeness report can carry --
-                // EFormRenderCompletenessReport is counts and booleans by construction. That is
-                // enough to withhold a document but not to fix one: neither an operator nor a form
-                // designer can act on "1 element" without knowing WHICH element. This DEBUG line is
-                // the missing half, and it is the only place the identity is available at all --
-                // the scan runs inside the render browser, against a URL that is not reachable
-                // through the front door.
-                //
-                // Structure only: tag, id, class, height, and the character COUNT of the text.
-                // Never the text. An off-page block is exactly where clinical prose ends up, and
-                // this goes to the application log.
-                logger.debug("Browser eForm renderer excluded element(s): fdid={} elements={}",
-                        fdid, geometry.excludedDetails());
-            }
-            if (!geometry.decorativeDetails().isEmpty()) {
-                // Same reasoning for the advisory bucket: the INFO above counts them, this names
-                // them, so an author can confirm the right things were marked as decoration.
-                logger.debug("Browser eForm renderer decoration element(s): fdid={} elements={}",
-                        fdid, geometry.decorativeDetails());
             }
             logger.debug("Browser eForm renderer measured {} authored page size(s): fdid={}", pageSizes.size(), fdid);
             long gatesFinishedNanos = System.nanoTime();
