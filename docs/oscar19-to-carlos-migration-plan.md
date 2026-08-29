@@ -236,7 +236,7 @@ carlos-ctl import-o19 \
     --dump /srv/migration/o19.sql.gz \
     --documents /srv/migration/o19-documents.tar.gz \
     --province on \
-    [--properties /srv/migration/oscar.properties] \
+    --properties /srv/migration/oscar.properties \
     [--dry-run]
 ```
 
@@ -268,7 +268,7 @@ Beyond the mysqldump and the OscarDocument tar, capture:
 
 | Item | Why / where it goes |
 |---|---|
-| `oscar.properties` (+ any override file, often in `$CATALINA_HOME` or `/usr/share/oscar*`) | Not copied verbatim — used to *derive* CARLOS `over_ride_config.properties`: clinic name/address, OHIP group/specialty billing numbers, HL7 lab settings, document paths, feature toggles |
+| `oscar.properties` (+ any override file, often in `$CATALINA_HOME` or `/usr/share/oscar*`) | **Required input** — translated (not copied) into an `over_ride_config.properties` fragment by the importer's `props` phase; see §8.1 |
 | `drugref.properties` / drugref DB | **Not needed** — CARLOS runs its own fresh drugref (`drugref2026`); no clinic data lives there |
 | MCEDT/EDT credentials (MOH GO-Secure user, MCEDT keystore/cert if configured) | Ontario billing upload/download continuity |
 | HRM SFTP private key + HRM decryption key (`OMD HRM` config) | HRM feed continuity (CARLOS retains HRM tables) |
@@ -283,6 +283,87 @@ Beyond the mysqldump and the OscarDocument tar, capture:
 Recommended cutover shape: **rehearse on a copy** (dump A) → fix manifest fall-out
 → freeze O19 → dump B + documents rsync top-up → import → verify → go live. The
 importer being idempotent/re-runnable from `stage` makes the rehearsal cheap.
+
+### 8.1 `oscar.properties` → CARLOS configuration translation
+
+The clinic's deployed `oscar.properties` is a **required migration input** (it is
+the third artifact alongside the dump and the documents tar). It is never copied
+into place; the importer *translates* it.
+
+**Where the output goes.** CARLOS loads the baked-in `/carlos.properties` from the
+WAR, then applies the file named by the `carlos_override_properties` system
+property (`over_ride_config.properties` in the devcontainer/podman deployments) —
+see `io.github.carlos_emr.CarlosProperties`. The importer therefore emits a
+reviewed fragment, `o19-derived-over_ride_config.properties`, that the operator
+merges into the deployment's override file. The WAR's `carlos.properties` is
+never edited.
+
+**Key universe** (repo defaults compared; a real clinic file is a customized
+superset/subset of the O19 default): O19 ships ~450 active keys, CARLOS ~338
+active (~432 documented). ~260 keys exist on both sides; ~190 active O19 keys
+have no CARLOS counterpart at all.
+
+**Translation rules, applied in order by a `props` importer phase driven by a
+`o19-properties-map.yaml` manifest:**
+
+1. **Baseline-diff first.** Only keys whose clinic value differs from the O19
+   *default* value (repo `oscar_mcmaster.properties`) are considered — a clinic
+   file is mostly untouched defaults, and CARLOS defaults should win wherever the
+   clinic never made a choice.
+2. **`carry`** — clinic identity and workflow keys copied verbatim when present
+   in CARLOS: `billregion`, `billcenter`/`default_bill_center`, `clinic_no`,
+   `dataCenterId`, `phoneprefix`, `visitlocation`/`visittype`, scheduling and
+   caseload defaults, consultation/rx/tickler/eform feature toggles, label
+   printer geometry (`label.*`), DX quick lists, `Support_Contact`,
+   `instance_type`-style region flags, `isNewONbilling`, prenatal screening
+   eform bindings, `lab.handler.*.enabled` toggles (still read by CARLOS code
+   even though absent from the default file).
+3. **`carry-secret`** — copied but printed in a separate "credentials imported —
+   rotate/verify" list, never echoed to the main report: `mcedt.service.*` +
+   `mcedt.keystore.*` (MOH EDT), `hcv.*` (health-card validation), `email.*`,
+   PGP keys (`PGP_*`), Teleplan credentials on BC profiles.
+4. **`translate`** — value rewritten, not copied:
+   - any value containing the O19 document root
+     (`/var/lib/OscarDocument/<oldctx>/…`, `/usr/local/…/OscarDocument/…`) →
+     the CARLOS context path `/var/lib/OscarDocument/carlos/…`
+     (`ONEDT_INBOX/OUTBOX/SENT/ARCHIVE`, `INVOICE_DIR`, `hl7_a04_build_dir`,
+     `INCOMINGDOCUMENT_DIR`, eform image paths);
+   - `drugref_url` → the new drugref2026 endpoint for this deployment;
+   - fax configuration → CARLOS `FaxConfig` is DB-backed with SRFax as the
+     supported provider; O19 `faxURI`/Hylafax values become an operator prompt,
+     not a copied key.
+5. **`deploy-owned` (never carried, importer refuses even if present):**
+   `db_uri`/`db_username`/`db_password`/`db_driver` and all pool keys,
+   `hibernate.*`, `tomcat_path`, `project_home`, `oscar_port`,
+   `TOMCAT_KEYSTORE_*`/`TOMCAT_TRUSTSTORE_*`, `BASE_DOCUMENT_DIR`/`DOCUMENT_DIR`
+   (set by the CARLOS deployment), `backup_path`, `buildtag`/`version*`,
+   `login_local_ip`. These belong to carlos-podman provisioning, and copying an
+   O19 value would break or weaken the new install.
+6. **`dropped-flag`** — O19 keys for modules CARLOS removed are *not* carried but
+   are itemized in the report so nobody assumes the feature still works:
+   BORN (`born*`), Integrator (`INTEGRATOR_*`), MyOSCAR/PHR (`MY_OSCAR`,
+   `myoscar_*`), CBI (`CBI_*`), OLIS (`OLIS_*`, `olis_*`), eRx (`util.erx.*`,
+   `RX3`), Clinicaid, Indivica/sharing center, Spire, `redirectstudysite_*`,
+   `cr_security` (cookie revolver), login branding (`loginlogo`/`logintext`/
+   `logintitle`). Two get an explicit **advisory** severity because they change
+   how staff work on day one: `ldap.*` (LDAP auth — no CARLOS equivalent;
+   clinics authenticating via LDAP must move to local credentials + MFA) and
+   OLIS (lab querying gone).
+7. **`unknown`** — keys in the clinic file matching none of the above (vendor
+   forks add their own): reported for human classification; never silently
+   dropped, never carried.
+
+**Report contract.** The `props` phase always produces: the generated override
+fragment; a table of every clinic-modified key with its disposition
+(`carry`/`carry-secret`/`translate`/`deploy-owned`/`dropped-flag`/`unknown`) and
+old→new values (secrets masked); and the advisory list. The fragment is inert
+until the operator merges it — properties translation is deliberately the one
+non-automatic step in the turnkey flow, because it is where machine-specific and
+clinic-specific configuration meet.
+
+`o19-properties-map.yaml` lives beside `o19-schema-map.yaml` in
+`scripts/migration/o19/` and is seeded from the key diff summarized above, then
+curated in review like the schema manifest.
 
 ## 9. Risks & open decisions
 
@@ -309,7 +390,8 @@ importer being idempotent/re-runnable from `stage` makes the rehearsal cheap.
    (from this analysis), engine skeleton with `preflight`+`stage`.
 2. `carlos`: ETL phase for the top-20 core tables + seed reconciliation +
    forced-reset; verification row-parity report.
-3. `carlos`: documents phase + reconciliation; archive/CSV export phase.
+3. `carlos`: documents phase + reconciliation; archive/CSV export phase;
+   `props` phase + `o19-properties-map.yaml` seed (§8.1).
 4. `carlos-podman`: `carlos-ctl import-o19` wrapper (snapshot, phases, restart,
    report), `--dry-run`.
 5. End-to-end rehearsal against a seeded O19 test database built from the
