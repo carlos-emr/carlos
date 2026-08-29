@@ -30,6 +30,7 @@
 --%>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -89,7 +90,14 @@
     <h3><fmt:message key="eform.calldeletedformdata.title"/></h3>
 
 
+    <%-- thead/tbody are required, not cosmetic: DataTables counts columns from
+         table > thead > tr > th. Without a thead it registered zero columns
+         against these six-cell rows and aborted init with
+         "DataTables warning: table id=tblDeletedEforms - Incorrect column
+         count" (tn/18), reported by a tester on 2026.08.0-alpha9. Every other
+         DataTables-backed eForm list already has the wrappers. --%>
     <table class="table table-sm table-striped table-hover" id="tblDeletedEforms">
+        <thead>
         <tr>
             <th><a href="<%= request.getContextPath() %>/eform/efmformmanagerdeleted?orderby=form_name"
                    class="contentLink"><fmt:message key="eform.uploadhtml.btnFormName"/></a></th>
@@ -102,6 +110,8 @@
             <th><fmt:message key="eform.uploadhtml.btnTime"/></th>
             <th><fmt:message key="eform.uploadhtml.msgAction"/></th>
         </tr>
+        </thead>
+        <tbody>
         <%
             ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEForms(orderBy, EFormUtil.DELETED);
             for (int i = 0; i < eForms.size(); i++) {
@@ -109,22 +119,23 @@
         %>
         <tr>
             <td><a href="#" class="viewEform"
-                   onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data?fid=<%=curForm.get("fid")%>', '<%="FormD"+i%>'); return false;"><%=curForm.get("formName")%>
+                   onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data?fid=<%=SafeEncode.forJavaScript((String) curForm.get("fid"))%>', '<%="FormD"+i%>'); return false;"><%=SafeEncode.forHtmlContent((String) curForm.get("formName"))%>
             </a></td>
-            <td><%=curForm.get("formSubject")%>&nbsp;</td>
-            <td><%=curForm.get("formFileName")%>
+            <td><%=SafeEncode.forHtmlContent((String) curForm.get("formSubject"))%>&nbsp;</td>
+            <td><%=SafeEncode.forHtmlContent((String) curForm.get("formFileName"))%>
             </td>
-            <td><%=curForm.get("formDate")%>
+            <td><%=SafeEncode.forHtmlContent((String) curForm.get("formDate"))%>
             </td>
-            <td><%=curForm.get("formTime")%>
+            <td><%=SafeEncode.forHtmlContent((String) curForm.get("formTime"))%>
             </td>
-            <td><a href='javascript:void(0);' onclick="restoreEForm('<%=curForm.get("fid")%>');"
+            <td><a href='javascript:void(0);' onclick="restoreEForm('<%=SafeEncode.forJavaScript((String) curForm.get("fid"))%>');"
                    class="contentLink">
                 <fmt:message key="eform.calldeletedformdata.btnRestore"/>
             </a>
             </td>
         </tr>
         <% } %>
+        </tbody>
     </table>
 
     <%@ include file="efmFooter.jspf" %>
