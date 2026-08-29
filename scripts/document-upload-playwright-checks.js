@@ -267,6 +267,88 @@ function documentRowCount() {
     await screenshot(second.popup, config.screenshotDir, 'document-upload-second');
     await second.popup.close();
     await second.inbox.close();
+
+    // ---- 3. eDocs from the chart: the document must ATTACH to the patient ----
+    // This is the path the tester meant by "upload not working from edocs": the
+    // chart's documents "+" opens ViewDocumentReport?...&mode=add (the exact URL
+    // EctDisplayDocs2Action puts on that button) and the form posts to
+    // addEditDocument. Two defects hid here, and both were invisible to a check
+    // that only watched the HTTP status:
+    //   - Struts 7 collapses the form's duplicate functionId/functionid fields
+    //     case-insensitively and the surviving lowercase key bound to nothing,
+    //     so the document saved with module_id=0 — ATTACHED TO NO PATIENT — and
+    //     the post-save redirect 400ed. Hence the DB assertion below: the row
+    //     landing is not enough, it must land on THIS demographic.
+    //   - an EMPTY file was rejected by the multipart layer before the action
+    //     and fell through to errorpage.jsp as a raw 500.
+    const edocsDemo = process.env.PRESCRIPTION_DEMOGRAPHIC_NO || '1';
+    const edocsPage = await context.newPage();
+    wirePage(edocsPage, 'edocs-add', recorder);
+    await gotoApp(edocsPage, config.baseUrl,
+      `/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=${edocsDemo}&mode=add&parentAjaxId=docs`);
+    await edocsPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+
+    const edocsForm = edocsPage.locator('form[action*="addEditDocument"]').first();
+    const edocsDesc = `edocs check ${stamp}`;
+    const typeSelect = edocsForm.locator('select[name="docType"]');
+    const typeValues = await typeSelect.locator('option').evaluateAll((os2) => os2.map((o) => o.value).filter((v) => v));
+    assert(typeValues.length > 0, 'eDocs add form offers no document types');
+    await typeSelect.selectOption(typeValues[0]);
+    await edocsForm.locator('input[name="docDesc"]').fill(edocsDesc);
+    await edocsForm.locator('input[type="file"]').setInputFiles(probePdf);
+
+    const [edocsResponse] = await Promise.all([
+      edocsPage.waitForResponse(
+        (r) => r.url().includes('/documentManager/addEditDocument') && r.request().method() === 'POST',
+        { timeout: 60000 },
+      ),
+      edocsForm.locator('input[name="Submit"], input[type="submit"]').first().click(),
+    ]);
+    assert(edocsResponse.status() < 400, `eDocs upload POST returned HTTP ${edocsResponse.status()}`);
+    await edocsPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    const edocsBody = (await edocsPage.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ');
+    assert(
+      !/CARLOS Error|unexpected error/i.test(edocsBody),
+      `eDocs upload landed on an error page after saving: ${edocsBody.slice(0, 160)}`,
+    );
+
+    const attached = sql(
+      `SELECT cd.module_id FROM ctl_document cd JOIN document d ON d.document_no = cd.document_no `
+      + `WHERE d.docdesc = '${edocsDesc}' AND cd.module = 'demographic'`,
+    );
+    assert(
+      attached === edocsDemo,
+      `eDocs upload did not attach to the patient: expected module_id ${edocsDemo}, got `
+        + `${JSON.stringify(attached)} — an orphaned document is saved but appears in no chart.`,
+    );
+
+    // Empty file: user-recoverable, must NOT be a raw 500 error page.
+    const emptyPdf = path.join(workDir, `edocs-empty-${stamp}.pdf`);
+    fs.writeFileSync(emptyPdf, Buffer.alloc(0));
+    const emptyPage = await context.newPage();
+    wirePage(emptyPage, 'edocs-empty', recorder);
+    await gotoApp(emptyPage, config.baseUrl,
+      `/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=${edocsDemo}&mode=add&parentAjaxId=docs`);
+    await emptyPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    const emptyForm = emptyPage.locator('form[action*="addEditDocument"]').first();
+    const emptyTypes = await emptyForm.locator('select[name="docType"] option').evaluateAll((os2) => os2.map((o) => o.value).filter((v) => v));
+    if (emptyTypes.length) await emptyForm.locator('select[name="docType"]').selectOption(emptyTypes[0]);
+    await emptyForm.locator('input[name="docDesc"]').fill(`edocs empty ${stamp}`);
+    await emptyForm.locator('input[type="file"]').setInputFiles(emptyPdf);
+    const [emptyResponse] = await Promise.all([
+      emptyPage.waitForResponse(
+        (r) => r.url().includes('/documentManager/addEditDocument') && r.request().method() === 'POST',
+        { timeout: 60000 },
+      ),
+      emptyForm.locator('input[name="Submit"], input[type="submit"]').first().click(),
+    ]);
+    assert(
+      emptyResponse.status() !== 500,
+      'Uploading an EMPTY file from eDocs returned a raw 500 — the multipart rejection must land '
+        + 'back on the documents page (the "input" result), not on errorpage.jsp.',
+    );
+    await emptyPage.close();
+    await edocsPage.close();
     await context.close();
 
     console.log(
