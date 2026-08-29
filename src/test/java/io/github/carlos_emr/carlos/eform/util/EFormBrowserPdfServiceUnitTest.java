@@ -160,6 +160,37 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should require an explicit marker before treating off-page content as decoration")
+    void shouldRequireDecorationMarker_beforeTreatingOffPageContentAsDecoration() {
+        String geometry = EFormBrowserPdfService.COMPUTE_PAGE_GEOMETRY_JS;
+
+        // Decoration is OPT-IN. The predicate used to infer it from position plus the mere absence
+        // of a control and a media element, with no length or content test, so a plain <div> of
+        // clinical prose authored before page1 or after the last page div was hidden from the PDF
+        // and reported only through the ADVISORY bucket that withholdsDocument never acts on.
+        assertThat(geometry)
+                .contains("carlosDecorationMarker")
+                .contains(".carlos-print-decoration, [data-carlos-print-decoration]")
+                .contains("if (!el.matches(carlosDecorationMarker)) { return false; }");
+
+        // Ordering is load-bearing. The control and media checks are a floor UNDER the marker --
+        // they stop a marked container carrying a field or a signature out of the document. If they
+        // ran first they would once again be the whole test, and unmarked text would fall through
+        // to `return true` as decoration.
+        assertThat(geometry.indexOf("carlosDecorationMarker"))
+                .as("the decoration marker gate must precede the control and media checks")
+                .isLessThan(geometry.indexOf("const carlosControls"));
+        assertThat(geometry.indexOf("carlosDecorationMarker"))
+                .as("the decoration marker gate must precede the control and media checks")
+                .isLessThan(geometry.indexOf("const carlosMedia"));
+
+        // Off-page position alone must never reach the decoration verdict on its own.
+        assertThat(geometry.indexOf("if (!beforeFirst && !afterLast) { return false; }"))
+                .as("the off-page position test must still gate the predicate")
+                .isLessThan(geometry.indexOf("carlosDecorationMarker"));
+    }
+
+    @Test
     @DisplayName("should read complete geometry diagnostics and reject malformed omission fields")
     void shouldReadCompleteGeometryDiagnostics_fromGeometryResult() throws PDFGenerationException {
         EFormBrowserPdfService.PageGeometry geometry = EFormBrowserPdfService.readPageGeometry(Map.of(

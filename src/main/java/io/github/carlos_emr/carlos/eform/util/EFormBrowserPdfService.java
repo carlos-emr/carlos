@@ -592,6 +592,22 @@ public class EFormBrowserPdfService {
             + "  const beforeFirst = (carlosPageOrder(el, firstPage) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;\n"
             + "  const afterLast = (carlosPageOrder(el, lastPage) & Node.DOCUMENT_POSITION_PRECEDING) !== 0;\n"
             + "  if (!beforeFirst && !afterLast) { return false; }\n"
+            // Position CANNOT establish that content is non-clinical. This predicate used to treat an
+            // off-page element as decoration whenever it merely LACKED a control and a media element,
+            // with no length or content test of any kind, so a plain <div> of clinical prose authored
+            // before page1 or after the last page div was reclassified as decoration, hidden by the
+            // classList.add below like any other off-page node, and disclosed only through the
+            // ADVISORY decorativeExcludedElements component -- which withholdsDocument never acts on.
+            // Print, fax and archive therefore shipped a PDF with that clinical text silently missing.
+            // Decoration is now OPT-IN: an off-page element qualifies only when the form marks it as
+            // such, and everything else stays in the BLOCKING bucket where a clinician approves before
+            // it ships. Authors mark genuine badges, mastheads and boilerplate disclaimers with either
+            // spelling of the marker; an unmarked off-page block is treated as clinical content.
+            + "  const carlosDecorationMarker = '.carlos-print-decoration, [data-carlos-print-decoration]';\n"
+            + "  if (!el.matches(carlosDecorationMarker)) { return false; }\n"
+            // Defence in depth below the marker: an explicitly marked container must still not carry a
+            // control or a media element out of the document. A marker is an author assertion about
+            // boilerplate, not a licence to drop a field or a signature.
             + "  const carlosControls = 'input, textarea, select, button, [contenteditable]';\n"
             // Self AND descendants, exactly like the media check below: a BARE off-page control
             // (a top-level textarea holding clinical default text) must stay in the BLOCKING
@@ -1014,8 +1030,9 @@ public class EFormBrowserPdfService {
             // form's own @page rules or Chromium's default paper drive natural pagination.
             PageGeometry geometry = readPageGeometry(js.executeScript(COMPUTE_PAGE_GEOMETRY_JS));
             if (geometry.decorativeExcludedCount() > 0) {
-                // An off-page license/attribution badge, masthead or boilerplate disclaimer was
-                // reclassified as non-clinical decoration: it does NOT withhold the document, but
+                // An off-page element the FORM EXPLICITLY MARKED as decoration (a license or
+                // attribution badge, a masthead, a boilerplate disclaimer) was treated as
+                // non-clinical: it does NOT withhold the document, but
                 // it is never silent either — the count enters the completeness report as the
                 // ADVISORY decorativeExcludedElements component below, so every delivery surface
                 // discloses that something was removed. A count only (no content/PHI).
