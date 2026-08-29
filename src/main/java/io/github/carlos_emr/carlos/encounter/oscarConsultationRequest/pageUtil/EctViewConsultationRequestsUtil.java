@@ -259,13 +259,23 @@ public class EctViewConsultationRequestsUtil {
                   specialistName = specialist.getLastName() + ", " + specialist.getFirstName();
                }
 
+              // A consult row can outlive the records it points at. ConsultationRequestDaoImpl.getConsults
+              // deliberately no longer joins Demographic and Provider as existence filters, so a legacy
+              // row whose demographic or most-responsible provider was removed now reaches this loop
+              // instead of being silently dropped. The whole loop shares one catch, so any unguarded
+              // dereference here NPEs and blanks EVERY consult on the tab -- the precise failure the
+              // widened query exists to fix.
               Demographic demo = demoManager.getDemographic(loggedInInfo, consult.getDemographicId());
-              String providerId = demo.getProviderNo();
-              String providerName = (providerId != null && !providerId.isEmpty()) ? providerDao.getProvider(providerId).getFormattedName() : "N/A";
+              String providerId = (demo != null) ? demo.getProviderNo() : null;
+              // Guard the LOOKUP RESULT, not just the id: a non-empty providerNo can still reference a
+              // provider row that no longer exists, and getProvider() returns null rather than throwing.
+              // This mirrors the null-tolerant handling of the consult's own provider below.
+              Provider mrp = (providerId != null && !providerId.isEmpty()) ? providerDao.getProvider(providerId) : null;
+              String providerName = (mrp != null) ? mrp.getFormattedName() : "N/A";
 
               ids.add(consult.getId().toString());
               status.add(consult.getStatus());
-              patient.add(demo.getFormattedName());
+              patient.add(demo != null ? demo.getFormattedName() : "");
               provider.add(providerName);
               service.add(serviceDescription);
               vSpecialist.add(specialistName);
