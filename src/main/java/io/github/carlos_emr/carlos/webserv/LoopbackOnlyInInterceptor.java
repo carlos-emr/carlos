@@ -70,7 +70,7 @@ public class LoopbackOnlyInInterceptor extends AbstractPhaseInterceptor<Message>
         if (isLoopback(request.getRemoteAddr())) {
             return;
         }
-        logger.warn("Refused off-host request to a loopback-only web service from " + request.getRemoteAddr());
+        logger.warn("Refused off-host request to a loopback-only web service from {}", request.getRemoteAddr());
         throw new Fault(new SecurityException("loopback-only endpoint"));
     }
 
