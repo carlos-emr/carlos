@@ -220,11 +220,66 @@ Two coordinated deliverables:
 - `o19_import.py` (or shell+SQL) — phases: `preflight`, `stage`, `etl`,
   `documents`, `verify`, each idempotent and resumable; writes a single
   machine+human readable report.
-- `preflight` introspects the **restored dump** via `information_schema` and
-  diffs it against the manifest: unknown tables/columns (vendor forks — WELL/KAI,
-  OMD-mandated patches) are surfaced *before* any write. Unknown tables default to
-  `archive`, never `drop`.
+- `preflight` — the go/no-go gate, specified in §6.1.
 - `verify` (§7) gate.
+
+### 6.1 Preflight gate — go/no-go blocker detection
+
+Preflight is a **read-only feasibility check** that decides whether this
+migration path is viable for a given clinic *before* anything is written. It
+runs in two modes with identical checks:
+
+- **Assessment mode** — a standalone script (`o19-preflight`, no CARLOS install
+  required) run against the *live O19 database + properties file at the clinic*,
+  before backups are ever shipped. This is how a migration is quoted/approved.
+- **Import mode** — the same checks re-run automatically by `import-o19` against
+  the restored `o19_import` staging schema, since the shipped dump may differ
+  from what was assessed.
+
+Every finding has a severity; the outcome is the worst severity found:
+
+**BLOCKER — the import refuses to proceed until remediated or explicitly
+signed off:**
+
+| # | Check | Detail |
+|---|---|---|
+| B1 | **Patient data in tables CARLOS doesn't have** | Row counts on the curated patient-data subset of the 202 O19-only tables (`formONAREnhancedRecord*`, `formAR`, `formONAR`, `formType2Diabetes`, `formIntakeHx`, `intake*`, `Ocan*`, `eyeform*`/`Eyeform*`, `hsfo_*`, CAISI bed/room/admission-adjacent tables). Non-zero rows → blocker naming the table, its row count, and the disposition on offer (archive + CSV, §4.6). Cleared only by the operator passing an explicit per-class acknowledgement (e.g. `--accept archived-forms`), which is recorded in the report as the clinic's sign-off |
+| B2 | **Unknown tables/columns with data** | Anything in the dump not classified in `o19-schema-map.yaml` (vendor forks — WELL/KAI, OMD patches) with rows → blocker until a human classifies it (manifest update or `--accept unknown-as-archive`). Unknown never silently drops |
+| B3 | **Data in O19 columns CARLOS dropped** | Non-null/non-default counts on the flagged columns of the 39 tables in Appendix C (e.g. `drugs.dispensingUnits` ≠ empty means the dispensing workflow was in use). Above-threshold usage → blocker with per-column counts |
+| B4 | **Encrypted casemgmt notes** | Encryption markers in `casemgmt_note` / site config → blocker (key handling not in scope of the standard path) |
+| B5 | **LDAP authentication in use** | `ldap.enabled=true` in properties → blocker: staff cannot log in to CARLOS via LDAP; local credentials must be provisioned first |
+| B6 | **Target not pristine** (import mode only) | CARLOS schema contains clinic data beyond the known seed rows → refuse |
+| B7 | **Capacity/compatibility** | Insufficient disk for staging + archive + documents; dump collations unavailable on the target MariaDB; dump truncated/incomplete (missing `-- Dump completed`) |
+| B8 | **Unrepairable text encoding** | Charset sampling (§4.4) finds mixed/double-encoded text the standard repair can't normalize deterministically |
+
+**ADVISORY — reported prominently, does not stop the import:**
+
+- Removed-module data that auto-archives without workflow impact (OLIS logs,
+  Integrator/sharing tables, report-runner templates) — itemized so the clinic
+  knows what becomes archive-only.
+- **Properties fallout**: every clinic-set key classified `dropped-flag` (§8.1
+  rule 6) — the "many keys no longer needed" list — grouped by module, plus the
+  `deploy-owned` keys that will be ignored. OLIS and eRx keys escalate the
+  matching module advisory; `ldap.*` escalates to B5.
+- Hylafax/legacy fax configuration → SRFax decision needed before cutover.
+- Providers with no `security` row, disabled accounts, stale `secUserRole`
+  entries — hygiene items that surface as confusing login behavior later.
+- Documents advisory (when the tar is available): rows in `document` whose file
+  is missing from the tar, and orphan files — full reconciliation still runs as
+  a hard gate in the `documents` phase (§5).
+
+**INFO:** table/row inventory, database and documents sizes, estimated staging
+disk and import duration, provider/patient counts (sanity anchors for §7
+row-parity).
+
+**Report contract.** Preflight always emits a machine-readable JSON verdict
+(`go` / `no-go` / `go-with-acknowledgements`) plus a human report listing every
+blocker with its remediation and every advisory. `import-o19` runs it first and
+stops on `no-go`; acknowledgements are CLI flags so the sign-off is explicit,
+auditable, and can't happen by default. Assessment-mode output doubles as the
+clinic-facing feasibility statement: what migrates, what becomes archive-only,
+what stops working (OLIS, eRx, MyOSCAR, LDAP), and what must be decided before
+cutover.
 
 **(b) `carlos-podman` repo — `carlos-ctl import-o19` (the turnkey wrapper)**
 
@@ -387,7 +442,9 @@ curated in review like the schema manifest.
 ## 10. Implementation work breakdown
 
 1. `carlos`: commit generated schema-diff tooling + `o19-schema-map.yaml` seed
-   (from this analysis), engine skeleton with `preflight`+`stage`.
+   (from this analysis), engine skeleton with `preflight`+`stage`; ship
+   `preflight` as a standalone assessment-mode script (§6.1) usable at a clinic
+   before backups are shipped.
 2. `carlos`: ETL phase for the top-20 core tables + seed reconciliation +
    forced-reset; verification row-parity report.
 3. `carlos`: documents phase + reconciliation; archive/CSV export phase;
