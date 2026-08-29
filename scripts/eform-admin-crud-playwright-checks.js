@@ -299,14 +299,16 @@ async function libraryRow(page, name) {
       panelPage.locator('#dynamic-content #savebtn').click(),
     ]);
 
-    // Prove which shape was actually sent. Without this the check would keep
-    // passing if registerFormSubmit ever stopped hijacking the submit, while
-    // silently reverting to the multipart path already covered above.
+    // Record which shape was sent. registerFormSubmit now posts multipart forms
+    // as FormData (serialize() drops file inputs), so the panel save is
+    // multipart again; the urlencoded REQUEST_BODY exclusion on rule 1050 stays
+    // as defence for any client that still posts that shape. Either encoding
+    // must succeed — the assertion that matters is the 200 below.
     const panelContentType = (panelResponse.request().headers()['content-type'] || '').toLowerCase();
     assert(
-      panelContentType.includes('application/x-www-form-urlencoded'),
-      `The Administration-panel save posted "${panelContentType}", not urlencoded. This run did `
-        + 'not exercise the REQUEST_BODY path that exclusion 1050 was extended to cover.',
+      panelContentType.includes('application/x-www-form-urlencoded')
+        || panelContentType.includes('multipart/form-data'),
+      `The Administration-panel save posted an unexpected content type: "${panelContentType}".`,
     );
     assertNotBlocked(panelResponse, 'Saving an eForm from the Administration panel');
     await panelPage.close();

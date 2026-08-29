@@ -401,18 +401,31 @@
             if (thisForm.valid != null && !thisForm.valid()) {
                 return false;
             }
-            // gather the form data
-            let data = $(this).serialize();
-            // post data (CSRFGuard 4.5 auto-injects CSRF token into XHR headers)
-            $.ajax({
+            // A multipart form must go out as FormData: $(form).serialize()
+            // silently DROPS file inputs, so hijacking a multipart form with a
+            // serialized body posted it without its file — the eForm import
+            // panel, for one, always arrived fileless inside this shell while
+            // the same form worked opened standalone. (This is also why the
+            // eForm editor's save changes encoding depending on how it was
+            // reached; the WAF exclusions cover both shapes.)
+            let isMultipart = (thisForm.attr('enctype') || '').toLowerCase() === 'multipart/form-data';
+            let ajaxOptions = {
                 url: thisForm.attr('action'),
                 type: thisForm.attr('method'),
-                data: data,
                 success: function (returnData) {
                     // insert returned html
                     $('#' + divId).html(returnData)
                 }
-            });
+            };
+            if (isMultipart) {
+                ajaxOptions.data = new FormData(this);
+                ajaxOptions.processData = false;
+                ajaxOptions.contentType = false;
+            } else {
+                // gather the form data (CSRFGuard 4.5 auto-injects CSRF token into XHR headers)
+                ajaxOptions.data = $(this).serialize();
+            }
+            $.ajax(ajaxOptions);
 
             return false; // stops browser from doing default submit process
         }));
