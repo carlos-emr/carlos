@@ -72,6 +72,12 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         // already scopes the result to this patient, and the caller
         // (EctViewConsultationRequestsUtil) null-tolerantly re-resolves the provider
         // and demographic per row, so select on the demographic alone.
+        //
+        // That null-tolerance is a CONTRACT this query depends on, not an incidental
+        // detail: dropping the joins is what lets rows with a dangling demographic or
+        // provider reach the caller, and the caller shares one try/catch across its
+        // whole loop, so a single unguarded dereference there blanks the entire
+        // Consultations tab rather than degrading one row.
         Query query = entityManager.createQuery(
                 "select cr from ConsultationRequest cr where cr.demographicId = ?1");
         query.setParameter(1, demoNo);

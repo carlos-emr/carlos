@@ -1680,6 +1680,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if path validation, rendering, or I/O fails
      * @throws SecurityException if the user lacks _edoc read privilege or path traversal is detected
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive file-extension comparison for content-type routing; Locale.ROOT is deterministic; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive file-extension comparison for content-type routing; Locale.ROOT is deterministic; not a security or authorization decision")
     public void viewIncomingDocPageAsImage() throws Exception {
 
 
@@ -1715,9 +1717,10 @@ public class ManageDocument2Action extends ActionSupport {
 
         // Locale.ROOT so the extension check is deterministic regardless of the server
         // locale (matches createIncomingCacheVersion's .pdf check above).
-        // IMPROPER_UNICODE: case-insensitive file-extension comparison for content-type
-        // routing; Locale.ROOT is deterministic; not a security or authorization decision.
-        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive file-extension comparison for content-type routing; Locale.ROOT is deterministic; not a security or authorization decision")
+        // The IMPROPER_UNICODE suppression for this call sits on the METHOD declaration, not
+        // here: @SuppressFBWarnings has CLASS retention and the class-file format has no place
+        // to record a declaration annotation on a local, so javac silently drops one written at
+        // this site and SpotBugs keeps reporting the bug. Do not move it back down.
         String lowerName = sanitizedPdfName.toLowerCase(Locale.ROOT);
         boolean isPdf = lowerName.endsWith(".pdf");
         boolean isImage = lowerName.endsWith(".png") || lowerName.endsWith(".jpg")
