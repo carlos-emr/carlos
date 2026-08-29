@@ -27,6 +27,16 @@ carlos-emr (2026.09.0~snapshot4) resolute; urgency=medium
     postinsts recover a unit an earlier one in the same transaction left failed.
     Crash-loop protection is unchanged: Restart=on-failure with RestartSec=15s
     still trips the same limit in about 90 seconds.
+  * WAF: saving a drawn provider signature works through the front door.
+    Provider preferences posts the pad's canvas.toDataURL() output as
+    ARGS:signatureData to /provider/providerSignatureStamp, and the
+    `data:image/...;base64` prefix scored CRS 941130/941170 over the anomaly
+    threshold, 403-ing the save with the page's own "Save failed" banner — the
+    same data-URI false positive already excluded for the consultation signature
+    pad and eForm image saves, on the one signature route they missed. New
+    per-argument exclusion 1080 unhooks only that argument, only on POST to that
+    route; the action still requires write access and strictly validates and
+    size-caps the base64 image server-side.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Fri, 28 Aug 2026 16:00:00 +0000
 
