@@ -70,14 +70,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewIncomingDocs',800,1200)" class="nav-link"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/inboxManage?method=getDocumentsInQueues',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
-<c:choose>
-    <c:when test="${CarlosProperties.getInstance().getBooleanProperty('legacy_document_upload_enabled', 'true')}">
-        <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewHtml5AddDocuments',600,500)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
-    </c:when>
-    <c:otherwise>
-        <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewDocumentUploader',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
-    </c:otherwise>
-</c:choose>
+<%-- A scriptlet, deliberately, matching oscarMDS/Index.jsp. The previous
+     ${CarlosProperties.getInstance()...} EL test looked identical but never
+     worked: <%@ page import %> exposes a class to scriptlets, not to EL, so EL
+     resolved "CarlosProperties" as a scoped attribute, found nothing, and the
+     test was always false — this hub always offered the modern uploader while
+     the MDS inbox honoured the property, two entry points serving different
+     uploaders on one install. --%>
+<% if (CarlosProperties.getInstance().getBooleanProperty("legacy_document_upload_enabled", "true")) { %>
+    <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewHtml5AddDocuments',600,500)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
+<% } else { %>
+    <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewDocumentUploader',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
+<% } %>
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/lab/CA/ALL/ViewInsideLabUpload',800,1000)" class="nav-link"><fmt:message key="admin.admin.hl7LabUpload"/></a>
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/oscarMDS/ViewCreateLab',800,1000)" class="nav-link"><fmt:message key="global.createLab" /></a>
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/oscarMDS/ForwardingRules?providerNo=${carlos:forJavaScript(carlos:forUriComponent(providerNo))}',800,1000);" class="nav-link"><fmt:message key="inboxhub.topbar.forwardingRules"/></a>

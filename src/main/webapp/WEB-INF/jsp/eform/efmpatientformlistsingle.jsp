@@ -74,17 +74,10 @@
 
 		<script src="${ pageContext.request.contextPath }/js/jquery.fileDownload.js"></script>
 		<script src="${ pageContext.request.contextPath }/share/javascript/Oscar.js"></script>
-		<script>
-			jQuery(document).ready( function () {
-				jQuery('#tblEforms').DataTable({
-					"order": [],
-					"bPaginate": false,
-					"language": {
-						"url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
-					}
-				});
-			});
-		</script>
+		<%-- The former #tblEforms DataTable init was dead code: no element on this
+		     page carries that id, so the selector matched nothing and the call was
+		     a silent no-op. Removed rather than repointed — this page's table is
+		     the legacy encounterTable layout, not a DataTables candidate. --%>
         <script type="text/javascript" language="javascript">
             function showHtml() {
 
