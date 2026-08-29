@@ -622,12 +622,23 @@ case "$1" in
                 echo "carlos-emr:   sudo carlos-ctl db-migrate && sudo systemctl start carlos-emr" >&2
             fi
             if [ "${RESET_ADMIN}" = true ]; then
-                carlos-ctl bootstrap-admin || {
-                    echo "carlos-emr: WARNING: could not replace the seeded 'carlosdoc' password —" >&2
-                    echo "carlos-emr: the account still has the credential PUBLISHED in the CARLOS" >&2
-                    echo "carlos-emr: source repository. Run 'carlos-ctl bootstrap-admin' before" >&2
-                    echo "carlos-emr: putting patient data on this system." >&2
-                }
+                # Fail CLOSED. If the seeded 'carlosdoc' credential cannot be
+                # replaced we must NOT start the service: the account still
+                # carries the password PUBLISHED in the CARLOS source
+                # repository, and bringing up an internet-facing EMR with a
+                # known administrator login (the force-reset flag does not help
+                # — an attacker who knows the old password completes the reset)
+                # is exactly the exposure this step exists to prevent. Treat it
+                # like a failed migration (see above): MIGRATION_OK=0 keeps the
+                # unit stopped-but-enabled until the operator fixes the cause.
+                if ! carlos-ctl bootstrap-admin; then
+                    MIGRATION_OK=0
+                    echo "carlos-emr: the seeded 'carlosdoc' password could NOT be replaced. The" >&2
+                    echo "carlos-emr: service will NOT be started, so the EMR is never exposed with" >&2
+                    echo "carlos-emr: the credential PUBLISHED in the CARLOS source repository." >&2
+                    echo "carlos-emr: fix the cause, then:" >&2
+                    echo "carlos-emr:   sudo carlos-ctl bootstrap-admin && sudo systemctl start carlos-emr" >&2
+                fi
             else
                 echo "carlos-emr: WARNING: the seeded 'carlosdoc' account keeps the password" >&2
                 echo "carlos-emr: published in the CARLOS source repository. Do not put patient" >&2
