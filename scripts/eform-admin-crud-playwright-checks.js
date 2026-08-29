@@ -147,7 +147,7 @@ async function submitEditor(page) {
 async function openEditorInAdminPanel(context, recorder, label, formLabel) {
   const page = await context.newPage();
   wirePage(page, label, recorder);
-  await gotoApp(page, config.baseUrl, '/administration/');
+  await gotoApp(page, config.baseUrl, '/administration');
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
   assert(
@@ -156,9 +156,17 @@ async function openEditorInAdminPanel(context, recorder, label, formLabel) {
       + 'fall back to the standalone multipart save and stop covering the urlencoded path.',
   );
 
-  // Left nav -> Manage eForms. index.jsp binds a.contentLink at ready() time,
-  // and this link is present then, so the click loads the library into
-  // #dynamic-content rather than navigating away.
+  // Left nav: expand "Forms/eForms" first. It is a Bootstrap accordion section
+  // that ships collapsed, so the eForm links exist in the DOM but are not
+  // clickable until an operator opens it -- and a check that skips this step
+  // times out on an invisible element rather than testing anything.
+  const formsSection = page.locator('button[data-bs-target="#collapseForms"]').first();
+  await formsSection.waitFor({ state: 'visible', timeout: 20000 });
+  await formsSection.click();
+
+  // Then Manage eForms. index.jsp binds a.contentLink at ready() time, and this
+  // link is present then, so the click loads the library into #dynamic-content
+  // rather than navigating away.
   const manageEForms = page.locator('a.defaultForms').first();
   await manageEForms.waitFor({ state: 'visible', timeout: 20000 });
   await manageEForms.click();
@@ -447,8 +455,10 @@ async function libraryRow(page, name) {
         dataTablesWarnings.push(dialog.message());
       }
     });
-    await gotoApp(deletedPage, config.baseUrl, '/administration/');
+    await gotoApp(deletedPage, config.baseUrl, '/administration');
     await deletedPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await deletedPage.locator('button[data-bs-target="#collapseForms"]').first().click();
+    await deletedPage.locator('a.defaultForms').first().waitFor({ state: 'visible', timeout: 20000 });
     await deletedPage.locator('a.defaultForms').first().click();
     await deletedPage.locator('#dynamic-content #eformTbl').waitFor({ state: 'visible', timeout: 30000 });
     await deletedPage.locator('#dynamic-content a.contentLink[href*="efmformmanagerdeleted"]').first().click();

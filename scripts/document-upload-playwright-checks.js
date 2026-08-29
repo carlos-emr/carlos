@@ -20,13 +20,21 @@
  * Nothing covered this surface, which is how a tester reached 2026.08.0-alpha9
  * still reporting "upload documents gives a 500" after one fix attempt.
  *
- * WHICH uploader this drives matters. The "Doc Upload" link switches on the
- * carlos property legacy_document_upload_enabled, which defaults to true and is
- * set nowhere in the deb -- so a packaged install serves the LEGACY uploader
- * (html5AddDocuments.jsp -> AddEditDocument2Action#html5MultiUpload), not
- * DocumentUpload2Action. Clicking the real link is what guarantees this check
- * exercises whichever one the deployment actually serves, instead of a route
- * chosen here that the operator never sees.
+ * WHICH uploader this drives matters, and it is not the one the property
+ * suggests. The Inbox hub's "Doc Upload" link is chosen by
+ *   <c:when test="${CarlosProperties.getInstance().getBooleanProperty(
+ *                   'legacy_document_upload_enabled', 'true')}">
+ * in InboxhubTopbar.jsp. `<%@ page import %>` exposes that class to SCRIPTLETS,
+ * not to EL, so EL resolves the bare identifier as a scoped attribute, finds
+ * nothing, and the test is always false -- the hub always offers the MODERN
+ * uploader (documentUploader.jsp -> DocumentUpload2Action), whatever the
+ * property says. Meanwhile oscarMDS/Index.jsp guards the same choice with a
+ * scriptlet, which does honour it, so the two entry points can serve different
+ * uploaders on one install.
+ *
+ * That is exactly why this check clicks the link instead of naming a route: it
+ * follows whichever uploader the deployment actually serves, and it keeps
+ * working if the guard is repaired.
  *
  * Reading the outcome needs care, because a 500 is this action's DESIGNED error
  * channel: sendHtml5UploadError answers a status plus an `oscar_error` header
@@ -134,7 +142,14 @@ async function openUploadPopup(context, recorder) {
   await gotoApp(inbox, config.baseUrl, '/web/inboxhub/Inboxhub');
   await inbox.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
-  const docUpload = inbox.locator('a[href*="ViewHtml5AddDocuments"], a[href*="documentUploader"]').first();
+  // Match case-insensitively and accept BOTH uploaders. Which one the Inbox hub
+  // offers is decided at render time, and on a packaged install it is currently
+  // always the modern ViewDocumentUploader -- see the note in the header. The
+  // point of clicking the real link is that this check follows whichever one the
+  // deployment actually serves instead of pinning a route by hand.
+  const docUpload = inbox
+    .locator('a[href*="ViewHtml5AddDocuments" i], a[href*="ViewDocumentUploader" i]')
+    .first();
   await docUpload.waitFor({ state: 'visible', timeout: 20000 });
   const [popup] = await Promise.all([
     inbox.waitForEvent('popup', { timeout: 30000 }),
@@ -154,7 +169,10 @@ async function submitUpload(popup, filePath) {
         && r.request().method() === 'POST',
       { timeout: 60000 },
     ),
-    popup.locator('input[type="submit"], button[type="submit"]').first().click(),
+    // The legacy uploader submits a real form (input[type=submit] "Upload File");
+    // the modern one posts by fetch from a plain button (#btnUpload). Accept
+    // either, so this check keeps working whichever the hub offers.
+    popup.locator('#btnUpload, input[type="submit"], button[type="submit"]').first().click(),
   ]);
   return response;
 }
