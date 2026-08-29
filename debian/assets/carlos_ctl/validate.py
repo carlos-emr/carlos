@@ -281,6 +281,32 @@ def cmd_check(argv) -> int:
     else:
         _bad("the front door exposes /drugref2 — it is an unauthenticated service")
 
+    # /ws/** (CXF SOAP/REST) is exempt from the login filter: every service is
+    # expected to authenticate itself (OAuth 1.0a / WS-Security). Prove two
+    # invariants at runtime rather than trusting the config — the service-list
+    # catalog is not handed to an anonymous client, and a PHI data service
+    # refuses an unauthenticated call.
+    ws_list = _curl(resolve + [f"https://{s.server_name}/carlos/ws/services"], timeout=10).stdout
+    if "Available SOAP services" in ws_list or "Available RESTful services" in ws_list:
+        _bad("the CXF service-list catalog is served at /carlos/ws — set "
+             "hide-service-list-page=true on the CXFServlet (WEB-INF/web.xml)")
+    else:
+        _ok("the CXF service-list catalog is not exposed")
+    # An empty SOAP envelope carries no WS-Security header, so a gated data
+    # service must reject it. Any non-200 (401/403/500) is a pass; only a 200
+    # means the authentication gate let an anonymous caller through.
+    ws_code = _curl(resolve + ["-o", "/dev/null", "-w", "%{http_code}", "-X", "POST",
+                               "-H", "Content-Type: text/xml", "-d",
+                               "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\">"
+                               "<s:Body/></s:Envelope>",
+                               f"https://{s.server_name}/carlos/ws/DemographicService"],
+                    timeout=10).stdout.strip()
+    if ws_code == "200":
+        _bad("an unauthenticated SOAP call to /carlos/ws/DemographicService returned 200 — "
+             "the WS-Security authentication gate is not enforcing")
+    else:
+        _ok(f"an unauthenticated web-service call is rejected ({ws_code or '000'})")
+
     print("\nWAF")
     engine = ""
     try:

@@ -384,6 +384,17 @@
 	<servlet>
 		<servlet-name>CXFServlet</servlet-name>
 		<servlet-class>org.apache.cxf.transport.servlet.CXFServlet</servlet-class>
+		<!-- Do not serve CXF's HTML service-list catalog. /ws/** is exempt from
+		     the login filter (each service authenticates itself via OAuth 1.0a /
+		     WS-Security), so without this an unauthenticated client could GET
+		     /carlos/ws (or /ws/services, /ws/rs) and enumerate every SOAP/REST
+		     endpoint with live ?wsdl links — free reconnaissance in front of the
+		     authenticated data services. The services stay behind their own auth
+		     interceptors regardless; this removes the catalog page. -->
+		<init-param>
+			<param-name>hide-service-list-page</param-name>
+			<param-value>true</param-value>
+		</init-param>
 	</servlet>
 	<servlet-mapping>
 		<servlet-name>CXFServlet</servlet-name>
