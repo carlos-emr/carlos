@@ -15,7 +15,6 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -97,7 +96,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         String destination = request.getParameter("destination");
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         if (docFile == null) {
-            map.put("error", 4);
+            map.put("error", props.getString("dms.error.uploadError"));
         } else {
             // Validate uploaded file is from temp directory for all destinations
             try {
@@ -117,8 +116,11 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             } else if (!sanitizedFileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                 map.put("error", props.getString("dms.documentUpload.onlyPdf"));
             } else if (docFile.length() == 0) {
-                map.put("error", 4);
-                throw new FileNotFoundException();
+                // Respond through the JSON contract the uploader's JS reads (item.error). The old
+                // map.put followed by a throw was dead code plus a raw 500: the throw escaped to
+                // errorpage.jsp before writeUploadResponse could run, so the prepared error never
+                // reached the user.
+                map.put("error", props.getString("dms.addDocument.errorZeroSize"));
             } else {
                 String queueId = request.getParameter("queue");
                 String destFolder = request.getParameter("destFolder");
@@ -180,46 +182,61 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             String filePath = newDoc.getFilePath();
             // save local file;
             if (docFile.length() == 0) {
-                map.put("error", 4);
-                throw new FileNotFoundException();
-            }
-
-            // write file to local dir
-            writeLocalFile(docFile, fileName);
-            newDoc.setContentType(this.filedataContentType);
-            if (fileName.endsWith(".PDF") || fileName.endsWith(".pdf")) {
-                newDoc.setContentType("application/pdf");
-                // get number of pages when document is a PDF
-                numberOfPages = countNumOfPages(filePath);
-            }
-            newDoc.setNumberOfPages(numberOfPages);
-            String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
-
-            String providerId = request.getParameter("providers");
-            if (providerId != null) {
-                WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
-                providerInboxRoutingDao.addToProviderInbox(providerId, Integer.parseInt(doc_no), "DOC");
-            }
-
-            String queueId = request.getParameter("queue");
-            if (queueId != null && !queueId.equals("-1")) {
-                if (!queueId.trim().matches("\\d+")) {
-                    logger.warn("Invalid queue ID format — skipping queue link");
-                    request.getSession().removeAttribute("preferredQueue");
-                } else {
-                    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                    QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-                    Integer qid = Integer.parseInt(queueId.trim());
-                    Integer did = Integer.parseInt(doc_no.trim());
-                    queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                    request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                // Same fix as the incomingDocs branch above: answer the JSON contract instead of
+                // throwing past writeUploadResponse into errorpage.jsp as a raw 500.
+                map.put("error", props.getString("dms.addDocument.errorZeroSize"));
+            } else {
+            // Guarded so a write or persistence failure answers the uploader's JSON contract
+            // instead of escaping to errorpage.jsp as a raw HTML 500 the XHR handler can only
+            // report as "(HTTP 500)". The reachable, user-recoverable case is the CREATE_NEW name
+            // collision: the stored name carries a one-second timestamp prefix, so re-uploading
+            // the same file inside a second collides in writeLocalFile — that is the user's
+            // situation to resolve, not a server fault.
+            try {
+                // write file to local dir
+                writeLocalFile(docFile, fileName);
+                newDoc.setContentType(this.filedataContentType);
+                if (fileName.endsWith(".PDF") || fileName.endsWith(".pdf")) {
+                    newDoc.setContentType("application/pdf");
+                    // get number of pages when document is a PDF
+                    numberOfPages = countNumOfPages(filePath);
                 }
-            }
+                newDoc.setNumberOfPages(numberOfPages);
+                String doc_no = EDocUtil.addDocumentSQL(newDoc);
+                LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
 
-            map.put("name", docFile.getName());
-            map.put("size", docFile.length());
+                String providerId = request.getParameter("providers");
+                if (providerId != null) {
+                    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                    ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
+                    providerInboxRoutingDao.addToProviderInbox(providerId, Integer.parseInt(doc_no), "DOC");
+                }
+
+                String queueId = request.getParameter("queue");
+                if (queueId != null && !queueId.equals("-1")) {
+                    if (!queueId.trim().matches("\\d+")) {
+                        logger.warn("Invalid queue ID format — skipping queue link");
+                        request.getSession().removeAttribute("preferredQueue");
+                    } else {
+                        WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                        QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
+                        Integer qid = Integer.parseInt(queueId.trim());
+                        Integer did = Integer.parseInt(doc_no.trim());
+                        queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
+                        request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                    }
+                }
+
+                map.put("name", docFile.getName());
+                map.put("size", docFile.length());
+            } catch (FileAlreadyExistsException e) {
+                logger.warn("Uploaded document name already taken; asking the user to retry", e);
+                map.put("error", props.getString("dms.addDocument.errorDuplicate"));
+            } catch (Exception e) {
+                logger.error("Failed to store uploaded document", e);
+                map.put("error", props.getString("dms.addDocument.errorNoWrite"));
+            }
+            }
 
             if (docFile != null) {
                 deleteValidatedUploadTempFile(docFile);
