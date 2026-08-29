@@ -90,8 +90,28 @@ $(document).ready(function() {
     
     // Exclude #dataConfirmed from contentLink handler
     $(document).on("click", 'a.contentLink:not(#dataConfirmed)', function(e) {
+        var href = $(this).attr("href");
+        // Only AJAX-load a real URL. Several eForm admin controls are
+        // href="javascript:void(0);" anchors that do their work in their own
+        // onclick (efmformmanager's delete -> confirmNDelete, the deleted-list
+        // Restore -> restoreEForm) and merely borrow .contentLink for styling.
+        // Loading that literal href cannot succeed, so jQuery completed with
+        // status 0 / statusText "error" and this handler painted
+        // "Sorry but there was an error: 0 error" over the page -- while the
+        // element's own onclick had already performed the delete successfully.
+        // Reported by a tester on 2026.08.0-alpha9 as "deleting eform from
+        // admin gives an error BUT it DOES delete".
+        //
+        // preventDefault() still runs for every anchor, exactly as before, so
+        // an href="#" cannot start jumping the page to the top. The element's
+        // own inline onclick is unaffected either way: it fires on the anchor
+        // during the target phase, before this delegated handler on document,
+        // and preventDefault cancels only the browser's default action.
         e.preventDefault();
-        $("#dynamic-content").load($(this).attr("href"), function(response, status, xhr) {
+        if (!href || href === "#" || /^\s*javascript:/i.test(href)) {
+            return;
+        }
+        $("#dynamic-content").load(href, function(response, status, xhr) {
             if (status == "error") {
                 var msg = "Sorry but there was an error: ";
                 $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
