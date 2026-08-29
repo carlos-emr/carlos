@@ -286,15 +286,21 @@ def cmd_check(argv) -> int:
     # invariants at runtime rather than trusting the config — the service-list
     # catalog is not handed to an anonymous client, and a PHI data service
     # refuses an unauthenticated call.
-    ws_list = _curl(resolve + [f"https://{s.server_name}/carlos/ws/services"], timeout=10).stdout
+    # CXF renders the service-list catalog at the SERVLET ROOT (/carlos/ws/),
+    # not at a /services sub-path — a GET to /carlos/ws/services is pathInfo
+    # "/services", matches no destination and 404s even with the catalog
+    # enabled, so probing it would false-pass. Probe the real listing URL.
+    ws_list = _curl(resolve + [f"https://{s.server_name}/carlos/ws/"], timeout=10).stdout
     if "Available SOAP services" in ws_list or "Available RESTful services" in ws_list:
-        _bad("the CXF service-list catalog is served at /carlos/ws — set "
+        _bad("the CXF service-list catalog is served at /carlos/ws/ — set "
              "hide-service-list-page=true on the CXFServlet (WEB-INF/web.xml)")
     else:
         _ok("the CXF service-list catalog is not exposed")
     # An empty SOAP envelope carries no WS-Security header, so a gated data
-    # service must reject it. Any non-200 (401/403/500) is a pass; only a 200
-    # means the authentication gate let an anonymous caller through.
+    # service must reject it. Distinguish a genuine auth rejection (the WSS4J
+    # interceptor maps a missing token to 400/401) from a 200 (auth bypassed)
+    # and from a 403/404/redirect (a WAF block or moved path that MASKS the auth
+    # check rather than proving it) — the latter is inconclusive, not a pass.
     ws_code = _curl(resolve + ["-o", "/dev/null", "-w", "%{http_code}", "-X", "POST",
                                "-H", "Content-Type: text/xml", "-d",
                                "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\">"
@@ -304,8 +310,11 @@ def cmd_check(argv) -> int:
     if ws_code == "200":
         _bad("an unauthenticated SOAP call to /carlos/ws/DemographicService returned 200 — "
              "the WS-Security authentication gate is not enforcing")
+    elif ws_code in ("400", "401"):
+        _ok(f"an unauthenticated web-service call is rejected by the auth gate ({ws_code})")
     else:
-        _ok(f"an unauthenticated web-service call is rejected ({ws_code or '000'})")
+        _note(f"could not confirm the /ws auth gate: /carlos/ws/DemographicService returned "
+              f"{ws_code or '000'} (a WAF 403, a 404, or a redirect can mask the auth check)")
 
     print("\nWAF")
     engine = ""
