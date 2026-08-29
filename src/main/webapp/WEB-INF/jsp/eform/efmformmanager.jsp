@@ -63,30 +63,63 @@
             Popup = window.open(url, id, 'toolbar=no,location=no,status=yes,menubar=no, scrollbars=yes,resizable=yes,width=900,height=600,left=200,top=0');
         }
 
-        function confirmNDelete(fid) {
-            if (confirm("<fmt:message key="eform.uploadhtml.confirmDelete"/>")) {
-                var form = document.createElement('form');
-                form.method = 'post';
-                form.action = '<%= request.getContextPath() %>/eform/delEForm';
-                var input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'fid';
-                input.value = fid;
-                form.appendChild(input);
-                // Carry the CSRF token seeded by /WEB-INF/jspf/csrf-token.jspf.
-                // A form built after page load is never visited by CSRFGuard's
-                // injector, so the token has to be copied in by hand.
-                var csrf = document.querySelector('input[name="CSRF-TOKEN"]');
-                if (csrf && csrf.value) {
-                    var tokenInput = document.createElement('input');
-                    tokenInput.type = 'hidden';
-                    tokenInput.name = 'CSRF-TOKEN';
-                    tokenInput.value = csrf.value;
-                    form.appendChild(tokenInput);
+        // Resolve the CSRF token seeded by /WEB-INF/jspf/csrf-token.jspf.
+        // The bootstrap populates the hidden input from an async fetch, so a
+        // click landing before that settles would read an empty value. Wait on
+        // the bootstrap's promise, and if it never ran or its fetch failed,
+        // retry once here so a single transient failure does not leave every
+        // delete on the page broken until the operator reloads.
+        // Returns the token, or null if it could not be obtained.
+        async function csrfToken() {
+            try {
+                if (window.csrfTokenReady) {
+                    await window.csrfTokenReady;
                 }
-                document.body.appendChild(form);
-                form.submit();
+            } catch (e) {
+                // Bootstrap fetch failed; fall through to the retry below.
             }
+            var csrf = document.querySelector('input[name="CSRF-TOKEN"]');
+            if (csrf && csrf.value) {
+                return csrf.value;
+            }
+            try {
+                await fetchCsrfToken('<%= request.getContextPath() %>');
+            } catch (e) {
+                return null;
+            }
+            csrf = document.querySelector('input[name="CSRF-TOKEN"]');
+            return (csrf && csrf.value) ? csrf.value : null;
+        }
+
+        async function confirmNDelete(fid) {
+            if (!confirm("<fmt:message key="eform.uploadhtml.confirmDelete"/>")) {
+                return;
+            }
+            // A form built after page load is never visited by CSRFGuard's
+            // injector, so the token has to be copied in by hand. Posting
+            // without it is rejected by CarlosCsrfGuardFilter and the delete
+            // silently does nothing — the exact defect this page was fixed
+            // for — so say so plainly instead of submitting a doomed request.
+            var token = await csrfToken();
+            if (!token) {
+                alert("<fmt:message key="eform.uploadhtml.deleteTokenUnavailable"/>");
+                return;
+            }
+            var form = document.createElement('form');
+            form.method = 'post';
+            form.action = '<%= request.getContextPath() %>/eform/delEForm';
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'fid';
+            input.value = fid;
+            form.appendChild(input);
+            var tokenInput = document.createElement('input');
+            tokenInput.type = 'hidden';
+            tokenInput.name = 'CSRF-TOKEN';
+            tokenInput.value = token;
+            form.appendChild(tokenInput);
+            document.body.appendChild(form);
+            form.submit();
         }
 
         var normalStyle = "eformInputHeading"

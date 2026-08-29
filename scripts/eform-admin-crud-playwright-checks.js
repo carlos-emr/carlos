@@ -21,6 +21,10 @@
  *   1. delete did nothing. confirmNDelete() builds its POST form in JS at click
  *      time, so CSRFGuard had no <form> to inject a token into and
  *      CarlosCsrfGuardFilter rejected the POST ("Required Token is missing").
+ *      The token now comes from csrf-token.jspf, which populates it from an
+ *      ASYNC fetch — so a click that beats the fetch reproduces defect 1
+ *      exactly. The delete step therefore runs with /csrfguard deliberately
+ *      stalled, and asserts the token really was still empty at click time.
  *   2. a SUCCESSFUL delete then returned 405, because DelEForm2Action forwarded
  *      to the library gate, which permits POST only for efmformmanageredit.
  *   3. saving an edited eForm returned nginx's bare 403: ARGS:formHtml IS an
@@ -213,7 +217,37 @@ async function libraryRow(page, name) {
     await reopened.close();
 
     // ---- delete -------------------------------------------------------------
-    const managerPage = await openManager(context, config, recorder, 'admin-crud-delete');
+    // Delete while the CSRF token fetch is still in flight. The delete form is
+    // built in JS at click time and csrf-token.jspf populates the hidden
+    // CSRF-TOKEN input from an async fetch, so a click landing before that
+    // fetch resolves reads an empty value; submitting anyway is rejected by
+    // CSRFGuard with a 403 the operator only ever sees as "delete did nothing"
+    // — the same silent no-op this check exists to catch. Stalling the fetch
+    // widens that window enough to click inside reliably, so the delete
+    // assertions below cover the race and not just the happy path where the
+    // token happened to win.
+    //
+    // Stall only the bootstrap's fetch(), never the parser-blocking
+    // <script src=".../csrfguard"> that CsrfGuardScriptInjectionFilter puts
+    // before </head>: delaying that tag delays DOMContentLoaded, so the
+    // bootstrap fetch would not have started by the time the page settled.
+    // That closes the window instead of opening it, and the check would go on
+    // passing while testing nothing.
+    const csrfStallMs = 5000;
+    await context.route('**/csrfguard*', async (route) => {
+      if (route.request().resourceType() !== 'script') {
+        await new Promise((resolve) => setTimeout(resolve, csrfStallMs));
+      }
+      await route.continue();
+    });
+    const managerPage = await context.newPage();
+    wirePage(managerPage, 'admin-crud-delete', recorder);
+    await gotoApp(managerPage, config.baseUrl, '/eform/efmformmanager');
+    // Wait for 'load', not 'networkidle': 'load' lets DataTables finish
+    // initialising the library table, but a pending fetch() does not hold it
+    // open, so the stalled token request is still in flight underneath us.
+    // 'networkidle' would wait the stall out and destroy the race window.
+    await managerPage.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
     // wirePage installs a handler that DISMISSES dialogs, which cancels
     // confirmNDelete()'s confirm() and means the delete never runs. Replace it
     // for this page only, still recording the dialog for failure diagnostics.
@@ -237,6 +271,17 @@ async function libraryRow(page, name) {
       `Refusing to delete fid ${deleteFid}: this check only deletes the eForm it created (fid ${fid})`,
     );
 
+    // Prove the stall actually held before clicking. Without this the check
+    // would silently degrade into the happy path the moment the token started
+    // arriving first, and stop covering the race at all.
+    const tokenAtClickTime = await managerPage
+      .locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    assert(
+      tokenAtClickTime === '',
+      'The /csrfguard stall did not hold: the CSRF token was already populated before the '
+        + 'delete click, so this run did not exercise the empty-token race it is meant to cover.',
+    );
+
     const [deleteResponse] = await Promise.all([
       managerPage.waitForResponse(
         (r) => r.url().includes('/eform/delEForm') && r.request().method() === 'POST',
@@ -244,7 +289,10 @@ async function libraryRow(page, name) {
       ),
       deleteLink.click(),
     ]);
+    // Reaching here at all is part of the assertion: before the fix, the click
+    // submitted immediately with no token and this POST came back 403.
     assertNotBlocked(deleteResponse, 'Deleting an eForm');
+    await context.unroute('**/csrfguard*');
     await managerPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
     const landedOn = managerPage.url();
