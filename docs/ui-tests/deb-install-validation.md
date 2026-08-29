@@ -241,6 +241,15 @@ Notes on the contract:
 - `eform-corpus-soak-playwright-checks.js` additionally needs a corpus
   directory (see `docs/eform-corpus-soak-method.md`) and is not part of the
   standard pass.
+- **`eform-admin-crud-playwright-checks.js` must be run through `:443`.** It
+  covers the eForm administration create/edit/delete round trip, and one of the
+  three defects it pins (the CRS block on the editor's `ARGS:formHtml`, rule
+  1050) exists *only* behind the WAF — against bare Tomcat the check still
+  passes on the CSRF and persistence assertions while silently no longer
+  covering the failure it was written for. It warns on stdout when `BASE_URL`
+  is not HTTPS. It creates its own timestamped probe eForm and deletes only
+  that one; a failing run leaves the probe behind on purpose, so clear strays
+  with `UPDATE eform SET status=0 WHERE form_name LIKE 'Playwright Admin CRUD %';`.
 
 ## 7. Exercise the upgrade path
 
