@@ -522,6 +522,37 @@ Neither is detectable from network evidence, console errors, or `%PDF-` plus a b
 smoke-test runbook therefore requires opening the produced PDF and looking at it — see
 `docs/ui-tests/eform-pdf-render-smoke-test.md`, "Open the produced PDF and look at it".
 
+### Off-page content is blocking unless the form marks it as decoration
+
+Content authored **outside** every `<div id="pageN">` — before the first page div or after the last —
+cannot be printed by the authored-page geometry, so the geometry pass hides it
+(`.carlos-render-nonpage`) and records it. How it is recorded decides whether a clinician ever finds
+out:
+
+- **Blocking** (`excludedContentElements`): counted, measured, and fed to `withholdsDocument`, so the
+  document is withheld pending informed approval.
+- **Advisory** (`decorativeExcludedElements`): disclosed in the completeness report and logged at
+  INFO, but it never withholds anything.
+
+Classification is **opt-in**. An off-page element is treated as decoration only when it carries an
+explicit marker:
+
+```html
+<div class="carlos-print-decoration">College of ... — license #12345</div>
+<div data-carlos-print-decoration>Printed from CARLOS EMR</div>
+```
+
+Anything unmarked stays blocking, including plain text. This is deliberate: position in the document
+cannot establish that content is non-clinical. An earlier heuristic inferred decoration from the mere
+absence of a control or media element, with no length or content test, so a `<div>` of clinical prose
+placed outside the page divs was silently dropped from every printed, faxed and archived PDF with
+only an advisory note. If a form legitimately carries an off-page badge, masthead or boilerplate
+disclaimer, mark it; do not rely on its position.
+
+A marker is an assertion about boilerplate, not a licence to drop a field. A marked element that
+still contains a control (`input, textarea, select, button, [contenteditable]`) or a media element
+(`img, canvas, svg, video, iframe, object, embed`) stays blocking regardless.
+
 ## Saved-letter round trip (interactive viewer)
 
 This is viewer-side, not renderer-side, but it determines what the renderer is given and it silently

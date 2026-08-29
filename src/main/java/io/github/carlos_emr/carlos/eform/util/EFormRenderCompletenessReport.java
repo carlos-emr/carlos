@@ -145,10 +145,16 @@ public record EFormRenderCompletenessReport(
      * as non-clinical decoration (a license badge, a masthead, a boilerplate disclaimer sitting
      * before the first or after the last authored page). Delivering past them is deliberate —
      * blocking on them made whole corpus families unprintable — but the exclusion must never be
-     * silent: the classifier is positional plus a no-form-controls/no-media check, and it cannot
-     * prove text is non-clinical. Advisory means the clinician is told something was removed and
-     * can compare the PDF against the form; anything with form controls or imagery stays in the
-     * blocking {@link #excludedContentElements} count.</p>
+     * silent: advisory means the clinician is told something was removed and can compare the PDF
+     * against the form.</p>
+     *
+     * <p>Classification is OPT-IN, because position cannot prove text is non-clinical. An off-page
+     * element counts as decoration only when the form marks it {@code .carlos-print-decoration} or
+     * {@code [data-carlos-print-decoration]}; unmarked content — plain text included — stays in the
+     * blocking {@link #excludedContentElements} count, and so does anything carrying a form control
+     * or imagery even when marked. The earlier classifier was positional plus a
+     * no-form-controls/no-media check, which silently dropped clinical prose authored outside the
+     * page divs into this advisory bucket. See {@code docs/eform-browser-pdf-renderer.md}.</p>
      */
     public int advisoryIssueCount() {
         int advisory = Math.addExact(containedInteractions, timerCompatibilityFailure ? 1 : 0);
