@@ -110,6 +110,10 @@
             <result name="success">/WEB-INF/jsp/report/ManageLetters.jsp</result>
         </action>
         <action name="report/ManageLetters" class="io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action">
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/report/GenerateLetters.jsp</result>
             <result name="success">/WEB-INF/jsp/report/GenerateLetters.jsp</result>
             <result name="success_manage_from_prevention">/WEB-INF/jsp/prevention/PreventionReporting.jsp</result>
         </action>
@@ -137,6 +141,10 @@
             <result name="success">/WEB-INF/jsp/oscarReport/reportByTemplate/resultReport.jsp</result>
         </action>
         <action name="oscarReport/reportByTemplate/uploadTemplates" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.UploadTemplates2Action">
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/oscarReport/reportByTemplate/addEditTemplate.jsp</result>
             <result name="success">/WEB-INF/jsp/oscarReport/reportByTemplate/addEditTemplate.jsp</result>
         </action>
         <action name="oscarReport/reportByTemplate/rbtGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTGetGroup2Action">

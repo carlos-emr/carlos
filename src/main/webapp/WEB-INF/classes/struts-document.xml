@@ -97,7 +97,7 @@
                  reports 500: uploading an EMPTY FILE from eDocs produced a raw server-error page
                  (further masked by the response-sanitization replay failure). Re-rendering the
                  documents page matches failAdd. -->
-            <result name="input">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
+            <result name="input">/WEB-INF/jsp/documentManager/uploadInput.jsp</result>
             <result name="successAdd">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
             <result name="failAdd">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
             <result name="failEdit">/WEB-INF/jsp/documentManager/editDocument.jsp</result>
@@ -123,6 +123,10 @@
             <result name="success">/WEB-INF/jsp/oscarMDS/Splitclose.jsp</result>
         </action>
         <action name="documentManager/documentUpload" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2Action"/>
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/documentManager/uploadRejected.jsp</result>
 
         <!-- View gates (_edoc r) -->
         <action name="documentManager/ViewDocumentBrowser" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">

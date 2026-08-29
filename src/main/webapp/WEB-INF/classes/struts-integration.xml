@@ -58,6 +58,10 @@
             <result name="done">/mcedt/mcedt</result>
         </action>
         <action name="mcedt/update" class="io.github.carlos_emr.carlos.integration.mcedt.Update2Action">
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/mcedt/update.jsp</result>
             <result name="cancel">/mcedt/mcedt</result>
             <result name="add">/mcedt/update</result>
             <result name="success">/mcedt/mcedt</result>
@@ -89,6 +93,10 @@
             <result name="cancel">/mcedt/kaimcedt</result>
         </action>
         <action name="mcedt/addUpload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/mcedt/mailbox/addUpload.jsp</result>
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=upload</result>
             <result name="failure">/WEB-INF/jsp/mcedt/mailbox/addUpload.jsp</result>
             <result name="cancel">/mcedt/kaimcedt</result>

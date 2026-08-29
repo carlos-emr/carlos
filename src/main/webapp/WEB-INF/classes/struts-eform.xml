@@ -60,6 +60,10 @@
         <action name="eform/fieldNoteReport/fieldnotereportdetail" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
         <action name="eform/fieldNoteReport/fieldnoteselect" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
         <action name="eform/uploadHtml" class="io.github.carlos_emr.carlos.eform.upload.HtmlUpload2Action">
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/eform/partials/upload.jsp</result>
             <result name="success">/WEB-INF/jsp/eform/partials/upload.jsp</result>
             <result name="fail">/WEB-INF/jsp/eform/partials/upload.jsp</result>
         </action>
@@ -68,6 +72,10 @@
             <result name="fail">/WEB-INF/jsp/eform/efmformmanageredit.jsp</result>
         </action>
         <action name="eform/imageUpload" class="io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action">
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/eform/partials/upload_image.jsp</result>
             <result name="success">/WEB-INF/jsp/eform/partials/upload_image.jsp</result>
             <result name="error">/WEB-INF/jsp/eform/partials/upload_image.jsp</result>
         </action>
@@ -81,6 +89,10 @@
             <result name="success" type="redirect">/eform/efmformmanager</result>
         </action>
         <action name="eform/manageEForm" class="io.github.carlos_emr.carlos.eform.actions.ManageEForm2Action">
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/eform/partials/import.jsp</result>
             <result name="fail">/WEB-INF/jsp/eform/partials/import.jsp</result>
             <result name="success">/WEB-INF/jsp/eform/partials/import.jsp</result>
         </action>
