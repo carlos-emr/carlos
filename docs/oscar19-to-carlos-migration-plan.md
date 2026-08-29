@@ -1,0 +1,360 @@
+# OSCAR 19 → CARLOS Clinic Migration Plan (Turnkey Import)
+
+**Status:** Plan / design document (implementation tracked separately)
+**Scope:** Migrating a live clinic from OSCAR 19 (oscaremr) to CARLOS EMR using two
+artifacts produced on the old server: a full `mysqldump` of the OSCAR database and a
+tar of the OscarDocument tree. The goal is a one-command import on a freshly
+provisioned CARLOS system.
+
+---
+
+## 1. Source of truth for the OSCAR 19 schema
+
+- Upstream repository: `https://bitbucket.org/oscaremr/oscar.git`
+- OSCAR 19 is the `master` branch of that repo (release tag `OSCAR_19_RC1`; master
+  HEAD as analyzed: `a7900d5`, 2020-03-09).
+- OSCAR 19 has **no Flyway or automated schema migration**. A live database is the
+  product of `database/mysql/oscarinit.sql` + `oscarinit_on.sql` (or `_bc`) +
+  `caisi/initcaisi.sql` + `olis/olisinit.sql` + whatever subset of
+  `database/mysql/updates/*.sql` (and vendor/OSP patches) was hand-applied over the
+  years. **Two real O19 clinics rarely have identical schemas.** The importer must
+  therefore be schema-tolerant and driven by *introspection of the actual dump*, not
+  by a fixed expectation.
+
+CARLOS, by contrast, has a single deterministic schema: Flyway `V1` baseline +
+`V1.0.N` forward migrations (`database/mysql/migration/`), per
+`docs/database-schema-management.md`.
+
+## 2. Schema comparison findings (Ontario profile)
+
+Comparison of the full O19 Ontario live-table superset (init + CAISI + OLIS +
+updates) against CARLOS `common` + `on` migrations:
+
+| Category | Count | Consequence |
+|---|---|---|
+| Tables present in both | ~397 | Bulk of clinic data; copied by the importer |
+| O19-only tables (dropped/pruned in CARLOS) | ~202 | Mostly removed modules; a minority hold patient data and need archival (see §5) |
+| CARLOS-only tables (new features) | ~31 | Nothing to import; left as Flyway creates them |
+| Shared tables with column differences | 83 | Need explicit column mapping |
+| Shared tables where O19 has columns CARLOS dropped | 39 | Dropped columns logged; a few need review (see §4.3) |
+
+Key core-table deltas (O19 → CARLOS):
+
+- `demographic`: CARLOS adds gender/pronoun fields, residential address, rostering
+  fields; O19 `preferred_lang` has no direct CARLOS column (map or drop — verify
+  against CARLOS `official_lang`/language handling during implementation).
+- `security`: CARLOS drops `storageVersion`, adds MFA/OneID columns. O19 legacy
+  SHA-1 password hashes are **accepted by CARLOS and auto-upgraded to
+  `{bcrypt}` on first login** (see `docs/Password_System.md`), so provider logins
+  survive migration. PINs carry over.
+- `document`: CARLOS adds `receivedDate`, `abnormal`, `report_media`,
+  `sent_date_time`; drops `fileSignature`.
+- `drugs`: CARLOS adds pharmacy/protocol columns; drops `dispensingUnits`,
+  `outside_provider` (drug-dispensing module removed).
+- `provider`, `tickler`, `preventions`, `consultationRequests`: additive only —
+  straight copy of shared columns.
+- Charset: O19 init scripts declare no charset (live DBs are typically the MySQL 5.x
+  server default `latin1`, sometimes mixed after years of patches). CARLOS is
+  uniformly `utf8mb4`. Conversion happens implicitly during cross-schema
+  `INSERT…SELECT`, but double-encoded UTF-8 (a classic OSCAR artifact) must be
+  detected and repaired (§4.4).
+
+Full generated table lists are in Appendix A/B. The per-column diff is regenerated
+by the importer tooling at build time (§6) rather than frozen here.
+
+## 3. Architecture: staging-schema ETL, not direct restore
+
+A raw O19 mysqldump **cannot** be restored into the CARLOS schema: `mysqldump`
+emits column-less `INSERT INTO t VALUES (…)` rows, so any column-count difference
+(83 shared tables) breaks the load, and 202 tables no longer exist. The turnkey
+flow is therefore:
+
+```
+ o19.sql.gz ──► restore verbatim ──► staging schema `o19_import`
+                                            │
+ Flyway (common + province) ──► fresh `carlos` schema (reference data from CARLOS)
+                                            │
+                    ETL: INSERT INTO carlos.t (cols…) SELECT cols… FROM o19_import.t
+                                            │
+ o19-documents.tar.gz ──► /var/lib/OscarDocument/carlos/… + reconciliation
+                                            │
+                              verification report + archival schema `o19_archive`
+```
+
+Principles:
+
+1. **The dump restores verbatim** into `o19_import` with
+   `SET sql_mode=''`/`FOREIGN_KEY_CHECKS=0` and the dump's own charset directives,
+   so nothing is lost or mangled at ingest.
+2. **CARLOS reference data wins.** ICD-9/10, OHIP service codes, `lst_*`/ctl
+   lookup rows, measurement map, prevention config etc. come from Flyway, not from
+   the dump — except tables in the "clinic-authored" list (§4.2).
+3. **Clinic data copies with explicit column lists** from a generated, versioned
+   mapping manifest (§6). Copies preserve primary keys (`demographic_no`,
+   `provider_no`, document ids, …) because cross-table references in OSCAR are by
+   raw id with no FK constraints.
+4. **Nothing is silently discarded.** Every dropped table/column with non-trivial
+   data lands in `o19_archive` (kept read-only) and in the final report.
+5. **The live CARLOS schema must be empty of clinic data** (fresh Flyway install)
+   — the importer refuses to run otherwise, except for the known seed rows it
+   explicitly reconciles (§4.5).
+
+## 4. ETL rules
+
+### 4.1 Table classification (driven by the manifest)
+
+| Class | Handling |
+|---|---|
+| `copy` | Shared table, clinic data → copy shared columns; CARLOS-added columns take their defaults |
+| `reference` | Shared table, CARLOS-seeded reference data → keep CARLOS rows, ignore dump (e.g. `icd9`, `icd10`, `billingservice` official codes, `lst_*` lookups, `secObjectName`) |
+| `merge` | Shared table containing both seed and clinic rows → copy with conflict reconciliation (e.g. `property`, `providerPreference`, `encounterForm`, private billing codes in `billingservice`) |
+| `archive` | O19-only table with patient/clinic data → copy into `o19_archive` + CSV export (see §5) |
+| `drop` | O19-only table from removed infrastructure with no clinical value → recorded in report only (Integrator, sharing/XDS, `cr_*` cookie-revolver, report-runner templates, temp tables) |
+
+### 4.2 Clinic-authored data that must copy even in "reference-looking" tables
+
+- `eform`, `eform_data`, `eform_groups`, `eform_values` — the clinic's eForm
+  library and every filled instance.
+- Custom/private billing codes and clinic fee overrides in `billingservice`
+  (copy rows not matching CARLOS-seeded official codes), `billing_on_*` claim
+  history, `teleplan*`/BC equivalents for BC clinics.
+- `measurementType`/`measurementMap` customizations, custom `preventions` config
+  (`preventionsConfig`-style properties), `mygroup` schedule groups,
+  `scheduletemplate*`, `appointmentType`, `lookup` lists edited by the clinic.
+- `property`, `ProviderPreference`, `UserProperty` — per-provider settings; copy
+  but let CARLOS defaults stand for keys that no longer exist.
+
+### 4.3 Column-level rules
+
+- **CARLOS-added columns**: rely on schema defaults; where semantics need a value
+  (`document.receivedDate` ≈ `observationdate`, `tickler.creation_date` ≈
+  legacy update timestamp) the manifest carries a per-column SQL expression.
+- **O19-dropped columns** (39 tables): logged per-table with a non-null/non-default
+  row count. Ones worth an explicit implementation decision:
+  `demographic.preferred_lang`, `document.fileSignature`,
+  `drugs.dispensingUnits`/`outside_provider`, `formLabReq07` PSA/FOBT tick-boxes,
+  `formRourke2009` "No" checkbox variants, `eChart` legacy form columns. Where a
+  CARLOS equivalent exists, map; otherwise the values go to `o19_archive` shadow
+  tables.
+- **Renames**: the manifest supports `source_column → target_column` mappings so
+  drift (e.g. language fields) is a data fix, not code.
+- **Type tightening**: values that violate CARLOS types/strict mode are sanitized
+  during copy: zero dates (`0000-00-00`) → NULL where CARLOS allows, out-of-range
+  enums → default + report line, over-length strings → error (never silent
+  truncation of PHI).
+
+### 4.4 Charset / mojibake
+
+- Restore staging with the dump's declared charset; copy via `INSERT…SELECT` into
+  utf8mb4 targets (server converts).
+- Pre-copy scan flags double-encoded UTF-8 (bytes matching
+  `Ã[€-¿]`-class patterns in name/note/text columns) and applies the standard
+  `CONVERT(BINARY CONVERT(col USING latin1) USING utf8mb4)` repair per column,
+  gated by a dry-run sample report the operator approves.
+
+### 4.5 Seed-row reconciliation (fresh CARLOS DB vs incoming dump)
+
+Both systems seed a default doctor at `provider_no 999998` (O19 `oscardoc`,
+CARLOS `carlosdoc`) plus matching `security`, schedule and property rows. The
+importer must, in order: delete the CARLOS `carlosdoc` seed rows (provider,
+security, preferences) **after** creating a fresh break-glass admin account chosen
+by the operator, then copy the clinic's providers/security verbatim. Same
+reconciliation applies to `property`/`SystemPreferences` defaults (CARLOS value
+kept unless the clinic explicitly overrode the key in O19).
+
+Post-copy: set `security.forcePasswordReset = 1` for every imported user (legacy
+SHA-1 hashes still work for the first login and auto-upgrade to BCrypt; the forced
+reset moves everyone onto CARLOS password policy immediately).
+
+### 4.6 O19 modules removed from CARLOS — data disposition
+
+| O19 module (tables) | Disposition |
+|---|---|
+| Antenatal forms `formAR`, `formONAR`, `formONAREnhancedRecord(+Ext1/2)` | **archive** — patient data; see `docs/migration-deprecated-form-tables.md`; export CSV + `o19_archive` |
+| Generic intake (`intake*`, `formIntakeHx`), OCAN (`Ocan*`), eyeform (`eyeform*`, `Eyeform*`, `specshis`, `procedurebook`…) | **archive** if row counts > 0 |
+| HSFO study (`hsfo_*`, `form_hsfo_visit`), CAISI beds/rooms (`bed*`, `room_*`, `vacancy`, `complaint`, `incident`) | **archive** if used (CHC-style sites), else drop |
+| OLIS (`OLIS*`) | **archive** query prefs/log; OLIS module does not exist in CARLOS — flag to clinic |
+| Integrator/sharing/PHR/Indivo/BORN (`Integrator*`, `sharing_*`, `phr_*`, `indivoDocs`, `BORN*`), cookie-revolver `cr_*`, report-runner `report_*`, MDS raw (`mdsZCL`, `mdsZCT`), `RedirectLink*`, temp/backup tables | **drop** (report only) |
+
+Everything classified `archive` also produces a per-table CSV under
+`…/o19_archive_export/` inside the documents tree so the clinic holds a readable
+copy independent of MariaDB.
+
+## 5. Documents tar
+
+What to tar on the O19 server — the **entire** OscarDocument context tree, not
+just `document/`:
+
+```
+tar -C /var/lib/OscarDocument -czf o19-documents.tar.gz <contextname>/
+```
+
+Import steps:
+
+1. Untar under `BASE_DOCUMENT_DIR` (default `/var/lib/OscarDocument/`), renaming
+   the O19 context directory (often `oscar`, `oscar_mcmaster`, or the clinic db
+   name) to `carlos` to match `carlos.properties`
+   (`DOCUMENT_DIR=/var/lib/OscarDocument/carlos/document/`,
+   `INCOMINGDOCUMENT_DIR=…/carlos/incomingdocs`). Subtrees that ride along:
+   `document/`, `eform/images/` (eForm image assets), `incomingdocs/`,
+   `billing/download/`, HRM report files, faxes, export dirs.
+2. `chown -R` to the Tomcat service user; restore SELinux context where relevant.
+3. **Reconciliation report** (blocking, not advisory):
+   - every `document.docfilename` row → file exists, non-zero size;
+   - every `eform` referencing `${oscar_image_path}` asset → file exists;
+   - orphan files (on disk, no DB row) listed for operator review;
+   - `HRMDocument.reportFile` paths remapped from the O19 absolute path prefix to
+     the CARLOS one (column stores absolute paths on some installs — importer
+     rewrites the prefix).
+4. Large-object sanity: compare tar-reported total size vs restored size.
+
+## 6. Packaging: one-command turnkey import
+
+Two coordinated deliverables:
+
+**(a) `carlos` repo — `scripts/migration/o19/` (the engine)**
+
+- `o19-schema-map.yaml` — the versioned manifest: table classes (§4.1), column
+  mappings, per-column value expressions, archive/drop lists. Generated initially
+  from the schema diff (this analysis), then hand-curated and code-reviewed.
+- `o19_import.py` (or shell+SQL) — phases: `preflight`, `stage`, `etl`,
+  `documents`, `verify`, each idempotent and resumable; writes a single
+  machine+human readable report.
+- `preflight` introspects the **restored dump** via `information_schema` and
+  diffs it against the manifest: unknown tables/columns (vendor forks — WELL/KAI,
+  OMD-mandated patches) are surfaced *before* any write. Unknown tables default to
+  `archive`, never `drop`.
+- `verify` (§7) gate.
+
+**(b) `carlos-podman` repo — `carlos-ctl import-o19` (the turnkey wrapper)**
+
+`carlos_ctl` already owns db provisioning, Flyway migrate, backup and dump
+(`dbops.py`, `backup.py`). New subcommand:
+
+```
+carlos-ctl import-o19 \
+    --dump /srv/migration/o19.sql.gz \
+    --documents /srv/migration/o19-documents.tar.gz \
+    --province on \
+    [--properties /srv/migration/oscar.properties] \
+    [--dry-run]
+```
+
+which: verifies the target is a fresh install (schema fingerprint), snapshots a
+restic backup point, creates `o19_import`/`o19_archive`, runs the engine phases
+inside the db container, untars documents into the app volume, restarts the app,
+and prints the verification report. `--dry-run` runs `preflight` + row-count/
+charset analysis only. Rollback = restore the pre-import snapshot (already a
+`carlos_ctl` capability).
+
+## 7. Verification gate (must pass before go-live)
+
+- **Row parity**: per-table `o19_import` vs `carlos` counts for every `copy`
+  table, with expected deltas (seed reconciliation) itemized.
+- **Referential spot checks**: demographics ↔ appointments ↔ notes ↔ documents ↔
+  drugs joined on ids for N random patients; billing invoice totals per fiscal
+  year match to the cent.
+- **Files**: document reconciliation (§5.3) clean.
+- **App-level smoke**: the existing Playwright UI test suite (`ui-tests` skills,
+  tests 1–9: login, demographic search, appointments, Rx, ticklers, encounter,
+  ON billing, labs, preventions) run against the migrated database — this is the
+  strongest "the clinic can work tomorrow" signal.
+- **Login**: sample migrated provider logs in with O19 credentials, hash upgrades
+  to `{bcrypt}`, forced reset flow completes.
+
+## 8. What else to collect from the O19 server (advisory checklist)
+
+Beyond the mysqldump and the OscarDocument tar, capture:
+
+| Item | Why / where it goes |
+|---|---|
+| `oscar.properties` (+ any override file, often in `$CATALINA_HOME` or `/usr/share/oscar*`) | Not copied verbatim — used to *derive* CARLOS `over_ride_config.properties`: clinic name/address, OHIP group/specialty billing numbers, HL7 lab settings, document paths, feature toggles |
+| `drugref.properties` / drugref DB | **Not needed** — CARLOS runs its own fresh drugref (`drugref2026`); no clinic data lives there |
+| MCEDT/EDT credentials (MOH GO-Secure user, MCEDT keystore/cert if configured) | Ontario billing upload/download continuity |
+| HRM SFTP private key + HRM decryption key (`OMD HRM` config) | HRM feed continuity (CARLOS retains HRM tables) |
+| Lab feed credentials (Excelleris/LifeLabs/MDS/CML poller configs, certs, any `hl7` dropbox paths, CDS/OLIS certs) | Re-provision feeds; note OLIS module is **not** in CARLOS — clinic must be told before cutover |
+| Fax setup details (Hylafax host or SRFax account) | CARLOS supports SRFax natively; Hylafax sites need an SRFax (or legacy relay) decision pre-cutover |
+| Tomcat `server.xml`/TLS keystores | Reference only; CARLOS/podman terminates TLS differently |
+| Crontabs & backup scripts | Inventory of scheduled jobs (label reprints, backups, custom exports) that need CARLOS equivalents |
+| Any custom JSP/eForm assets living *outside* OscarDocument (rare; some sites drop images into the webapp) | Sweep `webapps/oscar*/eform*` and `images/` for clinic files |
+| MyOSCAR/PHR registration details | Decommission notice — PHR/Integrator removed in CARLOS |
+| Final pre-cutover incremental dump | Take the *real* migration dump during the cutover window after stopping O19 Tomcat, so no appointments/notes are lost; the earlier dump is for rehearsal |
+
+Recommended cutover shape: **rehearse on a copy** (dump A) → fix manifest fall-out
+→ freeze O19 → dump B + documents rsync top-up → import → verify → go live. The
+importer being idempotent/re-runnable from `stage` makes the rehearsal cheap.
+
+## 9. Risks & open decisions
+
+1. **Schema drift in the wild** — vendor forks add tables/columns. Mitigated by
+   preflight introspection + archive-by-default for unknowns.
+2. **BC profile** — this analysis is Ontario-first; BC (Teleplan tables,
+   `oscarinit_bc`) needs its own manifest pass before a BC clinic migrates.
+3. **`demographic.preferred_lang` and other mapped columns** — each needs a
+   confirmed CARLOS destination during implementation, not assumed.
+4. **Encrypted casemgmt notes** — if the source site enabled note encryption,
+   key material handling must be added to the checklist (rare; detect via
+   `casemgmt_note` content and site config in preflight).
+5. **Antenatal (ONAR Enhanced) users** — CARLOS dropped the form; obstetrical
+   practices must accept archive-only access or the form must be revived before
+   such a clinic migrates. This is a go/no-go conversation per clinic.
+6. **Database size** — multi-year clinics run 10–100+ GB with `hl7TextMessage`
+   and `document` dominating; the ETL must stream (`INSERT…SELECT` server-side,
+   no client round-trips) and disable binary logging on the staging schema during
+   import.
+
+## 10. Implementation work breakdown
+
+1. `carlos`: commit generated schema-diff tooling + `o19-schema-map.yaml` seed
+   (from this analysis), engine skeleton with `preflight`+`stage`.
+2. `carlos`: ETL phase for the top-20 core tables + seed reconciliation +
+   forced-reset; verification row-parity report.
+3. `carlos`: documents phase + reconciliation; archive/CSV export phase.
+4. `carlos-podman`: `carlos-ctl import-o19` wrapper (snapshot, phases, restart,
+   report), `--dry-run`.
+5. End-to-end rehearsal against a seeded O19 test database built from the
+   Bitbucket init scripts + demo data; then against a real anonymized clinic dump.
+6. BC manifest variant.
+
+---
+
+## Appendix A — O19-only tables (Ontario superset, absent in CARLOS)
+
+Integrator*, sharing_*, phr_*/indivoDocs, BORN*, Ocan*, Eyeform*/eyeform*,
+intake* (generic intake), hsfo_*, cr_* (cookie revolver), report_* (report
+runner), CAISI facility/bed/room (`bed*`, `room_*`, `vacancy`, `complaint`,
+`incident`, `agency`-adjacent `lst_*` CAISI lookups), OLIS*, MDS raw (mdsZCL,
+mdsZCT), forms dropped by CARLOS (formAR, formONAR, formONAREnhancedRecord+Ext1/2,
+formType2Diabetes, formAdf, formIntakeHx, formBCAR2007, formfollowup,
+formovulation, form_hsfo_visit), plus assorted temp/dead tables (icd10_temp,
+log_temp, measurementTypeTEMP, secUserRole_tmp, tmpdiagnosticcode, test,
+survey_test_*, recycle_bin, uploadfile_from, oscar_annotations, onCallClinicDates,
+oncall_questionnaire, queue_provider_link, scheduledaytemplate, demographicSite,
+secSite, doc_category, doc_manager, RedirectLink*, RemoteDataRetrievalLog,
+DrugDispensing*, ProductLocation, ContactType/EncounterType/ProgramContactType/
+ProgramEncounterType, MyGroupProgram, IntakeRequiredFields, functionalCentreAdmission,
+caisi_editor, caisi_form_instance_tmpsave, caisi_form_question, group_note_link,
+bed_check_time, bed_demographic_*, preventionsBilling, resident_oscarMsg,
+ocularprocedurehis, specshis, procedurebook, testbookrecord, formONAREnhanced,
+formONAREnhancedRecordExt1/2 — full machine list regenerated by the diff tool).
+
+## Appendix B — CARLOS-only tables (no import needed)
+
+CVC* (vaccine catalog), DHIRSubmissionLog, DocumentExtraReviewer, EFormDocs,
+ISO36612, LookupCodeValue, PreventionReport, ServiceOAuthNonce, SystemPreferences,
+billing_preferences, consultationRequestExtArchive, consultationRequestsArchive,
+documentDescriptionTemplate, document_review, dxCodeTranslations, dxphcpgroup,
+emailAttachment, emailConfig, emailLog, erefer_attachment(+_data),
+formRourke2017, formRourke2020, form_boolean_value, icd9 (restructured),
+incomingLabRulesType, rbt_groups.
+
+## Appendix C — shared tables where O19 carries columns CARLOS dropped (39)
+
+CdsClientForm, Contact, DemographicContact, EFormReportTool, Facility,
+FunctionalCentre, ProviderPreference, agency, app_lookuptable_fields, demographic,
+demographicArchive, document, drugs, eChart, favorites, formDischargeSummary,
+formLabReq07, formRourke2009, icd10, issue, lst_admission_status,
+lst_discharge_reason, lst_field_category, lst_gender, lst_organization,
+lst_program_type, lst_sector, lst_service_restriction, professionalSpecialists,
+program, program_provider, property, provider_facility, reportTemplates,
+secObjectName, secRole, secUserRole, security, vacancy.
