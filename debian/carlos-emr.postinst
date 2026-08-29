@@ -628,16 +628,20 @@ case "$1" in
                 # repository, and bringing up an internet-facing EMR with a
                 # known administrator login (the force-reset flag does not help
                 # — an attacker who knows the old password completes the reset)
-                # is exactly the exposure this step exists to prevent. Treat it
-                # like a failed migration (see above): MIGRATION_OK=0 keeps the
-                # unit stopped-but-enabled until the operator fixes the cause.
+                # is exactly the exposure this step exists to prevent. Unlike a
+                # failed migration — which the application's own schema gate
+                # refuses on every boot — a live seed credential sits over a
+                # VALID schema, so merely declining to start THIS run would still
+                # let a reboot bring the internet-facing EMR up with the
+                # published credential. SEED_CREDENTIAL_LIVE makes the trailing
+                # block DISABLE the unit so it cannot auto-start until an
+                # operator replaces the credential and re-enables it.
                 if ! carlos-ctl bootstrap-admin; then
                     MIGRATION_OK=0
-                    echo "carlos-emr: the seeded 'carlosdoc' password could NOT be replaced. The" >&2
-                    echo "carlos-emr: service will NOT be started, so the EMR is never exposed with" >&2
-                    echo "carlos-emr: the credential PUBLISHED in the CARLOS source repository." >&2
-                    echo "carlos-emr: fix the cause, then:" >&2
-                    echo "carlos-emr:   sudo carlos-ctl bootstrap-admin && sudo systemctl start carlos-emr" >&2
+                    SEED_CREDENTIAL_LIVE=1
+                    echo "carlos-emr: the seeded 'carlosdoc' password could NOT be replaced — the" >&2
+                    echo "carlos-emr: account still carries the credential PUBLISHED in the CARLOS" >&2
+                    echo "carlos-emr: source repository (see the disable notice at the end of setup)." >&2
                 fi
             else
                 echo "carlos-emr: WARNING: the seeded 'carlosdoc' account keeps the password" >&2
@@ -773,7 +777,21 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
     # deb-systemd-invoke has no reload verb, so call systemctl directly (as the
     # renderer's postinst already does). Best-effort; never fail configure.
     systemctl --system daemon-reload >/dev/null 2>&1 || true
-    if [ "${MIGRATION_OK:-1}" = 0 ]; then
+    if [ "${SEED_CREDENTIAL_LIVE:-0}" = 1 ]; then
+        # Durable fail-closed: the seeded 'carlosdoc' credential could not be
+        # replaced, and the schema is valid, so a plain "don't start now" would
+        # evaporate on the next boot. DISABLE the unit so it cannot auto-start
+        # until an operator replaces the credential and re-enables it. This only
+        # runs on the bootstrap-admin failure path, so it never touches a
+        # healthy install. Best-effort; never fail configure.
+        deb-systemd-helper disable carlos-emr.service >/dev/null 2>&1 \
+            || systemctl disable carlos-emr.service >/dev/null 2>&1 || true
+        echo "carlos-emr: the service is DISABLED and was NOT started: the seeded 'carlosdoc'" >&2
+        echo "carlos-emr: credential (published in the CARLOS source repository) could not be" >&2
+        echo "carlos-emr: replaced, so the EMR must not come up with it live — including on a" >&2
+        echo "carlos-emr: reboot. Replace the credential, then enable and start:" >&2
+        echo "carlos-emr:   sudo carlos-ctl bootstrap-admin && sudo systemctl enable --now carlos-emr" >&2
+    elif [ "${MIGRATION_OK:-1}" = 0 ]; then
         echo "carlos-emr: NOT starting the service — the schema is not ready (see above)." >&2
         echo "carlos-emr: the unit stays enabled; it will start on the next boot or when you" >&2
         echo "carlos-emr: start it after completing the migration." >&2
