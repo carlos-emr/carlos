@@ -20,6 +20,14 @@ ENV_FILE="${CONF_DIR}/carlos-emr.env"
 PROPERTIES="${CONF_DIR}/carlos.properties"
 BACKUP_ENV="${CONF_DIR}/backup.env"
 STATE=/var/lib/carlos-emr
+# Durable marker that the seeded (source-published) administrator credential is
+# still live because `carlos-ctl bootstrap-admin` could not replace it. While it
+# exists the service unit is kept disabled, and no path in this package may start
+# the EMR: a shell variable would not survive the run, and the exposure has to
+# outlast it (a reboot, or an aborted apt transaction, would otherwise bring the
+# internet-facing EMR up with a password published in the source repository).
+# Cleared automatically by the next successful bootstrap-admin.
+SEED_SENTINEL="${STATE}/.seed-credential-live"
 
 # deb-systemd-invoke rather than systemctl: it honours /usr/sbin/policy-rc.d,
 # which is how an image build or a chroot says "configure this package but do
@@ -582,6 +590,11 @@ case "$1" in
         # failed deployments (the app's boot-time validate gate refuses a
         # schema behind the WAR — by design).
         MIGRATION_OK=1
+        # Initialised for the same reason MIGRATION_OK is: dpkg passes the
+        # invoking environment straight through to maintainer scripts, so an
+        # inherited variable of this name would otherwise disable the unit on a
+        # perfectly healthy install.
+        SEED_CREDENTIAL_LIVE=0
         if mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
             # mariadb-server was already running when this package's drop-in
             # was unpacked, so it is still on distribution defaults — STRICT
@@ -636,12 +649,37 @@ case "$1" in
                 # published credential. SEED_CREDENTIAL_LIVE makes the trailing
                 # block DISABLE the unit so it cannot auto-start until an
                 # operator replaces the credential and re-enables it.
-                if ! carlos-ctl bootstrap-admin; then
+                if carlos-ctl bootstrap-admin; then
+                    # Self-heal: if an earlier run disabled the unit because the
+                    # seeded credential was live, that condition is now cleared,
+                    # so undo it here. Without this the operator is permanently
+                    # on the hook for a manual `systemctl enable` — and the very
+                    # next configure would happily START the service while it
+                    # stayed disabled, so the EMR would silently fail to come
+                    # back at the following reboot.
+                    if [ -e "${SEED_SENTINEL}" ]; then
+                        rm -f "${SEED_SENTINEL}"
+                        deb-systemd-helper enable carlos-emr.service >/dev/null 2>&1 || true
+                        echo "carlos-emr: the seeded administrator credential has been replaced; the" >&2
+                        echo "carlos-emr: service unit has been re-enabled." >&2
+                    fi
+                elif [ "${MIGRATION_OK}" = 1 ]; then
+                    # Only treat this as "the published credential is live" when
+                    # the database and schema steps above SUCCEEDED. bootstrap-admin
+                    # also exits non-zero for environmental reasons (MariaDB
+                    # unreachable, schema not migrated); disabling the unit on
+                    # those would take a healthy production clinic offline over a
+                    # transient database problem, on a site that replaced the
+                    # seeded credential years ago.
                     MIGRATION_OK=0
                     SEED_CREDENTIAL_LIVE=1
                     echo "carlos-emr: the seeded 'carlosdoc' password could NOT be replaced — the" >&2
                     echo "carlos-emr: account still carries the credential PUBLISHED in the CARLOS" >&2
-                    echo "carlos-emr: source repository (see the disable notice at the end of setup)." >&2
+                    echo "carlos-emr: source repository (see the notice at the end of setup)." >&2
+                else
+                    echo "carlos-emr: 'carlos-ctl bootstrap-admin' also failed, but the database or" >&2
+                    echo "carlos-emr: schema step above failed first — fix that, then re-run:" >&2
+                    echo "carlos-emr:   sudo carlos-ctl db-migrate && sudo carlos-ctl bootstrap-admin" >&2
                 fi
             else
                 echo "carlos-emr: WARNING: the seeded 'carlosdoc' account keeps the password" >&2
@@ -751,8 +789,20 @@ case "$1" in
         # branch, nothing would ever start them again — a failed upgrade of
         # an unrelated package in the same transaction left the EMR down.
         # Best-effort, never failing the abort path itself.
+        #
+        # The APPLICATION start is skipped while the seed-credential sentinel
+        # exists: `systemctl start` works perfectly well on a disabled unit, so
+        # without this guard any later aborted apt transaction — including one
+        # caused by an unrelated package — would undo the fail-closed and bring
+        # the EMR up with the source-published administrator password live. The
+        # timers carry no such exposure and are always restored.
         if [ -d /run/systemd/system ]; then
-            deb-systemd-invoke start carlos-emr.service >/dev/null 2>&1 || true
+            if [ -e "${SEED_SENTINEL}" ]; then
+                echo "carlos-emr: not restarting the application — the seeded administrator" >&2
+                echo "carlos-emr: credential is still live (run 'carlos-ctl bootstrap-admin')." >&2
+            else
+                deb-systemd-invoke start carlos-emr.service >/dev/null 2>&1 || true
+            fi
             deb-systemd-invoke start carlos-emr-backup.timer carlos-emr-backup-verify.timer \
                 carlos-emr-cert-renew.timer >/dev/null 2>&1 || true
         fi
@@ -764,6 +814,39 @@ case "$1" in
 esac
 
 #DEBHELPER#
+
+# Durable fail-closed for a live seeded credential. Deliberately NOT gated on
+# /run/systemd/system: the enable/disable state is symlinks under /etc, which
+# deb-systemd-helper maintains with or without a running systemd, and the golden
+# -image / chroot build path is exactly where an undisabled unit would ship an
+# internet-facing EMR carrying the source-published administrator password.
+if [ "$1" = configure ] && [ "${SEED_CREDENTIAL_LIVE:-0}" = 1 ]; then
+    mkdir -p "${STATE}" 2>/dev/null || true
+    : > "${SEED_SENTINEL}" 2>/dev/null || true
+    chmod 0600 "${SEED_SENTINEL}" 2>/dev/null || true
+    deb-systemd-helper disable carlos-emr.service >/dev/null 2>&1 || true
+    # disable does not touch runtime state and has no --now, so stop separately.
+    # Through sd_invoke, which honours policy-rc.d (a stop is a runtime action;
+    # the disable above deliberately is not). Without this a dpkg-reconfigure
+    # leaves the JVM serving with the credential live while the notice claims
+    # the service is not running.
+    sd_invoke stop carlos-emr.service >/dev/null 2>&1 || true
+    # VERIFY rather than assert: this is the one invariant the whole branch
+    # exists to establish, and a silent failure here means the operator believes
+    # a reboot is safe when it is not.
+    if [ -d /run/systemd/system ] && systemctl is-enabled --quiet carlos-emr.service 2>/dev/null; then
+        echo "carlos-emr: *** COULD NOT DISABLE carlos-emr.service ***" >&2
+        echo "carlos-emr: the seeded 'carlosdoc' credential (published in the CARLOS source" >&2
+        echo "carlos-emr: repository) is still live AND the unit will start at the next boot." >&2
+        echo "carlos-emr: run this NOW:  sudo systemctl disable --now carlos-emr" >&2
+    else
+        echo "carlos-emr: the service has been STOPPED and DISABLED: the seeded 'carlosdoc'" >&2
+        echo "carlos-emr: credential (published in the CARLOS source repository) could not be" >&2
+        echo "carlos-emr: replaced, so the EMR must not come up with it live — including on a" >&2
+        echo "carlos-emr: reboot. Replace the credential and the unit is re-enabled for you:" >&2
+        echo "carlos-emr:   sudo carlos-ctl bootstrap-admin && sudo systemctl start carlos-emr" >&2
+    fi
+fi
 
 # Everything below runs AFTER the debhelper snippets, so the units exist and
 # are enabled by the time we start them.
@@ -778,19 +861,9 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
     # renderer's postinst already does). Best-effort; never fail configure.
     systemctl --system daemon-reload >/dev/null 2>&1 || true
     if [ "${SEED_CREDENTIAL_LIVE:-0}" = 1 ]; then
-        # Durable fail-closed: the seeded 'carlosdoc' credential could not be
-        # replaced, and the schema is valid, so a plain "don't start now" would
-        # evaporate on the next boot. DISABLE the unit so it cannot auto-start
-        # until an operator replaces the credential and re-enables it. This only
-        # runs on the bootstrap-admin failure path, so it never touches a
-        # healthy install. Best-effort; never fail configure.
-        deb-systemd-helper disable carlos-emr.service >/dev/null 2>&1 \
-            || systemctl disable carlos-emr.service >/dev/null 2>&1 || true
-        echo "carlos-emr: the service is DISABLED and was NOT started: the seeded 'carlosdoc'" >&2
-        echo "carlos-emr: credential (published in the CARLOS source repository) could not be" >&2
-        echo "carlos-emr: replaced, so the EMR must not come up with it live — including on a" >&2
-        echo "carlos-emr: reboot. Replace the credential, then enable and start:" >&2
-        echo "carlos-emr:   sudo carlos-ctl bootstrap-admin && sudo systemctl enable --now carlos-emr" >&2
+        # Already stopped, disabled and reported by the block above; the only
+        # thing left to do here is NOT start the service.
+        :
     elif [ "${MIGRATION_OK:-1}" = 0 ]; then
         echo "carlos-emr: NOT starting the service — the schema is not ready (see above)." >&2
         echo "carlos-emr: the unit stays enabled; it will start on the next boot or when you" >&2
