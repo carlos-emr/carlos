@@ -30,7 +30,7 @@ class Settings:
         self.province = (env_get(ENV_FILE, "CARLOS_PROVINCE") or "on").lower()
         self.db_host = env_get(ENV_FILE, "CARLOS_DB_HOST") or "127.0.0.1"
         self.db_port = env_get(ENV_FILE, "CARLOS_DB_PORT") or "3306"
-        self.db_name = env_get(ENV_FILE, "CARLOS_DB_NAME") or "oscar"
+        self.db_name = env_get(ENV_FILE, "CARLOS_DB_NAME") or "carlos"
         # The database name is interpolated into backtick-quoted DDL run as
         # database root (db-users, destroy-data). The file it comes from is
         # root-owned, so this is hardening rather than a live injection path —
@@ -57,7 +57,7 @@ def cmd_init_config(argv) -> int:
     if not os.path.isfile(PROPERTIES):
         die(f"{PROPERTIES} does not exist; reinstall the package")
 
-    doc = f"{STATE}/OscarDocument/carlos"
+    doc = f"{STATE}/CarlosDocument/carlos"
     province_uc = s.province.upper()
 
     # JDBC parameters, and why each one is here:
@@ -82,7 +82,7 @@ def cmd_init_config(argv) -> int:
 
     # Document storage. 2750 carlos:carlos with the backup user reading
     # through group membership; see debian/carlos-emr.tmpfiles.
-    prop_set(PROPERTIES, "BASE_DOCUMENT_DIR", f"{STATE}/OscarDocument/")
+    prop_set(PROPERTIES, "BASE_DOCUMENT_DIR", f"{STATE}/CarlosDocument/")
     prop_set(PROPERTIES, "DOCUMENT_DIR", f"{doc}/document/")
     prop_set(PROPERTIES, "INCOMINGDOCUMENT_DIR", f"{doc}/incomingdocs")
     prop_set(PROPERTIES, "INVOICE_DIR", f"{doc}/billing/invoices")
@@ -91,7 +91,7 @@ def cmd_init_config(argv) -> int:
 
     prop_set(PROPERTIES, "billregion", province_uc)
     prop_set(PROPERTIES, "buildtag", "carlos-emr-deb")
-    # project_home is a legacy OSCAR name used two ways: as the OscarDocument
+    # project_home is a legacy OSCAR name used two ways: as the CarlosDocument
     # subdirectory, and as a fallback URL context prefix when the eForm PDF
     # composer and the MOH billing views cannot see a real context path. Both
     # are "carlos" in this layout; the upstream default of "oscar_mcmaster"
@@ -167,7 +167,7 @@ def cmd_init_config(argv) -> int:
 
     # --- paths the upstream skeleton still aims at the OLD FHS location -----
     # The stock carlos.properties predates this packaging and carries several
-    # path defaults under /var/lib/OscarDocument, which does not exist here.
+    # path defaults under /var/lib/CarlosDocument, which does not exist here.
     # Each of the following is READ by live code (verified in the source), so
     # a stale value is a runtime failure in that feature, not cosmetics.
     prop_set(PROPERTIES, "log.purge.outputdir", f"{doc}/document/")
@@ -180,10 +180,12 @@ def cmd_init_config(argv) -> int:
     # The code paths guard on the property being UNSET (ConsultationPDFCreator
     # checks != null before touching the file), so a present-but-bogus value
     # is strictly worse than no value. Guarded so a value an operator has
-    # customised is never touched.
+    # customised is never touched. Both prefixes stay matched: a properties
+    # file written by a pre-rename package still carries the OscarDocument
+    # spelling (the file is not a conffile and is never rewritten wholesale).
     for logo in ("clinicLetterheadLogo", "faxLogoInConsultation"):
         cur = prop_get(PROPERTIES, logo) or ""
-        if cur.startswith("/var/lib/OscarDocument/"):
+        if cur.startswith(("/var/lib/CarlosDocument/", "/var/lib/OscarDocument/")):
             prop_comment(PROPERTIES, logo)
 
     # AES-256 key for credentials the app encrypts at rest (fax provider

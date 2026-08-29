@@ -37,6 +37,9 @@ _USAGE = """carlos-ctl — administration for a CARLOS EMR host
   carlos-ctl db-apply-settings    restart MariaDB if it is not running the
                                   settings in the CARLOS drop-in
   carlos-ctl db-dump              consistent dump to stdout
+  carlos-ctl db-rename-schema     move every table of one schema into another
+                                  and drop the emptied source (idempotent;
+                                  the oscar -> carlos default-rename catch-up)
   carlos-ctl db-users             (re)create the databases and accounts
   carlos-ctl demo-data            load the fictitious demonstration dataset
                                   into an EMPTY, freshly migrated database
@@ -170,6 +173,7 @@ _VERBS = {
     "status": _cmd_status,
     "db": dbops.cmd_db,
     "db-dump": dbops.cmd_db_dump,
+    "db-rename-schema": dbops.cmd_db_rename_schema,
     "db-users": dbops.cmd_db_users,
     "db-migrate": dbops.cmd_db_migrate,
     "db-info": dbops.make_flyway_cmd("info"),

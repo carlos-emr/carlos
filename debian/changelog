@@ -1,3 +1,25 @@
+carlos-emr (2026.09.0~snapshot4) resolute; urgency=medium
+
+  * Default rename: the database is now `carlos` (was the inherited `oscar`)
+    and the document store is now CarlosDocument (was OscarDocument), with a
+    `carlos` instance segment: /var/lib/carlos-emr/CarlosDocument/carlos.
+  * One-time migrations, applied only when upgrading from before this version
+    and only where the OLD STOCK DEFAULT is still in effect — an explicitly
+    configured CARLOS_DB_NAME or a post-upgrade OscarDocument directory is
+    never touched:
+    - the `oscar` schema is renamed to `carlos` in place via the new
+      idempotent `carlos-ctl db-rename-schema` (atomic multi-pair RENAME
+      TABLE; flyway_schema_history and its checksums move unchanged), then
+      CARLOS_DB_NAME / CARLOS_BACKUP_DB_NAME are updated. If MariaDB is down
+      the rename defers to the next configure (dpkg-reconfigure carlos-emr).
+    - the document store is moved to CarlosDocument with an OscarDocument
+      compat symlink left behind, so absolute paths already stored in the
+      database (faxes, email attachments) keep resolving.
+  * The weekly restore drill accepts both directory spellings: the newest
+    snapshot right after the upgrade still carries pre-rename paths.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Fri, 28 Aug 2026 16:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot3) resolute; urgency=medium
 
   * Install wizard: recommend a Java heap sized from the machine's memory

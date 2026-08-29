@@ -9,7 +9,7 @@ Build-Depends:
 # (see the `! compat(13)` guard in /usr/bin/dh_installtmpfiles). At compat 14 it
 # would start running `systemd-tmpfiles --purge` over debian/carlos-emr.tmpfiles
 # when this package is purged -- and that file lists
-# /var/lib/carlos-emr/OscarDocument, the scanned patient record store, and
+# /var/lib/carlos-emr/CarlosDocument, the scanned patient record store, and
 # /var/backups/carlos-emr. carlos-emr.postrm exists precisely to guarantee that
 # removing this package never deletes either.
 #

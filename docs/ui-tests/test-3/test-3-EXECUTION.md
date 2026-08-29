@@ -17,13 +17,13 @@ server status
 ### 2. Database Connectivity
 ```bash
 # Verify database connection
-mariadb -h db -uroot -ppassword oscar -e "SELECT 1;"
+mariadb -h db -uroot -ppassword carlos -e "SELECT 1;"
 ```
 
 ### 3. Test Data Exists
 ```bash
 # Verify test patient exists
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT demographic_no, last_name, first_name, patient_status
 FROM demographic
 WHERE demographic_no = 1;"
@@ -222,7 +222,7 @@ ls -1 ui-test-runs/$TIMESTAMP/test-3/screenshots/test-3-*.png | wc -l
 ### 2. Database Verification (Optional)
 ```bash
 # Check no orphan test appointments remain
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT appointment_no, appointment_date, reason
 FROM appointment
 WHERE reason LIKE '%UI Test%'

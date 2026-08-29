@@ -82,6 +82,72 @@ case "$1" in
             adduser --quiet carlos-backup carlos
         fi
 
+        # One-time migration (2026.09.0~snapshot4): the document store default
+        # was renamed OscarDocument -> CarlosDocument. Runs BEFORE the tmpfiles
+        # call below, which would otherwise create a fresh empty CarlosDocument
+        # and turn this mv into the refused both-exist case. Eligible on an
+        # upgrade from before the boundary AND on a configure with no prior
+        # version: purge deliberately RETAINS the document store while
+        # removing the env file and sentinels, so a purge-then-reinstall
+        # arrives here exactly like a fresh install but with the patient
+        # documents still sitting under the old name (review finding). A
+        # post-boundary upgrade never migrates — a directory an operator
+        # creates under the old name after the boundary is their choice.
+        # The compat symlink keeps absolute paths already stored in the
+        # database (faxes.filename, emailAttachment.filePath) resolving.
+        if [ -z "${2:-}" ] || dpkg --compare-versions "$2" lt "2026.09.0~snapshot4"; then
+            if [ -d "${STATE}/OscarDocument" ] && [ ! -L "${STATE}/OscarDocument" ]; then
+                if [ -e "${STATE}/CarlosDocument" ] \
+                    && [ -n "$(find "${STATE}/CarlosDocument" -mindepth 1 \( -type f -o -type l \) -print -quit 2>/dev/null)" ]; then
+                    # Two REAL document stores that BOTH hold files is the one
+                    # state that risks silently splitting patient documents:
+                    # continuing would configure the application and the
+                    # backups onto CarlosDocument while records still sitting
+                    # only in OscarDocument fall out of both. Fail the configure
+                    # loudly (a review finding); dpkg leaves the package
+                    # unconfigured and the operator resolves, then re-runs.
+                    echo "carlos-emr: ERROR: both ${STATE}/OscarDocument and ${STATE}/CarlosDocument exist" >&2
+                    echo "carlos-emr: ERROR: as real directories holding files. Refusing to merge or pick a" >&2
+                    echo "carlos-emr: ERROR: patient document store. Consolidate the two trees by hand (typically:" >&2
+                    echo "carlos-emr: ERROR: move the contents of the one that is stale, remove the emptied dir)," >&2
+                    echo "carlos-emr: ERROR: then re-run: sudo dpkg --configure carlos-emr" >&2
+                    exit 1
+                fi
+                # CarlosDocument is absent, or an empty boot-time skeleton:
+                # systemd-tmpfiles can lay down an empty CarlosDocument/carlos
+                # between an interrupted upgrade's unpack and its configure, and
+                # refusing on that empty tree would wedge the apt transaction
+                # (review finding). Clear the empty skeleton, then adopt — this
+                # mirrors the DB side, which merges into an object-empty
+                # `carlos` rather than refusing.
+                if [ -e "${STATE}/CarlosDocument" ]; then
+                    find "${STATE}/CarlosDocument" -depth -type d -empty -delete 2>/dev/null || true
+                fi
+                if [ ! -e "${STATE}/CarlosDocument" ]; then
+                    mv "${STATE}/OscarDocument" "${STATE}/CarlosDocument"
+                    ln -sfn CarlosDocument "${STATE}/OscarDocument"
+                    echo "carlos-emr: renamed the document store OscarDocument -> CarlosDocument (a compat symlink keeps stored paths valid)"
+                else
+                    echo "carlos-emr: ERROR: ${STATE}/CarlosDocument still present after clearing its empty" >&2
+                    echo "carlos-emr: ERROR: skeleton; refusing to merge document stores. Consolidate by hand," >&2
+                    echo "carlos-emr: ERROR: then re-run: sudo dpkg --configure carlos-emr" >&2
+                    exit 1
+                fi
+            elif [ -d "${STATE}/CarlosDocument" ] && [ ! -e "${STATE}/OscarDocument" ]; then
+                # Convergence heal (review finding): a prior migration was
+                # interrupted between the mv (an atomic rename) and the compat
+                # symlink, so CarlosDocument holds the data but the
+                # OscarDocument -> CarlosDocument symlink was never created and
+                # DB-stored absolute paths under .../OscarDocument stopped
+                # resolving. Recreate it. Idempotent, and gated to the
+                # pre-boundary / no-prior-version window so a genuinely fresh
+                # install (CarlosDocument not yet created by tmpfiles at this
+                # point) never gains a spurious symlink.
+                ln -sfn CarlosDocument "${STATE}/OscarDocument"
+                echo "carlos-emr: restored the OscarDocument -> CarlosDocument compat symlink after an interrupted rename"
+            fi
+        fi
+
         # --- directories ----------------------------------------------------
         # systemd-tmpfiles owns this on a systemd host; run it explicitly so a
         # fresh install has its directories before anything below writes into
@@ -101,7 +167,7 @@ case "$1" in
                 "${STATE}/catalina/lib" "${STATE}/catalina/prefs" \
                 "${STATE}/heapdumps"
             install -d -m 2750 -o carlos -g carlos \
-                "${STATE}/OscarDocument" "${STATE}/OscarDocument/carlos"
+                "${STATE}/CarlosDocument" "${STATE}/CarlosDocument/carlos"
             install -d -m 0750 -o www-data -g www-data "${STATE}/modsecurity"
             install -d -m 0700 -o www-data -g www-data \
                 "${STATE}/modsecurity/tmp" "${STATE}/modsecurity/data"
@@ -131,17 +197,17 @@ case "$1" in
         ( cd "${SHARE}/document-skeleton/carlos" && find . -type d -printf '%P\n' ) | \
         while IFS= read -r d; do
             [ -n "${d}" ] || continue
-            if [ ! -d "${STATE}/OscarDocument/carlos/${d}" ]; then
-                install -d -m 2750 -o carlos -g carlos "${STATE}/OscarDocument/carlos/${d}"
+            if [ ! -d "${STATE}/CarlosDocument/carlos/${d}" ]; then
+                install -d -m 2750 -o carlos -g carlos "${STATE}/CarlosDocument/carlos/${d}"
             fi
         done
         ( cd "${SHARE}/document-skeleton/carlos" && find . -type f -printf '%P\n' ) | \
         while IFS= read -r f; do
             [ -n "${f}" ] || continue
-            if [ ! -e "${STATE}/OscarDocument/carlos/${f}" ]; then
+            if [ ! -e "${STATE}/CarlosDocument/carlos/${f}" ]; then
                 install -m 0640 -o carlos -g carlos \
                     "${SHARE}/document-skeleton/carlos/${f}" \
-                    "${STATE}/OscarDocument/carlos/${f}"
+                    "${STATE}/CarlosDocument/carlos/${f}"
             fi
         done
 
@@ -326,6 +392,175 @@ case "$1" in
             echo "carlos-emr: COPY IT OFF THIS HOST. Without it the backups cannot be read."
         fi
 
+        # One-time migration (2026.09.0~snapshot4): the default database name
+        # changed from the inherited `oscar` to `carlos`. Same discipline as
+        # the consult-signature migration above: sentinel + upgrade-only +
+        # exact old-stock-value match, so an operator's explicit choice is
+        # never overridden — CARLOS_DB_NAME set to anything but the old stock
+        # `oscar` (an absent key IS the old stock default: config.py fell back
+        # to `oscar`) never matches, now or later. The schema itself is moved
+        # (carlos-ctl db-rename-schema: atomic multi-pair RENAME TABLE, carries
+        # flyway_schema_history), because `oscar` on an alpha install is the
+        # old default, not a choice. Placed BEFORE init-config so the rewritten
+        # env value is what init-config renders into carlos.properties.
+        # Failure paths write NO sentinel so the next configure retries;
+        # the env keeps naming the schema the data actually lives in, so the
+        # system stays consistent while deferred.
+        # The mariadb wait is hoisted ABOVE the migration check (it used to
+        # sit between init-config and provisioning): the check must probe the
+        # server, and probing before the wait raced a still-starting MariaDB
+        # into the deferred path while the provisioning below then ran
+        # against a server that came up moments later — creating the empty
+        # new-name schema the deferred rename would refuse to merge with.
+        # One wait, one outcome, shared by the migration and provisioning.
+        if command -v mariadb >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+            # A fresh mariadb-server install may not have finished starting.
+            sd_invoke start mariadb.service >/dev/null 2>&1 || true
+            i=0
+            while [ "${i}" -lt 30 ] && ! mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; do
+                sleep 2; i=$((i + 1))
+            done
+        fi
+
+        DB_NAME_SENTINEL="${STATE}/.db-name-default-migrated"
+        if [ ! -e "${DB_NAME_SENTINEL}" ]; then
+            CUR_DB_NAME="$(sed -n 's/^CARLOS_DB_NAME=//p' "${ENV_FILE}" 2>/dev/null | head -1)"
+            # Eligible when the old stock default may still be in effect. Two
+            # shapes (review finding): an upgrade from before the boundary
+            # (env carries the old stock `oscar`, or no key — the old
+            # fallback), and a configure with NO prior version whose env is
+            # the untouched new skeleton — purge deliberately RETAINS the
+            # clinical database while removing the env file and sentinels,
+            # so a purge-then-reinstall arrives like a fresh install with
+            # the patient data still sitting in `oscar`. A custom name never
+            # qualifies on either path, and a post-boundary upgrade never
+            # re-enters.
+            ELIGIBLE=0
+            if [ -n "${2:-}" ]; then
+                if dpkg --compare-versions "$2" lt "2026.09.0~snapshot4" \
+                    && { [ "${CUR_DB_NAME}" = "oscar" ] || [ -z "${CUR_DB_NAME}" ]; }; then
+                    ELIGIBLE=1
+                fi
+            else
+                case "${CUR_DB_NAME}" in
+                    oscar|carlos|"") ELIGIBLE=1 ;;
+                esac
+            fi
+            if [ "${ELIGIBLE}" = 1 ]; then
+                if mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
+                    OSCAR_SCHEMA="$(mariadb --protocol=socket --user=root -N -B \
+                        -e "SHOW DATABASES LIKE 'oscar'" 2>/dev/null || true)"
+                    if [ -z "${OSCAR_SCHEMA}" ]; then
+                        # `oscar` is gone, so `carlos` is the correct target in
+                        # every sub-case here (review finding):
+                        #  (a) A completed-but-unbookkept rename. db-rename-schema
+                        #      DROPs `oscar` after moving its tables to `carlos`;
+                        #      the env rewrite + sentinel happen after it, in a
+                        #      small non-atomic window. A prior configure killed
+                        #      in that window leaves the data in `carlos` while
+                        #      the env still says `oscar`.
+                        #  (b) Genuinely fresh: nothing anywhere, and `carlos` is
+                        #      the new stock default.
+                        # Repoint the env UNCONDITIONALLY rather than gate it on a
+                        # `carlos` table count: a transient failure of that COUNT
+                        # would mask (a) as 0, skip the rewrite, yet still write
+                        # the sentinel below — permanently stranding the app on
+                        # the dropped `oscar`. The count now only picks the log
+                        # line.
+                        CARLOS_ROWS="$(mariadb --protocol=socket --user=root -N -B \
+                            -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='carlos'" \
+                            2>/dev/null || echo 0)"
+                        sed -i 's/^CARLOS_DB_NAME=oscar$/CARLOS_DB_NAME=carlos/' "${ENV_FILE}"
+                        if grep -qx 'CARLOS_BACKUP_DB_NAME=oscar' "${BACKUP_ENV}" 2>/dev/null; then
+                            sed -i 's/^CARLOS_BACKUP_DB_NAME=oscar$/CARLOS_BACKUP_DB_NAME=carlos/' "${BACKUP_ENV}"
+                        fi
+                        if [ "${CARLOS_ROWS:-0}" -gt 0 ] 2>/dev/null; then
+                            echo "carlos-emr: completed a prior interrupted oscar -> carlos rename (the schema was already moved to carlos)"
+                        fi
+                        mkdir -p "${STATE}"
+                        : > "${DB_NAME_SENTINEL}"
+                    elif carlos-ctl db-rename-schema oscar carlos; then
+                        sed -i 's/^CARLOS_DB_NAME=oscar$/CARLOS_DB_NAME=carlos/' "${ENV_FILE}"
+                        if grep -qx 'CARLOS_BACKUP_DB_NAME=oscar' "${BACKUP_ENV}" 2>/dev/null; then
+                            sed -i 's/^CARLOS_BACKUP_DB_NAME=oscar$/CARLOS_BACKUP_DB_NAME=carlos/' "${BACKUP_ENV}"
+                        fi
+                        mkdir -p "${STATE}"
+                        : > "${DB_NAME_SENTINEL}"
+                        echo "carlos-emr: renamed the database oscar -> carlos (one-time default migration)"
+                    else
+                        # The rename failed. Distinguish two causes, because
+                        # they need opposite handling (review finding):
+                        #
+                        #  (a) A conflicting NON-EMPTY `carlos` already holds
+                        #      data — the verb refuses to merge. This happens
+                        #      on the no-prior-version path when the reinstall
+                        #      skel already wrote CARLOS_DB_NAME=carlos and the
+                        #      live data is in `carlos`, with a stale leftover
+                        #      `oscar` beside it. Repointing the env to `oscar`
+                        #      here would send the app at the WRONG (stale)
+                        #      schema and, with no sentinel, loop forever. So:
+                        #      leave the env untouched, WRITE the sentinel (a
+                        #      two-populated-schemas conflict is a human call,
+                        #      never an automatic retry), and say so.
+                        #  (b) A transient failure with `carlos` absent/empty —
+                        #      the data is still in `oscar`. Pin the env at
+                        #      `oscar` (the schema the data lives in) and write
+                        #      NO sentinel so the next configure retries.
+                        CARLOS_ROWS="$(mariadb --protocol=socket --user=root -N -B \
+                            -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='carlos'" \
+                            2>/dev/null || echo 0)"
+                        if [ "${CARLOS_ROWS:-0}" -gt 0 ] 2>/dev/null; then
+                            mkdir -p "${STATE}"
+                            : > "${DB_NAME_SENTINEL}"
+                            echo "carlos-emr: WARNING: both an \`oscar\` and a non-empty \`carlos\` schema exist." >&2
+                            echo "carlos-emr: WARNING: NOT renaming or repointing — the application stays on the" >&2
+                            echo "carlos-emr: WARNING: configured schema. Consolidate the two by hand (the live data" >&2
+                            echo "carlos-emr: WARNING: is in whichever you have been running), drop the stale one, then" >&2
+                            echo "carlos-emr: WARNING: 'sudo dpkg-reconfigure carlos-emr' if the name needs correcting." >&2
+                        else
+                            if [ -z "${CUR_DB_NAME}" ]; then
+                                printf 'CARLOS_DB_NAME=oscar\n' >> "${ENV_FILE}"
+                            else
+                                sed -i 's/^CARLOS_DB_NAME=carlos$/CARLOS_DB_NAME=oscar/' "${ENV_FILE}"
+                            fi
+                            echo "carlos-emr: WARNING: could not rename the database oscar -> carlos." >&2
+                            echo "carlos-emr: WARNING: the install continues on the existing name; inspect the" >&2
+                            echo "carlos-emr: WARNING: messages above, then run: sudo carlos-ctl db-rename-schema oscar carlos" >&2
+                            echo "carlos-emr: WARNING: followed by: sudo dpkg-reconfigure carlos-emr" >&2
+                        fi
+                    fi
+                else
+                    # Cannot probe. On the upgrade path the data is known to
+                    # live in `oscar` — pin the env so provisioning below (if
+                    # the server surfaces later) stays on it. On the
+                    # no-prior-version path nothing is known and nothing is
+                    # pinned; provisioning shares this wait's outcome, so no
+                    # empty new-name schema is created behind the deferral.
+                    if [ -n "${2:-}" ] && [ -z "${CUR_DB_NAME}" ]; then
+                        printf 'CARLOS_DB_NAME=oscar\n' >> "${ENV_FILE}"
+                    fi
+                    echo "carlos-emr: WARNING: MariaDB is not reachable; the oscar -> carlos database" >&2
+                    echo "carlos-emr: WARNING: rename check is deferred to the next configure (dpkg-reconfigure carlos-emr)." >&2
+                fi
+            else
+                # Custom name, or post-boundary upgrade: the default-rename
+                # can never apply again. One catch-up first (review finding): a
+                # prior successful rename interrupted between rewriting
+                # carlos-emr.env (-> carlos) and backup.env leaves backup.env
+                # pinned at the now-dropped `oscar`, so the nightly backup would
+                # dump a missing schema forever. The sentinel written just below
+                # closes this block for good, so reconcile it here — the last
+                # chance to catch that split.
+                if [ "${CUR_DB_NAME}" = "carlos" ] \
+                    && grep -qx 'CARLOS_BACKUP_DB_NAME=oscar' "${BACKUP_ENV}" 2>/dev/null; then
+                    sed -i 's/^CARLOS_BACKUP_DB_NAME=oscar$/CARLOS_BACKUP_DB_NAME=carlos/' "${BACKUP_ENV}"
+                    echo "carlos-emr: reconciled backup.env to the carlos schema after a prior interrupted rename"
+                fi
+                mkdir -p "${STATE}"
+                : > "${DB_NAME_SENTINEL}"
+            fi
+        fi
+
         # --- render, provision, migrate -------------------------------------
         # Guarded: init-config exits non-zero when nginx cannot be tested or
         # reloaded — including for reasons OUTSIDE this package (another
@@ -338,14 +573,8 @@ case "$1" in
             echo "carlos-emr: WARNING: cause and re-run 'carlos-ctl init-config'." >&2
         }
 
-        if command -v mariadb >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
-            # A fresh mariadb-server install may not have finished starting.
-            sd_invoke start mariadb.service >/dev/null 2>&1 || true
-            i=0
-            while [ "${i}" -lt 30 ] && ! mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; do
-                sleep 2; i=$((i + 1))
-            done
-        fi
+        # (The mariadb start + wait that used to sit here is hoisted above
+        # the db-name migration check — see the comment there.)
 
         # Tracks whether the schema is in a state the application can start
         # against. Consulted before the service start at the end of postinst:

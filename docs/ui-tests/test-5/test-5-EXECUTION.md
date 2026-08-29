@@ -12,12 +12,12 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/oscar/index.jsp
 
 ### 2. Database Connectivity
 ```bash
-mariadb -h db -uroot -ppassword oscar -e "SELECT 1;"
+mariadb -h db -uroot -ppassword carlos -e "SELECT 1;"
 ```
 
 ### 3. Test Patient Exists
 ```bash
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT demographic_no, last_name, first_name
 FROM demographic WHERE demographic_no = 1;"
 ```
@@ -157,7 +157,7 @@ ls -1 ui-test-runs/$TIMESTAMP/test-5/screenshots/test-5-*.png | wc -l
 ### 2. Database Verification
 ```bash
 # Verify tickler was created
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT tickler_no, message, demographic_no, status
 FROM tickler
 WHERE message LIKE '%UI Test 5%'

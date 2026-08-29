@@ -86,7 +86,7 @@ inputs, including how to skip the Maven compile with a prebuilt WAR).
   /etc/nginx/sites-available/carlos-emr  the front door (conffile)
   /etc/mysql/mariadb.conf.d/60-carlos-emr.cnf   MariaDB settings (conffile)
 
-  /var/lib/carlos-emr/OscarDocument/     PATIENT DOCUMENTS
+  /var/lib/carlos-emr/CarlosDocument/     PATIENT DOCUMENTS
   /var/lib/carlos-emr/catalina/          Tomcat's writable state
   /var/lib/carlos-emr/heapdumps/         JVM heap dumps (PHI — see below)
   /var/log/carlos-emr/tomcat/            application, container and access logs
@@ -403,7 +403,7 @@ sequence has been exercised end to end (DROP DATABASE and back):
   sudo systemctl stop carlos-emr-backup.service carlos-emr-backup-verify.service
   # 0. ON A REBUILT/REPLACEMENT HOST ONLY (skip if you are restoring in place
   #    and the documents + /etc/carlos-emr are intact): restore the FILES
-  #    snapshot — the scanned patient documents under OscarDocument AND
+  #    snapshot — the scanned patient documents under CarlosDocument AND
   #    /etc/carlos-emr/carlos.properties, which carries encryption.util.secret.key.
   #    This MUST precede the database load: the DB holds third-party credentials
   #    encrypted under that AES key, so a fresh key (which the package generates
@@ -413,9 +413,9 @@ sequence has been exercised end to end (DROP DATABASE and back):
   sudo carlos-ctl backup restic restore latest --tag files \
       --target /var/backups/carlos-emr/dr-files
   #    Move the documents into place (owned by the application user):
-  sudo rsync -a /var/backups/carlos-emr/dr-files/var/lib/carlos-emr/OscarDocument/ \
-      /var/lib/carlos-emr/OscarDocument/
-  sudo chown -R carlos:carlos /var/lib/carlos-emr/OscarDocument
+  sudo rsync -a /var/backups/carlos-emr/dr-files/var/lib/carlos-emr/CarlosDocument/ \
+      /var/lib/carlos-emr/CarlosDocument/
+  sudo chown -R carlos:carlos /var/lib/carlos-emr/CarlosDocument
   #    Restore the AES key line into the freshly-generated carlos.properties
   #    (copy encryption.util.secret.key from the restored copy, or restore the
   #    whole file if this host has no newer local settings):
@@ -435,13 +435,13 @@ sequence has been exercised end to end (DROP DATABASE and back):
   #    CREATE DATABASE (it is scoped to the schema's contents), so after a
   #    DROP DATABASE this step fails with "Unknown database" without it —
   #    live-tested:
-  sudo mariadb -e "CREATE DATABASE oscar
+  sudo mariadb -e "CREATE DATABASE carlos
       CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
   #    SET SESSION sql_log_bin=0 matters: without it the recovery itself is
   #    written into the binary log and becomes part of the very chain the
   #    next backup ships.
-  sudo bash -c "mariadb --init-command='SET SESSION sql_log_bin=0' oscar \
-      < /var/backups/carlos-emr/dr/.../oscar.sql"
+  sudo bash -c "mariadb --init-command='SET SESSION sql_log_bin=0' carlos \
+      < /var/backups/carlos-emr/dr/.../carlos.sql"
   #    (sudo bash -c, not a bare redirect: YOUR shell opens the file before
   #    sudo elevates, and /var/backups/carlos-emr is 0700 carlos-backup.)
   # 3. Roll forward past the dump, if recovering to later than last night.
@@ -458,9 +458,9 @@ sequence has been exercised end to end (DROP DATABASE and back):
   sudo carlos-ctl backup restic snapshots --tag binlog
   sudo carlos-ctl backup restic restore <each-id> \
       --target /var/backups/carlos-emr/dr
-  sudo bash -c "mariadb --init-command='SET SESSION sql_log_bin=0' oscar \
+  sudo bash -c "mariadb --init-command='SET SESSION sql_log_bin=0' carlos \
       < /var/backups/carlos-emr/dr/.../binlog.0000MM.sql"  # each MM >= NN
-  #    Shipped logs are decoded SQL scoped to the oscar database, so they
+  #    Shipped logs are decoded SQL scoped to the carlos database, so they
   #    replay cleanly onto it. Rare edge: if the anchor position P is larger
   #    than the first event offset in NN's decoded SQL (a transaction slipped
   #    in between the rotation and the dump taking its snapshot), the slice of
@@ -481,10 +481,10 @@ sequence has been exercised end to end (DROP DATABASE and back):
   #    often UTC on cloud images) — NOT necessarily the clinic's CARLOS_TZ;
   #    convert your target time before cutting.
   #    One caveat on the shipped logs themselves: they are decoded with
-  #    --database=oscar, which keeps every row change but can only keep
+  #    --database=carlos, which keeps every row change but can only keep
   #    statement-logged events (DDL such as ALTER/TRUNCATE) when the issuing
-  #    session had oscar as its default database. carlos-ctl db-migrate does;
-  #    run any manual DDL as `mariadb oscar` (not cross-schema) or it will be
+  #    session had carlos as its default database. carlos-ctl db-migrate does;
+  #    run any manual DDL as `mariadb carlos` (not cross-schema) or it will be
   #    absent from the replay.
   sudo carlos-ctl db-validate
   # If drugref2 is also gone (a decommissioned host, a fresh rebuild): it has
@@ -517,6 +517,21 @@ are available that your files predate.
 If a migration fails, the service will not start (the boot-time validate gate
 is doing its job). Fix the cause, run `carlos-ctl db-migrate`, then
 `systemctl start carlos-emr`.
+
+One-time default rename (2026.09.0~snapshot4): the default database name
+changed from the inherited `oscar` to `carlos`. Upgrading an install that was
+still on the old default renames the schema in place (atomic RENAME TABLE of
+every table, migration history included) and updates CARLOS_DB_NAME /
+CARLOS_BACKUP_DB_NAME. An explicitly configured name — anything other than the
+old stock `oscar` — is never touched. If MariaDB was down during the upgrade
+the rename is deferred; catch up with
+
+  sudo dpkg-reconfigure carlos-emr        # or, by hand:
+  sudo carlos-ctl db-rename-schema oscar carlos
+
+Grants on the old `oscar` schema are left behind by the rename (harmless —
+db-users grants on the new name during the same configure); drop them by hand
+if you want a tidy grant table.
 
 
 9. Log retention   (DECIDE THIS)

@@ -133,7 +133,7 @@ One database tweak and three fixtures remain:
 # The seed row ships forcePasswordReset=1; the checks need a direct login.
 # (login-playwright-checks.js exercises the forced-reset flow itself and
 # restores whatever state it changes.)
-lxc exec carlos-test -- mariadb -u root oscar \
+lxc exec carlos-test -- mariadb -u root carlos \
   -e "UPDATE security SET forcePasswordReset=0 WHERE user_name='carlosdoc';"
 ```
 
@@ -144,26 +144,26 @@ Fixtures the dataset alone does not provide:
 #    reference live in the repo. Without them, attaching a document to a
 #    consultation or eForm packet fails PDF conversion.
 for f in .devcontainer/db/db_data/documents/*.pdf; do
-  lxc file push "$f" carlos-test/var/lib/carlos-emr/OscarDocument/carlos/document/
+  lxc file push "$f" carlos-test/var/lib/carlos-emr/CarlosDocument/carlos/document/
 done
 lxc exec carlos-test -- bash -c \
-  'chown carlos:carlos /var/lib/carlos-emr/OscarDocument/carlos/document/*.pdf
-   chmod 0640          /var/lib/carlos-emr/OscarDocument/carlos/document/*.pdf'
+  'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/document/*.pdf
+   chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/document/*.pdf'
 
 # b) Provider stamp for the consultation-signature checks: any small PNG,
 #    named consult_sig_<providerNo>.png in the eForm image directory.
 #    (Any PNG will do, e.g.: convert -size 240x80 xc:white consult_sig_999998.png,
 #    or reuse a repo image such as release/4422-84v9-1.png renamed.)
 lxc file push consult_sig_999998.png \
-  carlos-test/var/lib/carlos-emr/OscarDocument/carlos/eform/images/
+  carlos-test/var/lib/carlos-emr/CarlosDocument/carlos/eform/images/
 lxc exec carlos-test -- bash -c \
-  'chown carlos:carlos /var/lib/carlos-emr/OscarDocument/carlos/eform/images/consult_sig_999998.png
-   chmod 0640          /var/lib/carlos-emr/OscarDocument/carlos/eform/images/consult_sig_999998.png'
+  'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/consult_sig_999998.png
+   chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/consult_sig_999998.png'
 
 # c) The three LOCAL_SEED_OBEC_REPORT appointments that
 #    patient-list-by-appointment-export-playwright-checks.js documents as its
 #    operator-provisioned fixture contract (see that script's header):
-lxc exec carlos-test -- mariadb -u root oscar -e "
+lxc exec carlos-test -- mariadb -u root carlos -e "
 INSERT INTO appointment (provider_no, appointment_date, start_time, end_time,
     name, demographic_no, notes, reason, location, resources, type, style,
     billing, status, createdatetime, creator)
@@ -202,7 +202,7 @@ export BASE_URL=https://127.0.0.1/carlos
 export TEST_USER=carlosdoc TEST_PASSWORD=carlos2026 TEST_PIN=2026
 # DB-backed checks: root over the MariaDB unix socket (the password value is
 # ignored by unix_socket auth but the scripts require it to be set).
-export MYSQL_HOST=localhost MYSQL_USER=root MYSQL_PASSWORD=dummy MYSQL_DATABASE=oscar
+export MYSQL_HOST=localhost MYSQL_USER=root MYSQL_PASSWORD=dummy MYSQL_DATABASE=carlos
 # Published seed hash for carlos2026 (from database/mysql/migration/on/V1.0.2__on_data.sql)
 export TEST_PASSWORD_HASH='{bcrypt}$2a$10$RcoNeqhcLzkfBzAoTQ5C5.nnsOs15iOasQCp0/smjDAuTtkMQ.Uju'
 # Record pointers into the demo dataset:

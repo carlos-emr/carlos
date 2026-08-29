@@ -1,9 +1,9 @@
 ---
 description: Reset dev database data and reload development.sql with FAKE name patch
 allowed-tools:
-  - Bash(mariadb -h db -u root -ppassword oscar < *)
-  - Bash(mariadb -h db -uroot -ppassword oscar *)
-  - Bash(mariadb -h db -uroot -ppassword oscar -e *)
+  - Bash(mariadb -h db -u root -ppassword carlos < *)
+  - Bash(mariadb -h db -uroot -ppassword carlos *)
+  - Bash(mariadb -h db -uroot -ppassword carlos -e *)
   - Bash(curl * http://localhost:8080/*)
   - Bash(date *)
   - Bash(wc -l *)
@@ -28,7 +28,7 @@ This command resets the developer database data while preserving the schema, the
 Verify database connectivity before proceeding:
 
 ```bash
-mariadb -h db -uroot -ppassword oscar -e "SELECT 1 AS connection_test"
+mariadb -h db -uroot -ppassword carlos -e "SELECT 1 AS connection_test"
 ```
 
 If this fails, stop and report the database connection issue.
@@ -38,7 +38,7 @@ If this fails, stop and report the database connection issue.
 Load the development.sql file which truncates all data tables and inserts fresh demo data:
 
 ```bash
-mariadb -h db -u root -ppassword oscar < /workspace/.devcontainer/db/scripts/development.sql
+mariadb -h db -u root -ppassword carlos < /workspace/.devcontainer/db/scripts/development.sql
 ```
 
 This file is approximately 54 MB and contains TRUNCATE + INSERT statements for all demo data.
@@ -48,14 +48,14 @@ This file is approximately 54 MB and contains TRUNCATE + INSERT statements for a
 The snapshot carries an older `secObjPrivilege` set; restore the current one:
 
 ```bash
-mariadb -h db -u root -ppassword oscar < /workspace/.devcontainer/db/scripts/development_privileges.sql
+mariadb -h db -u root -ppassword carlos < /workspace/.devcontainer/db/scripts/development_privileges.sql
 ```
 
 ### Step 4: Seed Fake Specialists and Provider Links
 
 ```bash
-mariadb -h db -u root -ppassword oscar < /workspace/.devcontainer/db/scripts/demo-provider-links.sql
-mariadb -h db -u root -ppassword oscar < /workspace/.devcontainer/db/scripts/demo-specialists.sql
+mariadb -h db -u root -ppassword carlos < /workspace/.devcontainer/db/scripts/demo-provider-links.sql
+mariadb -h db -u root -ppassword carlos < /workspace/.devcontainer/db/scripts/demo-specialists.sql
 ```
 
 ### Step 5: Apply FAKE Name Sanitization (v2)
@@ -63,8 +63,8 @@ mariadb -h db -u root -ppassword oscar < /workspace/.devcontainer/db/scripts/dem
 Apply the FAKE- prefixes and real-name replacements. The `-on` supplement covers Ontario-only form tables; the devcontainer database uses the Ontario schema, so both apply:
 
 ```bash
-mariadb -h db -u root -ppassword oscar < /workspace/.devcontainer/db/scripts/demo-name-sanitization.sql
-mariadb -h db -u root -ppassword oscar < /workspace/.devcontainer/db/scripts/demo-name-sanitization-on.sql
+mariadb -h db -u root -ppassword carlos < /workspace/.devcontainer/db/scripts/demo-name-sanitization.sql
+mariadb -h db -u root -ppassword carlos < /workspace/.devcontainer/db/scripts/demo-name-sanitization-on.sql
 ```
 
 Every statement is idempotent - names already carrying the "FAKE-" prefix are never touched again, so re-running can never produce "FAKE-FAKE-". The functional accounts (`-1` system and `999998` carlosdoc, `doctor, doctor`) are exempt.
@@ -75,16 +75,16 @@ Verify the data was loaded correctly:
 
 ```bash
 # Count patients
-mariadb -h db -uroot -ppassword oscar -e "SELECT COUNT(*) as patient_count FROM demographic"
+mariadb -h db -uroot -ppassword carlos -e "SELECT COUNT(*) as patient_count FROM demographic"
 
 # Verify FAKE prefix applied
-mariadb -h db -uroot -ppassword oscar -e "SELECT demographic_no, first_name, last_name FROM demographic LIMIT 5"
+mariadb -h db -uroot -ppassword carlos -e "SELECT demographic_no, first_name, last_name FROM demographic LIMIT 5"
 
 # Verify provider exists for login (exempt from the FAKE- prefix)
-mariadb -h db -uroot -ppassword oscar -e "SELECT provider_no, first_name, last_name FROM provider WHERE provider_no = '999998'"
+mariadb -h db -uroot -ppassword carlos -e "SELECT provider_no, first_name, last_name FROM provider WHERE provider_no = '999998'"
 
 # Verify the 60 fake specialists
-mariadb -h db -uroot -ppassword oscar -e "SELECT COUNT(*) as fake_specialists FROM professionalSpecialists WHERE specId BETWEEN 9001 AND 9060"
+mariadb -h db -uroot -ppassword carlos -e "SELECT COUNT(*) as fake_specialists FROM professionalSpecialists WHERE specId BETWEEN 9001 AND 9060"
 ```
 
 ## Expected Results

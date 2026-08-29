@@ -28,7 +28,7 @@ COPY ./.devcontainer/development/config/shared/my.cnf /etc/mysql/my.cnf
 RUN chmod 744 /etc/mysql/my.cnf
 RUN chmod 755 /scripts
 
-RUN mkdir -p /var/lib/OscarDocument && chown -R mysql:mysql /var/lib/OscarDocument
+RUN mkdir -p /var/lib/CarlosDocument && chown -R mysql:mysql /var/lib/CarlosDocument
 
 # Normalize script line endings without requiring extra apt packages.
 RUN sed -i 's/\r$//' /docker-entrypoint-initdb.d/populate_db.sh /database/mysql/*.sh

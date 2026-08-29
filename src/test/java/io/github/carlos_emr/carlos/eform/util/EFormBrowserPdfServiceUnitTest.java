@@ -603,7 +603,7 @@ class EFormBrowserPdfServiceUnitTest {
         assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(
                 "file:///etc/passwd", allowedOrigin)).isTrue();
         assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(
-                "file:///var/lib/OscarDocument/secret.pdf", allowedOrigin)).isTrue();
+                "file:///var/lib/CarlosDocument/secret.pdf", allowedOrigin)).isTrue();
         assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(
                 "filesystem:http://127.0.0.1:8080/temporary/x", allowedOrigin)).isTrue();
         assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(

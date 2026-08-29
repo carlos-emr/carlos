@@ -22,7 +22,7 @@
 # browser binary and its arguments. That makes an exposed chromedriver an
 # arbitrary-code-execution service running as whatever account it was started
 # with. Started as `carlos` it would hand an attacker the uid that owns
-# /var/lib/carlos-emr/OscarDocument (scanned patient records) and can read
+# /var/lib/carlos-emr/CarlosDocument (scanned patient records) and can read
 # carlos.properties (database credentials, the stored-credential key). Started as
 # carlos-render it yields a browser owning nothing but a scratch home.
 #
