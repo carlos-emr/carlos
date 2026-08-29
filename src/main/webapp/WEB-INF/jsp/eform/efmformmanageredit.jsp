@@ -125,11 +125,20 @@
 
     <%@ include file="efmTopNav.jspf" %>
 
-    <%if (request.getParameter("fid") != null) {%>
-    <h3><fmt:message key="eform.edithtml.msgEditEform"/></h3>
-    <%} else {%>
-    <h3>Create New eForm</h3>
-    <%}%>
+    <%-- The editor's HTML textarea is 40 rows, so the "Back to eForm Library"
+         control at the foot of the form sits well below the fold on a normal
+         screen — an operator who scrolled into the markup had no way back
+         without scrolling to the bottom. Mirror it here beside the heading. --%>
+    <div class="d-flex align-items-center gap-3 mb-2">
+        <%if (request.getParameter("fid") != null) {%>
+        <h3 class="mb-0"><fmt:message key="eform.edithtml.msgEditEform"/></h3>
+        <%} else {%>
+        <h3 class="mb-0">Create New eForm</h3>
+        <%}%>
+        <a href="<%=request.getContextPath()%>/eform/efmformmanager" class="btn contentLink" id="backToLibraryTop">
+            <i class="fa-solid fa-circle-arrow-left"></i> Back to eForm Library
+        </a>
+    </div>
 
     <form action="<%=request.getContextPath()%>/eform/editForm" method="POST" enctype="multipart/form-data"
           id="editform" name="eFormEdit">
