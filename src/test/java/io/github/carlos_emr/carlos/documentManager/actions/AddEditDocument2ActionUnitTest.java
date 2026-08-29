@@ -390,6 +390,20 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should bind the lowercase functionid spelling to the same property")
+    void shouldBindLowercaseFunctionid_toSameProperty() {
+        // addDocument.jsp posts BOTH functionId and functionid; Struts 7's case-insensitive
+        // parameter map collapses them into one entry keyed by the lowercase spelling, and the
+        // case-sensitive @StrutsParameter lookup then found no member and dropped the patient id.
+        // The document saved with module_id=0 — attached to no patient — and the post-save
+        // redirect 400ed. The lowercase alias is what makes the surviving key bind; this pins
+        // both its existence and its delegation.
+        action.setFunctionid("42");
+
+        assertThat(action.getFunctionId()).isEqualTo("42");
+    }
+
+    @Test
     @DisplayName("should return conflict when html5 upload name is already taken")
     void shouldReturnConflict_whenHtml5UploadNameAlreadyTaken() throws Exception {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");

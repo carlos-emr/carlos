@@ -1125,6 +1125,26 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         this.functionId = functionId;
     }
 
+    /**
+     * Lowercase binding alias for {@code functionid}, and it is load-bearing — without it the
+     * eDocs upload silently loses the patient.
+     *
+     * <p>addDocument.jsp posts BOTH {@code functionId} and {@code functionid} (a long-standing
+     * duplication), and Struts 7's {@code HttpParameters} keys parameters case-insensitively, so
+     * the two collapse into a single entry whose surviving key is the lowercase spelling. The
+     * {@code @StrutsParameter} annotation lookup is case-sensitive, found no member named
+     * {@code functionid}, and dropped the value — verified live on a packaged install:
+     * "No matching annotated method found for property [functionid]". The document then saved
+     * with {@code module_id=0} (attached to no patient, invisible in every chart) and the
+     * post-save redirect carried an empty {@code functionid}, which the ViewDocumentReport gate
+     * rejects with 400. The operator sees an error page, the chart shows nothing, and the
+     * document exists orphaned.</p>
+     */
+    @StrutsParameter
+    public void setFunctionid(String functionId) {
+        setFunctionId(functionId);
+    }
+
     public String getDocType() {
         return docType;
     }

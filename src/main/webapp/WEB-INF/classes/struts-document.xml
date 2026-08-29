@@ -90,6 +90,14 @@
             <result name="fetchDocuments">/WEB-INF/jsp/documentManager/attachDocument.jsp</result>
         </action>
         <action name="documentManager/addEditDocument" class="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action">
+            <!-- "input" is where the workflow interceptor sends the request when the multipart
+                 layer itself rejects the upload before the action runs — Struts 7 refuses empty
+                 file parts at parse time ("Rejecting empty file upload"). Without this result the
+                 invocation fell through to the global error mapping and errorpage.jsp, which
+                 reports 500: uploading an EMPTY FILE from eDocs produced a raw server-error page
+                 (further masked by the response-sanitization replay failure). Re-rendering the
+                 documents page matches failAdd. -->
+            <result name="input">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
             <result name="successAdd">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
             <result name="failAdd">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
             <result name="failEdit">/WEB-INF/jsp/documentManager/editDocument.jsp</result>
