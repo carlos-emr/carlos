@@ -1,3 +1,81 @@
+carlos-emr (2026.09.0~snapshot4) resolute; urgency=medium
+
+  * Default rename: the database is now `carlos` (was the inherited `oscar`)
+    and the document store is now CarlosDocument (was OscarDocument), with a
+    `carlos` instance segment: /var/lib/carlos-emr/CarlosDocument/carlos.
+  * One-time migrations, applied only when upgrading from before this version
+    and only where the OLD STOCK DEFAULT is still in effect — an explicitly
+    configured CARLOS_DB_NAME or a post-upgrade OscarDocument directory is
+    never touched:
+    - the `oscar` schema is renamed to `carlos` in place via the new
+      idempotent `carlos-ctl db-rename-schema` (atomic multi-pair RENAME
+      TABLE; flyway_schema_history and its checksums move unchanged), then
+      CARLOS_DB_NAME / CARLOS_BACKUP_DB_NAME are updated. If MariaDB is down
+      the rename defers to the next configure (dpkg-reconfigure carlos-emr).
+    - the document store is moved to CarlosDocument with an OscarDocument
+      compat symlink left behind, so absolute paths already stored in the
+      database (faxes, email attachments) keep resolving.
+  * The weekly restore drill accepts both directory spellings: the newest
+    snapshot right after the upgrade still carries pre-rename paths.
+  * Upgrades no longer leave the EMR down behind a 502. carlos-emr,
+    carlos-emr-drugref and carlos-emr-eform-renderer each restart
+    carlos-emr.service, so one apt transaction restarts it three times; against
+    the unit's StartLimitBurst=6/30min an install followed by an upgrade inside
+    the same half hour exhausted the budget and systemd refused the last restart
+    with "start-limit-hit". Package-driven restarts — and `carlos-ctl
+    start`/`restart` — now clear the start counter first, and the two dependent
+    postinsts recover a unit an earlier one in the same transaction left failed.
+    Crash-loop protection is unchanged: Restart=on-failure with RestartSec=15s
+    still trips the same limit in about 90 seconds.
+  * WAF: saving a drawn provider signature works through the front door.
+    Provider preferences posts the pad's canvas.toDataURL() output as
+    ARGS:signatureData to /provider/providerSignatureStamp, and the
+    `data:image/...;base64` prefix scored CRS 941130/941170 over the anomaly
+    threshold, 403-ing the save with the page's own "Save failed" banner — the
+    same data-URI false positive already excluded for the consultation signature
+    pad and eForm image saves, on the one signature route they missed. New
+    per-argument exclusion 1080 unhooks only that argument, only on POST to that
+    route; the action still requires write access and strictly validates and
+    size-caps the base64 image server-side.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Fri, 28 Aug 2026 16:00:00 +0000
+
+carlos-emr (2026.09.0~snapshot3) resolute; urgency=medium
+
+  * Install wizard: recommend a Java heap sized from the machine's memory
+    instead of a static 2g — half of physical RAM, rounded to the nearest GB,
+    clamped to 2g..8g — as the pre-filled answer to the java-heap question on
+    first install (successor to the OSCAR-19 packaging's 60%-of-RAM sizing).
+    Preseeded, reconfigured and upgraded installs keep their existing answer.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Fri, 28 Aug 2026 14:00:00 +0000
+
+carlos-emr (2026.09.0~snapshot2) resolute; urgency=medium
+
+  * Fix nine clinician-facing bugs reported by alpha testers on the .deb
+    deployment (only reproducible through the nginx + ModSecurity front door):
+    Rx staging (Hibernate 7 HQL "order by drugid" regression), pharmacy
+    "Return to RX", messenger group admin (missing jQuery core + selectors),
+    eChart history 403 and document-upload 400 (WAF clinical-workflow
+    exclusions), X-ray incoming-doc blank iframe, consultation signatures, and
+    the Consultations tab dropping provider-orphaned rows.
+  * WAF: ship package-managed per-route clinical exclusions (ids 1000-1999) and
+    operator-owned local-exclusions-{before,after}-crs.conf (ids 5000-5999);
+    document the carlos-ctl waf tail -> exclude -> reload -> check workflow.
+  * Enable consultation signatures by default, with a one-time upgrade migration
+    that flips the old stock consultation_signature_enabled=false to true while
+    preserving an operator's explicit choice.
+  * Packaging: reload systemd on upgrade before restarting carlos-emr so a
+    changed unit file takes effect without a manual daemon-reload; on purge,
+    remove the generated carlos-emr.env and the consultation-signature migration
+    sentinel so a later reinstall is genuinely fresh (province/timezone answers
+    are honoured again); guard the debconf db_get calls against set -e; stop
+    resetting an operator-diverged CARLOS_JAVA_XMS back to Xmx on upgrade;
+    document the deb pre-release version ladder in README.source (a ~rc after
+    a shipped ~snapshot would sort as a downgrade).
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Fri, 28 Aug 2026 12:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot1) resolute; urgency=medium
 
   * Initial Debian/Ubuntu packaging for a single-VM CARLOS EMR deployment,

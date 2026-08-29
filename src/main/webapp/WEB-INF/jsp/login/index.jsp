@@ -639,7 +639,7 @@ body {
 
                             <div class="mb-3 ${ login_error }">
                                 <input type="text" name="username" id="username" placeholder="<fmt:message key="Logon.userName"/>"
-                                       value="" size="15" maxlength="15" autocomplete="off"
+                                       value="" size="15" maxlength="30" autocomplete="off"
                                        class="form-control" required>
                             </div>
 

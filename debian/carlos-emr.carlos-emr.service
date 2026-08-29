@@ -28,6 +28,27 @@ UMask=0027
 EnvironmentFile=-/etc/carlos-emr/carlos-emr.env
 Environment=LANG=C.UTF-8
 Environment=LC_ALL=C.UTF-8
+# No HOME override: the JVM reads user.home from passwd, and this unit no longer
+# launches a browser (the render Chromium runs under carlos-emr-chromedriver as
+# carlos-render with its own writable HOME). The old HOME=/var/lib/carlos-emr/browser
+# existed solely for the abandoned in-JVM browser spawn.
+# EFORM_RENDER_SANDBOX is NOT set here — it is set by
+# /usr/lib/systemd/system/carlos-emr.service.d/10-eform-renderer.conf, shipped by
+# carlos-emr-eform-renderer, so that the flag cannot outlive the browser unit that
+# satisfies it. Edit that file, not this one.
+#
+# Chromium's OS sandbox is the right posture for this component: the renderer
+# opens clinic-authored eForm HTML, the least trustworthy input this application
+# handles. The browser does NOT run under this unit. It runs sandboxed under
+# carlos-emr-chromedriver.service as the data-less carlos-render account, and
+# the JVM connects to it over loopback — so this unit's confinement
+# (RestrictNamespaces=yes, ProtectProc=invisible below) never has to be loosened
+# for rendering, and MUST NOT be: loosening it trades the PHI-handling Tomcat's
+# confinement for nothing, because no browser is spawned here any more. The
+# earlier in-JVM spawn architecture (and the failed attempts to make the sandbox
+# work under this unit's hardening) is recorded in PR #3543 and
+# docs/eform-browser-pdf-renderer.md; do not re-derive drop-ins that relax
+# RestrictNamespaces or ProtectProc from old revisions of this file.
 
 ExecStart=/usr/lib/carlos-emr/carlos-emr-tomcat run
 # catalina.sh run execs the JVM, so systemd's SIGTERM reaches Java directly and

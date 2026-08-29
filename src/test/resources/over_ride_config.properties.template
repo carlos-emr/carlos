@@ -20,7 +20,7 @@ db_url_prefix=jdbc:mysql://db/
 # IMPORTANT: The fields listed after the ? are required! Otherwise, OpenOSP will not behave properly as it depends on
 #            legacy functionality. Ensure that you leave the tags behind the field when renaming the database.
 db_schema_properties=?zeroDateTimeBehavior=round&useOldAliasMetadataBehavior=true&jdbcCompliantTruncation=false&useSSL=false
-db_schema=oscar_test
+db_schema=carlos_test
 db_host=db
 
 # Test-context guard for the eForm browser PDF renderer startup gate.

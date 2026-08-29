@@ -120,7 +120,15 @@ async function assertLoggedOutPage(page, label) {
     await login(primary);
 
     await safeGoto(primary, '/logoutPage', { waitUntil: 'domcontentloaded' });
-    await primary.waitForURL((url) => url.pathname === baseUrl.pathname + '/logout', { timeout: 10000 });
+    // logout.jsp auto-POSTs to /logout ~500ms after load, and Logout2Action
+    // redirects /logout -> /index. The browser therefore SETTLES on /index (the
+    // /logout POST is a transient 302, never a landing URL), so waiting for a
+    // settled /logout times out. Wait for the logged-out destination the app
+    // actually lands on; assertLoggedOutPage below verifies the logged-out state.
+    await primary.waitForURL((url) => {
+      const p = url.pathname;
+      return p === baseUrl.pathname + '/index' || p === baseUrl.pathname + '/logout';
+    }, { timeout: 15000 });
     await assertLoggedOutPage(primary, 'logout action destination');
 
     const postLogoutPage = await context.newPage();

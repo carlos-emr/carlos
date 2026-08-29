@@ -136,7 +136,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
             Path rendererDir = Files.createDirectories(tempRoot.resolve("carlos-eform-browser-pdf-temp"));
             Path tempPdf = Files.createTempFile(rendererDir, "eform-browser-render-", ".pdf");
             Path canonicalTempPdf = tempPdf.toRealPath();
-            Path copiedPdf = Path.of("/var/lib/OscarDocument/oscar/document", tempPdf.getFileName().toString());
+            Path copiedPdf = Path.of("/var/lib/CarlosDocument/carlos/document", tempPdf.getFileName().toString());
             when(nioFileManager.promoteApplicationTempFile(canonicalTempPdf)).thenReturn(copiedPdf);
 
             FaxJob faxJob = manager.createFaxJob(loggedInInfo, Map.of(
@@ -540,13 +540,13 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
         // A DOCUMENT_DIR path (the fax cancel flow passes these) is not a CARLOS temp artifact:
         // pre-fix, deleteTempFile raised a SecurityException out of flush and broke fax-cancel.
-        String documentPath = "/var/lib/OscarDocument/carlos/document/some-fax.pdf";
-        when(nioFileManager.removeCacheVersions(loggedInInfo, "/var/lib/OscarDocument/carlos/document", "some-fax.pdf")).thenReturn(1);
+        String documentPath = "/var/lib/CarlosDocument/carlos/document/some-fax.pdf";
+        when(nioFileManager.removeCacheVersions(loggedInInfo, "/var/lib/CarlosDocument/carlos/document", "some-fax.pdf")).thenReturn(1);
 
         boolean flushed = manager.flush(loggedInInfo, documentPath);
 
         assertThat(flushed).isTrue();
-        verify(nioFileManager).removeCacheVersions(loggedInInfo, "/var/lib/OscarDocument/carlos/document", "some-fax.pdf");
+        verify(nioFileManager).removeCacheVersions(loggedInInfo, "/var/lib/CarlosDocument/carlos/document", "some-fax.pdf");
         verify(nioFileManager, never()).deleteTempFile(any(String.class));
     }
 
@@ -554,25 +554,25 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("should report flush failure when the preview source cannot be keyed to an allowed preview source")
     void shouldReturnFalse_whenPreviewSourceCannotBeKeyed() throws Exception {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
-        String documentPath = "/var/lib/OscarDocument/carlos/document/some-fax.pdf";
+        String documentPath = "/var/lib/CarlosDocument/carlos/document/some-fax.pdf";
         // removeCacheVersions now rejects an unkeyable/disallowed preview source with an
         // IllegalArgumentException instead of a misleading 0. A PHI flush that cannot even key its
         // source must be reported as an uncleared cache, never success.
-        when(nioFileManager.removeCacheVersions(loggedInInfo, "/var/lib/OscarDocument/carlos/document", "some-fax.pdf"))
+        when(nioFileManager.removeCacheVersions(loggedInInfo, "/var/lib/CarlosDocument/carlos/document", "some-fax.pdf"))
                 .thenThrow(new IllegalArgumentException("source directory is not an allowed preview source"));
 
         boolean flushed = manager.flush(loggedInInfo, documentPath);
 
         assertThat(flushed).as("an unkeyable preview source must not report a successful flush").isFalse();
-        verify(nioFileManager).removeCacheVersions(loggedInInfo, "/var/lib/OscarDocument/carlos/document", "some-fax.pdf");
+        verify(nioFileManager).removeCacheVersions(loggedInInfo, "/var/lib/CarlosDocument/carlos/document", "some-fax.pdf");
     }
 
     @Test
     @DisplayName("should log at DEBUG (not WARN) when skipping a non-temp path outside the boundary")
     void shouldLogDebug_whenSkippingNonTempPathOutsideBoundary() throws Exception {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
-        String documentPath = "/var/lib/OscarDocument/carlos/document/some-fax.pdf";
-        when(nioFileManager.removeCacheVersions(loggedInInfo, "/var/lib/OscarDocument/carlos/document", "some-fax.pdf")).thenReturn(1);
+        String documentPath = "/var/lib/CarlosDocument/carlos/document/some-fax.pdf";
+        when(nioFileManager.removeCacheVersions(loggedInInfo, "/var/lib/CarlosDocument/carlos/document", "some-fax.pdf")).thenReturn(1);
 
         try (LogCapture logCapture = LogCapture.forLogger(FaxManagerImpl.class)) {
             boolean flushed = manager.flush(loggedInInfo, documentPath);
@@ -738,7 +738,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         when(nioFileManager.removeCacheVersions(eq(loggedInInfo), any(String.class), any(String.class)))
                 .thenThrow(new IOException("2 preview cache page image(s) could not be removed"));
 
-        boolean flushed = manager.flush(loggedInInfo, "/var/lib/OscarDocument/carlos/document/some-fax.pdf");
+        boolean flushed = manager.flush(loggedInInfo, "/var/lib/CarlosDocument/carlos/document/some-fax.pdf");
 
         assertThat(flushed).isFalse();
     }

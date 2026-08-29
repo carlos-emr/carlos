@@ -924,6 +924,11 @@ build-demo.sh           # filters the dev demo dataset to the live (pruned) sche
                         #   development.sql lives at .devcontainer/db/scripts/, not under database/mysql/
 ```
 
+**Demo/dev data companions** (all outside `database/`):
+- `.devcontainer/db/scripts/demo-name-sanitization.sql` (+ `-on.sql`) — FAKE- name sanitization v2 across all person-name tables; idempotent, exempts functional accounts (`-1`, `999998` carlosdoc)
+- `.devcontainer/db/scripts/demo-specialists.sql` — 60 clearly-fake referral specialists (specIds 9001–9060) for both ON and BC demo sets; never load a real provincial specialist directory into demo/dev
+- `scripts/build-demo-additive.sh` + `demo-additive-exclude.txt` + `check-demo-additive.sh` — build-time transform of development.sql into the ADDITIVE per-province artifact the deb's optional `carlos-ctl demo-data` load uses (INSERT IGNORE only; Flyway data always wins)
+
 **Development Database**:
 - Container: `db-connect` alias → MariaDB as root user
 - Port 3306 with health checks, 2G memory limit
