@@ -72,7 +72,13 @@
             <result name="error">/WEB-INF/jsp/eform/partials/upload_image.jsp</result>
         </action>
         <action name="eform/delEForm" class="io.github.carlos_emr.carlos.eform.actions.DelEForm2Action">
-            <result name="success">/eform/efmformmanager</result>
+            <!-- REDIRECT, not a forward: a forward keeps the POST method, and
+                 the library gate (ViewEFormPage2Action) only permits POST for
+                 efmformmanageredit, so a SUCCESSFUL delete used to land the
+                 operator on a 405 instead of the refreshed library. A redirect
+                 also makes this a proper POST/redirect/GET, so a browser
+                 refresh cannot re-submit the delete. -->
+            <result name="success" type="redirect">/eform/efmformmanager</result>
         </action>
         <action name="eform/manageEForm" class="io.github.carlos_emr.carlos.eform.actions.ManageEForm2Action">
             <result name="fail">/WEB-INF/jsp/eform/partials/import.jsp</result>

@@ -73,6 +73,17 @@
                 input.name = 'fid';
                 input.value = fid;
                 form.appendChild(input);
+                // Carry the CSRF token seeded by /WEB-INF/jspf/csrf-token.jspf.
+                // A form built after page load is never visited by CSRFGuard's
+                // injector, so the token has to be copied in by hand.
+                var csrf = document.querySelector('input[name="CSRF-TOKEN"]');
+                if (csrf && csrf.value) {
+                    var tokenInput = document.createElement('input');
+                    tokenInput.type = 'hidden';
+                    tokenInput.name = 'CSRF-TOKEN';
+                    tokenInput.value = csrf.value;
+                    form.appendChild(tokenInput);
+                }
                 document.body.appendChild(form);
                 form.submit();
             }
@@ -131,6 +142,14 @@
 </head>
     <body>
 
+    <%-- confirmNDelete() below builds its POST form in JavaScript at click time,
+         so CSRFGuard's client script never sees a <form> to inject the token
+         into (this page has no other form either). Without this bootstrap the
+         delete POST reaches CarlosCsrfGuardFilter with no token and is rejected
+         with "Required Token is missing from the Request" — the delete silently
+         does nothing. See docs CLAUDE.md, "CSRF Token Bootstrapping on AJAX
+         JSPs". --%>
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 
     <%@ include file="efmTopNav.jspf" %>
 
