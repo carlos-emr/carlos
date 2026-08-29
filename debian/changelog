@@ -17,6 +17,16 @@ carlos-emr (2026.09.0~snapshot4) resolute; urgency=medium
       database (faxes, email attachments) keep resolving.
   * The weekly restore drill accepts both directory spellings: the newest
     snapshot right after the upgrade still carries pre-rename paths.
+  * Upgrades no longer leave the EMR down behind a 502. carlos-emr,
+    carlos-emr-drugref and carlos-emr-eform-renderer each restart
+    carlos-emr.service, so one apt transaction restarts it three times; against
+    the unit's StartLimitBurst=6/30min an install followed by an upgrade inside
+    the same half hour exhausted the budget and systemd refused the last restart
+    with "start-limit-hit". Package-driven restarts — and `carlos-ctl
+    start`/`restart` — now clear the start counter first, and the two dependent
+    postinsts recover a unit an earlier one in the same transaction left failed.
+    Crash-loop protection is unchanged: Restart=on-failure with RestartSec=15s
+    still trips the same limit in about 90 seconds.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Fri, 28 Aug 2026 16:00:00 +0000
 
