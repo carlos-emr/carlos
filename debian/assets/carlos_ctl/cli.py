@@ -12,7 +12,6 @@ share a concept; see the package docstring in __init__.py.
 """
 
 import os
-import subprocess
 import sys
 from typing import List, Optional
 
@@ -111,18 +110,11 @@ def _cmd_lifecycle(verb: str, argv) -> int:
             f"(for other units use systemctl directly)")
     need_root(verb)
     if verb in ("start", "restart"):
-        # carlos-emr.service carries StartLimitBurst=6/StartLimitIntervalSec=30min
-        # to catch a crash loop. Config changes are applied by restarting, and a
-        # package upgrade restarts the unit three times of its own accord, so an
-        # operator iterating on carlos.properties can spend that budget without
-        # anything being wrong — systemd then refuses with "start-limit-hit" and
-        # the EMR stays down until someone runs `systemctl reset-failed` by hand.
-        # A restart asked for explicitly is never a crash loop, so clear the
-        # counter first. Genuine crash looping is still caught: Restart=on-failure
-        # with RestartSec=15s burns the same budget in about 90 seconds.
-        subprocess.run(["systemctl", "reset-failed", "carlos-emr.service"],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                       check=False)
+        # An operator asking for a restart is never a crash loop; clear the
+        # start-rate counter so systemd cannot refuse it. See
+        # util.reset_emr_start_limit for why this is needed and why it does not
+        # weaken crash-loop protection.
+        util.reset_emr_start_limit()
     os.execvp("systemctl", ["systemctl", verb, "carlos-emr.service"])
     raise AssertionError("unreachable: execvp replaces the process")
 

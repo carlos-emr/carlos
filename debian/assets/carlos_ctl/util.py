@@ -78,6 +78,28 @@ def out(cmd: List[str]) -> str:
     return cp.stdout.strip() if cp.returncode == 0 else ""
 
 
+def reset_emr_start_limit() -> None:
+    """Clear carlos-emr.service's failed state and start-rate counter.
+
+    Call this before ANY deliberate start or restart of the EMR. The unit
+    carries StartLimitBurst=6 over StartLimitIntervalSec=30min to catch a crash
+    loop, but a single apt transaction restarts it three times (carlos-emr plus
+    the drugref and eform-renderer postinsts), and applying config changes means
+    restarting again. Those are all intentional, so without this systemd
+    eventually refuses one with "start-limit-hit" and the EMR is left down
+    behind a 502 with no automatic recovery.
+
+    Crash-loop protection is unaffected: Restart=on-failure with RestartSec=15s
+    still burns the same budget in about 90 seconds when the JVM will not stay
+    up, because nothing calls this in between those automatic restarts.
+
+    Best-effort and never fatal — a missing or masked unit must not turn a
+    working verb into an error.
+    """
+    run(["systemctl", "reset-failed", "carlos-emr.service"],
+        capture_output=True, check=False)
+
+
 def genrandom(length: int, alphabet: str) -> str:
     return "".join(secrets.choice(alphabet) for _ in range(length))
 
