@@ -89,8 +89,19 @@
 	</bean>
 
 	<!-- www service endpoints -->
-	<jaxws:endpoint implementor="#systemInfoWs" address="/SystemInfoService"/>		
-	<jaxws:endpoint implementor="#loginWs" address="/LoginService" />	
+	<!-- SystemInfoService is gated like every other data service. It previously
+	     ran with no interceptor, so an unauthenticated caller could read server
+	     time, timezone, liveness and an internal paging constant. Anonymous
+	     liveness is available at the nginx front door (GET /carlos/). -->
+	<jaxws:endpoint implementor="#systemInfoWs" address="/SystemInfoService">
+		<jaxws:inInterceptors>
+			<ref bean="authenticationInWSS4JInterceptor"/>
+		</jaxws:inInterceptors>
+	</jaxws:endpoint>
+	<!-- LoginService MUST stay unauthenticated: it is how SOAP clients obtain a
+	     security token. Its brute-force exposure is bounded by the front-door
+	     rate limit on /carlos/ws/LoginService (see debian nginx config). -->
+	<jaxws:endpoint implementor="#loginWs" address="/LoginService" />
 	
 	<jaxws:endpoint implementor="#scheduleWs" address="/ScheduleService">
 		<jaxws:inInterceptors>
