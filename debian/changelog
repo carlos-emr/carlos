@@ -1,3 +1,31 @@
+carlos-emr (2026.09.0~snapshot5) resolute; urgency=medium
+
+  * eForm HTML editor saves work from the Administration panel. The editor's
+    save reaches the server in two different encodings: opened standalone it
+    posts the multipart body it declares, but loaded into the admin panel's
+    #dynamic-content the shared registerFormSubmit() helper re-serialises it as
+    application/x-www-form-urlencoded. ModSecurity populates REQUEST_BODY for
+    the urlencoded shape only, and exclusion 1050 unhooked ARGS:formHtml alone,
+    so the 921110/944xxx families still scored the whole eForm document and
+    403'd every save made the way an administrator actually makes it. 1050 now
+    covers REQUEST_BODY on that one route as well.
+  * eForm authoring exclusions (1050, 1060, 1070) also unhook attack-lfi and
+    attack-rfi on their own argument. Rule 930110 is CRITICAL at paranoia
+    level 1 and matches a bare "../" in ARGS, which any eForm carrying a
+    parent-relative image or stylesheet path contains by construction.
+  * eForm administration no longer reports "Sorry but there was an error:
+    0 error" after a delete that in fact succeeded. The delete and restore
+    controls carry href="javascript:void(0);" alongside the contentLink class,
+    and the shared footer's delegated handler AJAX-loaded that literal href;
+    the request cannot succeed, so jQuery reported status 0 and the false
+    banner replaced the page content while the real delete completed.
+  * The deleted-eForms list initialises without "DataTables warning: table
+    id=tblDeletedEforms - Incorrect column count". The table shipped its header
+    and body rows with no thead/tbody, so DataTables registered zero columns
+    against six-cell rows and aborted its init.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 29 Aug 2026 21:30:00 +0000
+
 carlos-emr (2026.09.0~snapshot4) resolute; urgency=medium
 
   * Default rename: the database is now `carlos` (was the inherited `oscar`)
