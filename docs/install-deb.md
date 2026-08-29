@@ -166,8 +166,9 @@ follow [`docs/ui-tests/deb-install-validation.md`](ui-tests/deb-install-validati
 ## Quickstart — the first hour
 
 **1. Verify the deployment.** One command probes the whole system — services,
-process ownership, network exposure, TLS, live WAF blocking, a live DrugRef
-lookup, schema state, and backup freshness:
+process ownership, network exposure, TLS, live WAF blocking, the web-service
+gates (hidden CXF catalog, an unauthenticated SOAP call refused, a dot-segment
+path bypass rejected), a live DrugRef lookup, schema state, and backup freshness:
 
 ```bash
 sudo carlos-ctl check
@@ -335,6 +336,7 @@ sudo carlos-ctl check
 | Certificate warning in the browser | `sudo carlos-ctl cert status` | Expected with the default self-signed certificate — the connection is still encrypted; switch with `sudo carlos-ctl cert acme <email>` |
 | "502 Bad Gateway" or a long spinner right after install/restart | `sudo carlos-ctl logs -f` | The webapp takes about two minutes to deploy; if it never comes up, the log says why |
 | Login rejected with the seeded credentials | `sudo cat /etc/carlos-emr/initial-admin.txt` | Using the repository's published dev password instead of the generated one. Also: the PIN must be exactly four digits — a longer PIN fails with a message blaming the *password* |
+| Install finished but the EMR is stopped, and `carlos-ctl check` says the unit is DISABLED | `sudo carlos-ctl check`, then `sudo carlos-ctl bootstrap-admin` | The installer could not replace the seeded `carlosdoc` credential (published in the source repository), so it stopped and disabled the service rather than expose the EMR with a known administrator password. It stays disabled across reboots on purpose. A successful `bootstrap-admin` re-enables the unit automatically; then `sudo systemctl start carlos-emr` |
 | A specific page or action fails, but nothing in the application log | `sudo carlos-ctl waf tail` | The WAF blocked the request before it reached the application — the tail explains which rule and why |
 | eForm print/fax produces no PDF, application log silent | `sudo journalctl -u carlos-emr-chromedriver -n 50` | The render browser is its own service with its own journal; if it cannot start, eForm rendering fails by design |
 | Drug search returns nothing when prescribing | `sudo carlos-ctl check` (DrugRef probe) | `carlos-emr-drugref` not installed, or its service is down |
