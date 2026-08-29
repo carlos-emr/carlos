@@ -74,6 +74,8 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
     void setUp() {
         replaceSpringUtilsBean(DrugDao.class, mockDrugDao);
         replaceSpringUtilsBean(RxManager.class, mockRxManager);
+        // MockHttpServletRequest defaults to no method; the mutating entry points require POST.
+        mockRequest.setMethod("POST");
         action = new RxWriteScript2Action();
     }
 
@@ -319,6 +321,39 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(bean.getReRxDrugIdList()).isEmpty();
+        verify(mockDrugDao, never()).find(anyInt());
+    }
+
+    @Test
+    @DisplayName("should reject re-Rx update when request method is GET")
+    void shouldRejectReRxUpdate_whenMethodIsGet() throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        addRequestParameter("action", "addToReRxDrugIdList");
+        addRequestParameter("reRxDrugId", "3003");
+        mockRequest.setMethod("GET");
+
+        String result = executeActionMethod(action, "updateReRxDrug");
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        // CSRFGuard does not cover GET, so the rejection has to land before anything is staged.
+        assertThat(bean.getReRxDrugIdList()).isEmpty();
+        verify(mockDrugDao, never()).find(anyInt());
+    }
+
+    @Test
+    @DisplayName("should reject re-Rx update when request method is HEAD")
+    void shouldRejectReRxUpdate_whenMethodIsHead() throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        addRequestParameter("action", "addToReRxDrugIdList");
+        addRequestParameter("reRxDrugId", "3003");
+        mockRequest.setMethod("HEAD");
+
+        String result = executeActionMethod(action, "updateReRxDrug");
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(bean.getReRxDrugIdList()).isEmpty();
         verify(mockDrugDao, never()).find(anyInt());
     }

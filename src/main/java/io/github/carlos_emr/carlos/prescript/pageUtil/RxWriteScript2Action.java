@@ -258,6 +258,9 @@ public final class RxWriteScript2Action extends ActionSupport {
      * an already-staged id, removing one that is not staged) is accepted, so double-submits from
      * the UI stay harmless.</p>
      *
+     * <p>POST is required; anything else is rejected with {@code 405} before the Rx session is
+     * touched.</p>
+     *
      * @return {@link #NONE} when the request is rejected and an error status has been written,
      *         otherwise {@code null} so the dispatcher completes without rendering a view
      * @throws IOException if writing the error status or redirect fails
@@ -265,6 +268,13 @@ public final class RxWriteScript2Action extends ActionSupport {
      */
     public String updateReRxDrug() throws IOException {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
+
+        // Staging mutates session state, and CSRFGuard only protects POST/PUT/DELETE/PATCH, so a
+        // cross-origin GET could queue a drug for archival. The UI already POSTs.
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
 
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
         if (bean == null) {
