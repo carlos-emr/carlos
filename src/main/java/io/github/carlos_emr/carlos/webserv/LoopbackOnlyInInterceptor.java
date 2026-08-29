@@ -29,6 +29,7 @@ import org.apache.cxf.transport.http.AbstractHTTPDestination;
 import org.apache.logging.log4j.Logger;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -71,7 +72,13 @@ public class LoopbackOnlyInInterceptor extends AbstractPhaseInterceptor<Message>
             return;
         }
         logger.warn("Refused off-host request to a loopback-only web service from {}", request.getRemoteAddr());
-        throw new Fault(new SecurityException("loopback-only endpoint"));
+        // Set the status explicitly: org.apache.cxf.interceptor.Fault defaults to
+        // 500, which reads as an outage in monitoring rather than a deliberate
+        // refusal. 403 says what actually happened, matching the deliberate
+        // status mapping in AuthenticationInWSS4JInterceptor.
+        Fault fault = new Fault(new SecurityException("loopback-only endpoint"));
+        fault.setStatusCode(HttpServletResponse.SC_FORBIDDEN);
+        throw fault;
     }
 
     /**

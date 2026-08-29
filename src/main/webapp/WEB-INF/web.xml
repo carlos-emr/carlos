@@ -387,10 +387,14 @@
 		<!-- Do not serve CXF's HTML service-list catalog. /ws/** is exempt from
 		     the login filter (each service authenticates itself via OAuth 1.0a /
 		     WS-Security), so without this an unauthenticated client could GET
-		     /carlos/ws (or /ws/services, /ws/rs) and enumerate every SOAP/REST
-		     endpoint with live ?wsdl links — free reconnaissance in front of the
-		     authenticated data services. The services stay behind their own auth
-		     interceptors regardless; this removes the catalog page. -->
+		     /carlos/ws/ and enumerate every SOAP/REST endpoint in one request.
+		     This removes the INDEX only. It does NOT close per-service metadata:
+		     WSDLGetInterceptor runs at Phase.READ and WSS4JInInterceptor returns
+		     early for every GET, so `GET /carlos/ws/<Service>?wsdl` is still
+		     answered without authentication for anyone who knows (or guesses) a
+		     service name. Closing that needs the WSDL GET support itself to be
+		     removed or gated per endpoint, which would break clients that fetch
+		     their contract at runtime — deliberately not done here. -->
 		<init-param>
 			<param-name>hide-service-list-page</param-name>
 			<param-value>true</param-value>
