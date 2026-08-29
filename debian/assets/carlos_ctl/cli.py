@@ -109,6 +109,12 @@ def _cmd_lifecycle(verb: str, argv) -> int:
         die(f"'{verb}' takes no arguments; it manages carlos-emr.service only "
             f"(for other units use systemctl directly)")
     need_root(verb)
+    if verb in ("start", "restart"):
+        # An operator asking for a restart is never a crash loop; clear the
+        # start-rate counter so systemd cannot refuse it. See
+        # util.reset_emr_start_limit for why this is needed and why it does not
+        # weaken crash-loop protection.
+        util.reset_emr_start_limit()
     os.execvp("systemctl", ["systemctl", verb, "carlos-emr.service"])
     raise AssertionError("unreachable: execvp replaces the process")
 

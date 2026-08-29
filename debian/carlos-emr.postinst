@@ -42,6 +42,26 @@ sd_invoke() {
     deb-systemd-invoke "$@"
 }
 
+# Clear carlos-emr.service's start rate-limit counter before a package-driven
+# lifecycle action. The unit carries StartLimitBurst=6/StartLimitIntervalSec=30min
+# to catch a genuine crash loop, but THREE packages (carlos-emr, -drugref,
+# -eform-renderer) each restart this one unit in a single apt transaction. An
+# install followed by an upgrade inside the same 30-minute window — the ordinary
+# way an operator applies a hotfix — therefore spends the whole budget, systemd
+# refuses the last restart with "start-limit-hit", and the EMR is left DOWN
+# behind a 502 with no automatic recovery.
+#
+# reset-failed clears both the failed state and the start counter, so a restart
+# we asked for on purpose is never mistaken for a crash loop. Crash-loop
+# protection is unaffected: Restart=on-failure/RestartSec=15s still burns the
+# budget in about 90 seconds when the JVM genuinely will not stay up.
+sd_reset_start_limit() {
+    if [ ! -d /run/systemd/system ]; then
+        return 0
+    fi
+    systemctl reset-failed carlos-emr.service >/dev/null 2>&1 || true
+}
+
 # Install a generated file ONCE. These carry credentials and site decisions, so
 # they are deliberately not conffiles: dpkg would prompt about a "modified"
 # file on every upgrade, and worse, a distribution default could overwrite a
@@ -801,6 +821,7 @@ case "$1" in
                 echo "carlos-emr: not restarting the application — the seeded administrator" >&2
                 echo "carlos-emr: credential is still live (run 'carlos-ctl bootstrap-admin')." >&2
             else
+                sd_reset_start_limit
                 deb-systemd-invoke start carlos-emr.service >/dev/null 2>&1 || true
             fi
             deb-systemd-invoke start carlos-emr-backup.timer carlos-emr-backup-verify.timer \
@@ -868,7 +889,7 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         echo "carlos-emr: NOT starting the service — the schema is not ready (see above)." >&2
         echo "carlos-emr: the unit stays enabled; it will start on the next boot or when you" >&2
         echo "carlos-emr: start it after completing the migration." >&2
-    elif sd_invoke start carlos-emr.service; then
+    elif sd_reset_start_limit; sd_invoke start carlos-emr.service; then
         # Deploying this webapp takes around two minutes on a small VM
         # (measured: 119 s), and postinst returning before it answers makes a
         # perfectly good install look broken — the operator runs
