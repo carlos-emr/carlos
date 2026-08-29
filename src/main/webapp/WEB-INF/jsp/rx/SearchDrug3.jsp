@@ -1951,6 +1951,29 @@ function popForm2(scriptId){
 										keyword: request.term
 									};
 								}))
+							},
+							// Without this the search failed silently: dataType "json" means any
+							// non-JSON reply -- a 502 from nginx, the 500.jsp this action forwards
+							// to on a DrugRef error, a WAF block, a session-expiry redirect -- is a
+							// parse failure that never reaches success(), so the autocomplete list
+							// simply never opened. A tester reported it as "it posts but nothing
+							// returns", with no way to tell a failure from a drug that genuinely
+							// has no matches.
+							error: function (xhr, textStatus) {
+								// Close the pending autocomplete request so the widget is not left
+								// spinning, then say so where the user is already looking for
+								// DrugRef status. msgDrugrefUnavailableContact and #statusDisplay
+								// both come from TopLinks2.jspf, included by this page, so the
+								// wording is the already-translated oscarRx.drugrefUnavailableContact
+								// rather than a new hardcoded English string.
+								response([]);
+								console.error('drug search failed', xhr.status, textStatus);
+								var el = document.getElementById('statusDisplay');
+								if (el && typeof msgDrugrefUnavailableContact !== 'undefined') {
+									el.innerHTML = msgDrugrefUnavailableContact;
+									el.style.color = 'red';
+									el.style.fontWeight = 'bold';
+								}
 							}
 						})
 					},

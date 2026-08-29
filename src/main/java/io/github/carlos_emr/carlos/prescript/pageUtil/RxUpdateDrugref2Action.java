@@ -71,13 +71,24 @@ public class RxUpdateDrugref2Action extends ActionSupport {
 
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+        String method = request.getParameter("method");
+
+        // The privilege follows the method rather than gating the whole action on write.
+        // updateDB rebuilds the DrugRef database and is a genuine mutation, so it keeps `w`.
+        // verify and getLastUpdate only report status, and TopLinks2.jspf fires verify on every
+        // Rx page load: gating those on `w` meant a prescriber with read-only _rx got a
+        // SecurityException, the HTML 500 page in place of JSON, and therefore the permanent
+        // "Drugref database is unavailable. Contact support." banner from that page's .catch --
+        // on every visit, with DrugRef perfectly healthy.
+        boolean mutating = "updateDB".equals(method);
+        String requiredPrivilege = mutating ? "w" : "r";
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", requiredPrivilege, null)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
-        if ("updateDB".equals(request.getParameter("method"))) {
+        if (mutating) {
             return updateDB();
-        } else if ("verify".equals(request.getParameter("method"))) {
+        } else if ("verify".equals(method)) {
             return verify();
         }
         return getLastUpdate();
