@@ -54,6 +54,25 @@
     if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
     String demoview = request.getParameter("demoview") == null ? "all" : request.getParameter("demoview");
 
+    // A valid, POSITIVE demographic number, or null when demoview is absent,
+    // non-numeric or 0. The tickler search below binds this as a NON-NULL
+    // positional parameter (WHERE t.demographicNo = ?1) and the Add-Tickler
+    // button further down dereferences the fetched demographic, so each of
+    // those inputs used to yield a 500: an absent param bound null
+    // (IllegalArgumentException), a non-numeric value threw NumberFormatException,
+    // and a schedule tickler alert on an appointment with NO linked patient
+    // reaches this page as demoview=0 (infirmarydemographiclist.jspf) whose
+    // demographic 0 does not exist. Parse defensively and treat all three as
+    // "no patient context".
+    Integer demoViewDemographicNo = null;
+    String demoViewParam = request.getParameter("demoview");
+    if (demoViewParam != null && demoViewParam.matches("\\d+")) {
+        int parsedDemoViewNo = Integer.parseInt(demoViewParam);
+        if (parsedDemoViewNo > 0) {
+            demoViewDemographicNo = parsedDemoViewNo;
+        }
+    }
+
 //Retrieve encounter id for updating encounter navbar if info this page changes anything
     String parentAjaxId;
     if (request.getParameter("parentAjaxId") != null)
@@ -827,7 +846,12 @@
                             if (dateEnd.compareTo("") == 0) dateEnd = "8888-12-31";
                             if (dateBegin.compareTo("") == 0) dateBegin = "0001-01-01";
 
-                            List<Tickler> ticklers = ticklerManager.search_tickler_bydemo(loggedInInfo, request.getParameter("demoview") == null ? null : Integer.parseInt(request.getParameter("demoview")), ticklerview, ConversionUtils.fromDateString(dateBegin), ConversionUtils.fromDateString(dateEnd));
+                            // This query is demographic-scoped and binds a non-null id; with no
+                            // patient context there are no ticklers to show, so render the empty
+                            // list rather than crash on the null positional bind.
+                            List<Tickler> ticklers = demoViewDemographicNo == null
+                                    ? java.util.Collections.<Tickler>emptyList()
+                                    : ticklerManager.search_tickler_bydemo(loggedInInfo, demoViewDemographicNo, ticklerview, ConversionUtils.fromDateString(dateBegin), ConversionUtils.fromDateString(dateEnd));
                             String rowColour = "lilac";
                             for (Tickler t : ticklers) {
                                 Demographic d = demographicDao.getDemographicById(t.getDemographicNo());
@@ -1012,20 +1036,24 @@
                         </tr>
                         <%
                             }
-                            Demographic d = demographicDao.getDemographicById(request.getParameter("demoview") == null ? null : Integer.parseInt(request.getParameter("demoview")));
+                            // May be null: demoview can carry no patient context (absent/0), and
+                            // even a positive id can reference a since-removed demographic. The
+                            // Add-Tickler button below, which pre-fills this patient, is rendered
+                            // only when this is non-null.
+                            Demographic d = demoViewDemographicNo == null ? null : demographicDao.getDemographicById(demoViewDemographicNo);
                         %>
                         <tr bgcolor=#FFFFFF class="noprint">
                             <td colspan="11" class="white"><a id="checkAllLink" name="checkAllLink"
                                                               href="javascript:CheckAll();"><fmt:message key="tickler.ticklerDemoMain.btnCheckAll"/></a> - <a
                                     href="javascript:ClearAll();"><fmt:message key="tickler.ticklerDemoMain.btnClearAll"/></a> &nbsp; &nbsp; &nbsp;
-                                &nbsp; &nbsp; <input type="button" name="button"
+                                &nbsp; &nbsp; <% if (d != null) { %><input type="button" name="button"
                                                      <c:set var="__enc_1"><carlos:encode value='<%= parentAjaxId %>' context="uriComponent"/></c:set>
                                                      <c:set var="__enc_2"><carlos:encode value='<%= d.getChartNo() %>' context="uriComponent"/></c:set>
                                                      <c:set var="__enc_3"><carlos:encode value='<%= d.getDisplayName() %>' context="uriComponent"/></c:set>
                                                      v                                                     
 alue="<fmt:message key="tickler.ticklerDemoMain.btnAddTickler"/>"
                                                      onClick="popupPage('400','600', '<%= request.getContextPath() %>/tickler/ViewAddTickler?updateParent=true&parentAjaxId=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&bFirstDisp=false&messageID=null&demographic_no=<carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="javaScriptAttribute"/>&chart_no=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&name=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>')"
-                                                     class="sbttn"> <input type="hidden" name="submit_form"
+                                                     class="sbttn"><% } %> <input type="hidden" name="submit_form"
                                                                            value=""> <% if (ticklerview.compareTo("D") == 0) {%>
                                 <input
                                         type="button"
