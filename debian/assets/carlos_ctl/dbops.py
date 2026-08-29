@@ -420,6 +420,11 @@ def cmd_rotate(argv) -> int:
     # point leaves the files holding complete (at worst stale) credentials,
     # and the recovery for every partial state is the same: re-run rotate.
     cmd_db_users(["--new-passwords"])
+    # Rotation restarts on purpose, so clear the start-rate counter first —
+    # otherwise a stale count from an upgrade or a few config restarts inside
+    # the same 30-minute window makes systemd refuse this one, and the die()
+    # below leaves the operator with rotated credentials AND a down EMR.
+    util.reset_emr_start_limit()
     if run(["systemctl", "restart", "carlos-emr.service"]).returncode != 0:
         # The new credential is provisioned and written out, but the service
         # did not come back — saying "restarted" here would hide an outage.

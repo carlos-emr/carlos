@@ -165,7 +165,16 @@ case "$1" in
         # at renderer construction, not per request, so without this the browser
         # stays unconfigured until the next restart. Same shared-JVM caveat as
         # carlos-emr-drugref: this is a short EMR outage.
-        if [ -d /run/systemd/system ] && systemctl is-active --quiet carlos-emr.service; then
+        # is-failed as well as is-active: this package is configured LAST of the
+        # three, so it is the one that used to hit carlos-emr.service's
+        # StartLimitBurst and report "the EMR did not restart" while leaving it
+        # down behind a 502. reset-failed clears the start counter (and the
+        # failed state) so a restart we asked for on purpose is never refused as
+        # a crash loop — see the same guard in carlos-emr.postinst.
+        if [ -d /run/systemd/system ] && \
+           { systemctl is-active --quiet carlos-emr.service || \
+             systemctl is-failed --quiet carlos-emr.service; }; then
+            systemctl reset-failed carlos-emr.service >/dev/null 2>&1 || true
             deb-systemd-invoke restart carlos-emr.service || {
                 echo "carlos-emr-eform-renderer: WARNING: the EMR did not restart — eForm PDF" >&2
                 echo "carlos-emr-eform-renderer: rendering will not work until it does" >&2
