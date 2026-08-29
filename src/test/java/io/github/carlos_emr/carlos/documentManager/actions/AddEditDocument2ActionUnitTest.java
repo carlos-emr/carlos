@@ -390,6 +390,35 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return conflict when html5 upload name is already taken")
+    void shouldReturnConflict_whenHtml5UploadNameAlreadyTaken() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
+        Files.writeString(tempUploadFile.toPath(), "test");
+
+        bindDocFileUpload(tempUploadFile, "echart-upload.pdf");
+        action.setAppointmentNo("123");
+
+        // The stored name is the upload's own name prefixed with yyyyMMddHHmmss, so two uploads
+        // of the same file inside one second collide. That is the user's situation to resolve,
+        // not a server fault: it must answer 409 with actionable text, not the 500 that every
+        // handled upload failure used to return.
+        try (MockedStatic<AddEditDocument2Action> addEditDocumentActionMock = mockStatic(AddEditDocument2Action.class, CALLS_REAL_METHODS)) {
+            addEditDocumentActionMock.when(() -> AddEditDocument2Action.writeLocalFile(
+                    any(InputStream.class),
+                    argThat(fileName -> isGeneratedStoredName(fileName, "echart-upload.pdf")),
+                    eq(false)))
+                    .thenThrow(new FileAlreadyExistsException("already there"));
+
+            String result = action.html5MultiUpload();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
+                    .getString("dms.addDocument.errorDuplicate"));
+        }
+    }
+
+    @Test
     @DisplayName("should return write error when html5 upload file write fails")
     void shouldReturnWriteError_whenHtml5UploadFileWriteFails() throws Exception {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");

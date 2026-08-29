@@ -122,6 +122,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     private static final byte[] PDF_HEADER = new byte[] {'%', 'P', 'D', 'F', '-'};
     private static final String ERROR_NO_WRITE_KEY = "dms.addDocument.errorNoWrite";
     private static final String ERROR_ZERO_SIZE_KEY = "dms.addDocument.errorZeroSize";
+    private static final String ERROR_DUPLICATE_KEY = "dms.addDocument.errorDuplicate";
     private static final String PARAM_FUNCTION = "function";
     private static final String PARAM_FUNCTION_ID = "functionid";
     private static final String PARAM_CUR_USER = "curUser";
@@ -211,6 +212,15 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         File file;
         try {
             file = writeValidatedUpload(validatedSource, storedFileName, false);
+        } catch (FileAlreadyExistsException e) {
+            // The stored name is the upload's own name prefixed with yyyyMMddHHmmss, so its
+            // resolution is one second: two uploads of the same file inside the same second --
+            // a double-clicked button, a browser retry -- collide. That is the user's situation
+            // to resolve, not a server fault, so it gets 409 and a message that says what to do
+            // instead of the generic "File could not be saved" behind a 500.
+            MiscUtils.getLogger().warn("Uploaded document name already taken; asking the user to retry", e);
+            sendHtml5UploadError(props, HttpServletResponse.SC_CONFLICT, ERROR_DUPLICATE_KEY);
+            return NONE;
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to write uploaded document file", e);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
@@ -952,9 +962,27 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return writeValidatedUpload(validatedUpload, fileName, true);
     }
 
+    /**
+     * Writes the validated upload into the document store.
+     *
+     * <p>writeLocalFile is declared {@code throws Exception}, so something has to narrow it here.
+     * This used to be a blanket {@code catch (Exception)} that rewrapped everything as
+     * {@code IOException("Failed to write uploaded document")}, which erased the distinction
+     * between a name collision, a permissions problem and a missing directory — every one of them
+     * reached the browser as the same opaque 500 and the same "File could not be saved" text, so a
+     * report could only ever say "upload gives a 500". The specific types are now preserved for the
+     * caller to act on: {@link java.nio.file.FileAlreadyExistsException} in particular is a
+     * user-recoverable condition, not a server fault.</p>
+     */
     private File writeValidatedUpload(File validatedUpload, String fileName, boolean replaceExisting) throws IOException {
         try (InputStream inputStream = PathValidationUtils.openValidatedUploadInputStream(validatedUpload)) {
             return writeLocalFile(inputStream, fileName, replaceExisting);
+        } catch (IOException | RuntimeException e) {
+            // IOException subtypes (FileAlreadyExistsException, AccessDeniedException,
+            // NoSuchFileException) carry the diagnosis; SecurityException from the path validator
+            // is a security violation the caller must not see as a write failure. Both pass
+            // through untouched.
+            throw e;
         } catch (Exception e) {
             throw new IOException("Failed to write uploaded document", e);
         }
