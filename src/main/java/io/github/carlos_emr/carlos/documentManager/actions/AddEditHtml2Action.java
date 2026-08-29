@@ -222,6 +222,18 @@ public class AddEditHtml2Action extends ActionSupport {
         this.functionId = functionId;
     }
 
+    /**
+     * Lowercase binding alias for {@code functionid} — same defect and same fix as
+     * {@link AddEditDocument2Action#setFunctionid(String)}: addDocument.jsp's Add-Link form and
+     * addedithtmldocument.jsp post BOTH spellings, Struts 7's case-insensitive parameter map
+     * collapses them into the lowercase key, and the case-sensitive {@code @StrutsParameter}
+     * lookup dropped the value — so a link/HTML document saved attached to no patient.
+     */
+    @StrutsParameter
+    public void setFunctionid(String functionId) {
+        setFunctionId(functionId);
+    }
+
     public String getDocType() {
         return docType;
     }
