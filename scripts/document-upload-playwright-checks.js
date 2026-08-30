@@ -44,13 +44,10 @@
  * Two scenarios:
  *   1. A single upload must succeed end to end -- HTTP < 400, no oscar_error,
  *      and a new row in the `document` table.
- *   2. Two uploads of the same file inside one second must NOT report success.
- *      The stored name is the file's own name prefixed with yyyyMMddHHmmss, so
- *      its resolution is one second and the second write collides. That is a
- *      user-recoverable condition: it must answer 409 with actionable text, not
- *      the opaque 500 that every handled upload failure used to return -- and
- *      the client must surface it, which it could not while it only treated
- *      status 500 as an error.
+ *   2. A second upload is accepted and filed. (The same-second name-collision
+ *      path and its 409 + actionable-message contract are pinned by
+ *      AddEditDocument2ActionUnitTest, not here -- driving the popup twice takes
+ *      seconds, so the timestamp-prefixed names never actually collide.)
  *
  * Requires the deb-install env contract (docs/ui-tests/deb-install-validation.md §6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN,
@@ -231,43 +228,19 @@ function documentRowCount() {
     await first.popup.close();
     await first.inbox.close();
 
-    // ---- 2. the same name inside one second must not report success --------
-    // Back-to-back, deliberately: the stored name is prefixed to one-second
-    // resolution, so this is the collision path.
+    // ---- 2. a second upload also succeeds and creates its own row ----------
+    // Not a duplicate-collision test: driving the popup twice takes several
+    // wall-clock seconds, so the two stored names (yyyyMMddHHmmss prefix) never
+    // collide, and the two uploaders answer a collision differently anyway
+    // (legacy html5MultiUpload -> 409 + oscar_error; modern documentUpload ->
+    // 200 + JSON {error}). The same-second collision and its 409 contract are
+    // pinned deterministically by AddEditDocument2ActionUnitTest
+    // (shouldReturnConflict_whenHtml5UploadNameAlreadyTaken). Here we only
+    // confirm a second real upload is accepted and filed.
     const second = await openUploadPopup(context, recorder);
     const secondResponse = await submitUpload(second.popup, probePdf);
-    const secondStatus = secondResponse.status();
-    const secondError = secondResponse.headers()['oscar_error'];
-    const secondRows = documentRowCount();
-
-    if (secondStatus < 400) {
-      // No collision happened -- the second upload crossed a second boundary
-      // and got its own name. That is a legitimate outcome, not a pass or a
-      // failure of the behaviour under test, so say so rather than asserting
-      // on a race that did not occur.
-      assert(
-        secondRows > rows,
-        'The second upload reported success but created no new document row.',
-      );
-      console.log(
-        '[note] the two uploads landed in different seconds, so the name-collision path was not '
-        + 'exercised on this run; both uploads succeeded, which is correct.',
-      );
-    } else {
-      assert(
-        secondStatus === 409,
-        `A duplicate-name upload answered HTTP ${secondStatus}, expected 409. A name collision is `
-          + 'user-recoverable and must not be reported as a server error.',
-      );
-      assert(
-        secondError && secondError.length > 0,
-        'The 409 carried no oscar_error header, so the uploader has nothing to show the user.',
-      );
-      assert(
-        secondRows === rows,
-        'A rejected duplicate upload still created a document row.',
-      );
-    }
+    assert(secondResponse.status() < 400, `Second upload returned HTTP ${secondResponse.status()}`);
+    assert(documentRowCount() > rows, 'The second upload created no new document row.');
     await screenshot(second.popup, config.screenshotDir, 'document-upload-second');
     await second.popup.close();
     await second.inbox.close();

@@ -1,34 +1,46 @@
 #!/bin/bash
-# DTD-validate every struts*.xml the way Struts itself does at deploy time.
+# DTD-validate every struts*.xml the way Struts does at deploy time.
 #
 # Why this exists: the config files are only DTD-validated when the webapp
-# context starts. A change that is perfectly well-formed XML — a <result>
+# context starts. A change that is perfectly well-formed XML -- a <result>
 # accidentally landing at package level next to a self-closing <action/>, for
-# example — passes every XML parse, compiles, packages, and then takes the
-# WHOLE application down at deploy with "Dispatcher initialization failed".
-# That exact failure shipped in a local build once; this check is the reason it
-# cannot again.
+# example -- passes every XML parse, compiles, packages, and then takes the
+# WHOLE application down at deploy with "Dispatcher initialization failed". That
+# exact failure shipped in a local build once; run this before pushing any
+# struts*.xml change. Wiring it into the CI lint job is a one-line follow-up a
+# maintainer must make (add a setup-java step + `bash scripts/lint/check-struts-dtd.sh`
+# to the lint job in .github/workflows/maven-project.yml) -- workflow files are
+# protected, so this commit ships the check and the vendored DTD, not the wiring.
 #
-# The DTDs are taken from the struts2-core jar in the local Maven repository,
-# so validation always matches the Struts version the build actually uses.
+# The DTD is vendored under scripts/lint/dtd so the check is hermetic -- no jar
+# hunting, no Maven, no network -- and it validates with a tiny SAX program that
+# needs only a JDK. If a config ever declares a DTD version that is not vendored
+# (e.g. after a Struts upgrade), the check FAILS LOUDLY asking for the new DTD
+# rather than silently validating against a stale one.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-STRUTS_VERSION=$(grep -oPm1 '(?<=<struts.version>)[^<]+' pom.xml || true)
-if [ -z "$STRUTS_VERSION" ]; then
-    # struts version may be inline in the dependency rather than a property
-    STRUTS_VERSION=$(grep -A2 'struts2-core' pom.xml | grep -oPm1 '(?<=<version>)[^<]+' || true)
-fi
-JAR=$(find ~/.m2 local_repo -path "*struts2-core*${STRUTS_VERSION}*.jar" 2>/dev/null | head -1)
-if [ -z "$JAR" ]; then
-    JAR=$(find ~/.m2 local_repo -name 'struts2-core-*.jar' 2>/dev/null | sort | tail -1)
-fi
-[ -n "$JAR" ] || { echo "SKIP: no struts2-core jar found to take the DTDs from"; exit 0; }
+DTD_DIR="scripts/lint/dtd"
+CONFIGS=(src/main/webapp/WEB-INF/classes/struts*.xml)
+
+# Fail if any config points at a DTD we have not vendored.
+missing=0
+for f in "${CONFIGS[@]}"; do
+    dtd=$(grep -o 'struts-[0-9.]*\.dtd' "$f" | head -1 || true)
+    [ -z "$dtd" ] && { echo "WARN: $f declares no struts DTD DOCTYPE"; continue; }
+    if [ ! -f "$DTD_DIR/$dtd" ]; then
+        echo "MISSING VENDORED DTD: $f needs $DTD_DIR/$dtd — extract it from the struts2-core jar (unzip -j <jar> '$dtd' -d $DTD_DIR) and commit it."
+        missing=1
+    fi
+done
+[ "$missing" = 0 ] || exit 1
+
+JAVAC=$(command -v javac || echo "${JAVA_HOME:-}/bin/javac")
+JAVA=$(command -v java || echo "${JAVA_HOME:-}/bin/java")
+[ -x "$JAVAC" ] || { echo "SKIP: no javac available to run the DTD validation"; exit 0; }
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
-unzip -o -j -q "$JAR" '*.dtd' -d "$WORK"
-
 cat > "$WORK/DtdCheck.java" <<'JAVA'
 import javax.xml.parsers.*;
 import org.xml.sax.*;
@@ -48,8 +60,6 @@ public class DtdCheck {
             try {
                 sp.parse(f, new DefaultHandler() {
                     @Override public InputSource resolveEntity(String pub, String sys) {
-                        // A parser may hand over a null systemId; falling back to default
-                        // resolution beats dying with an NPE before naming the invalid file.
                         if (sys == null || sys.isEmpty()) { return null; }
                         String name = sys.substring(sys.lastIndexOf('/') + 1);
                         try { return new InputSource(new FileInputStream(new File(dtdDir, name))); }
@@ -72,7 +82,5 @@ public class DtdCheck {
     }
 }
 JAVA
-JAVAC=${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}/bin/javac
-JAVA=${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}/bin/java
 "$JAVAC" -d "$WORK" "$WORK/DtdCheck.java"
-"$JAVA" -cp "$WORK" DtdCheck "$WORK" src/main/webapp/WEB-INF/classes/struts*.xml
+"$JAVA" -cp "$WORK" DtdCheck "$DTD_DIR" "${CONFIGS[@]}"

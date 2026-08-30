@@ -134,15 +134,13 @@ async function submitEditor(page) {
  * on the form's row. Everything stays inside the panel's #dynamic-content.
  *
  * Driving it by clicks rather than by navigating to /eform/efmformmanageredit
- * is the whole point. efmformmanageredit.jsp declares
- * enctype="multipart/form-data", but it also calls registerFormSubmit(), which
- * exists ONLY on the administration/index.jsp shell and re-serialises the form
- * as application/x-www-form-urlencoded into an $.ajax call. ModSecurity
- * populates REQUEST_BODY for the urlencoded shape only, so the two paths are
- * scored by different CRS rules -- and exclusion 1050 originally covered only
- * ARGS:formHtml, so the panel save 403'd while the standalone save this file
- * already exercised passed. A tester hit it; this check did not, because it
- * only ever opened the editor as a standalone page.
+ * is the whole point: the operator edits inside the admin shell, and that path
+ * once diverged from the standalone one (registerFormSubmit re-serialised the
+ * save urlencoded via $(form).serialize(), which the standalone save did not),
+ * so a WAF 403 hid on the panel path while the standalone save this file
+ * already exercised passed. registerFormSubmit now posts multipart FormData, so
+ * both paths post the same shape — this check drives the operator path to keep
+ * that true and to prove the FormData save still works.
  */
 async function openEditorInAdminPanel(context, recorder, label, formLabel) {
   const page = await context.newPage();
@@ -153,7 +151,7 @@ async function openEditorInAdminPanel(context, recorder, label, formLabel) {
   assert(
     await page.evaluate(() => typeof window.registerFormSubmit === 'function'),
     'The Administration shell did not define registerFormSubmit, so this run would silently '
-      + 'fall back to the standalone multipart save and stop covering the urlencoded path.',
+      + 'fall back to the standalone save and stop covering the operator (panel) path.',
   );
 
   // Left nav: expand "Forms/eForms" first. It is a Bootstrap accordion section
@@ -278,13 +276,14 @@ async function libraryRow(page, name) {
     );
     await reopened.close();
 
-    // ---- save from inside the Administration panel (urlencoded shape) --------
-    // The standalone save above posts multipart. This one posts urlencoded,
-    // which is what an administrator working through Administration > eForms
-    // actually sends, and it is scored by a different set of CRS rules because
-    // ModSecurity only populates REQUEST_BODY for urlencoded bodies. That
-    // asymmetry is exactly how a 403 survived a fix that had been validated as
-    // working, so both shapes are covered from here on.
+    // ---- save from inside the Administration panel -------------------------
+    // The operator's real path: the editor loaded into the admin shell's
+    // #dynamic-content and saved through the shared registerFormSubmit() helper.
+    // That helper once re-serialised the save urlencoded (which put the document
+    // in REQUEST_BODY and is how a 403 survived a "fixed" build); it now posts
+    // multipart FormData, so this asserts the operator save is not WAF-blocked
+    // AND that the FormData path still saves. If FormData is ever reverted this
+    // save 403s and this assertion fails — the intended regression guard.
     const panelMarker = `CARLOS-ADMIN-PANEL-MARKER-${stamp}`;
     const panelPage = await openEditorInAdminPanel(context, recorder, 'admin-crud-panel-edit', formName);
     const panelTextarea = panelPage.locator('#dynamic-content textarea[name="formHtml"]');
@@ -299,16 +298,14 @@ async function libraryRow(page, name) {
       panelPage.locator('#dynamic-content #savebtn').click(),
     ]);
 
-    // Record which shape was sent. registerFormSubmit now posts multipart forms
-    // as FormData (serialize() drops file inputs), so the panel save is
-    // multipart again; the urlencoded REQUEST_BODY exclusion on rule 1050 stays
-    // as defence for any client that still posts that shape. Either encoding
-    // must succeed — the assertion that matters is the 200 below.
+    // The panel save must go out multipart (the FormData fix); a urlencoded
+    // content type here means registerFormSubmit reverted to serialize(), which
+    // silently drops file inputs on multipart forms.
     const panelContentType = (panelResponse.request().headers()['content-type'] || '').toLowerCase();
     assert(
-      panelContentType.includes('application/x-www-form-urlencoded')
-        || panelContentType.includes('multipart/form-data'),
-      `The Administration-panel save posted an unexpected content type: "${panelContentType}".`,
+      panelContentType.includes('multipart/form-data'),
+      `The Administration-panel save posted "${panelContentType}", not multipart — `
+        + 'registerFormSubmit is no longer sending FormData, which drops file inputs.',
     );
     assertNotBlocked(panelResponse, 'Saving an eForm from the Administration panel');
     await panelPage.close();
@@ -387,6 +384,25 @@ async function libraryRow(page, name) {
         + 'delete click, so this run did not exercise the empty-token race it is meant to cover.',
     );
 
+    // Deterministically pin the efmFooter guard: wrap jQuery.fn.load so we can see
+    // whether the delegated a.contentLink handler tries to AJAX-load the anchor's
+    // javascript:void(0); href. This is independent of whether #dynamic-content
+    // exists (on the standalone library page jQuery.load on an empty set is a
+    // no-op, so the painted banner is invisible there and the body-text check
+    // below cannot see it) — but the handler still CALLS load() with the bogus
+    // URL pre-fix, and must NOT post-fix. This records every such call.
+    await managerPage.evaluate(() => {
+      window.__carlosBogusLoads = [];
+      const jq = window.jQuery;
+      const orig = jq.fn.load;
+      jq.fn.load = function (url) {
+        if (typeof url === 'string' && (/^\s*javascript:/i.test(url) || url === '#' || url === '')) {
+          window.__carlosBogusLoads.push(url);
+        }
+        return orig.apply(this, arguments);
+      };
+    });
+
     const [deleteResponse] = await Promise.all([
       managerPage.waitForResponse(
         (r) => r.url().includes('/eform/delEForm') && r.request().method() === 'POST',
@@ -394,6 +410,13 @@ async function libraryRow(page, name) {
       ),
       deleteLink.click(),
     ]);
+    const bogusLoads = await managerPage.evaluate(() => window.__carlosBogusLoads || []);
+    assert(
+      bogusLoads.length === 0,
+      `The footer's contentLink handler AJAX-loaded a non-URL href ${JSON.stringify(bogusLoads)} `
+        + 'on delete — the efmFooter.jspf guard is gone, so a successful delete will paint the '
+        + '"Sorry but there was an error: 0 error" banner again.',
+    );
     // Reaching here at all is part of the assertion: before the fix, the click
     // submitted immediately with no token and this POST came back 403.
     assertNotBlocked(deleteResponse, 'Deleting an eForm');

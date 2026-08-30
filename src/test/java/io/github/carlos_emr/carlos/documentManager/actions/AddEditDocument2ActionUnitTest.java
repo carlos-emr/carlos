@@ -391,7 +391,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should bind the lowercase functionid spelling to the same property")
-    void shouldBindLowercaseFunctionid_toSameProperty() {
+    void shouldBindLowercaseFunctionid_toSameProperty() throws NoSuchMethodException {
         // addDocument.jsp posts BOTH functionId and functionid; Struts 7's case-insensitive
         // parameter map collapses them into one entry keyed by the lowercase spelling, and the
         // case-sensitive @StrutsParameter lookup then found no member and dropped the patient id.
@@ -401,6 +401,14 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         action.setFunctionid("42");
 
         assertThat(action.getFunctionId()).isEqualTo("42");
+
+        // Delegation alone is not enough: Struts only binds a request param through a setter that
+        // carries @StrutsParameter, so deleting just the annotation re-opens the exact defect while
+        // leaving this delegation green. Pin the annotation too.
+        assertThat(AddEditDocument2Action.class.getMethod("setFunctionid", String.class)
+                .isAnnotationPresent(StrutsParameter.class))
+                .as("setFunctionid must be @StrutsParameter-annotated or Struts will not bind it")
+                .isTrue();
     }
 
     @Test
