@@ -1,3 +1,22 @@
+carlos-emr (2026.09.0~snapshot15) resolute; urgency=medium
+
+  * JSP-to-JSP forwards deliver their body again, and an error page that sets
+    a 4xx and then forwards answers that 4xx with its body instead of a raw
+    500. Tomcat 11 defaults suspendWrappedResponseAfterForward to true, which
+    finishes the response when a forward returns and strands the forwarded
+    page's output in javamelody's writer buffer — silently: 200 with an empty
+    body, or a manufactured 500, and nothing logged for either. The context
+    descriptor now pins the attribute to false.
+  * ResponseSanitizationFilter no longer converts an already-rendered page
+    into a 500 when something inside the chain commits the response before
+    its replay: it appends the safe captured body and logs the premature
+    commit at ERROR. Its capture now also honours resetBuffer()/reset() (a
+    forward clears uncommitted output; stale captured prefixes went with it),
+    and its passthrough streams shield the real response from a mid-chain
+    close.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 30 Aug 2026 16:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot14) resolute; urgency=medium
 
   * Upload rejections are reported instead of vanishing. The "input" result
