@@ -733,6 +733,27 @@ failure site is the diagnostic record.
 Nothing here is PHI-safe by accident: raising a log level for troubleshooting is fine, but put it
 back, because DEBUG on this application can put request parameters into the log.
 
+### The configured confidentiality statement
+
+`PrivacyStatementAppendingFilter` appends the configured
+`confidentiality_statement.*` to every printable page. The renderer measures
+under print-media emulation, where that paragraph is `display:block`, so it is a
+substantive off-page element and — once `bb5320b3` made decoration opt-in — it
+withheld **every** eForm download on any install with a statement configured.
+It now carries `carlos-print-decoration`, the gate's own opt-in for platform
+boilerplate.
+
+Two consequences worth knowing before reading a report:
+
+- On those installs `Off-page decoration removed: 1` is the **normal** state,
+  and the render is logged as not-strictly-complete on every request. That is
+  expected noise, not a fault.
+- The marker classifies the paragraph, not its contents. If a clinic's
+  configured statement contains an `<img>` — a letterhead or logo — the
+  decoration predicate rejects it and the withhold returns. A statement that
+  must carry an image needs the image marked as decoration too, or the
+  statement reduced to text.
+
 ### Diagnosing a withheld render ("Some eForm content could not be loaded")
 
 When the completeness gate withholds a PDF, the operator-facing page reports **counts**:

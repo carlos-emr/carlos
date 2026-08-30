@@ -81,6 +81,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -1913,6 +1914,10 @@ public class EFormBrowserPdfService {
         return rawList.stream()
                 .filter(String.class::isInstance)
                 .map(String.class::cast)
+                // The id and class come from author-controlled markup and an HTML attribute may
+                // hold a literal newline, so an element could otherwise inject its own line into
+                // the log. LogSafe escapes the control characters; the length cap still applies.
+                .map(LogSafe::sanitize)
                 .map(entry -> entry.length() > 200 ? entry.substring(0, 200) + "…" : entry)
                 .limit(20)
                 .toList();

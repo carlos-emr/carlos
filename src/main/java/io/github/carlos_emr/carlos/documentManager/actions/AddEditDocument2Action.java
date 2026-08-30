@@ -221,7 +221,13 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             MiscUtils.getLogger().warn("Uploaded document name already taken; asking the user to retry", e);
             sendHtml5UploadError(props, HttpServletResponse.SC_CONFLICT, ERROR_DUPLICATE_KEY);
             return NONE;
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
+            // RuntimeException belongs here too, now that writeValidatedUpload rethrows
+            // unwrapped instead of laundering everything into IOException. Without it a
+            // FileValidationException -- which extends SecurityException -- escapes to the
+            // global securityError mapping, and securityError.jsp sets no status. The XHR
+            // client treats anything under 400 as success, so a rejected upload would be
+            // reported to the user as "Upload complete".
             MiscUtils.getLogger().error("Failed to write uploaded document file", e);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return NONE;

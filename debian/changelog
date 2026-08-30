@@ -1,3 +1,34 @@
+carlos-emr (2026.09.0~snapshot6) resolute; urgency=medium
+
+  * Upload rejections are reported instead of vanishing. The "input" result
+    added in ~snapshot5 forwarded the eDocs add-document form to the documents
+    page without an error, so a rejected upload rendered a clean document list
+    and looked like a page refresh; it now carries the error, and three more
+    upload pages that built a message and then hid or skipped it (the eForm
+    upload and import partials, and the BC lab upload) report it too.
+  * Upload rejection messages say what actually happened. They were hardcoded
+    to "Empty files not accepted." for every multipart rejection, including a
+    file refused for its size; they now carry the multipart layer's own wording.
+  * Empty-file uploads no longer 500 on mcedt/autoUpload, mcedt/upload,
+    lab/newLabUpload or lab/CMLlabUpload, which the ~snapshot5 sweep missed.
+    Four mappings it added could never fire and are removed.
+  * The deleted-eForms list no longer throws on every draw. Giving the table a
+    thead made DataTables initialise, which reached a drawCallback calling a
+    function that does not exist anywhere in the codebase.
+  * Restore on the deleted-eForms list works. It built its POST after page load
+    so CSRFGuard never injected a token and every attempt was rejected with 403.
+  * Drug search failures no longer delete the DrugRef status panel. The error
+    handler wrote into the container holding the database name, version and
+    date, and only a page reload brought them back.
+  * The admin shell no longer paints "Sorry but there was an error: 0 error"
+    over controls whose href is javascript:void(0), matching the eForm fix.
+  * A document stored successfully is no longer reported as failed when a
+    later step (audit log, inbox routing, queue link) fails, which sent users
+    to re-upload and put a second copy of the scan in the chart.
+  * WAF: the attack-rfi exclusions are withdrawn. Those CRS rules are anchored
+    at the start of the argument and cannot match an eForm document, so the
+    exclusion only widened the rule surface. attack-lfi, which does fire, stays.
+
 carlos-emr (2026.09.0~snapshot5) resolute; urgency=medium
 
   * eForm HTML editor saves work from the Administration panel. The panel's
