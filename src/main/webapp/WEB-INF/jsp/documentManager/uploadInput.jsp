@@ -42,13 +42,16 @@
                 ? "dms.addDocument.errorZeroSize" : "dms.error.uploadError";
         String message = reported.isEmpty()
                 ? ResourceBundle.getBundle("oscarResources").getString(errorKey) : reported;
-        response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
         // Servlet headers are ISO-8859-1, so a localized message with non-Latin-1 characters
         // would reach the browser mangled. Stripping to printable ASCII also removes CR/LF, so
-        // a filename embedded in the message cannot inject a header. The body carries it intact.
+        // a filename embedded in the message cannot inject a header.
         response.setHeader("oscar_error", message.replaceAll("[^\\x20-\\x7E]", "?"));
-        response.setContentType("text/plain;charset=UTF-8");
-        out.print(message);
+        // sendError, NOT setStatus plus a body: ResponseSanitizationFilter captures the body to
+        // strip stack traces and cannot replay a JSP-written 4xx, turning it into a 500 -- the
+        // exact failure this result exists to prevent. sendError is unaffected, it is the same
+        // mechanism sendHtml5UploadError already uses for this client, and this client reads the
+        // oscar_error header rather than the body, so discarding the body costs nothing.
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST, message);
     } else {
 %><jsp:forward page="/WEB-INF/jsp/common/uploadRejected.jsp"/><%
     }

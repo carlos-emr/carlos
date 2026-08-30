@@ -18,14 +18,31 @@
     rejected upload as finished. Rendering the multipart layer's own messages
     here is unconditional and cannot be mistaken for success.
 
-    Errors can embed the submitted filename, so they are encoded, and the
-    response carries 400 rather than 200 so scripted clients see a failure.
+    Errors can embed the submitted filename, so they are encoded. The status
+    stays 200 -- see the note below the directives for why a 4xx here becomes a
+    500.
 --%><%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
-<% response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST); %>
+<%--
+    Deliberately NOT response.setStatus(400).
+
+    ResponseSanitizationFilter captures the response body to strip stack traces,
+    and on a JSP that sets a 4xx AND writes a body it cannot replay what it
+    captured: it fails with "Cannot reset buffer after response has been
+    committed" and the request comes back as a 500. Verified on the packaged
+    install by toggling only this line -- with it, an empty eDocs upload is a
+    raw 500; without it, this page renders. (sendError is unaffected, which is
+    why sendHtml5UploadError's 400/409 answers work; but sendError discards the
+    body, and the whole point of this page is to SHOW the reason.)
+
+    A visible rejection at 200 is the right trade for a browser form: the reader
+    is a person, not a script, and the alternative on this path is the raw 500
+    that this branch exists to eliminate. Routes whose client keys on the status
+    use the sendError path in uploadInput.jsp instead.
+--%>
 <!DOCTYPE html>
 <%-- lang is set from the request locale so a screen reader announces the
      localized message below in the right language. --%>
