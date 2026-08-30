@@ -122,11 +122,14 @@
         <action name="documentManager/SplitDocument" class="io.github.carlos_emr.carlos.documentManager.actions.SplitDocument2Action">
             <result name="success">/WEB-INF/jsp/oscarMDS/Splitclose.jsp</result>
         </action>
-        <action name="documentManager/documentUpload" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2Action"/>
+        <action name="documentManager/documentUpload" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2Action">
             <!-- "input": where the workflow interceptor lands when the multipart layer
                  rejects the upload (e.g. an empty file) before the action runs; without
-                 it the request falls through to errorpage.jsp as a raw 500. -->
+                 it the request falls through to errorpage.jsp as a raw 500. The action
+                 writes its own JSON response and returns null on every path it reaches,
+                 so this is the only result it needs. -->
             <result name="input">/WEB-INF/jsp/documentManager/uploadRejected.jsp</result>
+        </action>
 
         <!-- View gates (_edoc r) -->
         <action name="documentManager/ViewDocumentBrowser" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
