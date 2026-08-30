@@ -81,6 +81,17 @@ public class RxUpdateDrugref2Action extends ActionSupport {
         // "Drugref database is unavailable. Contact support." banner from that page's .catch --
         // on every visit, with DrugRef perfectly healthy.
         boolean mutating = "updateDB".equals(method);
+
+        // updateDB rebuilds the DrugRef database, so it is a mutation and must not be reachable
+        // by GET: a plain link or an <img src> would trigger a full rebuild, and CSRFGuard's
+        // token check does not cover GET. Rejected before the privilege check so no side effect
+        // — and no privilege probe — can hang off the wrong method. See the GET/HEAD rejection
+        // contract in CLAUDE.md.
+        if (mutating && !"POST".equals(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         String requiredPrivilege = mutating ? "w" : "r";
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", requiredPrivilege, null)) {
             throw new SecurityException("missing required sec object (_rx)");

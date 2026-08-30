@@ -29,6 +29,8 @@ carlos-emr (2026.09.0~snapshot6) resolute; urgency=medium
     at the start of the argument and cannot match an eForm document, so the
     exclusion only widened the rule surface. attack-lfi, which does fire, stays.
 
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 30 Aug 2026 03:30:00 +0000
+
 carlos-emr (2026.09.0~snapshot5) resolute; urgency=medium
 
   * eForm HTML editor saves work from the Administration panel. The panel's

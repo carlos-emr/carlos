@@ -30,12 +30,14 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -70,12 +72,15 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
     private LoggedInInfo mockLoggedInInfo;
 
     private MockHttpServletRequest mockRequest;
+    private MockHttpServletResponse mockResponse;
     private RxUpdateDrugref2Action action;
 
     @BeforeEach
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         mockRequest = new MockHttpServletRequest();
+        mockRequest.setMethod("POST");
+        mockResponse = new MockHttpServletResponse();
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
 
@@ -85,7 +90,7 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
 
         action = new RxUpdateDrugref2Action();
     }
@@ -137,6 +142,36 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should demand only read privilege when method is absent")
     void shouldDemandOnlyRead_whenMethodIsAbsent() {
         denyAllPrivileges();
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+    }
+
+    @Test
+    @DisplayName("should reject GET when method is updateDB, before any privilege check")
+    void shouldRejectGet_whenMethodIsUpdateDb() throws Exception {
+        // updateDB rebuilds the DrugRef database. Reachable by GET it is a CSRF target — a link
+        // or an <img src> triggers a full rebuild, and CSRFGuard's token check does not cover
+        // GET. The rejection must come before the privilege check so that no side effect, and
+        // no privilege probe, hangs off the wrong method.
+        mockRequest.setMethod("GET");
+        mockRequest.setParameter("method", "updateDB");
+
+        action.execute();
+
+        assertThat(mockResponse.getStatus())
+                .isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        verifyNoInteractions(mockSecurityInfoManager);
+    }
+
+    @Test
+    @DisplayName("should still allow GET for the read-only status methods")
+    void shouldAllowGet_forReadOnlyMethods() {
+        // The status probe is a GET on every Rx page load, so the guard above must not catch it.
+        denyAllPrivileges();
+        mockRequest.setMethod("GET");
+        mockRequest.setParameter("method", "verify");
 
         assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
 
