@@ -15,7 +15,6 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -97,7 +96,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         String destination = request.getParameter("destination");
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         if (docFile == null) {
-            map.put("error", 4);
+            map.put("error", props.getString("dms.error.uploadError"));
         } else {
             // Validate uploaded file is from temp directory for all destinations
             try {
@@ -109,6 +108,11 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             }
         }
 
+        // try/finally so the validated temp upload is deleted on EVERY branch. The
+        // per-branch cleanups below null docFile on the success paths; this guards the
+        // error paths (invalid filename, non-PDF, zero-length, and the incomingDocs
+        // filename-rejection early return) that previously leaked the temp file.
+        try {
         if (docFile != null && destination != null && destination.equals("incomingDocs")) {
             String fileName = this.filedataFileName;
             String sanitizedFileName = sanitizeFileNameForIncomingDocs(fileName);
@@ -117,8 +121,11 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             } else if (!sanitizedFileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                 map.put("error", props.getString("dms.documentUpload.onlyPdf"));
             } else if (docFile.length() == 0) {
-                map.put("error", 4);
-                throw new FileNotFoundException();
+                // Respond through the JSON contract the uploader's JS reads (item.error). The old
+                // map.put followed by a throw was dead code plus a raw 500: the throw escaped to
+                // errorpage.jsp before writeUploadResponse could run, so the prepared error never
+                // reached the user.
+                map.put("error", props.getString("dms.addDocument.errorZeroSize"));
             } else {
                 String queueId = request.getParameter("queue");
                 String destFolder = request.getParameter("destFolder");
@@ -180,50 +187,99 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             String filePath = newDoc.getFilePath();
             // save local file;
             if (docFile.length() == 0) {
-                map.put("error", 4);
-                throw new FileNotFoundException();
-            }
-
-            // write file to local dir
-            writeLocalFile(docFile, fileName);
-            newDoc.setContentType(this.filedataContentType);
-            if (fileName.endsWith(".PDF") || fileName.endsWith(".pdf")) {
-                newDoc.setContentType("application/pdf");
-                // get number of pages when document is a PDF
-                numberOfPages = countNumOfPages(filePath);
-            }
-            newDoc.setNumberOfPages(numberOfPages);
-            String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
-
-            String providerId = request.getParameter("providers");
-            if (providerId != null) {
-                WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
-                providerInboxRoutingDao.addToProviderInbox(providerId, Integer.parseInt(doc_no), "DOC");
-            }
-
-            String queueId = request.getParameter("queue");
-            if (queueId != null && !queueId.equals("-1")) {
-                if (!queueId.trim().matches("\\d+")) {
-                    logger.warn("Invalid queue ID format — skipping queue link");
-                    request.getSession().removeAttribute("preferredQueue");
-                } else {
-                    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                    QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-                    Integer qid = Integer.parseInt(queueId.trim());
-                    Integer did = Integer.parseInt(doc_no.trim());
-                    queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                    request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                // Same fix as the incomingDocs branch above: answer the JSON contract instead of
+                // throwing past writeUploadResponse into errorpage.jsp as a raw 500.
+                map.put("error", props.getString("dms.addDocument.errorZeroSize"));
+            } else {
+            // Guarded so a write or persistence failure answers the uploader's JSON contract
+            // instead of escaping to errorpage.jsp as a raw HTML 500 the XHR handler can only
+            // report as "(HTTP 500)". The reachable, user-recoverable case is the CREATE_NEW name
+            // collision: the stored name carries a one-second timestamp prefix, so re-uploading
+            // the same file inside a second collides in writeLocalFile — that is the user's
+            // situation to resolve, not a server fault.
+            // Only the write and the row insert decide success or failure. Everything
+            // after them is a side effect on a document that is already filed, and must
+            // not be reported as an upload failure: the user would re-upload, the stored
+            // name carries a one-second timestamp prefix so the retry would not even
+            // collide, and the chart would end up with two copies of the same scan.
+            String doc_no = null;
+            try {
+                // write file to local dir
+                writeLocalFile(docFile, fileName);
+                newDoc.setContentType(this.filedataContentType);
+                if (fileName.endsWith(".PDF") || fileName.endsWith(".pdf")) {
+                    newDoc.setContentType("application/pdf");
+                    // get number of pages when document is a PDF
+                    numberOfPages = countNumOfPages(filePath);
                 }
+                newDoc.setNumberOfPages(numberOfPages);
+                doc_no = EDocUtil.addDocumentSQL(newDoc);
+            } catch (FileAlreadyExistsException e) {
+                logger.warn("Uploaded document name already taken; asking the user to retry", e);
+                map.put("error", props.getString("dms.addDocument.errorDuplicate"));
+            } catch (Exception e) {
+                // If the write succeeded and only the insert failed, the file is left in
+                // the document store with no row pointing at it. That is litter rather
+                // than a patient record, but it is why a retry inside the same second can
+                // come back as a name collision.
+                logger.error("Failed to store uploaded document", e);
+                map.put("error", props.getString("dms.addDocument.errorNoWrite"));
             }
 
-            map.put("name", docFile.getName());
-            map.put("size", docFile.length());
+            if (doc_no != null) {
+                try {
+                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+
+                    String providerId = request.getParameter("providers");
+                    if (providerId != null) {
+                        WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                        ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
+                        providerInboxRoutingDao.addToProviderInbox(providerId, Integer.parseInt(doc_no), "DOC");
+                    }
+
+                    String queueId = request.getParameter("queue");
+                    if (queueId != null && !queueId.equals("-1")) {
+                        if (!queueId.trim().matches("\\d+")) {
+                            logger.warn("Invalid queue ID format — skipping queue link");
+                            request.getSession().removeAttribute("preferredQueue");
+                        } else {
+                            WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                            QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
+                            Integer qid = Integer.parseInt(queueId.trim());
+                            Integer did = Integer.parseInt(doc_no.trim());
+                            queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
+                            request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                        }
+                    }
+                } catch (Exception e) {
+                    // The document is filed and the user is told so. Routing or the audit
+                    // entry failing is an operational problem to chase in the log, not a
+                    // reason to send the clinician back to re-upload a scan that landed.
+                    //
+                    // Note what this trades away deliberately: LogAction.addLog is the
+                    // PHI-access audit entry, so a failure here leaves a filed document whose
+                    // creation is recorded only in this log line. That is the lesser harm --
+                    // the alternative reported a committed document as failed, and the
+                    // re-upload put a second copy of the scan in the patient's chart, which is
+                    // both a clinical hazard and its own audit problem. An ERROR line naming
+                    // the document number is the signal to reconcile from.
+                    logger.error("Document {} was stored but a post-save step failed "
+                            + "(audit/routing/queue); reconcile from this line", doc_no, e);
+                }
+
+                map.put("name", docFile.getName());
+                map.put("size", docFile.length());
+            }
+            }
 
             if (docFile != null) {
                 deleteValidatedUploadTempFile(docFile);
                 docFile = null;
+            }
+        }
+        } finally {
+            if (docFile != null) {
+                deleteValidatedUploadTempFile(docFile);
             }
         }
         writeUploadResponse(map);

@@ -1,0 +1,227 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.prescript.pageUtil;
+
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+import org.apache.struts2.ServletActionContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.MockitoAnnotations;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+/**
+ * Unit tests pinning the per-method privilege split on {@link RxUpdateDrugref2Action}.
+ *
+ * <p>This action used to demand {@code _rx} write for every method, before dispatching. That
+ * gated the read-only {@code verify} status probe -- which TopLinks2.jspf fires on every Rx page
+ * load -- on write, so a read-only prescriber got a SecurityException, an HTML 500 in place of
+ * JSON, and a permanent "Drugref database is unavailable" banner with DrugRef perfectly healthy.
+ *
+ * <p>The fix follows the privilege from the method, which makes the split itself
+ * security-relevant: the risk of getting it wrong is a mutation reachable at read privilege.
+ * These tests assert both directions -- that {@code updateDB} still requires write, and that the
+ * read-only methods no longer do -- and that an absent or unrecognised {@code method} falls to a
+ * read, still behind a privilege check rather than through it.
+ *
+ * @since 2026-08-30
+ */
+@DisplayName("RxUpdateDrugref2Action privilege split")
+@Tag("unit")
+@Tag("rx")
+class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
+
+    private MockedStatic<ServletActionContext> servletActionContextMock;
+    private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private AutoCloseable mocks;
+
+    @Mock
+    private SecurityInfoManager mockSecurityInfoManager;
+
+    @Mock
+    private LoggedInInfo mockLoggedInInfo;
+
+    private MockHttpServletRequest mockRequest;
+    private MockHttpServletResponse mockResponse;
+    private RxUpdateDrugref2Action action;
+
+    @BeforeEach
+    void setUp() {
+        mocks = MockitoAnnotations.openMocks(this);
+        mockRequest = new MockHttpServletRequest();
+        mockRequest.setMethod("POST");
+        mockResponse = new MockHttpServletResponse();
+
+        registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+
+        loggedInInfoMock = mockStatic(LoggedInInfo.class);
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(mockLoggedInInfo);
+
+        servletActionContextMock = mockStatic(ServletActionContext.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
+
+        action = new RxUpdateDrugref2Action();
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (servletActionContextMock != null) {
+            servletActionContextMock.close();
+        }
+        if (loggedInInfoMock != null) {
+            loggedInInfoMock.close();
+        }
+        if (mocks != null) {
+            mocks.close();
+        }
+    }
+
+    /**
+     * Denies every privilege, so execute() always stops at the gate and never touches DrugRef.
+     *
+     * <p>Explicit rather than relying on Mockito's false default: it documents the precondition
+     * these tests depend on, and it fails loudly if the stubbed overload ever stops matching
+     * (SecurityInfoManager has two hasPrivilege overloads).
+     */
+    private void denyAllPrivileges() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), any(), isNull()))
+                .thenReturn(false);
+    }
+
+    @Test
+    @DisplayName("should demand write privilege when method is updateDB")
+    void shouldDemandWrite_whenMethodIsUpdateDb() {
+        denyAllPrivileges();
+        mockRequest.setParameter("method", "updateDB");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_rx)");
+
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "w", null);
+    }
+
+    @Test
+    @DisplayName("should demand only read privilege when method is verify")
+    void shouldDemandOnlyRead_whenMethodIsVerify() {
+        denyAllPrivileges();
+        mockRequest.setParameter("method", "verify");
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+    }
+
+    @Test
+    @DisplayName("should demand only read privilege when method is absent")
+    void shouldDemandOnlyRead_whenMethodIsAbsent() {
+        denyAllPrivileges();
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+    }
+
+    @Test
+    @DisplayName("should reject GET when method is updateDB, before any privilege check")
+    void shouldRejectGet_whenMethodIsUpdateDb() throws Exception {
+        // updateDB rebuilds the DrugRef database. Reachable by GET it is a CSRF target — a link
+        // or an <img src> triggers a full rebuild, and CSRFGuard's token check does not cover
+        // GET. The rejection must come before the privilege check so that no side effect, and
+        // no privilege probe, hangs off the wrong method.
+        mockRequest.setMethod("GET");
+        mockRequest.setParameter("method", "updateDB");
+
+        action.execute();
+
+        assertThat(mockResponse.getStatus())
+                .isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        verifyNoInteractions(mockSecurityInfoManager);
+    }
+
+    @Test
+    @DisplayName("should still allow GET for the read-only status methods")
+    void shouldAllowGet_forReadOnlyMethods() {
+        // The status probe posts today (TopLinks2.jspf), but the read-only methods are
+        // deliberately left reachable by GET: they mutate nothing, and narrowing them would
+        // break any caller that reads status with a plain GET.
+        denyAllPrivileges();
+        mockRequest.setMethod("GET");
+        mockRequest.setParameter("method", "verify");
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+    }
+
+    @Test
+    @DisplayName("should gate a case variant of updateDB at read, not write")
+    void shouldGateCaseVariant_atReadPrivilege() {
+        denyAllPrivileges();
+        // Scope note: this pins the GATE only. Denying every privilege makes execute() throw at
+        // the gate, before the dispatch below it, so this test cannot observe which branch
+        // "UPDATEDB" routes to -- shouldRouteCaseVariant_toAReadOnlyBranch covers that half.
+        mockRequest.setParameter("method", "UPDATEDB");
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+        verifyNoMoreInteractions(mockSecurityInfoManager);
+    }
+
+    @Test
+    @DisplayName("should route a case variant of updateDB to a read-only branch, not the rebuild")
+    void shouldRouteCaseVariant_toAReadOnlyBranch() throws Exception {
+        // The other half, and the one that matters: GRANT read, DENY write, then let execute()
+        // run past the gate and actually dispatch. The gate and the dispatch both derive from
+        // the same `mutating` expression today, but nothing structural forces that -- a refactor
+        // that loosened only the dispatch (equalsIgnoreCase, or an alias) would let a read-only
+        // prescriber trigger a full DrugRef rebuild while every gate assertion stayed green.
+        // Assert on the response body: getLastUpdate answers {"lastUpdate":...}, updateDB
+        // answers {"result":...}.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull()))
+                .thenReturn(false);
+        mockRequest.setParameter("method", "UPDATEDB");
+
+        action.execute();
+
+        assertThat(mockResponse.getContentAsString())
+                .as("a case variant must reach a read-only status branch, never the rebuild")
+                .doesNotContain("\"result\"");
+    }
+}

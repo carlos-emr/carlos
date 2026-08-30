@@ -733,6 +733,69 @@ failure site is the diagnostic record.
 Nothing here is PHI-safe by accident: raising a log level for troubleshooting is fine, but put it
 back, because DEBUG on this application can put request parameters into the log.
 
+### The configured confidentiality statement
+
+`PrivacyStatementAppendingFilter` appends the configured
+`confidentiality_statement.*` to every printable page. The renderer measures
+under print-media emulation, where that paragraph is `display:block`, so it is a
+substantive off-page element and — once `bb5320b3` made decoration opt-in — it
+withheld **every** eForm download on any install with a statement configured.
+It now carries `carlos-print-decoration`, the gate's own opt-in for platform
+boilerplate.
+
+Two consequences worth knowing before reading a report:
+
+- On those installs `Off-page decoration removed: 1` is the **normal** state,
+  and the render is logged as not-strictly-complete on every request. That is
+  expected noise, not a fault.
+- The marker classifies the paragraph, not its contents. If a clinic's
+  configured statement contains an `<img>` — a letterhead or logo — the
+  decoration predicate rejects it and the withhold returns. A statement that
+  must carry an image needs the image marked as decoration too, or the
+  statement reduced to text.
+
+### Diagnosing a withheld render ("Some eForm content could not be loaded")
+
+When the completeness gate withholds a PDF, the operator-facing page reports **counts**:
+
+```
+Failed content resources: 0
+Excluded visible elements: 1
+Off-page decoration removed: 0
+```
+
+`EFormRenderCompletenessReport` is counts and booleans by construction, so that is all it can say.
+It is enough to withhold a document and not enough to fix one — nobody can act on "1 element"
+without knowing which. The identity is available in one place only, because the scan runs inside the
+render browser against a URL the front door cannot reach (`wasForwarded()` rejects any request
+carrying `X-Forwarded-*`, and nginx sets all of them).
+
+Raise the root level to DEBUG for one render:
+
+```
+# The shipped env file has no LOG_VERBOSITY line, so sed alone matches nothing and
+# is a silent no-op -- add the line if absent, otherwise rewrite it in place.
+grep -q '^LOG_VERBOSITY=' /etc/carlos-emr/carlos-emr.env \
+  && sudo sed -i 's/^LOG_VERBOSITY=.*/LOG_VERBOSITY=debug/' /etc/carlos-emr/carlos-emr.env \
+  || echo 'LOG_VERBOSITY=debug' | sudo tee -a /etc/carlos-emr/carlos-emr.env
+sudo carlos-ctl restart
+# reproduce the download, then:
+sudo carlos-ctl logs | grep 'renderer excluded element'
+```
+
+```
+Browser eForm renderer excluded element(s): fdid=5 elements=[DIV#footer.legal h=42px chars=137]
+```
+
+Each entry is `TAG#id.class h=<height>px chars=<n>`. That is deliberately **structure only** — the
+character *count* of the element's text, never the text, because an off-page block is exactly where
+clinical prose ends up and this line goes to the application log. The count is what separates a
+spacer from a paragraph, which is all the diagnosis needs. `renderer decoration element(s)` is the
+same for the advisory bucket, so an author can confirm the right things carry the decoration marker.
+
+**Put `LOG_VERBOSITY` back afterwards.** DEBUG on this application can put request parameters into
+the log.
+
 ## Verification
 
 Three layers, in increasing cost. **All three are required** — the first two are structurally blind

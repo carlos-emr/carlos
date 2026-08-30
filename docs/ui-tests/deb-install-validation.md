@@ -8,8 +8,21 @@ bare Tomcat.
 
 It is the procedure that first surfaced the WAF false positives on note-saving
 and eForm saves, the add-patient validation regression, and the nullable-column
-500s on the consultation surfaces. Last validated end-to-end 2026-08-28 with
-**33/33 scripts passing**.
+500s on the consultation surfaces. Last validated end-to-end 2026-08-29 with
+**37/37 scripts passing** on 2026.09.0~snapshot4.
+
+That 37/37 is also the cautionary tale for this document. A tester found six
+defects on the build that produced it — an eForm editor save 403, an eForm
+download failure, a false "0 error" banner on a successful delete, a DataTables
+warning, a drug search 502, and a document upload 500 — and the suite was green
+through all six, because no script drove those surfaces the way an operator
+does. Two scripts were added for the surfaces nothing covered
+(`drug-search-playwright-checks.js`, `document-upload-playwright-checks.js`) and
+`eform-admin-crud-playwright-checks.js` was extended to save from inside the
+Administration panel rather than only from the standalone editor page. When
+adding a check here, reach the page by clicking the links an operator clicks:
+the eForm editor 403 existed **only** on the panel path, and navigating straight
+to the JSP exercised the one shape that already worked.
 
 ## Scope
 
@@ -250,6 +263,18 @@ Notes on the contract:
   is not HTTPS. It creates its own timestamped probe eForm and deletes only
   that one; a failing run leaves the probe behind on purpose, so clear strays
   with `UPDATE eform SET status=0 WHERE form_name LIKE 'Playwright Admin CRUD %';`.
+- **`error-sanitization-playwright-checks.js` provokes two real 500s on
+  purpose**, and must also run through `:443`. It is the only check that
+  exercises `ResponseSanitizationFilter`'s error-replacement path — every other
+  script drives success paths, so a filter that stopped sanitizing entirely
+  would leave the suite green. While it runs, `journalctl -u carlos-emr` will
+  show `Uncaught exception escaped filter chain` and `Sanitizing ... error
+  response body` at ERROR: that is the check working, not a failure. It creates
+  and deletes nothing (one append-only `OscarLog` audit row from the `/ws`
+  probe). To confirm it can still fail — worth doing after any change to the
+  filter — set `response.sanitization.enabled=false` in
+  `/etc/carlos-emr/carlos.properties`, `carlos-ctl restart`, and re-run: it
+  must FAIL. Restore the property and restart afterwards.
 
 ## 7. Exercise the upgrade path
 

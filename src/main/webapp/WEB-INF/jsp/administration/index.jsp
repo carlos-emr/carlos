@@ -370,9 +370,24 @@
 <script type="text/javascript">
     $(document).ready(function () {
         $("a.contentLink").click(function (e) {
+            var href = $(this).attr("href");
             e.preventDefault();
+            // Only AJAX-load a real URL. Several controls reachable from this
+            // shell borrow .contentLink purely for styling and do their work in
+            // their own onclick (leftNav's caisi entries are
+            // href="javascript:void(0);", and one carries no href at all).
+            // Loading that literal value cannot succeed: jQuery completes with
+            // status 0 / statusText "error" and the handler below paints
+            // "Sorry but there was an error: 0 error" over the page — over the
+            // iframe the element's own handler just installed — while the
+            // control itself worked fine. A missing href reaches .load() as
+            // undefined and throws instead. Same defect, and same fix, as
+            // eform/efmFooter.jspf.
+            if (!href || href === "#" || /^\s*javascript:/i.test(href)) {
+                return;
+            }
             $("#dynamic-content").removeClass("dynamic-iframe-content");
-            $("#dynamic-content").load($(this).attr("href"),
+            $("#dynamic-content").load(href,
                 function (response, status, xhr) {
                     if (status == "error") {
                         var msg = "Sorry but there was an error: ";
@@ -401,18 +416,31 @@
             if (thisForm.valid != null && !thisForm.valid()) {
                 return false;
             }
-            // gather the form data
-            let data = $(this).serialize();
-            // post data (CSRFGuard 4.5 auto-injects CSRF token into XHR headers)
-            $.ajax({
+            // A multipart form must go out as FormData: $(form).serialize()
+            // silently DROPS file inputs, so hijacking a multipart form with a
+            // serialized body posted it without its file — the eForm import
+            // panel, for one, always arrived fileless inside this shell while
+            // the same form worked opened standalone. (This is also why the
+            // eForm editor's save changes encoding depending on how it was
+            // reached; the WAF exclusions cover both shapes.)
+            let isMultipart = (thisForm.attr('enctype') || '').toLowerCase() === 'multipart/form-data';
+            let ajaxOptions = {
                 url: thisForm.attr('action'),
                 type: thisForm.attr('method'),
-                data: data,
                 success: function (returnData) {
                     // insert returned html
                     $('#' + divId).html(returnData)
                 }
-            });
+            };
+            if (isMultipart) {
+                ajaxOptions.data = new FormData(this);
+                ajaxOptions.processData = false;
+                ajaxOptions.contentType = false;
+            } else {
+                // gather the form data (CSRFGuard 4.5 auto-injects CSRF token into XHR headers)
+                ajaxOptions.data = $(this).serialize();
+            }
+            $.ajax(ajaxOptions);
 
             return false; // stops browser from doing default submit process
         }));

@@ -250,6 +250,27 @@ case "$1" in
         # waf.log land beside the container's.
         ln -sfn /var/log/carlos-emr/tomcat "${STATE}/catalina/logs"
 
+        # The context descriptor is a conffile, so on a host where the operator
+        # edited it dpkg keeps THEIR copy and any attribute we add later never
+        # arrives. suspendWrappedResponseAfterForward="false" is not a tuning
+        # knob: with Tomcat 11's "true" default, finish() suspends the response
+        # when a forward returns and the forwarded body is discarded, so every
+        # JSP-to-JSP <jsp:forward> answers 200 with an EMPTY body and a forward
+        # on a 4xx answers a raw 500. Both fail silently -- nothing is logged --
+        # which is exactly why this has to be checked out loud here rather than
+        # left to be rediscovered from a bug report.
+        CARLOS_CTX="${CONF_DIR}/tomcat/Catalina/localhost/carlos.xml"
+        if [ -f "${CARLOS_CTX}" ] \
+            && ! grep -q 'suspendWrappedResponseAfterForward="false"' "${CARLOS_CTX}"; then
+            echo "carlos-emr: WARNING: ${CARLOS_CTX} does not set" >&2
+            echo "carlos-emr: WARNING: suspendWrappedResponseAfterForward=\"false\". This is usually a kept" >&2
+            echo "carlos-emr: WARNING: local edit of the conffile from before that attribute shipped." >&2
+            echo "carlos-emr: WARNING: Without it, pages that forward come back EMPTY and error pages that" >&2
+            echo "carlos-emr: WARNING: forward come back as HTTP 500, with nothing in the logs. Add the" >&2
+            echo "carlos-emr: WARNING: attribute to the <Context> element (compare against" >&2
+            echo "carlos-emr: WARNING: ${CARLOS_CTX}.dpkg-dist) and restart: sudo carlos-ctl restart" >&2
+        fi
+
         # --- configuration files --------------------------------------------
         # Recorded BEFORE install_once lays down the skeleton: the province
         # guard below must distinguish "fresh install" from "operator already
