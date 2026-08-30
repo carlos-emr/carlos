@@ -108,6 +108,11 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             }
         }
 
+        // try/finally so the validated temp upload is deleted on EVERY branch. The
+        // per-branch cleanups below null docFile on the success paths; this guards the
+        // error paths (invalid filename, non-PDF, zero-length, and the pendingDocs
+        // filename-rejection early return) that previously leaked the temp file.
+        try {
         if (docFile != null && destination != null && destination.equals("incomingDocs")) {
             String fileName = this.filedataFileName;
             String sanitizedFileName = sanitizeFileNameForIncomingDocs(fileName);
@@ -241,6 +246,11 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             if (docFile != null) {
                 deleteValidatedUploadTempFile(docFile);
                 docFile = null;
+            }
+        }
+        } finally {
+            if (docFile != null) {
+                deleteValidatedUploadTempFile(docFile);
             }
         }
         writeUploadResponse(map);

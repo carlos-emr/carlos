@@ -1,15 +1,12 @@
 carlos-emr (2026.09.0~snapshot5) resolute; urgency=medium
 
-  * eForm HTML editor saves work from the Administration panel. The editor's
-    save reaches the server in two different encodings: opened standalone it
-    posts the multipart body it declares, but loaded into the admin panel's
-    #dynamic-content the shared registerFormSubmit() helper re-serialises it as
-    application/x-www-form-urlencoded. ModSecurity populates REQUEST_BODY for
-    the urlencoded shape only, and exclusion 1050 unhooked ARGS:formHtml alone,
-    so the 921110/944xxx families still scored the whole eForm document and
-    403'd every save made the way an administrator actually makes it. 1050 now
-    covers REQUEST_BODY on that one route as well.
-  * eForm authoring exclusions (1050, 1060, 1070) also unhook attack-lfi and
+  * eForm HTML editor saves work from the Administration panel. The panel's
+    shared registerFormSubmit() helper posted the save with $(form).serialize(),
+    which both re-encoded the multipart form as application/x-www-form-urlencoded
+    AND silently dropped any file input; it now posts multipart forms as
+    FormData, so the save arrives multipart like the standalone editor (and file
+    uploads through the panel, e.g. eForm import, now carry their file).
+  * eForm authoring exclusions (1050, 1060, 1070) unhook attack-lfi and
     attack-rfi on their own argument. Rule 930110 is CRITICAL at paranoia
     level 1 and matches a bare "../" in ARGS, which any eForm carrying a
     parent-relative image or stylesheet path contains by construction.

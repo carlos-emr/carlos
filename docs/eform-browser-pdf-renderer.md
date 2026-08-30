@@ -752,7 +752,11 @@ carrying `X-Forwarded-*`, and nginx sets all of them).
 Raise the root level to DEBUG for one render:
 
 ```
-sudo sed -i 's/^LOG_VERBOSITY=.*/LOG_VERBOSITY=debug/' /etc/carlos-emr/carlos-emr.env   || echo 'LOG_VERBOSITY=debug' | sudo tee -a /etc/carlos-emr/carlos-emr.env
+# The shipped env file has no LOG_VERBOSITY line, so sed alone matches nothing and
+# is a silent no-op -- add the line if absent, otherwise rewrite it in place.
+grep -q '^LOG_VERBOSITY=' /etc/carlos-emr/carlos-emr.env \
+  && sudo sed -i 's/^LOG_VERBOSITY=.*/LOG_VERBOSITY=debug/' /etc/carlos-emr/carlos-emr.env \
+  || echo 'LOG_VERBOSITY=debug' | sudo tee -a /etc/carlos-emr/carlos-emr.env
 sudo carlos-ctl restart
 # reproduce the download, then:
 sudo carlos-ctl logs | grep 'renderer excluded element'

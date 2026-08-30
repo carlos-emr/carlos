@@ -425,7 +425,12 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             File writtenFile;
             try {
                 writtenFile = writeValidatedUpload(validatedDocFile, fileName2, false);
-            } catch (IOException e) {
+            } catch (IOException | RuntimeException e) {
+                // RuntimeException too, not just IOException: writeValidatedUpload now rethrows
+                // RuntimeException (e.g. a SecurityException from the path validator) unwrapped
+                // rather than laundering it into IOException, so without this the form path would
+                // land in the trailing catch(Exception) with an EMPTY errors map and render
+                // failAdd with no message. This method converts every failure to failAdd anyway.
                 errors.put("uploaderror", "dms.error.uploadError");
                 addActionError(getText("dms.error.uploadError"));
                 throw e;
@@ -634,7 +639,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                 File writtenFile;
                 try {
                     writtenFile = writeValidatedUpload(uploadForUpdate, fileName);
-                } catch (IOException e) {
+                } catch (IOException | RuntimeException e) {
+                    // See addDocument: RuntimeException must set the error before it reaches the
+                    // trailing catch(Exception), or the edit form re-renders with no message.
                     errors.put("uploaderror", "dms.error.uploadError");
                     addActionError(getText("dms.error.uploadError"));
                     throw e;

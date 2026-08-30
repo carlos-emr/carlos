@@ -267,12 +267,12 @@
         // #dynamic-content. Opened standalone the bare call threw a
         // ReferenceError that also aborted the rest of this script block.
         //
-        // Note what the two paths mean for the request: inside the panel the
-        // helper re-serialises this form as application/x-www-form-urlencoded,
-        // while standalone the browser sends the multipart body the form
-        // declares. WAF exclusion 1050 has to cover BOTH, which is why it
-        // unhooks REQUEST_BODY as well as ARGS:formHtml -- see the comment on
-        // that rule in REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf.
+        // Both the panel and standalone paths post this form multipart:
+        // registerFormSubmit sends multipart forms as FormData (a plain
+        // serialize() dropped file inputs), and standalone the browser sends
+        // the multipart body the form declares. WAF exclusion 1050 covers that
+        // shape via its ARGS:formHtml removal -- see that rule's comment in
+        // REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf.
         if (typeof registerFormSubmit === 'function') {
             registerFormSubmit('editform', 'dynamic-content');
         }
