@@ -33,10 +33,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
       `ViewDocumentUploader` popup is rendered. Both branches render the same
       i18n label.
 
-      Note the property is NOT "default true": the second argument to
-      getBooleanProperty is the value compared against, not a fallback, and an
-      unset property returns false. A stock install therefore serves the modern
-      uploader here. The point of reading it through a scriptlet rather than EL
+      Note the property is NOT "default true". Passing "true" as the second
+      argument routes getBooleanProperty through isPropertyActive, which returns
+      false for an unset key (and treats yes/on as true as well) -- the argument
+      is not a fallback. A stock install therefore serves the modern uploader
+      here. The point of reading it through a scriptlet rather than EL
       is that `<%@ page import %>` exposes CarlosProperties to scriptlets only,
       so the EL form silently evaluated false whatever the property said — this
       entry point and oscarMDS/Index.jsp could disagree on one install.

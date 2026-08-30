@@ -277,12 +277,24 @@
             registerFormSubmit('editform', 'dynamic-content');
         }
 
-        $(document).ready(function () {
-
-            $("html, body").animate({scrollTop: 0}, "slow");
-            return false;
-
-        });
+        // Scroll to top, without jQuery. This page is served standalone as well
+        // as injected into the Administration panel, and only the panel's shell
+        // loads jQuery -- so $(document).ready here threw "ReferenceError: $ is
+        // not defined" on every standalone open, aborting the rest of this
+        // block. The behaviour is cosmetic, so it does not justify pulling
+        // jQuery onto the page (which would then load twice inside the panel).
+        // Registering for DOMContentLoaded alone would be a no-op on the
+        // panel-injected path: .load()ed content always runs after that event
+        // has already fired, and a listener added afterwards never fires.
+        // jQuery's .ready() handled that for us; vanilla needs the readyState
+        // check.
+        (function scrollToTop() {
+            if (document.readyState === 'loading') {
+                window.addEventListener('DOMContentLoaded', scrollToTop);
+                return;
+            }
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        })();
     </script>
 
 

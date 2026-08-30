@@ -105,19 +105,14 @@
         List<String> importErrors = (List<String>) request.getAttribute("importErrors");
         if (importErrors != null && importErrors.size() > 0) {
     %>
+    <%-- The actionErrors block that used to be nested here was unreachable in
+         practice and redundant now: it sat inside this importErrors guard, and
+         ManageEForm2Action never calls addActionError -- it only sets the
+         importErrors attribute. Multipart rejections are reported by the
+         unconditional block above, which does not depend on the action having
+         run. Leaving both would have rendered the same list twice the day an
+         action error was added alongside importErrors. --%>
     <div class="row">
-        <% 
-    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
-    if (actionErrors != null && !actionErrors.isEmpty()) {
-%>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><carlos:encode value='<%= error %>' context="html"/></li>
-            <% } %>
-        </ul>
-    </div>
-<% } %>
         <ul>
             <%for (String importError : importErrors) {%>
             <li class="text-danger"><carlos:encode value='<%= importError %>' context="html"/>

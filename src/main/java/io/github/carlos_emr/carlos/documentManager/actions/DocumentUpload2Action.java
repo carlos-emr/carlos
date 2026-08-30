@@ -255,7 +255,16 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     // The document is filed and the user is told so. Routing or the audit
                     // entry failing is an operational problem to chase in the log, not a
                     // reason to send the clinician back to re-upload a scan that landed.
-                    logger.error("Document {} was stored but a post-save step failed", doc_no, e);
+                    //
+                    // Note what this trades away deliberately: LogAction.addLog is the
+                    // PHI-access audit entry, so a failure here leaves a filed document whose
+                    // creation is recorded only in this log line. That is the lesser harm --
+                    // the alternative reported a committed document as failed, and the
+                    // re-upload put a second copy of the scan in the patient's chart, which is
+                    // both a clinical hazard and its own audit problem. An ERROR line naming
+                    // the document number is the signal to reconcile from.
+                    logger.error("Document {} was stored but a post-save step failed "
+                            + "(audit/routing/queue); reconcile from this line", doc_no, e);
                 }
 
                 map.put("name", docFile.getName());

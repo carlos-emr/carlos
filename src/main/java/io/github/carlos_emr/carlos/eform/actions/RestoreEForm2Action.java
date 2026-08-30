@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -49,13 +50,30 @@ public class RestoreEForm2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    public String execute() {
+    public String execute() throws java.io.IOException {
+
+        // Restoring an eForm puts it back in the live library, so it is a mutation and must not
+        // be reachable by GET. CSRFGuard validates the token on the POST body / XHR header and
+        // does not cover GET, so without this an <img src=".../eform/restoreEForm?fid=42"> on any
+        // page an eForm administrator loads silently restores that form. Giving the JSP its CSRF
+        // token was only half the fix: the token protects the intended path, this closes the one
+        // that bypasses it. The delete sibling (DelEForm2Action) has carried this guard since it
+        // was fixed; restore was missed.
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
         String fid = request.getParameter("fid");
+        if (StringUtils.isBlank(fid)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or invalid fid");
+            return NONE;
+        }
+
         EFormUtil.restoreEForm(fid);
         return SUCCESS;
     }

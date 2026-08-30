@@ -48,6 +48,15 @@
 
 
 <script>
+// Everything below is jQuery-based, and five of the seven eForm pages that
+// include this footer load no jQuery of their own -- they work only because the
+// Administration shell that injects them provides one. Opened standalone the
+// bare $(document).ready threw "ReferenceError: $ is not defined" before any of
+// it was wired, and because that throw happened in the INCLUDED footer it also
+// pre-empted each page's own scripts. The controls this file enhances all carry
+// their own inline onclick, so degrading quietly is correct; the alternative,
+// pulling jQuery onto every page, would load it twice inside the panel.
+if (window.jQuery) {
 $(document).ready(function() {
     // Prevent re-initialization
     if (window.confirmModalInitialized) { return; }
@@ -117,4 +126,5 @@ $(document).ready(function() {
         });
     });
 });
+}
 </script>

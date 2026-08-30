@@ -1058,7 +1058,11 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     private void sendHtml5UploadError(ResourceBundle props, int statusCode, String errorKey) throws IOException {
         String message = props.getString(errorKey);
-        response.setHeader("oscar_error", message);
+        // Servlet response headers are ISO-8859-1, so a localized message reaches the browser
+        // mangled the moment it leaves Latin-1 -- the Polish and Portuguese bundles do. Strip the
+        // header copy to printable ASCII (which also removes CR/LF, so nothing in the message can
+        // inject a header) and leave the body, which the client shows, intact.
+        response.setHeader("oscar_error", message.replaceAll("[^\\x20-\\x7E]", "?"));
         response.sendError(statusCode, message);
     }
 

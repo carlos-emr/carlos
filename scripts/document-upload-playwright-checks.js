@@ -69,6 +69,7 @@ const path = require('path');
 const {
   assert,
   assertNoPageErrors,
+  assertNotErrorPage,
   buildFailureDetails,
   createRecorder,
   getLaunchOptions,
@@ -284,7 +285,10 @@ function documentRowCount() {
     ]);
     assert(edocsResponse.status() < 400, `eDocs upload POST returned HTTP ${edocsResponse.status()}`);
     await edocsPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    const edocsBody = (await edocsPage.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ');
+    // No .catch(() => '') here: this feeds a NEGATIVE assertion, so swallowing a failed
+    // read into '' would satisfy it vacuously -- the exact hollowness pattern removed
+    // from the drug-search banner checks.
+    const edocsBody = (await edocsPage.locator('body').innerText()).replace(/\s+/g, ' ');
     assert(
       !/CARLOS Error|unexpected error/i.test(edocsBody),
       `eDocs upload landed on an error page after saving: ${edocsBody.slice(0, 160)}`,
@@ -325,6 +329,39 @@ function documentRowCount() {
       'Uploading an EMPTY file from eDocs returned a raw 500 — the multipart rejection must land '
         + 'back on the documents page (the "input" result), not on errorpage.jsp.',
     );
+
+    // Not-a-500 is only half of it. The first version of that "input" result forwarded to the
+    // documents page WITHOUT the docerrors attribute that page keys its alert off, so the
+    // rejection rendered a clean document list and was indistinguishable from a page refresh --
+    // a silent drop, which for a clinician filing a scan is worse than the 500 it replaced.
+    // Assert the user is actually told, and that no document row was created for the empty file.
+    await emptyPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    // Landing on errorpage.jsp is a failure, not a pass. That page renders the
+    // literal text "CARLOS Error: ..." which would satisfy any regex looking for
+    // the word "error", so the scenario has to rule it out explicitly -- the
+    // whole point is that the rejection lands back on the documents page.
+    await assertNotErrorPage(emptyPage, 'the empty-file eDocs upload');
+    // Scope the assertion to the alert container the page actually uses for
+    // upload errors. Matching anywhere in the body is satisfied by any document
+    // in the list whose description happens to contain "error" -- including the
+    // "edocs empty <stamp>" fixtures a failing run leaves behind -- at which
+    // point this stops seeing the silent drop it exists to catch.
+    const emptyAlert = emptyPage.locator('#addDocDiv .alert-danger, #docAlertContainer, .alert-danger');
+    const emptyAlertText = (await emptyAlert.first().innerText().catch(() => '')).trim();
+    assert(
+      (await emptyAlert.count()) > 0 && emptyAlertText.length > 0,
+      'The empty-file rejection produced no visible error alert. The upload did not happen and '
+        + 'the user was not told: the "input" result must carry the error (docerrors), not just '
+        + 'avoid the 500. A clean documents list here is the silent-drop defect.',
+    );
+    const emptyRows = sql(
+      `SELECT COUNT(*) FROM document WHERE docdesc = 'edocs empty ${stamp}'`,
+    ).trim();
+    assert(
+      emptyRows === '0',
+      `A rejected empty upload still created ${emptyRows} document row(s).`,
+    );
+
     await emptyPage.close();
     await edocsPage.close();
 

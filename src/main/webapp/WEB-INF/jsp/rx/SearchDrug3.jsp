@@ -1919,14 +1919,17 @@ function popForm2(scriptId){
 						}
 						return;
 					}
-					if (typeof text === 'undefined') {
-						return;
-					}
 					if (!alertNode) {
 						alertNode = document.createElement('div');
 						alertNode.id = 'drugSearchAlert';
 						alertNode.style.color = 'red';
 						alertNode.style.fontWeight = 'bold';
+						// #statusDisplay is a right-aligned flex ROW holding the
+						// database/version/date items. Without a full-width basis the
+						// message becomes a fourth column and squeezes them; this makes
+						// it wrap onto its own line and read as an alert.
+						alertNode.style.flexBasis = '100%';
+						alertNode.style.textAlign = 'right';
 						panel.appendChild(alertNode);
 					}
 					alertNode.textContent = text;
@@ -1958,6 +1961,10 @@ function popForm2(scriptId){
 						});
 
 						if (foundInCache) {
+							// A cache hit is a successful search too, so clear any
+							// alert left by an earlier failure -- otherwise it stays
+							// on screen while results are being returned normally.
+							setDrugSearchAlert(null);
 							return;
 						}
 

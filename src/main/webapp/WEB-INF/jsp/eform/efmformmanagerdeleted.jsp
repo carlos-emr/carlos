@@ -200,9 +200,16 @@
          and taking the footer's dropdown re-init down with it. The viewEform
          anchors need no binding: they carry their own onclick ... return false. --%>
     <script>
-        $('#tblDeletedEforms').DataTable({
-            "order": [[0, "asc"]]
-        });
+        // Guarded because this page loads no jQuery of its own: it works only
+        // because the Administration shell that injects it provides one. Opened
+        // standalone the bare call threw "ReferenceError: $ is not defined".
+        // Sorting is an enhancement, so degrade to the plain table rather than
+        // throwing -- the rows, the links and Restore all work without it.
+        if (window.jQuery && jQuery.fn && jQuery.fn.DataTable) {
+            $('#tblDeletedEforms').DataTable({
+                "order": [[0, "asc"]]
+            });
+        }
     </script>
     </body>
 </html>

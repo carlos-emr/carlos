@@ -38,6 +38,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -108,7 +109,13 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    /** Denies every privilege, so execute() always stops at the gate and never touches DrugRef. */
+    /**
+     * Denies every privilege, so execute() always stops at the gate and never touches DrugRef.
+     *
+     * <p>Explicit rather than relying on Mockito's false default: it documents the precondition
+     * these tests depend on, and it fails loudly if the stubbed overload ever stops matching
+     * (SecurityInfoManager has two hasPrivilege overloads).
+     */
     private void denyAllPrivileges() {
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), any(), isNull()))
                 .thenReturn(false);
@@ -168,7 +175,9 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should still allow GET for the read-only status methods")
     void shouldAllowGet_forReadOnlyMethods() {
-        // The status probe is a GET on every Rx page load, so the guard above must not catch it.
+        // The status probe posts today (TopLinks2.jspf), but the read-only methods are
+        // deliberately left reachable by GET: they mutate nothing, and narrowing them would
+        // break any caller that reads status with a plain GET.
         denyAllPrivileges();
         mockRequest.setMethod("GET");
         mockRequest.setParameter("method", "verify");
@@ -179,18 +188,40 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should not treat a case variant of updateDB as the mutating method")
-    void shouldNotTreatCaseVariant_asMutatingMethod() {
+    @DisplayName("should gate a case variant of updateDB at read, not write")
+    void shouldGateCaseVariant_atReadPrivilege() {
         denyAllPrivileges();
-        // The dispatch below is String.equals, so a case variant must NOT select updateDB.
-        // The privilege decision and the dispatch read the same expression, so this asserts
-        // they cannot diverge: whatever is not exactly "updateDB" is gated at read AND routed
-        // to a read-only branch. A future refactor that lowered the gate to "r" while leaving a
-        // looser dispatch would reach the mutation at read privilege, and this fails.
+        // Scope note: this pins the GATE only. Denying every privilege makes execute() throw at
+        // the gate, before the dispatch below it, so this test cannot observe which branch
+        // "UPDATEDB" routes to -- shouldRouteCaseVariant_toAReadOnlyBranch covers that half.
         mockRequest.setParameter("method", "UPDATEDB");
 
         assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
 
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+        verifyNoMoreInteractions(mockSecurityInfoManager);
+    }
+
+    @Test
+    @DisplayName("should route a case variant of updateDB to a read-only branch, not the rebuild")
+    void shouldRouteCaseVariant_toAReadOnlyBranch() throws Exception {
+        // The other half, and the one that matters: GRANT read, DENY write, then let execute()
+        // run past the gate and actually dispatch. The gate and the dispatch both derive from
+        // the same `mutating` expression today, but nothing structural forces that -- a refactor
+        // that loosened only the dispatch (equalsIgnoreCase, or an alias) would let a read-only
+        // prescriber trigger a full DrugRef rebuild while every gate assertion stayed green.
+        // Assert on the response body: getLastUpdate answers {"lastUpdate":...}, updateDB
+        // answers {"result":...}.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull()))
+                .thenReturn(false);
+        mockRequest.setParameter("method", "UPDATEDB");
+
+        action.execute();
+
+        assertThat(mockResponse.getContentAsString())
+                .as("a case variant must reach a read-only status branch, never the rebuild")
+                .doesNotContain("\"result\"");
     }
 }

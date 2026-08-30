@@ -1,4 +1,4 @@
-carlos-emr (2026.09.0~snapshot6) resolute; urgency=medium
+carlos-emr (2026.09.0~snapshot8) resolute; urgency=medium
 
   * Upload rejections are reported instead of vanishing. The "input" result
     added in ~snapshot5 forwarded the eDocs add-document form to the documents
@@ -25,6 +25,33 @@ carlos-emr (2026.09.0~snapshot6) resolute; urgency=medium
   * A document stored successfully is no longer reported as failed when a
     later step (audit log, inbox routing, queue link) fails, which sent users
     to re-upload and put a second copy of the scan in the chart.
+  * The standalone eForm editor and the deleted-eForms list no longer throw
+    "ReferenceError: $ is not defined". Neither page loads jQuery; both worked
+    only because the Administration shell that injects them provides one.
+  * The DrugRef rebuild (updateDrugrefDB, method=updateDB) rejects GET. It is a
+    mutation and CSRFGuard does not validate tokens on GET, so a link or an
+    <img src> could trigger a full database rebuild.
+  * The legacy uploader treats XHR status 0 as a failure. Status 0 means no HTTP
+    response was produced at all, so an aborted or dropped upload was being
+    reported to the user as "Upload complete".
+  * Restoring an eForm rejects GET. The action performed the restore on any
+    request method, so an <img src=".../eform/restoreEForm?fid=N"> on a page an
+    eForm administrator loaded restored that form with no CSRF token — giving
+    the page its token protected the intended path but not the bypass.
+  * Authorization failures answer 403 instead of 200. securityError.jsp set no
+    status, so the legacy uploader (which treats anything under 400 as done)
+    reported "Upload complete" for an upload the privilege check had refused.
+  * A rejected replacement file on the eDocs EDIT form no longer dumps the whole
+    documents page into the 350x500 edit popup with the ADD panel open — which
+    invited the clinician to upload again and put a second copy in the chart.
+  * Upload rejections are classified by the multipart layer's own marker rather
+    than by searching its message for the word "empty" — that message embeds the
+    submitted filename, so a file named "empty-form.pdf" rejected for its size
+    was reported as zero-length.
+  * Eight more upload pages report multipart rejections instead of re-rendering
+    their form with no explanation.
+  * The eForm footer no longer throws on the five eForm pages that load no
+    jQuery of their own, which previously pre-empted each page's own scripts.
   * WAF: the attack-rfi exclusions are withdrawn. Those CRS rules are anchored
     at the start of the argument and cannot match an eForm document, so the
     exclusion only widened the rule surface. attack-lfi, which does fire, stays.

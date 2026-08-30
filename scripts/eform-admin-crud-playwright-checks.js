@@ -75,6 +75,7 @@ const config = {
 
 const stamp = Date.now();
 const formName = `Playwright Admin CRUD ${stamp}`;
+let restoredForm = false;
 
 // Deliberately shaped like a real eForm: a full HTML document with <meta>,
 // <style>, <script> and an onload handler. That is exactly the content CRS
@@ -530,6 +531,74 @@ async function libraryRow(page, name) {
       await deletedPage.locator('#dynamic-content #tblDeletedEforms thead th').count() === 6,
       'The deleted-eForms table does not expose six header cells inside a thead.',
     );
+
+    // Restore the eForm this run deleted, through the actual Restore control.
+    //
+    // Restore was dead: it builds its POST form after page load, so CSRFGuard's
+    // injector -- which runs off a MutationObserver microtask -- never reached
+    // it, and CarlosCsrfGuardFilter answered 403 on every attempt. Nothing
+    // exercised the control, so the failure was invisible. Drive it and assert
+    // the POST is not rejected AND the form leaves the deleted list, which is
+    // the only proof the restore actually took effect.
+    // Show every row first. DataTables paginates at 10, detaching off-page rows
+    // from the DOM entirely, and each FAILED run of this check leaves another
+    // "Playwright Admin CRUD <epoch>" on this list. Sorted ascending by name the
+    // newest stamp drifts onto page 2, at which point a row-presence lookup
+    // silently finds nothing forever after.
+    await deletedPage.evaluate(() => {
+      const table = window.jQuery && window.jQuery.fn && window.jQuery.fn.DataTable
+        && window.jQuery('#tblDeletedEforms');
+      if (table && table.length && window.jQuery.fn.DataTable.isDataTable(table)) {
+        table.DataTable().page.len(-1).draw();
+      }
+    }).catch(() => {});
+
+    const restoreRow = deletedPage.locator(
+      `#dynamic-content #tblDeletedEforms tbody tr:has-text("${formName}")`,
+    );
+    // Unconditional. Guarding this with "if the row is there" is what turns a
+    // regression into a silent skip: a delete that hard-deleted instead of
+    // setting status='D', or a deleted-list query that returned nothing, would
+    // remove the row and the whole Restore step with it, and the run would still
+    // print PASS. The row MUST be here -- this check deleted that form itself,
+    // moments ago.
+    assert(
+      await restoreRow.count() === 1,
+      `The form this run just deleted ("${formName}") is not on the deleted-eForms list. `
+        + 'Delete should soft-delete (status=\'D\') so the form can be restored; if the list is '
+        + 'empty or the row is missing, the soft-delete/restore contract is broken.',
+    );
+
+    const [restoreResponse] = await Promise.all([
+      deletedPage.waitForResponse(
+        (r) => r.url().includes('/eform/restoreEForm') && r.request().method() === 'POST',
+        { timeout: 60000 },
+      ),
+      restoreRow.locator('a.contentLink').first().click(),
+    ]);
+    assertNotBlocked(restoreResponse, 'Restoring a deleted eForm');
+    assert(
+      restoreResponse.status() < 400,
+      `Restore POST returned HTTP ${restoreResponse.status()}. A 403 here is the CSRF `
+        + 'rejection that made this control silently do nothing.',
+    );
+
+    // Restore submits a real form, so the assertion below runs against a NEW
+    // document. Wait for that document's table to exist before counting:
+    // "the row is gone" is a zero-count assertion, so every timing failure --
+    // a blank page, a mid-navigation read, a 404 on the forward -- would
+    // otherwise satisfy it and report success.
+    await deletedPage.waitForURL(/efmformmanagerdeleted/, { timeout: 30000 }).catch(() => {});
+    await deletedPage.locator('#tblDeletedEforms').waitFor({ state: 'visible', timeout: 30000 });
+    const stillDeleted = await deletedPage
+      .locator(`#tblDeletedEforms tbody tr:has-text("${formName}")`).count();
+    assert(
+      stillDeleted === 0,
+      `"${formName}" is still on the deleted-eForms list after Restore, so the restore did `
+        + 'not take effect even though the POST was accepted.',
+    );
+    restoredForm = true;
+
     await deletedPage.close();
 
     await managerPage.close();
@@ -545,7 +614,8 @@ async function libraryRow(page, name) {
 
     console.log(
       `PASS eForm admin create/edit/delete round trip (fid ${fid}): edit persisted, `
-      + 'delete removed the form and returned to the library',
+      + 'delete removed the form and returned to the library'
+      + (restoredForm ? ', and Restore put it back' : ''),
     );
   } catch (error) {
     console.error('FAIL eForm admin CRUD Playwright check');
