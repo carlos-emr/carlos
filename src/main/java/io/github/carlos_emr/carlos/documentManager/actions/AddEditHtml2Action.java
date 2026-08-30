@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -79,7 +80,7 @@ public class AddEditHtml2Action extends ActionSupport {
         if ((this.getDocDesc().length() == 0) || (this.getDocDesc().equals("Enter Title"))) {
             errors.put("descmissing", "dms.error.descriptionInvalid");
             request.setAttribute("linkhtmlerrors", errors);
-            request.setAttribute("completedForm", "");
+            request.setAttribute("completedForm", submittedForm());
             request.setAttribute("function", request.getParameter("function"));
             request.setAttribute("functionid", request.getParameter("functionid"));
             request.setAttribute("editDocumentNo", this.getMode());
@@ -88,7 +89,7 @@ public class AddEditHtml2Action extends ActionSupport {
         if (this.getDocType().length() == 0) {
             errors.put("typemissing", "dms.error.typeMissing");
             request.setAttribute("linkhtmlerrors", errors);
-            request.setAttribute("completedForm", "");
+            request.setAttribute("completedForm", submittedForm());
             request.setAttribute("function", request.getParameter("function"));
             request.setAttribute("functionid", request.getParameter("functionid"));
             request.setAttribute("editDocumentNo", this.getMode());
@@ -97,7 +98,7 @@ public class AddEditHtml2Action extends ActionSupport {
         if (this.getHtml().length() == 0) {
             errors.put("urlmissing", "dms.error.htmlMissing");
             request.setAttribute("linkhtmlerrors", errors);
-            request.setAttribute("completedForm", "");
+            request.setAttribute("completedForm", submittedForm());
             request.setAttribute("function", request.getParameter("function"));
             request.setAttribute("functionid", request.getParameter("functionid"));
 
@@ -220,6 +221,26 @@ public class AddEditHtml2Action extends ActionSupport {
     @StrutsParameter
     public void setFunctionId(String functionId) {
         this.functionId = functionId;
+    }
+
+
+    /**
+     * The form bean addDocument.jsp re-renders a failed submission from.
+     *
+     * <p>Every validation-failure branch below used to put the empty STRING under this attribute,
+     * and the JSP casts it to {@link AddEditDocument2Form} — so a user who left the description,
+     * the type or the URL blank got a ClassCastException and a 500 instead of the field message
+     * the branch had just built. Populating it from the submitted values also means their typing
+     * survives the round trip rather than being silently cleared.</p>
+     */
+    private AddEditDocument2Form submittedForm() {
+        AddEditDocument2Form form = new AddEditDocument2Form();
+        form.setFunction(this.getFunction());
+        form.setFunctionId(this.getFunctionId());
+        form.setDocType(this.getDocType());
+        form.setDocDesc(this.getDocDesc());
+        form.setHtml(this.getHtml());
+        return form;
     }
 
     /**

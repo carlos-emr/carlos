@@ -87,7 +87,7 @@ const config = {
 const UNUSED_FID = '999999999';
 
 (async () => {
-  if (!config.baseUrl.startsWith('https://')) {
+  if (config.baseUrl.protocol !== 'https:') {
     console.warn(
       'WARN: BASE_URL is not HTTPS. These assertions are about what the packaged front door '
       + 'refuses, so run this through :443 to keep that coverage.',
@@ -122,7 +122,7 @@ const UNUSED_FID = '999999999';
       },
     ];
     for (const probe of mutatingGets) {
-      const response = await page.request.get(`${config.baseUrl}${probe.path}`, {
+      const response = await page.request.get(`${config.baseUrl.href}${probe.path}`, {
         failOnStatusCode: false,
         maxRedirects: 0,
       });
@@ -136,7 +136,7 @@ const UNUSED_FID = '999999999';
 
     // --- 3: the read-only status probe must STILL answer a GET ------------------
     const statusProbe = await page.request.get(
-      `${config.baseUrl}/rx/updateDrugrefDB?method=verify`,
+      `${config.baseUrl.href}/rx/updateDrugrefDB?method=verify`,
       { failOnStatusCode: false, maxRedirects: 0 },
     );
     assert(

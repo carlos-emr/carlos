@@ -137,7 +137,16 @@
             <result name="success">/eform/efmimagemanager</result>
         </action>
         <action name="eform/restoreEForm" class="io.github.carlos_emr.carlos.eform.actions.RestoreEForm2Action">
-            <result name="success">/eform/efmformmanagerdeleted</result>
+            <!-- REDIRECT, not a forward, for exactly the reason delEForm above is:
+                 a forward keeps the POST method, and the deleted-list gate
+                 (ViewEFormPage2Action) permits POST only for efmformmanageredit,
+                 so a SUCCESSFUL restore landed the operator on a 405 instead of
+                 the refreshed list. Delete was fixed for this and restore was
+                 not -- it went unnoticed because nothing drove the control, which
+                 was itself rejected by CSRFGuard and so never reached the result.
+                 A redirect also makes this a proper POST/redirect/GET, so a
+                 browser refresh cannot re-submit the restore. -->
+            <result name="success" type="redirect">/eform/efmformmanagerdeleted</result>
         </action>
         <action name="eform/addGroup" class="io.github.carlos_emr.carlos.eform.actions.AddGroup2Action">
             <result name="success">/eform/efmmanageformgroups</result>

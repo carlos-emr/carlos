@@ -117,6 +117,22 @@ function sql(query) {
   ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 }).trim();
 }
 
+// Remove the document rows this run created, by its unique stamp only.
+function cleanupProbeDocuments() {
+  try {
+    const ids = sql(
+      `SELECT document_no FROM document WHERE docfilename LIKE '%${stamp}%' OR docdesc LIKE '%${stamp}%'`,
+    ).split(/\s+/).filter(Boolean);
+    if (!ids.length) return;
+    const list = ids.join(',');
+    sql(`DELETE FROM ctl_document WHERE document_no IN (${list})`);
+    sql(`DELETE FROM document WHERE document_no IN (${list})`);
+  } catch (e) {
+    // Cleanup is housekeeping, not an assertion: never turn a passing run red.
+    console.warn(`WARN: could not clean up probe documents for stamp ${stamp}: ${e.message}`);
+  }
+}
+
 // A real, minimal PDF. The action sets contentType and counts pages for .pdf
 // uploads, so a text file with a .pdf name would skip that branch entirely.
 function writeProbePdf(dir) {
@@ -320,6 +336,23 @@ function documentRowCount() {
       const linkForm = edocsPage.locator('form[action*="addLink"]').first();
       await linkForm.locator('input[name="docDesc"]').waitFor({ state: 'visible', timeout: 20000 });
       await linkForm.locator('input[name="docDesc"]').fill(linkDesc);
+      // docType and html are BOTH required by the action. Leaving either blank
+      // takes the validation-failure branch, which is a different path -- and
+      // one that used to answer 500, because it put the empty String under the
+      // "completedForm" attribute the JSP casts to AddEditDocument2Form.
+      const linkType = linkForm.locator('select[name="docType"], input[name="docType"]').first();
+      if (await linkType.count() > 0) {
+        const tag = await linkType.evaluate((el) => el.tagName.toLowerCase());
+        if (tag === 'select') {
+          const linkTypeValues = await linkType.locator('option')
+            .evaluateAll((os2) => os2.map((o) => o.value).filter((v) => v));
+          assert(linkTypeValues.length > 0, 'Add Link form offers no document types');
+          await linkType.selectOption(linkTypeValues[0]);
+        } else {
+          await linkType.fill('lab');
+        }
+      }
+      await linkForm.locator('input[name="html"]').fill(`https://example.invalid/${stamp}`);
       const linkClass = linkForm.locator('select[name="docClass"]');
       if (await linkClass.count() > 0) {
         const linkClassValues = await linkClass.locator('option')
@@ -410,6 +443,18 @@ function documentRowCount() {
     await edocsPage.close();
 
     assertNoPageErrors(recorder);
+
+    // Clean up the documents this run filed against the patient chart.
+    //
+    // Leaving them behind is not neutral: eform-rtl-attachment-behavior attaches
+    // whichever document is FIRST in that patient's list, so these ~200-byte
+    // probe PDFs displaced the large report it needs and it failed with
+    // "Merged eForm+attachment PDF looks attachment-less". A fixture that breaks
+    // a sibling check is a fixture leak, so a PASSING run tidies up -- matching
+    // the convention eform-admin-crud already follows. A FAILING run still leaves
+    // everything in place for diagnosis, because this only runs after every
+    // assertion above has passed.
+    cleanupProbeDocuments();
 
     await context.close();
 
