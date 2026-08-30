@@ -1,4 +1,4 @@
-carlos-emr (2026.09.0~snapshot12) resolute; urgency=medium
+carlos-emr (2026.09.0~snapshot13) resolute; urgency=medium
 
   * Upload rejections are reported instead of vanishing. The "input" result
     added in ~snapshot5 forwarded the eDocs add-document form to the documents
@@ -34,6 +34,11 @@ carlos-emr (2026.09.0~snapshot12) resolute; urgency=medium
   * The legacy uploader treats XHR status 0 as a failure. Status 0 means no HTTP
     response was produced at all, so an aborted or dropped upload was being
     reported to the user as "Upload complete".
+  * A rejected eDocs upload no longer answers a raw 500. The rejection page set
+    a 4xx status and wrote a body, and the response-sanitisation filter cannot
+    replay that combination — it fails to reset the buffer and the request comes
+    back as 500. The browser page now renders at 200 and the XHR branch uses
+    sendError, which the filter does not disturb.
   * A rejected eDocs upload renders the rejection page instead of a blank page.
     The previous forward rebuilt the documents page from request parameters
     that no longer exist, because the multipart parse that failed is what put
