@@ -32,7 +32,12 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
+<%-- Resolved here so the script below can JavaScript-encode it: a message dropped straight
+     into a JS string literal breaks the script the day a translation contains an apostrophe
+     or a quote, and the encoding is what keeps that from being an injection point. --%>
+<fmt:message key="eform.calldeletedformdata.restoreTokenUnavailable" var="restoreTokenUnavailableMsg"/>
 
 <%
     String orderByRequest = request.getParameter("orderby");
@@ -90,7 +95,7 @@
                 // than submitting a request that cannot succeed.
                 var token = await csrfToken();
                 if (!token) {
-                    alert("<fmt:message key="eform.calldeletedformdata.restoreTokenUnavailable"/>");
+                    alert("${carlos:forJavaScript(restoreTokenUnavailableMsg)}");
                     return;
                 }
                 var form = document.createElement('form');
@@ -169,7 +174,7 @@
         %>
         <tr>
             <td><a href="#" class="viewEform"
-                   onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data?fid=<%=SafeEncode.forJavaScript((String) curForm.get("fid"))%>', '<%="FormD"+i%>'); return false;"><%=SafeEncode.forHtmlContent((String) curForm.get("formName"))%>
+                   onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data?fid=<%=SafeEncode.forJavaScriptAttribute((String) curForm.get("fid"))%>', '<%="FormD"+i%>'); return false;"><%=SafeEncode.forHtmlContent((String) curForm.get("formName"))%>
             </a></td>
             <td><%=SafeEncode.forHtmlContent((String) curForm.get("formSubject"))%>&nbsp;</td>
             <td><%=SafeEncode.forHtmlContent((String) curForm.get("formFileName"))%>
@@ -178,7 +183,7 @@
             </td>
             <td><%=SafeEncode.forHtmlContent((String) curForm.get("formTime"))%>
             </td>
-            <td><a href='javascript:void(0);' onclick="restoreEForm('<%=SafeEncode.forJavaScript((String) curForm.get("fid"))%>');"
+            <td><a href='javascript:void(0);' onclick="restoreEForm('<%=SafeEncode.forJavaScriptAttribute((String) curForm.get("fid"))%>');"
                    class="contentLink">
                 <fmt:message key="eform.calldeletedformdata.btnRestore"/>
             </a>

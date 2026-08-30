@@ -43,6 +43,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 public class RestoreEForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -50,6 +52,8 @@ public class RestoreEForm2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an HTTP method constant; not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an HTTP method constant; not a security or authorization decision")
     public String execute() throws java.io.IOException {
 
         // Restoring an eForm puts it back in the live library, so it is a mutation and must not

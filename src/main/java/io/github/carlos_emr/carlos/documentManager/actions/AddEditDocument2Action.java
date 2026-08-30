@@ -218,7 +218,13 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             // a double-clicked button, a browser retry -- collide. That is the user's situation
             // to resolve, not a server fault, so it gets 409 and a message that says what to do
             // instead of the generic "File could not be saved" behind a 500.
-            MiscUtils.getLogger().warn("Uploaded document name already taken; asking the user to retry", e);
+            //
+            // Logged WITHOUT the exception: its message is the destination path, which ends in
+            // the uploader's own filename, and scanned clinical documents are routinely named
+            // after the patient. A collision is a user-recoverable condition with a single
+            // possible cause, so the stack trace adds nothing that would justify writing a
+            // potential patient name into the log.
+            MiscUtils.getLogger().warn("Uploaded document name already taken; asking the user to retry");
             sendHtml5UploadError(props, HttpServletResponse.SC_CONFLICT, ERROR_DUPLICATE_KEY);
             return NONE;
         } catch (IOException | RuntimeException e) {

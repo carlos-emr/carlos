@@ -65,6 +65,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -435,8 +436,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(409);
-            assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
-                    .getString("dms.addDocument.errorDuplicate"));
+            assertThat(response.getHeader("oscar_error")).isEqualTo(expectedHeaderFor("dms.addDocument.errorDuplicate"));
         }
     }
 
@@ -464,8 +464,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
                     eq(false)));
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(500);
-            assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
-                    .getString("dms.addDocument.errorNoWrite"));
+            assertThat(response.getHeader("oscar_error")).isEqualTo(expectedHeaderFor("dms.addDocument.errorNoWrite"));
         }
     }
 
@@ -476,8 +475,37 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-        assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
-                .getString("dms.addDocument.errorZeroSize"));
+        assertThat(response.getHeader("oscar_error")).isEqualTo(expectedHeaderFor("dms.addDocument.errorZeroSize"));
+    }
+
+    @Test
+    @DisplayName("should strip the oscar_error header to ASCII while the body keeps the localized message")
+    void shouldStripErrorHeaderToAscii_forNonLatin1Locale() throws Exception {
+        // Servlet headers are ISO-8859-1: a message with characters outside it reaches the
+        // browser mangled, and a CR/LF in one would split the header. The action strips its
+        // HEADER copy to printable ASCII and leaves the BODY -- which the uploader displays --
+        // intact. Polish is the bundle that actually carries non-ASCII, so it is the locale
+        // that can tell the two apart; under the en default both copies are identical and
+        // nothing here is being tested.
+        Locale original = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.of("pl"));
+            ResourceBundle.clearCache();
+            String localized = ResourceBundle.getBundle("oscarResources")
+                    .getString("dms.addDocument.errorZeroSize");
+            assertThat(localized).matches(".*[^\\x20-\\x7E].*");
+
+            String result = action.html5MultiUpload();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getHeader("oscar_error"))
+                    .doesNotMatch(".*[^\\x20-\\x7E].*")
+                    .isEqualTo(localized.replaceAll("[^\\x20-\\x7E]", "?"));
+            assertThat(response.getErrorMessage()).isEqualTo(localized);
+        } finally {
+            Locale.setDefault(original);
+            ResourceBundle.clearCache();
+        }
     }
 
     @Test
@@ -492,8 +520,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-        assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
-                .getString("dms.addDocument.errorZeroSize"));
+        assertThat(response.getHeader("oscar_error")).isEqualTo(expectedHeaderFor("dms.addDocument.errorZeroSize"));
     }
 
     @Test
@@ -595,8 +622,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(500);
-        assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
-                .getString("dms.addDocument.errorNoWrite"));
+        assertThat(response.getHeader("oscar_error")).isEqualTo(expectedHeaderFor("dms.addDocument.errorNoWrite"));
     }
 
     @Test
@@ -617,8 +643,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(500);
-            assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
-                    .getString("dms.addDocument.errorNoWrite"));
+            assertThat(response.getHeader("oscar_error")).isEqualTo(expectedHeaderFor("dms.addDocument.errorNoWrite"));
         }
     }
 
@@ -961,6 +986,22 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
     private boolean isGeneratedStoredName(String fileName, String sanitizedBaseName) {
         return fileName != null && fileName.endsWith(sanitizedBaseName) && !fileName.equals(sanitizedBaseName);
+    }
+
+    /**
+     * The value the {@code oscar_error} HEADER is expected to carry for a bundle key.
+     *
+     * <p>Servlet headers are ISO-8859-1, so the action strips its header copy to printable
+     * ASCII; the response BODY keeps the message intact. Asserting the raw bundle string
+     * would pass only where the default locale's message happens to be ASCII (it is in
+     * {@code en}, it is not in {@code pl}) and would pin nothing about that stripping.</p>
+     *
+     * @param bundleKey String the oscarResources key the action reports
+     * @return String the message as it must appear in the header
+     */
+    private static String expectedHeaderFor(String bundleKey) {
+        return ResourceBundle.getBundle("oscarResources").getString(bundleKey)
+                .replaceAll("[^\\x20-\\x7E]", "?");
     }
 
     private static class FailingUploadInputStream extends InputStream {

@@ -241,23 +241,30 @@ const UNUSED_FID = '999999999';
 
     // --- 7: a JSP-to-JSP forward must deliver the forwarded body -----------------
     //
-    // viewTemplate.jsp writes its header, then <jsp:forward>s to ViewHomePage
-    // when no templateid is given — the exact shape that returned 200 with an
-    // empty body while suspendWrappedResponseAfterForward was left on its
-    // Tomcat 11 default. "Template Library" is rendered by the FORWARDED page
-    // (homePage.jsp), so its presence proves the forwarded body arrived.
+    // viewTemplate.jsp writes its header (including rbtTopNav.jspf), then
+    // <jsp:forward>s to ViewHomePage when no templateid is given — the exact
+    // shape that returned 200 with an empty body while
+    // suspendWrappedResponseAfterForward was left on its Tomcat 11 default.
+    //
+    // The sentinel is homePage.jsp's <title>, deliberately: "Template Library"
+    // would be the obvious choice and is WRONG, because rbtTopNav.jspf renders
+    // that text into the PRE-forward prefix too. Matching it would still catch
+    // the empty-body regression (which strands the prefix as well) but would
+    // green a partial failure that delivered the prefix and lost the forward.
+    // viewTemplate.jsp emits no <title> of its own.
     const forwardProbe = await page.request.get(
       `${config.baseUrl.href}/oscarReport/reportByTemplate/ViewViewTemplate`,
       { failOnStatusCode: false, maxRedirects: 0 },
     );
     assert(
-      forwardProbe.status() < 400,
-      `GET ViewViewTemplate (no templateid) returned HTTP ${forwardProbe.status()}; the `
-        + 'mid-page <jsp:forward> to the report home page must not error.',
+      forwardProbe.status() === 200,
+      `GET ViewViewTemplate (no templateid) returned HTTP ${forwardProbe.status()}, expected 200. `
+        + 'A 302 here means the session was not carried, not a forward defect; anything else means '
+        + 'the mid-page <jsp:forward> to the report home page errored.',
     );
     const forwardBody = await forwardProbe.text();
     assert(
-      forwardBody.includes('Template Library'),
+      forwardBody.includes('<title>Report by Template</title>'),
       `The JSP-to-JSP forward came back without the forwarded page's content (${forwardBody.length} `
         + 'bytes). This is the empty-forward regression: check that the context descriptors still set '
         + 'suspendWrappedResponseAfterForward="false" (META-INF/context.xml and the deb\'s carlos.xml).',
