@@ -55,9 +55,12 @@
  * Optional: CHROME_PATH, DOCUMENT_UPLOAD_SCREENSHOT_DIR (default /tmp).
  *
  * FIXTURE SAFETY: uploads a PDF this script generates under a unique,
- * timestamped name and only ever asserts on rows matching that name. It deletes
- * nothing; a failing run leaves its documents behind for diagnosis. Clear
- * strays with:
+ * timestamped name, only ever asserts on rows matching that name, and removes
+ * exactly those rows on the way out -- pass OR fail. The cleanup is
+ * unconditional on purpose: eform-rtl-attachment-behavior attaches whichever
+ * document is FIRST in the patient's list, so a leftover probe displaces the
+ * large report it needs and fails it. The removed ids are printed, so a failing
+ * run is still diagnosable. Clear strays from older runs with:
  *   DELETE FROM document WHERE docfilename LIKE '%carlos-upload-probe-%';
  */
 
@@ -125,6 +128,7 @@ function cleanupProbeDocuments() {
     ).split(/\s+/).filter(Boolean);
     if (!ids.length) return;
     const list = ids.join(',');
+    console.log(`cleanup: removing probe document row(s) ${list} for stamp ${stamp}`);
     sql(`DELETE FROM ctl_document WHERE document_no IN (${list})`);
     sql(`DELETE FROM document WHERE document_no IN (${list})`);
   } catch (e) {
@@ -369,9 +373,13 @@ function documentRowCount() {
       assert(linkResponse.status() < 400, `Add Link POST returned HTTP ${linkResponse.status()}`);
       await edocsPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
+      // AddEditHtml2Action APPENDS " (link)" to the description before saving, so match on
+      // the prefix rather than for equality -- an exact match finds nothing and looks
+      // identical to "the link was filed against no patient", which is the defect this
+      // assertion exists to catch.
       const linkAttached = sql(
         `SELECT cd.module_id FROM ctl_document cd JOIN document d ON d.document_no = cd.document_no `
-        + `WHERE d.docdesc = '${linkDesc}' AND cd.module = 'demographic'`,
+        + `WHERE d.docdesc LIKE '${linkDesc}%' AND cd.module = 'demographic'`,
       );
       assert(
         linkAttached.split(/\s+/).filter(Boolean).includes(String(edocsDemo)),
@@ -444,18 +452,6 @@ function documentRowCount() {
 
     assertNoPageErrors(recorder);
 
-    // Clean up the documents this run filed against the patient chart.
-    //
-    // Leaving them behind is not neutral: eform-rtl-attachment-behavior attaches
-    // whichever document is FIRST in that patient's list, so these ~200-byte
-    // probe PDFs displaced the large report it needs and it failed with
-    // "Merged eForm+attachment PDF looks attachment-less". A fixture that breaks
-    // a sibling check is a fixture leak, so a PASSING run tidies up -- matching
-    // the convention eform-admin-crud already follows. A FAILING run still leaves
-    // everything in place for diagnosis, because this only runs after every
-    // assertion above has passed.
-    cleanupProbeDocuments();
-
     await context.close();
 
     console.log(
@@ -469,6 +465,14 @@ function documentRowCount() {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
+    // ALWAYS clean up, pass or fail. Leaving these rows behind is not neutral:
+    // eform-rtl-attachment-behavior attaches whichever document is FIRST in this
+    // patient's list, so a leftover ~200-byte probe PDF -- or worse, the Add Link
+    // row, which is a <script> redirect rather than a PDF -- displaces the large
+    // report it needs and fails it. A failing run here was silently failing a
+    // sibling. The rows are listed as they are removed, so a failure is still
+    // diagnosable from this output without leaving the fixture poisoned.
+    cleanupProbeDocuments();
     cleanupMysqlDefaults();
     fs.rmSync(workDir, { recursive: true, force: true });
     await browser.close();

@@ -142,7 +142,7 @@
                  (ViewEFormPage2Action) permits POST only for efmformmanageredit,
                  so a SUCCESSFUL restore landed the operator on a 405 instead of
                  the refreshed list. Delete was fixed for this and restore was
-                 not -- it went unnoticed because nothing drove the control, which
+                 not; it went unnoticed because nothing drove the control, which
                  was itself rejected by CSRFGuard and so never reached the result.
                  A redirect also makes this a proper POST/redirect/GET, so a
                  browser refresh cannot re-submit the restore. -->

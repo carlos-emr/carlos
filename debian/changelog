@@ -1,4 +1,4 @@
-carlos-emr (2026.09.0~snapshot9) resolute; urgency=medium
+carlos-emr (2026.09.0~snapshot11) resolute; urgency=medium
 
   * Upload rejections are reported instead of vanishing. The "input" result
     added in ~snapshot5 forwarded the eDocs add-document form to the documents
@@ -34,6 +34,13 @@ carlos-emr (2026.09.0~snapshot9) resolute; urgency=medium
   * The legacy uploader treats XHR status 0 as a failure. Status 0 means no HTTP
     response was produced at all, so an aborted or dropped upload was being
     reported to the user as "Upload complete".
+  * Restoring an eForm no longer answers 405 after succeeding. The success
+    result was a forward, which keeps the POST method, and the deleted-list gate
+    permits POST only for the editor — the same defect delete was fixed for.
+  * Add Link and Add HTML no longer answer 500 when a required field is blank.
+    Each validation branch put the empty string under the request attribute the
+    documents JSP casts to a form bean, so a missing description, type or URL
+    produced a ClassCastException instead of the field message.
   * Restoring an eForm rejects GET. The action performed the restore on any
     request method, so an <img src=".../eform/restoreEForm?fid=N"> on a page an
     eForm administrator loaded restored that form with no CSRF token — giving
