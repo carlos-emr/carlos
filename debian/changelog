@@ -1,3 +1,15 @@
+carlos-emr (2026.09.0~snapshot17) resolute; urgency=medium
+
+  * A tainted error body that cannot be replaced is now discarded instead of
+    turning into a second, manufactured 500. When something commits the
+    response behind the sanitisation filter, the two post-chain replacement
+    sites had no guard -- unlike their mid-chain siblings, which sit under a
+    catch -- so the "already committed" failure escaped the outermost filter
+    as a container 500. The captured body is dropped instead: nothing unsafe
+    reaches the client, and the client keeps the response it was already sent.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 30 Aug 2026 21:15:00 +0000
+
 carlos-emr (2026.09.0~snapshot16) resolute; urgency=medium
 
   * The response-sanitisation filter's pass-through stream no longer flushes

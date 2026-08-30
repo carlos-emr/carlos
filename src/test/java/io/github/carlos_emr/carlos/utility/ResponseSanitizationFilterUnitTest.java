@@ -1018,6 +1018,63 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should discard a tainted writer body instead of throwing when the response was committed")
+        void shouldDiscardTaintedBody_whenWriterResponseCommittedBeforeReplacement() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/boom.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String stackTrace = "java.lang.IllegalStateException: boom\n"
+                    + "\tat io.github.carlos_emr.carlos.Boom.render(Boom.java:1)\n";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(stackTrace);
+                // Something outside the wrapper commits the real response.
+                response.setCommitted(true);
+            };
+
+            // Before the guard this escaped doFilter as IOException("Cannot send sanitized error
+            // after response commit") -- a container 500 manufactured after the fact.
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                // The stack trace must NOT reach the client, and no exception may escape.
+                assertThat(response.getContentAsString()).doesNotContain("IllegalStateException");
+                assertThat(response.getContentAsString()).doesNotContain("Boom.java");
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Tainted response body could not be replaced")
+                            .contains("DISCARDED");
+                });
+            }
+        }
+
+        @Test
+        @DisplayName("should discard a tainted output-stream body instead of throwing when the response was committed")
+        void shouldDiscardTaintedBody_whenOutputStreamResponseCommittedBeforeReplacement() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/boom");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String stackTrace = "java.lang.IllegalStateException: boom\n"
+                    + "\tat io.github.carlos_emr.carlos.Boom.render(Boom.java:1)\n";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                // Status first, so the wrapper opens the CAPTURING output stream, not passthrough.
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getOutputStream().write(stackTrace.getBytes(StandardCharsets.UTF_8));
+                response.setCommitted(true);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).doesNotContain("IllegalStateException");
+            assertThat(response.getContentAsString()).doesNotContain("Boom.java");
+        }
+
+        @Test
         @DisplayName("should shield the passthrough stream so a mid-chain close cannot seal the response")
         void shouldShieldPassthroughStream_fromMidChainClose() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/stream.pdf");

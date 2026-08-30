@@ -396,6 +396,9 @@ public class ResponseSanitizationFilter implements Filter {
                         LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
                         correlationId,
                         reason);
+                if (dropTaintedBodyIfCommitted(httpResponse, status, correlationId)) {
+                    return;
+                }
                 sendSanitizedError(httpResponse, status, correlationId);
             } else {
                 writeBytesToResponse(httpResponse, capturedBytes);
@@ -430,6 +433,9 @@ public class ResponseSanitizationFilter implements Filter {
                     LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
                     correlationId,
                     reason);
+            if (dropTaintedBodyIfCommitted(httpResponse, status, correlationId)) {
+                return;
+            }
             sendSanitizedError(httpResponse, status, correlationId);
         } else {
             // Safe response — write captured content through to the real response.
@@ -832,6 +838,52 @@ public class ResponseSanitizationFilter implements Filter {
         }
         response.getOutputStream().write(content);
         response.getOutputStream().flush();
+    }
+
+    /**
+     * Decides what to do when the captured body is TAINTED but the response has already been
+     * committed from outside this wrapper, and reports it.
+     *
+     * <p>These two call sites run after the chain has returned, so unlike the sanitization that
+     * happens mid-chain there is no {@code catch} above them: letting
+     * {@link #sendSanitizedError} throw its "already committed" {@code IOException} here escapes
+     * the outermost filter and becomes a container 500 — the manufactured-500 failure class this
+     * filter was changed to stop producing. Nothing is gained by it either, because the status
+     * line is already on the wire and the sanitized page could not replace anything.</p>
+     *
+     * <p>The answer is to DROP the captured body and return. It is the mirror image of
+     * {@link #appendAfterCommit(HttpServletResponse, byte[])} and the asymmetry is deliberate:
+     * safe content is appended so the user still sees their page, tainted content is discarded
+     * so a stack trace or a partial {@code /ws} entity can never reach the client. Discarding is
+     * safe precisely because capture never wrote it out — every write went to the buffer, and
+     * both capture classes no-op their {@code flush()} until the size limit is exceeded (a case
+     * that returns earlier in {@code doFilter}). So the client keeps whatever the premature
+     * commit sent, and the leak stays closed.</p>
+     *
+     * <p>Reaching this at all means something committed the real response behind the wrapper's
+     * back. The known cause was Tomcat's {@code suspendWrappedResponseAfterForward} default; both
+     * context descriptors pin it off, so this should now be unreachable — hence ERROR, not WARN.
+     * If it appears in a log, suspect that attribute went missing (a kept conffile on upgrade
+     * will do it; {@code carlos-emr.postinst} warns about exactly that).</p>
+     *
+     * @param response      HttpServletResponse the real (unwrapped) response
+     * @param status        int the error status the captured body carried
+     * @param correlationId String the correlation ID already logged for this response
+     * @return {@code true} when the response was committed and the caller must drop the body and
+     *         return; {@code false} when the caller can send the sanitized replacement normally
+     */
+    private static boolean dropTaintedBodyIfCommitted(HttpServletResponse response, int status,
+            String correlationId) {
+        if (!response.isCommitted()) {
+            return false;
+        }
+        LOGGER.error("Tainted response body could not be replaced — something committed the "
+                        + "response behind this filter [status={} correlationId={}]. The captured "
+                        + "body is being DISCARDED, so nothing unsafe reaches the client, but the "
+                        + "client keeps the already-committed response. Check that the Tomcat "
+                        + "context still sets suspendWrappedResponseAfterForward=\"false\"",
+                status, correlationId);
+        return true;
     }
 
     /**
