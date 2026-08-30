@@ -902,6 +902,8 @@ public class ResponseSanitizationFilter implements Filter {
      * @param response HttpServletResponse the real (unwrapped) response, already committed
      * @param content  byte[] the safe captured body
      */
+    // FindSecBugs XSS_SERVLET: appends captured response content that sanitizationReason() has already cleared; content originates from downstream response pipeline.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "appends captured response content that sanitizationReason() has already cleared; content originates from downstream response pipeline")
     private static void appendAfterCommit(HttpServletResponse response, byte[] content) {
         LOGGER.error("Replay found the response already committed mid-chain "
                         + "[status={} contentType={} bytes={}] — appending without reset; "
