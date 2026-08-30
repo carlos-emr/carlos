@@ -11,11 +11,30 @@
   being served back: the process that could write it has nowhere to write it
   that Tomcat will execute.
 -->
+<!--
+  suspendWrappedResponseAfterForward MUST stay "false" (Tomcat 11 flipped the
+  default to "true"). With the default, ApplicationDispatcher.doForward()
+  unwraps the response-wrapper chain to the ResponseFacade and SUSPENDS the
+  raw response when a forward returns, instead of the classic
+  response.getWriter().close() on the outermost wrapper. That classic close is
+  what flushed the wrapper stack's internal buffers: javamelody converts all
+  writer traffic into a PrintWriter over an OutputStream, and the forwarded
+  page's entire body sits in that PrintWriter's encoder buffer until something
+  closes or flushes it. Under suspension nothing does, the request ends with
+  Content-Length: 0, and the late flush is silently swallowed. Two verified
+  user-visible failures on the packaged install (2026-08-30):
+    - any JSP-to-JSP <jsp:forward> returned 200 with an EMPTY body;
+    - a forward on a 4xx response came back as a raw 500, because
+      ResponseSanitizationFilter's replay found the response already finished.
+  Nothing is logged for either. ResponseSanitizationFilter documents the same
+  interaction from the filter side; keep the two in sync.
+-->
 <Context docBase="/usr/share/carlos-emr/webapp/carlos"
          reloadable="false"
          crossContext="false"
          useHttpOnly="true"
          sessionCookiePath="/carlos"
+         suspendWrappedResponseAfterForward="false"
          privileged="false">
 
     <!--

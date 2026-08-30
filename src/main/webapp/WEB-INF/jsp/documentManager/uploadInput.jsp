@@ -15,24 +15,21 @@
       - every browser form (eDocs add, Add Link, edit): render the rejection
         inline, below.
 
-    TWO THINGS THIS FILE MUST NOT DO, both established by bisecting on the
-    packaged install:
+    This page renders inline rather than forwarding. When it was written, two
+    packaged-install failures forced that shape: a JSP-to-JSP <jsp:forward>
+    returned 200 with an EMPTY body, and setStatus(4xx) plus a body came back
+    as a raw 500. Both are since fixed at the root -- Tomcat 11's
+    suspendWrappedResponseAfterForward default suspended the response when a
+    forward returned, stranding the forwarded body in javamelody's writer
+    buffer and breaking ResponseSanitizationFilter's replay; the context
+    descriptors now pin that attribute false and the filter appends instead of
+    500ing (see ResponseSanitizationFilter's class javadoc). The inline render
+    is kept deliberately: it is simpler and depends on neither fix.
 
-    1. It must not <jsp:forward>. pageContext.forward() resets the response
-       buffer, and ResponseSanitizationFilter -- which wraps the response to
-       strip stack traces -- does not carry the forwarded body through: the
-       client receives 200 with an EMPTY body. Writing the same markup inline
-       from this page works. (WEB-INF/jsp/common/uploadRejected.jsp is the same
-       content and is fine as a Struts dispatcher result, which forwards before
-       any page has started writing; it is only the JSP-to-JSP forward that is
-       lost.)
-    2. It must not setStatus(4xx) and write a body. The same filter cannot
-       replay that combination and the request comes back as a raw 500 -- the
-       exact failure this result exists to prevent. sendError is unaffected.
-
-    It must also not forward to documentReport.jsp the way failAdd does: the
-    multipart parse FAILED, so every POST body parameter that page is built from
-    (function, functionid, doctype) is gone, and it renders blank.
+    One constraint that remains real: do not forward to documentReport.jsp the
+    way failAdd does. The multipart parse FAILED, so every POST body parameter
+    that page is built from (function, functionid, doctype) is gone, and it
+    renders blank.
 --%><%@ page contentType="text/html;charset=UTF-8" session="false"
 %><%@ page import="java.util.Collection" %><%@ page import="java.util.ResourceBundle"
 %><%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %><%

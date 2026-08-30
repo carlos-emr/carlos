@@ -29,19 +29,19 @@
 <%--
     Deliberately NOT response.setStatus(400).
 
-    ResponseSanitizationFilter captures the response body to strip stack traces,
-    and on a JSP that sets a 4xx AND writes a body it cannot replay what it
-    captured: it fails with "Cannot reset buffer after response has been
-    committed" and the request comes back as a 500. Verified on the packaged
-    install by toggling only this line -- with it, an empty eDocs upload is a
-    raw 500; without it, this page renders. (sendError is unaffected, which is
-    why sendHtml5UploadError's 400/409 answers work; but sendError discards the
-    body, and the whole point of this page is to SHOW the reason.)
+    When this page was written, a 4xx set here plus a body came back as a raw
+    500: Tomcat 11's suspendWrappedResponseAfterForward default finished the
+    response when the Struts dispatcher forward returned, and
+    ResponseSanitizationFilter's replay of the captured 4xx body then failed
+    ("Cannot reset buffer after response has been committed"). That root cause
+    is fixed -- the context descriptors pin the attribute false and the filter
+    now appends instead of 500ing (see ResponseSanitizationFilter's class
+    javadoc) -- so a 4xx here would work today.
 
-    A visible rejection at 200 is the right trade for a browser form: the reader
-    is a person, not a script, and the alternative on this path is the raw 500
-    that this branch exists to eliminate. Routes whose client keys on the status
-    use the sendError path in uploadInput.jsp instead.
+    The 200 is kept deliberately: the reader is a person on a browser form, the
+    page's job is to SHOW the reason, and the existing checks pin this shape.
+    Routes whose client keys on the status use the sendError path in
+    uploadInput.jsp instead (sendError discards the body, which is fine there).
 --%>
 <!DOCTYPE html>
 <%-- lang is set from the request locale so a screen reader announces the

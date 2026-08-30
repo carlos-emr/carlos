@@ -42,13 +42,14 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.WriteListener;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -877,8 +878,8 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should throw when captured response cannot reset buffer before replay")
-        void shouldThrow_whenCapturedResponseCannotResetBufferBeforeReplay() {
+        @DisplayName("should append captured body instead of throwing when reset races into a commit")
+        void shouldAppendCapturedBody_whenResetBufferRacesIntoCommit() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/page.jsp");
             MockHttpServletResponse response = new ResetBufferFailingResponse();
             String body = "<html><body>ok</body></html>";
@@ -890,9 +891,155 @@ class ResponseSanitizationFilterUnitTest {
                 res.getWriter().write(body);
             };
 
-            assertThatThrownBy(() -> filter.doFilter(request, response, chain))
-                    .isInstanceOf(IOException.class)
-                    .hasMessageContaining("Cannot reset buffer before replaying captured response");
+            // This used to throw IOException("Cannot reset buffer before replaying captured
+            // response"), converting an already-inspected-safe page into a container 500.
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(response.getContentAsString()).isEqualTo(body);
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("already committed mid-chain");
+                });
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // doFilter() — forward interactions: replay after a mid-chain commit,
+    // resetBuffer()/reset() capture clearing, passthrough close shielding.
+    // Tomcat 11's suspendWrappedResponseAfterForward default finishes the raw
+    // response when a forward returns (pinned off in the context descriptors);
+    // these pin the filter-side behaviors that keep any such premature commit
+    // from manufacturing a 500 or replaying stale content.
+    // -------------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("forward and replay resilience")
+    class ForwardAndReplayResilience {
+
+        @Test
+        @DisplayName("should append captured writer body when the response was committed before replay")
+        void shouldAppendCapturedBody_whenResponseCommittedBeforeReplay() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/page.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "<html><body>forwarded page</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(body);
+                // Simulate a dispatcher forward finishing the REAL response behind the
+                // wrapper's back before the filter gets to replay.
+                response.setCommitted(true);
+            };
+
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(response.getContentAsString()).isEqualTo(body);
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("already committed mid-chain");
+                });
+            }
+        }
+
+        @Test
+        @DisplayName("should append captured 4xx stream body when the response was committed before replay")
+        void shouldAppendCapturedErrorStreamBody_whenResponseCommittedBeforeReplay() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/reject.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "<html><body>rejected: file was empty</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(400);
+                httpRes.setContentType("text/html");
+                res.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
+                response.setCommitted(true);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            // The 4xx status AND its body both survive — this exact shape used to
+            // come back as a raw 500 with an empty body.
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString()).isEqualTo(body);
+        }
+
+        @Test
+        @DisplayName("should discard captured writer output when resetBuffer is called")
+        void shouldDiscardCapturedWriterOutput_whenResetBufferCalled() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/fwd.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String fresh = "<html><body>forward target</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("text/html");
+                res.getWriter().write("STALE pre-forward prefix");
+                // RequestDispatcher.forward() clears uncommitted output before invoking
+                // its target; the capture must be cleared with it.
+                res.resetBuffer();
+                res.getWriter().write(fresh);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).isEqualTo(fresh);
+            assertThat(response.getContentAsString()).doesNotContain("STALE");
+        }
+
+        @Test
+        @DisplayName("should discard captured 4xx stream output when resetBuffer is called")
+        void shouldDiscardCapturedStreamOutput_whenResetBufferCalled() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/fwd400.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String fresh = "<html><body>rejection detail</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(400);
+                httpRes.setContentType("text/html");
+                res.getOutputStream().write("STALE pre-forward prefix".getBytes(StandardCharsets.UTF_8));
+                res.resetBuffer();
+                res.getOutputStream().write(fresh.getBytes(StandardCharsets.UTF_8));
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString()).isEqualTo(fresh);
+        }
+
+        @Test
+        @DisplayName("should shield the passthrough stream so a mid-chain close cannot seal the response")
+        void shouldShieldPassthroughStream_fromMidChainClose() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/stream.pdf");
+            CloseRecordingResponse response = new CloseRecordingResponse();
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("application/pdf");
+                ServletOutputStream os = res.getOutputStream();
+                os.write("BODY-A".getBytes(StandardCharsets.UTF_8));
+                // A dispatcher forward's classic end-of-forward close cascades down the
+                // wrapper chain to this stream. It must degrade to a flush...
+                os.close();
+                // ...so that later writers in the chain still reach the client.
+                os.write("BODY-B".getBytes(StandardCharsets.UTF_8));
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.realCloseCount).isZero();
+            assertThat(response.getContentAsString()).isEqualTo("BODY-ABODY-B");
         }
     }
 
@@ -1481,6 +1628,52 @@ class ResponseSanitizationFilterUnitTest {
         @Override
         public void resetBuffer() {
             throw new IllegalStateException("already committed");
+        }
+    }
+
+    /**
+     * Records whether {@code close()} ever reaches the real response stream, so the
+     * close-shield tests can assert that a mid-chain close is degraded to a flush.
+     */
+    private static class CloseRecordingResponse extends MockHttpServletResponse {
+
+        int realCloseCount;
+
+        @Override
+        public ServletOutputStream getOutputStream() {
+            ServletOutputStream real = super.getOutputStream();
+            return new ServletOutputStream() {
+                @Override
+                public void write(int b) throws IOException {
+                    real.write(b);
+                }
+
+                @Override
+                public void write(byte[] b, int off, int len) throws IOException {
+                    real.write(b, off, len);
+                }
+
+                @Override
+                public void flush() throws IOException {
+                    real.flush();
+                }
+
+                @Override
+                public void close() throws IOException {
+                    realCloseCount++;
+                    real.close();
+                }
+
+                @Override
+                public boolean isReady() {
+                    return real.isReady();
+                }
+
+                @Override
+                public void setWriteListener(WriteListener writeListener) {
+                    real.setWriteListener(writeListener);
+                }
+            };
         }
     }
 }

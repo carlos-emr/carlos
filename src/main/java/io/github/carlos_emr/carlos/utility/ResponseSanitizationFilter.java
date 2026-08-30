@@ -90,6 +90,27 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * so it can intercept errors from all downstream layers including other WAF filters, the Struts
  * dispatcher, and JSP processing.</p>
  *
+ * <h3>Forwards — why {@code suspendWrappedResponseAfterForward} must be {@code false}</h3>
+ * <p>Being outermost also means this filter's replay runs <em>after</em> every
+ * {@code RequestDispatcher.forward()} inside the request has returned. Tomcat 11 defaults
+ * {@code suspendWrappedResponseAfterForward} to {@code true}: when a forward returns,
+ * {@code ApplicationDispatcher} unwraps the response-wrapper chain to the {@code ResponseFacade}
+ * and <em>suspends</em> the raw response, instead of the classic
+ * {@code response.getWriter().close()} on the outermost wrapper. The classic close is what
+ * flushed the wrapper stack's internal buffers — in production javamelody's MonitoringFilter
+ * converts all writer traffic into a {@code PrintWriter} over an {@code OutputStream}, and the
+ * forwarded page's whole body sits in that {@code PrintWriter}'s encoder buffer until something
+ * closes or flushes it. Under suspension nothing does. Verified consequences on the packaged
+ * install (2026-08-30): every JSP-to-JSP {@code <jsp:forward>} answered 200 with an EMPTY body,
+ * and a forward on a 4xx answered a raw 500, because this filter's replay found the response
+ * already finished (see {@link #appendAfterCommit(HttpServletResponse, byte[])}). Nothing was
+ * logged for either. Both context descriptors therefore pin the attribute to {@code false}:
+ * {@code src/main/webapp/META-INF/context.xml} (devcontainer) and
+ * {@code debian/assets/tomcat/Catalina/localhost/carlos.xml} (packaged install). With the
+ * classic close restored, a mid-chain {@code close()} does reach this wrapper's passthrough
+ * stream — {@code CloseShieldServletOutputStream} converts it into a flush so the raw stream
+ * stays writable for the rest of the chain.</p>
+ *
  * <h3>Compliance</h3>
  * <ul>
  *   <li>NIST SP 800-53 Rev. 5 SI-11: Error Handling</li>
@@ -771,19 +792,15 @@ public class ResponseSanitizationFilter implements Filter {
         if (content == null || content.isEmpty()) {
             return;
         }
-        try {
-            response.resetBuffer();
-        } catch (IllegalStateException e) {
-            LOGGER.warn("writeToResponse: cannot resetBuffer before replaying captured response",
-                    e);
-            throw new IOException("Cannot reset buffer before replaying captured response", e);
-        }
         String encoding = response.getCharacterEncoding();
         if (encoding == null || encoding.isEmpty()) {
             encoding = StandardCharsets.UTF_8.name();
         }
         byte[] bytes = content.getBytes(encoding);
-        response.setContentLength(bytes.length);
+        if (!prepareForReplay(response, bytes.length)) {
+            appendAfterCommit(response, bytes);
+            return;
+        }
         try {
             response.getOutputStream().write(bytes);
             response.getOutputStream().flush();
@@ -801,16 +818,73 @@ public class ResponseSanitizationFilter implements Filter {
         if (content == null || content.length == 0) {
             return;
         }
+        if (!prepareForReplay(response, content.length)) {
+            appendAfterCommit(response, content);
+            return;
+        }
+        response.getOutputStream().write(content);
+        response.getOutputStream().flush();
+    }
+
+    /**
+     * Prepares the real response for replaying safe captured content: clears any buffered
+     * output and sets the byte-accurate Content-Length.
+     *
+     * @param response HttpServletResponse the real (unwrapped) response
+     * @param length   int the number of bytes about to be replayed
+     * @return {@code true} when the response was reset and the caller can replay normally;
+     *         {@code false} when the response is already committed and the caller must fall
+     *         back to {@link #appendAfterCommit(HttpServletResponse, byte[])}
+     */
+    private static boolean prepareForReplay(HttpServletResponse response, int length) {
+        if (response.isCommitted()) {
+            return false;
+        }
         try {
             response.resetBuffer();
         } catch (IllegalStateException e) {
-            LOGGER.warn("writeBytesToResponse: cannot resetBuffer before replaying captured response",
-                    e);
-            throw new IOException("Cannot reset buffer before replaying captured response", e);
+            // Committed between the check and the reset. Same degraded path.
+            return false;
         }
-        response.setContentLength(content.length);
-        response.getOutputStream().write(content);
-        response.getOutputStream().flush();
+        response.setContentLength(length);
+        return true;
+    }
+
+    /**
+     * Best-effort delivery of safe captured content into a response that something inside the
+     * chain has already committed.
+     *
+     * <p>This used to throw {@code IOException("Cannot reset buffer before replaying captured
+     * response")}, which converted a fully rendered, already-inspected-safe page into a container
+     * 500 — observed live as a JSP that set a 4xx and then forwarded answering a raw 500. The
+     * known trigger was Tomcat 11's {@code suspendWrappedResponseAfterForward} default finishing
+     * the raw response when a forward returned (see the class javadoc); that trigger is pinned
+     * off in both context descriptors, but this fallback stays because ANY premature commit
+     * (an eager {@code flushBuffer()} deep in legacy code, a race, a future container change)
+     * must degrade gracefully rather than manufacture a 500. A commit at this point means the
+     * status line and headers are already on the wire, so the body cannot be <em>replaced</em>;
+     * but it can still be <em>appended</em>, and when the premature commit sent no body the
+     * append delivers exactly the page the user was meant to see. If even the append fails, the
+     * client keeps whatever the container already sent — degraded, but never a manufactured 500.
+     * The commit itself is the anomaly, so it is logged at ERROR with enough context to
+     * chase.</p>
+     *
+     * @param response HttpServletResponse the real (unwrapped) response, already committed
+     * @param content  byte[] the safe captured body
+     */
+    private static void appendAfterCommit(HttpServletResponse response, byte[] content) {
+        LOGGER.error("Replay found the response already committed mid-chain "
+                        + "[status={} contentType={} bytes={}] — appending without reset; "
+                        + "an earlier Content-Length may truncate this, but a rendered page "
+                        + "must never be converted into a 500",
+                response.getStatus(), response.getContentType(), content.length);
+        try {
+            response.getOutputStream().write(content);
+            response.getOutputStream().flush();
+        } catch (IOException | IllegalStateException e) {
+            LOGGER.error("Appending captured content after premature commit failed; "
+                    + "the client keeps the committed response as-is", e);
+        }
     }
 
     /**
@@ -835,6 +909,7 @@ public class ResponseSanitizationFilter implements Filter {
 
         private CapturingSwitchingWriter switchingWriter;
         private CapturingSwitchingServletOutputStream switchingOutputStream;
+        private CloseShieldServletOutputStream shieldedPassthroughStream;
         private PrintWriter writer;
         private boolean usingWriter;
         private boolean usingOutputStream;
@@ -892,7 +967,18 @@ public class ResponseSanitizationFilter implements Filter {
             usingOutputStream = true;
             if (outputStreamPassthrough || getStatus() < 400) {
                 outputStreamPassthrough = true;
-                return super.getOutputStream();
+                // Close-shielded, not the raw stream. A dispatcher forward closes the response
+                // it was invoked with when it completes ("commit and close" per the Servlet
+                // spec), and when that close reaches the raw stream mid-chain it commits the
+                // real response — with Content-Length 0 when nothing was written yet — and
+                // every later write-back from the appending filters above this one is silently
+                // discarded. The container closes the raw stream when the request actually
+                // ends; nothing inside the chain needs to, so close degrades to flush.
+                if (shieldedPassthroughStream == null) {
+                    shieldedPassthroughStream =
+                            new CloseShieldServletOutputStream(super.getOutputStream());
+                }
+                return shieldedPassthroughStream;
             }
             if (switchingOutputStream == null) {
                 switchingOutputStream = new CapturingSwitchingServletOutputStream(
@@ -958,6 +1044,40 @@ public class ResponseSanitizationFilter implements Filter {
                 return;
             }
             // Writer capture path — suppress to prevent premature commitment.
+        }
+
+        /**
+         * Clears the capture buffers along with the real response buffer.
+         *
+         * <p>A {@code RequestDispatcher.forward()} calls {@code resetBuffer()} before invoking
+         * its target — the Servlet spec requires uncommitted output to be cleared. The capture
+         * buffers hold exactly that uncommitted output, so they must be cleared with it:
+         * without this override the pre-forward prefix that the container just discarded was
+         * still sitting in the capture and got replayed in front of the forwarded page.</p>
+         */
+        @Override
+        public void resetBuffer() {
+            discardCapturedOutput();
+            super.resetBuffer();
+        }
+
+        /**
+         * Clears the capture buffers along with the real response state, mirroring
+         * {@link #resetBuffer()} for the header-clearing variant.
+         */
+        @Override
+        public void reset() {
+            discardCapturedOutput();
+            super.reset();
+        }
+
+        private void discardCapturedOutput() {
+            if (switchingWriter != null) {
+                switchingWriter.discardCaptured();
+            }
+            if (switchingOutputStream != null) {
+                switchingOutputStream.discardCaptured();
+            }
         }
 
         /**
@@ -1049,6 +1169,55 @@ public class ResponseSanitizationFilter implements Filter {
     }
 
     /**
+     * Pass-through stream whose {@code close()} degrades to {@code flush()}.
+     *
+     * <p>Handed out instead of the raw response stream in passthrough mode, so a mid-chain
+     * close — a dispatcher forward's end-of-forward "commit and close", propagated down
+     * through response wrappers such as JavaMelody's counting stream — cannot commit and
+     * seal the real response while outer filters still have body content to write. The
+     * container performs the real close when the request completes.</p>
+     */
+    private static class CloseShieldServletOutputStream extends ServletOutputStream {
+
+        private final ServletOutputStream real;
+
+        CloseShieldServletOutputStream(ServletOutputStream real) {
+            this.real = real;
+        }
+
+        @Override
+        public void write(int b) throws IOException {
+            real.write(b);
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            real.write(b, off, len);
+        }
+
+        @Override
+        public void flush() throws IOException {
+            real.flush();
+        }
+
+        @Override
+        public void close() throws IOException {
+            // Deliberately flush-only: see the class comment. The container owns the real close.
+            real.flush();
+        }
+
+        @Override
+        public boolean isReady() {
+            return real.isReady();
+        }
+
+        @Override
+        public void setWriteListener(jakarta.servlet.WriteListener writeListener) {
+            real.setWriteListener(writeListener);
+        }
+    }
+
+    /**
      * Captures output-stream bodies until the response proves it needs passthrough or sanitization.
      */
     private static class CapturingSwitchingServletOutputStream extends ServletOutputStream {
@@ -1125,6 +1294,18 @@ public class ResponseSanitizationFilter implements Filter {
 
         byte[] getCaptured() {
             return limitExceeded ? new byte[0] : buffer.toByteArray();
+        }
+
+        /**
+         * Discards everything captured so far. Called when the wrapped response's buffer is
+         * reset (a dispatcher forward), so the capture cannot replay output the container
+         * has already discarded. Once the limit is exceeded the content has already flowed to
+         * the real response and the real reset governs; there is nothing left here to drop.
+         */
+        void discardCaptured() {
+            if (!limitExceeded) {
+                buffer.reset();
+            }
         }
 
         private void switchToPassthrough() throws IOException {
@@ -1275,6 +1456,16 @@ public class ResponseSanitizationFilter implements Filter {
                 return "";
             }
             return buffer.toString();
+        }
+
+        /**
+         * Discards everything captured so far — see the output-stream counterpart for why a
+         * dispatcher forward requires this.
+         */
+        void discardCaptured() {
+            if (!limitExceeded) {
+                buffer.reset();
+            }
         }
 
         /**
