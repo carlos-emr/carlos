@@ -1,4 +1,4 @@
-carlos-emr (2026.09.0~snapshot11) resolute; urgency=medium
+carlos-emr (2026.09.0~snapshot12) resolute; urgency=medium
 
   * Upload rejections are reported instead of vanishing. The "input" result
     added in ~snapshot5 forwarded the eDocs add-document form to the documents
@@ -34,6 +34,10 @@ carlos-emr (2026.09.0~snapshot11) resolute; urgency=medium
   * The legacy uploader treats XHR status 0 as a failure. Status 0 means no HTTP
     response was produced at all, so an aborted or dropped upload was being
     reported to the user as "Upload complete".
+  * A rejected eDocs upload renders the rejection page instead of a blank page.
+    The previous forward rebuilt the documents page from request parameters
+    that no longer exist, because the multipart parse that failed is what put
+    the request on this path in the first place.
   * Restoring an eForm no longer answers 405 after succeeding. The success
     result was a forward, which keeps the POST method, and the deleted-list gate
     permits POST only for the editor — the same defect delete was fixed for.
