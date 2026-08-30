@@ -68,6 +68,7 @@ const os = require('os');
 const path = require('path');
 const {
   assert,
+  assertNoPageErrors,
   buildFailureDetails,
   createRecorder,
   getLaunchOptions,
@@ -326,6 +327,9 @@ function documentRowCount() {
     );
     await emptyPage.close();
     await edocsPage.close();
+
+    assertNoPageErrors(recorder);
+
     await context.close();
 
     console.log(

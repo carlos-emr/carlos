@@ -52,6 +52,7 @@
 const { chromium } = require('playwright');
 const {
   assert,
+  assertNoPageErrors,
   buildFailureDetails,
   createRecorder,
   getLaunchOptions,
@@ -397,10 +398,10 @@ async function libraryRow(page, name) {
     // redirect (delEForm -> 302 -> library), so the flag is readable after the
     // page settles. The bogus load() call is synchronous in the click handler,
     // before navigation starts, so the write always lands.
-    await managerPage.evaluate(() => {
+    const instrumented = await managerPage.evaluate(() => {
       try {
         const jq = window.jQuery;
-        if (!jq || !jq.fn) return;
+        if (!jq || !jq.fn || typeof jq.fn.load !== 'function') return false;
         sessionStorage.removeItem('__carlosBogusLoad');
         const orig = jq.fn.load;
         jq.fn.load = function (url) {
@@ -409,8 +410,21 @@ async function libraryRow(page, name) {
           }
           return orig.apply(this, arguments);
         };
-      } catch (e) { /* jQuery not present -> nothing to instrument */ }
+        return true;
+      } catch (e) {
+        return false;
+      }
     });
+    // The probe below is only evidence if the wrapper was actually installed.
+    // Returning early on a missing jQuery.fn.load and then reading the flag
+    // would make the assertion unfailable -- it would report "no bogus load"
+    // for a page it never instrumented, which is indistinguishable from the
+    // guard working.
+    assert(
+      instrumented,
+      'Could not instrument jQuery.fn.load, so the delete-banner probe below would pass '
+        + 'without testing anything. jQuery is missing, or no longer exposes fn.load.',
+    );
 
     const [deleteResponse] = await Promise.all([
       managerPage.waitForResponse(
@@ -481,8 +495,10 @@ async function libraryRow(page, name) {
       }
     });
     // DataTables' default errMode is 'alert', so the tn/18 warning can arrive
-    // as a dialog rather than a console line. wirePage already dismisses
-    // dialogs, so record it here before that handler runs.
+    // as a dialog rather than a console line. wirePage's dismiss handler is
+    // registered first and therefore runs first, but dialog.message() stays
+    // readable after the dismissal, so recording it here still captures the
+    // text.
     deletedPage.on('dialog', (dialog) => {
       if (/DataTables warning/i.test(dialog.message())) {
         dataTablesWarnings.push(dialog.message());
@@ -517,6 +533,14 @@ async function libraryRow(page, name) {
     await deletedPage.close();
 
     await managerPage.close();
+
+    // Fail on any uncaught JS error these pages raised. Without this the
+    // assertions above can all pass over a visibly broken page -- the
+    // deleted-eForms list threw a ReferenceError out of the DataTables draw
+    // callback AFTER the rows existed, so every assertion here was already
+    // satisfied by the time the page broke.
+    assertNoPageErrors(recorder);
+
     await context.close();
 
     console.log(

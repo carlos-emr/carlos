@@ -241,11 +241,15 @@ public final class RxSearchDrug2Action extends ActionSupport {
      * The search terms for one request.
      *
      * <p>These were {@code static} fields mutated in place by a {@code setParameters} call at the
-     * top of each search method. Tomcat serves concurrent requests on different threads against
-     * one action instance, so two prescribers searching at the same moment overwrote each other's
-     * term between the write and the read a few lines later — one clinician's search silently
-     * returning the other's drug list. Per-request instance state removes the shared mutable
-     * field entirely; nothing outside a single method call ever sees one.</p>
+     * top of each search method. Being static, they were shared across every request in the JVM
+     * regardless of action lifecycle, so two prescribers searching at the same moment overwrote
+     * each other's term between the write and the read a few lines later — one clinician's search
+     * silently returning the other's drug list. Per-request state removes the shared mutable field
+     * entirely; nothing outside a single method call ever sees one.</p>
+     *
+     * <p>Note this was <em>only</em> ever about the {@code static} modifier. Struts 7 with the
+     * Spring object factory builds a new action instance per request, so the ordinary instance
+     * fields on this class are not shared between threads and need no such treatment.</p>
      */
     private static final class Parameter {
 

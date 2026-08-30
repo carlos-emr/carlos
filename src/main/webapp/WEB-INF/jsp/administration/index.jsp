@@ -370,9 +370,24 @@
 <script type="text/javascript">
     $(document).ready(function () {
         $("a.contentLink").click(function (e) {
+            var href = $(this).attr("href");
             e.preventDefault();
+            // Only AJAX-load a real URL. Several controls reachable from this
+            // shell borrow .contentLink purely for styling and do their work in
+            // their own onclick (leftNav's caisi entries are
+            // href="javascript:void(0);", and one carries no href at all).
+            // Loading that literal value cannot succeed: jQuery completes with
+            // status 0 / statusText "error" and the handler below paints
+            // "Sorry but there was an error: 0 error" over the page — over the
+            // iframe the element's own handler just installed — while the
+            // control itself worked fine. A missing href reaches .load() as
+            // undefined and throws instead. Same defect, and same fix, as
+            // eform/efmFooter.jspf.
+            if (!href || href === "#" || /^\s*javascript:/i.test(href)) {
+                return;
+            }
             $("#dynamic-content").removeClass("dynamic-iframe-content");
-            $("#dynamic-content").load($(this).attr("href"),
+            $("#dynamic-content").load(href,
                 function (response, status, xhr) {
                     if (status == "error") {
                         var msg = "Sorry but there was an error: ";

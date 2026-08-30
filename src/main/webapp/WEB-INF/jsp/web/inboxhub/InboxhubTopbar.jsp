@@ -28,10 +28,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
     Conditional rendering:
       The "Doc Upload" link toggles between two endpoints based on the
-      Carlos property `legacy_document_upload_enabled` (default true). When
-      true, the legacy `ViewHtml5AddDocuments` popup is rendered; when
-      false, the modern `ViewDocumentUploader` popup is rendered. Both
-      branches render the same i18n label.
+      Carlos property `legacy_document_upload_enabled`. When true, the legacy
+      `ViewHtml5AddDocuments` popup is rendered; when false, the modern
+      `ViewDocumentUploader` popup is rendered. Both branches render the same
+      i18n label.
+
+      Note the property is NOT "default true": the second argument to
+      getBooleanProperty is the value compared against, not a fallback, and an
+      unset property returns false. A stock install therefore serves the modern
+      uploader here. The point of reading it through a scriptlet rather than EL
+      is that `<%@ page import %>` exposes CarlosProperties to scriptlets only,
+      so the EL form silently evaluated false whatever the property said — this
+      entry point and oscarMDS/Index.jsp could disagree on one install.
 
     Popup sizing:
       reportWindow's signature is (page, height, width). The popup args

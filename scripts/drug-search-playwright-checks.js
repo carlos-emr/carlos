@@ -50,6 +50,7 @@
 const { chromium } = require('playwright');
 const {
   assert,
+  assertNoPageErrors,
   assertNotErrorPage,
   buildFailureDetails,
   createRecorder,
@@ -102,7 +103,13 @@ assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, 
     // "Contact support." here means the probe itself failed (a non-JSON reply,
     // or the _rx write gate rejecting a read-only prescriber), which is a
     // different defect from the search failing.
-    const statusBefore = (await rxPage.locator('#statusDisplay').innerText().catch(() => '')).trim();
+    // Assert the panel EXISTS before reading it. Swallowing the lookup with
+    // .catch(() => '') makes "" pass the !/unavailable/ test, so a regression
+    // that stops rendering #statusDisplay entirely -- or renames it -- would
+    // satisfy this check vacuously, which is exactly the shape of hollow
+    // assertion that let the original six defects ship green.
+    await rxPage.locator('#statusDisplay').waitFor({ state: 'attached', timeout: 20000 });
+    const statusBefore = (await rxPage.locator('#statusDisplay').innerText()).trim();
     assert(
       !/unavailable/i.test(statusBefore),
       `The DrugRef status banner already reads "${statusBefore}" before any search was made. `
@@ -155,14 +162,30 @@ assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, 
     // And the failure banner must still be clear afterwards: the new error
     // handler writes into #statusDisplay, so a regression that fails the search
     // shows up here even if the assertions above were somehow satisfied.
-    const statusAfter = (await rxPage.locator('#statusDisplay').innerText().catch(() => '')).trim();
+    const statusAfter = (await rxPage.locator('#statusDisplay').innerText()).trim();
     assert(
       !/unavailable/i.test(statusAfter),
       `After a successful search the DrugRef banner reads "${statusAfter}".`,
     );
 
+    // The DrugRef name/version/date spans live INSIDE #statusDisplay. The error
+    // handler used to replace that container's innerHTML, deleting all three
+    // permanently, so assert they survive: a regression that reintroduces the
+    // destructive write leaves the banner text clear and would pass the two
+    // assertions above.
+    for (const id of ['drugDatabase', 'drugDatabaseVersion', 'dbDateTime']) {
+      assert(
+        (await rxPage.locator(`#statusDisplay #${id}`).count()) === 1,
+        `#${id} is gone from the DrugRef status panel after a search. Something replaced `
+          + "#statusDisplay's innerHTML instead of writing to a child node.",
+      );
+    }
+
     await screenshot(rxPage, config.screenshotDir, 'drug-search-results');
     await rxPage.close();
+
+    assertNoPageErrors(recorder);
+
     await context.close();
 
     console.log(

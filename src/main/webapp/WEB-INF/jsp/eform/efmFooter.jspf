@@ -78,16 +78,12 @@ $(document).ready(function() {
         bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).hide();
     });
     
-    $(document).on("click", '#dataConfirmOK', function(e) {
-        e.preventDefault();
-        $("#dynamic-content").load($(this).attr("href"), function(response, status, xhr) {
-            if (status == "error") {
-                var msg = "Sorry but there was an error: ";
-                $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
-            }
-        });
-    });
-    
+    <%-- The #dataConfirmOK handler that used to sit here was dead and carried
+         the same unguarded .load($(this).attr("href")) this file was fixed for.
+         Nothing in the codebase has that id — the modal's confirm button is
+         #dataConfirmed, handled above — so it could never fire, and leaving it
+         in place only invited the pattern being copied back. --%>
+
     // Exclude #dataConfirmed from contentLink handler
     $(document).on("click", 'a.contentLink:not(#dataConfirmed)', function(e) {
         var href = $(this).attr("href");

@@ -110,7 +110,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
         // try/finally so the validated temp upload is deleted on EVERY branch. The
         // per-branch cleanups below null docFile on the success paths; this guards the
-        // error paths (invalid filename, non-PDF, zero-length, and the pendingDocs
+        // error paths (invalid filename, non-PDF, zero-length, and the incomingDocs
         // filename-rejection early return) that previously leaked the temp file.
         try {
         if (docFile != null && destination != null && destination.equals("incomingDocs")) {
@@ -197,6 +197,12 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             // collision: the stored name carries a one-second timestamp prefix, so re-uploading
             // the same file inside a second collides in writeLocalFile — that is the user's
             // situation to resolve, not a server fault.
+            // Only the write and the row insert decide success or failure. Everything
+            // after them is a side effect on a document that is already filed, and must
+            // not be reported as an upload failure: the user would re-upload, the stored
+            // name carries a one-second timestamp prefix so the retry would not even
+            // collide, and the chart would end up with two copies of the same scan.
+            String doc_no = null;
             try {
                 // write file to local dir
                 writeLocalFile(docFile, fileName);
@@ -207,39 +213,53 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     numberOfPages = countNumOfPages(filePath);
                 }
                 newDoc.setNumberOfPages(numberOfPages);
-                String doc_no = EDocUtil.addDocumentSQL(newDoc);
-                LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
-
-                String providerId = request.getParameter("providers");
-                if (providerId != null) {
-                    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                    ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
-                    providerInboxRoutingDao.addToProviderInbox(providerId, Integer.parseInt(doc_no), "DOC");
-                }
-
-                String queueId = request.getParameter("queue");
-                if (queueId != null && !queueId.equals("-1")) {
-                    if (!queueId.trim().matches("\\d+")) {
-                        logger.warn("Invalid queue ID format — skipping queue link");
-                        request.getSession().removeAttribute("preferredQueue");
-                    } else {
-                        WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                        QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-                        Integer qid = Integer.parseInt(queueId.trim());
-                        Integer did = Integer.parseInt(doc_no.trim());
-                        queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                        request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-                    }
-                }
-
-                map.put("name", docFile.getName());
-                map.put("size", docFile.length());
+                doc_no = EDocUtil.addDocumentSQL(newDoc);
             } catch (FileAlreadyExistsException e) {
                 logger.warn("Uploaded document name already taken; asking the user to retry", e);
                 map.put("error", props.getString("dms.addDocument.errorDuplicate"));
             } catch (Exception e) {
+                // If the write succeeded and only the insert failed, the file is left in
+                // the document store with no row pointing at it. That is litter rather
+                // than a patient record, but it is why a retry inside the same second can
+                // come back as a name collision.
                 logger.error("Failed to store uploaded document", e);
                 map.put("error", props.getString("dms.addDocument.errorNoWrite"));
+            }
+
+            if (doc_no != null) {
+                try {
+                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+
+                    String providerId = request.getParameter("providers");
+                    if (providerId != null) {
+                        WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                        ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
+                        providerInboxRoutingDao.addToProviderInbox(providerId, Integer.parseInt(doc_no), "DOC");
+                    }
+
+                    String queueId = request.getParameter("queue");
+                    if (queueId != null && !queueId.equals("-1")) {
+                        if (!queueId.trim().matches("\\d+")) {
+                            logger.warn("Invalid queue ID format — skipping queue link");
+                            request.getSession().removeAttribute("preferredQueue");
+                        } else {
+                            WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                            QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
+                            Integer qid = Integer.parseInt(queueId.trim());
+                            Integer did = Integer.parseInt(doc_no.trim());
+                            queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
+                            request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                        }
+                    }
+                } catch (Exception e) {
+                    // The document is filed and the user is told so. Routing or the audit
+                    // entry failing is an operational problem to chase in the log, not a
+                    // reason to send the clinician back to re-upload a scan that landed.
+                    logger.error("Document {} was stored but a post-save step failed", doc_no, e);
+                }
+
+                map.put("name", docFile.getName());
+                map.put("size", docFile.length());
             }
             }
 
