@@ -329,8 +329,9 @@ function documentRowCount() {
     await context.close();
 
     console.log(
-      `PASS document upload: ${probeName} uploaded through the Inbox hub popup, `
-      + `document row created, duplicate handling returned HTTP ${secondStatus}`,
+      `PASS document upload: ${probeName} uploaded through the Inbox hub popup and the eDocs `
+      + 'chart form, both document rows created, the eDocs row attached to the patient, and an '
+      + 'empty file was rejected without a 500',
     );
   } catch (error) {
     console.error('FAIL document upload Playwright check');

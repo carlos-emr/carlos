@@ -391,16 +391,25 @@ async function libraryRow(page, name) {
     // no-op, so the painted banner is invisible there and the body-text check
     // below cannot see it) — but the handler still CALLS load() with the bogus
     // URL pre-fix, and must NOT post-fix. This records every such call.
+    // Stash the flag in sessionStorage, not a window var: confirmNDelete's
+    // form.submit() navigates this page, destroying the JS context before we
+    // could read a window global. sessionStorage survives the same-origin
+    // redirect (delEForm -> 302 -> library), so the flag is readable after the
+    // page settles. The bogus load() call is synchronous in the click handler,
+    // before navigation starts, so the write always lands.
     await managerPage.evaluate(() => {
-      window.__carlosBogusLoads = [];
-      const jq = window.jQuery;
-      const orig = jq.fn.load;
-      jq.fn.load = function (url) {
-        if (typeof url === 'string' && (/^\s*javascript:/i.test(url) || url === '#' || url === '')) {
-          window.__carlosBogusLoads.push(url);
-        }
-        return orig.apply(this, arguments);
-      };
+      try {
+        const jq = window.jQuery;
+        if (!jq || !jq.fn) return;
+        sessionStorage.removeItem('__carlosBogusLoad');
+        const orig = jq.fn.load;
+        jq.fn.load = function (url) {
+          if (typeof url === 'string' && (/^\s*javascript:/i.test(url) || url === '#' || url === '')) {
+            try { sessionStorage.setItem('__carlosBogusLoad', url); } catch (e) { /* ignore */ }
+          }
+          return orig.apply(this, arguments);
+        };
+      } catch (e) { /* jQuery not present -> nothing to instrument */ }
     });
 
     const [deleteResponse] = await Promise.all([
@@ -410,13 +419,6 @@ async function libraryRow(page, name) {
       ),
       deleteLink.click(),
     ]);
-    const bogusLoads = await managerPage.evaluate(() => window.__carlosBogusLoads || []);
-    assert(
-      bogusLoads.length === 0,
-      `The footer's contentLink handler AJAX-loaded a non-URL href ${JSON.stringify(bogusLoads)} `
-        + 'on delete — the efmFooter.jspf guard is gone, so a successful delete will paint the '
-        + '"Sorry but there was an error: 0 error" banner again.',
-    );
     // Reaching here at all is part of the assertion: before the fix, the click
     // submitted immediately with no token and this POST came back 403.
     assertNotBlocked(deleteResponse, 'Deleting an eForm');
@@ -433,16 +435,22 @@ async function libraryRow(page, name) {
       !/CARLOS Error:|unexpected error/i.test(bodyText),
       'Deleting an eForm landed on the application error page',
     );
-    // The delete used to succeed AND report failure at the same time: the
-    // delete anchor is href="javascript:void(0);" with .contentLink, and the
-    // footer's delegated handler AJAX-loaded that literal href, which cannot
-    // succeed, so jQuery reported status 0 / statusText "error" and this banner
-    // was painted over the page. A tester reported exactly that contradiction.
+    // Deterministic pin for the efmFooter guard: the delete used to succeed AND
+    // report failure at once — the delete anchor is href="javascript:void(0);"
+    // with .contentLink, and the footer's delegated handler AJAX-loaded that
+    // literal href (status 0 / "error" -> the "Sorry but there was an error: 0
+    // error" banner). The sessionStorage flag set by the load() wrapper above
+    // survives the delete's redirect; if it is set, the guard is gone. (A
+    // body-text check here is vacuous: the redirect lands on a fresh library
+    // page where any transient banner is already gone.)
+    const bogusLoad = await managerPage.evaluate(() => {
+      try { return sessionStorage.getItem('__carlosBogusLoad'); } catch (e) { return null; }
+    });
     assert(
-      !/Sorry but there was an error/i.test(bodyText),
-      'Deleting an eForm painted the "Sorry but there was an error" banner even though the '
-        + 'delete itself succeeded — the contentLink handler is AJAX-loading a javascript: href '
-        + 'again (see efmFooter.jspf).',
+      !bogusLoad,
+      `On delete the footer's contentLink handler AJAX-loaded a non-URL href ${JSON.stringify(bogusLoad)} `
+        + '— the efmFooter.jspf guard is gone, so a successful delete will paint the '
+        + '"Sorry but there was an error: 0 error" banner again.',
     );
 
     await screenshot(managerPage, config.screenshotDir, 'eform-admin-crud-after-delete');
