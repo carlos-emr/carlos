@@ -47,6 +47,15 @@
  *      so an empty file fell through to errorpage.jsp as a raw 500; pointing it
  *      at its own success view would have been worse, because that view reports
  *      a completed upload.
+ *   7. A JSP that runs and then forwards delivers the forwarded body. Tomcat 11
+ *      defaults suspendWrappedResponseAfterForward to true, which finishes the
+ *      response when a forward returns and strands the forwarded page's body in
+ *      javamelody's writer buffer: every JSP-to-JSP <jsp:forward> answered 200
+ *      with an EMPTY body, and a 4xx plus a forward answered a raw 500, with
+ *      nothing logged. The context descriptors pin the attribute false and
+ *      ResponseSanitizationFilter hardens the replay; this drives a real such
+ *      route (viewTemplate.jsp without a templateid forwards to the report
+ *      home page) and asserts the forwarded content actually arrives.
  *
  * RUN THIS THROUGH :443. Assertions 1-3 are about what the server refuses, and
  * on the packaged install the WAF and the front door are part of that answer.
@@ -230,6 +239,30 @@ const UNUSED_FID = '999999999';
     }
     await labPage.close();
 
+    // --- 7: a JSP-to-JSP forward must deliver the forwarded body -----------------
+    //
+    // viewTemplate.jsp writes its header, then <jsp:forward>s to ViewHomePage
+    // when no templateid is given — the exact shape that returned 200 with an
+    // empty body while suspendWrappedResponseAfterForward was left on its
+    // Tomcat 11 default. "Template Library" is rendered by the FORWARDED page
+    // (homePage.jsp), so its presence proves the forwarded body arrived.
+    const forwardProbe = await page.request.get(
+      `${config.baseUrl.href}/oscarReport/reportByTemplate/ViewViewTemplate`,
+      { failOnStatusCode: false, maxRedirects: 0 },
+    );
+    assert(
+      forwardProbe.status() < 400,
+      `GET ViewViewTemplate (no templateid) returned HTTP ${forwardProbe.status()}; the `
+        + 'mid-page <jsp:forward> to the report home page must not error.',
+    );
+    const forwardBody = await forwardProbe.text();
+    assert(
+      forwardBody.includes('Template Library'),
+      `The JSP-to-JSP forward came back without the forwarded page's content (${forwardBody.length} `
+        + 'bytes). This is the empty-forward regression: check that the context descriptors still set '
+        + 'suspendWrappedResponseAfterForward="false" (META-INF/context.xml and the deb\'s carlos.xml).',
+    );
+
     await screenshot(page, config.screenshotDir, 'pr-hardening');
     await page.close();
 
@@ -243,7 +276,8 @@ const UNUSED_FID = '999999999';
     console.log(
       'PASS PR hardening: mutating routes refuse GET, the read-only DrugRef probe still answers '
       + 'one, standalone eForm admin pages raise no uncaught JS, the admin shell does not paint '
-      + 'the "0 error" banner, and a rejected lab upload is neither a 500 nor a false success',
+      + 'the "0 error" banner, a rejected lab upload is neither a 500 nor a false success, and '
+      + 'a JSP-to-JSP forward delivers the forwarded body',
     );
   } catch (error) {
     console.error('FAIL PR hardening Playwright check');
