@@ -130,7 +130,11 @@ function writeProbePdf(dir) {
     + '%%EOF\n',
     'latin1',
   );
-  const file = path.join(dir, probeName);
+  // Both segments are trusted constants: dir comes from fs.mkdtempSync above and
+  // probeName is a fixed prefix plus Date.now() — no user or network input reaches
+  // this join, which the taint rule cannot see across the module.
+  const file = path.join(dir, probeName); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+
   fs.writeFileSync(file, pdf);
   return file;
 }

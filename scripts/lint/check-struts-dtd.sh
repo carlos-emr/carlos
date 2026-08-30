@@ -48,6 +48,9 @@ public class DtdCheck {
             try {
                 sp.parse(f, new DefaultHandler() {
                     @Override public InputSource resolveEntity(String pub, String sys) {
+                        // A parser may hand over a null systemId; falling back to default
+                        // resolution beats dying with an NPE before naming the invalid file.
+                        if (sys == null || sys.isEmpty()) { return null; }
                         String name = sys.substring(sys.lastIndexOf('/') + 1);
                         try { return new InputSource(new FileInputStream(new File(dtdDir, name))); }
                         catch (Exception e) { return null; }
