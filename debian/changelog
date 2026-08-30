@@ -1,3 +1,22 @@
+carlos-emr (2026.09.0~snapshot16) resolute; urgency=medium
+
+  * The response-sanitisation filter's pass-through stream no longer flushes
+    when something inside the chain closes it. Flushing commits the response
+    without assigning a Content-Length, which turned forwarded pages and
+    streamed downloads chunked and, more importantly, permanently disabled the
+    filter's own late-error branch for them -- the branch that still replaces
+    a stack trace that escaped capture. Closing is now a no-op; the container
+    sets Content-Length and closes the buffer when the request ends.
+  * Upgrades warn when the Tomcat context descriptor, a conffile, was kept
+    from a local edit and so lacks suspendWrappedResponseAfterForward="false".
+    Without that attribute forwarded pages come back empty and forwarded error
+    pages come back as 500s, with nothing logged.
+  * Upload-name collisions no longer log the exception. Its message is the
+    destination path, which ends in the uploader's filename, and scanned
+    clinical documents are routinely named after the patient.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 30 Aug 2026 19:30:00 +0000
+
 carlos-emr (2026.09.0~snapshot15) resolute; urgency=medium
 
   * JSP-to-JSP forwards deliver their body again, and an error page that sets

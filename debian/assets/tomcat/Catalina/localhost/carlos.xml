@@ -13,20 +13,35 @@
 -->
 <!--
   suspendWrappedResponseAfterForward MUST stay "false" (Tomcat 11 flipped the
-  default to "true"). With the default, ApplicationDispatcher.doForward()
-  unwraps the response-wrapper chain to the ResponseFacade and SUSPENDS the
-  raw response when a forward returns, instead of the classic
-  response.getWriter().close() on the outermost wrapper. That classic close is
-  what flushed the wrapper stack's internal buffers: javamelody converts all
-  writer traffic into a PrintWriter over an OutputStream, and the forwarded
-  page's entire body sits in that PrintWriter's encoder buffer until something
-  closes or flushes it. Under suspension nothing does, the request ends with
-  Content-Length: 0, and the late flush is silently swallowed. Two verified
-  user-visible failures on the packaged install (2026-08-30):
+  default to "true").
+
+  What the default does, precisely: when a forward returns,
+  ApplicationDispatcher.doForward() unwraps the response-wrapper chain to the
+  ResponseFacade and calls finish() on it. That is
+  Response.setSuspended(true) -> OutputBuffer.setSuspended(true), and a
+  suspended OutputBuffer silently DISCARDS every subsequent write and flush.
+
+  The forwarded page's body does not reach that buffer during the forward; it
+  sits in the filter stack's own buffers (javamelody wraps every request and
+  turns all writer traffic into a PrintWriter over an OutputStream) and only
+  drains during filter unwind, when each wrapper flushes its delegate. With
+  the buffer already suspended, every one of those flushes is thrown away and
+  the request ends with Content-Length: 0. Two verified user-visible failures
+  on the packaged install (2026-08-30):
     - any JSP-to-JSP <jsp:forward> returned 200 with an EMPTY body;
     - a forward on a 4xx response came back as a raw 500, because
       ResponseSanitizationFilter's replay found the response already finished.
-  Nothing is logged for either. ResponseSanitizationFilter documents the same
+  Nothing is logged for either.
+
+  So the fix is NOT that "false" restores a close that flushes something: the
+  classic close the false branch performs is deliberately absorbed by the
+  wrappers (PrivacyStatementAppendingFilter's DelegatingWriter has an empty
+  flush() AND an empty close(), LogoutBroadcastFilter's degrades close to
+  flush). The fix is that finish() is never called, so the buffer is never
+  suspended and the unwind-time flushes actually reach the wire. Two
+  consequences for anyone editing this stack: those no-op closes are load
+  bearing, not dead code, and removing a wrapper's unwind flush would
+  reintroduce the empty body. ResponseSanitizationFilter documents the same
   interaction from the filter side; keep the two in sync.
 -->
 <Context docBase="/usr/share/carlos-emr/webapp/carlos"

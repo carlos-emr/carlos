@@ -40,6 +40,7 @@ import java.io.CharArrayWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Set;
@@ -95,21 +96,32 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * {@code RequestDispatcher.forward()} inside the request has returned. Tomcat 11 defaults
  * {@code suspendWrappedResponseAfterForward} to {@code true}: when a forward returns,
  * {@code ApplicationDispatcher} unwraps the response-wrapper chain to the {@code ResponseFacade}
- * and <em>suspends</em> the raw response, instead of the classic
- * {@code response.getWriter().close()} on the outermost wrapper. The classic close is what
- * flushed the wrapper stack's internal buffers — in production javamelody's MonitoringFilter
- * converts all writer traffic into a {@code PrintWriter} over an {@code OutputStream}, and the
- * forwarded page's whole body sits in that {@code PrintWriter}'s encoder buffer until something
- * closes or flushes it. Under suspension nothing does. Verified consequences on the packaged
- * install (2026-08-30): every JSP-to-JSP {@code <jsp:forward>} answered 200 with an EMPTY body,
- * and a forward on a 4xx answered a raw 500, because this filter's replay found the response
- * already finished (see {@link #appendAfterCommit(HttpServletResponse, byte[])}). Nothing was
- * logged for either. Both context descriptors therefore pin the attribute to {@code false}:
- * {@code src/main/webapp/META-INF/context.xml} (devcontainer) and
- * {@code debian/assets/tomcat/Catalina/localhost/carlos.xml} (packaged install). With the
- * classic close restored, a mid-chain {@code close()} does reach this wrapper's passthrough
- * stream — {@code CloseShieldServletOutputStream} converts it into a flush so the raw stream
- * stays writable for the rest of the chain.</p>
+ * and calls {@code finish()} on it, which is {@code Response.setSuspended(true)} →
+ * {@code OutputBuffer.setSuspended(true)}. A suspended {@code OutputBuffer} silently
+ * <em>discards</em> every later write and flush.</p>
+ *
+ * <p>The forwarded page's body does not reach that buffer during the forward. It sits in the
+ * filter stack's own buffers — javamelody's MonitoringFilter wraps every request and turns all
+ * writer traffic into a {@code PrintWriter} over an {@code OutputStream} — and drains only
+ * during filter unwind, as each wrapper flushes its delegate. With the buffer already suspended
+ * those flushes are thrown away and the request ends with {@code Content-Length: 0}. Verified
+ * consequences on the packaged install (2026-08-30): every JSP-to-JSP {@code <jsp:forward>}
+ * answered 200 with an EMPTY body, and a forward on a 4xx answered a raw 500, because this
+ * filter's replay found the response already finished (see
+ * {@link #appendAfterCommit(HttpServletResponse, byte[])}). Nothing was logged for either.</p>
+ *
+ * <p>Both context descriptors therefore pin the attribute to {@code false}:
+ * {@code debian/assets/tomcat/Catalina/localhost/carlos.xml} (packaged install — the deb
+ * deploys from {@code conf/Catalina/localhost/} descriptors, so this is the one that is read
+ * there) and {@code src/main/webapp/META-INF/context.xml} (devcontainer). Note what the fix is
+ * <em>not</em>: the classic end-of-forward close that the {@code false} branch performs instead
+ * is deliberately absorbed by the wrappers below — {@code PrivacyStatementAppendingFilter}'s
+ * {@code DelegatingWriter} has an empty {@code flush()} <em>and</em> an empty {@code close()},
+ * and {@code LogoutBroadcastFilter}'s degrades close to flush. The fix is that {@code finish()}
+ * is never called, so the buffer is never suspended and the unwind-time flushes reach the wire.
+ * Those no-op closes are load-bearing, not dead code, and removing a wrapper's unwind flush
+ * would reintroduce the empty body. Whatever part of that close cascade does propagate lands on
+ * {@link CloseShieldServletOutputStream}, which keeps it from sealing the raw stream.</p>
  *
  * <h3>Compliance</h3>
  * <ul>
@@ -792,11 +804,7 @@ public class ResponseSanitizationFilter implements Filter {
         if (content == null || content.isEmpty()) {
             return;
         }
-        String encoding = response.getCharacterEncoding();
-        if (encoding == null || encoding.isEmpty()) {
-            encoding = StandardCharsets.UTF_8.name();
-        }
-        byte[] bytes = content.getBytes(encoding);
+        byte[] bytes = content.getBytes(resolveEncoding(response));
         if (!prepareForReplay(response, bytes.length)) {
             appendAfterCommit(response, bytes);
             return;
@@ -824,6 +832,28 @@ public class ResponseSanitizationFilter implements Filter {
         }
         response.getOutputStream().write(content);
         response.getOutputStream().flush();
+    }
+
+    /**
+     * The charset to encode replayed content with: the response's own, or UTF-8 when it
+     * declares none. Shared so the byte and character replay paths cannot disagree about
+     * the encoding and produce a Content-Length that does not match the bytes.
+     *
+     * @param response HttpServletResponse the real (unwrapped) response
+     * @return Charset the charset to use
+     */
+    private static Charset resolveEncoding(HttpServletResponse response) {
+        String encoding = response.getCharacterEncoding();
+        if (encoding == null || encoding.isEmpty()) {
+            return StandardCharsets.UTF_8;
+        }
+        try {
+            return Charset.forName(encoding);
+        } catch (IllegalArgumentException e) {
+            // Unsupported or malformed charset name on the response; UTF-8 keeps the replay
+            // working rather than throwing out of the outermost filter.
+            return StandardCharsets.UTF_8;
+        }
     }
 
     /**
@@ -881,7 +911,20 @@ public class ResponseSanitizationFilter implements Filter {
         try {
             response.getOutputStream().write(content);
             response.getOutputStream().flush();
-        } catch (IOException | IllegalStateException e) {
+        } catch (IllegalStateException e) {
+            // A downstream wrapper may hold the real WRITER open, which makes getOutputStream()
+            // illegal. writeToResponse falls back the same way; without it the whole
+            // inspected-safe page is dropped on the degraded path's own degraded path.
+            try {
+                PrintWriter out = response.getWriter();
+                out.write(new String(content, resolveEncoding(response)));
+                out.flush();
+            } catch (IOException | IllegalStateException fallbackFailure) {
+                LOGGER.error("Appending captured content after premature commit failed through "
+                        + "both the stream and the writer; the client keeps the committed "
+                        + "response as-is", fallbackFailure);
+            }
+        } catch (IOException e) {
             LOGGER.error("Appending captured content after premature commit failed; "
                     + "the client keeps the committed response as-is", e);
         }
@@ -1057,8 +1100,11 @@ public class ResponseSanitizationFilter implements Filter {
          */
         @Override
         public void resetBuffer() {
-            discardCapturedOutput();
+            // super first: it throws IllegalStateException when the real response is already
+            // committed. Discarding the capture before that check would leave the caller with
+            // a failed reset AND a destroyed body -- the reset must be all-or-nothing.
             super.resetBuffer();
+            discardCapturedOutput();
         }
 
         /**
@@ -1067,8 +1113,9 @@ public class ResponseSanitizationFilter implements Filter {
          */
         @Override
         public void reset() {
-            discardCapturedOutput();
+            // super first, for the same all-or-nothing reason as resetBuffer().
             super.reset();
+            discardCapturedOutput();
         }
 
         private void discardCapturedOutput() {
@@ -1169,13 +1216,30 @@ public class ResponseSanitizationFilter implements Filter {
     }
 
     /**
-     * Pass-through stream whose {@code close()} degrades to {@code flush()}.
+     * Pass-through stream whose {@code close()} does nothing.
      *
      * <p>Handed out instead of the raw response stream in passthrough mode, so a mid-chain
-     * close — a dispatcher forward's end-of-forward "commit and close", propagated down
-     * through response wrappers such as JavaMelody's counting stream — cannot commit and
-     * seal the real response while outer filters still have body content to write. The
-     * container performs the real close when the request completes.</p>
+     * close — a dispatcher forward's end-of-forward close, propagated down through response
+     * wrappers such as JavaMelody's counting stream — cannot seal the real response while
+     * outer filters still have body content to write.</p>
+     *
+     * <p>{@code close()} is a NO-OP rather than a flush, which matters more than it looks.
+     * In Tomcat, {@code OutputBuffer.flush()} is {@code doFlush(true)}: it commits the
+     * response (sends the headers) and never sets a Content-Length. {@code OutputBuffer
+     * .close()} is what assigns {@code Content-Length} from the buffered bytes when the
+     * response is still uncommitted. So degrading close to flush would commit every
+     * passthrough response early, costing two things: the Content-Length on forwarded pages
+     * and streamed binaries (they would turn chunked), and — the reason this is not
+     * cosmetic — this filter's own late-error branch in {@link #doFilter}, which is guarded
+     * by {@code !isCommitted()} and would never fire again for a forwarded response. That
+     * branch is a security control: it is what still replaces a stack trace or a partial
+     * {@code /ws} body that reached the response after capture was bypassed.</p>
+     *
+     * <p>Doing nothing loses no output. Anything that closes a writer above us has already
+     * pushed its encoder through {@code write()} before calling {@code close()}, and the
+     * container closes the real buffer at {@code Response.finishResponse()} when the request
+     * ends, which is also where Content-Length gets set. An explicit {@code flush()} still
+     * passes straight through, so genuine streaming is unaffected.</p>
      */
     private static class CloseShieldServletOutputStream extends ServletOutputStream {
 
@@ -1201,9 +1265,9 @@ public class ResponseSanitizationFilter implements Filter {
         }
 
         @Override
-        public void close() throws IOException {
-            // Deliberately flush-only: see the class comment. The container owns the real close.
-            real.flush();
+        public void close() {
+            // Deliberately empty: see the class comment. The container owns the real close,
+            // and flushing here would commit the response and forfeit its Content-Length.
         }
 
         @Override

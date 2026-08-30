@@ -24,20 +24,31 @@
 -->
 <!--
     suspendWrappedResponseAfterForward MUST stay "false" (Tomcat 11 flipped
-    the default to "true"). With the default, ApplicationDispatcher unwraps
-    the response-wrapper chain to the ResponseFacade and SUSPENDS the raw
-    response when a forward returns, instead of the classic
-    response.getWriter().close() on the outermost wrapper — the close that
-    flushed the wrapper stack's buffers. javamelody's MonitoringFilter turns
-    all writer traffic into a PrintWriter over an OutputStream, and the
-    forwarded page's whole body sits in that PrintWriter's encoder buffer
-    until something closes or flushes it; under suspension nothing does, so
-    every JSP-to-JSP <jsp:forward> returned 200 with an EMPTY body, and a
-    forward on a 4xx became a raw 500 (ResponseSanitizationFilter's replay
-    found the response already finished). Verified on the packaged install
-    2026-08-30. The deb's context descriptor
-    (debian/assets/tomcat/Catalina/localhost/carlos.xml) overrides this file
-    on packaged installs and carries the same attribute — keep them in sync.
+    the default to "true").
+
+    With the default, ApplicationDispatcher unwraps the response-wrapper chain
+    to the ResponseFacade when a forward returns and calls finish() on it —
+    Response.setSuspended(true) -> OutputBuffer.setSuspended(true) — and a
+    suspended OutputBuffer silently DISCARDS every later write and flush. The
+    forwarded page's body only drains out of the filter stack's own buffers
+    during filter unwind (javamelody wraps every request and turns all writer
+    traffic into a PrintWriter over an OutputStream), so those flushes were
+    thrown away: every JSP-to-JSP <jsp:forward> returned 200 with an EMPTY
+    body, and a forward on a 4xx became a raw 500 when
+    ResponseSanitizationFilter's replay found the response already finished.
+    Nothing was logged for either. Verified on the packaged install
+    2026-08-30.
+
+    The fix is NOT that "false" restores a close which flushes something —
+    that close is deliberately absorbed by the wrappers below. It is that
+    finish() is never called, so the buffer is never suspended and the
+    unwind-time flushes reach the wire.
+
+    NOTE ON SCOPE: this file is read by the DEVCONTAINER deploy. On packaged
+    installs Tomcat's appBase is empty and both webapps deploy from
+    conf/Catalina/localhost/ descriptors, so the WAR's META-INF/context.xml is
+    never consulted there; debian/assets/tomcat/Catalina/localhost/carlos.xml
+    is the one that matters and carries the same attribute. Keep them in sync.
     ResponseSanitizationFilter documents the filter-side view.
 -->
 <Context suspendWrappedResponseAfterForward="false">

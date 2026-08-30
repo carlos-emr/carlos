@@ -1040,6 +1040,15 @@ class ResponseSanitizationFilterUnitTest {
 
             assertThat(response.realCloseCount).isZero();
             assertThat(response.getContentAsString()).isEqualTo("BODY-ABODY-B");
+            // The shield must not FLUSH on close either. In Tomcat, OutputBuffer.flush() is
+            // doFlush(true): it commits the response and never assigns a Content-Length, while
+            // OutputBuffer.close() is what sets Content-Length from the buffered bytes. A
+            // close-degraded-to-flush would therefore commit every forwarded page early,
+            // forfeiting its Content-Length and — the part that matters — permanently disabling
+            // doFilter's late-error branch, which is guarded on !isCommitted() and is what still
+            // replaces a stack trace that escaped capture. MockHttpServletResponse marks itself
+            // committed on flush, so an uncommitted response here is the proof.
+            assertThat(response.isCommitted()).isFalse();
         }
     }
 
