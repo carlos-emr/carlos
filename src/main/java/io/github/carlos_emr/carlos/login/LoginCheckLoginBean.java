@@ -46,9 +46,9 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -325,7 +325,7 @@ public final class LoginCheckLoginBean {
      * <p>Security measures:
      * <ul>
      *   <li>Drops object references to userpassword and password fields after the failed attempt</li>
-     *   <li>Logs failed attempt with OWASP-encoded username for PHI protection</li>
+     *   <li>Logs failed attempt with log-safe username sanitization</li>
      *   <li>Returns null to indicate authentication failure</li>
      * </ul>
      *
@@ -334,9 +334,8 @@ public final class LoginCheckLoginBean {
      * @see #cleanNullObjExpire for expired password cleanup
      */
     private String[] cleanNullObj(String errorMsg) {
-        logger.warn(errorMsg);
-        // SECURITY: OWASP encode username for HTML context to prevent injection in logs
-        LogAction.addLogSynchronous("", "failed", LogConst.CON_LOGIN, Encode.forHtmlContent(username), ip);
+        logger.warn(LogSafe.sanitize(errorMsg));
+        LogAction.addLogSynchronous("", "failed", LogConst.CON_LOGIN, LogSafe.sanitize(username), ip);
         // Drop references after the failed attempt. These are immutable Strings, so this does not
         // wipe already-allocated heap contents.
         userpassword = null;
@@ -372,7 +371,7 @@ public final class LoginCheckLoginBean {
      * <p>Security measures:
      * <ul>
      *   <li>Drops object references to userpassword and password fields after the expired attempt</li>
-     *   <li>Logs expiration event with OWASP-encoded username for PHI protection</li>
+     *   <li>Logs expiration event with log-safe username sanitization</li>
      *   <li>Returns ["expired"] array to indicate account expiration</li>
      * </ul>
      *
@@ -381,9 +380,8 @@ public final class LoginCheckLoginBean {
      * @see #cleanNullObj for general authentication failure cleanup
      */
     private String[] cleanNullObjExpire(String errorMsg) {
-        logger.warn(errorMsg);
-        // SECURITY: OWASP encode username for HTML context to prevent injection in logs
-        LogAction.addLogSynchronous("", "expired", LogConst.CON_LOGIN, Encode.forHtmlContent(username), ip);
+        logger.warn(LogSafe.sanitize(errorMsg));
+        LogAction.addLogSynchronous("", "expired", LogConst.CON_LOGIN, LogSafe.sanitize(username), ip);
         // Drop references after the expired attempt. These are immutable Strings, so this does not
         // wipe already-allocated heap contents.
         userpassword = null;
