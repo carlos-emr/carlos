@@ -304,6 +304,50 @@ function documentRowCount() {
         + `${JSON.stringify(attached)} — an orphaned document is saved but appears in no chart.`,
     );
 
+    // Add Link: the SAME case-collapse defect, on a route nothing else drives.
+    //
+    // The Add Link form posts both functionId and functionid, exactly like the
+    // upload form above, so AddEditHtml2Action needed the same lowercase alias.
+    // That fix had a unit test proving the setter delegates and carries
+    // @StrutsParameter, but nothing anywhere asserted its EFFECT -- deleting the
+    // alias would have re-orphaned every link and HTML document, attached to no
+    // chart, with the whole suite still green. Assert the persisted row, not the
+    // HTTP status: the defect saved successfully and mis-filed.
+    const linkDesc = `edocs link ${stamp}`;
+    const linkPanelToggle = edocsPage.locator('[data-bs-target="#addLinkDiv"]').first();
+    if (await linkPanelToggle.count() > 0) {
+      await linkPanelToggle.click();
+      const linkForm = edocsPage.locator('form[action*="addLink"]').first();
+      await linkForm.locator('input[name="docDesc"]').waitFor({ state: 'visible', timeout: 20000 });
+      await linkForm.locator('input[name="docDesc"]').fill(linkDesc);
+      const linkClass = linkForm.locator('select[name="docClass"]');
+      if (await linkClass.count() > 0) {
+        const linkClassValues = await linkClass.locator('option')
+          .evaluateAll((os2) => os2.map((o) => o.value).filter((v) => v));
+        if (linkClassValues.length) await linkClass.selectOption(linkClassValues[0]);
+      }
+      const [linkResponse] = await Promise.all([
+        edocsPage.waitForResponse(
+          (r) => r.url().includes('/documentManager/addLink') && r.request().method() === 'POST',
+          { timeout: 60000 },
+        ),
+        linkForm.locator('input[name="Submit"], input[type="submit"]').first().click(),
+      ]);
+      assert(linkResponse.status() < 400, `Add Link POST returned HTTP ${linkResponse.status()}`);
+      await edocsPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+
+      const linkAttached = sql(
+        `SELECT cd.module_id FROM ctl_document cd JOIN document d ON d.document_no = cd.document_no `
+        + `WHERE d.docdesc = '${linkDesc}' AND cd.module = 'demographic'`,
+      );
+      assert(
+        linkAttached.split(/\s+/).filter(Boolean).includes(String(edocsDemo)),
+        `Add Link attached to module_id ${JSON.stringify(linkAttached)}, expected ${edocsDemo}. `
+          + 'A link filed against no patient is the functionId/functionid case-collapse defect on '
+          + 'AddEditHtml2Action.',
+      );
+    }
+
     // Empty file: user-recoverable, must NOT be a raw 500 error page.
     const emptyPdf = path.join(workDir, `edocs-empty-${stamp}.pdf`);
     fs.writeFileSync(emptyPdf, Buffer.alloc(0));

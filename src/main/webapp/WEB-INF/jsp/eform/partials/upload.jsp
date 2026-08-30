@@ -100,7 +100,7 @@
         <div class="alert alert-danger" role="alert">
             <ul class="action-errors mb-0">
                 <% for (String error : actionErrors) { %>
-                    <li><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(error) %></li>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
                 <% } %>
             </ul>
         </div>

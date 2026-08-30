@@ -27,7 +27,9 @@
 <fmt:setBundle basename="oscarResources"/>
 <% response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST); %>
 <!DOCTYPE html>
-<html>
+<%-- lang is set from the request locale so a screen reader announces the
+     localized message below in the right language. --%>
+<html lang="${pageContext.request.locale.language}">
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css">
