@@ -37,7 +37,20 @@ done
 
 JAVAC=$(command -v javac || echo "${JAVA_HOME:-}/bin/javac")
 JAVA=$(command -v java || echo "${JAVA_HOME:-}/bin/java")
-[ -x "$JAVAC" ] || { echo "SKIP: no javac available to run the DTD validation"; exit 0; }
+# No javac means this check validated NOTHING. Exiting 0 there makes the script
+# report success on any machine without a JDK -- including a CI runner missing
+# its setup-java step, which is precisely where a silent pass is most harmful,
+# since the deploy-time failure this guards against takes the whole webapp down.
+# Fail by default and require an explicit opt-out to skip.
+if [ ! -x "$JAVAC" ]; then
+    if [ "${STRUTS_DTD_LINT_ALLOW_SKIP:-0}" = "1" ]; then
+        echo "SKIP: no javac available to run the DTD validation (STRUTS_DTD_LINT_ALLOW_SKIP=1)"
+        exit 0
+    fi
+    echo "FAIL: no javac available, so no struts*.xml was validated."
+    echo "      Install a JDK, or set STRUTS_DTD_LINT_ALLOW_SKIP=1 to accept an unvalidated run."
+    exit 1
+fi
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT

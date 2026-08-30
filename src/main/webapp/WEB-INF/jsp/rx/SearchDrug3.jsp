@@ -1899,6 +1899,39 @@ function popForm2(scriptId){
 					}
 				});
 
+				// Show or clear a drug-search failure notice.
+				//
+				// #statusDisplay is the CONTAINER of the DrugRef name/version/date
+				// spans (TopLinks2.jspf), so assigning to its innerHTML deletes all
+				// three -- and since getDrugRefStatus() only runs on DOMContentLoaded,
+				// nothing ever puts them back short of a full page reload. Append a
+				// dedicated node instead, reuse it on repeated failures, and remove it
+				// once a search succeeds.
+				function setDrugSearchAlert(text) {
+					var panel = document.getElementById('statusDisplay');
+					if (!panel) {
+						return;
+					}
+					var alertNode = document.getElementById('drugSearchAlert');
+					if (!text) {
+						if (alertNode) {
+							alertNode.remove();
+						}
+						return;
+					}
+					if (typeof text === 'undefined') {
+						return;
+					}
+					if (!alertNode) {
+						alertNode = document.createElement('div');
+						alertNode.id = 'drugSearchAlert';
+						alertNode.style.color = 'red';
+						alertNode.style.fontWeight = 'bold';
+						panel.appendChild(alertNode);
+					}
+					alertNode.textContent = text;
+				}
+
 				var cache = {};
 				jQuery("#searchString").autocomplete({
 					source: function (request, response) {
@@ -1941,6 +1974,7 @@ function popForm2(scriptId){
 							success: function (data) {
 								cache[term] = data;
 								element.data('autocompleteCache', cache);
+								setDrugSearchAlert(null);
 
 								response(jQuery.map(data.results, function (item) {
 									return {
@@ -1968,12 +2002,13 @@ function popForm2(scriptId){
 								// rather than a new hardcoded English string.
 								response([]);
 								console.error('drug search failed', xhr.status, textStatus);
-								var el = document.getElementById('statusDisplay');
-								if (el && typeof msgDrugrefUnavailableContact !== 'undefined') {
-									el.innerHTML = msgDrugrefUnavailableContact;
-									el.style.color = 'red';
-									el.style.fontWeight = 'bold';
+								// An aborted request is the page being navigated away from or the
+								// widget superseding an in-flight search; nothing failed, so do not
+								// accuse DrugRef of being down.
+								if (xhr.statusText === 'abort' || (xhr.status === 0 && textStatus === 'abort')) {
+									return;
 								}
+								setDrugSearchAlert(msgDrugrefUnavailableContact);
 							}
 						})
 					},

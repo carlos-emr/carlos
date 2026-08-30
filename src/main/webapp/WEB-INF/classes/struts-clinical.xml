@@ -120,10 +120,6 @@
         </action>
         <action name="dxCodeSearchJSON" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxCodeSearchJSON2Action"/>
         <action name="oscarResearch/oscarDxResearch/dxResearchLoadAssociations" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadAssociations2Action">
-            <!-- "input": where the workflow interceptor lands when the multipart layer
-                 rejects the upload (e.g. an empty file) before the action runs; without
-                 it the request falls through to errorpage.jsp as a raw 500. -->
-            <result name="input">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchSelectAssociations.jsp</result>
             <interceptor-ref name="defaultStack"/>
             <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchSelectAssociations.jsp</result>
         </action>

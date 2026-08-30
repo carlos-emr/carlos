@@ -81,6 +81,26 @@
         <input type="hidden" name="scheduleNav" value="1"/>
     </c:if>
 
+    <%--
+        Multipart rejections reach this page through the action's "input"
+        result, before the action runs -- so "importErrors" below is never set
+        on that path and its block cannot report them. Render the multipart
+        layer's own errors independently, or a rejected import shows nothing at
+        all. Messages can embed the submitted filename, so they are encoded.
+    --%>
+    <%
+        java.util.List<String> uploadErrors = (java.util.List<String>) request.getAttribute("actionErrors");
+        if (uploadErrors != null && !uploadErrors.isEmpty()) {
+    %>
+    <div class="alert alert-danger" role="alert">
+        <ul class="action-errors mb-0">
+            <% for (String uploadError : uploadErrors) { %>
+                <li><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(uploadError) %></li>
+            <% } %>
+        </ul>
+    </div>
+    <% } %>
+
     <%
         List<String> importErrors = (List<String>) request.getAttribute("importErrors");
         if (importErrors != null && importErrors.size() > 0) {

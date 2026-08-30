@@ -53,7 +53,46 @@
         <title><fmt:message key="eform.uploadhtml.title"/></title>
 
         <script>
-            function restoreEForm(fid) {
+            // Resolve the CSRF token seeded by /WEB-INF/jspf/csrf-token.jspf.
+            // CSRFGuard's injector only visits forms present when it runs, and
+            // it works through a MutationObserver -- a microtask -- so a form
+            // built and submitted synchronously at click time is gone before
+            // the observer fires. Retry once so a single transient bootstrap
+            // failure does not leave every Restore on the page broken.
+            // Returns the token, or null if it could not be obtained.
+            async function csrfToken() {
+                try {
+                    if (window.csrfTokenReady) {
+                        await window.csrfTokenReady;
+                    }
+                } catch (e) {
+                    // Bootstrap fetch failed; fall through to the retry below.
+                }
+                var csrf = document.querySelector('input[name="CSRF-TOKEN"]');
+                if (csrf && csrf.value) {
+                    return csrf.value;
+                }
+                try {
+                    await fetchCsrfToken('<%= request.getContextPath() %>');
+                } catch (e) {
+                    return null;
+                }
+                csrf = document.querySelector('input[name="CSRF-TOKEN"]');
+                return (csrf && csrf.value) ? csrf.value : null;
+            }
+
+            async function restoreEForm(fid) {
+                // This form is built after page load, so CSRFGuard never
+                // injects the token and it has to be copied in by hand.
+                // Without it CarlosCsrfGuardFilter answers 403 and Restore
+                // silently does nothing -- the same defect the delete control
+                // on efmformmanager.jsp was fixed for. Say so plainly rather
+                // than submitting a request that cannot succeed.
+                var token = await csrfToken();
+                if (!token) {
+                    alert("<fmt:message key="eform.calldeletedformdata.restoreTokenUnavailable"/>");
+                    return;
+                }
                 var form = document.createElement('form');
                 form.method = 'post';
                 form.action = '<%= request.getContextPath() %>/eform/restoreEForm';
@@ -62,6 +101,11 @@
                 input.name = 'fid';
                 input.value = fid;
                 form.appendChild(input);
+                var tokenInput = document.createElement('input');
+                tokenInput.type = 'hidden';
+                tokenInput.name = 'CSRF-TOKEN';
+                tokenInput.value = token;
+                form.appendChild(tokenInput);
                 document.body.appendChild(form);
                 form.submit();
             }
@@ -86,6 +130,12 @@
 
 
     <%@ include file="efmTopNav.jspf" %>
+
+    <%-- Seeds the CSRF-TOKEN input that restoreEForm() copies into the POST it
+         builds at click time. This page has no static POST form, so without
+         the include there is no token on the page at all and every Restore is
+         rejected with 403. --%>
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 
     <h3><fmt:message key="eform.calldeletedformdata.title"/></h3>
 
@@ -140,15 +190,19 @@
 
     <%@ include file="efmFooter.jspf" %>
 
+    <%-- No drawCallback here: it used to call registerHref(), which is defined
+         nowhere in the codebase and never has been. That was harmless only
+         because this table had no thead, so DataTables aborted init before it
+         ever drew and the callback was unreachable. Giving the table its
+         thead/tbody made init succeed -- and would have made every draw throw
+         "ReferenceError: registerHref is not defined" out of _fnCallbackFire,
+         which has no try/catch, aborting the rest of _fnDraw and _fnInitialise
+         and taking the footer's dropdown re-init down with it. The viewEform
+         anchors need no binding: they carry their own onclick ... return false. --%>
     <script>
         $('#tblDeletedEforms').DataTable({
-            "order": [[0, "asc"]],
-            "drawCallback": bindLinks
+            "order": [[0, "asc"]]
         });
-
-        function bindLinks(oSettings) {
-            registerHref('click', 'a.viewEform', '#dynamic-content');
-        }
     </script>
     </body>
 </html>
