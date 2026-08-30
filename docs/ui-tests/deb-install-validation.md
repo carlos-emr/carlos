@@ -263,6 +263,18 @@ Notes on the contract:
   is not HTTPS. It creates its own timestamped probe eForm and deletes only
   that one; a failing run leaves the probe behind on purpose, so clear strays
   with `UPDATE eform SET status=0 WHERE form_name LIKE 'Playwright Admin CRUD %';`.
+- **`error-sanitization-playwright-checks.js` provokes two real 500s on
+  purpose**, and must also run through `:443`. It is the only check that
+  exercises `ResponseSanitizationFilter`'s error-replacement path — every other
+  script drives success paths, so a filter that stopped sanitizing entirely
+  would leave the suite green. While it runs, `journalctl -u carlos-emr` will
+  show `Uncaught exception escaped filter chain` and `Sanitizing ... error
+  response body` at ERROR: that is the check working, not a failure. It creates
+  and deletes nothing (one append-only `OscarLog` audit row from the `/ws`
+  probe). To confirm it can still fail — worth doing after any change to the
+  filter — set `response.sanitization.enabled=false` in
+  `/etc/carlos-emr/carlos.properties`, `carlos-ctl restart`, and re-run: it
+  must FAIL. Restore the property and restart afterwards.
 
 ## 7. Exercise the upgrade path
 

@@ -22,6 +22,7 @@
     "test:drug-search-playwright": "node scripts/drug-search-playwright-checks.js",
     "test:document-upload-playwright": "node scripts/document-upload-playwright-checks.js",
     "test:pr-hardening-playwright": "node scripts/pr-hardening-playwright-checks.js",
+    "test:error-sanitization-playwright": "node scripts/error-sanitization-playwright-checks.js",
     "test:eform-admin-schedule-nav-playwright": "node scripts/eform-admin-schedule-navigation-playwright-checks.js",
     "test:schedule-links-playwright": "node scripts/schedule-links-playwright-checks.js",
     "test:tickler-crud-playwright": "node scripts/tickler-crud-playwright-checks.js",
