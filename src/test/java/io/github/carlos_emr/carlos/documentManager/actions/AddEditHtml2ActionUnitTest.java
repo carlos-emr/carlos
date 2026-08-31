@@ -12,6 +12,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -86,5 +87,50 @@ class AddEditHtml2ActionUnitTest extends CarlosUnitTestBase {
                 .isAnnotationPresent(StrutsParameter.class))
                 .as("setFunctionid must be @StrutsParameter-annotated or Struts will not bind it")
                 .isTrue();
+    }
+
+    @Test
+    @DisplayName("should preserve every submitted field the retry form re-renders")
+    void shouldPreserveSubmittedMetadata_whenBuildingRetryForm() {
+        AddEditHtml2Action action = new AddEditHtml2Action();
+        action.setFunction("demographic");
+        action.setFunctionId("42");
+        action.setDocType("Lab");
+        action.setDocClass("Consultant Report");
+        action.setDocSubClass("Cardiology");
+        action.setDocDesc("Echocardiogram");
+        action.setDocCreator("101");
+        action.setResponsibleId("202");
+        action.setSource("Referring MD");
+        action.setSourceFacility("General Hospital");
+        action.setObservationDate("2026/08/30");
+        action.setContentDateTime("2026/08/30 09:15:00");
+        action.setDocPublic("checked");
+        action.setReviewerId("303");
+        action.setReviewDateTime("2026-08-31 10:00:00");
+        action.setHtml("<p>report body</p>");
+
+        AddEditDocument2Form retry = action.submittedForm();
+
+        // addedithtmldocument.jsp rebuilds each of these as a visible or hidden form input on the
+        // validation-retry render, so a field dropped from the retry bean is re-POSTed blank and
+        // then persisted over the eDoc's real creator/date/source/classification/visibility.
+        // Assert the whole set, not just the field the user was fixing.
+        assertThat(retry.getFunction()).isEqualTo("demographic");
+        assertThat(retry.getFunctionId()).isEqualTo("42");
+        assertThat(retry.getDocType()).isEqualTo("Lab");
+        assertThat(retry.getDocClass()).isEqualTo("Consultant Report");
+        assertThat(retry.getDocSubClass()).isEqualTo("Cardiology");
+        assertThat(retry.getDocDesc()).isEqualTo("Echocardiogram");
+        assertThat(retry.getDocCreator()).isEqualTo("101");
+        assertThat(retry.getResponsibleId()).isEqualTo("202");
+        assertThat(retry.getSource()).isEqualTo("Referring MD");
+        assertThat(retry.getSourceFacility()).isEqualTo("General Hospital");
+        assertThat(retry.getObservationDate()).isEqualTo("2026/08/30");
+        assertThat(retry.getContentDateTime()).isEqualTo("2026/08/30 09:15:00");
+        assertThat(retry.getDocPublic()).isEqualTo("checked");
+        assertThat(retry.getReviewerId()).isEqualTo("303");
+        assertThat(retry.getReviewDateTime()).isEqualTo("2026-08-31 10:00:00");
+        assertThat(retry.getHtml()).isEqualTo("<p>report body</p>");
     }
 }

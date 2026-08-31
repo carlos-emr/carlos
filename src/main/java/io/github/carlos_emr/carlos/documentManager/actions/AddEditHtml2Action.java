@@ -225,20 +225,45 @@ public class AddEditHtml2Action extends ActionSupport {
 
 
     /**
-     * The form bean addDocument.jsp re-renders a failed submission from.
+     * The form bean addedithtmldocument.jsp re-renders a failed submission from.
      *
-     * <p>Every validation-failure branch below used to put the empty STRING under this attribute,
-     * and the JSP casts it to {@link AddEditDocument2Form} — so a user who left the description,
-     * the type or the URL blank got a ClassCastException and a 500 instead of the field message
-     * the branch had just built. Populating it from the submitted values also means their typing
-     * survives the round trip rather than being silently cleared.</p>
+     * <p>Every validation-failure branch below stashes this under the {@code completedForm} request
+     * attribute, and the JSP casts it to {@link AddEditDocument2Form} — so a user who left the
+     * description, the type or the URL blank got a ClassCastException and a 500 instead of the field
+     * message the branch had just built. Populating it from the submitted values also means their
+     * typing survives the round trip rather than being silently cleared.</p>
+     *
+     * <p>The retry bean must carry <em>every</em> value the JSP reads back, not just the field the
+     * user was fixing. addedithtmldocument.jsp rebuilds the whole edit form — visible fields and
+     * hidden inputs alike — from this bean, re-POSTing {@code docCreator}, {@code responsibleId},
+     * {@code observationDate}, {@code source}, {@code sourceFacility}, {@code docClass},
+     * {@code docSubClass}, {@code docPublic} and the reviewer fields as form inputs. Any submitted
+     * field dropped here comes back blank, so the user's next (now valid) submission would persist
+     * the eDoc with a blank creator/date/source and lost classification or public-visibility
+     * metadata. Copying only function/type/description/html — as this method originally did —
+     * silently discarded the rest; keep this in sync with the inputs the JSP renders.</p>
+     *
+     * <p>Package-private, not private, so {@code AddEditHtml2ActionUnitTest} can pin the
+     * preserved-field set directly: {@code execute()} reaches static {@code EDocUtil} database calls
+     * before its validation branches, which a focused unit test should not have to stand up.</p>
      */
-    private AddEditDocument2Form submittedForm() {
+    AddEditDocument2Form submittedForm() {
         AddEditDocument2Form form = new AddEditDocument2Form();
         form.setFunction(this.getFunction());
         form.setFunctionId(this.getFunctionId());
         form.setDocType(this.getDocType());
+        form.setDocClass(this.getDocClass());
+        form.setDocSubClass(this.getDocSubClass());
         form.setDocDesc(this.getDocDesc());
+        form.setDocCreator(this.getDocCreator());
+        form.setResponsibleId(this.getResponsibleId());
+        form.setSource(this.getSource());
+        form.setSourceFacility(this.getSourceFacility());
+        form.setObservationDate(this.getObservationDate());
+        form.setContentDateTime(this.getContentDateTime());
+        form.setDocPublic(this.getDocPublic());
+        form.setReviewerId(this.getReviewerId());
+        form.setReviewDateTime(this.getReviewDateTime());
         form.setHtml(this.getHtml());
         return form;
     }
