@@ -42,7 +42,9 @@ document.addEventListener('click', function (event) {
     var link = event.target.closest('a.js-popup');
     if (!link) return;
 
-    event.preventDefault();
+    // Leave modified clicks (open in new tab/window, etc.) to native
+    // browser handling instead of forcing them through the popup.
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
 
     var width = link.getAttribute('data-popup-width') || 400;
     var height = link.getAttribute('data-popup-height') || 300;
@@ -50,7 +52,12 @@ document.addEventListener('click', function (event) {
         ',location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0';
 
     var popup = window.open(link.href, '', windowProps);
-    if (popup && popup.opener == null) {
+    // window.open() can return null if the popup was blocked; fall back
+    // to the link's real href instead of leaving the click inert.
+    if (!popup) return;
+
+    event.preventDefault();
+    if (popup.opener == null) {
         popup.opener = window;
     }
 });
