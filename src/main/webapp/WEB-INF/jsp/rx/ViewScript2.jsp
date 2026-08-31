@@ -934,7 +934,9 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         </tr>
 
                                         <%}%>
-                                        <% if (CarlosProperties.getInstance().isRxSignatureEnabled()) { %>
+                                        <% if (CarlosProperties.getInstance().isRxSignatureEnabled()
+                                                && loggedInInfo.getCurrentFacility() != null
+                                                && loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()) { %>
                                         <%-- Topaz signature pad check removed - HTML5 signature is now standard --%>
 						<% if (bean.getStashSize() == 0 || Objects.isNull(bean.getStashItem(0).getDigitalSignatureId())) { %>
                                         <tr>
