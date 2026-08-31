@@ -65,7 +65,7 @@ import static org.mockito.Mockito.*;
 @DisplayName("SaveSignatureUpload2Action Unit Tests")
 @Tag("unit")
 @Tag("signature")
-class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
+class SaveSignatureUpload2ActionUnitTest extends CarlosUnitTestBase {
 
     private static final String VALID_KEY_PREFIX = "testkey";
 
@@ -309,6 +309,7 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
             mockRequest.setParameter("source", "IPAD");
             mockRequest.setParameter("signatureImage", dataUri);
 
+            when(mockFacility.isEnableDigitalSignatures()).thenReturn(false);
             String result = action.execute();
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
@@ -419,6 +420,34 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
             mockRequest.setParameter("source", "IPAD");
             mockRequest.setParameter("signatureImage", dataUri);
             mockRequest.setParameter("saveToDB", "true");
+        }
+
+        @Test
+        @DisplayName("should return 403 when facility digital signatures are disabled")
+        void shouldReturn403_whenFacilityDigitalSignaturesAreDisabled() throws Exception {
+            primeIpadUpload();
+            when(mockFacility.isEnableDigitalSignatures()).thenReturn(false);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(new File(DigitalSignatureUtils.getTempFilePath(signatureKey))).doesNotExist();
+            verifyNoInteractions(mockDigitalSignatureManager);
+        }
+
+        @Test
+        @DisplayName("should return 403 when current facility is missing")
+        void shouldReturn403_whenCurrentFacilityIsMissing() throws Exception {
+            primeIpadUpload();
+            when(mockLoggedInInfo.getCurrentFacility()).thenReturn(null);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(new File(DigitalSignatureUtils.getTempFilePath(signatureKey))).doesNotExist();
+            verifyNoInteractions(mockDigitalSignatureManager);
         }
 
         @Test
