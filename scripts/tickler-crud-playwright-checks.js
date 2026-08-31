@@ -139,6 +139,19 @@ function getTicklerRows() {
   });
 }
 
+async function waitForTicklerStatus(expectedStatus, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  let rows = [];
+  while (Date.now() < deadline) {
+    rows = getTicklerRows();
+    if (rows.length === 1 && rows[0].status === expectedStatus) {
+      return rows[0];
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`tickler did not reach status ${expectedStatus}; last rows=${JSON.stringify(rows)}`);
+}
+
 function getCommentRows(ticklerNo) {
   const out = sql(
     `SELECT message FROM tickler_comments WHERE tickler_no=${Number(ticklerNo)} ORDER BY id`
@@ -352,14 +365,19 @@ async function deleteTicklerFromList(page, message) {
   await findRowInList(page, message, 'C');
   const rowLocator = page.locator('#ticklerResults tbody tr').filter({ hasText: message }).first();
   await rowLocator.locator('input[name="checkbox"]').check();
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded').catch(() => {}),
+  const [deleteResponse] = await Promise.all([
+    page.waitForResponse((response) => {
+      const request = response.request();
+      return request.method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/tickler/DbTicklerMain');
+    }, { timeout: 30000 }),
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
     page.locator("form[name='ticklerform'] input.btn-danger").click(),
   ]);
+  assert(deleteResponse.status() < 400, `tickler delete returned HTTP ${deleteResponse.status()}`);
   await waitForTicklerListReady(page);
 
-  const rows = getTicklerRows();
-  assert(rows.length === 1 && rows[0].status === 'D', `deleted tickler status was ${rows[0] && rows[0].status}`);
+  await waitForTicklerStatus('D');
 }
 
 (async () => {

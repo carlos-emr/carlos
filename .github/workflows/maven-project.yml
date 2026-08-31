@@ -330,6 +330,11 @@ jobs:
         with:
           ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
           persist-credentials: false
+      - name: Set up JDK 21 for hermetic source checks
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Run encoder null-safety lint
         run: bash scripts/lint/check-encoder-null-safety.sh
       - name: Run encoder null-safety lint fixtures
@@ -338,6 +343,8 @@ jobs:
         run: bash scripts/lint/check-security-exception-message-convention.sh
       - name: Run SecurityException message convention lint fixtures
         run: bash scripts/lint/test-security-exception-message-convention.sh
+      - name: Run Struts DTD validation
+        run: bash scripts/lint/check-struts-dtd.sh
   jspc:
     needs: build
     runs-on: ubuntu-latest

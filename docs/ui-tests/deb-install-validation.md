@@ -8,8 +8,8 @@ bare Tomcat.
 
 It is the procedure that first surfaced the WAF false positives on note-saving
 and eForm saves, the add-patient validation regression, and the nullable-column
-500s on the consultation surfaces. Last validated end-to-end 2026-08-29 with
-**37/37 scripts passing** on 2026.09.0~snapshot4.
+500s on the consultation surfaces. Last validated end-to-end 2026-08-31 with
+**41/41 scripts passing** on 2026.09.0~snapshot18.
 
 That 37/37 is also the cautionary tale for this document. A tester found six
 defects on the build that produced it — an eForm editor save 403, an eForm
