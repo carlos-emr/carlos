@@ -10,6 +10,7 @@
 #     Flyway owns;
 #   * every insert target exists in the target province's Flyway schema and
 #     is not on the exclusion list;
+#   * transient eChart note-lock state is never shipped;
 #   * the known real-person names are gone;
 #   * (with the source snapshot given) every table development.sql inserts
 #     into is either transformable or consciously excluded — a snapshot
@@ -76,6 +77,13 @@ plain_inserts=$(grep -E '^[[:space:]]*INSERT[[:space:]]' "$ARTIFACT" \
   | grep -cvE '^[[:space:]]*INSERT[[:space:]]+IGNORE[[:space:]]+INTO[[:space:]]' || true)
 if [ "${plain_inserts}" -gt 0 ]; then
   err "artifact contains ${plain_inserts} plain INSERT statement(s) (must be INSERT IGNORE so Flyway rows win)"
+fi
+
+# Chart-note locks represent live browser sessions, not demonstration data.
+# Keep this invariant explicit so a misplaced exclusion-list entry cannot
+# silently package stale locks that make an eChart unusable after install.
+if grep -qE '^[[:space:]]*INSERT[[:space:]]+IGNORE[[:space:]]+INTO[[:space:]]+`?casemgmt_note_lock`?([[:space:]]|$)' "$ARTIFACT"; then
+  err "artifact contains transient eChart note locks"
 fi
 
 # --- real-name blocklist ------------------------------------------------------

@@ -81,6 +81,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -585,6 +586,21 @@ public class EFormBrowserPdfService {
             + "let excludedCount = 0;\n"
             + "let excludedHeight = 0;\n"
             + "let decorativeExcludedCount = 0;\n"
+            // Structural descriptors of the elements the two buckets counted, so a withheld render
+            // can be diagnosed. STRUCTURE ONLY -- tag, id, class, height and the LENGTH of the text.
+            // Never the text itself: an off-page block is exactly where clinical prose ends up, and
+            // this string reaches the application log. The length is what distinguishes a spacer
+            // from a paragraph, which is all the diagnosis needs.
+            + "const carlosDescribe = (el, rect) => {\n"
+            + "  const cls = (typeof el.className === 'string' && el.className) ? '.' + el.className.trim().split(/\\s+/).join('.') : '';\n"
+            + "  const id = el.id ? '#' + el.id : '';\n"
+            + "  return el.tagName + id + cls + ' h=' + Math.round(rect.height) + 'px'\n"
+            + "    + ' chars=' + (el.textContent || '').trim().length;\n"
+            + "};\n"
+            // Bounded: a pathological form must not turn one render into thousands of log lines.
+            + "const CARLOS_MAX_DESCRIBED = 20;\n"
+            + "const excludedDetails = [];\n"
+            + "const decorativeDetails = [];\n"
             + "const carlosPageOrder = (a, b) => a.compareDocumentPosition(b);\n"
             + "const carlosOffPageDecoration = (el) => {\n"
             + "  const firstPage = pageNodes[0];\n"
@@ -660,9 +676,15 @@ public class EFormBrowserPdfService {
             + "        || child.querySelector('img, canvas, svg, video, input, textarea, select') !== null);\n"
             + "      if (substantive && carlosOffPageDecoration(child)) {\n"
             + "        decorativeExcludedCount += 1;\n"
+            + "        if (decorativeDetails.length < CARLOS_MAX_DESCRIBED) {\n"
+            + "          decorativeDetails.push(carlosDescribe(child, rect));\n"
+            + "        }\n"
             + "      } else if (substantive) {\n"
             + "        excludedCount += 1;\n"
             + "        excludedHeight += rect.height;\n"
+            + "        if (excludedDetails.length < CARLOS_MAX_DESCRIBED) {\n"
+            + "          excludedDetails.push(carlosDescribe(child, rect));\n"
+            + "        }\n"
             + "      }\n"
             + "      child.classList.add('carlos-render-nonpage');\n"
             + "    }\n"
@@ -724,6 +746,8 @@ public class EFormBrowserPdfService {
             + "  excludedCount: excludedCount,\n"
             + "  excludedHeight: excludedHeight,\n"
             + "  decorativeExcludedCount: decorativeExcludedCount,\n"
+            + "  excludedDetails: excludedDetails,\n"
+            + "  decorativeDetails: decorativeDetails,\n"
             + "  signatureBroken: signatureBroken,\n"
             + "  timerCompatibilityFailure: timerCompatibilityFailure,\n"
             + "  timerCompatShimMissing: timerCompatShimMissing,\n"
@@ -1029,6 +1053,28 @@ public class EFormBrowserPdfService {
             // form (the Rich Text Letter) authored no pageN divs, so we inject no @page size and let the
             // form's own @page rules or Chromium's default paper drive natural pagination.
             PageGeometry geometry = readPageGeometry(js.executeScript(COMPUTE_PAGE_GEOMETRY_JS));
+            // Emitted HERE, immediately after the scan and before any branch below can throw.
+            // The withheld case is the one that most needs this, and it exits through
+            // EformContentUnavailableException a few lines down — logging it later would make the
+            // identity unavailable in exactly the situation it exists for.
+            //
+            // The counts reach the operator through the completeness report, which is counts and
+            // booleans by construction: enough to withhold a clinical document, not enough to fix
+            // one. Nobody can act on "1 element" without knowing which. This is the only place the
+            // identity exists at all — the scan runs inside the render browser, against a URL the
+            // front door cannot reach.
+            //
+            // Structure only: tag, id, class, height, and the character COUNT of the text. Never
+            // the text: an off-page block is exactly where clinical prose ends up, and this line
+            // goes to the application log.
+            if (!geometry.excludedDetails().isEmpty()) {
+                logger.debug("Browser eForm renderer excluded element(s): fdid={} elements={}",
+                        fdid, geometry.excludedDetails());
+            }
+            if (!geometry.decorativeDetails().isEmpty()) {
+                logger.debug("Browser eForm renderer decoration element(s): fdid={} elements={}",
+                        fdid, geometry.decorativeDetails());
+            }
             if (geometry.decorativeExcludedCount() > 0) {
                 // An off-page element the FORM EXPLICITLY MARKED as decoration (a license or
                 // attribution badge, a masthead, a boilerplate disclaimer) was treated as
@@ -1842,8 +1888,39 @@ public class EFormBrowserPdfService {
                 rawMap, "labDecisionSupportStubbed");
         boolean providerStampMissing = requiredBoolean(rawMap, "providerStampMissing");
         return new PageGeometry(pages, excludedCount, excludedHeight, decorativeExcludedCount,
+                describedElements(rawMap, "excludedDetails"),
+                describedElements(rawMap, "decorativeDetails"),
                 signatureBroken,
                 timerCompatibilityFailure, labDecisionSupportStubbed, providerStampMissing);
+    }
+
+    /**
+     * Reads one of the scan's structural-descriptor lists.
+     *
+     * <p>Diagnostic only, and deliberately lenient: a missing or malformed list must never fail a
+     * render that otherwise succeeded, because these strings exist to explain a withheld document,
+     * not to gate one. Anything unexpected degrades to an empty list.</p>
+     *
+     * <p>The scan emits structure only — tag, id, class, pixel height and the character COUNT of the
+     * element's text. It never emits the text, because an off-page block is precisely where clinical
+     * prose ends up and these strings are written to the application log. Each entry is length-capped
+     * here as a second bound, so a form with pathological class attributes cannot produce an
+     * unbounded log line even though the browser side already caps the number of entries.</p>
+     */
+    private static List<String> describedElements(Map<?, ?> rawMap, String key) {
+        if (!(rawMap.get(key) instanceof List<?> rawList)) {
+            return List.of();
+        }
+        return rawList.stream()
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                // The id and class come from author-controlled markup and an HTML attribute may
+                // hold a literal newline, so an element could otherwise inject its own line into
+                // the log. LogSafe escapes the control characters; the length cap still applies.
+                .map(LogSafe::sanitize)
+                .map(entry -> entry.length() > 200 ? entry.substring(0, 200) + "…" : entry)
+                .limit(20)
+                .toList();
     }
 
     private static double requiredNonNegativeNumber(Map<?, ?> rawMap, String key)
@@ -2004,11 +2081,15 @@ public class EFormBrowserPdfService {
      */
     record PageGeometry(List<PageSize> pages, int excludedCount, double excludedHeight,
             int decorativeExcludedCount,
+            List<String> excludedDetails, List<String> decorativeDetails,
             boolean signatureBroken, boolean timerCompatibilityFailure,
             boolean labDecisionSupportStubbed, boolean providerStampMissing) {
         PageGeometry {
             // Defensive copy: readPageSizes hands back a mutable ArrayList.
             pages = List.copyOf(Objects.requireNonNull(pages, "pages must not be null"));
+            // Diagnostic descriptors are optional: an older or partial scan result simply has none.
+            excludedDetails = excludedDetails == null ? List.of() : List.copyOf(excludedDetails);
+            decorativeDetails = decorativeDetails == null ? List.of() : List.copyOf(decorativeDetails);
             if (excludedCount < 0 || !Double.isFinite(excludedHeight) || excludedHeight < 0) {
                 throw new IllegalArgumentException(
                         "Excluded-content counters must be non-negative and finite");

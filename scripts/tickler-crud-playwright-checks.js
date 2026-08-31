@@ -139,6 +139,19 @@ function getTicklerRows() {
   });
 }
 
+async function waitForTicklerStatus(expectedStatus, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  let rows = [];
+  while (Date.now() < deadline) {
+    rows = getTicklerRows();
+    if (rows.length === 1 && rows[0].status === expectedStatus) {
+      return rows[0];
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`tickler did not reach status ${expectedStatus}; last rows=${JSON.stringify(rows)}`);
+}
+
 function getCommentRows(ticklerNo) {
   const out = sql(
     `SELECT message FROM tickler_comments WHERE tickler_no=${Number(ticklerNo)} ORDER BY id`
@@ -201,19 +214,74 @@ async function waitForTicklerListReady(page) {
 }
 
 async function setTicklerListStatus(page, status) {
-  await page.locator('#ticklerview').selectOption(status);
-  await page.waitForFunction((expectedStatus) => {
+  const statusSelect = page.locator('#ticklerview');
+  const currentStatus = await statusSelect.inputValue();
+
+  // Selecting the current value still fires DataTables' change handler. A
+  // second ajax.reload() can replace a checkbox after Playwright checks it but
+  // before the form is submitted, producing a valid no-op POST. Do not create
+  // that reload when the requested filter is already active.
+  if (currentStatus === status) {
+    await page.waitForFunction(() => {
+      const table = window.jQuery && window.jQuery('#ticklerResults').DataTable();
+      if (!table) {
+        return false;
+      }
+      const settings = table.settings()[0];
+      return !settings.bDrawing && (!settings.jqXHR || settings.jqXHR.readyState === 4);
+    }, null, { timeout: 30000 });
+    return;
+  }
+
+  const previousDraw = await page.evaluate(() => (
+    window.jQuery('#ticklerResults').DataTable().settings()[0].iDraw
+  ));
+  const [listResponse] = await Promise.all([
+    page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return response.request().method() === 'GET'
+        && url.pathname.endsWith('/tickler/ListTicklers')
+        && url.searchParams.get('status') === status;
+    }, { timeout: 30000 }),
+    statusSelect.selectOption(status),
+  ]);
+  assert(listResponse.status() < 400, `tickler list reload returned HTTP ${listResponse.status()}`);
+
+  await page.waitForFunction(({ expectedStatus, previousDraw }) => {
     const table = window.jQuery && window.jQuery('#ticklerResults').DataTable();
-    return table && document.getElementById('ticklerview').value === expectedStatus;
-  }, status, { timeout: 30000 }).catch(() => {});
+    if (!table) {
+      return false;
+    }
+    const settings = table.settings()[0];
+    return document.getElementById('ticklerview').value === expectedStatus
+      && settings.iDraw > previousDraw
+      && !settings.bDrawing
+      && (!settings.jqXHR || settings.jqXHR.readyState === 4);
+  }, { expectedStatus: status, previousDraw }, { timeout: 30000 });
 }
 
 async function findRowInList(page, message, expectedStatus) {
   await page.locator('#ticklerResults_filter input[type="search"]').fill('');
+  const previousDraw = await page.evaluate(() => (
+    window.jQuery('#ticklerResults').DataTable().settings()[0].iDraw
+  ));
   await page.evaluate(() => {
     window.jQuery('#ticklerResults').DataTable().search('').order([4, 'desc']).draw();
   });
   try {
+    // DataTables keeps the old tbody visible while a server-side draw is in
+    // flight. Waiting only for a visible row can therefore return a checkbox
+    // that is about to be detached, losing its checked state at submit time.
+    await page.waitForFunction((previousDraw) => {
+      const table = window.jQuery && window.jQuery('#ticklerResults').DataTable();
+      if (!table) {
+        return false;
+      }
+      const settings = table.settings()[0];
+      return settings.iDraw > previousDraw
+        && !settings.bDrawing
+        && (!settings.jqXHR || settings.jqXHR.readyState === 4);
+    }, previousDraw, { timeout: 30000 });
     await page.locator('#ticklerResults tbody tr').filter({ hasText: message }).first().waitFor({
       state: 'visible',
       timeout: 30000,
@@ -351,15 +419,28 @@ async function deleteTicklerFromList(page, message) {
   await setTicklerListStatus(page, 'C');
   await findRowInList(page, message, 'C');
   const rowLocator = page.locator('#ticklerResults tbody tr').filter({ hasText: message }).first();
-  await rowLocator.locator('input[name="checkbox"]').check();
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded').catch(() => {}),
+  const checkbox = rowLocator.locator('input[name="checkbox"]');
+  const selectedTicklerNo = await checkbox.getAttribute('value');
+  assert(selectedTicklerNo, 'tickler delete checkbox had no tickler id');
+  await checkbox.check();
+  const [deleteResponse] = await Promise.all([
+    page.waitForResponse((response) => {
+      const request = response.request();
+      return request.method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/tickler/DbTicklerMain');
+    }, { timeout: 30000 }),
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
     page.locator("form[name='ticklerform'] input.btn-danger").click(),
   ]);
+  assert(deleteResponse.status() < 400, `tickler delete returned HTTP ${deleteResponse.status()}`);
+  const deleteForm = new URLSearchParams(deleteResponse.request().postData() || '');
+  assert(deleteForm.getAll('checkbox').includes(selectedTicklerNo),
+    `tickler delete POST omitted selected id ${selectedTicklerNo}`);
+  assert(/^d/i.test(deleteForm.get('submit_form') || ''),
+    `tickler delete POST had unexpected submit_form=${deleteForm.get('submit_form')}`);
   await waitForTicklerListReady(page);
 
-  const rows = getTicklerRows();
-  assert(rows.length === 1 && rows[0].status === 'D', `deleted tickler status was ${rows[0] && rows[0].status}`);
+  await waitForTicklerStatus('D');
 }
 
 (async () => {

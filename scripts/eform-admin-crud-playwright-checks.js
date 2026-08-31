@@ -52,6 +52,7 @@
 const { chromium } = require('playwright');
 const {
   assert,
+  assertNoPageErrors,
   buildFailureDetails,
   createRecorder,
   getLaunchOptions,
@@ -74,6 +75,7 @@ const config = {
 
 const stamp = Date.now();
 const formName = `Playwright Admin CRUD ${stamp}`;
+let restoredForm = false;
 
 // Deliberately shaped like a real eForm: a full HTML document with <meta>,
 // <style>, <script> and an onload handler. That is exactly the content CRS
@@ -92,6 +94,14 @@ const baseHtml = [
   '</head>',
   '<body>',
   '<p class="lab">Playwright admin CRUD probe form.</p>',
+  // Parent-relative asset path, deliberately. CRS 930110 (attack-lfi) is
+  // CRITICAL at paranoia level 1 and matches a bare "../" in ARGS, so an eForm
+  // referencing an image the way saved eForms actually do was blocked on that
+  // signature alone until exclusions 1050/1060/1070 carried attack-lfi. Without
+  // this line the probe is trivially clean of traversal and the check passes
+  // through that regression.
+  '<img src="../eform/displayImage.do?imagefile=carlos-crud-probe.png" alt="probe">',
+  '<link rel="stylesheet" href="../../share/css/carlos-crud-probe.css">',
   '</body>',
   '</html>',
 ].join('\n');
@@ -118,6 +128,58 @@ async function submitEditor(page) {
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   return response;
+}
+
+/**
+ * Opens the editor the way an administrator actually reaches it: land on
+ * Administration, CLICK "Manage eForms" in the left nav, then CLICK the pencil
+ * on the form's row. Everything stays inside the panel's #dynamic-content.
+ *
+ * Driving it by clicks rather than by navigating to /eform/efmformmanageredit
+ * is the whole point: the operator edits inside the admin shell, and that path
+ * once diverged from the standalone one (registerFormSubmit re-serialised the
+ * save urlencoded via $(form).serialize(), which the standalone save did not),
+ * so a WAF 403 hid on the panel path while the standalone save this file
+ * already exercised passed. registerFormSubmit now posts multipart FormData, so
+ * both paths post the same shape — this check drives the operator path to keep
+ * that true and to prove the FormData save still works.
+ */
+async function openEditorInAdminPanel(context, recorder, label, formLabel) {
+  const page = await context.newPage();
+  wirePage(page, label, recorder);
+  await gotoApp(page, config.baseUrl, '/administration');
+  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+
+  assert(
+    await page.evaluate(() => typeof window.registerFormSubmit === 'function'),
+    'The Administration shell did not define registerFormSubmit, so this run would silently '
+      + 'fall back to the standalone save and stop covering the operator (panel) path.',
+  );
+
+  // Left nav: expand "Forms/eForms" first. It is a Bootstrap accordion section
+  // that ships collapsed, so the eForm links exist in the DOM but are not
+  // clickable until an operator opens it -- and a check that skips this step
+  // times out on an invisible element rather than testing anything.
+  const formsSection = page.locator('button[data-bs-target="#collapseForms"]').first();
+  await formsSection.waitFor({ state: 'visible', timeout: 20000 });
+  await formsSection.click();
+
+  // Then Manage eForms. index.jsp binds a.contentLink at ready() time, and this
+  // link is present then, so the click loads the library into #dynamic-content
+  // rather than navigating away.
+  const manageEForms = page.locator('a.defaultForms').first();
+  await manageEForms.waitFor({ state: 'visible', timeout: 20000 });
+  await manageEForms.click();
+  await page.locator('#dynamic-content #eformTbl').waitFor({ state: 'visible', timeout: 30000 });
+
+  // Library row -> the pencil. These rows arrived by AJAX, so this click is
+  // served by efmFooter.jspf's DELEGATED a.contentLink handler -- the same
+  // handler the delete-banner defect lives in.
+  const row = page.locator('#dynamic-content #eformTbl tbody tr', { hasText: formLabel }).first();
+  await row.waitFor({ state: 'visible', timeout: 20000 });
+  await row.locator('a.contentLink[href*="efmformmanageredit?fid="]').first().click();
+  await page.locator('#dynamic-content textarea[name="formHtml"]').waitFor({ state: 'visible', timeout: 30000 });
+  return page;
 }
 
 function assertNotBlocked(response, what) {
@@ -216,6 +278,48 @@ async function libraryRow(page, name) {
     );
     await reopened.close();
 
+    // ---- save from inside the Administration panel -------------------------
+    // The operator's real path: the editor loaded into the admin shell's
+    // #dynamic-content and saved through the shared registerFormSubmit() helper.
+    // That helper once re-serialised the save urlencoded (which put the document
+    // in REQUEST_BODY and is how a 403 survived a "fixed" build); it now posts
+    // multipart FormData, so this asserts the operator save is not WAF-blocked
+    // AND that the FormData path still saves. If FormData is ever reverted this
+    // save 403s and this assertion fails — the intended regression guard.
+    const panelMarker = `CARLOS-ADMIN-PANEL-MARKER-${stamp}`;
+    const panelPage = await openEditorInAdminPanel(context, recorder, 'admin-crud-panel-edit', formName);
+    const panelTextarea = panelPage.locator('#dynamic-content textarea[name="formHtml"]');
+    const panelBefore = await panelTextarea.inputValue();
+    await panelTextarea.fill(`${panelBefore}\n<!-- ${panelMarker} -->\n`);
+
+    const [panelResponse] = await Promise.all([
+      panelPage.waitForResponse(
+        (r) => r.url().includes('/eform/editForm') && r.request().method() === 'POST',
+        { timeout: 60000 },
+      ),
+      panelPage.locator('#dynamic-content #savebtn').click(),
+    ]);
+
+    // The panel save must go out multipart (the FormData fix); a urlencoded
+    // content type here means registerFormSubmit reverted to serialize(), which
+    // silently drops file inputs on multipart forms.
+    const panelContentType = (panelResponse.request().headers()['content-type'] || '').toLowerCase();
+    assert(
+      panelContentType.includes('multipart/form-data'),
+      `The Administration-panel save posted "${panelContentType}", not multipart — `
+        + 'registerFormSubmit is no longer sending FormData, which drops file inputs.',
+    );
+    assertNotBlocked(panelResponse, 'Saving an eForm from the Administration panel');
+    await panelPage.close();
+
+    const panelReopened = await openEditor(context, recorder, 'admin-crud-panel-reopen', fid);
+    const panelPersisted = await panelReopened.locator('textarea[name="formHtml"]').inputValue();
+    assert(
+      panelPersisted.includes(panelMarker),
+      'The Administration-panel save did not persist: its marker is absent after reloading the editor',
+    );
+    await panelReopened.close();
+
     // ---- delete -------------------------------------------------------------
     // Delete while the CSRF token fetch is still in flight. The delete form is
     // built in JS at click time and csrf-token.jspf populates the hidden
@@ -282,6 +386,47 @@ async function libraryRow(page, name) {
         + 'delete click, so this run did not exercise the empty-token race it is meant to cover.',
     );
 
+    // Deterministically pin the efmFooter guard: wrap jQuery.fn.load so we can see
+    // whether the delegated a.contentLink handler tries to AJAX-load the anchor's
+    // javascript:void(0); href. This is independent of whether #dynamic-content
+    // exists (on the standalone library page jQuery.load on an empty set is a
+    // no-op, so the painted banner is invisible there and the body-text check
+    // below cannot see it) — but the handler still CALLS load() with the bogus
+    // URL pre-fix, and must NOT post-fix. This records every such call.
+    // Stash the flag in sessionStorage, not a window var: confirmNDelete's
+    // form.submit() navigates this page, destroying the JS context before we
+    // could read a window global. sessionStorage survives the same-origin
+    // redirect (delEForm -> 302 -> library), so the flag is readable after the
+    // page settles. The bogus load() call is synchronous in the click handler,
+    // before navigation starts, so the write always lands.
+    const instrumented = await managerPage.evaluate(() => {
+      try {
+        const jq = window.jQuery;
+        if (!jq || !jq.fn || typeof jq.fn.load !== 'function') return false;
+        sessionStorage.removeItem('__carlosBogusLoad');
+        const orig = jq.fn.load;
+        jq.fn.load = function (url) {
+          if (typeof url === 'string' && (/^\s*javascript:/i.test(url) || url === '#' || url === '')) {
+            try { sessionStorage.setItem('__carlosBogusLoad', url); } catch (e) { /* ignore */ }
+          }
+          return orig.apply(this, arguments);
+        };
+        return true;
+      } catch (e) {
+        return false;
+      }
+    });
+    // The probe below is only evidence if the wrapper was actually installed.
+    // Returning early on a missing jQuery.fn.load and then reading the flag
+    // would make the assertion unfailable -- it would report "no bogus load"
+    // for a page it never instrumented, which is indistinguishable from the
+    // guard working.
+    assert(
+      instrumented,
+      'Could not instrument jQuery.fn.load, so the delete-banner probe below would pass '
+        + 'without testing anything. jQuery is missing, or no longer exposes fn.load.',
+    );
+
     const [deleteResponse] = await Promise.all([
       managerPage.waitForResponse(
         (r) => r.url().includes('/eform/delEForm') && r.request().method() === 'POST',
@@ -305,6 +450,23 @@ async function libraryRow(page, name) {
       !/CARLOS Error:|unexpected error/i.test(bodyText),
       'Deleting an eForm landed on the application error page',
     );
+    // Deterministic pin for the efmFooter guard: the delete used to succeed AND
+    // report failure at once — the delete anchor is href="javascript:void(0);"
+    // with .contentLink, and the footer's delegated handler AJAX-loaded that
+    // literal href (status 0 / "error" -> the "Sorry but there was an error: 0
+    // error" banner). The sessionStorage flag set by the load() wrapper above
+    // survives the delete's redirect; if it is set, the guard is gone. (A
+    // body-text check here is vacuous: the redirect lands on a fresh library
+    // page where any transient banner is already gone.)
+    const bogusLoad = await managerPage.evaluate(() => {
+      try { return sessionStorage.getItem('__carlosBogusLoad'); } catch (e) { return null; }
+    });
+    assert(
+      !bogusLoad,
+      `On delete the footer's contentLink handler AJAX-loaded a non-URL href ${JSON.stringify(bogusLoad)} `
+        + '— the efmFooter.jspf guard is gone, so a successful delete will paint the '
+        + '"Sorry but there was an error: 0 error" banner again.',
+    );
 
     await screenshot(managerPage, config.screenshotDir, 'eform-admin-crud-after-delete');
 
@@ -314,12 +476,146 @@ async function libraryRow(page, name) {
     assert(remaining === 0, `Deleted eForm "${formName}" is still listed in the library`);
     await managerFinal.close();
 
+    // ---- deleted list initialises cleanly -----------------------------------
+    // #tblDeletedEforms shipped its header and body rows with no thead/tbody,
+    // so DataTables registered zero columns against six-cell rows and aborted
+    // init with "Incorrect column count" (tn/18). The warning goes to the
+    // console (and, with the default errMode, an alert), so watch both.
+    // Reached the way an operator reaches it: the "View Deleted" link on the
+    // eForm library, clicked. That link is an a.contentLink inside the AJAX-
+    // loaded library, so the list arrives through the same delegated handler
+    // the rest of this panel uses -- navigating straight to
+    // /eform/efmformmanagerdeleted would test a page the operator never loads
+    // that way.
+    const deletedPage = await context.newPage();
+    wirePage(deletedPage, 'admin-crud-deleted-list', recorder);
+    const dataTablesWarnings = [];
+    deletedPage.on('console', (message) => {
+      if (/DataTables warning/i.test(message.text())) {
+        dataTablesWarnings.push(message.text());
+      }
+    });
+    // DataTables' default errMode is 'alert', so the tn/18 warning can arrive
+    // as a dialog rather than a console line. wirePage's dismiss handler is
+    // registered first and therefore runs first, but dialog.message() stays
+    // readable after the dismissal, so recording it here still captures the
+    // text.
+    deletedPage.on('dialog', (dialog) => {
+      if (/DataTables warning/i.test(dialog.message())) {
+        dataTablesWarnings.push(dialog.message());
+      }
+    });
+    await gotoApp(deletedPage, config.baseUrl, '/administration');
+    await deletedPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await deletedPage.locator('button[data-bs-target="#collapseForms"]').first().click();
+    await deletedPage.locator('a.defaultForms').first().waitFor({ state: 'visible', timeout: 20000 });
+    await deletedPage.locator('a.defaultForms').first().click();
+    await deletedPage.locator('#dynamic-content #eformTbl').waitFor({ state: 'visible', timeout: 30000 });
+    await deletedPage.locator('#dynamic-content a.contentLink[href*="efmformmanagerdeleted"]').first().click();
+    await deletedPage.locator('#dynamic-content #tblDeletedEforms').waitFor({ state: 'visible', timeout: 30000 });
+    await deletedPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+
+    assert(
+      dataTablesWarnings.length === 0,
+      `The deleted-eForms list raised a DataTables warning: ${dataTablesWarnings.join(' | ')}`,
+    );
+    // A successful init is the positive half: DataTables adds its wrapper and
+    // sorting controls, so their absence means it aborted even if the warning
+    // channel changed.
+    assert(
+      await deletedPage.locator('#dynamic-content #tblDeletedEforms_wrapper').count() > 0,
+      'DataTables did not initialise the deleted-eForms table (no #tblDeletedEforms_wrapper), '
+        + 'which is what an aborted init looks like.',
+    );
+    assert(
+      await deletedPage.locator('#dynamic-content #tblDeletedEforms thead th').count() === 6,
+      'The deleted-eForms table does not expose six header cells inside a thead.',
+    );
+
+    // Restore the eForm this run deleted, through the actual Restore control.
+    //
+    // Restore was dead: it builds its POST form after page load, so CSRFGuard's
+    // injector -- which runs off a MutationObserver microtask -- never reached
+    // it, and CarlosCsrfGuardFilter answered 403 on every attempt. Nothing
+    // exercised the control, so the failure was invisible. Drive it and assert
+    // the POST is not rejected AND the form leaves the deleted list, which is
+    // the only proof the restore actually took effect.
+    // Show every row first. DataTables paginates at 10, detaching off-page rows
+    // from the DOM entirely, and each FAILED run of this check leaves another
+    // "Playwright Admin CRUD <epoch>" on this list. Sorted ascending by name the
+    // newest stamp drifts onto page 2, at which point a row-presence lookup
+    // silently finds nothing forever after.
+    await deletedPage.evaluate(() => {
+      const table = window.jQuery && window.jQuery.fn && window.jQuery.fn.DataTable
+        && window.jQuery('#tblDeletedEforms');
+      if (table && table.length && window.jQuery.fn.DataTable.isDataTable(table)) {
+        table.DataTable().page.len(-1).draw();
+      }
+    }).catch(() => {});
+
+    const restoreRow = deletedPage.locator(
+      `#dynamic-content #tblDeletedEforms tbody tr:has-text("${formName}")`,
+    );
+    // Unconditional. Guarding this with "if the row is there" is what turns a
+    // regression into a silent skip: a delete that hard-deleted instead of
+    // setting status='D', or a deleted-list query that returned nothing, would
+    // remove the row and the whole Restore step with it, and the run would still
+    // print PASS. The row MUST be here -- this check deleted that form itself,
+    // moments ago.
+    assert(
+      await restoreRow.count() === 1,
+      `The form this run just deleted ("${formName}") is not on the deleted-eForms list. `
+        + 'Delete should soft-delete (status=\'D\') so the form can be restored; if the list is '
+        + 'empty or the row is missing, the soft-delete/restore contract is broken.',
+    );
+
+    const [restoreResponse] = await Promise.all([
+      deletedPage.waitForResponse(
+        (r) => r.url().includes('/eform/restoreEForm') && r.request().method() === 'POST',
+        { timeout: 60000 },
+      ),
+      restoreRow.locator('a.contentLink').first().click(),
+    ]);
+    assertNotBlocked(restoreResponse, 'Restoring a deleted eForm');
+    assert(
+      restoreResponse.status() < 400,
+      `Restore POST returned HTTP ${restoreResponse.status()}. A 403 here is the CSRF `
+        + 'rejection that made this control silently do nothing.',
+    );
+
+    // Restore submits a real form, so the assertion below runs against a NEW
+    // document. Wait for that document's table to exist before counting:
+    // "the row is gone" is a zero-count assertion, so every timing failure --
+    // a blank page, a mid-navigation read, a 404 on the forward -- would
+    // otherwise satisfy it and report success.
+    await deletedPage.waitForURL(/efmformmanagerdeleted/, { timeout: 30000 }).catch(() => {});
+    await deletedPage.locator('#tblDeletedEforms').waitFor({ state: 'visible', timeout: 30000 });
+    const stillDeleted = await deletedPage
+      .locator(`#tblDeletedEforms tbody tr:has-text("${formName}")`).count();
+    assert(
+      stillDeleted === 0,
+      `"${formName}" is still on the deleted-eForms list after Restore, so the restore did `
+        + 'not take effect even though the POST was accepted.',
+    );
+    restoredForm = true;
+
+    await deletedPage.close();
+
     await managerPage.close();
+
+    // Fail on any uncaught JS error these pages raised. Without this the
+    // assertions above can all pass over a visibly broken page -- the
+    // deleted-eForms list threw a ReferenceError out of the DataTables draw
+    // callback AFTER the rows existed, so every assertion here was already
+    // satisfied by the time the page broke.
+    assertNoPageErrors(recorder);
+
     await context.close();
 
     console.log(
       `PASS eForm admin create/edit/delete round trip (fid ${fid}): edit persisted, `
-      + 'delete removed the form and returned to the library',
+      + 'delete removed the form and returned to the library'
+      + (restoredForm ? ', and Restore put it back' : ''),
     );
   } catch (error) {
     console.error('FAIL eForm admin CRUD Playwright check');
