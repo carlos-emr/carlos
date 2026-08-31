@@ -5,6 +5,8 @@ carlos-emr (2026.09.0~snapshot18) resolute; urgency=medium
     validation also waits for tickler deletion to commit before asserting it.
   * Enforce the hermetic Struts DTD validation in CI and clean up the snapshot
     changelog metadata used by Debian package linting.
+  * Exclude transient eChart note locks from the optional demonstration dataset
+    and reject them at package-build time.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Mon, 31 Aug 2026 17:56:11 +0000
 
