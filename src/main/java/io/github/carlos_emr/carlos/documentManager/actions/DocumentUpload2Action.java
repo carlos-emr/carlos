@@ -373,7 +373,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         }
     }
 
-    void recordDuplicateUploadError(HashMap<String, Object> map, ResourceBundle props) {
+    void recordDuplicateUploadError(java.util.Map<String, Object> map, ResourceBundle props) {
         // Keep this message constant and do not attach the collision exception: its message is the
         // destination path, which ends in the uploader-supplied clinical document filename.
         logger.warn("Uploaded document name already taken; asking the user to retry");
