@@ -215,8 +215,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 newDoc.setNumberOfPages(numberOfPages);
                 doc_no = EDocUtil.addDocumentSQL(newDoc);
             } catch (FileAlreadyExistsException e) {
-                logger.warn("Uploaded document name already taken; asking the user to retry", e);
-                map.put("error", props.getString("dms.addDocument.errorDuplicate"));
+                recordDuplicateUploadError(map, props);
             } catch (Exception e) {
                 // If the write succeeded and only the insert failed, the file is left in
                 // the document store with no row pointing at it. That is litter rather
@@ -327,7 +326,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    private void writeLocalFile(File docFile, String fileName) throws Exception {
+    void writeLocalFile(File docFile, String fileName) throws Exception {
         String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (!documentDir.endsWith(File.separator)) {
             documentDir += File.separator;
@@ -363,10 +362,22 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             while ((i = fis.read(buf)) != -1) {
                 fos.write(buf, 0, i);
             }
+        } catch (FileAlreadyExistsException e) {
+            // FileAlreadyExistsException's message is the destination path. Uploaded scans are
+            // routinely named after patients, so let the caller translate this recoverable
+            // collision without attaching the exception to a log event.
+            throw e;
         } catch (Exception e) {
             logger.error("Error writing local file", e);
             throw e;
         }
+    }
+
+    void recordDuplicateUploadError(java.util.Map<String, Object> map, ResourceBundle props) {
+        // Keep this message constant and do not attach the collision exception: its message is the
+        // destination path, which ends in the uploader-supplied clinical document filename.
+        logger.warn("Uploaded document name already taken; asking the user to retry");
+        map.put("error", props.getString("dms.addDocument.errorDuplicate"));
     }
 
     private WriteToIncomingDocsResult writeToIncomingDocs(File docFile, File destinationFile) {

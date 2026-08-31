@@ -1,3 +1,15 @@
+carlos-emr (2026.09.0~snapshot18) resolute; urgency=medium
+
+  * Document upload name collisions retain their recoverable JSON response but
+    never attach the path-bearing exception to a log event. The packaged UI
+    validation also waits for tickler deletion to commit before asserting it.
+  * Enforce the hermetic Struts DTD validation in CI and clean up the snapshot
+    changelog metadata used by Debian package linting.
+  * Exclude transient eChart note locks from the optional demonstration dataset
+    and reject them at package-build time.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Mon, 31 Aug 2026 17:56:11 +0000
+
 carlos-emr (2026.09.0~snapshot17) resolute; urgency=medium
 
   * A tainted error body that cannot be replaced is now discarded instead of
@@ -8,7 +20,7 @@ carlos-emr (2026.09.0~snapshot17) resolute; urgency=medium
     as a container 500. The captured body is dropped instead: nothing unsafe
     reaches the client, and the client keeps the response it was already sent.
 
- -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 30 Aug 2026 21:15:00 +0000
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 30 Aug 2026 21:15:00 +0000
 
 carlos-emr (2026.09.0~snapshot16) resolute; urgency=medium
 
@@ -27,7 +39,7 @@ carlos-emr (2026.09.0~snapshot16) resolute; urgency=medium
     destination path, which ends in the uploader's filename, and scanned
     clinical documents are routinely named after the patient.
 
- -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 30 Aug 2026 19:30:00 +0000
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 30 Aug 2026 19:30:00 +0000
 
 carlos-emr (2026.09.0~snapshot15) resolute; urgency=medium
 
@@ -46,7 +58,7 @@ carlos-emr (2026.09.0~snapshot15) resolute; urgency=medium
     and its passthrough streams shield the real response from a mid-chain
     close.
 
- -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 30 Aug 2026 16:00:00 +0000
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 30 Aug 2026 16:00:00 +0000
 
 carlos-emr (2026.09.0~snapshot14) resolute; urgency=medium
 
@@ -122,7 +134,7 @@ carlos-emr (2026.09.0~snapshot14) resolute; urgency=medium
     at the start of the argument and cannot match an eForm document, so the
     exclusion only widened the rule surface. attack-lfi, which does fire, stays.
 
- -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 30 Aug 2026 03:30:00 +0000
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 30 Aug 2026 03:30:00 +0000
 
 carlos-emr (2026.09.0~snapshot5) resolute; urgency=medium
 

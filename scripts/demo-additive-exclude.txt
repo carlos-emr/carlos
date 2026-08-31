@@ -109,6 +109,9 @@ ServiceAccessToken
 ServiceRequestToken
 
 # --- OPS: operational noise ---
+# Concurrent chart-note locks are session-scoped runtime state. Snapshot rows
+# point at long-expired sessions and make demo eCharts appear locked.
+casemgmt_note_lock
 log
 table_modification
 property
