@@ -130,6 +130,11 @@ function validateBaseUrl(rawBaseUrl) {
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
+  // Reject userinfo (user:pass@host): this harness logs navigations and diagnostics with the URL,
+  // so embedded credentials would leak into test output. Pass auth through the app's login form.
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
   const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
@@ -170,8 +175,25 @@ function resolveMysqlBinary() {
 function createMysqlDefaultsFile() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rx-fax-stamp-'));
   const file = path.join(dir, 'mysql-defaults.cnf');
-  fs.writeFileSync(file, `[client]\nuser=${mysqlUser}\npassword=${mysqlPassword}\nhost=${mysqlHost}\n`, { mode: 0o600 });
+  try {
+    fs.writeFileSync(file, `[client]\nuser=${mysqlUser}\npassword=${mysqlPassword}\nhost=${mysqlHost}\n`, { mode: 0o600 });
+  } catch (error) {
+    // Never leave a half-written defaults file (it carries the cleartext DB password) behind.
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch (cleanupError) { /* best effort */ }
+    throw error;
+  }
   return file;
+}
+
+/** Best-effort removal of the temp dir holding the cleartext MySQL password. Safe to call twice. */
+function removeSecretsDir() {
+  try { fs.rmSync(path.dirname(mysqlDefaultsFile), { recursive: true, force: true }); } catch (error) { /* best effort */ }
+}
+
+// Remove the cleartext-password file even if the run is interrupted (Ctrl-C / CI termination) before
+// the main finally runs. Handlers are installed at load, right after the file is created.
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => { removeSecretsDir(); process.exit(130); });
 }
 
 function sql(query) {
@@ -198,7 +220,17 @@ function wirePage(page, label) {
     }
     findings.push({ label, type: 'pageerror', text });
   });
-  page.on('dialog', async (dialog) => { await dialog.accept().catch(() => {}); });
+  page.on('dialog', async (dialog) => {
+    // The only dialog this flow legitimately raises is the custom-drug confirm() we must accept to
+    // stage the drug. Any alert (notably the legacy "Signature not found" the stamp fix removes) is
+    // an unexpected, BLOCKING condition — record it so the check cannot pass while it is displayed.
+    if (dialog.type() === 'confirm') {
+      await dialog.accept().catch(() => {});
+      return;
+    }
+    findings.push({ label, type: 'unexpected-dialog', text: `${dialog.type()}: ${dialog.message()}`.slice(0, 200) });
+    await dialog.dismiss().catch(() => dialog.accept().catch(() => {}));
+  });
 }
 
 // --- login + build-stamp defence-in-depth guard -----------------------------
@@ -482,7 +514,11 @@ async function runChecks(context) {
 
   const browser = await chromium.launch(launchOptions);
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    // Only bypass TLS verification for a loopback dev target (self-signed local certs). A non-local
+    // opt-in target receives login credentials, so its certificate must be verified.
+    const loopbackTarget = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos'])
+      .has(baseUrl.hostname.toLowerCase());
+    const context = await browser.newContext({ ignoreHTTPSErrors: loopbackTarget, viewport: { width: 1440, height: 1000 } });
     const loginPage = await login(context);
     await loginPage.close();
 
@@ -490,18 +526,20 @@ async function runChecks(context) {
     const result = await runChecks(context);
 
     console.log(JSON.stringify({ visited, result, findings }, null, 2));
-    const blocking = findings.filter((f) => f.type !== 'dialog');
-    if (blocking.length) {
-      console.error(`FAIL: ${blocking.length} finding(s)`);
+    // Every recorded finding is blocking. Expected dialogs (the custom-drug confirm) are accepted
+    // silently and never recorded; an unexpected alert is recorded as 'unexpected-dialog' and fails.
+    if (findings.length) {
+      console.error(`FAIL: ${findings.length} finding(s)`);
       process.exitCode = 1;
     } else {
       console.log('PASS rx-fax-signature-stamp');
     }
   } finally {
     await browser.close();
-    try { fs.rmSync(path.dirname(mysqlDefaultsFile), { recursive: true, force: true }); } catch (error) { /* best effort */ }
+    removeSecretsDir();
   }
 })().catch((error) => {
   console.error(error.stack || error.message);
+  removeSecretsDir();
   process.exit(1);
 });
