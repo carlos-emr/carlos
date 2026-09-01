@@ -101,3 +101,8 @@ R! /var/backups/carlos-emr/work
 # The private key is 0640 root:www-data. nginx reads it as root before dropping
 # privileges; the application uid has no path to it at all.
 d /etc/carlos-emr/tls                             0750 root          www-data -
+
+# --- OSCAR 19 clinic import (experimental) ----------------------------------
+# 0700, not 0750: the import state dir holds the carry-secret properties
+# fragment and the break-glass credential notes.
+d /var/lib/carlos-emr/o19-import                  0700 root          root     -

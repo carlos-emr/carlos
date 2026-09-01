@@ -499,8 +499,32 @@ test in `test_manifest_integrity.py` pin the behavior. B4 detection keys off
 `casemgmt.note.password.enabled`; the report prints the canonical bundle
 command so the O19 side produces what the CARLOS side expects.
 
-Remaining milestones: verb + stage + bundle (M3), ETL engine (M4), documents
-(M5), props (M6), end-to-end rehearsal + operator guide (M7).
+**Milestone 3 — verbs, staging, bundle (done):**
+`carlos-ctl import-o19` and `carlos-ctl o19-preflight` are registered
+(lazy-imported so the manifest parse cost stays off every other verb) with
+`(experimental)` denotations in `_USAGE` and `carlos-ctl.8`, plus the
+`o19-import` state dir in tmpfiles (0700 — it holds secrets).
+`o19import.py` implements the phase state machine (`state.json` ledger,
+`--resume`, digests, persisted `--accept` sign-offs) and phases P0–P3: the
+stock-initial-deploy pristine sweep (manifest seed counts, no accept flag,
+`--dev-target`/connection-seam downgrade for dev databases, replica refusal,
+disk headroom that never silently skips), single-pass streamed dump restore
+into `o19_import` with binlog off + truncation-marker and collation
+pre-checks (failed restores drop the schema), import-mode preflight (dry-run
+reports the verdict instead of erroring), and the pre-import backup via the
+systemd unit (`--accept no-pre-backup` for unconfigured boxes). `o19bundle.py`
+implements `--bundle` per the plan: extension-classified members with hard
+errors on ambiguity/traversal, magic-byte cross-checks, openssl
+password-based decryption with canonical `-pbkdf2 -iter 200000` defaults and
+loud wrong-key/derivation-mismatch guidance. Fixtures gain
+`make-o19-bundle.sh` (all four variants); `test_bundle.py` (17 cases incl.
+real openssl/tar end-to-end and a derivation-mismatch case) and
+`test_state.py` (12 cases: ledger, pristine gate, disk, collations) bring
+the suite to 73 passing tests. P4–P7 stop with an explicit
+"milestone not built yet" error — never a silent no-op.
+
+Remaining milestones: ETL engine (M4), documents (M5), props (M6),
+end-to-end rehearsal + operator guide (M7).
 
 ## 10. Implementation work breakdown
 

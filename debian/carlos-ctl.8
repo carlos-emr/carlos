@@ -194,6 +194,43 @@ required before the host can run the EMR or read any remaining backup.
 It refuses to run while MariaDB is unreachable: a destruction that cannot
 drop the databases does not start. Removing or purging the packages never does any of this. The
 command refuses unless the host's own configured name is typed back to it.
+.SS Clinic migration from OSCAR 19 (experimental)
+Migration output should receive a technical review \(em verification
+report, spot checks, UI smoke \(em before clinical use.
+.TP
+.B import-o19 (experimental)
+Import an OSCAR 19 clinic backup into a STOCK initial deploy (a fresh
+Flyway schema holding only its seed rows; anything else is refused with no
+override). Inputs: either
+.B --bundle
+.I FILE
+\(em one archive (.tar/.tar.gz/.tar.enc/.tar.gz.enc; .enc is
+openssl password-based encryption, unlocked with
+.BR --bundle-pass )
+holding the dump, the OscarDocument tar and oscar.properties at its root
+\(em or the three
+.BR --dump / --documents / --properties
+flags.
+.B --admin-user
+names the break-glass administrator created before the seeded clinician is
+removed. Blockers found by the built-in preflight are cleared only by
+explicit
+.B --accept
+sign-off flags, recorded in the report.
+.B --dry-run
+stages and reports without writing to the EMR schema;
+.B --resume
+continues an interrupted run;
+.B --cleanup
+(after verification) drops the staging schema and keeps the o19_archive
+schema and reports. See docs/oscar19-to-carlos-migration-plan.md in the
+source tree.
+.TP
+.B o19-preflight (experimental)
+Stage a dump and run only the go/no-go feasibility check. For an
+assessment BEFORE backups are shipped, copy
+/usr/lib/carlos-emr/carlos_ctl/o19_preflight.py to the OSCAR 19 server and
+run it there standalone.
 .SH FILES
 .TP
 .I /etc/carlos-emr/carlos-emr.env
