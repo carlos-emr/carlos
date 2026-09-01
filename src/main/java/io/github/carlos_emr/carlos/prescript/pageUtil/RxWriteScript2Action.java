@@ -1373,10 +1373,11 @@ public final class RxWriteScript2Action extends ActionSupport {
         String ip = request.getRemoteAddr();
         request.setAttribute("scriptId", scriptId);
 
-        // Stamp-on-write also on the save-all-drugs path, so a script written this way is faxable
-        // without the pad, exactly as the updateAndPrint path. Runs under the _rx write privilege
-        // checked at the top of saveDrug; the service stamps only an unsigned persisted row.
-        signatureStampService.applyStampToScript(loggedInInfo, bean, scriptId);
+        // The stamp is NOT applied here. saveDrug is a separate AJAX request whose response is JSON,
+        // so the RX_STAMP_SIGNATURE_APPLIED signal it would set could not reach the ViewScript2
+        // render that follows (opened by popForm2 -> RxViewScript2Action), and the pad would be
+        // hidden. The stamp is applied in RxViewScript2Action, which reuses this same script row and
+        // renders the page — keeping the pad available to override the stamp.
 
         List<String> reRxDrugList = new ArrayList<String>();
         reRxDrugList = bean.getReRxDrugIdList();

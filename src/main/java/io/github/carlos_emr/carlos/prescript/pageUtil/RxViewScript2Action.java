@@ -83,14 +83,21 @@ public final class RxViewScript2Action extends ActionSupport {
 
         RxPrescriptionData.Prescription rx;
         RxPrescriptionData prescription = new RxPrescriptionData();
-        String scriptId = prescription.saveScript(loggedInInfo, bean);
 
-        int i;
-
-        for (i = 0; i < bean.getStashSize(); i++) {
-            rx = bean.getStashItem(i);
-            rx.Save(scriptId);
-            rx = null;
+        // Reuse an already-persisted script instead of writing a duplicate. This action is reached
+        // via popForm2 both after "Save And Print" (updateSaveAllDrugs already persisted the stash
+        // and stamped each item's script_no) and on reprint2 (the reprinted script's number is on
+        // the stash). Calling saveScript again here created a SECOND prescription — and duplicate
+        // drugs rows — for a single prescribing action. Only save when the stash is not yet
+        // persisted (every item carries the same numeric script_no == fully persisted).
+        String scriptId = fullyPersistedScriptId(bean);
+        if (scriptId == null) {
+            scriptId = prescription.saveScript(loggedInInfo, bean);
+            for (int i = 0; i < bean.getStashSize(); i++) {
+                rx = bean.getStashItem(i);
+                rx.Save(scriptId);
+                rx = null;
+            }
         }
 
         // Expose the saved script id so ViewScript2.jsp builds the fax/print request for THIS
@@ -111,5 +118,26 @@ public final class RxViewScript2Action extends ActionSupport {
         }
 
         return "viewScript";
+    }
+
+    /**
+     * The script number under which the whole stash is already persisted, or {@code null} when the
+     * stash is empty, unsaved, or split across scripts. Used to avoid re-persisting a script that a
+     * prior save (Save And Print) or a reprint already wrote.
+     */
+    private static String fullyPersistedScriptId(RxSessionBean bean) {
+        if (bean.getStashSize() == 0) {
+            return null;
+        }
+        String first = bean.getStashItem(0).getScript_no();
+        if (first == null || !first.matches("\\d+")) {
+            return null;
+        }
+        for (int i = 1; i < bean.getStashSize(); i++) {
+            if (!first.equals(bean.getStashItem(i).getScript_no())) {
+                return null;
+            }
+        }
+        return first;
     }
 }

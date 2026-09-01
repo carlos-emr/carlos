@@ -295,6 +295,14 @@ async function runChecks(context) {
     createdScriptId = scriptId;
     rxRangeStart = rangeStart;
 
+    // One "Save And Print" must create exactly ONE prescription. The flow used to persist the
+    // script twice (updateSaveAllDrugs, then RxViewScript2Action re-saving) — a duplicate.
+    const createdCount = Number(sql(`SELECT COUNT(*) FROM prescription WHERE provider_no='${providerNo}' AND demographic_no=${demographicNo} AND script_no>${rangeStart};`) || '0');
+    visited.push({ label: 'prescriptions-created', count: createdCount });
+    if (createdCount !== 1) {
+      findings.push({ label: 'duplicate-prescription', type: 'count', text: `one Save And Print created ${createdCount} prescriptions, expected 1` });
+    }
+
     // Real DOM: the Fax button must be enabled with no drawn signature.
     const faxDisabled = await modalFrame.locator('#faxButton').isDisabled();
     if (faxDisabled) {
