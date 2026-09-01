@@ -93,6 +93,10 @@ const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || '';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const faxNumber = '4165550000';
+// Unique custom-drug name for this fixture. It lands in drugs.customName, which lets the checks
+// identify exactly the prescription(s) THIS run created — immune to any concurrent prescription
+// for the same provider/patient — instead of inferring from MAX(script_no).
+const customDrugName = 'PLAYWRIGHT FAX STAMP TEST';
 
 if (!/^\d+$/.test(demographicNo)) throw new Error(`RX_FAX_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
 if (!/^\d+$/.test(providerNo)) throw new Error(`RX_FAX_PROVIDER_NO must be numeric, got ${providerNo}`);
@@ -260,7 +264,7 @@ async function writeCustomRxThroughUi(page) {
 
   // Real control: name the custom medication, then click the "Custom Drug" button.
   await page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
-  await page.locator('#searchString').fill('PLAYWRIGHT FAX STAMP TEST');
+  await page.locator('#searchString').fill(customDrugName);
   await page.locator('#customDrug').click(); // confirm() auto-accepted by the dialog handler
   // The custom drug injects the prescribe fragment and stages the drug.
   await page.locator("[id^='drugName_'], [id^='quantity_']").first().waitFor({ state: 'attached', timeout: 30000 });
@@ -272,15 +276,19 @@ async function writeCustomRxThroughUi(page) {
   const modalFrame = page.frameLocator('#carlosModalBody iframe');
   await modalFrame.locator('#faxButton').waitFor({ state: 'attached', timeout: 30000 });
 
-  const maxAfter = Number(sql(`SELECT COALESCE(MAX(script_no),0) FROM prescription WHERE provider_no='${providerNo}' AND demographic_no=${demographicNo};`) || '0');
-  if (maxAfter <= rangeStart) {
-    throw new Error(`No new prescription row was created (max script_no stayed at ${maxAfter})`);
+  // Identify exactly the prescription(s) this run created by our fixture drug name — not by
+  // MAX(script_no), which a concurrent prescription for the same provider/patient could perturb.
+  // "Save And Print" now writes exactly ONE prescription (updateSaveAllDrugs persists it and
+  // RxViewScript2Action reuses that row instead of re-saving), so this list should have one entry;
+  // a stray duplicate from re-saving would show as a second entry and is caught by runChecks.
+  const createdScriptNos = sql(`SELECT DISTINCT script_no FROM drugs WHERE customName='${customDrugName}' AND demographic_no=${demographicNo} AND script_no>${rangeStart};`)
+    .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r));
+  if (createdScriptNos.length === 0) {
+    throw new Error('No new prescription row was created for the fixture custom drug');
   }
-  // "Save And Print" now writes exactly ONE prescription: updateSaveAllDrugs persists it, and
-  // RxViewScript2Action reuses that row instead of re-saving. The fax uses that row (its script_no
-  // is maxAfter). rangeStart..maxAfter is still cleaned up as a range so the throwaway unsigned row
-  // added later is swept up too, and any stray duplicate would be caught rather than left behind.
-  return { modalFrame, scriptId: String(maxAfter), rangeStart };
+  // The shown/faxed script is the newest of them.
+  const scriptId = String(Math.max(...createdScriptNos.map(Number)));
+  return { modalFrame, scriptId, rangeStart, createdCount: createdScriptNos.length };
 }
 
 async function runChecks(context) {
@@ -294,15 +302,14 @@ async function runChecks(context) {
   try {
     faxConfig = stageFaxConfig();
 
-    const { modalFrame, scriptId, rangeStart } = await writeCustomRxThroughUi(page);
+    const { modalFrame, scriptId, rangeStart, createdCount } = await writeCustomRxThroughUi(page);
     createdScriptId = scriptId;
     rxRangeStart = rangeStart;
 
-    // One "Save And Print" must create exactly ONE prescription — the duplicate this PR fixes was
-    // a SECOND row (updateSaveAllDrugs, then RxViewScript2Action re-saving). Bound the count at the
-    // shown script (createdScriptId, the max after the write) so a prescription another actor might
-    // insert concurrently — which auto-increments ABOVE our row — is not miscounted as our duplicate.
-    const createdCount = Number(sql(`SELECT COUNT(*) FROM prescription WHERE provider_no='${providerNo}' AND demographic_no=${demographicNo} AND script_no>${rangeStart} AND script_no<=${createdScriptId};`) || '0');
+    // One "Save And Print" must create exactly ONE prescription — the duplicate this PR fixes was a
+    // SECOND row (updateSaveAllDrugs, then RxViewScript2Action re-saving). createdCount is the number
+    // of distinct scripts carrying THIS run's fixture drug name, so an unrelated concurrent
+    // prescription is never miscounted as our duplicate and a real duplicate is never missed.
     visited.push({ label: 'prescriptions-created', count: createdCount });
     if (createdCount !== 1) {
       findings.push({ label: 'duplicate-prescription', type: 'count', text: `one Save And Print created ${createdCount} prescriptions, expected 1` });
