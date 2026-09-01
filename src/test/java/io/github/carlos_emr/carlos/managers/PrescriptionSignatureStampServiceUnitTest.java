@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
@@ -74,6 +75,9 @@ class PrescriptionSignatureStampServiceUnitTest {
     private PrescriptionManager prescriptionManager;
 
     @Mock
+    private PrescriptionDao prescriptionDao;
+
+    @Mock
     private LoggedInInfo loggedInInfo;
 
     private PrescriptionSignatureStampService service;
@@ -112,13 +116,26 @@ class PrescriptionSignatureStampServiceUnitTest {
         ReflectionTestUtils.setField(saved, "id", SIGNATURE_ID);
         when(digitalSignatureManager.saveStampSignature(any(), anyString(), anyInt(), any())).thenReturn(saved);
 
-        service = new PrescriptionSignatureStampService(digitalSignatureManager, prescriptionManager);
+        // By default the persisted prescription exists and is unsigned, so a stamp applies.
+        when(prescriptionDao.find(anyInt())).thenReturn(unsignedPrescription());
+
+        service = new PrescriptionSignatureStampService(digitalSignatureManager, prescriptionManager, prescriptionDao);
     }
 
     @AfterEach
     void tearDown() {
         restore("rx_signature_enabled", hadRxSignatureEnabled, originalRxSignatureEnabled);
         restore("rx_fax_enabled", hadRxFaxEnabled, originalRxFaxEnabled);
+    }
+
+    private static io.github.carlos_emr.carlos.commn.model.Prescription unsignedPrescription() {
+        return new io.github.carlos_emr.carlos.commn.model.Prescription();
+    }
+
+    private static io.github.carlos_emr.carlos.commn.model.Prescription signedPrescription() {
+        io.github.carlos_emr.carlos.commn.model.Prescription p = new io.github.carlos_emr.carlos.commn.model.Prescription();
+        p.setDigitalSignatureId(999);
+        return p;
     }
 
     private static void restore(String key, boolean had, Object original) {
@@ -142,14 +159,37 @@ class PrescriptionSignatureStampServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should leave a script alone when it already carries a stored signature")
+    @DisplayName("should leave a script alone when the persisted row already carries a stored signature")
     void shouldSkipStamp_whenScriptAlreadySigned() {
-        stashItem.setDigitalSignatureId(5);
+        when(prescriptionDao.find(Integer.parseInt(SCRIPT_ID))).thenReturn(signedPrescription());
 
         Integer applied = service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID);
 
         assertThat(applied).isNull();
-        assertThat(stashItem.getDigitalSignatureId()).isEqualTo(5);
+        verifyNoInteractions(digitalSignatureManager, prescriptionManager);
+    }
+
+    @Test
+    @DisplayName("should stamp a freshly written row even when the stash item carries a stale signature id")
+    void shouldStamp_whenStashItemHasStaleSignatureButRowIsUnsigned() {
+        // The double-save case: a prior save stamped the shared stash item, but the row now shown
+        // and faxed is a new, unsigned prescription — it must still be stamped.
+        stashItem.setDigitalSignatureId(5);
+        when(prescriptionDao.find(Integer.parseInt(SCRIPT_ID))).thenReturn(unsignedPrescription());
+
+        Integer applied = service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID);
+
+        assertThat(applied).isEqualTo(SIGNATURE_ID);
+        verify(prescriptionManager).setPrescriptionSignature(loggedInInfo, Integer.parseInt(SCRIPT_ID), SIGNATURE_ID);
+        assertThat(stashItem.getDigitalSignatureId()).isEqualTo(SIGNATURE_ID);
+    }
+
+    @Test
+    @DisplayName("should skip when the persisted prescription row does not exist")
+    void shouldSkipStamp_whenPrescriptionRowMissing() {
+        when(prescriptionDao.find(Integer.parseInt(SCRIPT_ID))).thenReturn(null);
+
+        assertThat(service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID)).isNull();
         verifyNoInteractions(digitalSignatureManager, prescriptionManager);
     }
 

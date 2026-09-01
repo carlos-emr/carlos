@@ -69,11 +69,14 @@ public class PrescriptionSignatureStampService {
 
     private final DigitalSignatureManager digitalSignatureManager;
     private final PrescriptionManager prescriptionManager;
+    private final io.github.carlos_emr.carlos.commn.dao.PrescriptionDao prescriptionDao;
 
     public PrescriptionSignatureStampService(DigitalSignatureManager digitalSignatureManager,
-                                             PrescriptionManager prescriptionManager) {
+                                             PrescriptionManager prescriptionManager,
+                                             io.github.carlos_emr.carlos.commn.dao.PrescriptionDao prescriptionDao) {
         this.digitalSignatureManager = digitalSignatureManager;
         this.prescriptionManager = prescriptionManager;
+        this.prescriptionDao = prescriptionDao;
     }
 
     /**
@@ -91,11 +94,18 @@ public class PrescriptionSignatureStampService {
         if (loggedInInfo == null || bean == null || bean.getStashSize() == 0) {
             return null;
         }
-        if (Objects.nonNull(bean.getStashItem(0).getDigitalSignatureId())) {
-            return null;
-        }
         Integer scriptNo = parseScriptId(scriptId);
         if (scriptNo == null) {
+            return null;
+        }
+        // "Already signed" is decided from the PERSISTED prescription row, not the in-memory stash
+        // item. A single "Save And Print" saves the script twice (updateSaveAllDrugs, then
+        // RxViewScript2Action opening /rx/viewScript?scriptId=null), and the first save stamps the
+        // shared stash item; keying the guard off the stash would then skip the SECOND, freshly
+        // written row — the very one ViewScript2 shows and faxes — leaving it unsigned. Keying off
+        // the row stamps whichever new row is unsigned and stays idempotent on a re-render or reprint.
+        io.github.carlos_emr.carlos.commn.model.Prescription persisted = prescriptionDao.find((int) scriptNo);
+        if (persisted == null || persisted.getDigitalSignatureId() != null) {
             return null;
         }
         Integer signatureId = applyStamp(loggedInInfo, bean.getProviderNo(), bean.getDemographicNo(), scriptNo);

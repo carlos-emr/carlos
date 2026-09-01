@@ -1,8 +1,9 @@
-# Build identity (login-page build stamp)
+# Build identity (build stamp)
 
-CARLOS shows a build stamp on the login page, on the About page, in REST
-response headers (`buildTag`) and in the HL7 `SFT` segment. This document
-describes where that value comes from and why it is not a configuration
+CARLOS shows a build stamp on the authenticated About page, in REST
+response headers (`buildTag`) and in the HL7 `SFT` segment. It is deliberately
+not shown on the login page (see [Where it is shown](#where-it-is-shown)). This
+document describes where that value comes from and why it is not a configuration
 property.
 
 ## Where the value lives
@@ -53,6 +54,17 @@ and `buildVersion` keys in an override file are ignored by the application;
 `carlos-ctl init-config` comments them out on the next run so they do not
 mislead operators.
 
+## Where it is shown
+
+The build identity is shown to **authenticated** users only, on the About page
+(`encounter/ViewAbout`). It is deliberately **not** shown on the login page:
+that page is served to unauthenticated visitors, and disclosing the exact build
+lets an attacker fingerprint it against known CVEs before authenticating
+(CWE-200 / information disclosure). The login page keeps an empty `#buildInfo`
+container so its layout is unchanged. `LoginResourceBean` still computes the tag
+for internal use, but the login JSP no longer renders it. When adding a new
+place to surface the build, put it behind authentication.
+
 ## Setting the stamp in a build
 
 - **CI / release WAR**: nothing to set. The tag is the project version.
@@ -60,5 +72,5 @@ mislead operators.
   `BUILD_NUMBER=<deb version>` for a from-source build. A package built around
   the published release WAR carries that WAR's stamp unchanged.
 - **carlos-podman** (`Containerfile`): sets `JOB_NAME=carlos-podman` and
-  `BUILD_NUMBER=<image stamp>` so the login page identifies the running image.
+  `BUILD_NUMBER=<image stamp>` so the About page identifies the running image.
 - **Local build**: leave both unset; the stamp is the version alone.
