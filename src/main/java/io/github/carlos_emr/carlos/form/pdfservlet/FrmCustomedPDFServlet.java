@@ -112,7 +112,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     private final DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    /** Shape of a prescription script number as passed on the request. */
     /** Base-name shape of the signature-pad capture files written into java.io.tmpdir. */
     private static final String PAD_SIGNATURE_FILE_PATTERN = "signature_.+\\.jpg";
 
@@ -724,23 +723,51 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     }
 
     /**
-     * Resolves the prescriber's signature image for the PDF, in priority order:
-     * <ol>
-     *   <li>the signature-pad capture file named by {@code imgFile} (a temp file the pad flow wrote
-     *       for this request; only its base name is honoured, inside {@code java.io.tmpdir});</li>
-     *   <li>the {@link DigitalSignature} stored on the prescription named by {@code scriptId}: a
-     *       hand-drawn signature saved earlier, or the prescriber's stamp applied on write by
-     *       {@code PrescriptionSignatureStampService}. This is also what a reprint renders.</li>
-     * </ol>
-     * The stored signature is released only when it is a prescription signature, it and the
-     * prescription agree on the patient, and the caller holds {@code _rx} read privilege for that
-     * patient, the same gate {@code ImageRenderingServlet} applies to the on-screen preview.
+     * Resolves the prescriber's signature image for the PDF.
      *
-     * @return decoded image bytes, or {@code null} when no signature applies
+     * <p>Authorization comes first and is derived from the prescription itself: the script named by
+     * {@code scriptId} is loaded, and everything below is released only to a caller holding
+     * {@code _rx} read for THAT prescription's patient — the same gate {@code ImageRenderingServlet}
+     * applies to the on-screen preview. Neither the caller-supplied {@code demographic_no} nor the
+     * caller-supplied {@code imgFile} can widen that: the patient context is the prescription's.</p>
+     *
+     * <p>With that established, the image is, in priority order:</p>
+     * <ol>
+     *   <li>the signature-pad capture named by {@code imgFile} — only a {@code signature_*.jpg} base
+     *       name inside {@code java.io.tmpdir}, and only if it decodes as an image;</li>
+     *   <li>the {@link DigitalSignature} stored on the prescription: a hand-drawn signature saved
+     *       earlier, or the stamp applied on write. This is also what a reprint renders. It is used
+     *       only when it is a prescription signature for the same patient.</li>
+     * </ol>
+     *
+     * @return decoded image bytes, or {@code null} when no signature applies or the caller is not
+     *         authorized for the prescription's patient
      */
     // FindSecBugs PATH_TRAVERSAL_IN: the pad file name is reduced to its base name and confined to java.io.tmpdir by PathValidationUtils.validatePath
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "the pad file name is reduced to its base name and confined to java.io.tmpdir by PathValidationUtils.validatePath")
     byte[] resolveSignatureImage(HttpServletRequest req, LoggedInInfo loggedInInfo) {
+        if (loggedInInfo == null) {
+            return null;
+        }
+        int scriptNo = parsePositiveInt(req.getParameter("scriptId"));
+        if (scriptNo <= 0) {
+            return null;
+        }
+        Prescription prescription = prescriptionDao.find(scriptNo);
+        if (prescription == null) {
+            return null;
+        }
+        Integer demographicId = prescription.getDemographicId();
+        // Authorize once, up front, by the prescription's OWN patient. Both the pad capture and the
+        // stored signature are gated behind this, so a caller cannot fax another patient's (or a
+        // stray) signature by supplying a different demographic_no or imgFile.
+        if (demographicId == null
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, String.valueOf(demographicId))) {
+            logger.debug("Denied signature render for prescription {}: caller lacks _rx read for its patient", scriptNo);
+            return null;
+        }
+
+        // 1. the signature-pad capture written for this signing session.
         String imgFile = req.getParameter("imgFile");
         if (imgFile != null && !imgFile.isBlank()) {
             try {
@@ -765,26 +792,16 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             }
         }
 
-        int scriptNo = parsePositiveInt(req.getParameter("scriptId"));
-        if (scriptNo <= 0 || loggedInInfo == null) {
-            return null;
-        }
-        Prescription prescription = prescriptionDao.find(scriptNo);
-        if (prescription == null || prescription.getDigitalSignatureId() == null) {
+        // 2. the stored signature on the prescription (hand-drawn earlier, or the stamp).
+        if (prescription.getDigitalSignatureId() == null) {
             return null;
         }
         int signatureId = prescription.getDigitalSignatureId();
         DigitalSignature metadata = digitalSignatureManager.getDigitalSignatureMetadata(signatureId);
         if (metadata == null || metadata.getModuleType() != ModuleType.PRESCRIPTION
                 || metadata.getDemographicId() == null
-                || !metadata.getDemographicId().equals(prescription.getDemographicId())) {
-            logger.warn("Stored signature {} does not belong to prescription {}; not rendering it", signatureId, scriptNo);
-            return null;
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ,
-                String.valueOf(metadata.getDemographicId()))) {
-            logger.warn("Denied stored prescription signature render for provider {}",
-                    LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo()));
+                || !metadata.getDemographicId().equals(demographicId)) {
+            logger.debug("Stored signature does not belong to prescription {}; not rendering it", scriptNo);
             return null;
         }
         DigitalSignature signature = digitalSignatureManager.getDigitalSignature(signatureId);

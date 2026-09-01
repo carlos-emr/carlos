@@ -88,7 +88,7 @@ const testPin = process.env.TEST_PIN || '2026';
 const demographicNo = String(process.env.RX_FAX_DEMOGRAPHIC_NO || '1').trim();
 const providerNo = String(process.env.RX_FAX_PROVIDER_NO || '999998').trim();
 
-const mysqlHost = process.env.MYSQL_HOST || 'localhost';
+const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'localhost');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || '';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
@@ -101,6 +101,16 @@ const findings = [];
 const visited = [];
 const mysqlBin = resolveMysqlBinary();
 const mysqlDefaultsFile = createMysqlDefaultsFile();
+
+function validateMysqlHost(host) {
+  // This check creates and deletes prescription/signature rows, so it must target a local dev
+  // database. Refuse a non-loopback host unless the operator explicitly opts in.
+  const loopback = new Set(['localhost', '127.0.0.1', '::1', 'carlos', 'db']);
+  if (!loopback.has(host.toLowerCase()) && process.env.ALLOW_NON_LOCAL_MYSQL !== 'true') {
+    throw new Error(`Refusing non-local MYSQL_HOST "${host}"; set ALLOW_NON_LOCAL_MYSQL=true for an intentional test database`);
+  }
+  return host;
+}
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -152,11 +162,17 @@ function createMysqlDefaultsFile() {
 }
 
 function sql(query) {
-  return execFileSync(
-    mysqlBin,
-    [`--defaults-extra-file=${mysqlDefaultsFile}`, '-N', '-B', mysqlDatabase, '-e', query],
-    { encoding: 'utf8' },
-  ).trim();
+  try {
+    return execFileSync(
+      mysqlBin,
+      [`--defaults-extra-file=${mysqlDefaultsFile}`, '-N', '-B', mysqlDatabase, '-e', query],
+      { encoding: 'utf8', timeout: 30000 },
+    ).trim();
+  } catch (error) {
+    // Do not echo the full command/SQL (it can carry identifiers); surface a bounded reason.
+    const reason = (error && error.code === 'ETIMEDOUT') ? 'timed out' : 'failed';
+    throw new Error(`database query ${reason} (first 40 chars: ${String(query).slice(0, 40)})`);
+  }
 }
 
 function wirePage(page, label) {

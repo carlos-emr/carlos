@@ -100,13 +100,12 @@ public final class RxViewScript2Action extends ActionSupport {
 
         // Sign the new script with the prescriber's stamp (when one is on file) so the print/fax
         // page can fax it without a hand-drawn signature; the pad stays available to override.
-        // Guards: never stamp in reprint mode (that path renders an already-persisted script via a
-        // different action, and stamping here would sign a duplicate), and require _rx WRITE — the
-        // stamp persists a signature, so a read-only prescriber must not trigger it, matching the
-        // manual signature-save path.
-        boolean reprint = request.getSession().getAttribute("rePrint") != null;
-        if (!reprint
-                && securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)
+        // Require _rx WRITE — the stamp persists a signature, so a read-only prescriber must not
+        // trigger it, matching the manual signature-save path. Eligibility ("is this row already
+        // signed?") is decided inside the service from the PERSISTED prescription row, so a stale
+        // session rePrint marker cannot make a genuinely new, unsigned script skip its stamp, and a
+        // reprint of an already-signed script is a no-op there.
+        if (securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)
                 && signatureStampService.applyStampToScript(loggedInInfo, bean, scriptId) != null) {
             request.setAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED, Boolean.TRUE);
         }
