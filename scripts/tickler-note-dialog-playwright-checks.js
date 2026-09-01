@@ -59,7 +59,7 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=oscar
+ *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
  *   TICKLER_DEMOGRAPHIC_NO=1
  *   TICKLER_PROVIDER_NO=999998
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
@@ -79,7 +79,7 @@ const testPin = process.env.TEST_PIN || '2026';
 const mysqlHost = process.env.MYSQL_HOST || 'db';
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const demographicNo = process.env.TICKLER_DEMOGRAPHIC_NO || '1';
 const providerNo = process.env.TICKLER_PROVIDER_NO || '999998';
 const stamp = `PW_TICKLER_NOTE_${Date.now()}`;
@@ -181,6 +181,19 @@ function cleanupTicklerRows() {
   const escapedStamp = escapeSql(`${stamp}%`);
   sql(`DELETE FROM tickler_comments WHERE tickler_no IN (SELECT tickler_no FROM tickler WHERE message LIKE '${escapedStamp}')`);
   sql(`DELETE FROM tickler WHERE message LIKE '${escapedStamp}'`);
+}
+
+function purgeDanglingTicklerNoteLinks() {
+  // Filtered demo snapshots (and any hand-pruned dev database) can carry
+  // casemgmt_note_link rows whose TICKLER table_id no longer exists in the
+  // tickler table. Ticklers created by this test then REUSE those
+  // auto-increment ids and "inherit" the orphaned notes, which reads exactly
+  // like the stale-data leak this script exists to detect. Those links are
+  // unreachable garbage (their tickler is gone; the app only soft-deletes
+  // ticklers, so this state never arises from the UI) - purge them so the
+  // fresh-tickler-has-a-blank-dialog premise holds. Links of existing
+  // ticklers are untouched.
+  sql(`DELETE FROM casemgmt_note_link WHERE table_name = ${NOTE_LINK_TABLE_TICKLER} AND table_id NOT IN (SELECT tickler_no FROM tickler)`);
 }
 
 function cleanupNoteRows() {
@@ -364,6 +377,7 @@ async function closeDialogIfOpen(page) {
 
 (async () => {
   cleanupTicklerRows();
+  purgeDanglingTicklerNoteLinks();
 
   const launchOptions = {
     headless: true,

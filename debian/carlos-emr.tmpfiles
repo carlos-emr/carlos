@@ -29,6 +29,10 @@ d /var/lib/carlos-emr/catalina/work               0750 carlos        carlos -
 d /var/lib/carlos-emr/catalina/temp               0750 carlos        carlos -
 d /var/lib/carlos-emr/catalina/lib                0750 carlos        carlos -
 d /var/lib/carlos-emr/catalina/prefs              0750 carlos        carlos -
+# (The former /var/lib/carlos-emr/browser HOME for an in-JVM-spawned Chromium is
+# gone: the render browser now runs under carlos-emr-chromedriver as
+# carlos-render with its own /var/lib/carlos-emr/render HOME, owned by that
+# package's tmpfiles. The JVM's user.home comes from passwd and never needed it.)
 # A heap dump of this application IS a PHI artefact — it contains whatever
 # clinical data was in memory. It must never land in /tmp.
 d /var/lib/carlos-emr/heapdumps                   0750 carlos        carlos -
@@ -38,8 +42,8 @@ d /var/lib/carlos-emr/heapdumps                   0750 carlos        carlos -
 # without being given the application uid. The setgid bit makes every file the
 # application creates inherit the group, so the backup keeps working without a
 # periodic chmod sweep. Nobody else on the host can even list it.
-d /var/lib/carlos-emr/OscarDocument               2750 carlos        carlos -
-d /var/lib/carlos-emr/OscarDocument/carlos        2750 carlos        carlos -
+d /var/lib/carlos-emr/CarlosDocument               2750 carlos        carlos -
+d /var/lib/carlos-emr/CarlosDocument/carlos        2750 carlos        carlos -
 # ModSecurity's request-body spool and persistent collections, owned by the
 # nginx worker uid at 0700: a spooled body is an unfiltered request that may
 # contain PHI.

@@ -75,6 +75,11 @@ Description: Java heap size for the CARLOS application server:
  server give it roughly half of physical memory, leaving room for MariaDB's
  buffer pool and about 1 GB for the operating system.
  .
+ On a fresh install the value offered is sized from this machine's memory
+ (half of RAM, between 2g and 8g); on reconfiguration or upgrade it is the
+ currently configured value. Accept it unless the host is shared with other
+ services or the database runs elsewhere.
+ .
  Use the JVM's own notation, for example 4g or 6144m.
 
 Template: carlos-emr/reset-seed-admin
@@ -92,6 +97,26 @@ Description: Replace the seeded administrator password with a random one?
  .
  Decline ONLY on a disposable development machine that will never hold real
  patient information.
+
+Template: carlos-emr/install-demo-data
+Type: boolean
+Default: false
+Description: Load the FICTITIOUS demonstration dataset into the new database?
+ This fills an EMPTY CARLOS database with a fictitious practice for
+ evaluation, training and development: about 3000 fake patients (every name
+ carries a FAKE- prefix), demonstration providers, appointments, clinical
+ notes, labs, prescriptions, and 60 clearly-fake referral specialists.
+ .
+ The load refuses to run against a database that already contains patients,
+ and it only adds to the reference data the schema migrations install — with
+ one exception: on a British Columbia install it REPLACES the seeded
+ provincial specialist directory with the fake demonstration list.
+ .
+ A system holding this dataset contains publicly-known demonstration content
+ and known development credentials, and must NEVER hold real patient
+ information. There is no supported way to remove the demonstration data
+ short of destroying the database (carlos-ctl destroy-data). Decline on any
+ machine that will ever be a production system.
 
 Template: carlos-emr/initial-credentials
 Type: note

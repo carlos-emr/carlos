@@ -24,6 +24,12 @@ BACKUP_ENV = os.path.join(CONF_DIR, "backup.env")
 SHARE = "/usr/share/carlos-emr"
 LIB = "/usr/lib/carlos-emr"
 WEBAPP = os.path.join(SHARE, "webapp", "carlos")
+# Vendored browser from carlos-emr-eform-renderer. Absent unless that package
+# is installed, so every reader must treat it as optional.
+CHROMIUM_DIR = os.path.join(LIB, "chromium")
+# Render browser service settings, 0640 root:carlos-render. Written by the
+# renderer package; absent unless it is installed.
+RENDER_BROWSER_ENV = os.path.join(CONF_DIR, "render-browser.env")
 STATE = "/var/lib/carlos-emr"
 
 _TTY = sys.stdout.isatty()
@@ -70,6 +76,28 @@ def out(cmd: List[str]) -> str:
     """Command stdout, stripped; empty string on failure."""
     cp = run(cmd, capture_output=True)
     return cp.stdout.strip() if cp.returncode == 0 else ""
+
+
+def reset_emr_start_limit() -> None:
+    """Clear carlos-emr.service's failed state and start-rate counter.
+
+    Call this before ANY deliberate start or restart of the EMR. The unit
+    carries StartLimitBurst=6 over StartLimitIntervalSec=30min to catch a crash
+    loop, but a single apt transaction restarts it three times (carlos-emr plus
+    the drugref and eform-renderer postinsts), and applying config changes means
+    restarting again. Those are all intentional, so without this systemd
+    eventually refuses one with "start-limit-hit" and the EMR is left down
+    behind a 502 with no automatic recovery.
+
+    Crash-loop protection is unaffected: Restart=on-failure with RestartSec=15s
+    still burns the same budget in about 90 seconds when the JVM will not stay
+    up, because nothing calls this in between those automatic restarts.
+
+    Best-effort and never fatal — a missing or masked unit must not turn a
+    working verb into an error.
+    """
+    run(["systemctl", "reset-failed", "carlos-emr.service"],
+        capture_output=True, check=False)
 
 
 def genrandom(length: int, alphabet: str) -> str:

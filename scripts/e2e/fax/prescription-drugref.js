@@ -26,7 +26,7 @@ const { execFileSync } = require('child_process');
 const { launch, login, cfg } = require('./lib');
 
 const MARIADB = (process.env.MARIADB || 'mariadb').split(/\s+/);
-const DB = process.env.CARLOS_DB_NAME || 'oscar';
+const DB = process.env.CARLOS_DB_NAME || 'carlos';
 function sql(q) {
   const [cmd, ...pre] = MARIADB;
   return execFileSync(cmd, [...pre, '-N', DB, '-e', q], { encoding: 'utf8' }).trim();
