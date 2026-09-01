@@ -113,8 +113,27 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         signature.setSignatureImage(tinyPng());
         when(digitalSignatureManager.getDigitalSignature(SIGNATURE_ID)).thenReturn(signature);
 
-        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO))))
+        // Grant both READ and WRITE for the patient; the fax path requires WRITE, a preview READ.
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), anyString(), eq(String.valueOf(DEMOGRAPHIC_NO))))
                 .thenReturn(true);
+    }
+
+    /** A 13-digit-suffix pad file name for the given provider, matching generateSignatureRequestId. */
+    private static Path padFileFor(String providerNo) {
+        // providerNo + a 13-digit timestamp, the exact shape the servlet accepts.
+        return Path.of(System.getProperty("java.io.tmpdir"), "signature_" + providerNo + System.currentTimeMillis() + ".jpg");
+    }
+
+    /** A decodable PNG that is distinct from {@link #tinyPng()} so byte assertions can tell them apart. */
+    private static byte[] otherPng() throws Exception {
+        BufferedImage image = new BufferedImage(8, 8, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D g = image.createGraphics();
+        g.setColor(java.awt.Color.RED);
+        g.fillRect(0, 0, 8, 8);
+        g.dispose();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", out);
+        return out.toByteArray();
     }
 
     private static byte[] tinyPng() throws Exception {
@@ -324,9 +343,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should prefer a valid pad capture image over the stored signature when it exists")
     void shouldPreferPadFile_whenPresentInTempDirectory() throws Exception {
-        Path padFile = Files.createTempFile("signature_999998", ".jpg"); // this provider's capture
+        Path padFile = padFileFor("999998"); // this provider's capture (13-digit millis suffix)
         try {
-            byte[] padBytes = tinyPng(); // a real, decodable image
+            byte[] padBytes = otherPng(); // distinct from the stored signature's tinyPng()
             Files.write(padFile, padBytes);
             MockHttpServletRequest request = createFaxRequest();
             request.addParameter("imgFile", padFile.toString());
@@ -336,7 +355,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
             byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
 
-            assertThat(resolved).isEqualTo(padBytes);
+            assertThat(resolved).isEqualTo(padBytes); // the pad was used, not the stored signature
             verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
         } finally {
             Files.deleteIfExists(padFile);
@@ -346,9 +365,10 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should reject another provider's pad capture and use the stored signature")
     void shouldRejectAnotherProvidersPadFile_andUseStoredSignature() throws Exception {
-        Path foreignPad = Files.createTempFile("signature_888888", ".jpg"); // a different provider's capture
+        Path foreignPad = padFileFor("888888"); // a different provider's capture
         try {
-            Files.write(foreignPad, tinyPng()); // a real, decodable image — but not this provider's
+            byte[] foreignBytes = otherPng(); // a real, decodable image — distinct from the stored one
+            Files.write(foreignPad, foreignBytes);
             MockHttpServletRequest request = createFaxRequest();
             request.addParameter("imgFile", foreignPad.toString());
             stubStoredSignature();
@@ -357,7 +377,10 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
             byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
 
+            // The stored signature (tinyPng) is rendered, NOT the foreign pad (otherPng) — the byte
+            // assertion itself proves the foreign capture was rejected.
             assertThat(resolved).isEqualTo(tinyPng());
+            assertThat(resolved).isNotEqualTo(foreignBytes);
             verify(digitalSignatureManager).getDigitalSignature(SIGNATURE_ID);
         } finally {
             Files.deleteIfExists(foreignPad);
@@ -367,7 +390,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should fall back to the stored signature when the pad file is not a decodable image")
     void shouldFallBackToStoredSignature_whenPadFileNotAnImage() throws Exception {
-        Path padFile = Files.createTempFile("signature_999998", ".jpg");
+        Path padFile = padFileFor("999998");
         try {
             Files.write(padFile, "not-an-image".getBytes(StandardCharsets.UTF_8));
             MockHttpServletRequest request = createFaxRequest();
@@ -441,6 +464,38 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = createFaxRequest();
         stubStoredSignature();
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyString())).thenReturn(false);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+
+        assertThat(resolved).isNull();
+        verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
+    }
+
+    @Test
+    @DisplayName("should withhold a signature for a fax when the caller has only _rx read, not write")
+    void shouldWithholdSignature_whenFaxCallerLacksRxWrite() throws Exception {
+        MockHttpServletRequest request = createFaxRequest(); // __method=oscarRxFax → WRITE required
+        stubStoredSignature(); // grants READ+WRITE by default
+        // Now grant only READ; WRITE is denied.
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.WRITE), anyString())).thenReturn(false);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+
+        assertThat(resolved).isNull();
+        verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
+    }
+
+    @Test
+    @DisplayName("should withhold a signature when demographic_no does not match the prescription's patient")
+    void shouldWithholdSignature_whenDemographicNoMismatch() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        request.removeParameter("demographic_no");
+        request.addParameter("demographic_no", "9999"); // a different patient than the prescription's
+        stubStoredSignature();
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 

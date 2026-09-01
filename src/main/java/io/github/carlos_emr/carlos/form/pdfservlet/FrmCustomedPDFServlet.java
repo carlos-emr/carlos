@@ -759,10 +759,24 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         Integer demographicId = prescription.getDemographicId();
         // Authorize once, up front, by the prescription's OWN patient. Both the pad capture and the
         // stored signature are gated behind this, so a caller cannot fax another patient's (or a
-        // stray) signature by supplying a different demographic_no or imgFile.
+        // stray) signature by supplying a different demographic_no or imgFile. Faxing persists a
+        // FaxJob (an outbound mutation), so it requires _rx WRITE; a print/preview requires READ.
+        boolean isFax = "oscarRxFax".equals(req.getParameter("__method"));
+        String requiredRight = isFax ? SecurityInfoManager.WRITE : SecurityInfoManager.READ;
         if (demographicId == null
-                || !securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, String.valueOf(demographicId))) {
-            logger.debug("Denied signature render for prescription {}: caller lacks _rx read for its patient", LogSafe.sanitize(String.valueOf(scriptNo)));
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_rx", requiredRight, String.valueOf(demographicId))) {
+            logger.debug("Denied signature render for prescription {}: caller lacks _rx {} for its patient",
+                    LogSafe.sanitize(String.valueOf(scriptNo)), requiredRight);
+            return null;
+        }
+        // The caller-supplied demographic_no is what the fax branch stamps onto the FaxJob (its audit
+        // linkage). If present it MUST match the prescription's patient, or a caller with access to
+        // patient A could fax A's script under B's demographic. Withhold on mismatch so the fax,
+        // which is refused without a signature, cannot be sent with the wrong patient attribution.
+        int requestDemographic = parsePositiveInt(req.getParameter("demographic_no"));
+        if (requestDemographic > 0 && demographicId.intValue() != requestDemographic) {
+            logger.debug("Denied signature render for prescription {}: demographic_no does not match its patient",
+                    LogSafe.sanitize(String.valueOf(scriptNo)));
             return null;
         }
 
@@ -775,11 +789,13 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 File padFile = PathValidationUtils.validatePath(imgFile, tempDir);
                 // Only THIS provider's signature-pad capture is honoured. The pad writes
                 // signature_<requestId>.jpg into the shared java.io.tmpdir, and the request id is
-                // <providerNo><millis> (DigitalSignatureUtils.generateSignatureRequestId). Binding the
-                // accepted name to signature_<loggedInProviderNo><digits>.jpg stops a caller pointing
-                // imgFile at ANOTHER provider's capture in that shared directory and faxing a
+                // <providerNo><millis> (DigitalSignatureUtils.generateSignatureRequestId), where
+                // millis is System.currentTimeMillis() — exactly 13 digits from 2001 to 2286.
+                // Requiring EXACTLY 13 trailing digits gives an unambiguous boundary between the
+                // provider number and the timestamp, so a shorter provider number cannot prefix-match
+                // a longer provider's capture (e.g. "99999" claiming "999998"'s file) and fax a
                 // prescription under someone else's freshly drawn signature.
-                String padPattern = "signature_" + Pattern.quote(signingProviderNo) + "\\d+\\.jpg";
+                String padPattern = "signature_" + Pattern.quote(signingProviderNo) + "\\d{13}\\.jpg";
                 if (padFile.getName().matches(padPattern) && padFile.isFile()) {
                     byte[] image = Files.readAllBytes(padFile.toPath());
                     if (image.length > 0 && isRenderableImage(image)) {
