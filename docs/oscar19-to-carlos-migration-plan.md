@@ -523,8 +523,28 @@ real openssl/tar end-to-end and a derivation-mismatch case) and
 the suite to 73 passing tests. P4–P7 stop with an explicit
 "milestone not built yet" error — never a silent no-op.
 
-Remaining milestones: ETL engine (M4), documents (M5), props (M6),
-end-to-end rehearsal + operator guide (M7).
+**Milestone 4 — ETL engine (done):**
+`o19etl.py` — pure statement generation over runtime `information_schema`
+introspection of both schemas, executed with the binlog-off session prelude:
+`copy` (explicit column lists, renames, `value_exprs`; zero-date NULLIF only
+where the target is nullable; enum out-of-set values fall to NULL/first
+member; charset repair wraps only confirmed-mojibake columns after a
+round-trip check that hard-blocks as B8), PK-window chunking with
+`etl-progress.json` checkpoints, `merge` anti-joins on natural keys with
+surrogate-id reassignment, `replace_seed` delete-then-copy, `archive` +
+dropped-column shadow tables into `o19_archive`. Loud pre-checks run before
+the first write: over-length values ERROR (never truncate PHI), and
+CARLOS-added NOT NULL columns without defaults abort naming the
+`value_exprs` curation needed. Seed reconciliation is strictly ordered
+(break-glass admin created file-first with cloned seed roles → manifest
+seed deletes → copies → global `forcePasswordReset`), and seed-group
+retries exclude the admin. P4 wiring in `o19import.py` ends with a
+row-parity report (admin delta itemized; any mismatch stops the run).
+`test_etl_sql.py` + `test_seed_reconciliation.py` bring the suite to 106
+passing tests, including generation over every real manifest entry.
+
+Remaining milestones: documents (M5), props (M6), end-to-end rehearsal +
+operator guide (M7).
 
 ## 10. Implementation work breakdown
 

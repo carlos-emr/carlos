@@ -33,8 +33,8 @@ import sys
 import time
 from typing import Callable, Dict, List, Optional
 
-from . import dbops, o19_preflight, o19bundle, o19map_schema
-from .util import BACKUP_ENV, STATE, die, log, run, warn
+from . import dbops, o19_preflight, o19bundle, o19etl, o19map_schema
+from .util import BACKUP_ENV, STATE, die, genpw, genrandom, log, run, warn
 
 STATE_DIR = os.path.join(STATE, "o19-import")
 STAGING_SCHEMA = "o19_import"
@@ -406,6 +406,70 @@ def run_p3(ctx) -> None:
 
 
 # --------------------------------------------------------------------------
+# P4 — etl (+ row-parity reporting)
+# --------------------------------------------------------------------------
+
+def _make_password_hash():
+    """(password, {bcrypt} hash, 4-digit pin) — same contract as
+    cmd_bootstrap_admin (Login2Action silently discards non-4-digit PINs)."""
+    import bcrypt  # python3-bcrypt is a package dependency
+    password = genpw()
+    pin = genrandom(4, "0123456789")
+    hashed = "{bcrypt}" + bcrypt.hashpw(password.encode(),
+                                        bcrypt.gensalt(12)).decode()
+    return password, hashed, pin
+
+
+def make_etl_query(base_argv: List[str]) -> Callable:
+    """Statement executor with the bulk-copy session prelude."""
+    prelude = ("SET SESSION sql_log_bin=0, FOREIGN_KEY_CHECKS=0, "
+               "UNIQUE_CHECKS=0, sql_mode=''")
+
+    def query(sql):
+        argv = list(base_argv) + [
+            "--init-command=" + prelude, "-N", "-B", "-e", sql]
+        cp = run(argv, capture_output=True)
+        if cp.returncode != 0:
+            raise RuntimeError("ETL statement failed ({0} ...): {1}".format(
+                sql[:120], cp.stderr.strip()))
+        return [line.split("\t") for line in cp.stdout.splitlines()]
+
+    return query
+
+
+def run_p4(ctx) -> None:
+    if phase_done(ctx["state"], "etl"):
+        log("etl: already complete — skipping")
+        return
+    ctx["query_etl"] = make_etl_query(ctx["query"].base_argv)
+    ctx["src_schema"] = STAGING_SCHEMA
+    ctx["archive_schema"] = ARCHIVE_SCHEMA
+    ctx["report"] = lambda body: report_append(ctx["state_dir"], "P4 etl",
+                                               body)
+    log("etl: copying clinic data into '{0}' (manifest {1}) ..."
+        .format(ctx["target_db"], o19map_schema.SCHEMA_MAP_VERSION))
+    try:
+        o19etl.run_etl(ctx, _make_password_hash)
+    except RuntimeError as exc:
+        die("ETL aborted: {0}\nFix the cause and re-run with --resume — "
+            "chunked tables continue from their checkpoint.".format(exc))
+
+    ok, bad = o19etl.row_parity(ctx["query"], STAGING_SCHEMA,
+                                ctx["target_db"])
+    report_append(ctx["state_dir"], "P4 row parity",
+                  "{0} table(s) match; {1} mismatch\n".format(
+                      len(ok), len(bad))
+                  + ("MISMATCHES:\n  " + "\n  ".join(bad) if bad else ""))
+    if bad:
+        die("row parity failed for {0} table(s) — see {1}/report.txt; "
+            "nothing further runs until this is explained".format(
+                len(bad), ctx["state_dir"]))
+    mark_done(ctx["state_dir"], ctx["state"], "etl")
+    log("etl complete — row parity clean for {0} copy tables"
+        .format(len(ok)))
+
+
+# --------------------------------------------------------------------------
 # cleanup
 # --------------------------------------------------------------------------
 
@@ -631,13 +695,13 @@ def cmd_import_o19(argv) -> int:
             "the throwaway staging schema".format(ctx["state_dir"]))
         return 0
     run_p3(ctx)
-    # P4-P7 land in the next milestones; stopping here leaves a staged,
-    # preflighted, backed-up system with nothing written to the carlos
-    # schema yet.
-    die("the etl/documents/props/verify phases are not built yet "
-        "(milestones M4-M6); the staging, preflight and backup phases "
-        "completed successfully — rerun with --resume once the next "
-        "milestone lands", code=3)
+    run_p4(ctx)
+    # P5 (documents) and P6 (props) land in the next milestones; stopping
+    # here leaves the clinic data copied and parity-checked, with documents
+    # and properties still to restore.
+    die("the documents/props/verify phases are not built yet (milestones "
+        "M5-M6); staging, preflight, backup and the data copy completed — "
+        "rerun with --resume once the next milestone lands", code=3)
     return 3
 
 
