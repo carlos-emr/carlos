@@ -115,6 +115,8 @@ class PrescriptionSignatureStampServiceUnitTest {
         DigitalSignature saved = new DigitalSignature();
         ReflectionTestUtils.setField(saved, "id", SIGNATURE_ID);
         when(digitalSignatureManager.saveStampSignature(any(), anyString(), anyInt(), any())).thenReturn(saved);
+        // By default the signature links to the prescription successfully.
+        when(prescriptionManager.setPrescriptionSignature(any(), anyInt(), any())).thenReturn(true);
 
         // By default the persisted prescription exists and is unsigned, so a stamp applies.
         when(prescriptionDao.find(anyInt())).thenReturn(unsignedPrescription());
@@ -307,6 +309,15 @@ class PrescriptionSignatureStampServiceUnitTest {
     void shouldReturnNull_whenPersistenceFails() {
         when(prescriptionManager.setPrescriptionSignature(any(), anyInt(), eq(SIGNATURE_ID)))
                 .thenThrow(new IllegalStateException("db down"));
+
+        assertThat(service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID)).isNull();
+        assertThat(stashItem.getDigitalSignatureId()).isNull();
+    }
+
+    @Test
+    @DisplayName("should report failure and not sign the stash when the signature link does not persist")
+    void shouldReturnNull_whenLinkNotPersisted() {
+        when(prescriptionManager.setPrescriptionSignature(any(), anyInt(), eq(SIGNATURE_ID))).thenReturn(false);
 
         assertThat(service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID)).isNull();
         assertThat(stashItem.getDigitalSignatureId()).isNull();

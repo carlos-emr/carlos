@@ -166,7 +166,17 @@ public class PrescriptionSignatureStampService {
                 // No stamp configured for this provider (or unreadable): the pad remains the way to sign.
                 return null;
             }
-            prescriptionManager.setPrescriptionSignature(loggedInInfo, scriptNo, saved.getId());
+            // Only report success if the signature was actually LINKED to the prescription. If the
+            // link fails, the fax path (which keys off the row's digital_signature_id) would still
+            // refuse the script as unsigned, so reporting success would light the Fax button on a
+            // script that cannot fax and stamp the stash with an id the row does not carry. Report
+            // failure instead: the pad stays the way to sign. (The stored signature row is then
+            // unreferenced; DigitalSignatureManager exposes no delete, and an orphan is harmless.)
+            if (!prescriptionManager.setPrescriptionSignature(loggedInInfo, scriptNo, saved.getId())) {
+                MiscUtils.getLogger().warn("Rx stamp signature {} was not linked to script {}; leaving the pad available",
+                        saved.getId(), LogSafe.sanitize(String.valueOf(scriptNo)));
+                return null;
+            }
             return saved.getId();
         } catch (RuntimeException e) {
             // A stamp failure must never take down the print/fax page; the pad still works.
