@@ -92,12 +92,18 @@ const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'localhost');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || '';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
-const faxNumber = '4165550000';
+// Per-run identifiers so a concurrent (or crashed-then-rerun) invocation of this check can never be
+// correlated with — or have its rows deleted by — another run. A 5-digit suffix keeps the staged
+// "from" fax number within faxes.faxline's 11-char column, and the drug name within customName's 60.
+const runFaxSuffix = String(Math.floor(Math.random() * 90000) + 10000); // 10000-99999
+// The staged "from fax number". Per-run unique, so the faxes.faxline the servlet writes identifies
+// exactly this run's fax job — cleanup then targets it without a shared-line high-water heuristic.
+const faxNumber = `416555${runFaxSuffix}`;
 // Per-run-unique custom-drug name for this fixture. It lands in drugs.customName, which lets the
 // checks identify exactly the prescription(s) THIS run created — immune to a concurrent prescription
 // for the same provider/patient, and to leftovers from an earlier crashed run — instead of inferring
-// from MAX(script_no). The run token keeps it within drugs.customName's 60-char column.
-const customDrugName = `PW FAX STAMP ${Date.now()}`;
+// from MAX(script_no).
+const customDrugName = `PW FAX STAMP ${Date.now()}${runFaxSuffix}`;
 
 if (!/^\d+$/.test(demographicNo)) throw new Error(`RX_FAX_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
 if (!/^\d+$/.test(providerNo)) throw new Error(`RX_FAX_PROVIDER_NO must be numeric, got ${providerNo}`);
@@ -346,10 +352,7 @@ async function runChecks(context) {
     }
 
     // Real control: click Fax. Capture the createcustomedpdf request (the JSP puts
-    // scriptId on it) and its response. Snapshot the fax-table high-water mark immediately before
-    // the click so the row the servlet inserts can be identified as exactly this run's, and cleaned
-    // up without touching a fax another run might queue.
-    const faxMaxBeforeClick = Number(sql(`SELECT COALESCE(MAX(id),0) FROM faxes;`) || '0');
+    // scriptId on it) and its response.
     const faxRequestPromise = page.waitForRequest((req) => /form\/createcustomedpdf/.test(req.url()) && /__method=oscarRxFax/.test(req.url()), { timeout: 30000 });
     const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()), { timeout: 30000 });
     await modalFrame.locator('#faxButton').click();
@@ -361,9 +364,10 @@ async function runChecks(context) {
       const faxResponse = await faxResponsePromise;
       faxBody = await faxResponse.text().catch(() => '');
       visited.push({ label: 'fax-request', url: faxRequest.url(), status: faxResponse.status() });
-      // Record the exact fax row(s) the servlet just inserted for this run (above the pre-click
-      // high-water mark, on our dedicated test line) so cleanup removes only these.
-      for (const id of sql(`SELECT id FROM faxes WHERE id>${faxMaxBeforeClick} AND faxline='${faxNumber}';`)
+      // Record the fax row(s) the servlet just inserted for this run. faxline is this run's unique
+      // staged "from" number, so it identifies only this run's fax jobs — no high-water heuristic
+      // and no chance of matching a concurrent run's fax on a shared line.
+      for (const id of sql(`SELECT id FROM faxes WHERE faxline='${faxNumber}';`)
         .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r))) {
         createdFaxIds.push(id);
       }
@@ -455,8 +459,8 @@ async function runChecks(context) {
         sql(`DELETE FROM prescription WHERE script_no=${scriptNo};`);
         if (/^\d+$/.test(sigId)) sql(`DELETE FROM DigitalSignature WHERE id=${sigId};`);
       }
-      // Only the exact fax row id(s) this run captured right after its own Fax click — never a
-      // range — so a fax another concurrent run queues on the same test line is never touched.
+      // Only the exact fax row id(s) captured on this run's unique staged line — never a range —
+      // so a fax another concurrent run queues on its own line is never touched.
       for (const id of createdFaxIds) {
         sql(`DELETE FROM faxes WHERE id=${id};`);
       }
