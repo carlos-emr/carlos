@@ -543,8 +543,23 @@ row-parity report (admin delta itemized; any mismatch stops the run).
 `test_etl_sql.py` + `test_seed_reconciliation.py` bring the suite to 106
 passing tests, including generation over every real manifest entry.
 
-Remaining milestones: documents (M5), props (M6), end-to-end rehearsal +
-operator guide (M7).
+**Milestone 5 — documents phase (done):**
+`o19docs.py` — single-context-dir detection (loose files or two contexts
+refuse), merge-move into `OscarDocument/carlos/` that never clobbers a
+non-empty subtree, derived-cache directories (`document_cache`) skipped with
+a report line, service-user ownership (2750 dirs / 0640 files),
+`HRMDocument.reportFile` rewrite keyed on the old context marker with
+unmatched rows counted, then the BLOCKING reconciliation: every
+`document.docfilename` must exist non-empty, every eForm
+`${oscar_image_path}` asset must resolve (mariadb batch-mode escaping
+unescaped correctly), orphans report-only. The `o19_archive` schema is
+exported as per-table CSV inside the documents tree. Idempotent by tar
+sha256 — a rerun re-runs reconciliation only. `--accept no-documents`
+records the documents-less sign-off. `test_docs.py` brings the suite to
+118 passing tests.
+
+Remaining milestones: props (M6), end-to-end rehearsal + operator guide
+(M7).
 
 ## 10. Implementation work breakdown
 

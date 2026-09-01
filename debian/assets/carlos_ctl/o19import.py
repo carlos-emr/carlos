@@ -470,6 +470,19 @@ def run_p4(ctx) -> None:
 
 
 # --------------------------------------------------------------------------
+# P5 — documents
+# --------------------------------------------------------------------------
+
+def run_p5(ctx) -> None:
+    if phase_done(ctx["state"], "documents"):
+        log("documents: already restored and reconciled — skipping")
+        return
+    from . import o19docs
+    ctx.setdefault("archive_schema", ARCHIVE_SCHEMA)
+    o19docs.run_docs(ctx)
+
+
+# --------------------------------------------------------------------------
 # cleanup
 # --------------------------------------------------------------------------
 
@@ -696,12 +709,13 @@ def cmd_import_o19(argv) -> int:
         return 0
     run_p3(ctx)
     run_p4(ctx)
-    # P5 (documents) and P6 (props) land in the next milestones; stopping
-    # here leaves the clinic data copied and parity-checked, with documents
-    # and properties still to restore.
-    die("the documents/props/verify phases are not built yet (milestones "
-        "M5-M6); staging, preflight, backup and the data copy completed — "
-        "rerun with --resume once the next milestone lands", code=3)
+    run_p5(ctx)
+    # P6 (props) lands in the next milestone; stopping here leaves data
+    # and documents fully imported, with properties translation to come.
+    die("the props/verify phases are not built yet (milestone M6); "
+        "staging, preflight, backup, the data copy and the documents "
+        "restore completed — rerun with --resume once the next milestone "
+        "lands", code=3)
     return 3
 
 
