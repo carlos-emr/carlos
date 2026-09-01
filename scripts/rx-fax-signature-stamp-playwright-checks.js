@@ -298,9 +298,11 @@ async function runChecks(context) {
     createdScriptId = scriptId;
     rxRangeStart = rangeStart;
 
-    // One "Save And Print" must create exactly ONE prescription. The flow used to persist the
-    // script twice (updateSaveAllDrugs, then RxViewScript2Action re-saving) — a duplicate.
-    const createdCount = Number(sql(`SELECT COUNT(*) FROM prescription WHERE provider_no='${providerNo}' AND demographic_no=${demographicNo} AND script_no>${rangeStart};`) || '0');
+    // One "Save And Print" must create exactly ONE prescription — the duplicate this PR fixes was
+    // a SECOND row (updateSaveAllDrugs, then RxViewScript2Action re-saving). Bound the count at the
+    // shown script (createdScriptId, the max after the write) so a prescription another actor might
+    // insert concurrently — which auto-increments ABOVE our row — is not miscounted as our duplicate.
+    const createdCount = Number(sql(`SELECT COUNT(*) FROM prescription WHERE provider_no='${providerNo}' AND demographic_no=${demographicNo} AND script_no>${rangeStart} AND script_no<=${createdScriptId};`) || '0');
     visited.push({ label: 'prescriptions-created', count: createdCount });
     if (createdCount !== 1) {
       findings.push({ label: 'duplicate-prescription', type: 'count', text: `one Save And Print created ${createdCount} prescriptions, expected 1` });
