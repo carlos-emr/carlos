@@ -93,10 +93,11 @@ const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || '';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const faxNumber = '4165550000';
-// Unique custom-drug name for this fixture. It lands in drugs.customName, which lets the checks
-// identify exactly the prescription(s) THIS run created — immune to any concurrent prescription
-// for the same provider/patient — instead of inferring from MAX(script_no).
-const customDrugName = 'PLAYWRIGHT FAX STAMP TEST';
+// Per-run-unique custom-drug name for this fixture. It lands in drugs.customName, which lets the
+// checks identify exactly the prescription(s) THIS run created — immune to a concurrent prescription
+// for the same provider/patient, and to leftovers from an earlier crashed run — instead of inferring
+// from MAX(script_no). The run token keeps it within drugs.customName's 60-char column.
+const customDrugName = `PW FAX STAMP ${Date.now()}`;
 
 if (!/^\d+$/.test(demographicNo)) throw new Error(`RX_FAX_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
 if (!/^\d+$/.test(providerNo)) throw new Error(`RX_FAX_PROVIDER_NO must be numeric, got ${providerNo}`);
@@ -288,7 +289,7 @@ async function writeCustomRxThroughUi(page) {
   }
   // The shown/faxed script is the newest of them.
   const scriptId = String(Math.max(...createdScriptNos.map(Number)));
-  return { modalFrame, scriptId, rangeStart, createdCount: createdScriptNos.length };
+  return { modalFrame, scriptId, createdCount: createdScriptNos.length };
 }
 
 async function runChecks(context) {
@@ -297,14 +298,12 @@ async function runChecks(context) {
   let createdScriptId = null;
   let throwawayUnsignedScriptId = null;
   let faxConfig = null;
-  let rxRangeStart = null;
   const createdFaxIds = [];
   try {
     faxConfig = stageFaxConfig();
 
-    const { modalFrame, scriptId, rangeStart, createdCount } = await writeCustomRxThroughUi(page);
+    const { modalFrame, scriptId, createdCount } = await writeCustomRxThroughUi(page);
     createdScriptId = scriptId;
-    rxRangeStart = rangeStart;
 
     // One "Save And Print" must create exactly ONE prescription — the duplicate this PR fixes was a
     // SECOND row (updateSaveAllDrugs, then RxViewScript2Action re-saving). createdCount is the number
@@ -440,17 +439,21 @@ async function runChecks(context) {
     return { createdScriptId, faxDisabled, padPresent, persistedSignatureId: sigId };
   } finally {
     try {
-      if (rxRangeStart != null) {
-        // Every prescription this run created for the test provider/patient — the shown script and
-        // the throwaway unsigned row — has a script_no > rangeStart.
-        const rows = sql(`SELECT script_no, COALESCE(digital_signature_id,'') FROM prescription WHERE provider_no='${providerNo}' AND demographic_no=${demographicNo} AND script_no>${rxRangeStart};`)
-          .split('\n').map((r) => r.trim()).filter(Boolean);
-        for (const row of rows) {
-          const [scriptNo, sigId] = row.split('\t');
-          sql(`DELETE FROM drugs WHERE script_no=${scriptNo};`);
-          sql(`DELETE FROM prescription WHERE script_no=${scriptNo};`);
-          if (/^\d+$/.test(sigId)) sql(`DELETE FROM DigitalSignature WHERE id=${sigId};`);
-        }
+      // Delete only the prescriptions THIS run created — never a range: the fixture script(s),
+      // identified by this run's unique custom drug name, plus the explicit throwaway unsigned row.
+      // A prescription another concurrent run or a manual write creates is therefore never removed.
+      const ourScriptNos = new Set(
+        sql(`SELECT DISTINCT script_no FROM drugs WHERE customName='${customDrugName}' AND demographic_no=${demographicNo};`)
+          .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r)),
+      );
+      if (throwawayUnsignedScriptId && /^\d+$/.test(throwawayUnsignedScriptId)) {
+        ourScriptNos.add(throwawayUnsignedScriptId);
+      }
+      for (const scriptNo of ourScriptNos) {
+        const sigId = sql(`SELECT COALESCE(digital_signature_id,'') FROM prescription WHERE script_no=${scriptNo};`).trim();
+        sql(`DELETE FROM drugs WHERE script_no=${scriptNo};`);
+        sql(`DELETE FROM prescription WHERE script_no=${scriptNo};`);
+        if (/^\d+$/.test(sigId)) sql(`DELETE FROM DigitalSignature WHERE id=${sigId};`);
       }
       // Only the exact fax row id(s) this run captured right after its own Fax click — never a
       // range — so a fax another concurrent run queues on the same test line is never touched.

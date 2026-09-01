@@ -129,7 +129,13 @@ class PrescriptionSignatureStampServiceUnitTest {
     }
 
     private static io.github.carlos_emr.carlos.commn.model.Prescription unsignedPrescription() {
-        return new io.github.carlos_emr.carlos.commn.model.Prescription();
+        return unsignedPrescriptionFor(DEMOGRAPHIC_NO);
+    }
+
+    private static io.github.carlos_emr.carlos.commn.model.Prescription unsignedPrescriptionFor(Integer demographicId) {
+        io.github.carlos_emr.carlos.commn.model.Prescription p = new io.github.carlos_emr.carlos.commn.model.Prescription();
+        p.setDemographicId(demographicId);
+        return p;
     }
 
     private static io.github.carlos_emr.carlos.commn.model.Prescription signedPrescription() {
@@ -198,6 +204,26 @@ class PrescriptionSignatureStampServiceUnitTest {
     void shouldReturnNull_whenPersistedLookupThrows() {
         when(prescriptionDao.find(Integer.parseInt(SCRIPT_ID)))
                 .thenThrow(new RuntimeException("db down"));
+
+        assertThat(service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID)).isNull();
+        verifyNoInteractions(digitalSignatureManager, prescriptionManager);
+    }
+
+    @Test
+    @DisplayName("should stamp with the persisted prescription's patient, not the session bean's")
+    void shouldStampWithPersistedPatient_whenBeanDemographicDiffers() {
+        int persistedPatient = 7777;
+        bean.setDemographicNo(DEMOGRAPHIC_NO); // stale/other patient on the bean
+        when(prescriptionDao.find(Integer.parseInt(SCRIPT_ID))).thenReturn(unsignedPrescriptionFor(persistedPatient));
+
+        assertThat(service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID)).isEqualTo(SIGNATURE_ID);
+        verify(digitalSignatureManager).saveStampSignature(loggedInInfo, PROVIDER_NO, persistedPatient, ModuleType.PRESCRIPTION);
+    }
+
+    @Test
+    @DisplayName("should skip when the persisted prescription has no patient")
+    void shouldSkipStamp_whenPersistedPatientMissing() {
+        when(prescriptionDao.find(Integer.parseInt(SCRIPT_ID))).thenReturn(unsignedPrescriptionFor(null));
 
         assertThat(service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID)).isNull();
         verifyNoInteractions(digitalSignatureManager, prescriptionManager);

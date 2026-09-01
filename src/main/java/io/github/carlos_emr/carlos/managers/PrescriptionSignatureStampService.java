@@ -114,7 +114,15 @@ public class PrescriptionSignatureStampService {
         if (persisted == null || persisted.getDigitalSignatureId() != null) {
             return null;
         }
-        Integer signatureId = applyStamp(loggedInInfo, bean.getProviderNo(), bean.getDemographicNo(), scriptNo);
+        // Bind the stored signature to the PERSISTED prescription's patient, not the session bean's
+        // demographic. FrmCustomedPDFServlet only renders a stored signature whose demographicId
+        // equals the prescription's, so a stale or default-0 bean would otherwise persist a signature
+        // the fax/print path then correctly withholds — silently breaking fax for a signed script.
+        Integer patientId = persisted.getDemographicId();
+        if (patientId == null) {
+            return null;
+        }
+        Integer signatureId = applyStamp(loggedInInfo, bean.getProviderNo(), patientId, scriptNo);
         if (signatureId != null) {
             for (int i = 0; i < bean.getStashSize(); i++) {
                 RxPrescriptionData.Prescription rx = bean.getStashItem(i);
