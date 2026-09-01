@@ -113,7 +113,31 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /** Shape of a prescription script number as passed on the request. */
-    private static final String SCRIPT_ID_PATTERN = "\\d{1,9}";
+    /** Base-name shape of the signature-pad capture files written into java.io.tmpdir. */
+    private static final String PAD_SIGNATURE_FILE_PATTERN = "signature_.+\\.jpg";
+
+    /** Parses a positive script number (prescription.script_no is a signed int); -1 when invalid. */
+    private static int parsePositiveInt(String value) {
+        if (value == null || !value.matches("\\d{1,10}")) {
+            return -1;
+        }
+        try {
+            int parsed = Integer.parseInt(value);
+            return parsed > 0 ? parsed : -1;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    /** True when the bytes decode as an image OpenPDF can render; guards against a non-image upload. */
+    private static boolean isRenderableImage(byte[] image) {
+        try {
+            org.openpdf.text.Image.getInstance(image);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     /**
      * Main entry point for prescription PDF generation and fax submission.
@@ -722,13 +746,18 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             try {
                 File tempDir = PathValidationUtils.validateConfiguredDirectory(System.getProperty("java.io.tmpdir"), "java.io.tmpdir");
                 File padFile = PathValidationUtils.validatePath(imgFile, tempDir);
-                if (padFile.isFile()) {
+                // Only a signature-pad capture is honoured: the pad writes signature_<requestId>.jpg
+                // into java.io.tmpdir, and constraining to that naming stops a caller pointing imgFile
+                // at some other file that happens to sit in the shared temp directory.
+                if (padFile.getName().matches(PAD_SIGNATURE_FILE_PATTERN) && padFile.isFile()) {
                     byte[] image = Files.readAllBytes(padFile.toPath());
-                    if (image.length > 0) {
+                    if (image.length > 0 && isRenderableImage(image)) {
                         return image;
                     }
+                    logger.debug("Signature pad file is empty or not a readable image; falling back to the stored prescription signature");
+                } else {
+                    logger.debug("Signature pad file not present or not a pad capture; falling back to the stored prescription signature");
                 }
-                logger.debug("Signature pad file not present; falling back to the stored prescription signature");
             } catch (SecurityException e) {
                 logger.warn("Blocked signature pad file path; falling back to the stored prescription signature", e);
             } catch (IOException e) {
@@ -736,11 +765,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             }
         }
 
-        String scriptId = req.getParameter("scriptId");
-        if (scriptId == null || !scriptId.matches(SCRIPT_ID_PATTERN) || loggedInInfo == null) {
+        int scriptNo = parsePositiveInt(req.getParameter("scriptId"));
+        if (scriptNo <= 0 || loggedInInfo == null) {
             return null;
         }
-        Prescription prescription = prescriptionDao.find(Integer.parseInt(scriptId));
+        Prescription prescription = prescriptionDao.find(scriptNo);
         if (prescription == null || prescription.getDigitalSignatureId() == null) {
             return null;
         }
@@ -749,7 +778,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         if (metadata == null || metadata.getModuleType() != ModuleType.PRESCRIPTION
                 || metadata.getDemographicId() == null
                 || !metadata.getDemographicId().equals(prescription.getDemographicId())) {
-            logger.warn("Stored signature {} does not belong to prescription {}; not rendering it", signatureId, scriptId);
+            logger.warn("Stored signature {} does not belong to prescription {}; not rendering it", signatureId, scriptNo);
             return null;
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ,

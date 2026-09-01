@@ -152,10 +152,20 @@ public class PrescriptionSignatureStampService {
         }
     }
 
+    /**
+     * Parses a script number: a positive {@code int} (prescription.script_no is a signed int, so up
+     * to 10 digits are valid). Non-numeric, zero, negative, or over-{@code int} values yield
+     * {@code null} so the caller skips stamping rather than throwing.
+     */
     private static Integer parseScriptId(String scriptId) {
-        if (scriptId == null || !scriptId.matches("\\d{1,9}")) {
+        if (scriptId == null || !scriptId.matches("\\d{1,10}")) {
             return null;
         }
-        return Integer.valueOf(scriptId);
+        try {
+            int value = Integer.parseInt(scriptId);
+            return value > 0 ? value : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

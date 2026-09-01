@@ -244,13 +244,16 @@ public final class RxWriteScript2Action extends ActionSupport {
                     rx = null;
                 }
                 fwd = "viewScript";
-                // Same stamp-on-write as RxViewScript2Action: a stamp on file signs the script so
-                // it can be faxed without the pad; the pad stays available to override it.
-                if (signatureStampService.applyStampToScript(loggedInInfo, bean, scriptId) != null) {
-                    request.setAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED, Boolean.TRUE);
-                }
                 String ip = request.getRemoteAddr();
                 request.setAttribute("scriptId", scriptId);
+                // Same stamp-on-write as RxViewScript2Action: a stamp on file signs the script so
+                // it can be faxed without the pad; the pad stays available to override it. Never in
+                // reprint mode (this write path is a fresh script; the guard keeps the two save
+                // paths symmetric). This action already runs under _rx write (checkPrivilege above).
+                if (request.getSession().getAttribute("rePrint") == null
+                        && signatureStampService.applyStampToScript(loggedInInfo, bean, scriptId) != null) {
+                    request.setAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED, Boolean.TRUE);
+                }
                 LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
             }
         }
@@ -1370,6 +1373,13 @@ public final class RxWriteScript2Action extends ActionSupport {
 
         String ip = request.getRemoteAddr();
         request.setAttribute("scriptId", scriptId);
+
+        // Stamp-on-write also on the save-all-drugs path, so a script written this way is faxable
+        // without the pad, exactly as the updateAndPrint path. Guarded on reprint; runs under the
+        // _rx write privilege checked at the top of saveDrug.
+        if (request.getSession().getAttribute("rePrint") == null) {
+            signatureStampService.applyStampToScript(loggedInInfo, bean, scriptId);
+        }
 
         List<String> reRxDrugList = new ArrayList<String>();
         reRxDrugList = bean.getReRxDrugIdList();

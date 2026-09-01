@@ -223,6 +223,14 @@ export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
 export CONSULT_STAMP_PROVIDER_NO=999998 CONSULT_UNSIGNED_REQUEST_ID=3
 export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
+# Rx signature-stamp fax check (rx-fax-signature-stamp-playwright-checks.js). It writes and then
+# deletes its own prescription, so it needs no fixture script id. Two prerequisites, both
+# operator-staged like the consultation stamp checks:
+#   1. rx_fax_enabled=true in /etc/carlos-emr/carlos.properties (rx_signature_enabled is already
+#      true by default), then `carlos-ctl restart`. Without rx_fax the Fax buttons never render.
+#   2. the same provider stamp PNG the consultation checks stage, consult_sig_999998.png, in the
+#      eForm image dir (CarlosDocument/eform/images and .../carlos/eform/images).
+export RX_FAX_PROVIDER_NO=999998 RX_FAX_DEMOGRAPHIC_NO=1
 
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below

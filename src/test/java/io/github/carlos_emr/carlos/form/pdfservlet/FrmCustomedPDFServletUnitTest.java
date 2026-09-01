@@ -322,11 +322,11 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should prefer the pad capture file over the stored signature when it exists")
+    @DisplayName("should prefer a valid pad capture image over the stored signature when it exists")
     void shouldPreferPadFile_whenPresentInTempDirectory() throws Exception {
         Path padFile = Files.createTempFile("signature_test-", ".jpg");
         try {
-            byte[] padBytes = "pad-signature".getBytes(StandardCharsets.UTF_8);
+            byte[] padBytes = tinyPng(); // a real, decodable image
             Files.write(padFile, padBytes);
             MockHttpServletRequest request = createFaxRequest();
             request.addParameter("imgFile", padFile.toString());
@@ -339,6 +339,45 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
         } finally {
             Files.deleteIfExists(padFile);
+        }
+    }
+
+    @Test
+    @DisplayName("should fall back to the stored signature when the pad file is not a decodable image")
+    void shouldFallBackToStoredSignature_whenPadFileNotAnImage() throws Exception {
+        Path padFile = Files.createTempFile("signature_bad-", ".jpg");
+        try {
+            Files.write(padFile, "not-an-image".getBytes(StandardCharsets.UTF_8));
+            MockHttpServletRequest request = createFaxRequest();
+            request.addParameter("imgFile", padFile.toString());
+            stubStoredSignature();
+            LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+
+            byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+
+            assertThat(resolved).isEqualTo(tinyPng());
+        } finally {
+            Files.deleteIfExists(padFile);
+        }
+    }
+
+    @Test
+    @DisplayName("should ignore an imgFile that is not a signature-pad capture and use the stored signature")
+    void shouldIgnoreNonPadImgFile_andUseStoredSignature() throws Exception {
+        Path stray = Files.createTempFile("stray-", ".jpg");
+        try {
+            Files.write(stray, tinyPng());
+            MockHttpServletRequest request = createFaxRequest();
+            request.addParameter("imgFile", stray.toString());
+            stubStoredSignature();
+            LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+
+            byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+
+            assertThat(resolved).isEqualTo(tinyPng());
+            verify(digitalSignatureManager).getDigitalSignature(SIGNATURE_ID);
+        } finally {
+            Files.deleteIfExists(stray);
         }
     }
 

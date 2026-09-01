@@ -209,11 +209,21 @@ class PrescriptionSignatureStampServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should reject a malformed script id without touching the managers")
+    @DisplayName("should reject a malformed, zero, or over-int script id without touching the managers")
     void shouldSkipStamp_whenScriptIdMalformed() {
         assertThat(service.applyStampToScript(loggedInInfo, bean, "12; drop")).isNull();
         assertThat(service.applyStampToScript(loggedInInfo, bean, null)).isNull();
+        assertThat(service.applyStampToScript(loggedInInfo, bean, "0")).isNull();
+        assertThat(service.applyStampToScript(loggedInInfo, bean, "99999999999")).isNull(); // 11 digits
         verifyNoInteractions(digitalSignatureManager, prescriptionManager);
+    }
+
+    @Test
+    @DisplayName("should accept a ten-digit script id")
+    void shouldApplyStamp_whenScriptIdIsTenDigits() {
+        // 2000000000 is a valid positive int (< Integer.MAX_VALUE) with ten digits.
+        assertThat(service.applyStampToScript(loggedInInfo, bean, "2000000000")).isEqualTo(SIGNATURE_ID);
+        verify(prescriptionManager).setPrescriptionSignature(loggedInInfo, 2000000000, SIGNATURE_ID);
     }
 
     @Test

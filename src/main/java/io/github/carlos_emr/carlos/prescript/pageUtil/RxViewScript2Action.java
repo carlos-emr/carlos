@@ -93,9 +93,21 @@ public final class RxViewScript2Action extends ActionSupport {
             rx = null;
         }
 
+        // Expose the saved script id so ViewScript2.jsp builds the fax/print request for THIS
+        // script; without it the page falls back to an empty request parameter and the stamp-signed
+        // script cannot be faxed.
+        request.setAttribute("scriptId", scriptId);
+
         // Sign the new script with the prescriber's stamp (when one is on file) so the print/fax
         // page can fax it without a hand-drawn signature; the pad stays available to override.
-        if (signatureStampService.applyStampToScript(loggedInInfo, bean, scriptId) != null) {
+        // Guards: never stamp in reprint mode (that path renders an already-persisted script via a
+        // different action, and stamping here would sign a duplicate), and require _rx WRITE — the
+        // stamp persists a signature, so a read-only prescriber must not trigger it, matching the
+        // manual signature-save path.
+        boolean reprint = request.getSession().getAttribute("rePrint") != null;
+        if (!reprint
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)
+                && signatureStampService.applyStampToScript(loggedInInfo, bean, scriptId) != null) {
             request.setAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED, Boolean.TRUE);
         }
 

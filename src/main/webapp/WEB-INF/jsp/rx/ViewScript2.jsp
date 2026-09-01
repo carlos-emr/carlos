@@ -582,6 +582,20 @@
             String imageUrl = "";
             signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
             imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + signatureRequestId;
+
+            // The saved script id for the fax/print request. On a fresh write (updateAndPrint /
+            // saveDrug) the id is set as a request ATTRIBUTE, not a parameter, so reading only the
+            // parameter yields "" and the fax request cannot identify the script — the stamp-signed
+            // prescription is then rejected as unsigned. Resolve parameter -> attribute -> the saved
+            // stash script number so every path faxes THIS script.
+            String scriptIdForFax = StringUtils.noNull(request.getParameter("scriptId"));
+            if (scriptIdForFax.isEmpty() && request.getAttribute("scriptId") != null) {
+                scriptIdForFax = String.valueOf(request.getAttribute("scriptId"));
+            }
+            if (scriptIdForFax.isEmpty() && bean.getStashSize() > 0
+                    && bean.getStashItem(0).getScript_no() != null) {
+                scriptIdForFax = bean.getStashItem(0).getScript_no();
+            }
         %>
         <script type="text/javascript">
             var POLL_TIME = 1500;
@@ -603,7 +617,7 @@
                 let faxNumber = document.getElementById('faxNumber');
                 frames['preview'].document.getElementById('finalFax').value = faxNumber.options[faxNumber.selectedIndex].value;
                 frames['preview'].document.getElementById('pdfId').value = '<%=signatureRequestId%>';
-                onPrint2('oscarRxFax', "<carlos:encode value='<%= StringUtils.noNull(request.getParameter("scriptId")) %>' context="javaScriptBlock"/>");
+                onPrint2('oscarRxFax', "<carlos:encode value='<%= scriptIdForFax %>' context="javaScriptBlock"/>");
 
             }
 
