@@ -155,6 +155,34 @@ class TestSchemaManifest(unittest.TestCase):
         self.assertEqual(o19map_props.PROPS_MAP_VERSION, v)
 
 
+class TestPreflightDriftLock(unittest.TestCase):
+    """The data embedded in o19_preflight.py must be exactly derivable from
+    o19map_schema — the two ship together and must never drift."""
+
+    def test_embedded_data_matches_schema_manifest(self):
+        from carlos_ctl import o19_preflight as pf
+        self.assertEqual(pf.SCHEMA_MAP_VERSION,
+                         o19map_schema.SCHEMA_MAP_VERSION)
+        self.assertEqual(
+            pf.PATIENT_DATA_TABLES,
+            sorted(t for t, e in o19map_schema.TABLES.items()
+                   if e.get("patient_data")))
+        self.assertEqual(pf.KNOWN_TABLES,
+                         {t: e["class"]
+                          for t, e in o19map_schema.TABLES.items()})
+        b3 = {}
+        for t, e in o19map_schema.TABLES.items():
+            for col, d in e.get("dropped", {}).items():
+                if d.get("b3"):
+                    b3.setdefault(t, {})[col] = \
+                        d["nondefault"].replace("s.`", "`")
+        self.assertEqual(pf.B3_FLAGGED_COLUMNS, b3)
+        self.assertEqual(
+            pf.CHARSET_SCAN,
+            {t: e["charset_scan"] for t, e in o19map_schema.TABLES.items()
+             if e.get("charset_scan")})
+
+
 class TestPropsManifest(unittest.TestCase):
 
     def test_key_dispositions_are_valid(self):

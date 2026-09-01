@@ -485,9 +485,22 @@ checks, UI smoke — before clinical use.
   file). `build-o19-fixture.sh` builds the latin1 rehearsal database and emits
   the three turnkey inputs.
 
-Remaining milestones: standalone preflight (M2), verb + stage + bundle (M3),
-ETL engine (M4), documents (M5), props (M6), end-to-end rehearsal + operator
-guide (M7).
+**Milestone 2 — standalone preflight (done):**
+`debian/assets/carlos_ctl/o19_preflight.py` — one self-contained file
+(old-python compatible, stdlib only, drives the mysql/mariadb CLI) that runs
+the §6.1 gate in assessment mode at the clinic and is imported by carlos-ctl
+for import mode (column-level unknown detection activates when the schema
+manifest is passed). Verdict contract: exit 0 `go`, 1
+`go-with-acknowledgements` (each blocker names its `--accept` flag), 2
+`no-go` (LDAP, encrypted notes, BC, or unknowns needing classification);
+`--json` emits the machine report. The generator rewrites its embedded data
+block, and `test_preflight.py` (19 cases, fake-SQL runner) plus a drift-lock
+test in `test_manifest_integrity.py` pin the behavior. B4 detection keys off
+`casemgmt.note.password.enabled`; the report prints the canonical bundle
+command so the O19 side produces what the CARLOS side expects.
+
+Remaining milestones: verb + stage + bundle (M3), ETL engine (M4), documents
+(M5), props (M6), end-to-end rehearsal + operator guide (M7).
 
 ## 10. Implementation work breakdown
 

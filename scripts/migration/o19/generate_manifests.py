@@ -621,12 +621,18 @@ def emit_preflight_data(tables, ov) -> str:
     for t, e in sorted(tables.items()):
         for col, d in e.get("dropped", {}).items():
             if d.get("b3"):
-                b3_cols.setdefault(t, {})[col] = d["nondefault"]
+                # ETL predicates address the staging alias `s.`; preflight
+                # queries the table directly, so strip the alias.
+                b3_cols.setdefault(t, {})[col] = \
+                    d["nondefault"].replace("s.`", "`")
+    charset = {t: e["charset_scan"] for t, e in sorted(tables.items())
+               if e.get("charset_scan")}
     lines = [MARKER_BEGIN]
     lines.append("SCHEMA_MAP_VERSION = {!r}".format(ov.SCHEMA_MAP_VERSION))
     lines.append("PATIENT_DATA_TABLES = " + _fmt(patient))
     lines.append("KNOWN_TABLES = " + _fmt(known))
     lines.append("B3_FLAGGED_COLUMNS = " + _fmt(b3_cols))
+    lines.append("CHARSET_SCAN = " + _fmt(charset))
     lines.append("DROPPED_PROP_PREFIXES = "
                  + _fmt(list(ov.PREFLIGHT_DROPPED_PROP_PREFIXES)))
     lines.append(MARKER_END)
