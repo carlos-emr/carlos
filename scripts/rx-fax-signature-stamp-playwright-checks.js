@@ -76,6 +76,7 @@
 
 const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
+const { randomInt } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -95,7 +96,7 @@ const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 // Per-run identifiers so a concurrent (or crashed-then-rerun) invocation of this check can never be
 // correlated with — or have its rows deleted by — another run. A 5-digit suffix keeps the staged
 // "from" fax number within faxes.faxline's 11-char column, and the drug name within customName's 60.
-const runFaxSuffix = String(Math.floor(Math.random() * 90000) + 10000); // 10000-99999
+const runFaxSuffix = String(randomInt(10000, 100000)); // 10000-99999 (crypto RNG; CodeQL-clean)
 // The staged "from fax number". Per-run unique, so the faxes.faxline the servlet writes identifies
 // exactly this run's fax job — cleanup then targets it without a shared-line high-water heuristic.
 const faxNumber = `416555${runFaxSuffix}`;
