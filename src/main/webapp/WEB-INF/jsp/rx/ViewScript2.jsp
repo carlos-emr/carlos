@@ -107,6 +107,21 @@
         <c:set var="ctx" value="${pageContext.request.contextPath}"/>
         <%!
             ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
+
+            /**
+             * The first candidate shaped like a real script id — a positive integer of 1-10 digits,
+             * matching FrmCustomedPDFServlet.parsePositiveInt — or "" when none qualify. Used to
+             * resolve the fax/print scriptId across parameter, request attribute and stash without
+             * letting a "null"/"0"/overlong value block a later, valid source.
+             */
+            private static String firstValidScriptId(String... candidates) {
+                for (String candidate : candidates) {
+                    if (candidate != null && candidate.matches("[1-9]\\d{0,9}")) {
+                        return candidate;
+                    }
+                }
+                return "";
+            }
         %>
         <%
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
@@ -587,21 +602,17 @@
             // saveDrug) the id is set as a request ATTRIBUTE, not a parameter, so reading only the
             // parameter yields "" and the fax request cannot identify the script — the stamp-signed
             // prescription is then rejected as unsigned. Resolve parameter -> attribute -> the saved
-            // stash script number so every path faxes THIS script. A real script id is a positive
-            // integer, so any non-numeric parameter (the literal strings "null"/"undefined" a caller
-            // may build from a JS variable, or empty) is treated as absent and falls through to the
-            // attribute/stash — otherwise "null" would be non-empty and win over the good id.
-            String scriptIdForFax = StringUtils.noNull(request.getParameter("scriptId"));
-            if (!scriptIdForFax.matches("\\d+")) {
-                scriptIdForFax = "";
-            }
-            if (scriptIdForFax.isEmpty() && request.getAttribute("scriptId") != null) {
-                scriptIdForFax = String.valueOf(request.getAttribute("scriptId"));
-            }
-            if (scriptIdForFax.isEmpty() && bean.getStashSize() > 0
-                    && bean.getStashItem(0).getScript_no() != null) {
-                scriptIdForFax = bean.getStashItem(0).getScript_no();
-            }
+            // stash script number so every path faxes THIS script. Each source is accepted only if it
+            // is shaped like a real script id: a positive integer of 1-10 digits, matching the PDF
+            // servlet's own parsePositiveInt. That rejects the literal strings "null"/"undefined" a
+            // caller may build from a JS variable, "" , "0", and overlong values — any of which would
+            // otherwise be passed on and refused as unsigned — so a bad source falls through to the
+            // next rather than winning over a good id.
+            String scriptIdForFax = firstValidScriptId(
+                    StringUtils.noNull(request.getParameter("scriptId")),
+                    request.getAttribute("scriptId") == null ? "" : String.valueOf(request.getAttribute("scriptId")),
+                    (bean.getStashSize() > 0 && bean.getStashItem(0).getScript_no() != null)
+                            ? bean.getStashItem(0).getScript_no() : "");
         %>
         <script type="text/javascript">
             var POLL_TIME = 1500;

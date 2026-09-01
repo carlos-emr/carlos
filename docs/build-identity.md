@@ -61,9 +61,10 @@ The build identity is shown to **authenticated** users only, on the About page
 that page is served to unauthenticated visitors, and disclosing the exact build
 lets an attacker fingerprint it against known CVEs before authenticating
 (CWE-200 / information disclosure). The login page keeps an empty `#buildInfo`
-container so its layout is unchanged. `LoginResourceBean` still computes the tag
-for internal use, but the login JSP no longer renders it. When adding a new
-place to surface the build, put it behind authentication.
+container so its layout is unchanged. Neither the login JSP nor `LoginResourceBean`
+references the build tag any more; the tag is computed only by `BuildInfo`
+(exposed through `CarlosProperties`) and rendered on the authenticated surfaces
+below. When adding a new place to surface the build, put it behind authentication.
 
 ## Setting the stamp in a build
 

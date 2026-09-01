@@ -290,7 +290,7 @@ async function runChecks(context) {
   let throwawayUnsignedScriptId = null;
   let faxConfig = null;
   let rxRangeStart = null;
-  const faxJobsBefore = Number(sql(`SELECT COALESCE(MAX(id),0) FROM faxes;`) || '0');
+  const createdFaxIds = [];
   try {
     faxConfig = stageFaxConfig();
 
@@ -340,7 +340,10 @@ async function runChecks(context) {
     }
 
     // Real control: click Fax. Capture the createcustomedpdf request (the JSP puts
-    // scriptId on it) and its response.
+    // scriptId on it) and its response. Snapshot the fax-table high-water mark immediately before
+    // the click so the row the servlet inserts can be identified as exactly this run's, and cleaned
+    // up without touching a fax another run might queue.
+    const faxMaxBeforeClick = Number(sql(`SELECT COALESCE(MAX(id),0) FROM faxes;`) || '0');
     const faxRequestPromise = page.waitForRequest((req) => /form\/createcustomedpdf/.test(req.url()) && /__method=oscarRxFax/.test(req.url()), { timeout: 30000 });
     const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()), { timeout: 30000 });
     await modalFrame.locator('#faxButton').click();
@@ -352,6 +355,12 @@ async function runChecks(context) {
       const faxResponse = await faxResponsePromise;
       faxBody = await faxResponse.text().catch(() => '');
       visited.push({ label: 'fax-request', url: faxRequest.url(), status: faxResponse.status() });
+      // Record the exact fax row(s) the servlet just inserted for this run (above the pre-click
+      // high-water mark, on our dedicated test line) so cleanup removes only these.
+      for (const id of sql(`SELECT id FROM faxes WHERE id>${faxMaxBeforeClick} AND faxline='${faxNumber}';`)
+        .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r))) {
+        createdFaxIds.push(id);
+      }
     } catch (error) {
       findings.push({ label: 'fax-click', type: 'no-request', text: `Fax click produced no createcustomedpdf request: ${error.message}` });
     }
@@ -436,10 +445,11 @@ async function runChecks(context) {
           if (/^\d+$/.test(sigId)) sql(`DELETE FROM DigitalSignature WHERE id=${sigId};`);
         }
       }
-      // Only the fax rows THIS run created: new (id above the pre-run max) AND sent from our
-      // dedicated test fax line. Scoping by faxline means a fax another user queues concurrently —
-      // on a different line — is never touched.
-      sql(`DELETE FROM faxes WHERE id>${faxJobsBefore} AND faxline='${faxNumber}';`);
+      // Only the exact fax row id(s) this run captured right after its own Fax click — never a
+      // range — so a fax another concurrent run queues on the same test line is never touched.
+      for (const id of createdFaxIds) {
+        sql(`DELETE FROM faxes WHERE id=${id};`);
+      }
       if (faxConfig && faxConfig.created) sql(`DELETE FROM fax_config WHERE id=${faxConfig.id};`);
     } catch (error) {
       findings.push({ label: 'cleanup', type: 'cleanup-error', text: error.stack || error.message });

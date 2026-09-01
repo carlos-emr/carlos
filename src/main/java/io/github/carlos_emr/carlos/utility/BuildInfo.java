@@ -41,8 +41,8 @@ import org.apache.logging.log4j.Logger;
  * later WAR upgrade. Nothing in this class can be overridden by configuration.</p>
  *
  * <p>Values that still contain an unsubstituted {@code ${...}} placeholder are treated as absent so
- * a build made outside the normal toolchain can never render raw placeholder text on the login
- * page, which is visible to unauthenticated visitors.</p>
+ * a build made outside the normal toolchain can never render raw placeholder text on the surfaces
+ * that show the tag (the authenticated About page, REST response headers and the HL7 SFT segment).</p>
  *
  * @since 2026-09-01
  */
@@ -116,9 +116,10 @@ public final class BuildInfo {
     }
 
     /**
-     * Human-readable build tag shown on the login page, the About page and in REST response
-     * headers: the project version, followed by the CI job / build number in parentheses when the
-     * build carried one. Examples: {@code 2026.08.0-alpha11},
+     * Human-readable build tag shown to authenticated users on the About page and carried in REST
+     * response headers and the HL7 SFT segment: the project version, followed by the CI job / build
+     * number in parentheses when the build carried one. It is deliberately NOT shown on the
+     * unauthenticated login page (CWE-200). Examples: {@code 2026.08.0-alpha11},
      * {@code 2026.08.0-alpha11-SNAPSHOT (carlos-emr-deb 2026.08.0~alpha11)}.
      *
      * @return the build tag; {@value #UNKNOWN} when nothing is known
