@@ -130,7 +130,11 @@ public final class RxViewScript2Action extends ActionSupport {
             return null;
         }
         String first = bean.getStashItem(0).getScript_no();
-        if (first == null || !first.matches("\\d+")) {
+        // Only a value the whole downstream chain (stamping + FrmCustomedPDFServlet.parsePositiveInt)
+        // would accept counts as "already persisted": 1-10 digits parsing to a positive int. A "0" or
+        // an overflow value must fall through to a real saveScript rather than being reused as a
+        // (rejected) script id that later surfaces as an unsigned/missing script.
+        if (!isPositiveScriptNo(first)) {
             return null;
         }
         for (int i = 1; i < bean.getStashSize(); i++) {
@@ -139,5 +143,17 @@ public final class RxViewScript2Action extends ActionSupport {
             }
         }
         return first;
+    }
+
+    /** True when {@code value} is 1-10 digits parsing to a positive {@code int} (script_no's type). */
+    private static boolean isPositiveScriptNo(String value) {
+        if (value == null || !value.matches("\\d{1,10}")) {
+            return false;
+        }
+        try {
+            return Integer.parseInt(value) > 0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 }

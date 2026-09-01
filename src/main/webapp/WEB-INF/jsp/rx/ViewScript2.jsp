@@ -109,15 +109,23 @@
             ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
 
             /**
-             * The first candidate shaped like a real script id — a positive integer of 1-10 digits,
-             * matching FrmCustomedPDFServlet.parsePositiveInt — or "" when none qualify. Used to
-             * resolve the fax/print scriptId across parameter, request attribute and stash without
-             * letting a "null"/"0"/overlong value block a later, valid source.
+             * The first candidate the fax/print servlet would accept as a script id, or "" when none
+             * qualify. This mirrors FrmCustomedPDFServlet.parsePositiveInt EXACTLY — 1-10 digits that
+             * parse to a positive {@code int} — so a value the servlet rejects (0, or a 10-digit value
+             * above Integer.MAX_VALUE such as 9999999999) can never "win" over a later valid source
+             * and reintroduce the unsigned-fax failure this helper prevents. Used to resolve the
+             * scriptId across request parameter, request attribute and stash.
              */
             private static String firstValidScriptId(String... candidates) {
                 for (String candidate : candidates) {
-                    if (candidate != null && candidate.matches("[1-9]\\d{0,9}")) {
-                        return candidate;
+                    if (candidate != null && candidate.matches("\\d{1,10}")) {
+                        try {
+                            if (Integer.parseInt(candidate) > 0) {
+                                return candidate;
+                            }
+                        } catch (NumberFormatException ignored) {
+                            // > Integer.MAX_VALUE: the servlet would reject it, so skip to the next.
+                        }
                     }
                 }
                 return "";

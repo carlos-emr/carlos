@@ -762,7 +762,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // stray) signature by supplying a different demographic_no or imgFile.
         if (demographicId == null
                 || !securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, String.valueOf(demographicId))) {
-            logger.debug("Denied signature render for prescription {}: caller lacks _rx read for its patient", scriptNo);
+            logger.debug("Denied signature render for prescription {}: caller lacks _rx read for its patient", LogSafe.sanitize(String.valueOf(scriptNo)));
             return null;
         }
 
@@ -805,7 +805,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         if (metadata == null || metadata.getModuleType() != ModuleType.PRESCRIPTION
                 || metadata.getDemographicId() == null
                 || !metadata.getDemographicId().equals(demographicId)) {
-            logger.debug("Stored signature does not belong to prescription {}; not rendering it", scriptNo);
+            logger.debug("Stored signature does not belong to prescription {}; not rendering it", LogSafe.sanitize(String.valueOf(scriptNo)));
             return null;
         }
         DigitalSignature signature = digitalSignatureManager.getDigitalSignature(signatureId);
