@@ -39,6 +39,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletOutputStream;
@@ -111,9 +112,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     private final PrescriptionDao prescriptionDao = SpringUtils.getBean(PrescriptionDao.class);
     private final DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
-    /** Base-name shape of the signature-pad capture files written into java.io.tmpdir. */
-    private static final String PAD_SIGNATURE_FILE_PATTERN = "signature_.+\\.jpg";
 
     /** Parses a positive script number (prescription.script_no is a signed int); -1 when invalid. */
     private static int parsePositiveInt(String value) {
@@ -733,8 +731,9 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      *
      * <p>With that established, the image is, in priority order:</p>
      * <ol>
-     *   <li>the signature-pad capture named by {@code imgFile} — only a {@code signature_*.jpg} base
-     *       name inside {@code java.io.tmpdir}, and only if it decodes as an image;</li>
+     *   <li>the signature-pad capture named by {@code imgFile} — only THIS provider's capture
+     *       ({@code signature_<loggedInProviderNo><digits>.jpg}) inside {@code java.io.tmpdir}, and
+     *       only if it decodes as an image;</li>
      *   <li>the {@link DigitalSignature} stored on the prescription: a hand-drawn signature saved
      *       earlier, or the stamp applied on write. This is also what a reprint renders. It is used
      *       only when it is a prescription signature for the same patient.</li>
@@ -769,14 +768,19 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
         // 1. the signature-pad capture written for this signing session.
         String imgFile = req.getParameter("imgFile");
-        if (imgFile != null && !imgFile.isBlank()) {
+        String signingProviderNo = loggedInInfo.getLoggedInProviderNo();
+        if (imgFile != null && !imgFile.isBlank() && signingProviderNo != null && !signingProviderNo.isBlank()) {
             try {
                 File tempDir = PathValidationUtils.validateConfiguredDirectory(System.getProperty("java.io.tmpdir"), "java.io.tmpdir");
                 File padFile = PathValidationUtils.validatePath(imgFile, tempDir);
-                // Only a signature-pad capture is honoured: the pad writes signature_<requestId>.jpg
-                // into java.io.tmpdir, and constraining to that naming stops a caller pointing imgFile
-                // at some other file that happens to sit in the shared temp directory.
-                if (padFile.getName().matches(PAD_SIGNATURE_FILE_PATTERN) && padFile.isFile()) {
+                // Only THIS provider's signature-pad capture is honoured. The pad writes
+                // signature_<requestId>.jpg into the shared java.io.tmpdir, and the request id is
+                // <providerNo><millis> (DigitalSignatureUtils.generateSignatureRequestId). Binding the
+                // accepted name to signature_<loggedInProviderNo><digits>.jpg stops a caller pointing
+                // imgFile at ANOTHER provider's capture in that shared directory and faxing a
+                // prescription under someone else's freshly drawn signature.
+                String padPattern = "signature_" + Pattern.quote(signingProviderNo) + "\\d+\\.jpg";
+                if (padFile.getName().matches(padPattern) && padFile.isFile()) {
                     byte[] image = Files.readAllBytes(padFile.toPath());
                     if (image.length > 0 && isRenderableImage(image)) {
                         return image;

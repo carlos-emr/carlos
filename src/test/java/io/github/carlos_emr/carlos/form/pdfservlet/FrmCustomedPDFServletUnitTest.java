@@ -324,7 +324,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should prefer a valid pad capture image over the stored signature when it exists")
     void shouldPreferPadFile_whenPresentInTempDirectory() throws Exception {
-        Path padFile = Files.createTempFile("signature_test-", ".jpg");
+        Path padFile = Files.createTempFile("signature_999998", ".jpg"); // this provider's capture
         try {
             byte[] padBytes = tinyPng(); // a real, decodable image
             Files.write(padFile, padBytes);
@@ -332,6 +332,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             request.addParameter("imgFile", padFile.toString());
             stubStoredSignature();
             LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
             byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
 
@@ -343,15 +344,37 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject another provider's pad capture and use the stored signature")
+    void shouldRejectAnotherProvidersPadFile_andUseStoredSignature() throws Exception {
+        Path foreignPad = Files.createTempFile("signature_888888", ".jpg"); // a different provider's capture
+        try {
+            Files.write(foreignPad, tinyPng()); // a real, decodable image — but not this provider's
+            MockHttpServletRequest request = createFaxRequest();
+            request.addParameter("imgFile", foreignPad.toString());
+            stubStoredSignature();
+            LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+            byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+
+            assertThat(resolved).isEqualTo(tinyPng());
+            verify(digitalSignatureManager).getDigitalSignature(SIGNATURE_ID);
+        } finally {
+            Files.deleteIfExists(foreignPad);
+        }
+    }
+
+    @Test
     @DisplayName("should fall back to the stored signature when the pad file is not a decodable image")
     void shouldFallBackToStoredSignature_whenPadFileNotAnImage() throws Exception {
-        Path padFile = Files.createTempFile("signature_bad-", ".jpg");
+        Path padFile = Files.createTempFile("signature_999998", ".jpg");
         try {
             Files.write(padFile, "not-an-image".getBytes(StandardCharsets.UTF_8));
             MockHttpServletRequest request = createFaxRequest();
             request.addParameter("imgFile", padFile.toString());
             stubStoredSignature();
             LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
             byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
 
@@ -371,6 +394,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             request.addParameter("imgFile", stray.toString());
             stubStoredSignature();
             LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
             byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
 
