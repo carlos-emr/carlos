@@ -58,6 +58,10 @@
             <result name="success">/WEB-INF/jsp/demographic/AddAlternateContact.jsp</result>
         </action>
         <action name="form/importUpload" class="io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action">
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/demographic/demographicImport.jsp</result>
             <interceptor-ref name="defaultStack"/>
             <result name="success">/WEB-INF/jsp/demographic/demographicImport.jsp</result>
         </action>

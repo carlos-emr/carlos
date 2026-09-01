@@ -38,6 +38,7 @@
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="s" uri="/struts-tags" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
 
@@ -93,7 +94,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <strong>Success!</strong> Your image was uploaded.
             <c:if test="${ not empty sanitizedFileName }">
-                <br/>Saved as: <strong>${SafeEncode.formHtmlContent(sanitizedFileName)}</strong>
+                <br/>Saved as: <strong>${carlos:forHtmlContent(sanitizedFileName)}</strong>
             </c:if>
         </div>
         <script>

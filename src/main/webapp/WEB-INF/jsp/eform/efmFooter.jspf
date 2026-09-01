@@ -48,6 +48,15 @@
 
 
 <script>
+// Everything below is jQuery-based, and five of the seven eForm pages that
+// include this footer load no jQuery of their own -- they work only because the
+// Administration shell that injects them provides one. Opened standalone the
+// bare $(document).ready threw "ReferenceError: $ is not defined" before any of
+// it was wired, and because that throw happened in the INCLUDED footer it also
+// pre-empted each page's own scripts. The controls this file enhances all carry
+// their own inline onclick, so degrading quietly is correct; the alternative,
+// pulling jQuery onto every page, would load it twice inside the panel.
+if (window.jQuery) {
 $(document).ready(function() {
     // Prevent re-initialization
     if (window.confirmModalInitialized) { return; }
@@ -78,20 +87,36 @@ $(document).ready(function() {
         bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).hide();
     });
     
-    $(document).on("click", '#dataConfirmOK', function(e) {
-        e.preventDefault();
-        $("#dynamic-content").load($(this).attr("href"), function(response, status, xhr) {
-            if (status == "error") {
-                var msg = "Sorry but there was an error: ";
-                $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
-            }
-        });
-    });
-    
+    <%-- The #dataConfirmOK handler that used to sit here was dead and carried
+         the same unguarded .load($(this).attr("href")) this file was fixed for.
+         Nothing in the codebase has that id — the modal's confirm button is
+         #dataConfirmed, handled above — so it could never fire, and leaving it
+         in place only invited the pattern being copied back. --%>
+
     // Exclude #dataConfirmed from contentLink handler
     $(document).on("click", 'a.contentLink:not(#dataConfirmed)', function(e) {
+        var href = $(this).attr("href");
+        // Only AJAX-load a real URL. Several eForm admin controls are
+        // href="javascript:void(0);" anchors that do their work in their own
+        // onclick (efmformmanager's delete -> confirmNDelete, the deleted-list
+        // Restore -> restoreEForm) and merely borrow .contentLink for styling.
+        // Loading that literal href cannot succeed, so jQuery completed with
+        // status 0 / statusText "error" and this handler painted
+        // "Sorry but there was an error: 0 error" over the page -- while the
+        // element's own onclick had already performed the delete successfully.
+        // Reported by a tester on 2026.08.0-alpha9 as "deleting eform from
+        // admin gives an error BUT it DOES delete".
+        //
+        // preventDefault() still runs for every anchor, exactly as before, so
+        // an href="#" cannot start jumping the page to the top. The element's
+        // own inline onclick is unaffected either way: it fires on the anchor
+        // during the target phase, before this delegated handler on document,
+        // and preventDefault cancels only the browser's default action.
         e.preventDefault();
-        $("#dynamic-content").load($(this).attr("href"), function(response, status, xhr) {
+        if (!href || href === "#" || /^\s*javascript:/i.test(href)) {
+            return;
+        }
+        $("#dynamic-content").load(href, function(response, status, xhr) {
             if (status == "error") {
                 var msg = "Sorry but there was an error: ";
                 $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
@@ -101,4 +126,5 @@ $(document).ready(function() {
         });
     });
 });
+}
 </script>

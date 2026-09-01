@@ -144,8 +144,13 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: Purge stale local_repo artifacts from Maven cache
+        # Both formerly-JitPack groupIds are vendored in local_repo with bytes
+        # that differ from what JitPack ever served; a restored cache copy
+        # shadows local_repo (Maven prefers ~/.m2 and never re-verifies cached
+        # bytes), so evict them and let them re-copy from file://local_repo.
         run: |
-          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
+          rm -rf .m2-cache/repository/com/github/openosp \
+                 .m2-cache/repository/com/github/librepdf
 
       - name: Build dev container (fallback)
         if: steps.pull-image.outputs.pulled != 'true'
@@ -292,8 +297,13 @@ jobs:
           "
 
       - name: Purge stale local_repo artifacts from Maven cache
+        # Both formerly-JitPack groupIds are vendored in local_repo with bytes
+        # that differ from what JitPack ever served; a restored cache copy
+        # shadows local_repo (Maven prefers ~/.m2 and never re-verifies cached
+        # bytes), so evict them and let them re-copy from file://local_repo.
         run: |
-          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
+          rm -rf .m2-cache/repository/com/github/openosp \
+                 .m2-cache/repository/com/github/librepdf
 
       - name: Run tests
         run: |
@@ -320,6 +330,11 @@ jobs:
         with:
           ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
           persist-credentials: false
+      - name: Set up JDK 21 for hermetic source checks
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Run encoder null-safety lint
         run: bash scripts/lint/check-encoder-null-safety.sh
       - name: Run encoder null-safety lint fixtures
@@ -328,6 +343,8 @@ jobs:
         run: bash scripts/lint/check-security-exception-message-convention.sh
       - name: Run SecurityException message convention lint fixtures
         run: bash scripts/lint/test-security-exception-message-convention.sh
+      - name: Run Struts DTD validation
+        run: bash scripts/lint/check-struts-dtd.sh
   jspc:
     needs: build
     runs-on: ubuntu-latest
@@ -437,8 +454,13 @@ jobs:
           "
 
       - name: Purge stale local_repo artifacts from Maven cache
+        # Both formerly-JitPack groupIds are vendored in local_repo with bytes
+        # that differ from what JitPack ever served; a restored cache copy
+        # shadows local_repo (Maven prefers ~/.m2 and never re-verifies cached
+        # bytes), so evict them and let them re-copy from file://local_repo.
         run: |
-          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
+          rm -rf .m2-cache/repository/com/github/openosp \
+                 .m2-cache/repository/com/github/librepdf
 
       - name: Compile JSPs
         run: |

@@ -593,9 +593,12 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         }
 
         infoTable.addCell(setInfoCell(cell, getResource("msgUrgency")));
-        infoTable.addCell(setDataCell(cell, (reqFrm.urgency.equals("1") ? getResource("msgUrgent") :
-                (reqFrm.urgency.equals("2") ? getResource("msgNUrgent") :
-                        (reqFrm.urgency.equals("3")) ? getResource("msgReturn")
+        // urgency is nullable on consultationRequests (legacy/imported rows, partial
+        // integration updates); a missing urgency must print blank, not NPE the whole
+        // consultation PDF out of print/preview/fax.
+        infoTable.addCell(setDataCell(cell, ("1".equals(reqFrm.urgency) ? getResource("msgUrgent") :
+                ("2".equals(reqFrm.urgency) ? getResource("msgNUrgent") :
+                        ("3".equals(reqFrm.urgency)) ? getResource("msgReturn")
                                 : "  "))));
 
         infoTable.addCell(setInfoCell(cell, getResource("msgService")));
@@ -903,14 +906,18 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      */
     private PdfPTable createReferringPracAndMRPDetailTable(LoggedInInfo loggedInInfo) {
         ProviderDao proDAO = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-        io.github.carlos_emr.carlos.commn.model.Provider pro = proDAO.getProvider(reqFrm.providerNo);
+        // providerNo is nullable on consultationRequests, and either provider number can
+        // reference a since-removed provider row. A missing provider must print without
+        // an OHIP suffix, not NPE the whole consultation PDF out of print/preview/fax.
+        io.github.carlos_emr.carlos.commn.model.Provider pro =
+                reqFrm.providerNo != null ? proDAO.getProvider(reqFrm.providerNo) : null;
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
         Demographic demo = demographicManager.getDemographic(loggedInInfo, Integer.parseInt(reqFrm.demoNo));
-        String ohipNo = pro.getOhipNo();
+        String ohipNo = pro != null ? pro.getOhipNo() : "";
         String famDocOhipNo = "";
         if (demo.getProviderNo() != null && !demo.getProviderNo().equals("")) {
             pro = proDAO.getProvider(demo.getProviderNo());
-            famDocOhipNo = pro.getOhipNo();
+            famDocOhipNo = pro != null ? pro.getOhipNo() : "";
         }
 
         PdfPTable table = new PdfPTable(new float[]{1.0f, 1.0f});

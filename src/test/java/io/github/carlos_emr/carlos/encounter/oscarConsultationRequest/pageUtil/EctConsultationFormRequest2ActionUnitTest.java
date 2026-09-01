@@ -315,7 +315,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("keeps print preview errors generic when rendering fails")
     void shouldReturnGenericErrorMessage_whenDirectPrintPreviewFails() throws Exception {
         when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response))
-                .thenThrow(new RuntimeException("sensitive internal path /var/lib/OscarDocument/consult.pdf"));
+                .thenThrow(new RuntimeException("sensitive internal path /var/lib/CarlosDocument/consult.pdf"));
 
         String result = action.execute();
 
@@ -324,7 +324,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString())
                 .contains("A print preview of this consultation could not be generated. Please try again or contact support.")
                 .doesNotContain("sensitive internal path")
-                .doesNotContain("/var/lib/OscarDocument");
+                .doesNotContain("/var/lib/CarlosDocument");
     }
 
     @Test
