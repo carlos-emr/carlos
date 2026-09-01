@@ -53,6 +53,12 @@ import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
+import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
+import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.Prescription;
+import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.FaxJob.Direction;
@@ -102,6 +108,12 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private static FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
+    private final PrescriptionDao prescriptionDao = SpringUtils.getBean(PrescriptionDao.class);
+    private final DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    /** Shape of a prescription script number as passed on the request. */
+    private static final String SCRIPT_ID_PATTERN = "\\d{1,9}";
 
     /**
      * Main entry point for prescription PDF generation and fax submission.
@@ -122,7 +134,17 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
         boolean isFax = "oscarRxFax".equals(req.getParameter("__method"));
         boolean responseOutputStreamOpened = false;
-        try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytes(req, this.getServletContext())) {
+
+        // Resolve the prescriber's signature before touching the document: a fax is an outbound
+        // legal copy and must never leave unsigned, whatever the page's Fax button gating said.
+        byte[] signatureImage = resolveSignatureImage(req, loggedInInfo);
+        if (isFax && signatureImage == null) {
+            res.setContentType("text/html");
+            res.getWriter().println("<div id='fax-failure'><h3>Error: the prescription is not signed. Sign it before faxing.</h3></div>");
+            return;
+        }
+
+        try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), signatureImage)) {
 
             if (isFax) {
                 // this fax method shouldn't be here and will be removed in future edits.
@@ -349,7 +371,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         private String promoText;
         private String origPrintDate = null;
         private String numPrint = null;
-        private String imgPath;
+        private byte[] signatureImage;
         Locale locale = null;
         private String billingNumber;
 
@@ -364,7 +386,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
          */
         public EndPage(String clinicName, String clinicTel, String clinicFax, String patientPhone, String patientCityPostal, String patientAddress,
                        String patientName, String patientDOB, String sigDoctorName, String rxDate, String origPrintDate, String numPrint,
-                       String imgPath, String patientHIN, String patientChartNo, String pracNo, Locale locale, String billingNumber, String pharmacyInfo) {
+                       byte[] signatureImage, String patientHIN, String patientChartNo, String pracNo, Locale locale, String billingNumber, String pharmacyInfo) {
             this.clinicName = clinicName == null ? "" : clinicName;
             this.clinicTel = clinicTel == null ? "" : clinicTel;
             this.clinicFax = clinicFax == null ? "" : clinicFax;
@@ -381,7 +403,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             if (promoText == null) {
                 promoText = "";
             }
-            this.imgPath = imgPath;
+            this.signatureImage = signatureImage;
             this.patientHIN = patientHIN == null ? "" : patientHIN;
             this.patientChartNo = patientChartNo == null ? "" : patientChartNo;
             this.pracNo = pracNo == null ? "" : pracNo;
@@ -602,8 +624,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                  *  with the bottom left corner located at X: 75f Y: -31f
                  *  Also need to account for the height of the signature
                  */
-                if (this.imgPath != null) {
-                    Image img = Image.getInstance(this.imgPath);
+                if (this.signatureImage != null && this.signatureImage.length > 0) {
+                    Image img = Image.getInstance(this.signatureImage);
                     float imageWidth = 185f;
                     float imageHeight = 40f;
                     // scale the origin image to fix these exact parameters width x height
@@ -678,23 +700,91 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     }
 
     /**
+     * Resolves the prescriber's signature image for the PDF, in priority order:
+     * <ol>
+     *   <li>the signature-pad capture file named by {@code imgFile} (a temp file the pad flow wrote
+     *       for this request; only its base name is honoured, inside {@code java.io.tmpdir});</li>
+     *   <li>the {@link DigitalSignature} stored on the prescription named by {@code scriptId}: a
+     *       hand-drawn signature saved earlier, or the prescriber's stamp applied on write by
+     *       {@code PrescriptionSignatureStampService}. This is also what a reprint renders.</li>
+     * </ol>
+     * The stored signature is released only when it is a prescription signature, it and the
+     * prescription agree on the patient, and the caller holds {@code _rx} read privilege for that
+     * patient, the same gate {@code ImageRenderingServlet} applies to the on-screen preview.
+     *
+     * @return decoded image bytes, or {@code null} when no signature applies
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: the pad file name is reduced to its base name and confined to java.io.tmpdir by PathValidationUtils.validatePath
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "the pad file name is reduced to its base name and confined to java.io.tmpdir by PathValidationUtils.validatePath")
+    byte[] resolveSignatureImage(HttpServletRequest req, LoggedInInfo loggedInInfo) {
+        String imgFile = req.getParameter("imgFile");
+        if (imgFile != null && !imgFile.isBlank()) {
+            try {
+                File tempDir = PathValidationUtils.validateConfiguredDirectory(System.getProperty("java.io.tmpdir"), "java.io.tmpdir");
+                File padFile = PathValidationUtils.validatePath(imgFile, tempDir);
+                if (padFile.isFile()) {
+                    byte[] image = Files.readAllBytes(padFile.toPath());
+                    if (image.length > 0) {
+                        return image;
+                    }
+                }
+                logger.debug("Signature pad file not present; falling back to the stored prescription signature");
+            } catch (SecurityException e) {
+                logger.warn("Blocked signature pad file path; falling back to the stored prescription signature", e);
+            } catch (IOException e) {
+                logger.warn("Unable to read signature pad file; falling back to the stored prescription signature", e);
+            }
+        }
+
+        String scriptId = req.getParameter("scriptId");
+        if (scriptId == null || !scriptId.matches(SCRIPT_ID_PATTERN) || loggedInInfo == null) {
+            return null;
+        }
+        Prescription prescription = prescriptionDao.find(Integer.parseInt(scriptId));
+        if (prescription == null || prescription.getDigitalSignatureId() == null) {
+            return null;
+        }
+        int signatureId = prescription.getDigitalSignatureId();
+        DigitalSignature metadata = digitalSignatureManager.getDigitalSignatureMetadata(signatureId);
+        if (metadata == null || metadata.getModuleType() != ModuleType.PRESCRIPTION
+                || metadata.getDemographicId() == null
+                || !metadata.getDemographicId().equals(prescription.getDemographicId())) {
+            logger.warn("Stored signature {} does not belong to prescription {}; not rendering it", signatureId, scriptId);
+            return null;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ,
+                String.valueOf(metadata.getDemographicId()))) {
+            logger.warn("Denied stored prescription signature render for provider {}",
+                    LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo()));
+            return null;
+        }
+        DigitalSignature signature = digitalSignatureManager.getDigitalSignature(signatureId);
+        if (signature == null || signature.getSignatureImage() == null || signature.getSignatureImage().length == 0) {
+            return null;
+        }
+        return signature.getSignatureImage();
+    }
+
+    /**
      * Generates the prescription PDF document as a byte array output stream.
      *
      * <p>Extracts all prescription parameters from the HTTP request (clinic info, patient
-     * demographics, prescription text, signature image path, QR code settings), constructs
+     * demographics, prescription text, QR code settings), constructs
      * an OpenPDF {@link Document} with the appropriate page size and margins, and writes
      * prescription entries as paragraphs with an {@link EndPage} event handler for the
      * page frame rendering.
      *
      * @param req HttpServletRequest containing all prescription form parameters
      * @param ctx ServletContext for resource resolution
+     * @param signatureImage decoded signature image bytes to draw above the signature line, or
+     *                       {@code null} to leave the line blank (see {@link #resolveSignatureImage})
      * @return ByteArrayOutputStream containing the generated PDF bytes
      * @throws DocumentException if an OpenPDF document error occurs during PDF generation
      * @throws IOException if an I/O error occurs during PDF generation
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx) throws DocumentException, IOException {
+    private ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx, final byte[] signatureImage) throws DocumentException, IOException {
         logger.debug("***in generatePDFDocumentBytes2 FrmCustomedPDFServlet.java***");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
@@ -737,7 +827,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         String rx = req.getParameter("rx");
         String patientDOB = req.getParameter("patientDOB");
         String showPatientDOB = req.getParameter("showPatientDOB");
-        String imgFile = req.getParameter("imgFile");
         String patientHIN = req.getParameter("patientHIN");
         String patientChartNo = req.getParameter("patientChartNo");
         String pracNo = req.getParameter("pracNo");
@@ -807,7 +896,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // document.setMargins(15, pageSize.getWidth() - 285f + 5f, 170, 60); // left, right, top, bottom
         document.setMargins(15, pageSize.getWidth() - 285f + 5f, 185, 60); // left, right, top, bottom
 
-        writer.setPageEvent(new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal, patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint, imgFile, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo));
+        writer.setPageEvent(new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal, patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint, signatureImage, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo));
         document.addTitle(title);
         document.addSubject("");
         document.addKeywords("pdf");

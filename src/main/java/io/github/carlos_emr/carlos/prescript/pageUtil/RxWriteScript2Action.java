@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.CodingSystemManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService;
 import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
@@ -99,6 +100,16 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     private final RxManager rxManager = SpringUtils.getBean(RxManager.class);
+    private final PrescriptionSignatureStampService signatureStampService;
+
+    /** Struts-created router: resolves collaborators from the Spring context. */
+    public RxWriteScript2Action() {
+        this(SpringUtils.getBean(PrescriptionSignatureStampService.class));
+    }
+
+    RxWriteScript2Action(PrescriptionSignatureStampService signatureStampService) {
+        this.signatureStampService = signatureStampService;
+    }
 
     String removeExtraChars(String s) {
         return s.replace("" + ((char) 130), "").replace("" + ((char) 194), "").replace("" + ((char) 195), "").replace("" + ((char) 172), "");
@@ -233,6 +244,11 @@ public final class RxWriteScript2Action extends ActionSupport {
                     rx = null;
                 }
                 fwd = "viewScript";
+                // Same stamp-on-write as RxViewScript2Action: a stamp on file signs the script so
+                // it can be faxed without the pad; the pad stays available to override it.
+                if (signatureStampService.applyStampToScript(loggedInInfo, bean, scriptId) != null) {
+                    request.setAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED, Boolean.TRUE);
+                }
                 String ip = request.getRemoteAddr();
                 request.setAttribute("scriptId", scriptId);
                 LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());

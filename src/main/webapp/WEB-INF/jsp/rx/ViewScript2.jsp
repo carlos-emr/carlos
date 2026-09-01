@@ -49,6 +49,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
@@ -936,7 +937,11 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <%}%>
                                         <% if (CarlosProperties.getInstance().isRxSignatureEnabled()) { %>
                                         <%-- Topaz signature pad check removed - HTML5 signature is now standard --%>
-						<% if (bean.getStashSize() == 0 || Objects.isNull(bean.getStashItem(0).getDigitalSignatureId())) { %>
+                                        <%-- The pad is hidden once the script carries a stored signature, EXCEPT when that
+                                             signature is the prescriber's stamp applied automatically on write: the stamp is
+                                             a default, and drawing a signature here replaces it (saveDigitalSignature). --%>
+						<% boolean stampApplied = Boolean.TRUE.equals(request.getAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED));
+						   if (bean.getStashSize() == 0 || Objects.isNull(bean.getStashItem(0).getDigitalSignatureId()) || stampApplied) { %>
                                         <tr>
                                             <td colspan=2 style="font-weight: bold"><span><fmt:message key="ViewScript.msgSignature"/></span></td>
                                         </tr>

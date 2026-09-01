@@ -643,6 +643,10 @@
     <bean id="demographicManager" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
         <property name="mockType" value="io.github.carlos_emr.carlos.managers.DemographicManager" />
     </bean>
+    <!-- Resolved by the RxViewScript2Action / RxWriteScript2Action no-arg constructors. -->
+    <bean id="prescriptionSignatureStampService" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
+        <property name="mockType" value="io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService" />
+    </bean>
     <bean id="preventionManager" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
         <property name="mockType" value="io.github.carlos_emr.carlos.managers.PreventionManager" />
     </bean>

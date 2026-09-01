@@ -36,6 +36,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -51,6 +52,16 @@ public final class RxViewScript2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final PrescriptionSignatureStampService signatureStampService;
+
+    /** Struts-created router: resolves collaborators from the Spring context. */
+    public RxViewScript2Action() {
+        this(SpringUtils.getBean(PrescriptionSignatureStampService.class));
+    }
+
+    RxViewScript2Action(PrescriptionSignatureStampService signatureStampService) {
+        this.signatureStampService = signatureStampService;
+    }
 
     public String execute()
             throws IOException, ServletException {
@@ -80,6 +91,12 @@ public final class RxViewScript2Action extends ActionSupport {
             rx = bean.getStashItem(i);
             rx.Save(scriptId);
             rx = null;
+        }
+
+        // Sign the new script with the prescriber's stamp (when one is on file) so the print/fax
+        // page can fax it without a hand-drawn signature; the pad stays available to override.
+        if (signatureStampService.applyStampToScript(loggedInInfo, bean, scriptId) != null) {
+            request.setAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED, Boolean.TRUE);
         }
 
         return "viewScript";
