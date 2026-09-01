@@ -112,6 +112,9 @@ if (!/^\d+$/.test(providerNo)) throw new Error(`RX_FAX_PROVIDER_NO must be numer
 
 const findings = [];
 const visited = [];
+// True only while clicking the custom-drug button, the one moment a confirm() is expected. The
+// page dialog handler auto-accepts a confirm only in this window and records any other dialog.
+let expectingCustomDrugConfirm = false;
 const mysqlBin = resolveMysqlBinary();
 const mysqlDefaultsFile = createMysqlDefaultsFile();
 
@@ -190,10 +193,44 @@ function removeSecretsDir() {
   try { fs.rmSync(path.dirname(mysqlDefaultsFile), { recursive: true, force: true }); } catch (error) { /* best effort */ }
 }
 
-// Remove the cleartext-password file even if the run is interrupted (Ctrl-C / CI termination) before
-// the main finally runs. Handlers are installed at load, right after the file is created.
+// Fixtures this run seeds into the database. Module-scoped so the same idempotent cleanup runs from
+// the normal finally AND from a signal handler, and so an interrupted run cannot leave rows behind.
+let throwawayUnsignedScriptId = null;
+let faxConfig = null;
+
+/**
+ * Remove every row this run seeded, keyed on its per-run-unique identifiers (customDrugName,
+ * faxNumber) plus the explicit throwaway id — never a range — so a concurrent run's data is never
+ * touched. Idempotent and synchronous (safe to call from a signal handler); records a finding on
+ * failure rather than throwing.
+ */
+function cleanupFixtures() {
+  try {
+    const ourScriptNos = new Set(
+      sql(`SELECT DISTINCT script_no FROM drugs WHERE customName='${customDrugName}' AND demographic_no=${demographicNo};`)
+        .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r)),
+    );
+    if (throwawayUnsignedScriptId && /^\d+$/.test(throwawayUnsignedScriptId)) {
+      ourScriptNos.add(throwawayUnsignedScriptId);
+    }
+    for (const scriptNo of ourScriptNos) {
+      const sigId = sql(`SELECT COALESCE(digital_signature_id,'') FROM prescription WHERE script_no=${scriptNo};`).trim();
+      sql(`DELETE FROM drugs WHERE script_no=${scriptNo};`);
+      sql(`DELETE FROM prescription WHERE script_no=${scriptNo};`);
+      if (/^\d+$/.test(sigId)) sql(`DELETE FROM DigitalSignature WHERE id=${sigId};`);
+    }
+    // Fax rows on this run's unique staged line, and the fax_config we created.
+    sql(`DELETE FROM faxes WHERE faxline='${faxNumber}';`);
+    if (faxConfig && faxConfig.created) sql(`DELETE FROM fax_config WHERE id=${faxConfig.id};`);
+  } catch (error) {
+    findings.push({ label: 'cleanup', type: 'cleanup-error', text: (error && (error.stack || error.message)) || 'cleanup failed' });
+  }
+}
+
+// On interruption (Ctrl-C / CI termination) run the same idempotent DB cleanup, then remove the
+// cleartext-password file, before exiting — so a killed run leaves neither test rows nor the secret.
 for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => { removeSecretsDir(); process.exit(130); });
+  process.on(signal, () => { cleanupFixtures(); removeSecretsDir(); process.exit(130); });
 }
 
 function sql(query) {
@@ -221,10 +258,12 @@ function wirePage(page, label) {
     findings.push({ label, type: 'pageerror', text });
   });
   page.on('dialog', async (dialog) => {
-    // The only dialog this flow legitimately raises is the custom-drug confirm() we must accept to
-    // stage the drug. Any alert (notably the legacy "Signature not found" the stamp fix removes) is
-    // an unexpected, BLOCKING condition — record it so the check cannot pass while it is displayed.
-    if (dialog.type() === 'confirm') {
+    // Accept ONLY the one confirm() the custom-drug button legitimately raises, and only while we are
+    // clicking it (expectingCustomDrugConfirm). Every other dialog — an alert (e.g. the legacy
+    // "Signature not found" the stamp fix removes) OR an unexpected confirm (a blocking warning) — is
+    // recorded as a BLOCKING finding, so the check cannot pass while a dialog is being dismissed
+    // unseen. Dismiss (reject) the unexpected ones so a stray confirm does not proceed.
+    if (dialog.type() === 'confirm' && expectingCustomDrugConfirm) {
       await dialog.accept().catch(() => {});
       return;
     }
@@ -306,7 +345,13 @@ async function writeCustomRxThroughUi(page) {
   // Real control: name the custom medication, then click the "Custom Drug" button.
   await page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
   await page.locator('#searchString').fill(customDrugName);
-  await page.locator('#customDrug').click(); // confirm() auto-accepted by the dialog handler
+  // Open the confirm-acceptance window only for this click; the handler records any other dialog.
+  expectingCustomDrugConfirm = true;
+  try {
+    await page.locator('#customDrug').click(); // the custom-drug confirm() is accepted by the handler
+  } finally {
+    expectingCustomDrugConfirm = false;
+  }
   // The custom drug injects the prescribe fragment and stages the drug.
   await page.locator("[id^='drugName_'], [id^='quantity_']").first().waitFor({ state: 'attached', timeout: 30000 });
 
@@ -336,9 +381,7 @@ async function runChecks(context) {
   const page = await context.newPage();
   wirePage(page, 'rx-fax-stamp');
   let createdScriptId = null;
-  let throwawayUnsignedScriptId = null;
-  let faxConfig = null;
-  const createdFaxIds = [];
+  // throwawayUnsignedScriptId and faxConfig are module-scoped (see cleanupFixtures); assign, not redeclare.
   try {
     faxConfig = stageFaxConfig();
 
@@ -385,10 +428,9 @@ async function runChecks(context) {
       findings.push({ label: 'preview-signature', type: 'not-stored', text: `preview signature is not the stored stamp: ${previewInfo ? previewInfo.src : 'none'}` });
     }
 
-    // Real control: click Fax. Capture the createcustomedpdf request (the JSP puts
-    // scriptId on it) and its response. Snapshot the fax-table high-water mark right before the
-    // click so the row(s) recorded below are only those inserted after it.
-    const faxMaxBeforeClick = Number(sql(`SELECT COALESCE(MAX(id),0) FROM faxes;`) || '0');
+    // Real control: click Fax. Capture the createcustomedpdf request (the JSP puts scriptId on it)
+    // and its response. The fax row it inserts lands on this run's unique faxline and is cleaned up
+    // by cleanupFixtures.
     const faxRequestPromise = page.waitForRequest((req) => /form\/createcustomedpdf/.test(req.url()) && /__method=oscarRxFax/.test(req.url()), { timeout: 30000 });
     const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()), { timeout: 30000 });
     await modalFrame.locator('#faxButton').click();
@@ -400,13 +442,6 @@ async function runChecks(context) {
       const faxResponse = await faxResponsePromise;
       faxBody = await faxResponse.text().catch(() => '');
       visited.push({ label: 'fax-request', url: faxRequest.url(), status: faxResponse.status() });
-      // Record the fax row(s) this run created: newly inserted (id above the pre-click mark) AND on
-      // this run's unique staged "from" line. Both bounds together identify only this run's jobs;
-      // cleanup then deletes exactly these captured ids.
-      for (const id of sql(`SELECT id FROM faxes WHERE id>${faxMaxBeforeClick} AND faxline='${faxNumber}';`)
-        .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r))) {
-        createdFaxIds.push(id);
-      }
     } catch (error) {
       findings.push({ label: 'fax-click', type: 'no-request', text: `Fax click produced no createcustomedpdf request: ${error.message}` });
     }
@@ -478,32 +513,7 @@ async function runChecks(context) {
 
     return { createdScriptId, faxDisabled, padPresent, persistedSignatureId: sigId };
   } finally {
-    try {
-      // Delete only the prescriptions THIS run created — never a range: the fixture script(s),
-      // identified by this run's unique custom drug name, plus the explicit throwaway unsigned row.
-      // A prescription another concurrent run or a manual write creates is therefore never removed.
-      const ourScriptNos = new Set(
-        sql(`SELECT DISTINCT script_no FROM drugs WHERE customName='${customDrugName}' AND demographic_no=${demographicNo};`)
-          .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r)),
-      );
-      if (throwawayUnsignedScriptId && /^\d+$/.test(throwawayUnsignedScriptId)) {
-        ourScriptNos.add(throwawayUnsignedScriptId);
-      }
-      for (const scriptNo of ourScriptNos) {
-        const sigId = sql(`SELECT COALESCE(digital_signature_id,'') FROM prescription WHERE script_no=${scriptNo};`).trim();
-        sql(`DELETE FROM drugs WHERE script_no=${scriptNo};`);
-        sql(`DELETE FROM prescription WHERE script_no=${scriptNo};`);
-        if (/^\d+$/.test(sigId)) sql(`DELETE FROM DigitalSignature WHERE id=${sigId};`);
-      }
-      // Only the exact fax row id(s) captured on this run's unique staged line — never a range —
-      // so a fax another concurrent run queues on its own line is never touched.
-      for (const id of createdFaxIds) {
-        sql(`DELETE FROM faxes WHERE id=${id};`);
-      }
-      if (faxConfig && faxConfig.created) sql(`DELETE FROM fax_config WHERE id=${faxConfig.id};`);
-    } catch (error) {
-      findings.push({ label: 'cleanup', type: 'cleanup-error', text: error.stack || error.message });
-    }
+    cleanupFixtures();
     await page.close();
   }
 }
@@ -514,10 +524,12 @@ async function runChecks(context) {
 
   const browser = await chromium.launch(launchOptions);
   try {
-    // Only bypass TLS verification for a loopback dev target (self-signed local certs). A non-local
-    // opt-in target receives login credentials, so its certificate must be verified.
-    const loopbackTarget = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos'])
-      .has(baseUrl.hostname.toLowerCase());
+    // Bypass TLS verification ONLY for an exact loopback target (self-signed local certs). Any other
+    // host — including host.docker.internal, a container alias, or a private-range IP — receives the
+    // login credentials, so its certificate must be verified. IPv6 hostnames are normalized (Node's
+    // URL parser already strips the [...] brackets, but be defensive) before the check.
+    const bypassHost = baseUrl.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    const loopbackTarget = new Set(['localhost', '127.0.0.1', '::1']).has(bypassHost);
     const context = await browser.newContext({ ignoreHTTPSErrors: loopbackTarget, viewport: { width: 1440, height: 1000 } });
     const loginPage = await login(context);
     await loginPage.close();

@@ -394,6 +394,12 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
     public boolean setPrescriptionSignature(LoggedInInfo loggedInInfo, int scriptNo, Integer digitalSignatureId) {
 
         Prescription prescription = prescriptionDao.find(scriptNo);
+        if (prescription == null) {
+            // No such script to link the signature to: report failure instead of dereferencing null.
+            // Callers that gate on this (the stamp-on-write path) then leave the signature pad
+            // available rather than lighting the Fax button on a script the signature never reached.
+            return false;
+        }
         prescription.setDigitalSignatureId(digitalSignatureId);
 
         prescriptionDao.merge(prescription);
