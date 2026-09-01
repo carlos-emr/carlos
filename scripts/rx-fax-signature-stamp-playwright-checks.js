@@ -93,13 +93,14 @@ const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'localhost');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || '';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
-// Per-run identifiers so a concurrent (or crashed-then-rerun) invocation of this check can never be
-// correlated with — or have its rows deleted by — another run. A 5-digit suffix keeps the staged
-// "from" fax number within faxes.faxline's 11-char column, and the drug name within customName's 60.
-const runFaxSuffix = String(randomInt(10000, 100000)); // 10000-99999 (crypto RNG; CodeQL-clean)
-// The staged "from fax number". Per-run unique, so the faxes.faxline the servlet writes identifies
-// exactly this run's fax job — cleanup then targets it without a shared-line high-water heuristic.
-const faxNumber = `416555${runFaxSuffix}`;
+// Per-run identifiers so a concurrent (or crashed-then-rerun) invocation of this check is not
+// correlated with — or has its rows deleted by — another run.
+// fax_config.faxNumber/faxReply are varchar(10) and the servlet matches the staged account by exact
+// string equality, so the "from" number MUST be exactly 10 chars: '416' + a 7-digit random keeps it
+// there while giving a 10-million-value space, making a same-number collision between two concurrent
+// runs negligible. The drug name (customName is varchar(60)) carries the full timestamp + suffix.
+const runFaxSuffix = String(randomInt(1000000, 10000000)); // 7 digits (crypto RNG; CodeQL-clean)
+const faxNumber = `416${runFaxSuffix}`; // 10 chars — fits fax_config.faxNumber varchar(10)
 // Per-run-unique custom-drug name for this fixture. It lands in drugs.customName, which lets the
 // checks identify exactly the prescription(s) THIS run created — immune to a concurrent prescription
 // for the same provider/patient, and to leftovers from an earlier crashed run — instead of inferring
@@ -353,7 +354,9 @@ async function runChecks(context) {
     }
 
     // Real control: click Fax. Capture the createcustomedpdf request (the JSP puts
-    // scriptId on it) and its response.
+    // scriptId on it) and its response. Snapshot the fax-table high-water mark right before the
+    // click so the row(s) recorded below are only those inserted after it.
+    const faxMaxBeforeClick = Number(sql(`SELECT COALESCE(MAX(id),0) FROM faxes;`) || '0');
     const faxRequestPromise = page.waitForRequest((req) => /form\/createcustomedpdf/.test(req.url()) && /__method=oscarRxFax/.test(req.url()), { timeout: 30000 });
     const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()), { timeout: 30000 });
     await modalFrame.locator('#faxButton').click();
@@ -365,10 +368,10 @@ async function runChecks(context) {
       const faxResponse = await faxResponsePromise;
       faxBody = await faxResponse.text().catch(() => '');
       visited.push({ label: 'fax-request', url: faxRequest.url(), status: faxResponse.status() });
-      // Record the fax row(s) the servlet just inserted for this run. faxline is this run's unique
-      // staged "from" number, so it identifies only this run's fax jobs — no high-water heuristic
-      // and no chance of matching a concurrent run's fax on a shared line.
-      for (const id of sql(`SELECT id FROM faxes WHERE faxline='${faxNumber}';`)
+      // Record the fax row(s) this run created: newly inserted (id above the pre-click mark) AND on
+      // this run's unique staged "from" line. Both bounds together identify only this run's jobs;
+      // cleanup then deletes exactly these captured ids.
+      for (const id of sql(`SELECT id FROM faxes WHERE id>${faxMaxBeforeClick} AND faxline='${faxNumber}';`)
         .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r))) {
         createdFaxIds.push(id);
       }
