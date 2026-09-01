@@ -194,6 +194,16 @@ class PrescriptionSignatureStampServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should return null without propagating when the persisted-row lookup throws")
+    void shouldReturnNull_whenPersistedLookupThrows() {
+        when(prescriptionDao.find(Integer.parseInt(SCRIPT_ID)))
+                .thenThrow(new RuntimeException("db down"));
+
+        assertThat(service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID)).isNull();
+        verifyNoInteractions(digitalSignatureManager, prescriptionManager);
+    }
+
+    @Test
     @DisplayName("should not stamp when Rx signatures are disabled in configuration")
     void shouldSkipStamp_whenRxSignatureDisabled() {
         CarlosProperties.getInstance().setProperty("rx_signature_enabled", "false");

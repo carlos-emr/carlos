@@ -587,8 +587,14 @@
             // saveDrug) the id is set as a request ATTRIBUTE, not a parameter, so reading only the
             // parameter yields "" and the fax request cannot identify the script — the stamp-signed
             // prescription is then rejected as unsigned. Resolve parameter -> attribute -> the saved
-            // stash script number so every path faxes THIS script.
+            // stash script number so every path faxes THIS script. A real script id is a positive
+            // integer, so any non-numeric parameter (the literal strings "null"/"undefined" a caller
+            // may build from a JS variable, or empty) is treated as absent and falls through to the
+            // attribute/stash — otherwise "null" would be non-empty and win over the good id.
             String scriptIdForFax = StringUtils.noNull(request.getParameter("scriptId"));
+            if (!scriptIdForFax.matches("\\d+")) {
+                scriptIdForFax = "";
+            }
             if (scriptIdForFax.isEmpty() && request.getAttribute("scriptId") != null) {
                 scriptIdForFax = String.valueOf(request.getAttribute("scriptId"));
             }

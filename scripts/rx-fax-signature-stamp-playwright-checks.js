@@ -106,8 +106,8 @@ function validateMysqlHost(host) {
   // This check creates and deletes prescription/signature rows, so it must target a local dev
   // database. Refuse a non-loopback host unless the operator explicitly opts in.
   const loopback = new Set(['localhost', '127.0.0.1', '::1', 'carlos', 'db']);
-  if (!loopback.has(host.toLowerCase()) && process.env.ALLOW_NON_LOCAL_MYSQL !== 'true') {
-    throw new Error(`Refusing non-local MYSQL_HOST "${host}"; set ALLOW_NON_LOCAL_MYSQL=true for an intentional test database`);
+  if (!loopback.has(host.toLowerCase()) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
+    throw new Error(`Refusing non-local MYSQL_HOST "${host}"; set ALLOW_NON_LOCAL_MYSQL_HOST=true for an intentional test database`);
   }
   return host;
 }
@@ -238,7 +238,9 @@ async function checkBuildStampOnAboutPage(context) {
 function stageFaxConfig() {
   // A fax gateway account so the ViewScript2 "From fax number" select has an
   // option and sendFax() can run; the servlet matches it to create the fax job.
-  const existing = sql(`SELECT id FROM fax_config WHERE faxNumber='${faxNumber}' LIMIT 1;`).trim();
+  // Reuse only an ACTIVE SRFAX row — an inactive or MIDDLEWARE row on this number
+  // would not populate the select the UI needs, so in that case stage our own.
+  const existing = sql(`SELECT id FROM fax_config WHERE faxNumber='${faxNumber}' AND active=1 AND providerType='SRFAX' LIMIT 1;`).trim();
   if (/^\d+$/.test(existing)) return { id: existing, created: false };
   const id = sql(
     `INSERT INTO fax_config (providerType, active, faxNumber, faxReply, accountName, senderEmail, faxUser, siteUser, passwd, faxPasswd, gatewayName, queue, url, download) `
@@ -274,9 +276,10 @@ async function writeCustomRxThroughUi(page) {
   if (maxAfter <= rangeStart) {
     throw new Error(`No new prescription row was created (max script_no stayed at ${maxAfter})`);
   }
-  // NOTE: "Save And Print" persists the script twice (updateSaveAllDrugs, then RxViewScript2Action
-  // opening /rx/viewScript?scriptId=null) — a pre-existing duplicate-prescription behavior. The
-  // fax uses the SECOND (shown) row, which is why rangeStart..maxAfter is cleaned up as a range.
+  // "Save And Print" now writes exactly ONE prescription: updateSaveAllDrugs persists it, and
+  // RxViewScript2Action reuses that row instead of re-saving. The fax uses that row (its script_no
+  // is maxAfter). rangeStart..maxAfter is still cleaned up as a range so the throwaway unsigned row
+  // added later is swept up too, and any stray duplicate would be caught rather than left behind.
   return { modalFrame, scriptId: String(maxAfter), rangeStart };
 }
 
@@ -376,13 +379,43 @@ async function runChecks(context) {
     throwawayUnsignedScriptId = sql(
       `INSERT INTO prescription (provider_no, demographic_no, date_prescribed) VALUES ('${providerNo}', ${demographicNo}, NOW()); SELECT LAST_INSERT_ID();`,
     ).trim();
-    const unsigned = await page.context().request.get(
-      appUrl(`/form/createcustomedpdf?__title=Rx&__method=oscarRxFax&scriptId=${throwawayUnsignedScriptId}`
-        + `&pdfId=rxfaxstamp&pharmaFax=4165551212&clinicFax=${faxNumber}&pharmaName=P&demographic_no=${demographicNo}&rxPageSize=PageSize.Letter&rx=x&rxDate=2026-01-01`),
-    );
-    const unsignedBody = await unsigned.text().catch(() => '');
-    visited.push({ label: 'fax-unsigned', status: unsigned.status() });
-    if (unsigned.status() >= 500) findings.push({ label: 'fax-gate', type: 'http-500', status: unsigned.status() });
+    // Drive the SAME POST the Fax button submits (preview2Form.submit()), from inside the page so
+    // it carries the session cookie and, via a real CSRFGuard master token, passes CSRF the way the
+    // browser does. GET is CSRF-unprotected here (ProtectedMethods=POST,PUT,DELETE,PATCH), so only a
+    // POST proves the signature gate refuses an unsigned script on the actual, CSRF-validated route.
+    const unsigned = await page.evaluate(async ({ tokenUrl, postUrl, params }) => {
+      const tokenResp = await fetch(tokenUrl, { credentials: 'same-origin' });
+      const tokenJs = await tokenResp.text();
+      const m = tokenJs.match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
+      const token = m ? m[1] : '';
+      const resp = await fetch(postUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Requested-With': 'XMLHttpRequest',
+          'CSRF-TOKEN': token,
+        },
+        credentials: 'same-origin',
+        body: new URLSearchParams(params).toString(),
+      });
+      const body = await resp.text().catch(() => '');
+      return { status: resp.status, hadToken: token.length > 0, body: body.slice(0, 400) };
+    }, {
+      tokenUrl: appUrl('/csrfguard'),
+      postUrl: appUrl('/form/createcustomedpdf'),
+      params: {
+        __title: 'Rx', __method: 'oscarRxFax', scriptId: throwawayUnsignedScriptId,
+        pdfId: 'rxfaxstamp', pharmaFax: '4165551212', clinicFax: faxNumber, pharmaName: 'P',
+        demographic_no: demographicNo, rxPageSize: 'PageSize.Letter', rx: 'x', rxDate: '2026-01-01',
+      },
+    });
+    const unsignedBody = unsigned.body || '';
+    visited.push({ label: 'fax-unsigned', status: unsigned.status, hadToken: unsigned.hadToken });
+    if (!unsigned.hadToken) findings.push({ label: 'fax-gate', type: 'no-csrf-token', text: 'could not obtain a CSRFGuard token for the unsigned-fax POST' });
+    if (unsigned.status >= 500) findings.push({ label: 'fax-gate', type: 'http-500', status: unsigned.status });
+    if (/csrf|token/i.test(unsignedBody) && /reject|forbidden|invalid/i.test(unsignedBody)) {
+      findings.push({ label: 'fax-gate', type: 'csrf-rejected', text: `unsigned-fax POST was rejected by CSRF, not the signature gate: ${unsignedBody.replace(/\s+/g, ' ').slice(0, 160)}` });
+    }
     if (/Signature not found/i.test(unsignedBody)) findings.push({ label: 'fax-gate', type: 'legacy-alert-unsigned', text: 'unsigned fax still shows the old "Signature not found" alert' });
     if (!/not signed/i.test(unsignedBody)) findings.push({ label: 'fax-gate', type: 'not-refused', text: `unsigned fax was not refused: ${unsignedBody.replace(/\s+/g, ' ').slice(0, 160)}` });
 
@@ -390,8 +423,8 @@ async function runChecks(context) {
   } finally {
     try {
       if (rxRangeStart != null) {
-        // Every prescription this run created for the test provider/patient: the shown script, the
-        // duplicate from the save-twice flow, and the throwaway unsigned row are all > rangeStart.
+        // Every prescription this run created for the test provider/patient — the shown script and
+        // the throwaway unsigned row — has a script_no > rangeStart.
         const rows = sql(`SELECT script_no, COALESCE(digital_signature_id,'') FROM prescription WHERE provider_no='${providerNo}' AND demographic_no=${demographicNo} AND script_no>${rxRangeStart};`)
           .split('\n').map((r) => r.trim()).filter(Boolean);
         for (const row of rows) {
@@ -401,7 +434,10 @@ async function runChecks(context) {
           if (/^\d+$/.test(sigId)) sql(`DELETE FROM DigitalSignature WHERE id=${sigId};`);
         }
       }
-      sql(`DELETE FROM faxes WHERE id>${faxJobsBefore};`);
+      // Only the fax rows THIS run created: new (id above the pre-run max) AND sent from our
+      // dedicated test fax line. Scoping by faxline means a fax another user queues concurrently —
+      // on a different line — is never touched.
+      sql(`DELETE FROM faxes WHERE id>${faxJobsBefore} AND faxline='${faxNumber}';`);
       if (faxConfig && faxConfig.created) sql(`DELETE FROM fax_config WHERE id=${faxConfig.id};`);
     } catch (error) {
       findings.push({ label: 'cleanup', type: 'cleanup-error', text: error.stack || error.message });

@@ -99,12 +99,18 @@ public class PrescriptionSignatureStampService {
             return null;
         }
         // "Already signed" is decided from the PERSISTED prescription row, not the in-memory stash
-        // item. A single "Save And Print" saves the script twice (updateSaveAllDrugs, then
-        // RxViewScript2Action opening /rx/viewScript?scriptId=null), and the first save stamps the
-        // shared stash item; keying the guard off the stash would then skip the SECOND, freshly
-        // written row — the very one ViewScript2 shows and faxes — leaving it unsigned. Keying off
-        // the row stamps whichever new row is unsigned and stays idempotent on a re-render or reprint.
-        io.github.carlos_emr.carlos.commn.model.Prescription persisted = prescriptionDao.find((int) scriptNo);
+        // item, so a re-render or reprint of an already-signed script is a no-op and whichever new,
+        // unsigned row ViewScript2 shows and faxes is the one that gets stamped. The lookup is a DB
+        // read; if it fails we must behave like every other failure in this path — log it and leave
+        // the pad available — never propagate a runtime exception up into the print/fax page render.
+        io.github.carlos_emr.carlos.commn.model.Prescription persisted;
+        try {
+            persisted = prescriptionDao.find((int) scriptNo);
+        } catch (RuntimeException e) {
+            MiscUtils.getLogger().error("Error checking persisted Rx signature for script "
+                    + LogSafe.sanitize(scriptId), e);
+            return null;
+        }
         if (persisted == null || persisted.getDigitalSignatureId() != null) {
             return null;
         }
