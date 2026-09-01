@@ -558,8 +558,23 @@ sha256 — a rerun re-runs reconciliation only. `--accept no-documents`
 records the documents-less sign-off. `test_docs.py` brings the suite to
 118 passing tests.
 
-Remaining milestones: props (M6), end-to-end rehearsal + operator guide
-(M7).
+**Milestone 6 — props phase + verify (done):**
+`o19props.py` runs the §8.1 pipeline over the clinic's oscar.properties:
+baseline-diff against the stock O19 defaults, manifest dispositions, docpath
+values rewritten onto the CARLOS tree (both O19 layout roots), `drugref_url`
+resolved to the deployment's own endpoint, deploy-owned refusal,
+module-grouped dropped-key advisories and loud `unknown` reporting. The
+reviewed fragment lands 0600 in the state dir and is NEVER applied
+automatically; the report masks secrets and lists the imported credentials
+for rotation. Dry runs produce the same fragment flagged DRY RUN. P7 verify
+completes the pipeline: row-parity re-assertion, referential spot checks on
+random patients across appointments/notes/drugs/preventions, and per-fiscal-
+year billing totals compared to the cent — failures stop the run with state
+left for diagnosis (rollback = pre-import snapshot). The full P0–P7 chain
+now runs end to end; `test_props.py` (pinned against the committed
+clinic-example fixture) brings the suite to 131 passing tests.
+
+Remaining milestone: end-to-end rehearsal + operator guide (M7).
 
 ## 10. Implementation work breakdown
 

@@ -483,6 +483,84 @@ def run_p5(ctx) -> None:
 
 
 # --------------------------------------------------------------------------
+# P6 — props, P7 — verify
+# --------------------------------------------------------------------------
+
+def run_p6(ctx) -> None:
+    if phase_done(ctx["state"], "props"):
+        log("props: fragment already produced — skipping")
+        return
+    from . import o19props
+    o19props.run_props(ctx)
+
+
+def run_p7(ctx) -> None:
+    if phase_done(ctx["state"], "verify"):
+        log("verify: already passed — skipping")
+        return
+    query = ctx["query"]
+    src, dst = STAGING_SCHEMA, ctx["target_db"]
+    problems: List[str] = []
+    lines: List[str] = []
+
+    ok, bad = o19etl.row_parity(query, src, dst)
+    lines.append("row parity: {0} table(s) match".format(len(ok)))
+    problems.extend(bad)
+
+    # referential spot checks: random patients joined across the chart
+    sample = [r[0] for r in query(
+        "SELECT demographic_no FROM `{0}`.demographic ORDER BY RAND() "
+        "LIMIT 10".format(src))]
+    joins = (("appointment", "demographic_no"),
+             ("casemgmt_note", "demographic_no"),
+             ("drugs", "demographic_no"),
+             ("preventions", "demographic_no"))
+    for demo in sample:
+        if not demo.isdigit():
+            continue
+        for table, col in joins:
+            s = query("SELECT COUNT(*) FROM `{0}`.`{1}` WHERE `{2}` = {3}"
+                      .format(src, table, col, demo))[0][0]
+            d = query("SELECT COUNT(*) FROM `{0}`.`{1}` WHERE `{2}` = {3}"
+                      .format(dst, table, col, demo))[0][0]
+            if s != d:
+                problems.append(
+                    "patient {0}: {1} count differs (staging {2}, "
+                    "target {3})".format(demo, table, s, d))
+    lines.append("referential spot checks on {0} random patient(s)"
+                 .format(len(sample)))
+
+    # billing totals per fiscal year, to the cent
+    agg = ("SELECT IFNULL(YEAR(billing_date),0), COUNT(*), "
+           "IFNULL(SUM(CAST(total AS DECIMAL(14,2))),0) FROM "
+           "`{0}`.billing_on_cheader1 GROUP BY 1 ORDER BY 1")
+    s_rows = {r[0]: (r[1], r[2]) for r in query(agg.format(src))}
+    d_rows = {r[0]: (r[1], r[2]) for r in query(agg.format(dst))}
+    if s_rows != d_rows:
+        for year in sorted(set(s_rows) | set(d_rows)):
+            if s_rows.get(year) != d_rows.get(year):
+                problems.append(
+                    "billing year {0}: staging {1} vs target {2}".format(
+                        year, s_rows.get(year), d_rows.get(year)))
+    else:
+        lines.append("billing totals match for {0} fiscal year(s)"
+                     .format(len(s_rows)))
+
+    report_append(ctx["state_dir"], "P7 verify",
+                  "\n".join(lines)
+                  + ("\nFAILURES:\n  " + "\n  ".join(problems[:40])
+                     if problems else "\nall checks passed"))
+    if problems:
+        die("verification FAILED ({0} problem(s)) — see {1}/report.txt. "
+            "State is left in place for diagnosis; rollback is the "
+            "pre-import restic snapshot.".format(
+                len(problems), ctx["state_dir"]))
+    mark_done(ctx["state_dir"], ctx["state"], "verify")
+    log("verification passed — complete the technical review before "
+        "go-live")
+
+
+# --------------------------------------------------------------------------
 # cleanup
 # --------------------------------------------------------------------------
 
@@ -704,19 +782,25 @@ def cmd_import_o19(argv) -> int:
     run_p1(ctx)
     run_p2(ctx)
     if args.dry_run:
+        from . import o19props
+        o19props.run_props(ctx)  # report-only in dry-run (fragment flagged)
         log("dry run complete — reports in {0}; nothing was written beyond "
             "the throwaway staging schema".format(ctx["state_dir"]))
         return 0
     run_p3(ctx)
     run_p4(ctx)
     run_p5(ctx)
-    # P6 (props) lands in the next milestone; stopping here leaves data
-    # and documents fully imported, with properties translation to come.
-    die("the props/verify phases are not built yet (milestone M6); "
-        "staging, preflight, backup, the data copy and the documents "
-        "restore completed — rerun with --resume once the next milestone "
-        "lands", code=3)
-    return 3
+    run_p6(ctx)
+    run_p7(ctx)
+    log("import complete (experimental). Remaining operator steps:\n"
+        "  1. review + apply the properties fragment (see report), then "
+        "`carlos-ctl restart`\n"
+        "  2. run `carlos-ctl backup full` (post-import snapshot)\n"
+        "  3. TECHNICAL REVIEW before clinical use: {0}/report.txt, spot "
+        "checks, UI smoke\n"
+        "  4. then `carlos-ctl import-o19 --cleanup`".format(
+            ctx["state_dir"]))
+    return 0
 
 
 def _make_ctx_for_cleanup(args) -> Dict:
