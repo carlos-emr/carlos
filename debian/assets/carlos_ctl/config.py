@@ -98,16 +98,19 @@ def cmd_init_config(argv) -> int:
     # would send both down a path that does not exist here.
     prop_set(PROPERTIES, "project_home", "carlos")
 
-    # Belt and braces for the build stamp: the skeleton comes from the built
-    # WAR (already substituted), but if a future build ever ships the raw
-    # ${...} placeholders the application renders them on the LOGIN page, to
-    # every unauthenticated visitor.
-    pkg_version = util.out(["dpkg-query", "-f", "${Version}", "-W", "carlos-emr"]) or "unknown"
-    for key, fallback in (("buildDate", util.out(["date", "-I"])),
-                          ("buildVersion", f"carlos-emr {pkg_version}")):
-        cur = prop_get(PROPERTIES, key) or ""
-        if "${" in cur:
-            prop_set(PROPERTIES, key, fallback)
+    # Build identity (the login-page build stamp) is NOT a carlos.properties
+    # key any more: the application reads it from carlos-build.properties
+    # inside the WAR (BuildInfo), so it follows every package upgrade on its
+    # own. Earlier packages seeded buildDate/buildVersion into THIS override
+    # file — where, because the override is loaded on top of the in-WAR copy,
+    # the value written at first install shadowed every later WAR's stamp
+    # ("it does NOT update the buildVersion", reported on the alpha line).
+    # The application ignores the keys now; comment them out so an operator
+    # reading the file is not misled into thinking they do something.
+    # Idempotent: prop_get does not see a commented line.
+    for key in ("buildDate", "buildVersion"):
+        if prop_get(PROPERTIES, key) is not None:
+            prop_comment(PROPERTIES, key)
 
     # The schema gate. `validate` is the production posture: the application
     # refuses to start against a schema it was not built for, instead of
