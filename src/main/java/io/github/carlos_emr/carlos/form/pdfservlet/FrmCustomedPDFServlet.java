@@ -770,12 +770,16 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             return null;
         }
         // The caller-supplied demographic_no is what the fax branch stamps onto the FaxJob (its audit
-        // linkage). If present it MUST match the prescription's patient, or a caller with access to
-        // patient A could fax A's script under B's demographic. Withhold on mismatch so the fax,
-        // which is refused without a signature, cannot be sent with the wrong patient attribution.
+        // linkage). For a FAX it MUST be present, positive, and equal to the prescription's patient —
+        // an absent/invalid value would otherwise reach FaxJob.demographicNo unchecked, so it is
+        // required, not merely validated when present. For a print/preview the value is not
+        // persisted, so only a positive mismatch is rejected (an absent one is harmless).
         int requestDemographic = parsePositiveInt(req.getParameter("demographic_no"));
-        if (requestDemographic > 0 && demographicId.intValue() != requestDemographic) {
-            logger.debug("Denied signature render for prescription {}: demographic_no does not match its patient",
+        boolean badDemographic = isFax
+                ? (requestDemographic <= 0 || demographicId.intValue() != requestDemographic)
+                : (requestDemographic > 0 && demographicId.intValue() != requestDemographic);
+        if (badDemographic) {
+            logger.debug("Denied signature render for prescription {}: demographic_no missing or does not match its patient",
                     LogSafe.sanitize(String.valueOf(scriptNo)));
             return null;
         }

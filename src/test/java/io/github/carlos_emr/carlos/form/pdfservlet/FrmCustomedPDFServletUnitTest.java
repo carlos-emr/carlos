@@ -505,6 +505,21 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
     }
 
+    @Test
+    @DisplayName("should withhold a signature for a fax when demographic_no is missing")
+    void shouldWithholdSignature_whenFaxDemographicMissing() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        request.removeParameter("demographic_no"); // a fax MUST carry a positive, matching demographic
+        stubStoredSignature();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+
+        assertThat(resolved).isNull();
+        verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
+    }
+
     private MockHttpServletRequest createFaxRequest() {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/form/frmcustomedpdf");
         request.addParameter("__method", "oscarRxFax");
