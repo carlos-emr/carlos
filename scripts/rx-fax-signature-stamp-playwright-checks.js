@@ -205,26 +205,38 @@ let faxConfig = null;
  * failure rather than throwing.
  */
 function cleanupFixtures() {
-  try {
-    const ourScriptNos = new Set(
+  // Each target is deleted in its own try so one failure cannot suppress cleanup of the others;
+  // failures are aggregated as findings rather than aborting the sweep.
+  const attempt = (label, fn) => {
+    try {
+      fn();
+    } catch (error) {
+      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${(error && error.message) || 'failed'}` });
+    }
+  };
+  let ourScriptNos = new Set();
+  attempt('list fixture scripts', () => {
+    ourScriptNos = new Set(
       sql(`SELECT DISTINCT script_no FROM drugs WHERE customName='${customDrugName}' AND demographic_no=${demographicNo};`)
         .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r)),
     );
-    if (throwawayUnsignedScriptId && /^\d+$/.test(throwawayUnsignedScriptId)) {
-      ourScriptNos.add(throwawayUnsignedScriptId);
-    }
-    for (const scriptNo of ourScriptNos) {
+  });
+  if (throwawayUnsignedScriptId && /^\d+$/.test(throwawayUnsignedScriptId)) {
+    ourScriptNos.add(throwawayUnsignedScriptId);
+  }
+  for (const scriptNo of ourScriptNos) {
+    attempt(`prescription ${scriptNo}`, () => {
       const sigId = sql(`SELECT COALESCE(digital_signature_id,'') FROM prescription WHERE script_no=${scriptNo};`).trim();
       sql(`DELETE FROM drugs WHERE script_no=${scriptNo};`);
       sql(`DELETE FROM prescription WHERE script_no=${scriptNo};`);
       if (/^\d+$/.test(sigId)) sql(`DELETE FROM DigitalSignature WHERE id=${sigId};`);
-    }
-    // Fax rows on this run's unique staged line, and the fax_config we created.
-    sql(`DELETE FROM faxes WHERE faxline='${faxNumber}';`);
-    if (faxConfig && faxConfig.created) sql(`DELETE FROM fax_config WHERE id=${faxConfig.id};`);
-  } catch (error) {
-    findings.push({ label: 'cleanup', type: 'cleanup-error', text: (error && (error.stack || error.message)) || 'cleanup failed' });
+    });
   }
+  // Fax rows on this run's unique staged line, and the fax_config we created.
+  attempt('faxes', () => sql(`DELETE FROM faxes WHERE faxline='${faxNumber}';`));
+  attempt('fax_config', () => {
+    if (faxConfig && faxConfig.created) sql(`DELETE FROM fax_config WHERE id=${faxConfig.id};`);
+  });
 }
 
 // On interruption (Ctrl-C / CI termination) run the same idempotent DB cleanup, then remove the
@@ -437,11 +449,13 @@ async function runChecks(context) {
 
     let faxRequest = null;
     let faxBody = '';
+    let faxStatus = 0;
     try {
       faxRequest = await faxRequestPromise;
       const faxResponse = await faxResponsePromise;
+      faxStatus = faxResponse.status();
       faxBody = await faxResponse.text().catch(() => '');
-      visited.push({ label: 'fax-request', url: faxRequest.url(), status: faxResponse.status() });
+      visited.push({ label: 'fax-request', url: faxRequest.url(), status: faxStatus });
     } catch (error) {
       findings.push({ label: 'fax-click', type: 'no-request', text: `Fax click produced no createcustomedpdf request: ${error.message}` });
     }
@@ -459,9 +473,13 @@ async function runChecks(context) {
       if (/not signed/i.test(faxBody)) {
         findings.push({ label: 'fax-gate', type: 'signed-refused', text: 'clicking Fax on a stamp-signed script was refused as unsigned' });
       }
-      if (!/fax-success/i.test(faxBody) && !/not signed/i.test(faxBody)) {
-        // Not fatal on its own (depends on the gateway match), but record it.
-        visited.push({ label: 'fax-result', note: 'no explicit fax-success banner', body: faxBody.replace(/\s+/g, ' ').slice(0, 160) });
+      // The signed fax must SUCCEED: the servlet writes a fax-success banner on success and a
+      // fax-failure banner (or a non-2xx status) on any error. A generic error is a failure of the
+      // check, not a note — otherwise a 500 or an unrelated error page would let it pass.
+      if (faxStatus < 200 || faxStatus >= 300) {
+        findings.push({ label: 'fax-gate', type: 'http-error', status: faxStatus, text: `signed fax returned HTTP ${faxStatus}` });
+      } else if (!/fax-success/i.test(faxBody) && !/not signed/i.test(faxBody)) {
+        findings.push({ label: 'fax-gate', type: 'not-successful', text: `signed fax did not report fax-success: ${faxBody.replace(/\s+/g, ' ').slice(0, 160)}` });
       }
     }
 
@@ -469,7 +487,9 @@ async function runChecks(context) {
     // signs every prescription, so stage a throwaway unsigned row (the refusal
     // fires before PDF rendering, so it needs no drugs).
     throwawayUnsignedScriptId = sql(
-      `INSERT INTO prescription (provider_no, demographic_no, date_prescribed) VALUES ('${providerNo}', ${demographicNo}, NOW()); SELECT LAST_INSERT_ID();`,
+      // lastUpdateDate is NOT NULL with no default, so a strict-mode database rejects an insert that
+      // omits it; supply it explicitly so the throwaway row can be staged anywhere.
+      `INSERT INTO prescription (provider_no, demographic_no, date_prescribed, lastUpdateDate) VALUES ('${providerNo}', ${demographicNo}, NOW(), NOW()); SELECT LAST_INSERT_ID();`,
     ).trim();
     // Drive the SAME POST the Fax button submits (preview2Form.submit()), from inside the page so
     // it carries the session cookie and, via a real CSRFGuard master token, passes CSRF the way the
