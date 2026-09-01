@@ -1,0 +1,25 @@
+# Provenance of vendored OSCAR 19 fixtures
+
+Vendored verbatim from the upstream OSCAR EMR repository for reproducible
+migration rehearsals (no Bitbucket checkout needed to run the fixture flow):
+
+- Source repository: `https://bitbucket.org/oscaremr/oscar.git`
+- Branch/commit: `master` @ `a7900d569d3faf741993e5e1da8c14021bbefede`
+  (2020-03-09 — the OSCAR 19 line; release tag `OSCAR_19_RC1`)
+
+| File here | Upstream path | License |
+|---|---|---|
+| `demo-data/demo.sql` | `release/demo.sql` | GPL v2 (header preserved: "Copyright Peter Hutten-Czapski 2012 released under the GPL v2") |
+| `properties/oscar_mcmaster.properties` | `src/main/resources/oscar_mcmaster.properties` | GPL (upstream project license; file header preserved) |
+
+Everything else under `fixtures/` is synthetic CARLOS-authored fixture
+content (clearly-fake values only — no real clinic or patient data):
+
+- `properties/oscar-clinic-example.properties` — a fabricated
+  "clinic-modified" O19 properties file driving the props-phase tests.
+- `documents/` — manifest + generator for a deterministic placeholder
+  OscarDocument tree (no binaries committed), plus the matching fixture
+  database rows.
+
+Do not edit the vendored files: re-vendor from upstream and update the
+commit hash above instead.

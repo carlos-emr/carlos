@@ -439,6 +439,56 @@ curated in review like the schema manifest.
    no client round-trips) and disable binary logging on the staging schema during
    import.
 
+## 9a. Implementation status (experimental)
+
+The importer is being built into the Debian deployment's carlos-ctl first
+(carlos-podman catches up later). The feature is **(experimental)**: every
+migration's output should receive a technical review — verification report, spot
+checks, UI smoke — before clinical use.
+
+**Milestone 1 — manifests, generator, fixtures (done):**
+
+- `scripts/migration/o19/generate_manifests.py` parses the O19 schema sources
+  (init + data/ICD scripts + CAISI + OLIS + updates, statements applied in
+  document order with quote-aware comment stripping) and the CARLOS Flyway set
+  (read-only), deep-merges the curated overlays (`overrides_schema.py`,
+  `overrides_props.py`), and emits the shipped manifests
+  `debian/assets/carlos_ctl/o19map_schema.py` / `o19map_props.py`
+  (`SCHEMA_MAP_VERSION` is a plain `o19map-N` token, deliberately not
+  CalVer-shaped). `test_manifest_integrity.py` (22 checks, stdlib unittest)
+  refuses any unclassified table.
+- Current classification (581 O19 tables at commit `a7900d5`): 343 copy /
+  29 merge / 27 reference / 152 archive (patient-data subset flagged for the
+  B1 blocker) / 28 drop / 0 unknown.
+- **Analysis corrections found during generation:**
+  - `demographic.preferred_lang` is NOT a dropped column: O19's own
+    `update-2009-02-23` renamed it to `official_lang`, which is shared and
+    copies (§9.3 resolved). Pre-2009 unpatched databases surface it through
+    preflight's unknown-column flow.
+  - `icd9` exists in BOTH systems (created by O19 `icd9.sql`); the data/ICD
+    scripts are part of the generator's source set so preflight never flags it.
+  - Legacy/entity twin tables: no O19 table was renamed away; the twins still
+    present in a patched O19 db (`group_note_link`, `recycle_bin`,
+    `report_filter`) are archived, and twins O19's own updates already dropped
+    (`facility`, `Vacancy`) fall to the unknown-table flow on unpatched sites.
+- Seeded shared tables get three explicit treatments: `reference` (CARLOS
+  wins: ICD, security objects, error codes…), **`replace_seed`** (seed rows
+  deleted, clinic rows copied id-intact because clinic data references those
+  ids: `issue`, `program`, `clinic`, schedule config, role matrix), and
+  `merge` on a natural key with surrogate-id reassignment flagged for the ETL
+  (`measurementType`, `billingservice`, lookup lists…).
+- Vendored fixtures (`scripts/migration/o19/fixtures/`, provenance in
+  `PROVENANCE.md`): O19 `release/demo.sql` (GPL v2 header preserved), stock
+  `oscar_mcmaster.properties`, a synthetic clinic-example properties file
+  covering every props disposition, and a documents-tree manifest + generator
+  (no binaries committed; includes a deliberate missing-file row and an orphan
+  file). `build-o19-fixture.sh` builds the latin1 rehearsal database and emits
+  the three turnkey inputs.
+
+Remaining milestones: standalone preflight (M2), verb + stage + bundle (M3),
+ETL engine (M4), documents (M5), props (M6), end-to-end rehearsal + operator
+guide (M7).
+
 ## 10. Implementation work breakdown
 
 1. `carlos`: commit generated schema-diff tooling + `o19-schema-map.yaml` seed
