@@ -485,8 +485,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should fall back to the stored signature when the named pad file escapes the temp directory")
-    void shouldFallBackToStoredSignature_whenPadFileOutsideTempDirectory() throws Exception {
+    @DisplayName("should fall back to the stored signature when the named pad file is not a valid pad capture (traversal sanitized)")
+    void shouldFallBackToStoredSignature_whenTraversalPadNameSanitized() throws Exception {
         MockHttpServletRequest request = createFaxRequest();
         request.addParameter("imgFile", "../../etc/passwd");
         stubStoredSignature();
@@ -495,7 +495,11 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         // traversal value would never be examined and this test would prove nothing.
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
-        // Real PathValidationUtils behaviour, but PROVE the traversal value reached it.
+        // Real PathValidationUtils behaviour: validatePath reduces "../../etc/passwd" to its base
+        // name "passwd" (it does not throw), which then fails the signature_<provider><millis>.jpg
+        // pad pattern, so the servlet falls back to the stored signature. The SecurityException
+        // path is exercised separately below with a forced stub. Here we PROVE the raw traversal
+        // value reached the validator rather than being used as a path directly.
         try (MockedStatic<PathValidationUtils> pathValidation = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
             byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
 
@@ -523,7 +527,11 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
 
             assertThat(resolved).isEqualTo(tinyPng());
+            // Prove the rejection branch ran: the stub was hit, so the fallback came from the
+            // swallowed SecurityException, not from the validator being bypassed.
+            pathValidation.verify(() -> PathValidationUtils.validatePath(eq("../../etc/passwd"), any(File.class)));
         }
+        verify(digitalSignatureManager).getDigitalSignature(SIGNATURE_ID);
     }
 
     @Test

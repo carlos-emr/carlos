@@ -202,14 +202,18 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should render a reprint without a script id when the reprinted stash is unavailable")
-    void shouldSkipSaveAndStamp_whenReprintModeHasNoReprintedStash() throws Exception {
+    @DisplayName("should clear a stale reprint marker and bail out when the reprinted stash is missing")
+    void shouldRedirectAndClearMarker_whenReprintModeHasNoReprintedStash() throws Exception {
+        // rePrint=true without tmpBeanRX: the view would dereference the missing bean, and the
+        // live (unsaved) stash must still not be saved or stamped on the way out.
         liveBean.getStashList().add(rePrescribedItem("123"));
         request.getSession().setAttribute("rePrint", "true");
 
         String result = newAction().execute();
 
-        assertThat(result).isEqualTo("viewScript");
+        assertThat(result).isNull();
+        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
+        assertThat(request.getSession().getAttribute("rePrint")).isNull();
         assertThat(request.getAttribute("scriptId")).isNull();
         verifyNoInteractions(stampService, prescriptionDao);
     }

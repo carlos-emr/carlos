@@ -91,7 +91,16 @@ public final class RxViewScript2Action extends ActionSupport {
         // the signature stored when the script was first printed, or the pad if it never was.
         if (isReprintMode(session)) {
             RxSessionBean reprinted = (RxSessionBean) session.getAttribute("tmpBeanRX");
-            String reprintedScriptId = reprinted == null ? null : persistedScriptId(reprinted);
+            if (reprinted == null) {
+                // reprint2 always stores both; a marker without its bean is a stale/inconsistent
+                // session and ViewScript2.jsp would dereference the missing bean. Clear the marker
+                // so the next view is a normal one, and bail out the way a missing session does.
+                // nosemgrep: tainted-session-from-http-request -- value is null literal (clearing session attribute), not user input
+                session.setAttribute("rePrint", null);
+                response.sendRedirect("error.html");
+                return null;
+            }
+            String reprintedScriptId = persistedScriptId(reprinted);
             if (reprintedScriptId != null) {
                 request.setAttribute("scriptId", reprintedScriptId);
             }
