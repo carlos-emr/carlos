@@ -840,7 +840,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         return new RecordBoundRequest(req, bound);
     }
 
-    /** The blank-line-separated blocks of a posted {@code rx} body, as generatePDFDocumentBytes groups them. */
+    /**
+     * The blank-line-separated blocks of a posted {@code rx} body. Only a blank or whitespace-only
+     * line (which includes a stray {@code \r} from CRLF input) separates blocks; a one-character
+     * line such as a quantity of "1" is content and stays inside its block.
+     */
     static List<String> splitRxBlocks(String rx, String newline) {
         List<String> blocks = new ArrayList<>();
         if (rx == null) {
@@ -848,7 +852,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         }
         StringBuilder current = new StringBuilder();
         for (String s : rx.split(newline)) {
-            if (s.isEmpty() || s.equals(newline) || s.length() == 1) {
+            if (s.isBlank()) {
                 if (current.length() > 0) {
                     blocks.add(current.toString());
                 }

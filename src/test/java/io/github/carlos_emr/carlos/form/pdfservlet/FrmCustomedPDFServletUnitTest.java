@@ -431,6 +431,20 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep a one-character line inside its drug block and split only on blank lines")
+    void shouldSplitRxBlocks_onBlankLinesOnly() {
+        String nl = System.lineSeparator();
+        String body = "Amoxicillin 500 mg" + nl + "1" + nl + "cap PO TID" + nl + nl + "Ibuprofen 400 mg" + nl + "\r" + nl + "1 tab PRN" + nl + "   " + nl;
+
+        List<String> blocks = FrmCustomedPDFServlet.splitRxBlocks(body, nl);
+
+        assertThat(blocks).hasSize(3);
+        assertThat(blocks.get(0)).contains("Amoxicillin 500 mg").contains(nl + "1" + nl).contains("cap PO TID");
+        assertThat(blocks.get(1)).contains("Ibuprofen 400 mg").doesNotContain("1 tab PRN");
+        assertThat(blocks.get(2)).contains("1 tab PRN");
+    }
+
+    @Test
     @DisplayName("should fall back to the prescriber's provider name when no signature text is on file")
     void shouldUsePrescriberName_whenNoSignatureTextOnFile() throws Exception {
         MockHttpServletRequest request = createFaxRequest();
