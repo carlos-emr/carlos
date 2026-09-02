@@ -173,7 +173,16 @@ lxc exec carlos-test -- bash -c \
   'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/consult_sig_999998.png
    chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/consult_sig_999998.png'
 
-# c) The three LOCAL_SEED_OBEC_REPORT appointments that
+# c) A clinic Rich Text Letter template, so eform-rtl-print-pdf-playwright-checks.js
+#    (RTL_TEMPLATE_NAME=MissedAppointment.rtl) can prove clinic .rtl templates load
+#    into the editor unsandboxed. The repo ships one.
+lxc file push release/Document/carlos/eform/images/MissedAppointment.rtl \
+  carlos-test/var/lib/carlos-emr/CarlosDocument/carlos/eform/images/
+lxc exec carlos-test -- bash -c \
+  'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/MissedAppointment.rtl
+   chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/MissedAppointment.rtl'
+
+# d) The three LOCAL_SEED_OBEC_REPORT appointments that
 #    patient-list-by-appointment-export-playwright-checks.js documents as its
 #    operator-provisioned fixture contract (see that script's header):
 lxc exec carlos-test -- mariadb -u root carlos -e "
@@ -223,6 +232,8 @@ export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
 export CONSULT_STAMP_PROVIDER_NO=999998 CONSULT_UNSIGNED_REQUEST_ID=3
 export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
+# Rich Text Letter print/PDF check (fixture c above); omit to skip only its template step.
+export RTL_TEMPLATE_NAME=MissedAppointment.rtl
 
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below
@@ -254,6 +265,12 @@ Notes on the contract:
 - `eform-corpus-soak-playwright-checks.js` additionally needs a corpus
   directory (see `docs/eform-corpus-soak-method.md`) and is not part of the
   standard pass.
+- **`eform-rtl-print-pdf-playwright-checks.js` must be run through `:443`** too. It
+  drives the Rich Text Letter the way a clinician does (Preventions, Download,
+  the form's PDF button, toolbar Print, "Submit & Print", a clinic template) and
+  verifies real PDF bytes come back from the render browser. One of the defects
+  it pins exists only behind the WAF: CRS 932100 scored the letter's own prose
+  in `ARGS:Letter` and answered the save with a 403 (package exclusion 1045).
 - **`eform-admin-crud-playwright-checks.js` must be run through `:443`.** It
   covers the eForm administration create/edit/delete round trip, and one of the
   three defects it pins (the CRS block on the editor's `ARGS:formHtml`, rule
