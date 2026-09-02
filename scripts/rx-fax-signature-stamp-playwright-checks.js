@@ -205,7 +205,7 @@ function removeSecretsDir() {
 // the normal finally AND from a signal handler, and so an interrupted run cannot leave rows behind.
 let throwawayUnsignedScriptId = null;
 let faxConfig = null;
-// Pharmacy fax numbers this run seeded, restored by cleanupFixtures(): [{ recordId, originalFax }].
+// Pharmacy fax numbers this run seeded, restored by cleanupFixtures(): [{ recordId, wasNull }].
 const seededPharmacyFaxes = [];
 
 /**
@@ -223,18 +223,30 @@ const seededPharmacyFaxes = [];
  * measuring the missing pharmacy number rather than the signature gate it exists to pin. Every
  * active pharmacy for the patient is seeded because which one the Rx page carries through is a
  * property of the patient's saved preference, not of this check.
+ *
+ * Fidelity rules this follows, because it mutates a shared record:
+ *   - deleted pharmacy records are never touched. The predicate excludes PharmacyInfo.DELETED
+ *     ('0') rather than requiring ACTIVE ('1'): the model defines only those two constants, but
+ *     the shipped demo dataset stores '2' on every pharmacy, so requiring '1' would silently
+ *     match nothing and disable this fixture instead of protecting anything;
+ *   - a NULL fax and an empty-string fax are distinct states, so which one it was is remembered
+ *     and restored exactly — writing '' back over a NULL would be a silent schema-level change;
+ *   - cleanup restores only while the column still holds THIS run's synthetic number, so a
+ *     concurrent run or an operator edit made during the check is never overwritten.
  */
 function seedPharmacyFax() {
-  const rows = sql(`SELECT p.recordId, IFNULL(p.fax,'') FROM pharmacyInfo p
+  const rows = sql(`SELECT p.recordId, IF(p.fax IS NULL, 1, 0), IFNULL(p.fax, '') FROM pharmacyInfo p
     JOIN demographicPharmacy dp ON dp.pharmacyID = p.recordId
-    WHERE dp.demographic_no = ${demographicNo} AND dp.status = '1';`)
+    WHERE dp.demographic_no = ${demographicNo} AND dp.status = '1'
+      AND (p.status IS NULL OR p.status <> '0');`)
     .split('\n').map((r) => r.split('\t')).filter((r) => /^\d+$/.test((r[0] || '').trim()));
-  for (const [rawId, rawFax] of rows) {
+  for (const [rawId, rawWasNull, rawFax] of rows) {
     const recordId = rawId.trim();
     const originalFax = (rawFax || '').trim();
     if (originalFax) continue;
+    const wasNull = String(rawWasNull).trim() === '1';
     sql(`UPDATE pharmacyInfo SET fax = '${pharmacyFaxNumber}' WHERE recordId = ${recordId};`);
-    seededPharmacyFaxes.push({ recordId, originalFax });
+    seededPharmacyFaxes.push({ recordId, wasNull });
   }
   visited.push({ label: 'pharmacy-fax', seeded: seededPharmacyFaxes.map((r) => r.recordId), active: rows.length });
   if (!rows.length) {
@@ -243,6 +255,7 @@ function seedPharmacyFax() {
       text: `patient ${demographicNo} has no active pharmacy, so a prescription for them can never be faxed`,
     });
   }
+  return rows.length > 0;
 }
 
 function cleanupFixtures() {
@@ -288,8 +301,10 @@ function cleanupFixtures() {
     if (faxConfig && faxConfig.created) sql(`DELETE FROM fax_config WHERE id=${faxConfig.id};`);
   });
   while (seededPharmacyFaxes.length) {
-    const { recordId, originalFax } = seededPharmacyFaxes.pop();
-    attempt(`pharmacy-fax ${recordId}`, () => sql(`UPDATE pharmacyInfo SET fax = '${originalFax.replace(/'/g, "''")}' WHERE recordId = ${recordId};`));
+    const { recordId, wasNull } = seededPharmacyFaxes.pop();
+    attempt(`pharmacy-fax ${recordId}`, () => sql(
+      `UPDATE pharmacyInfo SET fax = ${wasNull ? 'NULL' : "''"} `
+      + `WHERE recordId = ${recordId} AND fax = '${pharmacyFaxNumber}';`));
   }
 }
 

@@ -77,6 +77,24 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// Node keeps the brackets on an IPv6 URL hostname ('http://[::1]/' -> '[::1]'), so a bare '::1'
+// entry in a host set would never match. Strip them before every comparison.
+function normalizeHost(rawHost) {
+  return String(rawHost).toLowerCase().replace(/^\[|\]$/g, '');
+}
+
+const LOCAL_BASE_URL_HOSTS = new Set([
+  'localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1', '0.0.0.0', 'host.docker.internal', 'carlos',
+]);
+// Loopback only. This is the set that decides whether TLS verification may be relaxed, so it is
+// deliberately narrower than LOCAL_BASE_URL_HOSTS: a self-signed certificate is expected on the
+// packaged loopback front door and nowhere else.
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+// 'db' is the devcontainer's compose service name (.devcontainer/docker-compose.yml). Generic
+// names like 'mysql' or 'mariadb' are NOT included: they are not this repository's local service,
+// and treating them as local would silently waive the opt-in for a database this check writes to.
+const LOCAL_MYSQL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1', 'db', 'carlos']);
+
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
@@ -115,19 +133,32 @@ function validateBaseUrl(rawBaseUrl) {
   } catch (e) {
     throw new Error(`BASE_URL is not a valid URL: ${rawBaseUrl}`);
   }
+  // A non-HTTP scheme parses cleanly but is not a navigable target; reject it here rather than
+  // failing later with an opaque navigation error.
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
+  }
   if (parsed.username || parsed.password) {
     throw new Error('BASE_URL must not embed credentials');
   }
-  const allowed = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'carlos', 'host.docker.internal']);
-  if (!allowed.has(parsed.hostname) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+  if (!LOCAL_BASE_URL_HOSTS.has(normalizeHost(parsed.hostname))
+      && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`refusing non-local BASE_URL host ${parsed.hostname}; set ALLOW_NON_LOCAL_BASE_URL=true to override`);
   }
   return `${parsed.origin}${parsed.pathname.replace(/\/$/, '')}`;
 }
 
+/** True when BASE_URL points at loopback, where the packaged self-signed certificate lives. */
+function baseUrlIsLoopback(rawBaseUrl) {
+  try {
+    return LOOPBACK_HOSTS.has(normalizeHost(new URL(rawBaseUrl).hostname));
+  } catch (e) {
+    return false;
+  }
+}
+
 function validateMysqlHost(host) {
-  const allowed = new Set(['localhost', '127.0.0.1', '::1', 'db', 'mysql', 'mariadb']);
-  if (!allowed.has(host) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
+  if (!LOCAL_MYSQL_HOSTS.has(normalizeHost(host)) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
     throw new Error(`refusing non-local MYSQL_HOST ${host}; set ALLOW_NON_LOCAL_MYSQL_HOST=true to override`);
   }
   return host;
@@ -198,9 +229,16 @@ function sql(query) {
       '-N', '-B', mysqlDatabase, '-e', query,
     ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
   } catch (e) {
-    // Deliberately do not echo the whole query: it can carry identifiers.
-    const detail = String((e && e.stderr) || (e && e.message) || e).slice(0, 200);
-    throw new Error(`SQL failed (${query.slice(0, 40)}...): ${detail}`);
+    // Neither the query nor raw stderr may reach the log. MySQL echoes the offending SQL back in
+    // its "near '...'" fragment, and this check's queries carry demographic and script numbers,
+    // which are PHI-correlating. Keep only the first stderr line with quoted fragments and digit
+    // runs redacted, and never include the query itself.
+    const raw = String((e && e.stderr) || (e && e.message) || e);
+    const detail = raw.split('\n')[0]
+      .replace(/'[^']*'/g, "'<redacted>'")
+      .replace(/\d+/g, '<n>')
+      .slice(0, 160);
+    throw new Error(`SQL failed: ${detail}`);
   }
 }
 
@@ -226,11 +264,11 @@ function prescriptionCount() {
 
 // --- pharmacy fax fixture ----------------------------------------------------
 
-// Restored by cleanupFixtures(): [{ recordId, originalFax }].
+// Restored by cleanupFixtures(): [{ recordId, wasNull }].
 const seededPharmacyFaxes = [];
 
 /**
- * Give the patient's active pharmacies a fax number.
+ * Give the patient's active pharmacies a destination fax number.
  *
  * ViewScript2.jsp derives `hasFaxNumber` from the pharmacy popForm2 passes through (the preferred
  * pharmacy held in SearchDrug3's #Calcs field), and signatureHandler folds that into the Fax
@@ -240,20 +278,32 @@ const seededPharmacyFaxes = [];
  *
  * Every active pharmacy for the patient is seeded rather than just one, because which of them
  * #Calcs holds is a property of the patient's saved preference, not of this check.
+ *
+ * Fidelity rules this follows, because it mutates a shared record:
+ *   - deleted pharmacy records are never touched. The predicate excludes PharmacyInfo.DELETED
+ *     ('0') rather than requiring ACTIVE ('1'): the model defines only those two constants, but
+ *     the shipped demo dataset stores '2' on every pharmacy, so requiring '1' would silently
+ *     match nothing and disable this fixture instead of protecting anything;
+ *   - a NULL fax and an empty-string fax are distinct states, so which one it was is remembered
+ *     and restored exactly — writing '' back over a NULL would be a silent schema-level change;
+ *   - cleanup restores only while the column still holds THIS run's synthetic number, so a
+ *     concurrent run or an operator edit made during the check is never overwritten.
  */
 function seedPharmacyFax() {
-  const rows = sql(`SELECT p.recordId, IFNULL(p.fax,'') FROM pharmacyInfo p
+  const rows = sql(`SELECT p.recordId, IF(p.fax IS NULL, 1, 0), IFNULL(p.fax, '') FROM pharmacyInfo p
     JOIN demographicPharmacy dp ON dp.pharmacyID = p.recordId
-    WHERE dp.demographic_no = ${demographicNo} AND dp.status = '1';`)
+    WHERE dp.demographic_no = ${demographicNo} AND dp.status = '1'
+      AND (p.status IS NULL OR p.status <> '0');`)
     .split('\n').map((r) => r.split('\t')).filter((r) => /^\d+$/.test((r[0] || '').trim()));
-  for (const [rawId, rawFax] of rows) {
+  for (const [rawId, rawWasNull, rawFax] of rows) {
     const recordId = rawId.trim();
     const originalFax = (rawFax || '').trim();
     if (originalFax) continue;
+    const wasNull = String(rawWasNull).trim() === '1';
     sql(`UPDATE pharmacyInfo SET fax = '${FIXTURE_FAX_NUMBER}' WHERE recordId = ${recordId};`);
-    seededPharmacyFaxes.push({ recordId, originalFax });
+    seededPharmacyFaxes.push({ recordId, wasNull });
   }
-  visited.push({ label: 'pharmacy-fax', seeded: seededPharmacyFaxes.map((r) => r.recordId), total: rows.length });
+  visited.push({ label: 'pharmacy-fax', seeded: seededPharmacyFaxes.map((r) => r.recordId), active: rows.length });
   return rows.length > 0;
 }
 
@@ -282,8 +332,10 @@ function cleanupFixtures() {
     attempt('prescription', () => sql(`DELETE FROM prescription WHERE script_no IN (${list});`));
   }
   while (seededPharmacyFaxes.length) {
-    const { recordId, originalFax } = seededPharmacyFaxes.pop();
-    attempt(`pharmacy-fax ${recordId}`, () => sql(`UPDATE pharmacyInfo SET fax = '${escapeSql(originalFax)}' WHERE recordId = ${recordId};`));
+    const { recordId, wasNull } = seededPharmacyFaxes.pop();
+    attempt(`pharmacy-fax ${recordId}`, () => sql(
+      `UPDATE pharmacyInfo SET fax = ${wasNull ? 'NULL' : "''"} `
+      + `WHERE recordId = ${recordId} AND fax = '${FIXTURE_FAX_NUMBER}';`));
   }
 }
 
@@ -292,6 +344,22 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 }
 
 // --- page wiring -------------------------------------------------------------
+
+/**
+ * A page URL with its query string removed.
+ *
+ * Rx URLs carry demographicNo, and script/appointment numbers, which CLAUDE.md classifies as
+ * PHI-correlating: they join straight back to a patient record. The path alone is what makes a
+ * diagnostic useful, so log that and drop the parameters.
+ */
+function safeUrl(rawUrl) {
+  try {
+    const u = new URL(rawUrl);
+    return `${u.origin}${u.pathname}`;
+  } catch (e) {
+    return '<unparseable url>';
+  }
+}
 
 // Page errors that are known, pre-existing, and outside this PR's diff. Each entry must name the
 // issue tracking it: an unexplained entry here would let a real regression pass unnoticed. They are
@@ -350,7 +418,7 @@ async function login(context) {
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  visited.push({ label: 'login', url: page.url() });
+  visited.push({ label: 'login', url: safeUrl(page.url()) });
   return page;
 }
 
@@ -391,7 +459,7 @@ async function checkBuildStamp(context) {
 async function writeScriptThroughUi(page) {
   await gotoApp(page, `/rx/choosePatient?demographicNo=${demographicNo}`);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  visited.push({ label: 'rx-module', url: page.url() });
+  visited.push({ label: 'rx-module', url: safeUrl(page.url()) });
 
   await page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
   await page.locator('#searchString').fill(customDrugName);
@@ -664,6 +732,16 @@ async function runChecks(context) {
     if (!/^\d+$/.test(stamped.signatureId)) {
       findings.push({ label: 'stamp', type: 'not-signed', text: `script ${scriptId} carries no stored signature; the stamp was not applied` });
     }
+    // The stamp is prescriber-bound: PrescriptionSignatureStampService only stamps a script whose
+    // persisted provider_no is the logged-in provider. Asserting the fixture was in fact written by
+    // RX_FAX_PROVIDER_NO is what makes that setting meaningful — otherwise the check could pass
+    // while silently testing a different prescriber than the one it documents.
+    if (stamped.prescriber !== providerNo) {
+      findings.push({
+        label: 'stamp', type: 'unexpected-prescriber',
+        text: `script was written by a different provider than RX_FAX_PROVIDER_NO, so the prescriber-bound stamp was not exercised as configured`,
+      });
+    }
 
     await checkStampSurvivesPadActivity(modalFrame, scriptId);
     await checkReprintIsReadOnly(page, scriptId);
@@ -682,7 +760,13 @@ async function runChecks(context) {
   if (chromePath) launchOptions.executablePath = chromePath;
   const browser = await chromium.launch(launchOptions);
   // The packaged install serves a self-signed certificate on the loopback front door.
-  const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+  // Relax certificate verification ONLY for loopback, where the packaged install serves a
+  // self-signed certificate. An operator who opts in to a non-local BASE_URL still gets a real
+  // TLS check against that host.
+  const context = await browser.newContext({
+    ignoreHTTPSErrors: baseUrlIsLoopback(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
+    viewport: { width: 1440, height: 1000 },
+  });
   let result = null;
   try {
     const loginPage = await login(context);
