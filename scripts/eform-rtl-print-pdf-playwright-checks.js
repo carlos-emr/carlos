@@ -78,8 +78,15 @@ function escapeLikeSaveRTL(s) {
 function isKnownConsoleIssue(issue) {
   // Chromium's resource-load errors carry the URL in the message location, not in the text.
   const where = (issue.location && issue.location.url) || '';
+  const text = issue.text || '';
+  // Only the two messages a MISSING stamps.js produces are exempt: the 404 resource-load failure
+  // (located at the asset URL) and the MIME refusal for the HTML 404 page (located at the letter
+  // page, naming the asset). A JavaScript error thrown by an installed stamps.js is not.
+  const missingStamps = (/imagefile=stamps\.js/.test(where) && /Failed to load resource/.test(text))
+    || (/Refused to execute script from .*imagefile=stamps\.js/.test(text) && /MIME type/.test(text));
   // The site root's favicon is nginx's concern, not the letter's.
-  return /stamps\.js/.test(issue.text) || /imagefile=stamps\.js/.test(where) || /\/favicon\.ico$/.test(where);
+  const missingFavicon = /\/favicon\.ico$/.test(where) && /Failed to load resource/.test(text);
+  return missingStamps || missingFavicon;
 }
 
 async function waitForEditor(page) {
