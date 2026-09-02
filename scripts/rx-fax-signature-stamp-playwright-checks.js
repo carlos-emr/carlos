@@ -55,9 +55,15 @@
  *      found" alert. A server-side direct POST additionally confirms an
  *      unsigned script IS refused.
  *
- * Everything it creates (prescription, stored signature, fax job, a fax_config
- * account, a throwaway unsigned row) is removed in a finally, so the check is
- * idempotent.
+ * Every database row it creates (prescription and drugs, stored signature, fax
+ * job and its FaxClientLog audit row, a fax_config account, a throwaway unsigned
+ * row) is removed in a finally, so the check is idempotent at the database.
+ * Files are NOT removed: the fax servlet writes prescription_<pdfId>.pdf under
+ * DOCUMENT_DIR and prescription_<pdfId>.pdf/.txt under fax_file_location on the
+ * install, and this check runs through HTTP and MySQL only. The pdfId is
+ * <providerNo><millis>, so each run leaves one small PDF (plus the pair in the
+ * fax spool, which the fax scheduler consumes) — see
+ * docs/ui-tests/deb-install-validation.md §6.
  *
  * Prerequisites the packaged install must satisfy (see
  * docs/ui-tests/deb-install-validation.md §6):
@@ -233,7 +239,16 @@ function cleanupFixtures() {
     });
   }
   // Fax rows on this run's unique staged line, and the fax_config we created.
-  attempt('faxes', () => sql(`DELETE FROM faxes WHERE faxline='${faxNumber}';`));
+  attempt('faxes', () => {
+    // The Fax click also writes a FaxClientLog audit row keyed to the fax job id, so collect the ids
+    // BEFORE deleting the jobs or the audit rows would be orphaned.
+    const faxIds = sql(`SELECT id FROM faxes WHERE faxline='${faxNumber}';`)
+      .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r));
+    if (faxIds.length) {
+      sql(`DELETE FROM FaxClientLog WHERE transactionType='RX' AND faxId IN (${faxIds.map((id) => `'${id}'`).join(',')});`);
+    }
+    sql(`DELETE FROM faxes WHERE faxline='${faxNumber}';`);
+  });
   attempt('fax_config', () => {
     if (faxConfig && faxConfig.created) sql(`DELETE FROM fax_config WHERE id=${faxConfig.id};`);
   });

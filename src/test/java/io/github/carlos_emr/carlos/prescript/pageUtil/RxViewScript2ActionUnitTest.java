@@ -165,6 +165,19 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should refuse to persist an unsaved stash for a caller with only _rx read")
+    void shouldThrow_whenUnsavedStashAndCallerLacksRxWrite() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(false);
+        liveBean.getStashList().add(rePrescribedItem("123")); // drugId 0: not yet persisted
+
+        assertThatThrownBy(() -> newAction().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing required sec object (_rx)");
+        verifyNoInteractions(stampService, prescriptionDao);
+        assertThat(request.getAttribute("scriptId")).isNull();
+    }
+
+    @Test
     @DisplayName("should not stamp when the caller has only _rx read")
     void shouldSkipStamp_whenCallerLacksRxWrite() throws Exception {
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(false);

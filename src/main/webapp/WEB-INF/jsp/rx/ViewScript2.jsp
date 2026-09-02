@@ -160,6 +160,13 @@
             } else {
                 createAnewRx = "javascript:clearPending('')";
             }
+            // Faxing persists a FaxJob, so FrmCustomedPDFServlet requires _rx WRITE for the script's
+            // patient; gate the Fax buttons on the same right so the page never offers a fax the
+            // server will refuse (a read-only reprint of a signed script would otherwise show an
+            // enabled Fax button and then a refusal).
+            boolean canFaxScript = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
+                    .hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request),
+                            "_rx", "w", String.valueOf(bean.getDemographicNo()));
 
 // for satellite clinics
             Vector vecAddressName = null;
@@ -658,6 +665,11 @@
             var isSignatureSaved = false;
             <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { %>
             var hasFaxNumber = <%= pharmacy != null && pharmacy.getFax() != null && pharmacy.getFax().trim().length() > 0 ? "true" : "false" %>;
+            var canFaxScript = <%= canFaxScript ? "true" : "false" %>;
+            // The script already carries a stored signature (the prescriber's stamp applied on write,
+            // or a signature saved earlier). The fax servlet signs from it whenever no fresh pad
+            // capture is present, so pad strokes or Clear must not grey out Fax for such a script.
+            var hasStoredSignature = <%= bean.getStashSize() > 0 && bean.getStashItem(0).getDigitalSignatureId() != null ? "true" : "false" %>;
             <% } %>
 
             function signatureHandler(e) {
@@ -665,7 +677,7 @@
                 isSignatureSaved = e.isSave;
                 e.target.onbeforeunload = null;
                 <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { //%>
-                let disabled = !hasFaxNumber || !e.isSave;
+                let disabled = !hasFaxNumber || !canFaxScript || !(e.isSave || hasStoredSignature);
                 toggleFaxButtons(disabled);
                 <% } %>
                 if (e.isSave) {
@@ -924,7 +936,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         </tr>
 
 					<%
-						String isFaxDisabled = (bean.getStashSize() == 0 || Objects.isNull(bean.getStashItem(0).getDigitalSignatureId()))
+						String isFaxDisabled = (!canFaxScript || bean.getStashSize() == 0 || Objects.isNull(bean.getStashItem(0).getDigitalSignatureId()))
 								? "disabled" : "";
 					%>
                                         <tr>

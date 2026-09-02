@@ -224,7 +224,10 @@ export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
 export CONSULT_STAMP_PROVIDER_NO=999998 CONSULT_UNSIGNED_REQUEST_ID=3
 export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
 # Rx signature-stamp fax check (rx-fax-signature-stamp-playwright-checks.js). It writes and then
-# deletes its own prescription, so it needs no fixture script id. Two prerequisites, both
+# deletes its own prescription (and every other row it creates: drugs, DigitalSignature, faxes,
+# FaxClientLog, fax_config), so it needs no fixture script id. It cannot remove FILES: each run
+# leaves one prescription_<providerNo><millis>.pdf under DOCUMENT_DIR plus the .pdf/.txt pair in
+# the fax spool (fax_file_location) that the fax scheduler consumes. Harmless on a throwaway VM. Two prerequisites, both
 # operator-staged like the consultation stamp checks:
 #   1. rx_fax_enabled=true in /etc/carlos-emr/carlos.properties (rx_signature_enabled is already
 #      true by default), then `carlos-ctl restart`. Without rx_fax the Fax buttons never render.

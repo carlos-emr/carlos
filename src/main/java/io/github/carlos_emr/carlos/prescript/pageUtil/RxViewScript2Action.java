@@ -117,6 +117,13 @@ public final class RxViewScript2Action extends ActionSupport {
         // prescribing action. Only save when the stash is not yet persisted.
         String scriptId = persistedScriptId(bean);
         if (scriptId == null) {
+            // Persisting a prescription and its drugs rows is a write. Every path that normally
+            // feeds this page (updateSaveAllDrugs, updateAndPrint) already requires _rx write, so
+            // only a caller who arrived here with an unsaved stash under read-only privilege can
+            // reach this branch, and they must not create a script the write paths would refuse.
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+                throw new SecurityException("missing required sec object (_rx)");
+            }
             scriptId = prescription.saveScript(loggedInInfo, bean);
             for (int i = 0; i < bean.getStashSize(); i++) {
                 rx = bean.getStashItem(i);

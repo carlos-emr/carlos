@@ -146,8 +146,14 @@ class PrescriptionSignatureStampServiceUnitTest {
         return p;
     }
 
+    /**
+     * A FULLY populated persisted row (patient present, written by the logged-in prescriber) that
+     * already carries a signature, so the only guard able to skip it is the already-signed guard.
+     * A bare row with only the signature id would also trip the null-patient and null-prescriber
+     * guards, and the test could not tell which one fired.
+     */
     private static io.github.carlos_emr.carlos.commn.model.Prescription signedPrescription() {
-        io.github.carlos_emr.carlos.commn.model.Prescription p = new io.github.carlos_emr.carlos.commn.model.Prescription();
+        io.github.carlos_emr.carlos.commn.model.Prescription p = unsignedPrescription();
         p.setDigitalSignatureId(999);
         return p;
     }

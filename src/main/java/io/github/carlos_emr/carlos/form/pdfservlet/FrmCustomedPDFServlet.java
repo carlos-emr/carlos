@@ -156,6 +156,16 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         boolean isFax = "oscarRxFax".equals(req.getParameter("__method"));
         boolean responseOutputStreamOpened = false;
 
+        // An authorization refusal must be reported as one. resolveSignatureImage withholds the
+        // signature for a caller without _rx write on the patient, and reporting that as "not
+        // signed" would send a read-only user to sign a script that IS signed (and that they could
+        // not sign anyway). Decide it first, with the same lookup the signature gate uses.
+        if (isFax && isFaxDeniedByPrivilege(req, loggedInInfo)) {
+            res.setContentType("text/html");
+            res.getWriter().println("<div id='fax-failure'><h3>Error: you do not have permission to fax this prescription.</h3></div>");
+            return;
+        }
+
         // Resolve the prescriber's signature before touching the document: a fax is an outbound
         // legal copy and must never leave unsigned, whatever the page's Fax button gating said.
         byte[] signatureImage = resolveSignatureImage(req, loggedInInfo);
@@ -742,6 +752,28 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      * @return decoded image bytes, or {@code null} when no signature applies or the caller is not
      *         authorized for the prescription's patient
      */
+    /**
+     * True only when the prescription named by {@code scriptId} exists with a patient and the
+     * caller lacks {@code _rx} WRITE for that patient. A missing session, malformed id, or absent
+     * row is NOT a privilege denial (it returns {@code false}) and is left to the signature gate,
+     * which reports those as "not signed" exactly as before.
+     */
+    boolean isFaxDeniedByPrivilege(HttpServletRequest req, LoggedInInfo loggedInInfo) {
+        if (loggedInInfo == null) {
+            return false;
+        }
+        int scriptNo = parsePositiveInt(req.getParameter("scriptId"));
+        if (scriptNo <= 0) {
+            return false;
+        }
+        Prescription prescription = prescriptionDao.find(scriptNo);
+        if (prescription == null || prescription.getDemographicId() == null) {
+            return false;
+        }
+        return !securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE,
+                String.valueOf(prescription.getDemographicId()));
+    }
+
     // FindSecBugs PATH_TRAVERSAL_IN: the pad file name is reduced to its base name and confined to java.io.tmpdir by PathValidationUtils.validatePath
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "the pad file name is reduced to its base name and confined to java.io.tmpdir by PathValidationUtils.validatePath")
     byte[] resolveSignatureImage(HttpServletRequest req, LoggedInInfo loggedInInfo) {

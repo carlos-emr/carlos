@@ -98,7 +98,9 @@ def cmd_init_config(argv) -> int:
     # would send both down a path that does not exist here.
     prop_set(PROPERTIES, "project_home", "carlos")
 
-    # Build identity (the login-page build stamp) is NOT a carlos.properties
+    # Build identity (the build stamp shown on the authenticated About page,
+    # in REST response headers and in HL7 SFT segments; deliberately never on
+    # the login page) is NOT a carlos.properties
     # key any more: the application reads it from carlos-build.properties
     # inside the WAR (BuildInfo), so it follows every package upgrade on its
     # own. Earlier packages seeded buildDate/buildVersion into THIS override
