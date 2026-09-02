@@ -255,16 +255,15 @@ class TestEformImageRefs(unittest.TestCase):
                          sorted(["logo.png", "sig.png", "stamp.gif",
                                  "form.pdf?x=1"]))
 
-    def test_query_string_and_fragment_suffixes_are_recognised(self):
-        # CARLOS resolves the whole value as the imagefile parameter, so
-        # `logo.png?v=2` names a file that does not exist; the suffix is
-        # only split off to explain the failure, never to excuse it
-        self.assertEqual(o19docs.image_ref_suffix("logo.png?v=2"), "?v=2")
-        self.assertEqual(o19docs.image_ref_suffix("form.pdf#page=2"),
-                         "#page=2")
-        self.assertEqual(o19docs.image_ref_suffix("plain.gif"), "")
-        self.assertEqual(o19docs.image_ref_suffix("?only=query"),
-                         "?only=query")
+    def test_lookup_name_keeps_the_query_and_drops_the_fragment(self):
+        # the browser never sends `#page=2`; a `?v=2` stays inside the
+        # imagefile value, so CARLOS looks up a file literally named so
+        self.assertEqual(o19docs.image_ref_lookup("logo.png?v=2"),
+                         "logo.png?v=2")
+        self.assertEqual(o19docs.image_ref_lookup("form.pdf#page=2"),
+                         "form.pdf")
+        self.assertEqual(o19docs.image_ref_lookup("plain.gif"), "plain.gif")
+        self.assertEqual(o19docs.image_ref_lookup("#only-fragment"), "")
 
     def test_unrelated_html_has_no_refs(self):
         self.assertEqual(o19docs.image_refs("<p>no images</p>"), [])
@@ -283,10 +282,12 @@ class TestEformImageRefs(unittest.TestCase):
                 return [("7", "Consent",
                          '<img src="${oscar_image_path}logo.png?v=2">'
                          '<img src="${oscar_image_path}logo.png">'
+                         '<img src="${oscar_image_path}logo.png#top">'
                          '<img src="${oscar_image_path}gone.gif">')]
             return []
 
         problems, lines = o19docs.reconcile(query, "o19_import", root)
+        # logo.png and logo.png#top are served; the other two are not
         self.assertEqual(len(problems), 2, problems)
         suffixed = [p for p in problems if "logo.png?v=2" in p]
         self.assertEqual(len(suffixed), 1)
@@ -294,7 +295,7 @@ class TestEformImageRefs(unittest.TestCase):
         self.assertIn("logo.png exists", suffixed[0])
         self.assertTrue(any("missing image asset: gone.gif" in p
                             for p in problems))
-        self.assertIn("3 eForm image reference(s) checked", lines)
+        self.assertIn("4 eForm image reference(s) checked", lines)
 
 
 class TestArchiveCsvExport(unittest.TestCase):

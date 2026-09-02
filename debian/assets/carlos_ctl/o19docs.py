@@ -166,15 +166,13 @@ def unescape_batch_field(value: str) -> str:
     return "".join(out)
 
 
-def image_ref_suffix(ref: str) -> str:
-    """The query/fragment tail of an eForm image reference (`?v=2` of
-    `logo.png?v=2`), or "" when there is none. CARLOS resolves the WHOLE
-    `${oscar_image_path}` value as the `imagefile` parameter of its image
-    route — the tail is part of the filename it looks up, not a URL
-    parameter — so reconciliation checks the full value and only uses the
-    suffix to explain why the lookup fails."""
-    m = re.search(r"[?#]", ref)
-    return ref[m.start():] if m else ""
+def image_ref_lookup(ref: str) -> str:
+    """The filename CARLOS's image route looks up for an eForm reference.
+    `${oscar_image_path}` expands to `/eform/displayImage?imagefile=`, so
+    the browser drops a `#fragment` before the request ever leaves, but a
+    `?query` stays INSIDE the imagefile value: `logo.png?v=2` names a file
+    literally called that. Reconciliation checks what the route checks."""
+    return ref.split("#", 1)[0]
 
 
 def image_refs(form_html: str) -> List[str]:
@@ -389,18 +387,19 @@ def reconcile(query, dst_schema: str, ctx_root: str
         fid, form_name, html = r[0], r[1], unescape_batch_field(r[2])
         for ref in image_refs(html):
             checked += 1
-            # the full value, exactly as the CARLOS image route looks it up
-            if not contained(image_dir, ref):
+            asset = image_ref_lookup(ref)
+            if not asset:
+                continue  # a bare `#fragment`: no request is made
+            if not contained(image_dir, asset):
                 problems.append(
                     "eForm '{0}' (fid {1}) image reference escapes "
                     "eform/images: {2}".format(form_name, fid, ref))
-            elif not os.path.isfile(os.path.join(image_dir, ref)):
-                suffix = image_ref_suffix(ref)
-                bare = ref[:len(ref) - len(suffix)] if suffix else ""
+            elif not os.path.isfile(os.path.join(image_dir, asset)):
+                bare = asset.split("?", 1)[0] if "?" in asset else ""
                 if bare and os.path.isfile(os.path.join(image_dir, bare)):
                     problems.append(
                         "eForm '{0}' (fid {1}) image reference {2} carries "
-                        "a query/fragment suffix that CARLOS does not strip "
+                        "a query suffix that CARLOS does not strip "
                         "(the asset {3} exists, but the form addresses a "
                         "file named with the suffix — a broken image at "
                         "runtime until the form HTML is edited)"

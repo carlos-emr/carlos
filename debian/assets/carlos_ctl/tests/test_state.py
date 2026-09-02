@@ -392,11 +392,40 @@ class TestBundleDigest(unittest.TestCase):
             bundle=bundle, bundle_pass=None, bundle_sha256=None,
             bundle_cipher="aes-256-cbc", bundle_openssl_opt=[],
             dump=None, properties=None, documents=None, accept=[])
+        digest = o19import.sha256_file(bundle)
         with self.assertRaises(SystemExit):  # no sign-off anywhere
             o19import._resolve_inputs(args, tmp, [])
         self.assertEqual(opened, [])
-        o19import._resolve_inputs(args, tmp, ["unverified-bundle"])
+        # the ledger's sign-off covers the file it was recorded for ...
+        o19import._resolve_inputs(args, tmp, ["unverified-bundle"],
+                                  recorded_digest=digest)
         self.assertEqual(len(opened), 1)
+        # ... never a replacement bundle: that needs its own digest or a
+        # fresh --accept
+        with self.assertRaises(SystemExit):
+            o19import._resolve_inputs(args, tmp, ["unverified-bundle"],
+                                      recorded_digest="00" * 32)
+        self.assertEqual(len(opened), 1)
+        args.accept = ["unverified-bundle"]
+        o19import._resolve_inputs(args, tmp, ["unverified-bundle"],
+                                  recorded_digest="00" * 32)
+        self.assertEqual(len(opened), 2)
+
+    def test_recorded_sign_off_is_bound_to_the_recorded_file(self):
+        merged = ["charset-repair", "unverified-bundle"]
+        self.assertEqual(
+            o19import.bundle_acknowledgements([], merged, self.ACTUAL,
+                                              self.ACTUAL), merged)
+        self.assertEqual(
+            o19import.bundle_acknowledgements([], merged, "cd" * 32,
+                                              self.ACTUAL), [])
+        self.assertEqual(
+            o19import.bundle_acknowledgements([], merged, None,
+                                              self.ACTUAL), [])
+        self.assertEqual(
+            o19import.bundle_acknowledgements(["unverified-bundle"], merged,
+                                              "cd" * 32, self.ACTUAL),
+            ["unverified-bundle"])
 
 
 class TestGuardedExit(unittest.TestCase):

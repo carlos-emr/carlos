@@ -1072,10 +1072,14 @@ def _default_province() -> str:
         return "on"
 
 
-def _resolve_inputs(args, state_dir: str, accepted=None) -> Dict:
+def _resolve_inputs(args, state_dir: str, accepted=None,
+                    recorded_digest: Optional[str] = None) -> Dict:
     """Bundle vs separate flags -> concrete file paths (+ digests).
     `accepted` is the merged sign-off set (this run's --accept plus the
-    ledger's), so a recorded `unverified-bundle` survives --resume."""
+    ledger's), so a recorded `unverified-bundle` survives --resume — but
+    only for the file it was recorded for (`recorded_digest`, the
+    ledger's bundle sha256): a replacement bundle is a new file that
+    needs its own digest or a fresh sign-off."""
     if accepted is None:
         accepted = args.accept
     if args.bundle:
@@ -1091,10 +1095,19 @@ def _resolve_inputs(args, state_dir: str, accepted=None) -> Dict:
         # integrity first: openssl enc's CBC output carries no MAC, so a
         # ciphertext altered in transit can still decrypt to a valid-looking
         # archive. The digest travels with the password, not the file.
-        refusal = bundle_digest_refusal(args.bundle_sha256,
-                                        sha256_file(args.bundle),
-                                        accepted)
+        actual = sha256_file(args.bundle)
+        applicable = bundle_acknowledgements(args.accept, accepted,
+                                             recorded_digest, actual)
+        refusal = bundle_digest_refusal(args.bundle_sha256, actual,
+                                        applicable)
         if refusal:
+            if "unverified-bundle" in accepted \
+                    and "unverified-bundle" not in applicable:
+                refusal = ("the recorded unverified-bundle sign-off names "
+                           "the bundle opened earlier (sha256 {0}...); "
+                           "this file differs ({1}...) and is not covered "
+                           "by it. ".format((recorded_digest or "")[:12],
+                                            actual[:12]) + refusal)
             die(refusal)
         opened = o19bundle.open_bundle(
             args.bundle, os.path.join(state_dir, "bundle"),
@@ -1120,6 +1133,17 @@ def _resolve_inputs(args, state_dir: str, accepted=None) -> Dict:
     return {"dump": args.dump, "documents": docs,
             "properties": args.properties, "bundle_sha256": None,
             "members": {}}
+
+
+def bundle_acknowledgements(cli_accept, merged, recorded_digest: Optional[str],
+                            actual_digest: str) -> List[str]:
+    """The sign-offs that apply to THIS bundle file: the merged set (CLI +
+    ledger) when the file is the one the ledger recorded, otherwise only
+    what this invocation passed — a recorded `unverified-bundle` covers
+    one file, never a replacement. Pure, for the state tests."""
+    if recorded_digest and recorded_digest == actual_digest:
+        return sorted(set(merged or ()))
+    return sorted(set(cli_accept or ()))
 
 
 def bundle_digest_refusal(expected: Optional[str], actual: str,
@@ -1187,7 +1211,9 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
     os.makedirs(state_dir, mode=0o700, exist_ok=True)
 
     accepted = merged_acknowledgements(args.accept, state)
-    inputs = _resolve_inputs(args, state_dir, accepted)
+    inputs = _resolve_inputs(
+        args, state_dir, accepted,
+        recorded_digest=state.get("inputs", {}).get("bundle_sha256"))
     if getattr(args, "skip_documents", False) \
             and "no-documents" not in args.accept:
         die("--skip-documents requires --accept no-documents (the missing "

@@ -757,10 +757,13 @@ was fixed and pinned by tests. What changed in behaviour:
 - **Round 4 (cubic on the head above):** `o19-preflight` exits 3, not 1,
   when the server is unreachable (1 is a verdict); a recorded
   `unverified-bundle` sign-off survives `--resume` without the flag or
-  digest; eForm image references are reconciled on the FULL value, since
-  CARLOS's image route looks up the whole `imagefile` parameter
-  (`logo.png?v=2` is a broken image, reported with the reason); the
-  properties fragment is `fchmod`ed before any credential is written.
+  digest, but only for the file whose digest the ledger recorded (a
+  replacement bundle needs its own digest or a fresh sign-off); eForm
+  image references are reconciled on the name CARLOS's image route looks
+  up — the browser drops a `#fragment`, but a `?query` stays inside the
+  `imagefile` value, so `logo.png?v=2` is a broken image and is reported
+  with the reason; the properties fragment is `fchmod`ed before any
+  credential is written.
 
 **All seven milestones complete.** Next steps beyond this round: run the
 Playwright UI suite against a migrated database under a full app deploy,
