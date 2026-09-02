@@ -76,7 +76,10 @@ function escapeLikeSaveRTL(s) {
 // stamps.js is never auto-deployed (clinic signature stamps), so a stock install logs a 404 + MIME
 // refusal for it on every letter. Documented in docs/ui-tests/deb-install-validation.md.
 function isKnownConsoleIssue(issue) {
-  return /stamps\.js/.test(issue.text) || /Failed to load resource/.test(issue.text) && /displayImage\.do\?imagefile=stamps\.js/.test(issue.text);
+  // Chromium's resource-load errors carry the URL in the message location, not in the text.
+  const where = (issue.location && issue.location.url) || '';
+  // The site root's favicon is nginx's concern, not the letter's.
+  return /stamps\.js/.test(issue.text) || /imagefile=stamps\.js/.test(where) || /\/favicon\.ico$/.test(where);
 }
 
 async function waitForEditor(page) {
@@ -132,6 +135,18 @@ async function clickAndDownloadPdf(page, locator, label) {
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(page, label);
   return { bytes, file: target, name: download.suggestedFilename() };
+}
+
+/** Clicks a control whose handler ends in a save, and waits for that save's response and result page. */
+async function clickAndAwaitSave(page, locator) {
+  const saveResponse = page.waitForResponse(
+    (r) => r.url().includes('/eform/addEForm') && r.request().method() === 'POST', { timeout: 60000 });
+  await locator.click();
+  const response = await saveResponse;
+  assert(response.status() < 400, `save POST to addEForm answered HTTP ${response.status()} (a WAF 403 means the letter was lost)`);
+  await page.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
+  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  return response;
 }
 
 async function savedFdid(page) {
@@ -202,11 +217,7 @@ async function savedFdid(page) {
     page = await openNewLetter(context, recorder, fid, 'rtl-toolbar-print');
     await typeLetter(page);
     await page.locator('#remote_eform_subject').fill(`RTL toolbar print ${Date.now()}`);
-    await Promise.all([
-      page.waitForLoadState('domcontentloaded').catch(() => {}),
-      page.locator('#remotePrintButton').click(),
-    ]);
-    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await clickAndAwaitSave(page, page.locator('#remotePrintButton'));
     step('toolbar Print invokes print() exactly once, on the EDITOR IFRAME', printLog.length === 1 && !printLog[0].isTop, JSON.stringify(printLog.map((c) => ({ href: c.href, isTop: c.isTop }))));
     step('toolbar Print printed document contains the typed letter', printLog.length === 1 && printLog[0].body.includes('Playwright RTL check'), '');
     await assertNotErrorPage(page, 'rtl-toolbar-print');
@@ -220,11 +231,9 @@ async function savedFdid(page) {
     await typeLetter(page);
     await page.locator('#remote_eform_subject').fill(`RTL submit and print ${Date.now()}`);
     const printSave = page.locator('input[name="PrintSaveButton"]');
-    await Promise.all([
-      page.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {}),
-      printSave.click(),
-    ]);
-    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    // The form's own button submits through a 1s string timer (the CSP shim), so wait for the save
+    // itself rather than for whatever load state the still-current page happens to report.
+    await clickAndAwaitSave(page, printSave);
     step('"Submit & Print" prints the editor iframe', printLog.length === 1 && !printLog[0].isTop, '');
     await assertNotErrorPage(page, 'rtl-form-print');
     const fdidAfterFormPrint = await savedFdid(page);
@@ -257,7 +266,8 @@ async function savedFdid(page) {
     // ---------- 7. No JS failures anywhere ----------
     assertNoPageErrors(recorder);
     const severe = recorder.consoleIssues.filter((i) => !isKnownConsoleIssue(i));
-    step('no severe console errors on any RTL page', severe.length === 0, severe.map((i) => `[${i.label}] ${i.text.slice(0, 160)}`).join(' | '));
+    step('no severe console errors on any RTL page', severe.length === 0,
+      severe.map((i) => `[${i.label}] ${i.text.slice(0, 120)} @ ${(i.location && i.location.url) || ''}`).join(' | '));
     step('no unexpected dialogs', recorder.dialogs.length === 0, JSON.stringify(recorder.dialogs));
   } catch (error) {
     console.error('RTL print/PDF check failed:', error && error.stack || error);
