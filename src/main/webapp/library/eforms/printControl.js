@@ -87,7 +87,10 @@ function submitPrintButton(save) {
     // No fixed close timer after "Submit & PDF": the response IS the PDF download (rendered
     // server-side, which can take longer than the 3 s the legacy string timer allowed), so closing
     // the window on a clock could tear the page down before the download page ran and lose the
-    // PDF. The download result page owns any auto-close.
+    // PDF. The download result page owns the auto-close instead: for "Submit & PDF" the server
+    // sets isSuccess_Autoclose and the floating toolbar closes the window after the download has
+    // started and the saved alert has shown, as it does after a plain Submit. "PDF" (preview)
+    // leaves the window open.
     printHolder.val("false");
     saveHolder.val("false");
 

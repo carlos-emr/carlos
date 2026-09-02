@@ -277,7 +277,8 @@ Notes on the contract:
   standard pass.
 - **`eform-rtl-print-pdf-playwright-checks.js` must be run through `:443`** too. It
   drives the Rich Text Letter the way a clinician does (Preventions, Download,
-  the form's PDF button, toolbar Print, "Submit & Print", a clinic template) and
+  the form's PDF and "Submit & PDF" buttons — the latter must auto-close the window
+  after the download — toolbar Print, "Submit & Print", a clinic template) and
   verifies real PDF bytes come back from the render browser. One of the defects
   it pins exists only behind the WAF: CRS 932100 scored the letter's own prose
   in `ARGS:Letter` and answered the save with a 403 (package exclusion 1045).

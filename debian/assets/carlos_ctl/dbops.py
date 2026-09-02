@@ -1054,19 +1054,26 @@ def _demo_seed_document_files() -> None:
         target = os.path.join(dest, name)
         if os.path.exists(target):
             continue
-        # Copy to a temporary name beside the target and rename it into place
+        # Copy to a temporary name beside the target and link it into place
         # once it is complete and owned: a copy that dies half-way must never
         # leave a truncated file under the real name, which the exists() check
-        # above (and the app) would then treat as the whole document.
+        # above (and the app) would then treat as the whole document. link()
+        # rather than replace(): it refuses an existing target, so a document
+        # the running application stored under this name between the exists()
+        # check and now is kept, never overwritten by the fixture.
         partial = os.path.join(dest, f".{name}.carlos-demo-partial")
         try:
             shutil.copyfile(os.path.join(src, name), partial)
             os.chown(partial, uid, gid)
             os.chmod(partial, 0o640)
-            os.replace(partial, target)
-            copied += 1
+            try:
+                os.link(partial, target)
+                copied += 1
+            except FileExistsError:
+                pass
         except OSError as e:
             warn(f"could not seed demo document {name}: {e}")
+        finally:
             try:
                 os.unlink(partial)
             except OSError:

@@ -254,6 +254,8 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo("download");
+        // ...and, like every other submission, the result page closes the window afterwards.
+        assertThat(mockRequest.getAttribute("isSuccess_Autoclose")).isEqualTo("true");
         verifyTemplateWritten(true);
     }
 

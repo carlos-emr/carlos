@@ -207,8 +207,10 @@ async function downloadPdf(page, locator, label) {
   await locator.click();
   const response = await responsePromise;
   const download = await downloadPromise;
-  await download.saveAs(file);
   try {
+    // saveAs sits inside the try as well: if it rejects part-way, whatever it did write is
+    // still removed below.
+    await download.saveAs(file);
     const bytes = fs.readFileSync(file);
     assert(bytes.subarray(0, 5).toString('utf8') === '%PDF-', `${label}: payload was not a PDF`);
     assert(bytes.toString('latin1').includes('%%EOF'), `${label}: PDF is truncated (missing %%EOF)`);
@@ -251,6 +253,10 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
   const openPages = new Set();
   const track = (page) => { openPages.add(page); return page; };
   const closeTracked = async (page) => { openPages.delete(page); await page.close().catch(() => {}); };
+  // Pages are also registered the moment the context creates them, so one that fails inside
+  // createLetter()/openSavedView() (before its caller could track it) is still closed here.
+  const onPage = (page) => { openPages.add(page); };
+  context.on('page', onPage);
   try {
     let fdid = await createLetter(context, recorder, fid, marker, `rtl-attach-${family.key}`);
 
@@ -362,6 +368,7 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
     const currentFdid = await saved.locator('#fdid').inputValue().catch(() => fdid);
     return { fdid: currentFdid, marker };
   } finally {
+    context.off('page', onPage);
     for (const page of openPages) {
       await page.close().catch(() => {});
     }
@@ -375,7 +382,10 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
   const recorder = createRecorder();
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
-    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    // Only a loopback target (the packaged install's self-signed front door) may skip TLS
+    // validation; any other BASE_URL keeps it on.
+    const loopbackTarget = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(config.baseUrl);
+    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: loopbackTarget, viewport: { width: 1440, height: 1100 } });
     const landingPage = await login(context, config, recorder);
     await landingPage.close();
     const managerPage = await openManager(context, config, recorder, 'rtl-manager');

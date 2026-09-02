@@ -195,6 +195,10 @@ class AddEForm2ActionPrintAliasTest extends CarlosUnitTestBase {
         assertThat(mockRequest.getAttribute("eFormPDF")).isEqualTo("JVBERi0=");
         assertThat((String) mockRequest.getAttribute("eFormPDFName")).endsWith("_SMITH.pdf");
         assertThat(mockRequest.getAttribute("fdid")).isEqualTo("42");
+        // "PDF" (skipSave=true) is a preview: the window stays open, so no auto-close flag. The
+        // "Submit & PDF" submission (skipSave=false) sets it; AddEForm2ActionTemplateWriteUnitTest
+        // covers that path because it needs the template-write scaffolding.
+        assertThat(mockRequest.getAttribute("isSuccess_Autoclose")).isNull();
         // The render works from the stored record, so the letter is persisted first (skipSave is
         // advisory only) — exactly once.
         verify(mockEformDataManager, times(1)).saveEformData(any(LoggedInInfo.class), any());

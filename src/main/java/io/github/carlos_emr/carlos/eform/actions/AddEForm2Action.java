@@ -402,6 +402,14 @@ public class AddEForm2Action extends ActionSupport {
                 request.setAttribute("eFormPDF", pdfBase64);
                 request.setAttribute("eFormPDFName", fileName);
                 request.setAttribute("isDownload", "true");
+                if (print && !printPreviewOnly) {
+                    // "Submit & PDF" is a submission: once the result page has started the download
+                    // and shown the saved alert, the floating toolbar closes the window exactly as it
+                    // does after a plain Submit. printControl.js used to do this with a blind 3 s
+                    // timer that could fire before the (server-rendered) PDF arrived. The "PDF"
+                    // preview and the toolbar's Download PDF keep the window open.
+                    request.setAttribute("isSuccess_Autoclose", "true");
+                }
 
                 request.setAttribute("fdid", fdid);
                 request.setAttribute("parentAjaxId", "eforms");
@@ -464,6 +472,14 @@ public class AddEForm2Action extends ActionSupport {
                 request.setAttribute("eFormPDF", pdfBase64);
                 request.setAttribute("eFormPDFName", fileName);
                 request.setAttribute("isDownload", "true");
+                if (print && !printPreviewOnly) {
+                    // "Submit & PDF" is a submission: once the result page has started the download
+                    // and shown the saved alert, the floating toolbar closes the window exactly as it
+                    // does after a plain Submit. printControl.js used to do this with a blind 3 s
+                    // timer that could fire before the (server-rendered) PDF arrived. The "PDF"
+                    // preview and the toolbar's Download PDF keep the window open.
+                    request.setAttribute("isSuccess_Autoclose", "true");
+                }
 
                 request.setAttribute("fdid", prev_fdid);
                 request.setAttribute("parentAjaxId", "eforms");

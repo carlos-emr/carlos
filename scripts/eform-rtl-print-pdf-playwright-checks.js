@@ -19,7 +19,8 @@
  *
  *   1. the form's own "PDF" / "Submit & PDF" buttons (printControl.js) produce a real PDF download
  *      (they used to be a plain Save: the print flag was never posted, and the server had no mapped
- *      result for it anyway);
+ *      result for it anyway); "PDF" leaves the window open, "Submit & PDF" auto-closes it after
+ *      the download like a plain Submit;
  *   2. the toolbar's Download produces a real PDF for the letter just typed;
  *   3. the toolbar's Print ("Save and then print") prints the EDITOR IFRAME and then saves a new
  *      letter (typing never set the dirty flag before, so nothing was saved);
@@ -224,6 +225,19 @@ async function savedFdid(page) {
     const dl2 = await clickAndDownloadPdf(page, page.locator('input[name="pdfButton"]'), 'form-pdf-button');
     const fdidAfterPdfButton = await savedFdid(page);
     step('form "PDF" button downloads a real PDF', dl2.bytes.length > 1024, `${dl2.name}, ${dl2.bytes.length} bytes, fdid ${fdidAfterPdfButton}`);
+    // "PDF" is a preview: the saved alert (5 s countdown) never shows and the window stays open.
+    // Wait past that countdown before asserting, or the check would pass vacuously.
+    await page.waitForTimeout(6500);
+    step('form "PDF" button leaves the window open (no auto-close)', !(await page.evaluate(() => window.__playwrightCloseIntercepted === true)), '');
+
+    // ---------- 3b. Saved letter page: the form's own "Submit & PDF" downloads, then auto-closes ----------
+    const dl3 = await clickAndDownloadPdf(page, page.locator('input[name="pdfSaveButton"]'), 'form-submit-pdf-button');
+    const fdidAfterSubmitPdf = await savedFdid(page);
+    step('form "Submit & PDF" button downloads a real PDF', dl3.bytes.length > 1024, `${dl3.name}, ${dl3.bytes.length} bytes, fdid ${fdidAfterSubmitPdf}`);
+    // A submission: the result page sets isSuccess_Autoclose, so the toolbar closes the window
+    // once the saved alert's countdown ends (window.close is intercepted by the init script above).
+    const autoClosed = await page.waitForFunction(() => window.__playwrightCloseIntercepted === true, null, { timeout: 15000 }).then(() => true).catch(() => false);
+    step('form "Submit & PDF" then auto-closes the window after the download', autoClosed, '');
     await page.close();
 
     // ---------- 4. New letter: toolbar Print prints the iframe, then saves ----------
@@ -236,7 +250,7 @@ async function savedFdid(page) {
     step('toolbar Print printed document contains the typed letter', printLog.length === 1 && printLog[0].body.includes('Playwright RTL check'), '');
     await assertNotErrorPage(page, 'rtl-toolbar-print');
     const fdidAfterPrint = await savedFdid(page);
-    step('toolbar Print then saves the letter (new fdid on the result page)', /^\d+$/.test(fdidAfterPrint) && fdidAfterPrint !== fdidAfterPdfButton, `fdid ${fdidAfterPrint}`);
+    step('toolbar Print then saves the letter (new fdid on the result page)', /^\d+$/.test(fdidAfterPrint) && fdidAfterPrint !== fdidAfterSubmitPdf, `fdid ${fdidAfterPrint}`);
     await page.close();
 
     // ---------- 5. New letter: the form's own "Submit & Print" ----------
