@@ -122,8 +122,9 @@ PDF button, toolbar Print, "Submit & Print" and (with `RTL_TEMPLATE_NAME`) a cli
 against a running CARLOS and verifies real PDF bytes come back.
 
 Attachments ride the same download: both paths save the letter first and then render the packet
-(`DocumentAttachmentManager.renderEFormPacketWithCompleteness`), which appends every eDoc, lab,
-HRM report, other eForm and PDF-ready encounter form attached to that `fdid`, in that order. The
+(`DocumentAttachmentManager.renderEFormPacketWithCompleteness`), which appends everything attached
+to that `fdid` after the letter: other eForms first, then eDocs, labs, HRM reports and PDF-ready
+encounter forms. The
 letter offers two ways to attach: the floating toolbar's Attach dialog (selections travel as
 hidden `docNo`/`labNo`/`hrmNo`/`eFormNo`/`formNo` inputs and are persisted on save) and the
 editor's own paperclip, which posts to `eform/attachDoc` against the saved `fdid` and is what the

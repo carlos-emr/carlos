@@ -1,4 +1,17 @@
 #!/usr/bin/env node
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
 /*
  * Rich Text Letter attachment families end to end: each family the letter's Attach popup offers
  * (documents, labs, HRM reports, other eForms, encounter forms) is attached to its own saved
@@ -195,12 +208,15 @@ async function downloadPdf(page, locator, label) {
   const response = await responsePromise;
   const download = await downloadPromise;
   await download.saveAs(file);
-  const bytes = fs.readFileSync(file);
-  assert(bytes.subarray(0, 5).toString('utf8') === '%PDF-', `${label}: payload was not a PDF`);
-  assert(bytes.toString('latin1').includes('%%EOF'), `${label}: PDF is truncated (missing %%EOF)`);
-  const facts = { file, status: response.status(), size: bytes.length, pages: countPdfPages(bytes), text: pdfText(file) };
-  fs.rmSync(file, { force: true });
-  return facts;
+  try {
+    const bytes = fs.readFileSync(file);
+    assert(bytes.subarray(0, 5).toString('utf8') === '%PDF-', `${label}: payload was not a PDF`);
+    assert(bytes.toString('latin1').includes('%%EOF'), `${label}: PDF is truncated (missing %%EOF)`);
+    return { status: response.status(), size: bytes.length, pages: countPdfPages(bytes), text: pdfText(file) };
+  } finally {
+    // The PDF is evidence for this run only; never leave it behind, assertions passed or not.
+    fs.rmSync(file, { force: true });
+  }
 }
 
 // Both download paths re-render the saved view; wait for it to settle before the next click.
@@ -230,110 +246,127 @@ async function createLetter(context, recorder, fid, marker, label) {
 
 async function checkFamily(context, recorder, fid, family, previousLetter) {
   const marker = `LETTERMARK-${family.key.toUpperCase()}-${Date.now()}`;
-  let fdid = await createLetter(context, recorder, fid, marker, `rtl-attach-${family.key}`);
+  // Every page this family opens; closed in the finally so a failure part-way does not leave
+  // orphaned pages behind for the next family.
+  const openPages = new Set();
+  const track = (page) => { openPages.add(page); return page; };
+  const closeTracked = async (page) => { openPages.delete(page); await page.close().catch(() => {}); };
+  try {
+    let fdid = await createLetter(context, recorder, fid, marker, `rtl-attach-${family.key}`);
 
-  // Baseline: the letter alone, before anything is attached.
-  const view = await openSavedView(context, recorder, fdid, `rtl-attach-${family.key}-view`);
-  const baseline = await downloadPdf(view, view.locator('#remoteDownloadButton'), `${family.key}-baseline`);
-  record(family.key, 'letter-only baseline PDF downloads', baseline.pages >= 1, `pages=${baseline.pages} size=${baseline.size}`);
-  await settleSavedView(view);
-  // Every download first saves the letter, and a save whose HTML changed is a NEW eForm instance:
-  // the re-rendered page carries the new fdid and the paperclip attaches to that one. Follow it.
-  fdid = await view.locator('#fdid').inputValue();
+    // Baseline: the letter alone, before anything is attached.
+    const view = track(await openSavedView(context, recorder, fdid, `rtl-attach-${family.key}-view`));
+    const baseline = await downloadPdf(view, view.locator('#remoteDownloadButton'), `${family.key}-baseline`);
+    record(family.key, 'letter-only baseline PDF downloads', baseline.pages >= 1, `pages=${baseline.pages} size=${baseline.size}`);
+    await settleSavedView(view);
+    // Every download first saves the letter, and a save whose HTML changed is a NEW eForm instance:
+    // the re-rendered page carries the new fdid and the paperclip attaches to that one. Follow it.
+    fdid = await view.locator('#fdid').inputValue();
 
-  // Attach one item of this family through the letter's own paperclip popup.
-  const popup = await openAttachPopup(view, context);
-  await waitForPopupReady(popup, recorder, `rtl-attach-${family.key}-popup`);
-  let candidate = popup.locator(`input[name="${family.inputName}"]`).first();
-  if (family.attachPreviousLetter && previousLetter) {
-    const previous = popup.locator(`input[name="${family.inputName}"][value="${previousLetter.fdid}"]`);
-    if (await previous.count()) {
-      candidate = previous;
+    // Attach one item of this family through the letter's own paperclip popup.
+    const popup = track(await openAttachPopup(view, context));
+    await waitForPopupReady(popup, recorder, `rtl-attach-${family.key}-popup`);
+    let candidate = popup.locator(`input[name="${family.inputName}"]`).first();
+    if (family.attachPreviousLetter && previousLetter) {
+      const previous = popup.locator(`input[name="${family.inputName}"][value="${previousLetter.fdid}"]`);
+      if (await previous.count()) {
+        candidate = previous;
+      }
     }
+    if ((await candidate.count()) === 0) {
+      skip(family.key, `popup offers no ${family.label} for demographic ${config.demographicNo}`);
+      return { fdid, marker };
+    }
+    const value = await candidate.getAttribute('value');
+    // The popup's label for the item (a document title, a lab test name, ...). On a real patient
+    // that is clinical data: it is used for the PDF text assertion below but never logged.
+    const popupLabel = (await candidate.evaluate((input) => {
+      const ids = (input.getAttribute('aria-labelledby') || '').split(/\s+/).filter(Boolean);
+      const text = ids.map((id) => (document.getElementById(id) || {}).textContent || '').join(' ');
+      return (text || (input.parentElement ? input.parentElement.textContent : '')).replace(/\s+/g, ' ').trim();
+    })).slice(0, 80);
+    await candidate.check();
+    await Promise.all([
+      popup.waitForLoadState('domcontentloaded').catch(() => {}),
+      popup.locator('input[type="submit"][value="Attach Selected"]').click(),
+    ]);
+    await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    const popupText = (await popup.locator('body').innerText().catch(() => '')).trim();
+    record(family.key, 'paperclip attach submit returns ok', popupText === 'ok',
+      `${family.inputName}=${value} (label ${popupLabel.length} chars) -> ${popupText === 'ok' ? 'ok' : `${popupText.length} chars`}`);
+    await closeTracked(popup);
+    await closeTracked(view);
+
+    // The attachment must SHOW on a fresh load of the saved letter.
+    const saved = track(await openSavedView(context, recorder, fdid, `rtl-attach-${family.key}-saved`));
+    await saved.waitForFunction(() => {
+      const t = document.getElementById('tdAttachedDocs');
+      return t && t.innerText.trim().length > 0;
+    }, null, { timeout: 30000 }).catch(() => {});
+    const panelText = (await saved.locator('#tdAttachedDocs').innerText().catch(() => '')).trim();
+    // Plain string matching (no RegExp built from page values): "Doc #3" must not match "Doc #31".
+    // The panel prints "<Type> #<id>" lines only, so counting those lines is a safe detail to log.
+    const panelEntries = (text) => (text || '').split(/\r?\n/).map((line) => line.trim()).filter((line) => /^[A-Za-z]+ #\d+$/.test(line));
+    const panelEntry = { test: (text) => panelEntries(text).includes(`${family.panelPrefix} #${value}`) };
+    record(family.key, 'Attached Files panel lists it', panelEntry.test(panelText), `entries=${panelEntries(panelText).length}`);
+    const hidden = await saved.locator(`input[name="${family.inputName}"]`).evaluateAll((els) => els.map((e) => e.value));
+    record(family.key, 'saved view re-submits it as a hidden input', hidden.includes(value), `${family.inputName}=${JSON.stringify(hidden)}`);
+    const badge = (await saved.locator('#remoteTotalAttachments').innerText().catch(() => '')).trim();
+    record(family.key, 'toolbar Attach badge counts it', Number(badge) >= 1, `badge=${badge}`);
+    await screenshot(saved, config.screenshotDir, `rtl-attachment-pdf-${family.key}-saved`);
+
+    // The attachment must APPEAR in the PDF from both download paths.
+    const toolbar = await downloadPdf(saved, saved.locator('#remoteDownloadButton'), `${family.key}-toolbar`);
+    record(family.key, 'toolbar Download PDF gains the attachment pages',
+      toolbar.status === 200 && toolbar.pages > baseline.pages,
+      `pages=${toolbar.pages} (baseline ${baseline.pages}) size=${toolbar.size}`);
+    await settleSavedView(saved);
+    const printAlias = await downloadPdf(saved, saved.locator('input[name="pdfButton"]'), `${family.key}-print-alias`);
+    record(family.key, 'form PDF button (print=true alias) PDF matches the toolbar PDF',
+      printAlias.status === 200 && printAlias.pages === toolbar.pages,
+      `pages=${printAlias.pages} size=${printAlias.size}`);
+
+    if (toolbar.text != null) {
+      // [needle, description, loggable]: the synthetic markers this run typed are safe to print;
+      // anything read from the patient's record is described by length only.
+      const expected = [[marker, 'letter marker', true]];
+      if (family.textMarker) {
+        expected.push([family.textMarker, `${family.label} marker`, true]);
+      }
+      if (family.textFromPopupLabel && popupLabel) {
+        // The lab's test name as the popup showed it (e.g. "URINALYSIS"), without the date.
+        expected.push([popupLabel.replace(/\s+\d{4}-\d{2}-\d{2}.*$/, '').trim(), `${family.label} name`, false]);
+      }
+      if (family.attachPreviousLetter && previousLetter && value === String(previousLetter.fdid)) {
+        expected.push([previousLetter.marker, 'attached letter marker', true]);
+      }
+      for (const [needle, what, loggable] of expected) {
+        record(family.key, `PDF text contains the ${what}`,
+          toolbar.text.includes(needle) && printAlias.text != null && printAlias.text.includes(needle),
+          loggable ? needle : `${needle.length} chars`);
+      }
+      // The packet is letter first, attachments after: every family-specific text must come after
+      // the letter's own marker.
+      for (const [needle, what] of expected.slice(1)) {
+        record(family.key, `letter page precedes the ${what}`,
+          toolbar.text.indexOf(marker) >= 0 && toolbar.text.indexOf(marker) < toolbar.text.indexOf(needle));
+      }
+    }
+
+    // The two re-saves the downloads performed must not have detached it.
+    await settleSavedView(saved);
+    const fetched = await invokeFetchAttached(saved);
+    record(family.key, 'still attached after both downloads', panelEntry.test(fetched.text || ''), `entries=${panelEntries(fetched.text).length}`);
+    // The downloads saved newer instances; hand the current one to the eForm family so it attaches
+    // a letter the popup still lists.
+    const currentFdid = await saved.locator('#fdid').inputValue().catch(() => fdid);
+    return { fdid: currentFdid, marker };
+  } finally {
+    for (const page of openPages) {
+      await page.close().catch(() => {});
+    }
+    openPages.clear();
   }
-  if ((await candidate.count()) === 0) {
-    await popup.close();
-    await view.close();
-    skip(family.key, `popup offers no ${family.label} for demographic ${config.demographicNo}`);
-    return { fdid, marker };
-  }
-  const value = await candidate.getAttribute('value');
-  const popupLabel = (await candidate.evaluate((input) => {
-    const ids = (input.getAttribute('aria-labelledby') || '').split(/\s+/).filter(Boolean);
-    const text = ids.map((id) => (document.getElementById(id) || {}).textContent || '').join(' ');
-    return (text || (input.parentElement ? input.parentElement.textContent : '')).replace(/\s+/g, ' ').trim();
-  })).slice(0, 80);
-  await candidate.check();
-  await Promise.all([
-    popup.waitForLoadState('domcontentloaded').catch(() => {}),
-    popup.locator('input[type="submit"][value="Attach Selected"]').click(),
-  ]);
-  await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  const popupText = (await popup.locator('body').innerText().catch(() => '')).trim();
-  record(family.key, 'paperclip attach submit returns ok', popupText === 'ok', `${family.inputName}=${value} (${popupLabel}) -> ${popupText.slice(0, 60)}`);
-  await popup.close();
-  await view.close();
-
-  // The attachment must SHOW on a fresh load of the saved letter.
-  const saved = await openSavedView(context, recorder, fdid, `rtl-attach-${family.key}-saved`);
-  await saved.waitForFunction(() => {
-    const t = document.getElementById('tdAttachedDocs');
-    return t && t.innerText.trim().length > 0;
-  }, null, { timeout: 30000 }).catch(() => {});
-  const panelText = (await saved.locator('#tdAttachedDocs').innerText().catch(() => '')).trim();
-  // Plain string matching (no RegExp built from page values): "Doc #3" must not match "Doc #31".
-  const panelEntry = { test: (text) => (text || '').split(/\r?\n/).some((line) => line.trim() === `${family.panelPrefix} #${value}`) };
-  record(family.key, 'Attached Files panel lists it', panelEntry.test(panelText), JSON.stringify(panelText.slice(0, 80)));
-  const hidden = await saved.locator(`input[name="${family.inputName}"]`).evaluateAll((els) => els.map((e) => e.value));
-  record(family.key, 'saved view re-submits it as a hidden input', hidden.includes(value), JSON.stringify(hidden));
-  const badge = (await saved.locator('#remoteTotalAttachments').innerText().catch(() => '')).trim();
-  record(family.key, 'toolbar Attach badge counts it', Number(badge) >= 1, `badge=${badge}`);
-  await screenshot(saved, config.screenshotDir, `rtl-attachment-pdf-${family.key}-saved`);
-
-  // The attachment must APPEAR in the PDF from both download paths.
-  const toolbar = await downloadPdf(saved, saved.locator('#remoteDownloadButton'), `${family.key}-toolbar`);
-  record(family.key, 'toolbar Download PDF gains the attachment pages',
-    toolbar.status === 200 && toolbar.pages > baseline.pages,
-    `pages=${toolbar.pages} (baseline ${baseline.pages}) size=${toolbar.size}`);
-  await settleSavedView(saved);
-  const printAlias = await downloadPdf(saved, saved.locator('input[name="pdfButton"]'), `${family.key}-print-alias`);
-  record(family.key, 'form PDF button (print=true alias) PDF matches the toolbar PDF',
-    printAlias.status === 200 && printAlias.pages === toolbar.pages,
-    `pages=${printAlias.pages} size=${printAlias.size}`);
-
-  if (toolbar.text != null) {
-    const expected = [[marker, 'letter marker']];
-    if (family.textMarker) {
-      expected.push([family.textMarker, `${family.label} marker`]);
-    }
-    if (family.textFromPopupLabel && popupLabel) {
-      // The lab's test name as the popup showed it (e.g. "URINALYSIS"), without the date.
-      expected.push([popupLabel.replace(/\s+\d{4}-\d{2}-\d{2}.*$/, '').trim(), `${family.label} name`]);
-    }
-    if (family.attachPreviousLetter && previousLetter && value === String(previousLetter.fdid)) {
-      expected.push([previousLetter.marker, 'attached letter marker']);
-    }
-    for (const [needle, what] of expected) {
-      record(family.key, `PDF text contains the ${what}`,
-        toolbar.text.includes(needle) && printAlias.text != null && printAlias.text.includes(needle), needle);
-    }
-    // The packet is letter first, attachments after: every family-specific text must come after
-    // the letter's own marker.
-    for (const [needle, what] of expected.slice(1)) {
-      record(family.key, `letter page precedes the ${what}`,
-        toolbar.text.indexOf(marker) >= 0 && toolbar.text.indexOf(marker) < toolbar.text.indexOf(needle));
-    }
-  }
-
-  // The two re-saves the downloads performed must not have detached it.
-  await settleSavedView(saved);
-  const fetched = await invokeFetchAttached(saved);
-  record(family.key, 'still attached after both downloads', panelEntry.test(fetched.text || ''), JSON.stringify((fetched.text || '').trim().slice(0, 40)));
-  // The downloads saved newer instances; hand the current one to the eForm family so it attaches
-  // a letter the popup still lists.
-  const currentFdid = await saved.locator('#fdid').inputValue().catch(() => fdid);
-  await saved.close();
-  return { fdid: currentFdid, marker };
 }
 
 /* ---------- main ---------- */

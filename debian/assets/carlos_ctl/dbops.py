@@ -897,6 +897,10 @@ def cmd_demo_data(argv) -> int:
         "the demo-data marker")
     if marker:
         log("the demonstration dataset is already loaded; leaving it alone")
+        # The document files are seeded separately from the SQL and skip what is
+        # already there, so a load whose file copy failed (or a store re-provisioned
+        # since) is repaired by simply re-running demo-data.
+        _demo_seed_document_files()
         return 0
 
     # Guard B: the schema must be FULLY migrated. Table existence is not
@@ -1050,13 +1054,23 @@ def _demo_seed_document_files() -> None:
         target = os.path.join(dest, name)
         if os.path.exists(target):
             continue
+        # Copy to a temporary name beside the target and rename it into place
+        # once it is complete and owned: a copy that dies half-way must never
+        # leave a truncated file under the real name, which the exists() check
+        # above (and the app) would then treat as the whole document.
+        partial = os.path.join(dest, f".{name}.carlos-demo-partial")
         try:
-            shutil.copyfile(os.path.join(src, name), target)
-            os.chown(target, uid, gid)
-            os.chmod(target, 0o640)
+            shutil.copyfile(os.path.join(src, name), partial)
+            os.chown(partial, uid, gid)
+            os.chmod(partial, 0o640)
+            os.replace(partial, target)
             copied += 1
         except OSError as e:
             warn(f"could not seed demo document {name}: {e}")
+            try:
+                os.unlink(partial)
+            except OSError:
+                pass
     log(f"demo document files seeded into {dest} ({copied} copied)")
 
 
