@@ -64,7 +64,15 @@ def _unescape_property(text: str) -> str:
             continue
         out.append(c)
         i += 1
-    return "".join(out)
+    return _join_surrogates("".join(out))
+
+
+def _join_surrogates(text: str) -> str:
+    """Two adjacent \\uXXXX escapes forming a UTF-16 pair decode to one
+    character (the same rule java.util.Properties applies)."""
+    if not any(0xD800 <= ord(c) <= 0xDFFF for c in text):
+        return text
+    return text.encode("utf-16", "surrogatepass").decode("utf-16")
 
 
 def parse_properties_text(text: str) -> List[Tuple[str, str]]:
@@ -123,9 +131,39 @@ def parse_properties_text(text: str) -> List[Tuple[str, str]]:
 
 def _escape_non_latin1(text: str) -> str:
     """Characters outside Latin-1 as \\uXXXX, exactly as Properties.store
-    writes them — the fragment is a Latin-1 file."""
-    return "".join(c if ord(c) <= 0xFF else "\\u{0:04x}".format(ord(c))
-                   for c in text)
+    writes them — the fragment is a Latin-1 file. Code points above the
+    BMP become a UTF-16 surrogate pair (two 4-digit escapes), which the
+    Java reader and parse_properties_text both reassemble."""
+    out = []
+    for c in text:
+        cp = ord(c)
+        if cp <= 0xFF:
+            out.append(c)
+        elif cp <= 0xFFFF:
+            out.append("\\u{0:04x}".format(cp))
+        else:
+            cp -= 0x10000
+            out.append("\\u{0:04x}\\u{1:04x}".format(
+                0xD800 + (cp >> 10), 0xDC00 + (cp & 0x3FF)))
+    return "".join(out)
+
+
+_URL_FORBIDDEN = set("'\"<>\\`") | set(chr(i) for i in range(0x21))
+
+
+def safe_url(value: str) -> bool:
+    """A plain absolute http(s) URL and nothing else. CARLOS interpolates
+    some carried URLs into JavaScript string literals (the provider menu's
+    resource link), so a value carrying quotes, angle brackets, whitespace
+    or control characters is refused at import rather than carried."""
+    from urllib.parse import urlsplit
+    if not value or any(c in _URL_FORBIDDEN for c in value):
+        return False
+    try:
+        parts = urlsplit(value)
+    except ValueError:
+        return False
+    return parts.scheme in ("http", "https") and bool(parts.netloc)
 
 
 def escape_property_value(value: str) -> str:
@@ -218,6 +256,11 @@ def translate_all(clinic: List[Tuple[str, str]],
         spec = disposition(key)
         d = spec["d"]
         if d == "carry":
+            if spec.get("validate") == "url" and not safe_url(value):
+                rows.append((key, "refused-invalid",
+                             "not a plain http(s) URL — not carried "
+                             "(CARLOS renders this value into script)"))
+                continue
             fragment.append((key, value))
             rows.append((key, "carry", ""))
         elif d == "carry-secret":
@@ -306,7 +349,7 @@ def render_report(result: dict) -> str:
         by_d.setdefault(d, []).append(
             "{0}{1}".format(key, ("  [" + display + "]") if display else ""))
     for d in ("carry", "carry-secret", "translate", "deploy-owned",
-              "dropped-flag", "needs-review", "unknown"):
+              "dropped-flag", "refused-invalid", "needs-review", "unknown"):
         if d not in by_d:
             continue
         lines.append("{0} ({1}):".format(d, len(by_d[d])))

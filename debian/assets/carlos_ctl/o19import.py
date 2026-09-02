@@ -408,6 +408,39 @@ def dump_redirect_marker(data: bytes) -> Optional[str]:
 
 _CLIENT_IDENTITY_PREFIXES = ("--user", "-u", "--password", "-p",
                              "--defaults-extra-file", "--defaults-file")
+# options that take their value as the NEXT argv element (`--user root`);
+# a bare -p / --password prompts instead, so only a following non-option
+# token (which the client would read as a database name) is dropped
+_VALUE_IN_NEXT_ARG = ("--user", "-u", "--defaults-extra-file",
+                      "--defaults-file")
+
+
+def strip_client_identity(args: List[str]) -> List[str]:
+    """Remove every identity-bearing option from a client argv tail —
+    attached (`--user=x`, `-px`), paired (`--user x`) and bare prompting
+    forms — so a dev seam's credentials never reach the restore client's
+    argv (where a stray value becomes a positional database name)."""
+    out: List[str] = []
+    skip_value = False
+    drop_bare_value = False
+    for a in args:
+        if skip_value:
+            skip_value = False
+            continue
+        if drop_bare_value:
+            drop_bare_value = False
+            if not a.startswith("-"):
+                continue
+        if a in _VALUE_IN_NEXT_ARG:
+            skip_value = True
+            continue
+        if a in ("-p", "--password"):
+            drop_bare_value = True
+            continue
+        if a.startswith(_CLIENT_IDENTITY_PREFIXES):
+            continue
+        out.append(a)
+    return out
 
 
 def staging_client_argv(base_argv: List[str], client_cnf: str) -> List[str]:
@@ -415,8 +448,7 @@ def staging_client_argv(base_argv: List[str], client_cnf: str) -> List[str]:
     (socket/host/port), identity replaced by the throwaway staging account
     read from a 0600 defaults file (never argv), and --one-database so a
     statement addressed at another schema is skipped rather than run."""
-    tail = [a for a in list(base_argv)[1:]
-            if not a.startswith(_CLIENT_IDENTITY_PREFIXES)]
+    tail = strip_client_identity(list(base_argv)[1:])
     return (["mariadb", "--defaults-extra-file=" + client_cnf] + tail
             + ["--one-database",
                "--init-command=SET SESSION sql_log_bin=0, "
@@ -449,15 +481,20 @@ def grant_staging_account(query, client_cnf: str) -> None:
     password = genpw()
     for sql in staging_account_statements(password):
         query(sql)
-    # SET SESSION sql_log_bin needs BINLOG ADMIN (MariaDB 10.5+); older
-    # servers only know SUPER, which still grants no data access elsewhere
+    # SET SESSION sql_log_bin needs the scoped BINLOG ADMIN privilege
+    # (MariaDB 10.5+). There is deliberately no SUPER fallback: SUPER would
+    # widen the throwaway account far beyond the staging schema, so an
+    # older server is refused instead
     for host in STAGING_ACCOUNT_HOSTS:
         try:
             query("GRANT BINLOG ADMIN ON *.* TO '{0}'@'{1}'".format(
                 STAGING_USER, host))
-        except RuntimeError:
-            query("GRANT SUPER ON *.* TO '{0}'@'{1}'".format(
-                STAGING_USER, host))
+        except RuntimeError as exc:
+            revoke_staging_account(query, client_cnf)
+            die("cannot grant BINLOG ADMIN to the staging account ({0}); "
+                "the import needs MariaDB 10.5 or newer so the restore can "
+                "run under a schema-scoped account".format(
+                    str(exc).strip()[:200]))
     fd = os.open(client_cnf, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         fh.write("[client]\nuser={0}\npassword={1}\n".format(
@@ -472,6 +509,53 @@ def revoke_staging_account(query, client_cnf: str) -> None:
     finally:
         if os.path.exists(client_cnf):
             os.unlink(client_cnf)
+
+
+def _stream_dump(opener: List[str], restore_argv: List[str]):
+    """Pipe the dump through the restore client, scanning every chunk for
+    redirecting statements. Returns (source_rc, client_rc, tail_bytes,
+    redirect_message_or_None)."""
+    src = subprocess.Popen(opener, stdout=subprocess.PIPE)  # nosec B603
+    sink = subprocess.Popen(restore_argv,                    # nosec B603
+                            stdin=subprocess.PIPE)
+    tail = b""
+    carry = b"\n"
+    broken = False
+    redirect = None
+    try:
+        while True:
+            chunk = src.stdout.read(1 << 20)
+            if not chunk:
+                break
+            # the whole stream is scanned, not only its head: a USE /
+            # CREATE DATABASE anywhere would steer the rest of the dump
+            # (the account's grants and --one-database are the backstops)
+            redirect = dump_redirect_marker(carry + chunk)
+            if redirect:
+                broken = True
+                break
+            carry = chunk[-32:]
+            try:
+                sink.stdin.write(chunk)
+            except BrokenPipeError:
+                # the client died on a bad statement: stop feeding it, let
+                # both children be reaped and report through rc below
+                broken = True
+                break
+            tail = (tail + chunk)[-8192:]
+    finally:
+        src.stdout.close()
+        try:
+            sink.stdin.close()
+        except BrokenPipeError:
+            broken = True
+    if broken and src.poll() is None:
+        src.terminate()
+    src.wait()
+    rc = sink.wait()
+    if broken and rc == 0:
+        rc = 1
+    return src.returncode, rc, tail, redirect
 
 
 def run_p1(ctx) -> None:
@@ -525,51 +609,16 @@ def run_p1(ctx) -> None:
     restore_argv = staging_client_argv(ctx["query"].base_argv, client_cnf)
     grant_staging_account(query, client_cnf)
 
-    src = subprocess.Popen(opener, stdout=subprocess.PIPE)  # nosec B603
-    sink = subprocess.Popen(restore_argv,                    # nosec B603
-                            stdin=subprocess.PIPE)
-    tail = b""
-    carry = b"\n"
-    broken = False
-    redirect = None
     try:
-        while True:
-            chunk = src.stdout.read(1 << 20)
-            if not chunk:
-                break
-            # the whole stream is scanned, not only its head: a USE /
-            # CREATE DATABASE anywhere would steer the rest of the dump
-            # (the account's grants and --one-database are the backstops)
-            redirect = dump_redirect_marker(carry + chunk)
-            if redirect:
-                broken = True
-                break
-            carry = chunk[-32:]
-            try:
-                sink.stdin.write(chunk)
-            except BrokenPipeError:
-                # the client died on a bad statement: stop feeding it, let
-                # both children be reaped and report through rc below
-                broken = True
-                break
-            tail = (tail + chunk)[-8192:]
+        src_rc, rc, tail, redirect = _stream_dump(opener, restore_argv)
     finally:
-        src.stdout.close()
-        try:
-            sink.stdin.close()
-        except BrokenPipeError:
-            broken = True
-    if broken and src.poll() is None:
-        src.terminate()
-    src.wait()
-    rc = sink.wait()
-    revoke_staging_account(query, client_cnf)
-    if broken and rc == 0:
-        rc = 1
+        # the account and its credential file never outlive the restore,
+        # whatever the failure mode
+        revoke_staging_account(query, client_cnf)
     if redirect:
         query("DROP DATABASE IF EXISTS `{0}`".format(STAGING_SCHEMA))
         die(redirect)
-    if src.returncode != 0:
+    if src_rc != 0:
         query("DROP DATABASE IF EXISTS `{0}`".format(STAGING_SCHEMA))
         die("reading the dump failed (corrupt archive?)")
     if rc != 0:
@@ -829,8 +878,11 @@ def run_p7(ctx) -> None:
                           "{3}".format(src, table, col, demo))[0][0]
                 d = query("SELECT COUNT(*) FROM `{0}`.`{1}` WHERE `{2}` = "
                           "{3}".format(dst, table, col, demo))[0][0]
-            except RuntimeError:
-                continue  # table absent at this patch level
+            except RuntimeError as exc:
+                if o19etl._absent_object_error(exc):
+                    continue  # table absent at this patch level
+                die("verification query failed: {0}".format(
+                    str(exc).strip()[:300]))
             checked += 1
             if s != d:
                 details.append(

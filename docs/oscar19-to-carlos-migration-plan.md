@@ -391,9 +391,12 @@ have no CARLOS counterpart at all.
    `db_uri`/`db_username`/`db_password`/`db_driver` and all pool keys,
    `hibernate.*`, `tomcat_path`, `project_home`, `oscar_port`,
    `TOMCAT_KEYSTORE_*`/`TOMCAT_TRUSTSTORE_*`, `BASE_DOCUMENT_DIR`/`DOCUMENT_DIR`
-   (set by the CARLOS deployment), `backup_path`, `buildtag`/`version*`,
-   `login_local_ip`. These belong to carlos-podman provisioning, and copying an
-   O19 value would break or weaken the new install.
+   (set by the CARLOS deployment), `backup_path`, `buildtag`/`version*`.
+   These belong to carlos-podman provisioning, and copying an O19 value would
+   break or weaken the new install. (`login_local_ip` — the local-network
+   ranges exempt from the failed-login lockout — and `resource_base_url` are
+   clinic policy CARLOS still reads and are carried; the URL is validated as
+   a plain http(s) URL because the provider JSPs render it into script.)
 6. **`dropped-flag`** — O19 keys for modules CARLOS removed are *not* carried but
    are itemized in the report so nobody assumes the feature still works:
    BORN (`born*`), Integrator (`INTEGRATOR_*`), MyOSCAR/PHR (`MY_OSCAR`,
@@ -688,8 +691,15 @@ was fixed and pinned by tests. What changed in behaviour:
 - **Charset repair is per row and byte-aligned** (round-trips to latin1
   unchanged, the latin1 bytes form valid UTF-8, non-ASCII present) instead
   of a hex-substring match that flagged `1,800`; the B8 marker uses the
-  same predicate. Verified on MariaDB 10.11 against legitimate `Élise
-  Côté`, double-encoded text and CJK.
+  same predicate. The rehearsal then showed the first version was
+  silently inert: the SQL regex literals reached the server with a single
+  backslash (the string parser eats it, so `[^\x00-\x7F]` became
+  `[^x00-x7F]`) and the BINARY round-trip compared a latin1 staging value
+  against its utf8mb4 re-encoding, so every mojibake row read as clean.
+  Both are fixed (doubled backslashes; the value is normalised to utf8mb4
+  first) and proven on MariaDB 10.11 against latin1 and utf8mb4 tables:
+  `Ã‰lise CÃ´tÃ©` repairs to `Élise Côté`; legitimate accents, ASCII,
+  `1,800` and CJK pass through untouched.
 - **Documents:** the deb's nested skeleton (`incomingdocs/1/Fax`, …) is
   merged recursively rather than refused; `HRMDocument.reportFile` is
   rewritten to the basename inside `DOCUMENT_DIR` (the only path
@@ -724,76 +734,24 @@ was fixed and pinned by tests. What changed in behaviour:
   password-bearing client arguments are refused without echoing them;
   malformed `\uXXXX` escapes are errors; keys and non-Latin-1 values are
   escaped in the fragment; `eform_image` is carried as `EFORM_IMAGES_DIR`;
-  `login_local_ip`/`resource_base_url` carry, `faxLogo`/
+  `login_local_ip` carries and `resource_base_url` carries only as a plain
+  http(s) URL (CARLOS's provider JSPs place it in a JavaScript string
+  unencoded — a sink for a separate encoding fix), `faxLogo`/
   `oscarMeasurement_css` are dropped (no reader left). Suite: 242 tests
   passing; the bundle rehearsal was rerun on a freshly provisioned target.
-
-**Multi-agent review round (PR #3583) — slices and crosscuts, re-rehearsed
-(done):** nine review agents (bundle, docs, ETL, import pipeline,
-props+preflight, generator+fixtures; security, fail-closed lifecycle,
-docs/tests consistency) produced findings that were verified one by one; the
-valid ones were fixed, pinned by tests (suite: 242), and the encrypted-bundle
-rehearsal was rerun on a re-provisioned Flyway target through `--cleanup`.
-Behaviour changes:
-
-- **Staged restore cannot reach the live schema:** the dump is restored by a
-  throwaway account (`o19_import@localhost`/`@%`) whose grants stop at the
-  staging schema, with the client's `--one-database` switch; a dump carrying
-  `USE`/`CREATE DATABASE` (a `--databases` dump) or `GTID_PURGED` is refused
-  before a byte reaches the server; tar extraction ends option parsing with
-  `--` and refuses dash-prefixed member names (a crafted member could
-  otherwise inject `--checkpoint-action`); the pre-import backup now runs
-  BEFORE staging.
-- **Charset repair was silently inert (rehearsal finding):** the byte-aligned
-  double-encoding predicate replaced the hex-substring test, but the SQL
-  regex literals reached the server with a single backslash (the string
-  parser eats it: `[^\x00-\x7F]` became `[^x00-x7F]`), and the BINARY
-  round-trip compared a latin1 staging value against its utf8mb4 re-encoding
-  — every mojibake row read as clean, and the preflight advisory counted the
-  wrong characters. Both are fixed (doubled backslashes; the value is
-  normalised to utf8mb4 first) and proven on MariaDB 10.11 against latin1 and
-  utf8mb4 tables: `Ã‰lise CÃ´tÃ©` repairs to `Élise Côté`, legitimate accents,
-  ASCII, `1,800` and CJK pass through untouched.
-- **Gates and state:** `o19-preflight` runs the capacity checks, the staged
-  restore and the report with the exit code as its verdict, recording no
-  sign-off; a dry run's `--accept` flags are no longer persisted; a rerun
-  needs `--resume` only when state beyond a staged dump exists; `--restage`
-  is shared and clears the recorded verdict; `--cleanup` is allowed after
-  verification or before the copy started (never on a mid-import workspace,
-  `--dry-run` grants nothing) and retires `state.json` so a finished run can
-  neither be resumed nor mistaken for a fresh one; the P0 resume-skip
-  requires a recorded pristine verdict; `--dev-target`/`--mariadb-arg` are
-  refused on a packaged host and `--dev-target` needs the connection seam;
-  the disk check uses the documents archive's expanded size; the ETL ledger
-  is bound to the manifest version as well as the dump digest and refuses a
-  mismatch instead of resetting.
-- **Data fidelity:** surrogate-id maps pair natural-key twins by
-  `ROW_NUMBER()` instead of `MIN()` (which folded two rows onto one id);
-  merge anti-joins sanitise their key expressions; a nullable child key
-  whose parent id is unmapped becomes NULL (NOT NULL keys keep the raw id)
-  and the count is reported; the shadow capture prunes dropped columns a
-  lower patch level never had; `encounterForm` merges on `form_value` and
-  `app_lookuptable` on `tableid` (their primary keys); the generator refuses
-  a merge key that is not the PK of a table without a surrogate id, a stale
-  B3 flag or VALUE_EXPR, and a `CREDENTIAL_TABLES` entry that is not
-  copy-class; OSCAR 19's OAuth/session token tables (`SecurityToken`,
-  `ServiceAccessToken`, `ServiceRequestToken`) are archived rather than
-  restored live, and the copied credential tables are named in the report
-  under a rotate/verify advisory; per-patient spot-check lines go to a
-  root-only `verify-details.txt` instead of the shareable report.
-- **Documents and properties:** the deb's nested documents skeleton
-  (`incomingdocs/1/Fax`, …) is merged recursively (a file collision or a
-  symlink is fatal); HRM reports are relocated into `document/` and
-  `HRMDocument.reportFile` rewritten to the basename there, matching what
-  CARLOS's HRM reader trusts; eForm image references are found in their
-  URL-encoded spellings too; ownership and the HRM rewrite run on every
-  pass; property keys are escaped and non-Latin-1 values emitted as
-  `\uXXXX`; a malformed `\u` escape is an error; `eform_image` translates
-  to the `EFORM_IMAGES_DIR` key CARLOS reads, `login_local_ip` and
-  `resource_base_url` carry, `faxLogo`/`oscarMeasurement_css` (no reader
-  left) are itemised; the standalone preflight refuses password arguments
-  without echoing them, reports tool errors as exit 3, and folds table-name
-  case.
+- **Round 3 (cubic on the head above):** no `SUPER` fallback for the staging
+  account (MariaDB < 10.5 is refused); the account and its credential file
+  are revoked in a `finally`; paired identity options (`--user root`) are
+  stripped from the restore argv; a non-absent-object error in the spot
+  checks fails verification; a ledger with marks but no manifest version is
+  refused; FK remaps are dropped for columns the dump lacks; surplus
+  natural-key twins map to the target's first row; the preflight prefers
+  exact-case table names, reports case-colliding twins as a blocker and keys
+  column metadata by the manifest spelling; bad CLI arguments exit 3;
+  non-BMP characters escape as surrogate pairs; the documents merge
+  pre-checks every collision before moving anything, HRM relocation runs on
+  every pass, and `HRMDocument.reportFile` containment is checked on the
+  full path.
 
 **All seven milestones complete.** Next steps beyond this round: run the
 Playwright UI suite against a migrated database under a full app deploy,

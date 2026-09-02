@@ -84,6 +84,20 @@ class TestDispositions(unittest.TestCase):
             self.assertEqual(self.by_key.get(key), "carry", key)
             self.assertIn(key, self.fragment)
 
+    def test_resource_url_must_be_a_plain_http_url(self):
+        # the provider JSPs place this value inside a JavaScript string:
+        # anything but a plain http(s) URL is refused at import
+        for bad in ("javascript:alert(1)", "https://x.example/'+alert(1)+'",
+                    "https://x.example/<script>", "ftp://x.example/",
+                    "https://x.example/a b", "not a url"):
+            self.assertFalse(o19props.safe_url(bad), bad)
+        self.assertTrue(o19props.safe_url("https://intranet.example/res/"))
+        result = o19props.translate_all(
+            [("resource_base_url", "https://x.example/'+alert(1)+'")])
+        self.assertEqual(dict((k, v) for k, v in result["fragment"]), {})
+        self.assertEqual(result["rows"][0][1], "refused-invalid")
+        self.assertIn("refused-invalid", o19props.render_report(result))
+
     def test_readerless_paths_are_dropped_not_translated(self):
         for key in ("faxLogo", "oscarMeasurement_css"):
             self.assertEqual(self.by_key.get(key), "dropped-flag", key)
@@ -141,6 +155,9 @@ class TestRendering(unittest.TestCase):
         text = o19props.render_fragment(result)
         self.assertIn("odd\\ key\\=1=", text)
         self.assertIn("caf\u00e9 \\u2014 \\u4e2d", text)
+        # a non-BMP character is two 4-digit escapes (a surrogate pair)
+        emoji = o19props.escape_property_value("\U0001f600")
+        self.assertEqual(emoji, "\\ud83d\\ude00")
         # and the escaped line decodes back to the original pair
         parsed = dict(o19props.parse_properties_text(text))
         self.assertEqual(parsed["odd key=1"], "caf\u00e9 \u2014 \u4e2d")
@@ -211,7 +228,7 @@ class TestJavaPropertiesParser(unittest.TestCase):
 
     def test_fragment_round_trips_special_values(self):
         for value in ("a\\b", "tab\there", " lead", "trail ", "x=y:z",
-                      "multi\nline"):
+                      "multi\nline", "caf\u00e9 \u2014 \U0001f600"):
             text = "k=" + o19props.escape_property_value(value) + "\n"
             self.assertEqual(self.parse(text), {"k": value}, repr(value))
 

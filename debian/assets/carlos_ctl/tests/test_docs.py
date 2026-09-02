@@ -73,12 +73,18 @@ class TestHrmRewrite(unittest.TestCase):
             fh.write("<report/>")
         open(os.path.join(doc_dir, "empty.xml"), "w").close()
         rows = [("1", doc_dir + "/r1.xml"), ("2", doc_dir + "/gone.xml"),
-                ("3", doc_dir + "/empty.xml"), ("4", "../escape.xml")]
+                ("3", doc_dir + "/empty.xml"), ("4", "../escape.xml"),
+                ("5", "/etc/passwd")]
         problems = o19docs.classify_hrm_files(rows, doc_dir)
-        self.assertEqual(len(problems), 3)
+        self.assertEqual(len(problems), 4)
         self.assertTrue(any("HRMDocument 2" in p for p in problems))
         self.assertTrue(any("HRMDocument 3" in p for p in problems))
-        self.assertTrue(any("HRMDocument 4" in p for p in problems))
+        # containment is checked on the FULL value, relative or absolute,
+        # not on the basename the rewrite would produce
+        self.assertTrue(any("HRMDocument 4" in p and "escapes" in p
+                            for p in problems))
+        self.assertTrue(any("HRMDocument 5" in p and "escapes" in p
+                            for p in problems))
 
 
 class TestContainment(unittest.TestCase):
@@ -182,6 +188,29 @@ class TestMergeMove(unittest.TestCase):
             self.dst, "incomingdocs", "1", "Mail")))
         self.assertTrue(any("merged into existing incomingdocs/" in line
                             for line in lines))
+
+    def test_nested_collision_leaves_the_target_untouched(self):
+        # the collision sits two levels deep and sorts AFTER a sibling that
+        # would otherwise be moved first: nothing at all may move
+        os.makedirs(os.path.join(self.src, "incomingdocs", "1", "Fax"))
+        with open(os.path.join(self.src, "incomingdocs", "1", "Fax",
+                               "a.pdf"), "w") as fh:
+            fh.write("a")
+        with open(os.path.join(self.src, "incomingdocs", "1", "Fax",
+                               "z.pdf"), "w") as fh:
+            fh.write("z")
+        os.makedirs(os.path.join(self.dst, "incomingdocs", "1", "Fax"))
+        with open(os.path.join(self.dst, "incomingdocs", "1", "Fax",
+                               "z.pdf"), "w") as fh:
+            fh.write("existing")
+        with self.assertRaises(SystemExit):
+            o19docs.merge_move(self.src, self.dst)
+        self.assertFalse(os.path.exists(os.path.join(
+            self.dst, "incomingdocs", "1", "Fax", "a.pdf")))
+        self.assertFalse(os.path.exists(os.path.join(self.dst, "document",
+                                                     "a.pdf")))
+        self.assertTrue(os.path.isfile(os.path.join(
+            self.src, "document", "a.pdf")))
 
     def test_symlink_in_the_tree_is_refused(self):
         os.symlink("/etc", os.path.join(self.src, "evil"))

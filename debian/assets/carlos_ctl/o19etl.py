@@ -320,14 +320,21 @@ def idmap_statements(table: str, entry: dict, src_schema: str,
         "DROP TABLE IF EXISTS `{0}`.`{1}`".format(archive_schema, name),
         "CREATE TABLE `{0}`.`{1}` (old_id BIGINT NOT NULL PRIMARY KEY, "
         "new_id BIGINT NOT NULL)".format(archive_schema, name),
-        "INSERT INTO `{0}`.`{1}` (old_id, new_id) SELECT s.`{2}`, d.`{2}` "
+        # twin n maps to target twin n; a surplus source twin (its key was
+        # already satisfied by a CARLOS seed, so the anti-join appended
+        # nothing for it) falls back to the target's first row for that key
+        # — every source id a child references gets a deterministic map
+        "INSERT INTO `{0}`.`{1}` (old_id, new_id) SELECT s.`{2}`, "
+        "COALESCE(d.`{2}`, d1.`{2}`) "
         "FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY {3} ORDER BY "
-        "`{2}`) AS rn FROM `{4}`.`{5}`) s JOIN (SELECT *, ROW_NUMBER() OVER "
-        "(PARTITION BY {3} ORDER BY `{2}`) AS rn FROM `{6}`.`{5}`) d ON {7} "
-        "AND s.rn = d.rn".format(
+        "`{2}`) AS rn FROM `{4}`.`{5}`) s LEFT JOIN (SELECT *, ROW_NUMBER() "
+        "OVER (PARTITION BY {3} ORDER BY `{2}`) AS rn FROM `{6}`.`{5}`) d ON "
+        "{7} AND s.rn = d.rn LEFT JOIN (SELECT *, ROW_NUMBER() OVER "
+        "(PARTITION BY {3} ORDER BY `{2}`) AS rn FROM `{6}`.`{5}`) d1 ON {8} "
+        "AND d1.rn = 1 WHERE COALESCE(d.`{2}`, d1.`{2}`) IS NOT NULL".format(
             archive_schema, name, pk,
             ", ".join("`{0}`".format(k) for k in keys),
-            src_schema, table, dst_schema, join),
+            src_schema, table, dst_schema, join, join.replace("d.`", "d1.`")),
     ]
 
 
@@ -660,6 +667,11 @@ def load_progress(state_dir: str, dump_sha256: Optional[str] = None,
         progress["dump_sha256"] = dump_sha256
     if schema_map_version:
         recorded = progress.get("schema_map_version")
+        if not recorded and (progress["tables"]
+                             or progress.get("admin_provider_no")):
+            die("the ETL ledger in {0} carries table marks but no manifest "
+                "version — its classification cannot be trusted. Restore "
+                "the pre-import snapshot and start over.".format(state_dir))
         if recorded and recorded != schema_map_version:
             die("the ETL ledger was written under manifest {0}; this "
                 "package carries {1}. Tables marked done were classified "
@@ -762,7 +774,15 @@ def effective_entry(table: str, entry: dict,
             skipped.append(c)
     notes = ["{0}.{1} absent from this dump — target default used"
              .format(table, c) for c in skipped]
-    remap = dict(entry.get("fk_remap", {}))
+    # a remap only makes sense for a column the copy actually reads from
+    # the dump (a skipped or synthesized column has no source id to map)
+    remap = {}
+    for col, parent in entry.get("fk_remap", {}).items():
+        if col in kept and col not in ve:
+            remap[col] = parent
+        else:
+            notes.append("{0}.{1}: column absent from this dump — id "
+                         "remap disabled".format(table, col))
     if src_tables is not None:
         for col, parent in sorted(remap.items()):
             if parent not in src_tables:

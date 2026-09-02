@@ -297,6 +297,19 @@ class TestStagingRestore(unittest.TestCase):
         self.assertIn("--host=db", argv)
         self.assertNotIn("--defaults-file=/x", argv)
 
+    def test_paired_identity_options_lose_their_values_too(self):
+        # `--user root --password s3` as separate tokens: neither the option
+        # nor its value may survive (a stray value would become the client's
+        # positional database name)
+        tail = o19import.strip_client_identity(
+            ["--host", "db", "--user", "root", "--password", "s3",
+             "-u", "admin", "-p", "--port=3307", "--defaults-extra-file",
+             "/etc/x.cnf"])
+        self.assertEqual(tail, ["--host", "db", "--port=3307"])
+        # a bare -p followed by an option keeps the option
+        self.assertEqual(o19import.strip_client_identity(
+            ["-p", "--host=db"]), ["--host=db"])
+
     def test_account_grants_stop_at_the_staging_schema(self):
         stmts = o19import.staging_account_statements("pw'x")
         self.assertTrue(stmts[0].startswith("DROP USER IF EXISTS"))
@@ -307,6 +320,22 @@ class TestStagingRestore(unittest.TestCase):
             self.assertIn("ON `{0}`.*".format(o19import.STAGING_SCHEMA),
                           grant)
             self.assertNotIn("*.*", grant)
+
+    def test_missing_binlog_admin_is_refused_not_widened(self):
+        # no SUPER fallback: a server without BINLOG ADMIN is refused and
+        # the half-created account is dropped again
+        seen = []
+
+        def q(sql):
+            seen.append(sql)
+            if "BINLOG ADMIN" in sql:
+                raise RuntimeError("ERROR 1064: unknown privilege")
+            return []
+        cnf = os.path.join(tempfile.mkdtemp(prefix="o19cnf-"), "c.cnf")
+        with self.assertRaises(SystemExit):
+            o19import.grant_staging_account(q, cnf)
+        self.assertFalse(any("SUPER" in s for s in seen))
+        self.assertTrue(any(s.startswith("DROP USER") for s in seen[-2:]))
 
 
 class TestAcceptIdDriftLock(unittest.TestCase):

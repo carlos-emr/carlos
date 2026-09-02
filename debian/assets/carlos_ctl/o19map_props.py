@@ -885,6 +885,7 @@ KEYS = {
     },
     'resource_base_url': {
         'd': 'carry',
+        'validate': 'url',
     },
     'rx.allow_rerx': {
         'd': 'carry',

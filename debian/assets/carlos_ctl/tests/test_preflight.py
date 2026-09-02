@@ -204,6 +204,42 @@ class TestAdvisories(unittest.TestCase):
         self.assertIn("demographic.last_name", f["data"])
 
 
+class TestTableCaseHandling(unittest.TestCase):
+
+    def test_lower_cased_tables_fold_onto_the_manifest_with_columns(self):
+        # lower_case_table_names=1: information_schema reports
+        # `hl7textmessage`; counts AND column metadata must map onto the
+        # manifest spelling
+        from carlos_ctl import o19map_schema
+        t = base_tables()
+        t["hl7textmessage"] = 3
+        cols = {"hl7textmessage": set(
+            o19map_schema.TABLES["hl7TextMessage"]["cols"]) | {"vendor_x"}}
+        db = FakeDb(t, columns=cols)
+        report = pf.run_checks(db, properties=clean_props(),
+                               schema_map=o19map_schema)
+        inv = [x for x in report["findings"] if x["id"] == "inventory"][0]
+        self.assertEqual(inv["data"].get("hl7TextMessage"), 3)
+        f = [x for x in report["findings"]
+             if x["id"] == "B2-unknown-columns"][0]
+        self.assertEqual(f["data"], {"hl7TextMessage": ["vendor_x"]})
+        self.assertFalse(any(x["id"] == "case-colliding-tables"
+                             for x in report["findings"]))
+
+    def test_case_twins_on_a_sensitive_server_are_a_blocker(self):
+        t = base_tables()
+        t["Demographic"] = 5  # vendor twin next to the real `demographic`
+        report = pf.run_checks(FakeDb(t), properties=clean_props())
+        f = [x for x in report["findings"]
+             if x["id"] == "case-colliding-tables"][0]
+        self.assertEqual(f["severity"], pf.BLOCKER)
+        self.assertEqual(f["data"], {"demographic": ["Demographic"]})
+        self.assertEqual(report["verdict"], "no-go")
+        # the exact spelling still counts as the manifest table
+        inv = [x for x in report["findings"] if x["id"] == "inventory"][0]
+        self.assertEqual(inv["data"].get("demographic"), 40)
+
+
 class TestImportMode(unittest.TestCase):
 
     def test_unknown_columns_block_when_schema_map_given(self):
@@ -278,6 +314,18 @@ class TestReportContract(unittest.TestCase):
             self.assertEqual(rc, pf.EXIT_TOOL_ERROR)
             self.assertIn("--mysql-password-file", err.getvalue())
             self.assertNotIn(self.FAKE_PASSWORD, err.getvalue())
+
+    def test_bad_cli_argument_is_a_tool_error_and_help_exits_zero(self):
+        import io
+        import contextlib
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            rc = pf.main(["--no-such-flag"])
+        self.assertEqual(rc, pf.EXIT_TOOL_ERROR)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(pf.main(["--help"]), 0)
+        self.assertIn("--db", out.getvalue())
 
     def test_unreadable_properties_is_a_tool_error(self):
         import io

@@ -153,6 +153,12 @@ class TestSurrogateIdRemap(unittest.TestCase):
                       "`id`) AS rn FROM `dst`.`LookupList`", stmts[2])
         self.assertIn("ON d.`name` <=> s.`name` AND s.rn = d.rn", stmts[2])
         self.assertNotIn("MIN(", stmts[2])
+        # a surplus twin (its key already satisfied by a seed row, so the
+        # anti-join appended nothing) falls back to the target's first row
+        self.assertIn("LEFT JOIN", stmts[2])
+        self.assertIn("d1 ON d1.`name` <=> s.`name` AND d1.rn = 1", stmts[2])
+        self.assertIn("COALESCE(d.`id`, d1.`id`)", stmts[2])
+        self.assertTrue(stmts[2].endswith("IS NOT NULL"))
 
     def test_no_idmap_without_surrogate(self):
         self.assertEqual(o19etl.idmap_statements(
@@ -254,6 +260,16 @@ class TestResumeIdempotency(unittest.TestCase):
             o19etl.load_progress(d, "aaa", "o19map-2")
         # no digest given: ledger returned as-is (read-only consumers)
         self.assertIn("demographic", o19etl.load_progress(d)["tables"])
+
+    def test_version_less_ledger_with_marks_is_refused(self):
+        import shutil
+        import tempfile
+        d = tempfile.mkdtemp(prefix="o19progress-")
+        self.addCleanup(shutil.rmtree, d)
+        o19etl.save_progress(d, {"tables": {"demographic": {"done": True}},
+                                 "dump_sha256": "aaa"})
+        with self.assertRaises(SystemExit):
+            o19etl.load_progress(d, "aaa", "o19map-1")
 
     def test_digest_less_ledger_with_table_marks_is_reset(self):
         import shutil
@@ -403,6 +419,15 @@ class TestEffectiveEntry(unittest.TestCase):
         self.assertNotIn("fk_remap", adjusted)
         self.assertTrue(any("parent table Parent absent" in n
                             for n in notes))
+
+    def test_remap_is_dropped_for_a_column_the_dump_lacks(self):
+        # the remapped FK column itself is absent: no source id to map, and
+        # the fk report must not query a nonexistent column
+        adjusted, notes = o19etl.effective_entry(
+            "t", self.ENTRY, {"id": col(), "extra": col()}, {"t", "Parent"})
+        self.assertNotIn("fk_remap", adjusted)
+        self.assertEqual(adjusted["cols"], ["id", "extra"])
+        self.assertTrue(any("t.name: column absent" in n for n in notes))
 
     def test_unchanged_entry_is_returned_as_is(self):
         adjusted, notes = o19etl.effective_entry(

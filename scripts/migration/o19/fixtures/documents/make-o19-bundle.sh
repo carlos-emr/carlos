@@ -17,8 +17,6 @@ OUT="${2:?usage: make-o19-bundle.sh <inputs-dir> <output-dir>}"
 # absolute paths: tar runs with -C "$IN" below, so a relative <output-dir>
 # would otherwise be resolved inside the inputs directory
 IN="$(cd "$IN" && pwd)"
-mkdir -p "$OUT"
-OUT="$(cd "$OUT" && pwd)"
 TEST_PASSWORD="o19-fixture-test-password"
 
 # exactly ONE dump, mirroring the importer's own ambiguity rule (never
@@ -37,7 +35,9 @@ for f in "$dump" "$docs" "$props"; do
   [ -f "$f" ] || { echo "missing input: $f" >&2; exit 1; }
 done
 
+# created only once the inputs validated (no empty OUT dir on a bad call)
 mkdir -p "$OUT"
+OUT="$(cd "$OUT" && pwd)"
 passfile="$OUT/bundle-password.txt"
 printf '%s' "$TEST_PASSWORD" > "$passfile"
 

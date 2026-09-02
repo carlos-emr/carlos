@@ -126,10 +126,17 @@ def classify_hrm_files(rows: List[Tuple[str, str]],
     """rows = (hrm id, reportFile after the rewrite). Every report must be
     a real, non-empty, non-symlink file inside DOCUMENT_DIR."""
     problems = []
+    doc_real = os.path.realpath(doc_dir)
     for hrm_id, report in rows:
         name = report.rsplit("/", 1)[-1]
         path = os.path.join(doc_dir, name)
-        if not name or not contained(doc_dir, name):
+        if os.path.isabs(report):
+            real = os.path.realpath(report)
+            inside = (real == os.path.join(doc_real, name)
+                      and os.path.dirname(real) == doc_real)
+        else:
+            inside = contained(doc_dir, report)
+        if not name or not inside:
             problems.append("HRMDocument {0}: {1} (path escapes the "
                             "document directory)".format(hrm_id, report))
         elif os.path.islink(path) or not os.path.isfile(path):
@@ -231,6 +238,26 @@ def _merge_entry(src: str, dst: str) -> int:
     return 0  # unreachable
 
 
+def _collisions(src: str, dst: str) -> List[str]:
+    """Every path under src that cannot be merged into dst: a symlink on
+    either side, or a file that already exists at the same path. Computed
+    BEFORE anything moves so a refusal leaves the target untouched."""
+    problems: List[str] = []
+    if os.path.islink(src) or os.path.islink(dst):
+        problems.append("symlink at '{0}'".format(
+            dst if os.path.islink(dst) else src))
+        return problems
+    if not os.path.lexists(dst):
+        return problems
+    if os.path.isdir(src) and os.path.isdir(dst):
+        for child in sorted(os.listdir(src)):
+            problems.extend(_collisions(os.path.join(src, child),
+                                        os.path.join(dst, child)))
+        return problems
+    problems.append("'{0}' already exists".format(dst))
+    return problems
+
+
 def merge_move(src_ctx_dir: str, target_dir: str) -> List[str]:
     """Move the context tree's children into the target context dir,
     merging into the deploy's directory skeleton at any depth.
@@ -241,6 +268,16 @@ def merge_move(src_ctx_dir: str, target_dir: str) -> List[str]:
     directories are skipped with a note. Returns report lines."""
     lines = []
     os.makedirs(target_dir, exist_ok=True)
+    children = [c for c in sorted(os.listdir(src_ctx_dir))
+                if c not in CACHE_DIR_NAMES]
+    problems: List[str] = []
+    for child in children:
+        problems.extend(_collisions(os.path.join(src_ctx_dir, child),
+                                    os.path.join(target_dir, child)))
+    if problems:
+        die("refusing to merge the documents tree — the target is not "
+            "pristine ({0} collision(s), nothing was moved):\n  {1}".format(
+                len(problems), "\n  ".join(problems[:20])))
     for child in sorted(os.listdir(src_ctx_dir)):
         src = os.path.join(src_ctx_dir, child)
         dst = os.path.join(target_dir, child)
@@ -470,13 +507,19 @@ def run_docs(ctx) -> None:
             "status": "in-progress", "tar_sha256": tar_sha,
             "restored": True, "old_ctx": old_ctx}
         o19import.save_state(state_dir, state)
-        move_lines.extend(relocate_hrm_reports(ctx_root))
         o19import.report_append(state_dir, "P5 documents restore",
                                 "\n".join(move_lines))
     else:
         log("documents: tree already restored (sha256 match) — "
             "re-running ownership repair and reconciliation")
 
+    # every pass, not only the first (a no-op once hrm/ is gone): a
+    # relocation that failed after the restore was recorded must be retried
+    # on --resume rather than skipped
+    hrm_lines = relocate_hrm_reports(ctx_root)
+    if hrm_lines:
+        o19import.report_append(state_dir, "P5 HRM relocation",
+                                "\n".join(hrm_lines))
     # every pass, not only the first: an operator who fixed the tree by
     # hand (the documented remedy) leaves root-owned files behind, and a
     # root-run reconciliation would never notice

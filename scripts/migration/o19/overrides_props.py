@@ -186,7 +186,8 @@ KEYS = {
     "login_local_ip": {"d": "carry"},
     "ws_endpoint_url_base": {"d": "deploy-owned"},
     # a clinic-chosen link target on the provider menu, still read by CARLOS
-    "resource_base_url": {"d": "carry"},
+    # (validated as a plain http(s) URL: the JSPs place it in a JS string)
+    "resource_base_url": {"d": "carry", "validate": "url"},
     "log.purge.mysqldump": {"d": "deploy-owned"},
     # --- removed-module fax transport (advisory: SRFax decision) ----------
     "faxURI": {"d": "dropped-flag", "advisory": "fax"},

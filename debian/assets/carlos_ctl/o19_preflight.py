@@ -992,14 +992,41 @@ def run_checks(query, properties=None, province="on", accepted=(),
     # lower case), so every lookup against the manifest folds case and
     # `tables` maps the manifest spelling to the live spelling
     known_lower = dict((t.lower(), t) for t in KNOWN_TABLES)
-    tables = {}
+    live_names = []
     for row in query(
             "SELECT TABLE_NAME FROM information_schema.TABLES "
             "WHERE TABLE_SCHEMA = {0} AND TABLE_TYPE = 'BASE TABLE'"
             .format(schema_expr)):
         if row and row[0]:
-            live = row[0]
-            tables[known_lower.get(live.lower(), live)] = live
+            live_names.append(row[0])
+    # an exact-spelling match always wins; case folding only stands in
+    # when no exact match exists (lower_case_table_names=1 servers). On a
+    # case-sensitive server a vendor table that differs from a manifest
+    # table only by case would otherwise be mistaken for it: such twins
+    # are reported as a blocker and the odd one flows to the unknown path
+    tables = {}
+    case_collisions = {}
+    for live in sorted(live_names, key=lambda n: (n not in KNOWN_TABLES, n)):
+        if live in KNOWN_TABLES:
+            manifest = live
+        else:
+            manifest = known_lower.get(live.lower(), live)
+        if manifest in tables and tables[manifest] != live:
+            case_collisions.setdefault(manifest, []).append(live)
+            tables[live] = live
+            continue
+        tables[manifest] = live
+    live_to_manifest = dict((live, manifest)
+                            for manifest, live in tables.items())
+    if case_collisions:
+        findings.append(finding(
+            "case-colliding-tables", BLOCKER,
+            "{0} table name(s) differ from a manifest table only by case"
+            .format(len(case_collisions)),
+            "The server is case-sensitive and holds twins the importer "
+            "cannot tell apart; rename or drop the vendor twin before "
+            "shipping the dump. No --accept flag exists for this.",
+            data=case_collisions))
 
     def count_live(manifest_name, where=None):
         return count(tables[manifest_name], where)
@@ -1149,7 +1176,10 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 "information_schema.COLUMNS WHERE TABLE_SCHEMA = {0}"
                 .format(schema_expr)):
             if len(row) == 2:
-                col_map.setdefault(row[0], set()).add(row[1])
+                # keyed by the manifest spelling, through the same
+                # live->manifest mapping the table inventory uses
+                col_map.setdefault(live_to_manifest.get(row[0], row[0]),
+                                   set()).add(row[1])
         unknown_cols = {}
         for t, entry in schema_map.TABLES.items():
             if entry.get("class") not in ("copy", "merge") or t not in col_map:
@@ -1307,7 +1337,12 @@ def main(argv=None):
                     "(repeatable)")
     ap.add_argument("--json", metavar="PATH",
                     help="also write the machine-readable report here")
-    args = ap.parse_args(argv)
+    try:
+        args = ap.parse_args(argv)
+    except SystemExit as exc:
+        # argparse exits 2 on a bad argument and 0 after --help; only the
+        # latter is not a tool error, and 2 is a verdict code here
+        return 0 if exc.code == 0 else EXIT_TOOL_ERROR
 
     if SCHEMA_MAP_VERSION == "unpopulated":
         print("ERROR: this copy of o19_preflight.py carries no generated "
