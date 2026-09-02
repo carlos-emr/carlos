@@ -222,9 +222,10 @@ stages and reports without writing to the EMR schema (its
 .B --accept
 flags are not recorded);
 .B --resume
-continues an interrupted run (required whenever a previous run left state
-behind beyond a staged dump — state is never continued implicitly; once the
-data copy has started, only the emptiness sweep is skipped on resume);
+continues an interrupted real import (required whenever a previous run left
+state behind beyond a staged dump — state is never continued implicitly; a
+dry run may inspect existing state without continuing it; once the data
+copy has started, only the emptiness sweep is skipped on resume);
 .B --restage
 drops and re-restores the staging schema (clearing the recorded preflight
 verdict);

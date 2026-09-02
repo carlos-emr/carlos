@@ -99,8 +99,12 @@ rows may receive new ids where a CARLOS seed already holds the old one;
 their dependent rows are remapped through `o19_archive.<table>__idmap`, and
 the report itemizes every table whose ids changed. Tables and columns the
 manifest does not know are never dropped: whole tables are archived under
-`o19_archive`, unmapped columns of known tables are shadow-captured as
-`<table>__unknown_cols`.
+`o19_archive`, and unmapped columns of copied or merged tables are
+shadow-captured as `<table>__unknown_cols`. Tables the manifest classifies
+`reference` keep the CARLOS seed (their O19 rows, every column, are not
+copied), `archive` tables are archived whole, and `drop` tables are
+report-only by declaration — the preflight and ETL reports name each one
+that holds rows.
 
 What the import does with credentials: every clinic login keeps working
 (legacy password hashes upgrade to bcrypt on first login) but **all users
