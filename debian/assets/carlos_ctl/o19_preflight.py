@@ -25,7 +25,9 @@ in two modes with identical checks:
 
 Exit codes: 0 = go; 1 = go-with-acknowledgements (blockers exist but every
 one names the --accept flag that clears it); 2 = no-go (a blocker needs
-remediation, not a flag). The JSON report (--json) is the machine contract.
+remediation, not a flag); 3 = the check itself could not run (bad
+arguments, unreadable file, database error) — never confused with a
+verdict. The JSON report (--json) is the machine contract.
 
 Migration output should receive a technical review — verification report,
 spot checks, UI smoke — before clinical use.
@@ -202,11 +204,11 @@ KNOWN_TABLES = {
     'RemoteReferral': 'copy',
     'ResourceStorage': 'copy',
     'SecurityArchive': 'copy',
-    'SecurityToken': 'copy',
+    'SecurityToken': 'archive',
     'SentToPHRTracking': 'archive',
-    'ServiceAccessToken': 'copy',
+    'ServiceAccessToken': 'archive',
     'ServiceClient': 'copy',
-    'ServiceRequestToken': 'copy',
+    'ServiceRequestToken': 'archive',
     'SystemMessage': 'copy',
     'access_type': 'copy',
     'admission': 'copy',
@@ -742,6 +744,9 @@ BLOCKER = "blocker"
 ADVISORY = "advisory"
 INFO = "info"
 
+# exit code for "the check itself failed" — distinct from every verdict
+EXIT_TOOL_ERROR = 3
+
 # Core-table inventory reported as sanity anchors for later row-parity.
 INVENTORY_TABLES = [
     "demographic", "provider", "security", "appointment", "casemgmt_note",
@@ -774,7 +779,11 @@ def _unescape_property(text):
         c = text[i]
         if c == "\\" and i + 1 < n:
             nxt = text[i + 1]
-            if nxt == "u" and re.match(r"[0-9A-Fa-f]{4}$", text[i + 2:i + 6]):
+            if nxt == "u":
+                if not re.match(r"[0-9A-Fa-f]{4}$", text[i + 2:i + 6]):
+                    # java.util.Properties rejects this file outright
+                    raise ValueError("malformed \\uXXXX escape in "
+                                     "properties text")
                 out.append(chr(int(text[i + 2:i + 6], 16)))
                 i += 6
                 continue
@@ -797,9 +806,10 @@ def parse_properties_text(text):
         line = raw.lstrip()
         if not logical and (not line or line[0] in ("#", "!")):
             continue
-        stripped = line.rstrip("\\")
-        if (len(line) - len(stripped)) % 2 == 1:
-            logical.append(stripped)
+        # an odd run of trailing backslashes: the LAST one continues the
+        # line, the rest are escaped backslashes that stay in the value
+        if (len(line) - len(line.rstrip("\\"))) % 2 == 1:
+            logical.append(line[:-1])
             continue
         logical.append(line)
         full = "".join(logical)
@@ -833,6 +843,29 @@ def parse_properties(path):
     return parse_properties_text(text)
 
 
+def double_encoded_predicate(col):
+    """Row predicate: `col` holds UTF-8 text that was itself stored through
+    a latin1 hop (mojibake such as 'Ã©' for 'é'). Byte-ALIGNED and
+    lossless by construction: the value must round-trip down to latin1
+    unchanged (every char representable), those latin1 bytes must form
+    valid UTF-8 (converting them back to bytes loses nothing), and the
+    value must contain a non-ASCII character at all. A substring match on
+    a hex dump ('%C383%') is NOT aligned and flags innocent text such as
+    '1,800' — which is why this predicate exists."""
+    c = "`{0}`".format(col)
+    # normalise to utf8mb4 first: O19 tables are usually latin1, and a
+    # BINARY comparison across charsets compares different byte strings
+    u = "CONVERT({0} USING utf8mb4)".format(c)
+    down = "CONVERT({0} USING latin1)".format(u)
+    # doubled backslash on purpose: the server's string parser drops the
+    # backslash of an unknown escape, so a single one reaches the regex
+    # engine as 'x00' and matches the wrong characters
+    return ("{0} IS NOT NULL AND {1} REGEXP '[^\\\\x00-\\\\x7F]' AND "
+            "BINARY CONVERT({2} USING utf8mb4) = BINARY {1} AND "
+            "BINARY CONVERT(CONVERT(BINARY {2} USING utf8mb4) USING binary) "
+            "= BINARY {2}".format(c, u, down))
+
+
 def _ident(name):
     """Backtick-quote an identifier so EVERY table name the dump carries
     can be counted — a vendor-fork table with an unusual name must be
@@ -843,11 +876,27 @@ def _ident(name):
 INTERACTIVE_PASSWORD_ARGS = ("-p", "--password")
 
 
+def password_arg_problem(mysql_args):
+    """A client argument that carries or prompts for the password, if any.
+
+    A bare -p / --password would PROMPT once per query (every check is a
+    fresh client process); an attached -pSECRET / --password=SECRET puts
+    the credential in the process list and in any diagnostic that echoes
+    argv. The password must come from --mysql-password-file (MYSQL_PWD)
+    or a client defaults file. The offending VALUE is never returned —
+    only its shape — so it cannot leak through the refusal message."""
+    for a in mysql_args:
+        if a in INTERACTIVE_PASSWORD_ARGS:
+            return "'{0}' (interactive prompt)".format(a)
+        if a.startswith("--password="):
+            return "'--password=...' (password in argv)"
+        if a.startswith("-p") and not a.startswith("--"):
+            return "'-p...' (password in argv)"
+    return None
+
+
 def interactive_password_arg(mysql_args):
-    """The client argument that would PROMPT for a password, if any: every
-    preflight query is a fresh client process, so an interactive prompt
-    would repeat dozens of times — the password must come from
-    --mysql-password-file (MYSQL_PWD) or a client defaults file."""
+    """Back-compat name: the bare prompting form, if present."""
     for a in mysql_args:
         if a in INTERACTIVE_PASSWORD_ARGS:
             return a
@@ -857,15 +906,27 @@ def interactive_password_arg(mysql_args):
 def make_cli_query(mysql_cmd, mysql_args, db, env=None):
     """Return query(sql) -> list of rows (lists of strings) via the CLI.
     env, when given, replaces the client's environment (used to hand the
-    password over as MYSQL_PWD instead of argv)."""
+    password over as MYSQL_PWD instead of argv). Statements travel via
+    stdin; a failure raises RuntimeError carrying the CLIENT'S stderr
+    (never the argv, which may hold credentials)."""
     def query(sql):
-        argv = [mysql_cmd] + list(mysql_args) + ["-N", "-B", "-e", sql, db]
-        out = subprocess.check_output(argv, env=env)
+        argv = [mysql_cmd] + list(mysql_args) + \
+            ["--default-character-set=utf8mb4", "-N", "-B", db]
+        proc = subprocess.Popen(argv, stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, env=env)
+        out, err = proc.communicate(sql.encode("utf-8"))
+        if proc.returncode != 0:
+            message = err.decode("utf-8", "replace").strip()
+            raise RuntimeError(message.splitlines()[-1] if message
+                               else "client exited {0}".format(
+                                   proc.returncode))
         text = out.decode("utf-8", "replace")
-        rows = []
-        for line in text.splitlines():
-            rows.append(line.split("\t"))
-        return rows
+        # batch output escapes \0 \t \n \\ in values; only "\n" ends a row
+        lines = text.split("\n")
+        if lines and lines[-1] == "":
+            lines.pop()
+        return [line.split("\t") for line in lines]
     return query
 
 
@@ -926,13 +987,22 @@ def run_checks(query, properties=None, province="on", accepted=(),
         schema_expr = "'{0}'".format(db_name)
     else:
         schema_expr = "DATABASE()"
+    # MySQL table names are case-insensitive on servers running
+    # lower_case_table_names=1 (information_schema then reports them in
+    # lower case), so every lookup against the manifest folds case and
+    # `tables` maps the manifest spelling to the live spelling
+    known_lower = dict((t.lower(), t) for t in KNOWN_TABLES)
     tables = {}
     for row in query(
             "SELECT TABLE_NAME FROM information_schema.TABLES "
             "WHERE TABLE_SCHEMA = {0} AND TABLE_TYPE = 'BASE TABLE'"
             .format(schema_expr)):
         if row and row[0]:
-            tables[row[0]] = True
+            live = row[0]
+            tables[known_lower.get(live.lower(), live)] = live
+
+    def count_live(manifest_name, where=None):
+        return count(tables[manifest_name], where)
 
     # --- B2: tables the manifest does not know ---------------------------
     unknown = sorted(t for t in tables if t not in KNOWN_TABLES)
@@ -957,7 +1027,7 @@ def run_checks(query, properties=None, province="on", accepted=(),
     for t in PATIENT_DATA_TABLES:
         if t not in tables:
             continue
-        n = count(t)
+        n = count_live(t)
         if n > 0:
             patient_rows[t] = n
     if patient_rows:
@@ -976,7 +1046,7 @@ def run_checks(query, properties=None, province="on", accepted=(),
     for t, cls in KNOWN_TABLES.items():
         if cls != "archive" or t in PATIENT_DATA_TABLES or t not in tables:
             continue
-        n = count(t)
+        n = count_live(t)
         if n > 0:
             if t.upper().startswith("OLIS"):
                 olis_rows[t] = n
@@ -1002,7 +1072,7 @@ def run_checks(query, properties=None, province="on", accepted=(),
         if t not in tables:
             continue
         for col, predicate in cols.items():
-            n = count(t, predicate)
+            n = count_live(t, predicate)
             if n > 0:
                 b3_hits["{0}.{1}".format(t, col)] = n
     if b3_hits:
@@ -1059,7 +1129,7 @@ def run_checks(query, properties=None, province="on", accepted=(),
         if t not in tables:
             continue
         for col in cols:
-            n = count(t, "HEX(`{0}`) LIKE '%{1}%'".format(col, MOJIBAKE_HEX))
+            n = count_live(t, double_encoded_predicate(col))
             if n > 0:
                 mojibake["{0}.{1}".format(t, col)] = n
     if mojibake:
@@ -1113,7 +1183,7 @@ def run_checks(query, properties=None, province="on", accepted=(),
     inv = {}
     for t in INVENTORY_TABLES:
         if t in tables:
-            inv[t] = count(t)
+            inv[t] = count_live(t)
     try:
         size_rows = query(
             "SELECT ROUND(SUM(DATA_LENGTH + INDEX_LENGTH)/1048576) FROM "
@@ -1247,21 +1317,33 @@ def main(argv=None):
 
     props = None
     if args.properties:
-        props = parse_properties(args.properties)
+        try:
+            props = parse_properties(args.properties)
+        except (IOError, OSError, ValueError) as exc:
+            print("ERROR: cannot read --properties '{0}': {1}"
+                  .format(args.properties, exc), file=sys.stderr)
+            return EXIT_TOOL_ERROR
 
-    bad = interactive_password_arg(args.mysql_arg)
+    bad = password_arg_problem(args.mysql_arg)
     if bad:
-        print("ERROR: '{0}' would prompt for the password on every query "
-              "(each check runs a fresh client). Pass the password via "
-              "--mysql-password-file PATH or "
+        print("ERROR: client argument {0} refused: a bare -p would prompt "
+              "on every query (each check runs a fresh client) and an "
+              "attached password lands in the process list. Pass the "
+              "password via --mysql-password-file PATH or "
               "--mysql-arg=--defaults-extra-file=PATH instead."
               .format(bad), file=sys.stderr)
-        return 2
+        return EXIT_TOOL_ERROR
     env = None
     if args.mysql_password_file:
         import os
-        with open(args.mysql_password_file, "rb") as fh:
-            password = fh.read().decode("utf-8", "replace").rstrip("\r\n")
+        try:
+            with open(args.mysql_password_file, "rb") as fh:
+                password = fh.read().decode("utf-8", "replace") \
+                    .rstrip("\r\n")
+        except (IOError, OSError) as exc:
+            print("ERROR: cannot read --mysql-password-file '{0}': {1}"
+                  .format(args.mysql_password_file, exc), file=sys.stderr)
+            return EXIT_TOOL_ERROR
         env = dict(os.environ)
         env["MYSQL_PWD"] = password
 
@@ -1271,15 +1353,22 @@ def main(argv=None):
     except Exception as exc:
         print("ERROR: cannot query database '{0}': {1}"
               .format(args.db, exc), file=sys.stderr)
-        return 2
+        return EXIT_TOOL_ERROR
 
-    report = run_checks(query, properties=props, province=args.province,
-                        accepted=args.accept)
-    sys.stdout.write(render_text(report))
-    if args.json:
-        with open(args.json, "w") as fh:
-            json.dump(report, fh, indent=1, sort_keys=True)
-        print("json report written to " + args.json)
+    # anything that breaks from here on is a TOOL failure, reported as
+    # such — never as a verdict exit code
+    try:
+        report = run_checks(query, properties=props,
+                            province=args.province, accepted=args.accept)
+        sys.stdout.write(render_text(report))
+        if args.json:
+            with open(args.json, "w") as fh:
+                json.dump(report, fh, indent=1, sort_keys=True)
+            print("json report written to " + args.json)
+    except Exception as exc:
+        print("ERROR: preflight could not complete: {0}".format(exc),
+              file=sys.stderr)
+        return EXIT_TOOL_ERROR
     return report["exit_code"]
 
 

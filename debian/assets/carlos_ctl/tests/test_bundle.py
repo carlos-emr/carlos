@@ -149,6 +149,22 @@ class TestTarListingAndMemberTypes(unittest.TestCase):
             o19bundle.validate_tar_members([("-", "./ok.sql")], True),
             ["./ok.sql"])
 
+    def test_option_like_member_names_are_refused(self):
+        # GNU tar permutes argv, so a member named like an option would be
+        # parsed as one at extraction (root RCE via --to-command=...)
+        for bad in ("--to-command=sh x.properties",
+                    "--checkpoint-action=exec=touch /tmp/p .sql", "-x.sql"):
+            with self.assertRaises(ValueError):
+                o19bundle.validate_tar_members([("-", bad)], allow_dirs=False)
+            with self.assertRaises(ValueError):
+                o19bundle.classify_members([bad, "o19.sql", "a.properties"])
+
+    def test_listed_size_sums_plain_file_sizes(self):
+        listing = ["-rw-r--r-- u/g 1000 2020-03-09 00:00 a.sql",
+                   "drwxr-xr-x u/g 0 2020-03-09 00:00 d/",
+                   "-rw-r--r-- u/g 24 2020-03-09 00:00 d/b.pdf"]
+        self.assertEqual(o19bundle.listed_size(listing), 1024)
+
     def test_lone_directory_member_is_refused_by_classifier(self):
         # regression: a directory named like the dump used to classify as
         # the dump and blow up later in sha256_file
@@ -296,6 +312,25 @@ class TestOpenBundleEndToEnd(unittest.TestCase):
         with self.assertRaises(SystemExit):
             o19bundle.open_bundle(path, dest)
         self.assertFalse(os.path.lexists(os.path.join(dest, "o19.sql")))
+
+    def test_option_like_member_never_reaches_tar(self):
+        # a member whose NAME is a tar option must be refused before any
+        # extraction, and must not execute anything
+        import tarfile
+        sentinel = os.path.join(self.work, "pwned")
+        path = os.path.join(self.work, "evil.tar")
+        with tarfile.open(path, "w") as tf:
+            tf.add(os.path.join(self.src, "oscar.properties"),
+                   arcname="oscar.properties")
+            info = tarfile.TarInfo(
+                "--checkpoint-action=exec=touch {0} .sql".format(sentinel))
+            data = b"SELECT 1;\n"
+            info.size = len(data)
+            import io
+            tf.addfile(info, io.BytesIO(data))
+        with self.assertRaises(SystemExit):
+            o19bundle.open_bundle(path, tempfile.mkdtemp(dir=self.work))
+        self.assertFalse(os.path.exists(sentinel))
 
     def test_extracted_members_are_plain_files_with_0600(self):
         plain = os.path.join(self.work, "b.tar")

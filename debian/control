@@ -46,7 +46,8 @@ Depends:
  iproute2,
 # ps, for the "no component runs as root" assertion in `carlos-ctl check`.
  procps,
-# python3-bcrypt hashes the replacement for the seeded administrator password.
+# python3-bcrypt hashes the replacement for the seeded administrator password
+# (bootstrap-admin) and the break-glass administrator import-o19 creates.
  python3,
  python3-bcrypt,
  debconf (>= 0.5) | debconf-2.0

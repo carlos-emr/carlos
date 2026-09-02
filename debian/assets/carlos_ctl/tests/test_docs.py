@@ -38,25 +38,47 @@ class TestDetectContextDir(unittest.TestCase):
 
 
 class TestHrmRewrite(unittest.TestCase):
+    """CARLOS's HRMReportParser only trusts an absolute reportFile that
+    exists inside DOCUMENT_DIR, so every O19 path — whatever context or
+    OMD_hrm directory it named — becomes <root>/carlos/document/<basename>
+    and the files are moved there (relocate_hrm_reports)."""
 
-    def test_rewrite_targets_the_old_context_marker(self):
-        update, leftover = o19docs.hrm_rewrite_sql(
-            "carlos", "oscar_mcmaster", "/var/lib/carlos-emr/OscarDocument")
-        self.assertIn("SUBSTRING_INDEX(reportFile, '/oscar_mcmaster/', -1)",
+    def test_rewrite_points_every_report_into_document_dir(self):
+        update, select = o19docs.hrm_rewrite_sql(
+            "carlos", "/var/lib/carlos-emr/OscarDocument")
+        self.assertIn("UPDATE `carlos`.HRMDocument SET reportFile = CONCAT("
+                      "'/var/lib/carlos-emr/OscarDocument/carlos/document/', "
+                      "SUBSTRING_INDEX(reportFile, '/', -1))", update)
+        self.assertIn("WHERE reportFile IS NOT NULL AND reportFile <> ''",
                       update)
-        self.assertIn(
-            "CONCAT('/var/lib/carlos-emr/OscarDocument/carlos/'", update)
-        # '_' is a LIKE wildcard: the marker must be escaped in the pattern
-        self.assertIn("LIKE '%/oscar\\\\_mcmaster/%'", update)
-        self.assertIn("NOT LIKE '/var/lib/carlos-emr/OscarDocument/carlos/%'",
-                      leftover)
+        self.assertTrue(select.startswith(
+            "SELECT id, reportFile FROM `carlos`.HRMDocument WHERE"))
+
+    def test_rewrite_is_idempotent_on_its_own_output(self):
+        # SUBSTRING_INDEX on the already-rewritten path yields the same
+        # basename, so a resumed pass changes nothing
+        update, _ = o19docs.hrm_rewrite_sql("carlos", "/srv/docs")
+        self.assertIn("SUBSTRING_INDEX(reportFile, '/', -1)", update)
+        self.assertNotIn("LIKE", update)
 
     def test_context_with_sql_metacharacters_is_refused(self):
         for bad in ("x'; DROP TABLE HRMDocument; --", "a b", "../etc", ""):
             with self.assertRaises(ValueError):
-                o19docs.hrm_rewrite_sql("carlos", bad)
-            with self.assertRaises(ValueError):
                 o19docs.detect_context_dir([bad + "/", bad + "/document/"])
+
+    def test_hrm_files_are_classified_inside_document_dir(self):
+        doc_dir = tempfile.mkdtemp(prefix="o19docs-hrm-")
+        self.addCleanup(shutil.rmtree, doc_dir)
+        with open(os.path.join(doc_dir, "r1.xml"), "w") as fh:
+            fh.write("<report/>")
+        open(os.path.join(doc_dir, "empty.xml"), "w").close()
+        rows = [("1", doc_dir + "/r1.xml"), ("2", doc_dir + "/gone.xml"),
+                ("3", doc_dir + "/empty.xml"), ("4", "../escape.xml")]
+        problems = o19docs.classify_hrm_files(rows, doc_dir)
+        self.assertEqual(len(problems), 3)
+        self.assertTrue(any("HRMDocument 2" in p for p in problems))
+        self.assertTrue(any("HRMDocument 3" in p for p in problems))
+        self.assertTrue(any("HRMDocument 4" in p for p in problems))
 
 
 class TestContainment(unittest.TestCase):
@@ -135,11 +157,34 @@ class TestMergeMove(unittest.TestCase):
         self.assertTrue(os.path.isfile(
             os.path.join(self.dst, "document", "a.pdf")))
 
-    def test_non_empty_target_is_refused(self):
+    def test_file_collision_is_refused(self):
+        # the same path as a FILE on both sides: the target is not pristine
         os.makedirs(os.path.join(self.dst, "document"))
-        with open(os.path.join(self.dst, "document", "existing.pdf"),
-                  "w") as fh:
+        with open(os.path.join(self.dst, "document", "a.pdf"), "w") as fh:
             fh.write("y")
+        with self.assertRaises(SystemExit):
+            o19docs.merge_move(self.src, self.dst)
+
+    def test_nested_skeleton_is_merged_recursively(self):
+        # the deb postinst installs incomingdocs/1/{Fax,File,...}: the tar's
+        # incomingdocs/1/Fax/x.pdf must land INSIDE that skeleton, not
+        # replace it
+        os.makedirs(os.path.join(self.dst, "incomingdocs", "1", "Fax"))
+        os.makedirs(os.path.join(self.dst, "incomingdocs", "1", "Mail"))
+        os.makedirs(os.path.join(self.src, "incomingdocs", "1", "Fax"))
+        with open(os.path.join(self.src, "incomingdocs", "1", "Fax",
+                               "x.pdf"), "w") as fh:
+            fh.write("z")
+        lines = o19docs.merge_move(self.src, self.dst)
+        self.assertTrue(os.path.isfile(os.path.join(
+            self.dst, "incomingdocs", "1", "Fax", "x.pdf")))
+        self.assertTrue(os.path.isdir(os.path.join(
+            self.dst, "incomingdocs", "1", "Mail")))
+        self.assertTrue(any("merged into existing incomingdocs/" in line
+                            for line in lines))
+
+    def test_symlink_in_the_tree_is_refused(self):
+        os.symlink("/etc", os.path.join(self.src, "evil"))
         with self.assertRaises(SystemExit):
             o19docs.merge_move(self.src, self.dst)
 
@@ -167,7 +212,22 @@ class TestReconciliationClassification(unittest.TestCase):
         self.assertEqual(orphans, ["orphan.pdf"])
 
 
-NULL_ROWS = []
+class TestEformImageRefs(unittest.TestCase):
+    """eForm HTML references its images through ${oscar_image_path}; the
+    tokens are often URL-encoded by editors, and every spelling must be
+    reconciled against eform/images."""
+
+    def test_plain_and_url_encoded_tokens_are_found(self):
+        html = ('<img src="${oscar_image_path}logo.png">'
+                '<img src="$%7Boscar_image_path%7Dsig.png">'
+                "<img src='%24%7Boscar_image_path%7Dstamp.gif'>"
+                '<a href="${oscar_image_path}form.pdf?x=1">')
+        self.assertEqual(o19docs.image_refs(html),
+                         sorted(["logo.png", "sig.png", "stamp.gif",
+                                 "form.pdf?x=1"]))
+
+    def test_unrelated_html_has_no_refs(self):
+        self.assertEqual(o19docs.image_refs("<p>no images</p>"), [])
 
 
 class TestArchiveCsvExport(unittest.TestCase):
@@ -181,9 +241,6 @@ class TestArchiveCsvExport(unittest.TestCase):
                 return [["formONAR"]]
             if "information_schema.COLUMNS" in sql:
                 return [["ID"], ["note"]]
-            if sql.startswith("SELECT * FROM `arch`.`formONAR`") \
-                    and NULL_ROWS:
-                return NULL_ROWS
             return [["1", "line1\\nline2"], ["2", "plain"]]
 
         lines = o19docs.export_archive_csv(q, "o19_archive", out)

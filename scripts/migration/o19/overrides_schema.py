@@ -76,7 +76,9 @@ REPLACE_SEED = {
 # Union on a natural key: CARLOS seeds win, clinic-added rows append.
 # Value = the natural-key column list used by the anti-join.
 CLASS_MERGE = {
-    "encounterForm": ["form_name"],
+    # form_value (the form's URL/id) is the PK; form_name is a label that
+    # two distinct forms may share
+    "encounterForm": ["form_value"],
     "billingservice": ["service_code", "billingservice_date"],
     "ctl_billingservice": ["service_code", "servicetype"],
     "ctl_billingservice_premium": ["service_code", "servicetype_name"],
@@ -96,7 +98,7 @@ CLASS_MERGE = {
     "criteria_type_option": ["CRITERIA_TYPE_ID", "OPTION_VALUE"],
     "HL7HandlerMSHMapping": ["hospital_site", "facility"],
     "Icd9Synonym": ["dxCode", "patientFriendly"],
-    "app_lookuptable": ["table_name"],
+    "app_lookuptable": ["tableid"],
     "app_lookuptable_fields": ["tableid", "fieldname"],
     "LookupList": ["name"],
     "LookupListItem": ["lookupListId", "value"],
@@ -125,6 +127,18 @@ FK_REMAP = {
     # measurementType.validation is a varchar holding validations.id
     "measurementType": {"validation": "validations"},
 }
+
+# --- shared tables that must NOT copy ---------------------------------------
+
+# Bearer/OAuth tokens issued by the OSCAR 19 install. Copying them would let
+# every token that was live on the old server authenticate against CARLOS;
+# they are archived for the record and never restored into the live schema
+# (integrations re-authorize after the migration).
+ARCHIVE_SHARED = {"SecurityToken", "ServiceAccessToken", "ServiceRequestToken"}
+
+# Copied verbatim, but they ARE credentials: the ETL report names them under
+# a rotate/verify advisory (OAuth consumer secrets, signing key pairs).
+CREDENTIAL_TABLES = ["ServiceClient", "oscarKeys", "publicKeys"]
 
 # --- O19-only table dispositions ------------------------------------------
 
@@ -238,9 +252,11 @@ DROP = {
 # still get shadow-table capture, just without blocking.
 B3_COLUMNS = {
     ("drugs", "dispensingUnits"),
-    ("drugs", "outside_provider"),
     ("document", "fileSignature"),
 }
+# (drugs.outside_provider survives in CARLOS and copies; the generator
+# refuses a B3 entry that does not name a dropped column, so a stale
+# entry cannot linger silently.)
 # (demographic.preferred_lang is NOT dropped: O19's own update-2009-02-23
 # renamed it to official_lang, which is shared and copies. A pre-2009
 # unpatched database surfaces it through preflight's unknown-column flow.)

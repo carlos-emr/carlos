@@ -14,6 +14,11 @@
 set -euo pipefail
 IN="${1:?usage: make-o19-bundle.sh <inputs-dir> <output-dir>}"
 OUT="${2:?usage: make-o19-bundle.sh <inputs-dir> <output-dir>}"
+# absolute paths: tar runs with -C "$IN" below, so a relative <output-dir>
+# would otherwise be resolved inside the inputs directory
+IN="$(cd "$IN" && pwd)"
+mkdir -p "$OUT"
+OUT="$(cd "$OUT" && pwd)"
 TEST_PASSWORD="o19-fixture-test-password"
 
 # exactly ONE dump, mirroring the importer's own ambiguity rule (never

@@ -60,6 +60,19 @@ class TestGenerator(unittest.TestCase):
         self.assertNotIn("IF", cols)
         self.assertNotIn("if", cols)
 
+    def test_parenthesized_add_column_form_is_parsed(self):
+        schema = self.gen.Schema("skip")
+        schema.feed("CREATE TABLE t (id INT NOT NULL PRIMARY KEY);\n"
+                    "ALTER TABLE t ADD COLUMN (a INT, b VARCHAR(5));\n"
+                    "ALTER TABLE t ADD (c DATE);\n")
+        self.assertEqual(sorted(schema.tables["t"]), ["a", "b", "c", "id"])
+
+    def test_tab_after_double_dash_starts_a_comment(self):
+        stripped = self.gen.strip_line_comments(
+            "SELECT 1;\n--\tCREATE TABLE gone (x INT);\nSELECT 2;\n")
+        self.assertNotIn("gone", stripped)
+        self.assertIn("SELECT 2", stripped)
+
     def test_seed_counter_ignores_comments_between_tuples(self):
         text = ("INSERT INTO `t` VALUES\n(1,'a'),\n(2,'b'),\n"
                 "-- a note between tuples\n(3,'c');\n")

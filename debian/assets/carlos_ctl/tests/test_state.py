@@ -163,15 +163,23 @@ class TestResumeContract(unittest.TestCase):
         self.assertIsNone(o19import.require_resume_for_existing_state(
             {"phases": {}}, resume=False, dry_run=False))
 
+    def test_a_staged_dump_alone_is_reusable_without_resume(self):
+        # a dry run / assessment leaves only the stage phase behind; the
+        # real run that follows must not be forced into --resume
+        self.assertIsNone(o19import.require_resume_for_existing_state(
+            {"phases": {"stage": {"status": "done"}}}, False, False))
+
     def test_existing_state_without_resume_is_refused(self):
         msg = o19import.require_resume_for_existing_state(
-            {"phases": {"stage": {"status": "done"}}}, False, False)
+            {"phases": {"stage": {"status": "done"},
+                        "check-pristine": {"status": "done"}}}, False, False)
         self.assertIsNotNone(msg)
         self.assertIn("--resume", msg)
-        self.assertIn("stage", msg)
+        self.assertIn("check-pristine", msg)
 
     def test_resume_or_dry_run_proceeds(self):
-        state = {"phases": {"stage": {"status": "done"}}}
+        state = {"phases": {"stage": {"status": "done"},
+                            "backup": {"status": "done"}}}
         self.assertIsNone(o19import.require_resume_for_existing_state(
             state, True, False))
         self.assertIsNone(o19import.require_resume_for_existing_state(
@@ -184,6 +192,136 @@ class TestResumeContract(unittest.TestCase):
         self.assertFalse(o19import.etl_started(d))
         o19etl.save_progress(d, {"tables": {}, "admin_provider_no": "7"})
         self.assertTrue(o19import.etl_started(d))
+
+
+class TestCleanupGate(unittest.TestCase):
+    """--cleanup destroys the resume ledger, so it is allowed only after a
+    passed verification or before the copy started; --dry-run grants
+    nothing."""
+
+    def setUp(self):
+        self.state_dir = tempfile.mkdtemp(prefix="o19cleanup-")
+        self.addCleanup(shutil.rmtree, self.state_dir)
+
+    def test_verified_run_may_clean_up(self):
+        self.assertIsNone(o19import.cleanup_refusal(
+            {"phases": {"verify": {"status": "done"}}}, self.state_dir,
+            False))
+
+    def test_untouched_target_may_clean_up(self):
+        self.assertIsNone(o19import.cleanup_refusal(
+            {"phases": {"stage": {"status": "done"}}}, self.state_dir,
+            False))
+
+    def test_mid_import_workspace_is_refused(self):
+        from carlos_ctl import o19etl
+        o19etl.save_progress(self.state_dir,
+                             {"tables": {"demographic": {"done": True}}})
+        msg = o19import.cleanup_refusal(
+            {"phases": {"stage": {"status": "done"}}}, self.state_dir, False)
+        self.assertIsNotNone(msg)
+        self.assertIn("--resume", msg)
+        # the dev-database override is the only bypass
+        self.assertIsNone(o19import.cleanup_refusal(
+            {"phases": {}}, self.state_dir, True))
+
+    def test_restored_documents_count_as_written(self):
+        msg = o19import.cleanup_refusal(
+            {"phases": {"documents": {"status": "done"}}}, self.state_dir,
+            False)
+        self.assertIsNotNone(msg)
+
+    def test_state_is_archived_so_the_run_cannot_be_resumed(self):
+        o19import.save_state(self.state_dir,
+                             {"phases": {"verify": {"status": "done"}}})
+        archived = o19import.archive_state(self.state_dir)
+        self.assertTrue(archived.startswith("state.json.completed-"))
+        self.assertEqual(o19import.load_state(self.state_dir)["phases"], {})
+        self.assertIsNone(o19import.archive_state(self.state_dir))
+
+
+class TestDevModePolicy(unittest.TestCase):
+    """--dev-target/--mariadb-arg are for development databases: refused on
+    a packaged host, and --dev-target alone (no seam) is meaningless."""
+
+    def test_no_dev_flags_is_always_fine(self):
+        self.assertIsNone(o19import.dev_mode_refusal(False, None, True))
+        self.assertIsNone(o19import.dev_mode_refusal(False, None, False))
+
+    def test_dev_flags_are_refused_on_a_packaged_host(self):
+        self.assertIn("packaged host",
+                      o19import.dev_mode_refusal(True, ["-uroot"], True))
+        self.assertIn("packaged host",
+                      o19import.dev_mode_refusal(False, ["-uroot"], True))
+
+    def test_dev_target_needs_the_connection_seam(self):
+        self.assertIn("--mariadb-arg",
+                      o19import.dev_mode_refusal(True, None, False))
+        self.assertIsNone(o19import.dev_mode_refusal(True, ["-uroot"], False))
+        self.assertIsNone(o19import.dev_mode_refusal(False, ["-uroot"],
+                                                     False))
+
+
+class TestStagingRestore(unittest.TestCase):
+    """The restore of clinic-supplied SQL runs as a throwaway account whose
+    grants stop at the staging schema, and a dump that would steer the
+    restore elsewhere is refused before a byte reaches the server."""
+
+    def test_redirect_markers_are_refused(self):
+        for text in (b"\nUSE `oscar`;\n", b"\nCREATE DATABASE `x`;\n",
+                     b"\nuse oscar;\n"):
+            msg = o19import.dump_redirect_marker(text)
+            self.assertIsNotNone(msg, text)
+            self.assertIn("--databases", msg)
+        self.assertIn("GTID_PURGED", o19import.dump_redirect_marker(
+            b"\nSET @@GLOBAL.GTID_PURGED='abc';\n"))
+
+    def test_ordinary_dump_text_passes(self):
+        self.assertIsNone(o19import.dump_redirect_marker(
+            b"\n-- MySQL dump\nINSERT INTO `t` VALUES ('use this');\n"
+            b"/*!40101 SET NAMES utf8 */;\n"))
+
+    def test_restore_argv_replaces_identity_and_scopes_the_database(self):
+        argv = o19import.staging_client_argv(
+            ["mariadb", "--protocol=socket", "--user=root"], "/s/.cnf")
+        self.assertEqual(argv[:3], ["mariadb", "--defaults-extra-file=/s/.cnf",
+                                    "--protocol=socket"])
+        self.assertNotIn("--user=root", argv)
+        self.assertIn("--one-database", argv)
+        self.assertEqual(argv[-1], o19import.STAGING_SCHEMA)
+        # a dev seam's own credentials are stripped the same way
+        argv = o19import.staging_client_argv(
+            ["mariadb", "--host=db", "-uroot", "-psecret",
+             "--defaults-file=/x"], "/s/.cnf")
+        self.assertEqual([a for a in argv if a.startswith(("-u", "-p"))], [])
+        self.assertIn("--host=db", argv)
+        self.assertNotIn("--defaults-file=/x", argv)
+
+    def test_account_grants_stop_at_the_staging_schema(self):
+        stmts = o19import.staging_account_statements("pw'x")
+        self.assertTrue(stmts[0].startswith("DROP USER IF EXISTS"))
+        self.assertIn("IDENTIFIED BY 'pw\\'x'", stmts[1])
+        grants = [s for s in stmts if s.startswith("GRANT")]
+        self.assertEqual(len(grants), len(o19import.STAGING_ACCOUNT_HOSTS))
+        for grant in grants:
+            self.assertIn("ON `{0}`.*".format(o19import.STAGING_SCHEMA),
+                          grant)
+            self.assertNotIn("*.*", grant)
+
+
+class TestAcceptIdDriftLock(unittest.TestCase):
+
+    def test_every_preflight_accept_id_is_a_cli_class(self):
+        # a blocker whose --accept name the CLI does not know could never
+        # be acknowledged; read the ids out of the preflight source
+        import re
+        from carlos_ctl import o19_preflight
+        with open(o19_preflight.__file__, encoding="utf-8") as fh:
+            source = fh.read()
+        ids = set(re.findall(r'accept="([a-z-]+)"', source))
+        self.assertTrue(ids)
+        self.assertTrue(ids <= set(o19import.ACCEPT_CLASSES),
+                        ids - set(o19import.ACCEPT_CLASSES))
 
 
 class TestHeadCollations(unittest.TestCase):

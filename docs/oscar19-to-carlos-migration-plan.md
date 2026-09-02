@@ -457,9 +457,12 @@ checks, UI smoke — before clinical use.
   (`SCHEMA_MAP_VERSION` is a plain `o19map-N` token, deliberately not
   CalVer-shaped). `test_manifest_integrity.py` (22 checks, stdlib unittest)
   refuses any unclassified table.
-- Current classification (581 O19 tables at commit `a7900d5`): 343 copy /
-  29 merge / 27 reference / 152 archive (patient-data subset flagged for the
-  B1 blocker) / 28 drop / 0 unknown.
+- Current classification (580 O19 tables at commit `a7900d5`): 338 copy /
+  31 merge / 27 reference / 156 archive (patient-data subset flagged for the
+  B1 blocker; includes the three shared OAuth/session token tables, which
+  are archived rather than restored live) / 28 drop / 0 unknown. Three
+  copy-class credential tables (`ServiceClient`, `oscarKeys`, `publicKeys`)
+  are named in the ETL report under a rotate/verify advisory.
 - **Analysis corrections found during generation:**
   - `demographic.preferred_lang` is NOT a dropped column: O19's own
     `update-2009-02-23` renamed it to `official_lang`, which is shared and
@@ -667,6 +670,130 @@ freshly provisioned Flyway target with the final code (verification passed,
   `--check` covers the preflight block and outputs carry no wall-clock
   stamp; Flyway files are parsed in numeric version order;
   `ADD COLUMN IF NOT EXISTS` parses. Suite: 201 tests passing.
+
+**Multi-agent review round (slices + crosscuts), re-rehearsed (done):**
+nine independent review passes (bundle, docs, ETL, pipeline, props and
+preflight, generator and fixtures; security, fail-closed lifecycle,
+docs/tests consistency) were run over the PR; every substantiated finding
+was fixed and pinned by tests. What changed in behaviour:
+
+- **Nothing in a dump can reach the live schema:** the staged restore runs
+  as a throwaway account whose grants stop at `o19_import` (dropped again
+  right after), with the client's `--one-database` switch; the whole dump
+  stream is scanned and a `USE` / `CREATE DATABASE` (a `--databases`
+  dump) or `GTID_PURGED` directive is refused before a byte is sent. GNU
+  tar's option permutation is closed off (`--` before member names, and
+  dash-prefixed member names refused) so an archive can no longer smuggle
+  `--checkpoint-action`. The pre-import backup now runs BEFORE staging.
+- **Charset repair is per row and byte-aligned** (round-trips to latin1
+  unchanged, the latin1 bytes form valid UTF-8, non-ASCII present) instead
+  of a hex-substring match that flagged `1,800`; the B8 marker uses the
+  same predicate. Verified on MariaDB 10.11 against legitimate `Élise
+  Côté`, double-encoded text and CJK.
+- **Documents:** the deb's nested skeleton (`incomingdocs/1/Fax`, …) is
+  merged recursively rather than refused; `HRMDocument.reportFile` is
+  rewritten to the basename inside `DOCUMENT_DIR` (the only path
+  `HRMReportParser` trusts) and the `hrm/` files are moved there;
+  URL-encoded `${oscar_image_path}` spellings reconcile; batch rows split
+  on `\n` only (a CRLF eForm is data); ownership is re-applied on every
+  pass; a different tar after a restore is a clear refusal.
+- **ETL:** surrogate-id maps pair natural-key twins by `ROW_NUMBER()`
+  (a `MIN()` join folded twins onto one id); a nullable child key that no
+  map knows becomes NULL and is counted, a NOT NULL one keeps the raw id;
+  merge anti-joins compare the sanitized expression the insert writes and
+  are ordered; shadow capture prunes columns absent at this patch level;
+  the ledger is bound to the dump digest AND the manifest version, and to
+  the break-glass admin name; a resumed chunked copy clears its first
+  unconfirmed window; `provider_no` width is checked; `encounterForm`
+  merges on its PK `form_value`, `app_lookuptable` on `tableid`; the
+  generator refuses stale B3/`VALUE_EXPRS` entries and non-PK merge keys
+  on surrogate-less tables. The OSCAR 19 OAuth/session token tables are
+  archived instead of copied; `ServiceClient`/`oscarKeys`/`publicKeys` are
+  flagged for rotation.
+- **Lifecycle:** `--cleanup` is allowed after verification or before the
+  copy started (never on a mid-import workspace; `--dry-run` grants
+  nothing) and retires `state.json`; a dry run's `--accept` flags are not
+  recorded; `o19-preflight` runs the capacity checks and returns the
+  verdict as its exit code without recording one; `--restage` clears the
+  verdict; only a staged dump may be left behind without `--resume`; the
+  P0 resume skip requires a recorded PASS; `--dev-target`/`--mariadb-arg`
+  are refused on a packaged host and `--dev-target` needs the seam; the
+  disk check uses the documents archive's expanded size; per-patient spot
+  check lines go to root-only `verify-details.txt`.
+- **Preflight/props:** exit 3 is a tool error distinct from the verdict;
+  password-bearing client arguments are refused without echoing them;
+  malformed `\uXXXX` escapes are errors; keys and non-Latin-1 values are
+  escaped in the fragment; `eform_image` is carried as `EFORM_IMAGES_DIR`;
+  `login_local_ip`/`resource_base_url` carry, `faxLogo`/
+  `oscarMeasurement_css` are dropped (no reader left). Suite: 242 tests
+  passing; the bundle rehearsal was rerun on a freshly provisioned target.
+
+**Multi-agent review round (PR #3583) — slices and crosscuts, re-rehearsed
+(done):** nine review agents (bundle, docs, ETL, import pipeline,
+props+preflight, generator+fixtures; security, fail-closed lifecycle,
+docs/tests consistency) produced findings that were verified one by one; the
+valid ones were fixed, pinned by tests (suite: 242), and the encrypted-bundle
+rehearsal was rerun on a re-provisioned Flyway target through `--cleanup`.
+Behaviour changes:
+
+- **Staged restore cannot reach the live schema:** the dump is restored by a
+  throwaway account (`o19_import@localhost`/`@%`) whose grants stop at the
+  staging schema, with the client's `--one-database` switch; a dump carrying
+  `USE`/`CREATE DATABASE` (a `--databases` dump) or `GTID_PURGED` is refused
+  before a byte reaches the server; tar extraction ends option parsing with
+  `--` and refuses dash-prefixed member names (a crafted member could
+  otherwise inject `--checkpoint-action`); the pre-import backup now runs
+  BEFORE staging.
+- **Charset repair was silently inert (rehearsal finding):** the byte-aligned
+  double-encoding predicate replaced the hex-substring test, but the SQL
+  regex literals reached the server with a single backslash (the string
+  parser eats it: `[^\x00-\x7F]` became `[^x00-x7F]`), and the BINARY
+  round-trip compared a latin1 staging value against its utf8mb4 re-encoding
+  — every mojibake row read as clean, and the preflight advisory counted the
+  wrong characters. Both are fixed (doubled backslashes; the value is
+  normalised to utf8mb4 first) and proven on MariaDB 10.11 against latin1 and
+  utf8mb4 tables: `Ã‰lise CÃ´tÃ©` repairs to `Élise Côté`, legitimate accents,
+  ASCII, `1,800` and CJK pass through untouched.
+- **Gates and state:** `o19-preflight` runs the capacity checks, the staged
+  restore and the report with the exit code as its verdict, recording no
+  sign-off; a dry run's `--accept` flags are no longer persisted; a rerun
+  needs `--resume` only when state beyond a staged dump exists; `--restage`
+  is shared and clears the recorded verdict; `--cleanup` is allowed after
+  verification or before the copy started (never on a mid-import workspace,
+  `--dry-run` grants nothing) and retires `state.json` so a finished run can
+  neither be resumed nor mistaken for a fresh one; the P0 resume-skip
+  requires a recorded pristine verdict; `--dev-target`/`--mariadb-arg` are
+  refused on a packaged host and `--dev-target` needs the connection seam;
+  the disk check uses the documents archive's expanded size; the ETL ledger
+  is bound to the manifest version as well as the dump digest and refuses a
+  mismatch instead of resetting.
+- **Data fidelity:** surrogate-id maps pair natural-key twins by
+  `ROW_NUMBER()` instead of `MIN()` (which folded two rows onto one id);
+  merge anti-joins sanitise their key expressions; a nullable child key
+  whose parent id is unmapped becomes NULL (NOT NULL keys keep the raw id)
+  and the count is reported; the shadow capture prunes dropped columns a
+  lower patch level never had; `encounterForm` merges on `form_value` and
+  `app_lookuptable` on `tableid` (their primary keys); the generator refuses
+  a merge key that is not the PK of a table without a surrogate id, a stale
+  B3 flag or VALUE_EXPR, and a `CREDENTIAL_TABLES` entry that is not
+  copy-class; OSCAR 19's OAuth/session token tables (`SecurityToken`,
+  `ServiceAccessToken`, `ServiceRequestToken`) are archived rather than
+  restored live, and the copied credential tables are named in the report
+  under a rotate/verify advisory; per-patient spot-check lines go to a
+  root-only `verify-details.txt` instead of the shareable report.
+- **Documents and properties:** the deb's nested documents skeleton
+  (`incomingdocs/1/Fax`, …) is merged recursively (a file collision or a
+  symlink is fatal); HRM reports are relocated into `document/` and
+  `HRMDocument.reportFile` rewritten to the basename there, matching what
+  CARLOS's HRM reader trusts; eForm image references are found in their
+  URL-encoded spellings too; ownership and the HRM rewrite run on every
+  pass; property keys are escaped and non-Latin-1 values emitted as
+  `\uXXXX`; a malformed `\u` escape is an error; `eform_image` translates
+  to the `EFORM_IMAGES_DIR` key CARLOS reads, `login_local_ip` and
+  `resource_base_url` carry, `faxLogo`/`oscarMeasurement_css` (no reader
+  left) are itemised; the standalone preflight refuses password arguments
+  without echoing them, reports tool errors as exit 3, and folds table-name
+  case.
 
 **All seven milestones complete.** Next steps beyond this round: run the
 Playwright UI suite against a migrated database under a full app deploy,

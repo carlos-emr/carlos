@@ -21,9 +21,11 @@
 # but present on real OLIS sites; exercises the OLIS-dropped path).
 # Repeatable --mysql-arg values pass client options through. The password
 # never travels on the command line (visible in process listings and shell
-# history): give it via --mysql-password-file (exported as MYSQL_PWD for
-# the client and dump tools only), a client defaults file
-# (--mysql-arg --defaults-extra-file=FILE), or an already-set MYSQL_PWD.
+# history): give it via --mysql-password-file (exported as MYSQL_PWD into
+# this script's environment, so every client/dump tool it spawns sees it),
+# a client defaults file (--mysql-arg --defaults-extra-file=FILE), or an
+# already-set MYSQL_PWD. A bare -p/--password would prompt interactively
+# and hang the script, so it is refused as well.
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -54,7 +56,11 @@ SQLDIR="$OSCAR_SRC/database/mysql"
 for a in ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"}; do
   case "$a" in
     -p?*|--password=*)
-      echo "ERROR: do not pass the password in argv ($a) — use --mysql-password-file" >&2
+      # never echo the offending argument: it IS the password
+      echo "ERROR: do not pass the password in argv (-p... / --password=...) — use --mysql-password-file" >&2
+      exit 2 ;;
+    -p|--password)
+      echo "ERROR: a bare -p/--password would prompt and hang this script — use --mysql-password-file" >&2
       exit 2 ;;
   esac
 done

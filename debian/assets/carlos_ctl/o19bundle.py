@@ -104,6 +104,12 @@ def classify_members(names: List[str]) -> Dict[str, Optional[str]]:
                             "must sit at the archive root with paths "
                             "trimmed".format(raw))
             continue
+        if name.startswith("-"):
+            # a name that looks like an option must never reach tar's
+            # argv, even behind the "--" separator used at extraction
+            problems.append("member '{0}' starts with '-' — refused"
+                            .format(raw))
+            continue
         if name.endswith(".sql") or name.endswith(".sql.gz"):
             dumps.append(name)
         elif name.endswith(".tar") or name.endswith(".tar.gz"):
@@ -176,10 +182,32 @@ def validate_tar_members(entries: List[Tuple[str, str]],
         elif ".." in clean.split("/"):
             problems.append("member '{0}' contains a '..' path component"
                             .format(name))
+        elif clean.startswith("-"):
+            # GNU tar permutes its argv: a member name such as
+            # "--to-command=sh x" handed to tar as a positional argument
+            # is parsed as an OPTION. Extraction also passes "--", but a
+            # dash-prefixed name has no legitimate use in these archives.
+            problems.append("member '{0}' starts with '-' (option-like "
+                            "names are refused)".format(name))
         names.append(name)
     if problems:
         raise ValueError("archive rejected:\n  " + "\n  ".join(problems))
     return names
+
+
+def listed_size(entries_verbose: List[str]) -> int:
+    """Sum of the member sizes in a `tar -tv` listing — the archive's
+    expanded footprint, for the disk-headroom check (a compressed
+    archive's file size says nothing about what it unpacks to)."""
+    total = 0
+    for line in entries_verbose:
+        parts = line.split(None, 5)
+        if len(parts) >= 6 and parts[0][:1] == TAR_TYPE_FILE:
+            try:
+                total += int(parts[2])
+            except ValueError:
+                continue
+    return total
 
 
 def tar_header_checksum_ok(header: bytes) -> bool:
@@ -320,8 +348,10 @@ def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
     extract_flags = "-xzf" if gzipped else "-xf"
     # ownership/permissions come from the host policy (chmod below), never
     # from a clinic-authored archive
+    # "--" ends option parsing: member names are positional data, never
+    # options (validate_tar_members refuses dash-prefixed names as well)
     cp = run(["tar", extract_flags, tar_path, "-C", workdir,
-              "--no-same-owner", "--no-same-permissions"]
+              "--no-same-owner", "--no-same-permissions", "--"]
              + [m for m in members.values() if m])
     if cp.returncode != 0:
         die("bundle extraction failed")

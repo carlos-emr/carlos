@@ -218,18 +218,34 @@ explicit
 .B --accept
 sign-off flags, recorded in the report.
 .B --dry-run
-stages and reports without writing to the EMR schema;
+stages and reports without writing to the EMR schema (its
+.B --accept
+flags are not recorded);
 .B --resume
 continues an interrupted run (required whenever a previous run left state
-behind — state is never continued implicitly; once the data copy has
-started, only the emptiness sweep is skipped on resume);
+behind beyond a staged dump — state is never continued implicitly; once the
+data copy has started, only the emptiness sweep is skipped on resume);
+.B --restage
+drops and re-restores the staging schema (clearing the recorded preflight
+verdict);
 .B --cleanup
-(after verification) drops the staging schema and keeps the o19_archive
-schema and reports. See docs/oscar19-to-carlos-migration-plan.md in the
+drops the staging schema, retires the run's state file and keeps the
+o19_archive schema and reports \(em allowed after verification or while
+nothing has been written to the EMR schema, never on a mid-import
+workspace. The pre-import backup is taken before the staged restore, which
+runs as a throwaway account limited to the staging schema; a dump carrying
+USE or CREATE DATABASE statements is refused.
+.B --dev-target
+and
+.B --mariadb-arg
+serve development databases only and are refused on a packaged host. See
+docs/oscar19-to-carlos-migration-plan.md and docs/o19-import-deb.md in the
 source tree.
 .TP
 .B o19-preflight (experimental)
-Stage a dump and run only the go/no-go feasibility check. For an
+Stage a dump and run only the capacity checks and the go/no-go feasibility
+check; the exit status is the verdict (0 go, 1 acknowledgements required,
+2 no-go, 3 tool error) and nothing is recorded as a sign-off. For an
 assessment BEFORE backups are shipped, copy
 /usr/lib/carlos-emr/carlos_ctl/o19_preflight.py to the OSCAR 19 server and
 run it there standalone.

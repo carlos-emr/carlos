@@ -194,7 +194,9 @@ class TestAdvisories(unittest.TestCase):
 
     def test_mojibake_sampling_is_advisory(self):
         db = FakeDb(base_tables(),
-                    where_counts={("demographic", pf.MOJIBAKE_HEX): 3})
+                    where_counts={("demographic",
+                                   pf.double_encoded_predicate("last_name")):
+                                  3})
         report = pf.run_checks(db, properties=clean_props())
         f = [x for x in report["findings"]
              if x["id"] == "charset-mojibake"][0]
@@ -248,15 +250,49 @@ class TestReportContract(unittest.TestCase):
         self.assertIsNone(pf.interactive_password_arg(
             ["-uroot", "--defaults-extra-file=/root/.my.cnf"]))
 
-    def test_main_refuses_interactive_password(self):
+    def test_password_arg_problem_never_echoes_the_value(self):
+        self.assertIn("interactive", pf.password_arg_problem(["-p"]))
+        for args in (["-pS3cret"], ["--password=S3cret"]):
+            problem = pf.password_arg_problem(args)
+            self.assertIn("password in argv", problem)
+            self.assertNotIn("S3cret", problem)
+        self.assertIsNone(pf.password_arg_problem(
+            ["-uroot", "--protocol=socket", "--defaults-extra-file=/x"]))
+
+    def test_main_refuses_password_arguments_as_a_tool_error(self):
+        import io
+        import contextlib
+        for bad in ("-p", "--password=S3cret", "-pS3cret"):
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                rc = pf.main(["--db", "x", "--mysql-arg=-uroot",
+                              "--mysql-arg=" + bad])
+            # exit 3 is reserved for tool errors so it can never be read
+            # as a verdict (0 go / 1 acknowledgements / 2 no-go)
+            self.assertEqual(rc, pf.EXIT_TOOL_ERROR)
+            self.assertIn("--mysql-password-file", err.getvalue())
+            self.assertNotIn("S3cret", err.getvalue())
+
+    def test_unreadable_properties_is_a_tool_error(self):
         import io
         import contextlib
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
-            rc = pf.main(["--db", "x", "--mysql-arg=-uroot",
-                          "--mysql-arg=-p"])
-        self.assertEqual(rc, 2)
-        self.assertIn("--mysql-password-file", err.getvalue())
+            rc = pf.main(["--db", "x", "--properties",
+                          "/nonexistent/oscar.properties"])
+        self.assertEqual(rc, pf.EXIT_TOOL_ERROR)
+
+    def test_double_encoded_predicate_is_byte_aligned(self):
+        p = pf.double_encoded_predicate("last_name")
+        # the value is normalised to utf8mb4 before every comparison: O19
+        # tables are usually latin1, and BINARY-comparing across charsets
+        # would compare different byte strings (every row 'clean')
+        self.assertIn("CONVERT(`last_name` USING utf8mb4) REGEXP "
+                      "'[^\\\\x00-\\\\x7F]'", p)
+        self.assertIn("CONVERT(CONVERT(`last_name` USING utf8mb4) USING "
+                      "latin1)", p)
+        self.assertNotIn("HEX(", p)
+        self.assertNotIn("C383", p)
 
     def test_properties_parser_has_java_semantics(self):
         props = pf.parse_properties_text(

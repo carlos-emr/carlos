@@ -754,6 +754,7 @@ KEYS = {
     'eform_image': {
         'd': 'translate',
         't': 'docpath',
+        'as': 'EFORM_IMAGES_DIR',
     },
     'eform_signature_enabled': {
         'd': 'carry',
@@ -774,8 +775,8 @@ KEYS = {
         'advisory': 'fax',
     },
     'faxLogo': {
-        'd': 'translate',
-        't': 'docpath',
+        'd': 'dropped-flag',
+        'advisory': 'fax',
     },
     'faxPollInterval': {
         'd': 'dropped-flag',
@@ -813,7 +814,7 @@ KEYS = {
         'd': 'deploy-owned',
     },
     'login_local_ip': {
-        'd': 'deploy-owned',
+        'd': 'carry',
     },
     'login_max_duration': {
         'd': 'carry',
@@ -843,8 +844,8 @@ KEYS = {
         'd': 'carry',
     },
     'oscarMeasurement_css': {
-        'd': 'translate',
-        't': 'docpath',
+        'd': 'dropped-flag',
+        'advisory': 'misc',
     },
     'oscar_port': {
         'd': 'deploy-owned',
@@ -883,7 +884,7 @@ KEYS = {
         'd': 'carry',
     },
     'resource_base_url': {
-        'd': 'deploy-owned',
+        'd': 'carry',
     },
     'rx.allow_rerx': {
         'd': 'carry',

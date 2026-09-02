@@ -9,7 +9,7 @@ migration rehearsals (no Bitbucket checkout needed to run the fixture flow):
 
 | File here | Upstream path | License |
 |---|---|---|
-| `demo-data/demo.sql` | `release/demo.sql` | GPL v2 (header preserved: "Copyright Peter Hutten-Czapski 2012 released under the GPL v2") |
+| `demo-data/demo.sql` | `release/demo.sql` | GPL v2 (header preserved: "Copyright Peter Hutten-Czapski 2012 released under the GPL v2"). Upstream's synthetic demonstration dataset: invented patients, providers and encounters for training installs — no real person or clinic. |
 | `properties/oscar_mcmaster.properties` | `src/main/resources/oscar_mcmaster.properties` | GPL (upstream project license; file header preserved) |
 
 Everything else under `fixtures/` is synthetic CARLOS-authored fixture

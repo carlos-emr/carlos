@@ -71,9 +71,23 @@ class TestDispositions(unittest.TestCase):
         self.assertEqual(
             self.fragment["INVOICE_DIR"],
             ROOT + "/carlos/billing/download/")
+        # CARLOS reads the eForm image directory as EFORM_IMAGES_DIR: the
+        # fragment carries the key CARLOS honours, never the O19 spelling
         self.assertEqual(
-            self.fragment["eform_image"],
+            self.fragment["EFORM_IMAGES_DIR"],
             ROOT + "/carlos/eform/images/")
+        self.assertNotIn("eform_image", self.fragment)
+        self.assertEqual(self.by_key.get("eform_image"), "translate")
+
+    def test_settings_carlos_still_reads_carry_verbatim(self):
+        for key in ("login_local_ip", "resource_base_url"):
+            self.assertEqual(self.by_key.get(key), "carry", key)
+            self.assertIn(key, self.fragment)
+
+    def test_readerless_paths_are_dropped_not_translated(self):
+        for key in ("faxLogo", "oscarMeasurement_css"):
+            self.assertEqual(self.by_key.get(key), "dropped-flag", key)
+            self.assertNotIn(key, self.fragment)
 
     def test_drugref_keeps_the_deployment_endpoint(self):
         self.assertEqual(self.by_key.get("drugref_url"), "translate")
@@ -111,13 +125,25 @@ class TestRendering(unittest.TestCase):
         self.assertIn("clinic_no=9999", text)
         self.assertIn("mcedt.service.pass=fake-mcedt-secret", text)
 
-    def test_report_masks_secret_values(self):
+    def test_report_masks_secrets_and_lists_unknown_keys(self):
         result = fixture_result()
         report = o19props.render_report(result)
         self.assertNotIn("fake-mcedt-secret", report)
         self.assertNotIn("fake-mail-secret", report)
         self.assertIn("ROTATE/VERIFY", report)
+        # the vendor-fork key surfaces by name for human classification
         self.assertIn("acme_ehr_bridge.endpoint", report)
+
+    def test_fragment_escapes_keys_and_non_latin1_values(self):
+        result = {"fragment": [("odd key=1", "caf\u00e9 \u2014 \u4e2d"),
+                               ("plain", "x")],
+                  "rows": [], "secrets": [], "advisories": {}}
+        text = o19props.render_fragment(result)
+        self.assertIn("odd\\ key\\=1=", text)
+        self.assertIn("caf\u00e9 \\u2014 \\u4e2d", text)
+        # and the escaped line decodes back to the original pair
+        parsed = dict(o19props.parse_properties_text(text))
+        self.assertEqual(parsed["odd key=1"], "caf\u00e9 \u2014 \u4e2d")
 
 
 class TestTranslateDocpath(unittest.TestCase):
@@ -166,6 +192,11 @@ class TestJavaPropertiesParser(unittest.TestCase):
         # an ESCAPED backslash at the end does not continue
         self.assertEqual(self.parse("k=a\\\\\nn=1\n"),
                          {"k": "a\\", "n": "1"})
+
+    def test_malformed_unicode_escape_is_an_error_not_silent_garbage(self):
+        for text in ("k=\\u00zz\n", "k=\\u12\n", "k=abc\\u\n"):
+            with self.assertRaises(ValueError):
+                self.parse(text)
 
     def test_escapes_are_decoded(self):
         text = "k=a\\tb\\nc\\\\d\\u00e9\\=x\n"

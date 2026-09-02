@@ -142,12 +142,15 @@ KEYS = {
     "INCOMINGDOCUMENT_DIR": {"d": "translate", "t": "docpath"},
     # a boolean (recycle bin on/off), not a path — CARLOS reads it the same
     "INCOMINGDOCUMENT_RECYCLEBIN": {"d": "carry"},
-    "eform_image": {"d": "translate", "t": "docpath"},
-    "faxLogo": {"d": "translate", "t": "docpath"},
+    # CARLOS reads the eForm image directory under a new key name
+    "eform_image": {"d": "translate", "t": "docpath", "as": "EFORM_IMAGES_DIR"},
+    # no CARLOS reader (legacy fax cover-page logo) — reported, not carried
+    "faxLogo": {"d": "dropped-flag", "advisory": "fax"},
     "HOME_DIR": {"d": "translate", "t": "docpath"},
     # a bare checkpoint FILENAME (default .LastDownloadedID), not a path
     "mcedt.last.downloadedID.file": {"d": "carry"},
-    "oscarMeasurement_css": {"d": "translate", "t": "docpath"},
+    # only a commented-out reader remains in CARLOS — reported, not carried
+    "oscarMeasurement_css": {"d": "dropped-flag", "advisory": "misc"},
     "drugref_url": {"d": "translate", "t": "drugref"},
     # --- deployment-owned (refused) ---------------------------------------
     "db_uri": {"d": "deploy-owned"},
@@ -178,9 +181,12 @@ KEYS = {
     "buildDateTime": {"d": "deploy-owned"},
     "version": {"d": "deploy-owned"},
     "versionDate": {"d": "deploy-owned"},
-    "login_local_ip": {"d": "deploy-owned"},
+    # clinic policy CARLOS still reads (LoginCheckLogin): the local-network
+    # ranges exempt from the failed-login lockout
+    "login_local_ip": {"d": "carry"},
     "ws_endpoint_url_base": {"d": "deploy-owned"},
-    "resource_base_url": {"d": "deploy-owned"},
+    # a clinic-chosen link target on the provider menu, still read by CARLOS
+    "resource_base_url": {"d": "carry"},
     "log.purge.mysqldump": {"d": "deploy-owned"},
     # --- removed-module fax transport (advisory: SRFax decision) ----------
     "faxURI": {"d": "dropped-flag", "advisory": "fax"},

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
 """generate_manifests.py — regenerate the OSCAR 19 import manifests.
 
 Parses the OSCAR 19 schema sources (a Bitbucket oscaremr/oscar checkout) and
@@ -192,7 +194,8 @@ def strip_line_comments(text: str) -> str:
                 i += 1
             i += 1
             continue
-        if c == "#" or (c == "-" and text[i:i + 3] in ("-- ", "--\n", "--\r")
+        if c == "#" or (c == "-" and text[i:i + 3] in ("-- ", "--\t", "--\n",
+                                                        "--\r")
                         or text[i:i + 2] == "--" and i + 2 == n):
             while i < n and text[i] != "\n":
                 i += 1
@@ -289,7 +292,8 @@ class Schema:
         for clause in _split_top_level(clause_text):
             clause = clause.strip().rstrip(";").strip()
             # parenthesized multi-column form: ADD (a INT, b VARCHAR(5))
-            m = re.match(r"add\s*\((.+)\)\s*$", clause, re.I | re.S)
+            m = re.match(r"add\s+(?:column\s+)?\((.+)\)\s*$", clause,
+                         re.I | re.S)
             if m:
                 for part in _split_top_level(m.group(1)):
                     pm = re.match(r"\s*`?(\w+)`?\s+(.+)", part, re.S)
@@ -511,6 +515,7 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
 
     merge_keys = dict(ov.CLASS_MERGE)
     reference = set(ov.CLASS_REFERENCE)
+    archive_shared = set(getattr(ov, "ARCHIVE_SHARED", ()))
     replace_seed = set(getattr(ov, "REPLACE_SEED", ()))
     archive_patient = set(ov.ARCHIVE_PATIENT)
     archive_other = set(ov.ARCHIVE_OTHER)
@@ -529,6 +534,9 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
             entry["class"] = "reference"
             tables[t] = entry
             continue
+        if t in archive_shared:
+            tables[t] = {"class": "archive"}
+            continue
         if t in merge_keys:
             entry["class"] = "merge"
             entry["merge_keys"] = list(merge_keys[t])
@@ -543,6 +551,14 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
                 # reassign it on appended rows instead of copying the
                 # clinic's id (which may collide with a CARLOS seed row).
                 entry["surrogate_pk"] = pk[0]
+            elif pk and set(pk) != set(merge_keys[t]):
+                # no surrogate to reassign: the anti-join key must BE the
+                # primary key, or two rows differing only in a non-key
+                # column would both try to insert the same PK
+                raise SystemExit(
+                    "merge keys for {} must equal its primary key {} (no "
+                    "surrogate id to reassign); got {}".format(
+                        t, pk, merge_keys[t]))
         else:
             entry["class"] = "copy"
             if t in replace_seed:
@@ -615,10 +631,35 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
                           ("DROP", drop), ("CLASS_REFERENCE", reference),
                           ("REPLACE_SEED", replace_seed),
                           ("CLASS_MERGE", set(merge_keys)),
+                          ("ARCHIVE_SHARED", archive_shared),
                           ("CHUNK_TABLES", chunk_tables)):
         for name in sorted(names - all_names):
             print("warning: overlay {} names unknown table {}"
                   .format(bucket, name), file=sys.stderr)
+    # column-level overlay entries that no longer describe the diff are
+    # errors, not warnings: a stale B3 flag silently un-blocks a workflow
+    # the clinic may still use, a stale VALUE_EXPR silently stops
+    # synthesizing a required column
+    for t, col in sorted(b3):
+        if col not in tables.get(t, {}).get("dropped", {}):
+            raise SystemExit(
+                "B3_COLUMNS names {}.{}, which is not a dropped column of a "
+                "shared table (stale entry)".format(t, col))
+    for t, exprs in sorted(value_exprs.items()):
+        if tables.get(t, {}).get("class") not in ("copy", "merge"):
+            raise SystemExit(
+                "VALUE_EXPRS names {}, which is not a copy/merge table"
+                .format(t))
+        for col in exprs:
+            if col not in carlos.tables[t]:
+                raise SystemExit(
+                    "VALUE_EXPRS names {}.{}, not a CARLOS column"
+                    .format(t, col))
+    for t in getattr(ov, "CREDENTIAL_TABLES", ()):
+        if tables.get(t, {}).get("class") != "copy":
+            raise SystemExit(
+                "CREDENTIAL_TABLES names {}, which is not a copy-class "
+                "table".format(t))
 
     for t in o19_only:
         if t in archive_patient:
@@ -700,6 +741,11 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
                + _fmt(list(ov.CARLOSDOC_SEED_DELETES)) + "\n")
     out.append("SEED_PROVIDER_NO = {!r}".format(ov.SEED_PROVIDER_NO))
     out.append("SEED_USER_NAME = {!r}".format(ov.SEED_USER_NAME))
+    out.append("# copy-class tables whose rows are credentials (OAuth consumer"
+               " secrets, signing\n# keys): copied verbatim, named in the ETL"
+               " report under a rotate/verify advisory")
+    out.append("CREDENTIAL_TABLES = "
+               + _fmt(list(getattr(ov, "CREDENTIAL_TABLES", []))) + "\n")
     return "\n".join(out) + "\n"
 
 

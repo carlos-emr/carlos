@@ -609,40 +609,17 @@ TABLES = {
         },
     },
     'SecurityToken': {
-        'class': 'copy',
-        'cols': ['id', 'token', 'created', 'expiry', 'data', 'providerNo'],
+        'class': 'archive',
     },
     'ServiceAccessToken': {
-        'class': 'copy',
-        'cols': [
-            'id',
-            'clientId',
-            'tokenId',
-            'tokenSecret',
-            'lifetime',
-            'issued',
-            'providerNo',
-            'scopes',
-            'dateCreated',
-        ],
+        'class': 'archive',
     },
     'ServiceClient': {
         'class': 'copy',
         'cols': ['id', 'name', 'clientKey', 'clientSecret', 'uri', 'dateCreated'],
     },
     'ServiceRequestToken': {
-        'class': 'copy',
-        'cols': [
-            'id',
-            'clientId',
-            'tokenId',
-            'tokenSecret',
-            'callback',
-            'verifier',
-            'providerNo',
-            'scopes',
-            'dateCreated',
-        ],
+        'class': 'archive',
     },
     'SystemMessage': {
         'class': 'copy',
@@ -710,7 +687,7 @@ TABLES = {
     },
     'app_lookuptable': {
         'class': 'merge',
-        'merge_keys': ['table_name'],
+        'merge_keys': ['tableid'],
         'cols': [
             'tableid',
             'moduleid',
@@ -2178,7 +2155,7 @@ TABLES = {
     },
     'encounterForm': {
         'class': 'merge',
-        'merge_keys': ['form_name'],
+        'merge_keys': ['form_value'],
         'cols': ['form_name', 'form_value', 'form_table', 'hidden'],
     },
     'encounterWindow': {
@@ -10127,11 +10104,6 @@ TABLES = {
             'lastReferralNotification',
             'enableOCAN',
         ],
-        'dropped': {
-            'column': {
-                'nondefault': "s.`column` IS NOT NULL AND s.`column` <> ''",
-            },
-        },
     },
     'programSignature': {
         'class': 'copy',
@@ -11940,30 +11912,7 @@ CARLOS_COLUMNS = {
         'lastUpdateUser',
         'lastUpdateDate',
     ],
-    'SecurityToken': ['id', 'token', 'created', 'expiry', 'data', 'providerNo'],
-    'ServiceAccessToken': [
-        'id',
-        'clientId',
-        'tokenId',
-        'tokenSecret',
-        'lifetime',
-        'issued',
-        'providerNo',
-        'scopes',
-        'dateCreated',
-    ],
     'ServiceClient': ['id', 'name', 'clientKey', 'clientSecret', 'uri', 'dateCreated', 'lifetime'],
-    'ServiceRequestToken': [
-        'id',
-        'clientId',
-        'tokenId',
-        'tokenSecret',
-        'callback',
-        'verifier',
-        'providerNo',
-        'scopes',
-        'dateCreated',
-    ],
     'SystemMessage': ['id', 'message', 'creationDate', 'expiryDate'],
     'access_type': ['access_id', 'name', 'type'],
     'admission': [
@@ -21037,3 +20986,7 @@ CARLOSDOC_SEED_DELETES = [
 
 SEED_PROVIDER_NO = '999998'
 SEED_USER_NAME = 'carlosdoc'
+# copy-class tables whose rows are credentials (OAuth consumer secrets, signing
+# keys): copied verbatim, named in the ETL report under a rotate/verify advisory
+CREDENTIAL_TABLES = ['ServiceClient', 'oscarKeys', 'publicKeys']
+

@@ -137,22 +137,31 @@ class TestSurrogateIdRemap(unittest.TestCase):
              "fk_remap": {"lookupListId": "LookupList"}}
     DST = {"id": col("int"), "lookupListId": col("int"), "value": col()}
 
-    def test_idmap_is_built_from_the_natural_key_join(self):
+    PARENT_DST = {"id": col("int"), "name": col()}
+
+    def test_idmap_pairs_natural_key_twins_by_row_number(self):
+        # two staging rows sharing the natural key must map to two DISTINCT
+        # target rows (MIN() would fold both onto one id and lose a row)
         stmts = o19etl.idmap_statements("LookupList", self.PARENT, "src",
-                                        "dst", "arch")
+                                        "dst", "arch", self.PARENT_DST)
         self.assertEqual(len(stmts), 3)
         self.assertIn("`arch`.`LookupList__idmap`", stmts[1])
         self.assertIn("old_id BIGINT NOT NULL PRIMARY KEY", stmts[1])
-        self.assertIn("SELECT s.`id`, MIN(d.`id`) FROM `src`.`LookupList` s "
-                      "JOIN `dst`.`LookupList` d ON d.`name` <=> s.`name` "
-                      "GROUP BY s.`id`", stmts[2])
+        self.assertIn("ROW_NUMBER() OVER (PARTITION BY `name` ORDER BY "
+                      "`id`) AS rn FROM `src`.`LookupList`", stmts[2])
+        self.assertIn("ROW_NUMBER() OVER (PARTITION BY `name` ORDER BY "
+                      "`id`) AS rn FROM `dst`.`LookupList`", stmts[2])
+        self.assertIn("ON d.`name` <=> s.`name` AND s.rn = d.rn", stmts[2])
+        self.assertNotIn("MIN(", stmts[2])
 
     def test_no_idmap_without_surrogate(self):
         self.assertEqual(o19etl.idmap_statements(
             "t", {"class": "merge", "cols": ["k"], "merge_keys": ["k"]},
-            "src", "dst", "arch"), [])
+            "src", "dst", "arch", {"k": col()}), [])
 
     def test_child_reads_the_fk_through_the_map(self):
+        # NOT NULL child key: an unmapped id falls back to the raw value
+        # (better a dangling id than a rejected row)
         expr = o19etl.source_expr(self.CHILD, "lookupListId",
                                   archive_schema="arch")
         self.assertEqual(
@@ -162,11 +171,31 @@ class TestSurrogateIdRemap(unittest.TestCase):
         self.assertEqual(o19etl.source_expr(self.CHILD, "lookupListId"),
                          "s.`lookupListId`")
 
+    def test_nullable_child_fk_becomes_null_when_unmapped(self):
+        # a nullable key must not silently keep an id that no longer
+        # exists on the target: NULL, and the fk report names the count
+        expr = o19etl.source_expr(self.CHILD, "lookupListId",
+                                  archive_schema="arch", nullable=True)
+        self.assertEqual(
+            expr, "(SELECT m.new_id FROM `arch`.`LookupList__idmap` m "
+                  "WHERE m.old_id = s.`lookupListId`)")
+        counts = o19etl.fk_unmapped_count_sql("LookupListItem", self.CHILD,
+                                              "src", "arch")
+        self.assertEqual([(c, p) for c, p, _ in counts],
+                         [("lookupListId", "LookupList")])
+        self.assertIn("NOT EXISTS", counts[0][2])
+        self.assertIn("`arch`.`LookupList__idmap`", counts[0][2])
+
     def test_child_merge_anti_join_uses_the_remapped_key(self):
         sql = o19etl.merge_statement("LookupListItem", self.CHILD, "src",
                                      "dst", self.DST, archive_schema="arch")
-        self.assertIn("d.`lookupListId` <=> IFNULL((SELECT m.new_id", sql)
+        # the anti-join compares the SAME expression the insert writes
+        # (the nullable column maps to NULL when unmapped, on both sides)
+        self.assertIn("d.`lookupListId` <=> (SELECT m.new_id FROM "
+                      "`arch`.`LookupList__idmap` m WHERE m.old_id = "
+                      "s.`lookupListId`)", sql)
         self.assertIn("d.`value` <=> s.`value`", sql)
+        self.assertTrue(sql.endswith("ORDER BY s.`id`"))
 
     def test_copy_statement_also_remaps(self):
         entry = dict(self.CHILD, **{"class": "copy"})
@@ -213,14 +242,28 @@ class TestResumeIdempotency(unittest.TestCase):
         d = tempfile.mkdtemp(prefix="o19progress-")
         self.addCleanup(shutil.rmtree, d)
         o19etl.save_progress(d, {"tables": {"demographic": {"done": True}},
-                                 "dump_sha256": "aaa"})
-        same = o19etl.load_progress(d, "aaa")
+                                 "dump_sha256": "aaa",
+                                 "schema_map_version": "o19map-1"})
+        same = o19etl.load_progress(d, "aaa", "o19map-1")
         self.assertTrue(same["tables"]["demographic"]["done"])
-        other = o19etl.load_progress(d, "bbb")
-        self.assertEqual(other["tables"], {})
-        self.assertEqual(other["dump_sha256"], "bbb")
+        # a different dump or manifest can never continue this ledger: the
+        # target is mid-import from the OTHER dump, so the run dies
+        with self.assertRaises(SystemExit):
+            o19etl.load_progress(d, "bbb", "o19map-1")
+        with self.assertRaises(SystemExit):
+            o19etl.load_progress(d, "aaa", "o19map-2")
         # no digest given: ledger returned as-is (read-only consumers)
         self.assertIn("demographic", o19etl.load_progress(d)["tables"])
+
+    def test_digest_less_ledger_with_table_marks_is_reset(self):
+        import shutil
+        import tempfile
+        d = tempfile.mkdtemp(prefix="o19progress-")
+        self.addCleanup(shutil.rmtree, d)
+        o19etl.save_progress(d, {"tables": {"demographic": {"done": True}}})
+        fresh = o19etl.load_progress(d, "aaa", "o19map-1")
+        self.assertEqual(fresh["tables"], {})
+        self.assertEqual(fresh["dump_sha256"], "aaa")
 
 
 class TestUnknownSchemaCapture(unittest.TestCase):
@@ -296,7 +339,10 @@ class TestChunkWindows(unittest.TestCase):
         w = o19etl.chunk_windows(1, 120, size=50)
         self.assertEqual(w, [(0, 50), (50, 100), (100, 120)])
 
-    def test_empty_table_yields_no_windows(self):
+    def test_degenerate_bounds_yield_one_or_no_window(self):
+        # a single row with id 0 still needs one (exclusive, inclusive]
+        # window; an inverted range (empty table: MIN NULL -> 1, MAX 0)
+        # yields none
         self.assertEqual(o19etl.chunk_windows(0, 0), [(-1, 0)])
         self.assertEqual(o19etl.chunk_windows(1, 0), [])
 
@@ -336,6 +382,88 @@ class TestEnumValues(unittest.TestCase):
         self.assertEqual(o19etl.enum_values("enum('RO','NR','TE')"),
                          ["RO", "NR", "TE"])
         self.assertEqual(o19etl.enum_values("varchar(10)"), [])
+
+
+class TestEffectiveEntry(unittest.TestCase):
+
+    ENTRY = {"class": "copy", "cols": ["id", "name", "extra"],
+             "fk_remap": {"name": "Parent"}}
+
+    def test_columns_absent_from_the_dump_are_skipped_with_a_note(self):
+        adjusted, notes = o19etl.effective_entry(
+            "t", self.ENTRY, {"id": col(), "NAME": col()}, {"t", "Parent"})
+        self.assertEqual(adjusted["cols"], ["id", "name"])
+        self.assertEqual(adjusted["fk_remap"], {"name": "Parent"})
+        self.assertTrue(any("t.extra absent" in n for n in notes))
+
+    def test_fk_remap_is_disabled_when_the_parent_is_absent(self):
+        adjusted, notes = o19etl.effective_entry(
+            "t", self.ENTRY, {"id": col(), "name": col(), "extra": col()},
+            {"t"})
+        self.assertNotIn("fk_remap", adjusted)
+        self.assertTrue(any("parent table Parent absent" in n
+                            for n in notes))
+
+    def test_unchanged_entry_is_returned_as_is(self):
+        adjusted, notes = o19etl.effective_entry(
+            "t", self.ENTRY, {"id": col(), "name": col(), "extra": col()},
+            {"t", "Parent"})
+        self.assertIs(adjusted, self.ENTRY)
+        self.assertEqual(notes, [])
+
+
+class TestCharsetRepairPredicate(unittest.TestCase):
+
+    def test_repair_is_per_row_and_byte_aligned(self):
+        expr = o19etl.repair_expr("s.`note`")
+        self.assertTrue(expr.startswith("CASE WHEN "))
+        # normalised to utf8mb4 before comparing (latin1 staging tables)
+        self.assertIn("CONVERT(s.`note` USING utf8mb4) REGEXP", expr)
+        # doubled backslashes in the SQL text (the server's string parser
+        # eats one before the regex engine sees the escape)
+        self.assertIn("REGEXP '[^\\\\x00-\\\\x7F]'", expr)
+        self.assertIn("CONVERT(BINARY CONVERT(s.`note` USING latin1) USING "
+                      "utf8mb4)", expr)
+        self.assertTrue(expr.endswith("ELSE s.`note` END"))
+
+    def test_marker_regex_targets_utf8_lead_bytes_only(self):
+        # 'Ã©' (double-encoded é) matches; 'São' (legit) does not: the
+        # class is the two latin1 lead bytes followed by a continuation
+        self.assertEqual(o19etl.MOJIBAKE_MARKER_RE,
+                         "'[\\\\x{C3}\\\\x{C2}][\\\\x{80}-\\\\x{BF}]'")
+
+
+class TestRowParity(unittest.TestCase):
+
+    def test_parity_flags_a_short_copy(self):
+        def q(sql):
+            if "information_schema" in sql:
+                return [["demographic"]]
+            if "`stage`.`demographic`" in sql:
+                return [["100"]]
+            if "`carlos`.`demographic`" in sql:
+                return [["90"]]
+            return [["0"]]
+        ok, bad = o19etl.row_parity(q, "stage", "carlos")
+        self.assertEqual(len(bad), 1)
+        self.assertIn("demographic: staging 100 -> target 90", bad[0])
+
+    def test_only_the_admin_identity_rows_are_tolerated(self):
+        def q(sql):
+            if "information_schema" in sql:
+                return [["provider"], ["demographic"]]
+            if "WHERE provider_no = 'p9'" in sql:
+                return [["1"]]
+            if "`carlos`.`provider`" in sql:
+                return [["11"]]
+            if "`stage`.`provider`" in sql:
+                return [["10"]]
+            return [["5"]]
+        ok, bad = o19etl.row_parity(q, "stage", "carlos", admin_user="bg",
+                                    admin_provider_no="p9")
+        self.assertEqual(bad, [])
+        self.assertTrue(any("+1 break-glass admin row" in line
+                            for line in ok))
 
 
 class TestManifestDrivenGeneration(unittest.TestCase):

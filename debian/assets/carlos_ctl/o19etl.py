@@ -38,9 +38,45 @@ from . import o19map_schema
 from .util import log, warn
 
 CHUNK_ROWS = 50000
-MOJIBAKE_HEX = "C383"
 
 REPAIR_TEMPLATE = ("CONVERT(BINARY CONVERT({0} USING latin1) USING utf8mb4)")
+
+
+def double_encoded_predicate(expr: str) -> str:
+    """Row predicate: `expr` holds UTF-8 text that went through a latin1
+    hop (mojibake such as 'Ã©' for 'é'). Byte-ALIGNED and lossless by
+    construction: the value must round-trip down to latin1 unchanged
+    (every character representable), those latin1 bytes must form valid
+    UTF-8 (converting them back to bytes loses nothing), and the value
+    must contain a non-ASCII character. A substring match on a hex dump
+    ('%C383%') is not aligned — it flags '1,800' — and re-encoding a whole
+    column corrupts every correctly stored 'é'; hence per-row repair."""
+    # normalise to utf8mb4 FIRST: staged O19 tables are usually latin1
+    # (the MySQL 5.x default), and BINARY-comparing a latin1 value with
+    # its utf8mb4 re-encoding compares different byte strings — which
+    # silently marked every mojibake row as clean
+    u = "CONVERT({0} USING utf8mb4)".format(expr)
+    down = "CONVERT({0} USING latin1)".format(u)
+    # the SQL literal must carry a DOUBLED backslash: the server's string
+    # parser drops the backslash of an unknown escape, so '\x00' would reach
+    # the regex engine as 'x00' (an innocent-looking, wrong character class)
+    return ("{0} IS NOT NULL AND {1} REGEXP '[^\\\\x00-\\\\x7F]' AND "
+            "BINARY CONVERT({2} USING utf8mb4) = BINARY {1} AND "
+            "BINARY CONVERT(CONVERT(BINARY {2} USING utf8mb4) USING binary) "
+            "= BINARY {2}".format(expr, u, down))
+
+
+# rows that LOOK double-encoded (an 'Ã'/'Â' lead byte followed by a
+# continuation-range character) but fail the lossless predicate: mixed or
+# thrice-encoded text the standard repair cannot round-trip (B8)
+MOJIBAKE_MARKER_RE = "'[\\\\x{C3}\\\\x{C2}][\\\\x{80}-\\\\x{BF}]'"
+
+
+def repair_expr(expr: str) -> str:
+    """Per-row conditional latin1->utf8mb4 repair: rows that are not
+    provably double-encoded pass through untouched."""
+    return "CASE WHEN {0} THEN {1} ELSE {2} END".format(
+        double_encoded_predicate(expr), REPAIR_TEMPLATE.format(expr), expr)
 
 
 # --------------------------------------------------------------------------
@@ -119,25 +155,29 @@ def idmap_table(parent: str) -> str:
 
 def source_expr(table_entry: dict, target_col: str,
                 repaired: Optional[set] = None,
-                archive_schema: Optional[str] = None) -> str:
+                archive_schema: Optional[str] = None,
+                nullable: Optional[bool] = None) -> str:
     """The SELECT expression feeding one target column.
 
     A column listed in the entry's `fk_remap` ({column: parent_table})
-    reads through the parent's id map when archive_schema is given —
-    falling back to the raw value for ids the map does not know, so an
-    already-dangling reference stays exactly as dangling as it was."""
+    reads through the parent's id map when archive_schema is given. An id
+    the map does not know (the reference was already dangling in O19)
+    becomes NULL on a nullable target — never the raw value, which on the
+    target may denote an unrelated CARLOS SEED row of the same id — and
+    keeps the raw value only where the column is NOT NULL (reported)."""
     ve = table_entry.get("value_exprs", {})
     if target_col in ve:
         return ve[target_col]
     src = table_entry.get("renames", {}).get(target_col, target_col)
     expr = "s.`{0}`".format(src)
     if repaired and target_col in repaired:
-        expr = REPAIR_TEMPLATE.format(expr)
+        expr = repair_expr(expr)
     parent = table_entry.get("fk_remap", {}).get(target_col)
     if parent and archive_schema:
-        expr = ("IFNULL((SELECT m.new_id FROM `{0}`.`{1}` m WHERE "
-                "m.old_id = {2}), {2})".format(
-                    archive_schema, idmap_table(parent), expr))
+        lookup = "(SELECT m.new_id FROM `{0}`.`{1}` m WHERE m.old_id = {2})" \
+            .format(archive_schema, idmap_table(parent), expr)
+        expr = lookup if nullable else "IFNULL({0}, {1})".format(lookup,
+                                                                  expr)
     return expr
 
 
@@ -150,8 +190,13 @@ def sanitize_expr(expr: str, dst_info: dict) -> str:
     if dtype == "enum":
         values = enum_values(dst_info["column_type"])
         if values:
-            expr = "CASE WHEN {0} IN ({1}) THEN {0} ELSE {2} END".format(
-                expr, ", ".join("'{0}'".format(v) for v in values),
+            # a NULL source stays NULL on a nullable target (NULL IN (...)
+            # is NULL and would otherwise fall to the default branch)
+            null_case = ("WHEN {0} IS NULL THEN NULL ".format(expr)
+                         if dst_info["nullable"] else "")
+            expr = "CASE {0}WHEN {1} IN ({2}) THEN {1} ELSE {3} END".format(
+                null_case, expr,
+                ", ".join("'{0}'".format(v) for v in values),
                 enum_fallback(dst_info, values))
     return expr
 
@@ -201,7 +246,8 @@ def copy_statement(table: str, entry: dict, src_schema: str,
     cols = entry["cols"]
     targets = ", ".join("`{0}`".format(c) for c in cols)
     exprs = ", ".join(
-        sanitize_expr(source_expr(entry, c, repaired, archive_schema),
+        sanitize_expr(source_expr(entry, c, repaired, archive_schema,
+                                  dst_cols[c]["nullable"]),
                       dst_cols[c])
         for c in cols)
     sql = ("INSERT INTO `{0}`.`{1}` ({2}) SELECT {3} FROM `{4}`.`{1}` s"
@@ -213,13 +259,20 @@ def copy_statement(table: str, entry: dict, src_schema: str,
     return sql
 
 
-def merge_join(entry: dict, archive_schema: Optional[str] = None) -> str:
-    """Natural-key join between target alias d and source alias s; a
-    remapped foreign key in the key compares through the parent's map."""
-    return " AND ".join(
-        "d.`{0}` <=> {1}".format(k, source_expr(entry, k, None,
-                                                 archive_schema))
-        for k in entry["merge_keys"])
+def merge_join(entry: dict, archive_schema: Optional[str] = None,
+               dst_cols: Optional[Dict[str, dict]] = None) -> str:
+    """Natural-key join between target alias d and source alias s. The
+    source side carries the SAME expression the insert stores (id remap,
+    zero-date NULLIF, enum fallback) so anti-join, insert and id map all
+    agree on what a row's key is."""
+    parts = []
+    for k in entry["merge_keys"]:
+        expr = source_expr(entry, k, None, archive_schema,
+                           dst_cols[k]["nullable"] if dst_cols else None)
+        if dst_cols and k in dst_cols:
+            expr = sanitize_expr(expr, dst_cols[k])
+        parts.append("d.`{0}` <=> {1}".format(k, expr))
+    return " AND ".join(parts)
 
 
 def merge_statement(table: str, entry: dict, src_schema: str,
@@ -229,40 +282,71 @@ def merge_statement(table: str, entry: dict, src_schema: str,
     """Anti-join on the natural key: CARLOS seed rows win, clinic-added
     rows append. A surrogate integer PK is left out of the insert so
     AUTO_INCREMENT assigns fresh ids (clinic ids could collide with
-    seeds); idmap_statements() then records old->new for child tables."""
+    seeds); rows are appended in source-id order so the id map can pair
+    them deterministically (idmap_statements)."""
     surrogate = entry.get("surrogate_pk")
     cols = [c for c in entry["cols"] if c != surrogate]
     targets = ", ".join("`{0}`".format(c) for c in cols)
     exprs = ", ".join(
-        sanitize_expr(source_expr(entry, c, repaired, archive_schema),
+        sanitize_expr(source_expr(entry, c, repaired, archive_schema,
+                                  dst_cols[c]["nullable"]),
                       dst_cols[c])
         for c in cols)
-    return ("INSERT INTO `{0}`.`{1}` ({2}) SELECT {3} FROM `{4}`.`{1}` s "
-            "WHERE NOT EXISTS (SELECT 1 FROM `{0}`.`{1}` d WHERE {5})"
-            .format(dst_schema, table, targets, exprs, src_schema,
-                    merge_join(entry, archive_schema)))
+    sql = ("INSERT INTO `{0}`.`{1}` ({2}) SELECT {3} FROM `{4}`.`{1}` s "
+           "WHERE NOT EXISTS (SELECT 1 FROM `{0}`.`{1}` d WHERE {5})"
+           .format(dst_schema, table, targets, exprs, src_schema,
+                   merge_join(entry, archive_schema, dst_cols)))
+    if surrogate:
+        sql += " ORDER BY s.`{0}`".format(surrogate)
+    return sql
 
 
 def idmap_statements(table: str, entry: dict, src_schema: str,
-                     dst_schema: str, archive_schema: str) -> List[str]:
-    """old->new surrogate id map for a merged table: every source row
-    (seed-matched or appended) joined to its target row on the natural
-    key. Rebuilt deterministically; empty list for tables without a
-    surrogate PK."""
+                     dst_schema: str, archive_schema: str,
+                     dst_cols: Optional[Dict[str, dict]] = None) -> List[str]:
+    """old->new surrogate id map for a merged table. Every source row is
+    paired with its target row on the natural key; rows that SHARE a
+    natural key (twins) are paired in id order on both sides
+    (ROW_NUMBER), so the second twin maps to the second appended row
+    instead of both collapsing onto the first. Rebuilt deterministically;
+    empty list for tables without a surrogate PK."""
     pk = entry.get("surrogate_pk")
     if not pk:
         return []
     name = idmap_table(table)
+    keys = entry["merge_keys"]
+    join = merge_join(entry, archive_schema, dst_cols)
     return [
         "DROP TABLE IF EXISTS `{0}`.`{1}`".format(archive_schema, name),
         "CREATE TABLE `{0}`.`{1}` (old_id BIGINT NOT NULL PRIMARY KEY, "
         "new_id BIGINT NOT NULL)".format(archive_schema, name),
-        "INSERT INTO `{0}`.`{1}` (old_id, new_id) SELECT s.`{2}`, "
-        "MIN(d.`{2}`) FROM `{3}`.`{4}` s JOIN `{5}`.`{4}` d ON {6} "
-        "GROUP BY s.`{2}`".format(archive_schema, name, pk, src_schema,
-                                  table, dst_schema,
-                                  merge_join(entry, archive_schema)),
+        "INSERT INTO `{0}`.`{1}` (old_id, new_id) SELECT s.`{2}`, d.`{2}` "
+        "FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY {3} ORDER BY "
+        "`{2}`) AS rn FROM `{4}`.`{5}`) s JOIN (SELECT *, ROW_NUMBER() OVER "
+        "(PARTITION BY {3} ORDER BY `{2}`) AS rn FROM `{6}`.`{5}`) d ON {7} "
+        "AND s.rn = d.rn".format(
+            archive_schema, name, pk,
+            ", ".join("`{0}`".format(k) for k in keys),
+            src_schema, table, dst_schema, join),
     ]
+
+
+def fk_unmapped_count_sql(table: str, entry: dict, src_schema: str,
+                          archive_schema: str) -> List[Tuple[str, str, str]]:
+    """(column, parent, COUNT-sql): source rows whose foreign key names an
+    id the parent's map does not know — an already-dangling O19
+    reference, reported because it becomes NULL (nullable) or is kept
+    raw (NOT NULL)."""
+    out = []
+    for col, parent in sorted(entry.get("fk_remap", {}).items()):
+        src_col = entry.get("renames", {}).get(col, col)
+        out.append((col, parent,
+                    "SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE s.`{2}` IS "
+                    "NOT NULL AND NOT EXISTS (SELECT 1 FROM `{3}`.`{4}` m "
+                    "WHERE m.old_id = s.`{2}`)".format(
+                        src_schema, table, src_col, archive_schema,
+                        idmap_table(parent))))
+    return out
 
 
 def idmap_changed_count_sql(table: str, archive_schema: str) -> str:
@@ -325,16 +409,27 @@ def _context_cols(entry: dict) -> List[str]:
 
 def shadow_statements(table: str, entry: dict, src_schema: str,
                       archive_schema: str,
-                      src_cols: Dict[str, dict]) -> List[str]:
+                      src_cols: Dict[str, dict],
+                      notes: Optional[List[str]] = None) -> List[str]:
     """Capture dropped-column values (+ the row's PK context) into
-    o19_archive.<table>__dropped, only for rows with non-default data."""
-    dropped = entry.get("dropped", {})
+    o19_archive.<table>__dropped, only for rows with non-default data.
+
+    A dropped column this dump does not carry (lower patch level) is
+    skipped WITH a note; the remaining dropped columns are still
+    captured — never the whole table silently."""
+    dropped = dict(entry.get("dropped", {}))
     if not dropped:
         return []
-    select_cols = list(dict.fromkeys(_context_cols(entry) + sorted(dropped)))
-    missing = [c for c in select_cols if c not in src_cols]
-    if missing:
+    absent = sorted(c for c in dropped if c not in src_cols)
+    for c in absent:
+        dropped.pop(c)
+        if notes is not None:
+            notes.append("{0}.{1}: dropped column absent from this dump — "
+                         "nothing to capture".format(table, c))
+    if not dropped:
         return []
+    context = [c for c in _context_cols(entry) if c in src_cols]
+    select_cols = list(dict.fromkeys(context + sorted(dropped)))
     predicate = " OR ".join(
         "({0})".format(d["nondefault"]) for d in dropped.values())
     shadow = "{0}__dropped".format(table)
@@ -425,6 +520,14 @@ def seed_admin_statements(dst_schema: str, admin_user: str,
         "`{0}`.secUserRole WHERE provider_no = '{2}'"
         .format(dst_schema, pn, seed_pn),
     ]
+
+
+def admin_user_conflicts_sql(src_schema: str, admin_user: str) -> str:
+    """COUNT of clinic logins that already use the break-glass name:
+    security.user_name is UNIQUE, so a collision would abort the copy
+    mid-run (and a retry would keep failing)."""
+    return ("SELECT COUNT(*) FROM `{0}`.security WHERE user_name = '{1}'"
+            .format(src_schema, _sql_str(validate_admin_user(admin_user))))
 
 
 def seed_admin_cleanup_statements(dst_schema: str, admin_user: str,
@@ -526,12 +629,15 @@ def _progress_path(state_dir: str) -> str:
     return os.path.join(state_dir, "etl-progress.json")
 
 
-def load_progress(state_dir: str, dump_sha256: Optional[str] = None
-                  ) -> Dict:
-    """The ETL checkpoint ledger. It is BOUND to the staged dump's digest:
-    a ledger written against a different dump (an operator restaged) is
-    discarded rather than letting stale "done" marks skip tables of the
-    new source."""
+def load_progress(state_dir: str, dump_sha256: Optional[str] = None,
+                  schema_map_version: Optional[str] = None) -> Dict:
+    """The ETL checkpoint ledger, BOUND to the staged dump's digest and to
+    the manifest that classified it. Readers that only inspect the ledger
+    pass neither; the ETL passes both and refuses to continue a ledger
+    that belongs to a different dump or manifest (a mid-import target
+    cannot be "started over" — the remedy is the pre-import snapshot). A
+    ledger with table marks but no digest is untrusted and reset."""
+    from .util import die
     try:
         with open(_progress_path(state_dir), encoding="utf-8") as fh:
             progress = json.load(fh)
@@ -541,11 +647,26 @@ def load_progress(state_dir: str, dump_sha256: Optional[str] = None
     if dump_sha256:
         recorded = progress.get("dump_sha256")
         if recorded and recorded != dump_sha256:
-            warn("etl progress ledger belongs to a different dump "
-                 "(sha256 {0}...) — starting the copy over".format(
-                     recorded[:12]))
+            die("the ETL ledger in {0} belongs to a different dump "
+                "(sha256 {1}...) than the one staged now ({2}...). The "
+                "target may already hold rows from the first dump: "
+                "restore the pre-import snapshot and start over."
+                .format(state_dir, recorded[:12], dump_sha256[:12]))
+        if not recorded and (progress["tables"]
+                             or progress.get("admin_provider_no")):
+            warn("etl progress ledger carries no dump digest — "
+                 "discarding it")
             progress = {"tables": {}}
         progress["dump_sha256"] = dump_sha256
+    if schema_map_version:
+        recorded = progress.get("schema_map_version")
+        if recorded and recorded != schema_map_version:
+            die("the ETL ledger was written under manifest {0}; this "
+                "package carries {1}. Tables marked done were classified "
+                "differently — restore the pre-import snapshot and start "
+                "over with one package version.".format(
+                    recorded, schema_map_version))
+        progress["schema_map_version"] = schema_map_version
     return progress
 
 
@@ -566,20 +687,23 @@ def _absent_object_error(exc: Exception) -> bool:
 
 def detect_repairs(query, src_schema: str, accepted,
                    notes: Optional[List[str]] = None) -> Dict[str, set]:
-    """Charset scan: {table: {columns needing repair}} — and hard-stop
-    (B8) if the repair cannot round-trip, or if repair is needed but
-    unacknowledged. A scan query that fails for any reason other than the
-    column being absent from this dump raises (never "clean")."""
+    """Charset scan: {table: {columns holding double-encoded rows}} — and
+    hard-stop (B8) if rows look double-encoded but cannot be repaired
+    losslessly, or if repair is needed but unacknowledged. The repair
+    itself is applied per ROW (repair_expr), never to a whole column. A
+    scan query that fails for any reason other than the column being
+    absent from this dump raises (never "clean")."""
     from .util import die
     repairs: Dict[str, set] = {}
     unrepairable = []
     for table, entry in o19map_schema.TABLES.items():
         for col in entry.get("charset_scan", ()):
+            expr = "`{0}`".format(col)
             try:
                 n = int(query(
-                    "SELECT COUNT(*) FROM `{0}`.`{1}` WHERE HEX(`{2}`) "
-                    "LIKE '%{3}%'".format(src_schema, table, col,
-                                          MOJIBAKE_HEX))[0][0])
+                    "SELECT COUNT(*) FROM `{0}`.`{1}` WHERE {2}".format(
+                        src_schema, table,
+                        double_encoded_predicate(expr)))[0][0])
             except Exception as exc:
                 # a lower patch level may lack the column/table (already
                 # reported as patch-level variance); anything else is a
@@ -591,36 +715,42 @@ def detect_repairs(query, src_schema: str, accepted,
                     continue
                 raise RuntimeError("charset scan of {0}.{1} failed: {2}"
                                    .format(table, col, exc))
-            if n == 0:
-                continue
             bad = int(query(
-                "SELECT COUNT(*) FROM `{0}`.`{1}` WHERE `{2}` IS NOT NULL "
-                "AND {3} IS NULL".format(
-                    src_schema, table, col,
-                    REPAIR_TEMPLATE.format("`{0}`".format(col))))[0][0])
+                "SELECT COUNT(*) FROM `{0}`.`{1}` WHERE {2} IS NOT NULL AND "
+                "{2} REGEXP {3} AND NOT ({4})".format(
+                    src_schema, table, expr, MOJIBAKE_MARKER_RE,
+                    double_encoded_predicate(expr)))[0][0])
             if bad:
-                unrepairable.append("{0}.{1} ({2} rows)".format(
+                unrepairable.append("{0}.{1} ({2} row(s))".format(
                     table, col, bad))
-            repairs.setdefault(table, set()).add(col)
+            if n:
+                repairs.setdefault(table, set()).add(col)
+                if notes is not None:
+                    notes.append("{0}.{1}: {2} double-encoded row(s) "
+                                 "detected".format(table, col, n))
     if unrepairable:
-        die("B8: double-encoded text that the standard charset repair "
-            "cannot round-trip:\n  " + "\n  ".join(unrepairable)
+        die("B8: text that looks double-encoded but does not round-trip "
+            "through the standard latin1->utf8mb4 repair:\n  "
+            + "\n  ".join(unrepairable)
             + "\nThis needs manual investigation — no flag overrides it.")
     if repairs and "charset-repair" not in accepted:
         cols = sorted("{0}.{1}".format(t, c)
                       for t, cs in repairs.items() for c in cs)
         die("double-encoded text detected in: {0}\nRe-run with "
-            "--accept charset-repair to apply the latin1->utf8mb4 repair "
-            "during the copy.".format(", ".join(cols)))
+            "--accept charset-repair to apply the per-row latin1->utf8mb4 "
+            "repair during the copy.".format(", ".join(cols)))
     return repairs
 
 
 def effective_entry(table: str, entry: dict,
-                    src_cols: Dict[str, dict]) -> Tuple[dict, List[str]]:
+                    src_cols: Dict[str, dict],
+                    src_tables: Optional[set] = None) -> Tuple[dict, List[str]]:
     """Intersect the manifest's column map with what the staged dump
     actually has (case-insensitive): a clinic at a lower patch level may
     lack columns the manifest superset knows. Missing sources are skipped
-    WITH a report line — the target column then takes its default."""
+    WITH a report line — the target column then takes its default. An
+    fk_remap whose PARENT table is absent from the dump is dropped with a
+    note (no id map can exist for it) rather than left to fail."""
     have = {c.lower() for c in src_cols}
     renames = entry.get("renames", {})
     ve = entry.get("value_exprs", {})
@@ -630,12 +760,42 @@ def effective_entry(table: str, entry: dict,
             kept.append(c)
         else:
             skipped.append(c)
-    if not skipped:
-        return entry, []
+    notes = ["{0}.{1} absent from this dump — target default used"
+             .format(table, c) for c in skipped]
+    remap = dict(entry.get("fk_remap", {}))
+    if src_tables is not None:
+        for col, parent in sorted(remap.items()):
+            if parent not in src_tables:
+                notes.append("{0}.{1}: parent table {2} absent from this "
+                             "dump — id remap disabled, raw ids kept"
+                             .format(table, col, parent))
+                del remap[col]
+    if not skipped and remap == entry.get("fk_remap", {}):
+        return entry, notes
     adjusted = dict(entry)
     adjusted["cols"] = kept
-    return adjusted, ["{0}.{1} absent from this dump — target default "
-                      "used".format(table, c) for c in skipped]
+    if remap:
+        adjusted["fk_remap"] = remap
+    else:
+        adjusted.pop("fk_remap", None)
+    return adjusted, notes
+
+
+def normalize_table_case(plain, src_schema: str,
+                         src_tables: List[str]) -> List[str]:
+    """Rename staged tables whose name differs from the manifest only by
+    case (a source server with lower_case_table_names=1 dumps everything
+    lower-cased) to the manifest spelling, so every later lookup matches.
+    Returns report lines."""
+    by_lower = {t.lower(): t for t in o19map_schema.TABLES}
+    lines = []
+    for live in sorted(src_tables):
+        want = by_lower.get(live.lower())
+        if want and want != live:
+            plain("RENAME TABLE `{0}`.`{1}` TO `{0}`.`{2}`".format(
+                src_schema, live, want))
+            lines.append("{0} -> {1}".format(live, want))
+    return lines
 
 
 def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
@@ -649,22 +809,38 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     report = ctx["report"]
 
     src_info = introspect_columns(plain, src)
+    renamed = normalize_table_case(plain, src, list(src_info))
+    if renamed:
+        report("staged table names normalised to the manifest spelling "
+               "(source server ran lower_case_table_names=1):\n  "
+               + "\n  ".join(renamed))
+        src_info = introspect_columns(plain, src)
     dst_info = introspect_columns(plain, dst)
+    src_tables = set(src_info)
 
     patch_notes: List[str] = []
     effective: Dict[str, dict] = {}
     for table, entry in o19map_schema.TABLES.items():
         if entry["class"] in ("copy", "merge") and table in src_info:
             adjusted, notes = effective_entry(table, entry,
-                                              src_info[table])
+                                              src_info[table], src_tables)
             effective[table] = adjusted
             patch_notes.extend(notes)
     if patch_notes:
-        report("patch-level variance ({0} column(s)):\n  ".format(
+        report("patch-level variance ({0} note(s)):\n  ".format(
             len(patch_notes)) + "\n  ".join(patch_notes))
 
     # -- loud pre-checks over every table before the first write ----------
+    admin_user = validate_admin_user(ctx["admin_user"])
     problems = []
+    if admin_user == o19map_schema.SEED_USER_NAME:
+        problems.append("--admin-user must not be the seeded login '{0}'"
+                        .format(admin_user))
+    elif "security" in src_info and int(plain(
+            admin_user_conflicts_sql(src, admin_user))[0][0]):
+        problems.append("--admin-user '{0}' is already a clinic login in "
+                        "the dump (security.user_name is unique) — choose "
+                        "another name".format(admin_user))
     for table in sorted(effective):
         entry = effective[table]
         if table not in dst_info:
@@ -689,9 +865,9 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     scan_notes: List[str] = []
     repairs = detect_repairs(plain, src, ctx["accepted"], scan_notes)
     if scan_notes:
-        report("\n".join(scan_notes))
+        report("charset scan:\n  " + "\n  ".join(scan_notes))
     if repairs:
-        report("charset repair active on: " + ", ".join(
+        report("per-row charset repair active on: " + ", ".join(
             sorted("{0}.{1}".format(t, c)
                    for t, cs in repairs.items() for c in cs)))
 
@@ -715,15 +891,22 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
         report("enum fallbacks:\n  " + "\n  ".join(enum_lines))
 
     plain("CREATE DATABASE IF NOT EXISTS `{0}`".format(arch))
-    progress = load_progress(state_dir, ctx.get("dump_sha256"))
+    progress = load_progress(state_dir, ctx.get("dump_sha256"),
+                             o19map_schema.SCHEMA_MAP_VERSION)
 
     # -- seed reconciliation (strictly ordered, before provider/security) --
     # Resumable in two recorded steps: admin rows inserted, then seeds
     # deleted. A retry after an interrupted insert clears the partial admin
     # first; a retry after the inserts only re-runs the (idempotent)
     # deletes — the seed clinician is still there to clone from until
-    # the deletes have run.
-    admin_user = validate_admin_user(ctx["admin_user"])
+    # the deletes have run. The admin's identity is bound to the ledger:
+    # a different --admin-user on resume is refused, never silently
+    # swapped (the retry deletes would drop the first admin's login).
+    recorded_user = progress.get("admin_user")
+    if recorded_user and recorded_user != admin_user:
+        die("this import created break-glass admin '{0}'; --admin-user "
+            "'{1}' differs. Resume with the recorded name.".format(
+                recorded_user, admin_user))
     admin_pn = progress.get("admin_provider_no")
     if not progress.get("seed_done"):
         if not progress.get("seed_admin_inserted"):
@@ -737,6 +920,13 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                     "FROM `{0}`.provider WHERE provider_no REGEXP "
                     "'^[0-9]+$'".format(src))[0][0]
                 admin_pn = str(int(max_pn) + 1)
+                width = dst_info.get("provider", {}).get(
+                    "provider_no", {}).get("char_len", 0)
+                if width and len(admin_pn) > width:
+                    die("cannot allocate a break-glass provider_no: the "
+                        "clinic's highest numeric provider_no ({0}) leaves "
+                        "no room in provider.provider_no ({1} chars)"
+                        .format(max_pn, width))
             # the admin's security/secUserRole rows take auto ids — bump
             # the counters above the clinic's id range or the later
             # id-preserving copy collides with the admin's rows (found
@@ -759,6 +949,7 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                          .format(admin_user, admin_pn, password, pin))
             os.chmod(cred_path, 0o600)
             progress["admin_provider_no"] = admin_pn
+            progress["admin_user"] = admin_user
             save_progress(state_dir, progress)
             for sql in seed_admin_statements(dst, admin_user, admin_pn,
                                              pw_hash, pin):
@@ -780,6 +971,9 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
               "reference": 0, "rows": 0, "unknown_archived": 0,
               "unknown_column_shadows": 0}
     idmap_lines: List[str] = []
+    fk_lines: List[str] = []
+    drop_lines: List[str] = []
+    shadow_notes: List[str] = []
     for table in etl_order(o19map_schema.TABLES):
         entry = o19map_schema.TABLES[table]
         cls = entry["class"]
@@ -788,8 +982,16 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
         entry = effective.get(table, entry)
         tstate = progress["tables"].setdefault(table, {})
 
-        if cls in ("reference", "drop"):
+        if cls == "reference":
             counts[cls] += 1
+            continue
+        if cls == "drop":
+            counts[cls] += 1
+            n = int(plain("SELECT COUNT(*) FROM `{0}`.`{1}`".format(
+                src, table))[0][0])
+            if n:
+                drop_lines.append("{0}: {1} row(s) not migrated (removed "
+                                  "module infrastructure)".format(table, n))
             continue
 
         if cls == "archive":
@@ -811,7 +1013,8 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                                       repaired, arch))
                 # the id map is rebuilt with every (re)merge so child
                 # tables always read a map matching the target's ids
-                for sql in idmap_statements(table, entry, src, dst, arch):
+                for sql in idmap_statements(table, entry, src, dst, arch,
+                                            dcols):
                     query(sql)
                 if entry.get("surrogate_pk"):
                     changed = int(query(idmap_changed_count_sql(
@@ -831,14 +1034,18 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                     "SELECT IFNULL(MIN(`{0}`),0), IFNULL(MAX(`{0}`),0) "
                     "FROM `{1}`.`{2}`".format(chunk, src, table))[0]
                 lo, hi = int(bounds[0]), int(bounds[1])
-                resumed = "done_through" in tstate
+                # a table this run has touched before (any window, even
+                # the first one, may have committed without its
+                # checkpoint) clears its first unconfirmed window
+                resumed = bool(tstate.get("started"))
                 done_through = tstate.get("done_through", lo - 1)
+                if not tstate.get("started"):
+                    tstate["started"] = True
+                    save_progress(state_dir, progress)
                 for window in chunk_windows(lo, hi):
                     if window[1] <= done_through:
                         continue
                     if resumed:
-                        # first unconfirmed window of a resumed table may
-                        # already hold its rows — make the retry idempotent
                         query(window_delete_statement(table, entry, dst,
                                                       window))
                         resumed = False
@@ -862,10 +1069,25 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             save_progress(state_dir, progress)
             counts["copy"] += 1
 
+        # dangling foreign keys the id maps could not resolve
+        if entry.get("fk_remap") and not tstate.get("fk_reported"):
+            for col, parent, sql in fk_unmapped_count_sql(table, entry, src,
+                                                          arch):
+                n = int(query(sql)[0][0])
+                if n:
+                    fk_lines.append(
+                        "{0}.{1}: {2} row(s) referenced a {3} id that does "
+                        "not exist in the source ({4})".format(
+                            table, col, n, parent,
+                            "set to NULL" if dcols[col]["nullable"]
+                            else "raw id kept — column is NOT NULL"))
+            tstate["fk_reported"] = True
+            save_progress(state_dir, progress)
+
         # shadow-capture dropped columns alongside the copy
         if entry.get("dropped") and not tstate.get("shadow_done"):
             for sql in shadow_statements(table, entry, src, arch,
-                                         src_info[table]):
+                                         src_info[table], shadow_notes):
                 query(sql)
             tstate["shadow_done"] = True
             save_progress(state_dir, progress)
@@ -910,10 +1132,24 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     if unknown_lines:
         report("unknown (unclassified) tables:\n  "
                + "\n  ".join(unknown_lines))
+    if drop_lines:
+        report("drop-class tables holding rows (report-only, per the "
+               "manifest):\n  " + "\n  ".join(drop_lines))
+    if shadow_notes:
+        report("dropped-column capture:\n  " + "\n  ".join(shadow_notes))
     if idmap_lines:
         report("surrogate ids reassigned on merge (child foreign keys "
                "remapped through the id maps):\n  "
                + "\n  ".join(idmap_lines))
+    if fk_lines:
+        report("dangling foreign keys in the source:\n  "
+               + "\n  ".join(fk_lines))
+    token_tables = [t for t in getattr(o19map_schema, "CREDENTIAL_TABLES",
+                                       ()) if t in src_info]
+    if token_tables:
+        report("API credentials copied verbatim — ROTATE/VERIFY before "
+               "go-live (tokens issued by the OSCAR 19 install keep "
+               "working): " + ", ".join(token_tables))
 
     query(force_reset_statement(dst))
     report("forcePasswordReset set for every imported user")

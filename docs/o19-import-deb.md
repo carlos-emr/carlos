@@ -41,6 +41,9 @@ During the cutover window, with Tomcat stopped:
 
 ```bash
 mysqldump --single-transaction --quick oscar | gzip > o19.sql.gz
+# one database, named as an argument: never --databases/--all-databases
+# (the importer refuses a dump that names its own schema); on MySQL 5.6+
+# add --set-gtid-purged=OFF
 tar -C /var/lib/OscarDocument -czf o19-documents.tar.gz <context-dir>
 # context-dir is the directory holding document/, eform/images/, ... —
 # often oscar, oscar_mcmaster, or the database name
@@ -74,13 +77,22 @@ sudo carlos-ctl import-o19 \
 ```
 
 Phases (state under `/var/lib/carlos-emr/o19-import/`): stock-deploy gate
-→ staged restore → preflight → pre-import backup → data copy with
+→ pre-import backup → staged restore → preflight → data copy with
 row-parity gate → documents restore with blocking reconciliation →
-properties translation → verify. A rerun over existing state requires
-`--resume`; it is never continued implicitly. Once the data copy has
-started, a resumed run re-checks the schema, replica and disk gates but not
-the emptiness sweep (the target is mid-import by design) — the row-parity
-gate still verifies the outcome.
+properties translation → verify. The backup runs before the staged
+restore so the rollback point exists before any clinic-supplied SQL
+executes. The restore itself runs as a throwaway database account whose
+grants stop at the `o19_import` schema, with the client's `--one-database`
+switch on, and a dump carrying `USE` / `CREATE DATABASE` statements (a
+`mysqldump --databases` dump) is refused before a byte reaches the server:
+nothing in the dump can address the live schema. A rerun over existing
+state requires `--resume` (a staged dump left behind by a dry run or an
+assessment does not count); it is never continued implicitly. Once the
+data copy has started, a resumed run re-checks the schema, replica and
+disk gates but not the emptiness sweep (the target is mid-import by
+design) — the row-parity gate still verifies the outcome. `--restage`
+drops and re-restores the staging schema and clears the recorded preflight
+verdict with it.
 
 Clinic-defined lookup lists, waiting-list criteria and similar merge-class
 rows may receive new ids where a CARLOS seed already holds the old one;
@@ -97,10 +109,22 @@ after the break-glass administrator named by `--admin-user` is created
 (credentials in `/var/lib/carlos-emr/o19-import/admin-credentials.txt`,
 root-only).
 
-Useful variants: `--dry-run` (stage + preflight + properties report only),
-`--dump/--documents/--properties` instead of a bundle,
+Useful variants: `--dry-run` (stage + preflight + properties report only;
+its `--accept` flags are not recorded — sign-offs persist only from a real
+run), `--dump/--documents/--properties` instead of a bundle,
 `--bundle-openssl-opt` for bundles encrypted by an older openssl
 (`-md md5`, no `-pbkdf2`), `--skip-documents` with `--accept no-documents`.
+
+`carlos-ctl o19-preflight` is the assessment-only form on the CARLOS host:
+capacity checks, staged restore and the go/no-go report, with the exit
+code as the verdict (0 go, 1 acknowledgements required, 2 no-go, 3 tool
+error); it records no verdict and no sign-off.
+
+`--dev-target` and `--mariadb-arg` exist for development databases only
+(the devcontainer, where the database is a separate container reached over
+TCP and carries the demo dataset): `--dev-target` needs `--mariadb-arg`,
+and both are refused outright on a packaged host, where the stock-deploy
+gate has no override.
 
 ## 4. After the import
 
@@ -113,12 +137,22 @@ Useful variants: `--dry-run` (stage + preflight + properties report only),
 3. **Technical review before clinical use**:
    `/var/lib/carlos-emr/o19-import/report.txt` (row parity with the
    break-glass delta itemized, referential spot checks, billing totals per
-   fiscal year, documents reconciliation, archive/dropped inventory), plus
-   manual spot checks and a UI smoke of the migrated charts.
+   fiscal year, documents reconciliation, archive/dropped inventory, the
+   credential tables copied verbatim to rotate/verify), plus manual spot
+   checks and a UI smoke of the migrated charts. The report is written to
+   be shareable; the per-patient lines of the spot check (which name
+   patient identifiers) go to `verify-details.txt` next to it, root-only.
 4. `carlos-ctl import-o19 --cleanup` — drops the staging schema and the
-   extracted bundle; the `o19_archive` schema (removed-module data +
-   dropped-column shadows) and its CSV export under
+   extracted bundle and retires the run's `state.json` (renamed to
+   `state.json.completed-<time>`, so the finished run can neither be
+   resumed nor mistaken for a fresh one); the `o19_archive` schema
+   (removed-module data + dropped-column shadows + the OSCAR 19 token
+   tables, which are never copied live) and its CSV export under
    `OscarDocument/carlos/o19_archive_export/` are kept for the clinic.
+   Cleanup is allowed after a passed verification, or while nothing has
+   been written to the target (after a dry run or an aborted assessment) —
+   never on a mid-import workspace, whose only resume ledger it would
+   destroy.
 
 ## What is archive-only after migration
 
@@ -136,6 +170,14 @@ given clinic — that list is the clinic's sign-off.
 - *"decryption failed"* on a bundle — wrong password, or the bundle was
   made by an older openssl: match its derivation, e.g.
   `--bundle-openssl-opt -md --bundle-openssl-opt md5`.
+- *"the dump carries a USE / CREATE DATABASE statement"* — it was taken
+  with `--databases` or `--all-databases`. Re-take it as
+  `mysqldump <o19-db> > o19.sql` (see §2); the importer never lets a dump
+  choose its own schema.
+- *"restore into o19_import failed"* mentioning DEFINER, SUPER or a
+  server-wide `SET` — the restore runs as an account limited to the staging
+  schema. Re-take the dump with `--skip-triggers --set-gtid-purged=OFF`
+  (and without `--databases`); OSCAR 19 keeps nothing in triggers or views.
 - *documents reconciliation FAILED* — a `document` row's file is missing or
   empty in the tar. Fix the tree (or re-ship the tar) and `--resume`; the
   import never goes live with unreadable documents.

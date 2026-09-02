@@ -30,7 +30,11 @@ SERVICE_USER = "carlos"
 # (NioFileManagerImpl) — never migrated, never a reconciliation failure.
 CACHE_DIR_NAMES = {"document_cache", ".o19-incoming"}
 
-IMAGE_REF_RE = re.compile(r"\$\{oscar_image_path\}([^\"'\s)<>]+)")
+# eForm image references: the literal ${oscar_image_path} placeholder and
+# the URL-encoded spellings CARLOS also honours ($%7B...%7D, %24%7B...%7D)
+IMAGE_REF_RE = re.compile(
+    r"(?:\$\{|\$%7[Bb]|%24%7[Bb])oscar_image_path(?:\}|%7[Dd])"
+    r"([^\"'\s)<>]+)")
 
 # an OscarDocument context directory is a plain directory basename; the
 # name is interpolated into SQL (HRM path rewrite) and into filesystem
@@ -43,13 +47,6 @@ def _sql_str(value: str) -> str:
     statements (mirrors dbops.sql_escape; kept local so the pure helpers
     stay importable without the deployment modules)."""
     return value.replace("\\", "\\\\").replace("'", "\\'")
-
-
-def _like_str(value: str) -> str:
-    """Escape a literal for use inside a LIKE pattern (backslash escape
-    of the wildcards, then the usual string-literal escaping)."""
-    return _sql_str(value.replace("\\", "\\\\").replace("%", "\\%")
-                    .replace("_", "\\_"))
 
 
 def contained(root: str, relative: str) -> bool:
@@ -100,23 +97,47 @@ def detect_context_dir(member_names: List[str]) -> str:
     return ctx
 
 
-def hrm_rewrite_sql(dst_schema: str, old_ctx: str,
+HRM_INCOMING_DIR = "hrm"
+
+
+def hrm_rewrite_sql(dst_schema: str,
                     new_root: str = DOCUMENTS_ROOT) -> Tuple[str, str]:
-    """(update_sql, leftover_count_sql): rewrite HRMDocument.reportFile
-    absolute O19 paths onto the CARLOS tree, and count what did not
-    match for the report."""
-    if not CONTEXT_NAME_RE.match(old_ctx):
-        raise ValueError("unsafe context name {0!r}".format(old_ctx))
-    marker = "/{0}/".format(old_ctx)
-    new_prefix = os.path.join(new_root, TARGET_CTX) + "/"
+    """(update_sql, select_sql): point every HRMDocument.reportFile at
+    the report's basename inside the CARLOS DOCUMENT_DIR.
+
+    CARLOS's HRMReportParser only trusts an absolute reportFile that
+    exists INSIDE DOCUMENT_DIR (anything else is re-resolved relative to
+    it), so the O19 absolute path — whatever context or OMD_hrm directory
+    it named — must become <documents>/carlos/document/<basename>, and
+    run_docs moves the report files there. Idempotent: rewriting an
+    already-rewritten path yields the same path."""
+    doc_dir = os.path.join(new_root, TARGET_CTX, "document") + "/"
+    where = "reportFile IS NOT NULL AND reportFile <> ''"
     update = ("UPDATE `{0}`.HRMDocument SET reportFile = CONCAT('{1}', "
-              "SUBSTRING_INDEX(reportFile, '{2}', -1)) WHERE reportFile "
-              "LIKE '%{3}%'".format(dst_schema, _sql_str(new_prefix),
-                                     _sql_str(marker), _like_str(marker)))
-    leftover = ("SELECT COUNT(*) FROM `{0}`.HRMDocument WHERE reportFile "
-                "<> '' AND reportFile IS NOT NULL AND reportFile NOT LIKE "
-                "'{1}%'".format(dst_schema, _like_str(new_prefix)))
-    return update, leftover
+              "SUBSTRING_INDEX(reportFile, '/', -1)) WHERE {2}"
+              .format(dst_schema, _sql_str(doc_dir), where))
+    select = ("SELECT id, reportFile FROM `{0}`.HRMDocument WHERE {1}"
+              .format(dst_schema, where))
+    return update, select
+
+
+def classify_hrm_files(rows: List[Tuple[str, str]],
+                       doc_dir: str) -> List[str]:
+    """rows = (hrm id, reportFile after the rewrite). Every report must be
+    a real, non-empty, non-symlink file inside DOCUMENT_DIR."""
+    problems = []
+    for hrm_id, report in rows:
+        name = report.rsplit("/", 1)[-1]
+        path = os.path.join(doc_dir, name)
+        if not name or not contained(doc_dir, name):
+            problems.append("HRMDocument {0}: {1} (path escapes the "
+                            "document directory)".format(hrm_id, report))
+        elif os.path.islink(path) or not os.path.isfile(path):
+            problems.append("HRMDocument {0}: {1}".format(hrm_id, name))
+        elif os.path.getsize(path) == 0:
+            problems.append("HRMDocument {0}: {1} (zero bytes)".format(
+                hrm_id, name))
+    return problems
 
 
 def unescape_batch_field(value: str) -> str:
@@ -157,7 +178,12 @@ def classify_document_files(rows: List[Tuple[str, str]],
                            "directory)".format(doc_no, filename))
             continue
         path = os.path.join(doc_dir, filename)
-        if not os.path.isfile(path):
+        if os.path.islink(path):
+            # the extracted tree carries no links (tar member types are
+            # refused); a link here is foreign and is never a document
+            missing.append("document {0}: {1} (symlink refused)".format(
+                doc_no, filename))
+        elif not os.path.isfile(path):
             missing.append("document {0}: {1}".format(doc_no, filename))
         elif os.path.getsize(path) == 0:
             empty.append("document {0}: {1} (zero bytes)".format(
@@ -182,12 +208,37 @@ def find_orphans(doc_dir: str, known: set, cap: int = 50) -> List[str]:
 # filesystem operations
 # --------------------------------------------------------------------------
 
-def merge_move(src_ctx_dir: str, target_dir: str) -> List[str]:
-    """Move the context tree's children into the target context dir.
+def _merge_entry(src: str, dst: str) -> int:
+    """Move src into dst's place, merging directory into directory.
+    Returns the number of leaf entries moved. Any file-level collision is
+    fatal: the target must be a stock deploy (whose skeleton holds
+    directories only, nested — eform/images, incomingdocs/1/Fax, ...)."""
+    if os.path.islink(src) or os.path.islink(dst):
+        die("refusing to merge through a symlink ('{0}')".format(
+            dst if os.path.islink(dst) else src))
+    if not os.path.lexists(dst):
+        shutil.move(src, dst)
+        return 1
+    if os.path.isdir(src) and os.path.isdir(dst):
+        moved = 0
+        for child in sorted(os.listdir(src)):
+            moved += _merge_entry(os.path.join(src, child),
+                                  os.path.join(dst, child))
+        os.rmdir(src)
+        return moved
+    die("refusing to overwrite '{0}' in the documents tree — the target "
+        "is not pristine".format(dst))
+    return 0  # unreachable
 
-    Refuses to clobber a non-empty existing subtree (a stock deploy has at
-    most an empty skeleton). Cache directories are skipped with a note.
-    Returns report lines."""
+
+def merge_move(src_ctx_dir: str, target_dir: str) -> List[str]:
+    """Move the context tree's children into the target context dir,
+    merging into the deploy's directory skeleton at any depth.
+
+    A stock deploy's skeleton contains only directories (possibly nested),
+    so merging never collides; an existing FILE at any path the tar also
+    carries is a hard refusal (the target is not pristine). Cache
+    directories are skipped with a note. Returns report lines."""
     lines = []
     os.makedirs(target_dir, exist_ok=True)
     for child in sorted(os.listdir(src_ctx_dir)):
@@ -197,17 +248,42 @@ def merge_move(src_ctx_dir: str, target_dir: str) -> List[str]:
             lines.append("skipped derived cache directory '{0}' (the "
                          "application regenerates it)".format(child))
             continue
-        if os.path.exists(dst):
-            if os.path.isdir(dst) and not os.listdir(dst):
-                os.rmdir(dst)
-            else:
-                die("refusing to overwrite non-empty '{0}' in the "
-                    "documents tree — the target is not pristine"
-                    .format(dst))
-        shutil.move(src, dst)
-        lines.append("moved {0}/".format(child)
-                     if os.path.isdir(dst) else "moved {0}".format(child))
+        existed = os.path.lexists(dst)
+        is_dir = os.path.isdir(src)
+        moved = _merge_entry(src, dst)
+        if is_dir:
+            lines.append("{0} {1}/ ({2} entr{3})".format(
+                "merged into existing" if existed else "moved",
+                child, moved, "y" if moved == 1 else "ies"))
+        else:
+            lines.append("moved {0}".format(child))
     return lines
+
+
+def relocate_hrm_reports(ctx_root: str) -> List[str]:
+    """Move O19's <ctx>/hrm/ report files into document/ (DOCUMENT_DIR),
+    where CARLOS's HRM reader looks for them; a name collision with an
+    existing document is fatal rather than silently resolved."""
+    src_dir = os.path.join(ctx_root, HRM_INCOMING_DIR)
+    if not os.path.isdir(src_dir):
+        return []
+    doc_dir = os.path.join(ctx_root, "document")
+    os.makedirs(doc_dir, exist_ok=True)
+    moved = 0
+    for name in sorted(os.listdir(src_dir)):
+        src = os.path.join(src_dir, name)
+        if not os.path.isfile(src) or os.path.islink(src):
+            continue
+        dst = os.path.join(doc_dir, name)
+        if os.path.lexists(dst):
+            die("HRM report '{0}' collides with an existing file in "
+                "document/ — resolve the duplicate before importing"
+                .format(name))
+        shutil.move(src, dst)
+        moved += 1
+    return ["moved {0} HRM report file(s) from {1}/ into document/ (the "
+            "location CARLOS reads HRM reports from)".format(
+                moved, HRM_INCOMING_DIR)]
 
 
 def apply_ownership(root: str, dev_target: bool) -> None:
@@ -274,6 +350,14 @@ def reconcile(query, dst_schema: str, ctx_root: str
                     "eForm '{0}' (fid {1}) references missing image "
                     "asset: {2}".format(form_name, fid, ref))
     lines.append("{0} eForm image reference(s) checked".format(checked))
+
+    _, hrm_select = hrm_rewrite_sql(dst_schema, os.path.dirname(ctx_root))
+    hrm_rows = [(r[0], unescape_batch_field(r[1])) for r in query(hrm_select)
+                if len(r) >= 2]
+    problems.extend("missing HRM report for " + p
+                    for p in classify_hrm_files(hrm_rows, doc_dir))
+    lines.append("{0} HRM report row(s) reconciled against {1}".format(
+        len(hrm_rows), doc_dir))
     return problems, lines
 
 
@@ -339,6 +423,15 @@ def run_docs(ctx) -> None:
     prev = state.get("phases", {}).get("documents", {})
     already_restored = (prev.get("tar_sha256") == tar_sha
                         and prev.get("restored"))
+    if prev.get("restored") and not already_restored:
+        # a different tar after a restore: re-extracting over the
+        # restored tree could only collide, so say exactly what to do
+        die("the documents tree under {0} was already restored from a "
+            "tar with sha256 {1}...; this tar differs ({2}...). To restore "
+            "a different tar, restore the pre-import snapshot (or move "
+            "{0} aside and recreate its skeleton) and re-run with --resume."
+            .format(ctx_root, str(prev.get("tar_sha256"))[:12],
+                    tar_sha[:12]))
 
     if not already_restored:
         gz = tar_path.endswith(".gz")
@@ -371,25 +464,25 @@ def run_docs(ctx) -> None:
 
         move_lines = merge_move(os.path.join(incoming, old_ctx), ctx_root)
         shutil.rmtree(incoming, ignore_errors=True)
-        apply_ownership(ctx_root, ctx["dev_target"])
-
-        update_sql, leftover_sql = hrm_rewrite_sql(
-            ctx["target_db"], old_ctx, documents_root)
-        query(update_sql)
-        leftover = int(query(leftover_sql)[0][0])
-        hrm_line = ("HRMDocument paths rewritten onto {0}; {1} row(s) "
-                    "did not match the '{2}' context and were left "
-                    "untouched".format(ctx_root, leftover, old_ctx))
+        # the tree is in place: record it NOW so a failure in any of the
+        # (idempotent) steps below resumes without re-extracting
         state.setdefault("phases", {})["documents"] = {
             "status": "in-progress", "tar_sha256": tar_sha,
             "restored": True, "old_ctx": old_ctx}
         o19import.save_state(state_dir, state)
-        o19import.report_append(
-            state_dir, "P5 documents restore",
-            "\n".join(move_lines + [hrm_line]))
+        move_lines.extend(relocate_hrm_reports(ctx_root))
+        o19import.report_append(state_dir, "P5 documents restore",
+                                "\n".join(move_lines))
     else:
         log("documents: tree already restored (sha256 match) — "
-            "re-running reconciliation only")
+            "re-running ownership repair and reconciliation")
+
+    # every pass, not only the first: an operator who fixed the tree by
+    # hand (the documented remedy) leaves root-owned files behind, and a
+    # root-run reconciliation would never notice
+    apply_ownership(ctx_root, ctx["dev_target"])
+    update_sql, _ = hrm_rewrite_sql(ctx["target_db"], documents_root)
+    query(update_sql)  # idempotent: basename into DOCUMENT_DIR
 
     problems, lines = reconcile(query, ctx["target_db"], ctx_root)
     csv_lines = export_archive_csv(
@@ -405,8 +498,10 @@ def run_docs(ctx) -> None:
         die("documents reconciliation FAILED ({0} problem(s)) — the "
             "clinical record must not go live with unreadable documents:"
             "\n  ".format(len(problems)) + "\n  ".join(problems[:20])
-            + "\nFix the tree (or re-ship the tar) and re-run with "
-              "--resume.")
+            + "\nFix the tree in place (add the missing files under {0}) "
+              "and re-run with --resume; to restore a different tar "
+              "instead, restore the pre-import snapshot first."
+              .format(ctx_root))
     o19import.mark_done(state_dir, state, "documents", tar_sha256=tar_sha,
                         restored=True)
     log("documents restored and reconciled clean")

@@ -50,8 +50,12 @@ def _unescape_property(text: str) -> str:
         c = text[i]
         if c == "\\" and i + 1 < n:
             nxt = text[i + 1]
-            if nxt == "u" and \
-                    re.match(r"[0-9A-Fa-f]{4}$", text[i + 2:i + 6]):
+            if nxt == "u":
+                if not re.match(r"[0-9A-Fa-f]{4}$", text[i + 2:i + 6]):
+                    # java.util.Properties rejects the file outright;
+                    # silently "fixing" it would carry a changed value
+                    raise ValueError("malformed \\uXXXX escape in "
+                                     "properties text")
                 out.append(chr(int(text[i + 2:i + 6], 16)))
                 i += 6
                 continue
@@ -81,10 +85,11 @@ def parse_properties_text(text: str) -> List[Tuple[str, str]]:
         i += 1
         if not logical and (not line or line[0] in ("#", "!")):
             continue
-        # continuation: an odd number of trailing backslashes
-        stripped = line.rstrip("\\")
-        if (len(line) - len(stripped)) % 2 == 1:
-            logical.append(stripped)
+        # continuation: an odd number of trailing backslashes — the LAST
+        # one continues the line, the others are escaped backslashes that
+        # belong to the value
+        if (len(line) - len(line.rstrip("\\"))) % 2 == 1:
+            logical.append(line[:-1])
             continue
         logical.append(line)
         full = "".join(logical)
@@ -116,14 +121,32 @@ def parse_properties_text(text: str) -> List[Tuple[str, str]]:
     return [(k, values[k]) for k in order]
 
 
+def _escape_non_latin1(text: str) -> str:
+    """Characters outside Latin-1 as \\uXXXX, exactly as Properties.store
+    writes them — the fragment is a Latin-1 file."""
+    return "".join(c if ord(c) <= 0xFF else "\\u{0:04x}".format(ord(c))
+                   for c in text)
+
+
 def escape_property_value(value: str) -> str:
     """Inverse of the value decoding above, so a carried value round-trips
-    through the fragment exactly (backslashes, line breaks, tabs and a
-    leading space are the characters java.util.Properties would misread)."""
+    through the fragment exactly (backslashes, line breaks, tabs, a
+    leading space and non-Latin-1 characters are what java.util.Properties
+    would otherwise misread or the Latin-1 file could not hold)."""
     out = (value.replace("\\", "\\\\").replace("\n", "\\n")
            .replace("\r", "\\r").replace("\t", "\\t").replace("\f", "\\f"))
     if out[:1] == " ":
         out = "\\" + out
+    return _escape_non_latin1(out)
+
+
+def escape_property_key(key: str) -> str:
+    """Keys are escaped too: a decoded key may hold '=', ':', whitespace or
+    a line break (an escaped separator in the clinic file), which written
+    raw would split into a different key or inject a second line."""
+    out = escape_property_value(key)
+    for ch in ("=", ":", "#", "!", " "):
+        out = out.replace(ch, "\\" + ch)
     return out
 
 
@@ -210,14 +233,22 @@ def translate_all(clinic: List[Tuple[str, str]],
             kind = spec.get("t")
             if kind == "docpath":
                 new = translate_docpath(value, documents_root)
+                # CARLOS may read the setting under a different key
+                # (eform_image -> EFORM_IMAGES_DIR); the fragment carries
+                # the key CARLOS honours
+                target_key = spec.get("as", key)
                 if new is None:
                     rows.append((key, "needs-review",
                                  "no OscarDocument path recognized in "
                                  "'{0}' — not carried".format(value)))
                 else:
-                    fragment.append((key, new))
+                    fragment.append((target_key, new))
                     rows.append((key, "translate",
-                                 "'{0}' -> '{1}'".format(value, new)))
+                                 "'{0}' -> {1}'{2}'".format(
+                                     value,
+                                     "" if target_key == key
+                                     else target_key + "=",
+                                     new)))
             elif kind == "drugref":
                 if deployment_drugref:
                     rows.append((key, "translate",
@@ -259,7 +290,8 @@ def render_fragment(result: dict) -> str:
         "",
     ]
     for key, value in result["fragment"]:
-        lines.append("{0}={1}".format(key, escape_property_value(value)))
+        lines.append("{0}={1}".format(escape_property_key(key),
+                                      escape_property_value(value)))
     return "\n".join(lines) + "\n"
 
 
@@ -299,8 +331,12 @@ def render_report(result: dict) -> str:
 
 def run_props(ctx) -> None:
     from . import o19import
+    from .util import die
     state_dir = ctx["state_dir"]
-    clinic = load_clinic_properties(ctx["properties"])
+    try:
+        clinic = load_clinic_properties(ctx["properties"])
+    except ValueError as exc:
+        die("cannot parse the clinic's oscar.properties: {0}".format(exc))
     result = translate_all(
         clinic,
         documents_root=ctx.get("documents_root", DOCUMENTS_ROOT),
@@ -308,8 +344,10 @@ def run_props(ctx) -> None:
             ctx.get("deploy_properties", PROPERTIES), "drugref_url"))
 
     dry = bool(ctx.get("dry_run"))
-    fragment_path = os.path.join(state_dir,
-                                 "o19-derived-carlos.properties")
+    # a dry run never overwrites the reviewed fragment of a real run
+    fragment_path = os.path.join(
+        state_dir, "o19-derived-carlos.properties" + (".dry-run" if dry
+                                                       else ""))
     text = render_fragment(result)
     if dry:
         text = "# DRY RUN — regenerate with the real import\n" + text

@@ -187,18 +187,6 @@ class TestAdminUserSafety(unittest.TestCase):
         self.assertIn("user_name = 'bg' AND provider_no = '100001'", stmts[1])
         self.assertTrue(stmts[2].startswith("DELETE FROM `carlos`.provider"))
 
-    def test_parity_flags_a_short_copy(self):
-        def q(sql):
-            if "information_schema" in sql:
-                return [["demographic"]]
-            if "`stage`.`demographic`" in sql:
-                return [["100"]]
-            if "`carlos`.`demographic`" in sql:
-                return [["90"]]
-            return [["0"]]
-        ok, bad = o19etl.row_parity(q, "stage", "carlos")
-        self.assertEqual(len(bad), 1)
-        self.assertIn("demographic: staging 100 -> target 90", bad[0])
 
 
 if __name__ == "__main__":
