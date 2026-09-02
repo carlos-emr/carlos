@@ -119,9 +119,10 @@ public final class RxWriteScript2Action extends ActionSupport {
     /**
      * Dispatches to the Rx write operation named by the {@code parameterValue} request parameter.
      *
-     * <p>On the save path the script is persisted (or its already-persisted number reused), any
-     * stale {@code rePrint} session state is cleared so a subsequent view is not mistaken for a
-     * reprint, and the prescriber's signature stamp is applied when one is configured.</p>
+     * <p>On the save-and-print path the script is persisted, any stale {@code rePrint} session
+     * state is cleared so a subsequent view is not mistaken for a reprint, and the prescriber's
+     * signature stamp is applied when one is configured. (Reuse of an already-persisted script
+     * number happens in {@link RxViewScript2Action}, not here.)</p>
      *
      * @return the Struts result for the dispatched operation
      */

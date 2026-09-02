@@ -77,7 +77,10 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
         Prescription result = prescriptionDao.find(prescriptionId);
 
         // --- log action ---
-        LogAction.addLogSynchronous(loggedInInfo, "PrescriptionManager.getPrescription", "id:" + result.getId());
+        // A missing id is a normal outcome (a caller validating a request parameter), not a crash:
+        // dereferencing result here turned "no such prescription" into an NPE for every caller.
+        LogAction.addLogSynchronous(loggedInInfo, "PrescriptionManager.getPrescription",
+                "id:" + (result == null ? "not found" : String.valueOf(result.getId())));
 
         return (result);
     }
@@ -400,7 +403,8 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
      * by {@code scriptNo} alone and performs no patient-scoped check; callers reached from a request
      * must first confirm the caller may write the prescription's own patient. See issue #3581.</p>
      *
-     * @param loggedInInfo the calling session, for audit context
+     * @param loggedInInfo the calling session, retained for interface compatibility; this method
+     *                     performs no audit logging of its own
      * @param scriptNo     the prescription (script) number to update
      * @param digitalSignatureId the signature to link, or {@code null} to clear the existing link
      * @return {@code true} when the prescription existed and was updated; {@code false} when no

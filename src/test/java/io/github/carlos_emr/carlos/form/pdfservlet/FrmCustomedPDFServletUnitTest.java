@@ -451,6 +451,26 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should render a multi-line direction on separate lines while keeping a typed semicolon whole")
+    void shouldRestoreRecordLineBreaks_whenBindingFaxContentToRecord() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        Prescription prescription = prescriptionDao.find(SCRIPT_ID);
+        // Both properties at once: the drug's own line breaks must survive to the fax, AND the
+        // semicolon inside the second line must not be mistaken for one of them. Decoding the
+        // flattened "; " form cannot do both, so the block is rebuilt from the record's own text.
+        String multiLineSig = "Metoprolol 25 mg tablet\n1 tab PO BID; hold if SBP<100\nQty 60";
+        stubRecordDrugs(prescription, drugRow(8, multiLineSig));
+        String nl = System.lineSeparator();
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        String rx = bound.getParameter("rx");
+        assertThat(rx).contains("Metoprolol 25 mg tablet" + nl + "1 tab PO BID; hold if SBP<100");
+        assertThat(rx).contains("1 tab PO BID; hold if SBP<100" + nl + "Qty 60");
+    }
+
+    @Test
     @DisplayName("should keep a semicolon a prescriber typed inside an instruction intact in the faxed body")
     void shouldPreserveTypedSemicolon_whenBindingFaxContentToRecord() throws Exception {
         MockHttpServletRequest request = createFaxRequest();
@@ -458,8 +478,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         Prescription prescription = prescriptionDao.find(SCRIPT_ID);
         // A conditional Sig, which is exactly the phrasing that carries a semicolon. The old body
         // encoding joined blocks with ";;" and then replaced EVERY ";" with a line separator, so
-        // this instruction was split mid-sentence — and because the remainder began with a
-        // one-character token, generatePDFDocumentBytes would have started a new drug block there.
+        // this instruction was split mid-sentence and reached the PDF as two rendered lines. (A
+        // remainder that happened to be a single character would additionally have started a new
+        // drug block, per generatePDFDocumentBytes; this fixture pins the split itself.)
         String conditionalSig = "Metoprolol 25 mg tablet\n1 tab PO BID; hold if SBP<100";
         stubRecordDrugs(prescription, drugRow(7, conditionalSig));
 

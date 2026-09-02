@@ -785,7 +785,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         List<String> recordLines = new ArrayList<>();
         for (RxPrescriptionData.Prescription drug
                 : new RxPrescriptionData().getPrescriptionsByScriptNo(scriptNo, prescription.getDemographicId())) {
-            String line = drug.getFullOutLine();
+            String line = recordBlock(drug, newline);
             if (line != null && !line.isBlank()) {
                 recordLines.add(line);
             }
@@ -855,6 +855,47 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      * line (which includes a stray {@code \r} from CRLF input) separates blocks; a one-character
      * line such as a quantity of "1" is content and stays inside its block.
      */
+    /**
+     * One drug's fax block, with the record's own line breaks restored.
+     *
+     * <p>{@code getFullOutLine()} flattens {@code special + "\n" + extra} by joining every line
+     * with {@code "; "}, which makes a structural separator indistinguishable from a semicolon a
+     * prescriber typed inside an instruction. Un-substituting semicolons therefore cannot be
+     * correct in both directions: it either breaks "1 tab PO BID; hold if SBP&lt;100" across lines,
+     * or leaves a genuinely multi-line direction collapsed onto one.</p>
+     *
+     * <p>So this rebuilds from the same source rather than decoding the flattened form: the
+     * {@code special} field still carries its real line breaks, and whatever {@code getFullOutLine}
+     * appended beyond it (refill and substitution notes) is recovered as the trailing remainder. A
+     * shape that does not match falls back to the canonical single line, which is never wrong —
+     * only less pretty.</p>
+     */
+    static String recordBlock(RxPrescriptionData.Prescription drug, String newline) {
+        String flat = drug.getFullOutLine();
+        if (flat == null || flat.isBlank()) {
+            return flat;
+        }
+        String special = drug.getSpecial();
+        if (special == null || special.isBlank()) {
+            return flat;
+        }
+        String flatSpecial = RxPrescriptionData.getFullOutLine(special);
+        if (flatSpecial.isEmpty() || !flat.startsWith(flatSpecial)) {
+            return flat;
+        }
+        List<String> lines = new ArrayList<>();
+        for (String specialLine : special.split("\n")) {
+            if (!specialLine.isBlank()) {
+                lines.add(specialLine.trim());
+            }
+        }
+        String extra = flat.substring(flatSpecial.length()).replaceFirst("^;\\s*", "").trim();
+        if (!extra.isEmpty()) {
+            lines.add(extra);
+        }
+        return lines.isEmpty() ? flat : String.join(newline, lines);
+    }
+
     static List<String> splitRxBlocks(String rx, String newline) {
         List<String> blocks = new ArrayList<>();
         if (rx == null) {

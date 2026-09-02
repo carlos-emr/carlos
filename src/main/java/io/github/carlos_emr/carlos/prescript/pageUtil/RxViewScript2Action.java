@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 
 import org.apache.struts2.ActionSupport;
@@ -139,6 +140,17 @@ public final class RxViewScript2Action extends ActionSupport {
             // reach this branch, and they must not create a script the write paths would refuse.
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
                 throw new SecurityException("missing required sec object (_rx)");
+            }
+            // persistedScriptId() answers null for BOTH "not yet saved" and "malformed stash", so a
+            // null item would otherwise fall through to the save below and be dereferenced there.
+            // A stash we cannot read is not something to persist: refuse it instead.
+            for (int i = 0; i < bean.getStashSize(); i++) {
+                if (bean.getStashItem(i) == null) {
+                    MiscUtils.getLogger().warn("Refusing to save a prescription: its session stash has a missing item");
+                    session.setAttribute("rePrint", null);
+                    response.sendRedirect("error.html");
+                    return null;
+                }
             }
             scriptId = prescription.saveScript(loggedInInfo, bean);
             for (int i = 0; i < bean.getStashSize(); i++) {
