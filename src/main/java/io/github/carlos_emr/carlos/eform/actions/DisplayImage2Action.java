@@ -105,9 +105,27 @@ public class DisplayImage2Action extends ActionSupport {
      * so sandboxing these two files defends nothing while silently breaking clinic letterhead. The real
      * control is who holds {@code _eform} write. Every OTHER text/html file keeps the unconditional
      * sandbox in {@link #process}.</p>
+     *
+     * <p>The same reasoning covers every other {@code *.rtl} file in the directory
+     * ({@link #isLetterTemplate}): {@code EFormUtil.listRichTextLetterTemplates()} offers exactly those
+     * files in the editor's template dropdown, and {@code editControl2.js} navigates the editor iframe
+     * to the chosen one and then reads and rewrites its body. A sandboxed template gives that frame an
+     * opaque origin, so the editor throws on first access and the letter can neither be edited nor
+     * saved — which is what happened to any clinic template other than {@code blank.rtl}. Unlike the
+     * two seeded names there is no WAR fallback for them: absent means 404.</p>
      */
     static final java.util.Set<String> SEEDED_EDITOR_ASSETS = java.util.Set.of(
             "blank.rtl", "editor_help.html");
+
+    /**
+     * True for a Rich Text Letter template ({@code *.rtl}) — the files the editor loads into its own
+     * frame and therefore must serve unsandboxed, like {@link #SEEDED_EDITOR_ASSETS}.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    static boolean isLetterTemplate(String fileName) {
+        return fileName != null && "rtl".equalsIgnoreCase(FilenameUtils.getExtension(fileName));
+    }
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -156,10 +174,17 @@ public class DisplayImage2Action extends ActionSupport {
         // every new Rich Text Letter opened blank, with nothing logged. Prefer the on-disk copy and
         // fall back to the WAR only when the file is absent, which is the state of a fresh install
         // before the deployer has run.
-        if (SEEDED_EDITOR_ASSETS.contains(fileName)) {
+        // Every other *.rtl is a clinic letter template the editor loads into its frame the same way
+        // (see isLetterTemplate on SEEDED_EDITOR_ASSETS): unsandboxed, on-disk only, 404 when absent.
+        if (SEEDED_EDITOR_ASSETS.contains(fileName) || isLetterTemplate(fileName)) {
             File seeded = getValidatedImageFile(fileName);
             if (!seeded.exists() || !seeded.isFile()) {
-                return serveBundledEditorAsset(fileName);
+                if (SEEDED_EDITOR_ASSETS.contains(fileName)) {
+                    return serveBundledEditorAsset(fileName);
+                }
+                logger.debug("Rich Text Letter template not found: {}", LogSafe.sanitize(fileName));
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return NONE;
             }
             return serveSeededEditorAsset(seeded, fileName);
         }

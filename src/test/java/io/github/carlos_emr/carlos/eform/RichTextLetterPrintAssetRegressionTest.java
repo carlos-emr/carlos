@@ -96,7 +96,7 @@ class RichTextLetterPrintAssetRegressionTest {
         assertThat(packaged.split("attachDirtyFlagListener\\(\\);", -1).length - 1)
                 .as("one initial registration plus one per template-load path")
                 .isGreaterThanOrEqualTo(4);
-        assertThat(packaged).contains("obj.onload = function() { parseTemplate(); attachDirtyFlagListener(); };");
+        assertThat(packaged).contains("obj.onload = function() { enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };");
         // The old single registration on the pre-template window must be gone.
         assertThat(packaged).doesNotContain(".addEventListener('keypress', setDirtyFlag, true);\n\t\t\t}");
     }

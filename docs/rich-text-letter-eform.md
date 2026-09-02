@@ -64,7 +64,7 @@ overwriting clinic-customized versions.
 
 | Endpoint | Class/File | Purpose |
 |----------|-----------|---------|
-| `eform/rtlPreventions.do` | `RtlPreventions2Action` | Returns OWASP-encoded prevention data (replaces SQL injection vulnerability) |
+| `eform/rtlPreventions` (+ `.do` alias) | `RtlPreventions2Action` | Returns OWASP-encoded prevention data (replaces SQL injection vulnerability) |
 | `eform/efmformrtl_templates.jsp` | JSP | Returns `<option>` elements for the template dropdown |
 | `eform/attachEform.jsp` | JSP | Popup UI for attaching documents to the letter |
 | `eform/displayAttachedFiles.jsp` | JSP | AJAX endpoint returning attached file list HTML |
@@ -97,8 +97,27 @@ Two invariants keep these working:
   drops listeners registered on the old one; before this, typing into a new letter never set
   `needToConfirm`, so toolbar Print printed without saving and closing never warned.
 
-Regression coverage: `AddEForm2ActionPrintAliasTest` (server alias, mapped results) and
-`RichTextLetterPrintAssetRegressionTest` (browser assets).
+Three related invariants were fixed at the same time:
+
+- `eform/rtlPreventions.do` is a compatibility alias of `eform/rtlPreventions` in
+  `struts-eform.xml`, because the shipped form_html calls the `.do` spelling from the
+  Preventions sidebar button (it rendered "Error loading preventions." without it).
+- Every `*.rtl` file in the eForm image directory is served by `DisplayImage2Action` without
+  the stored-asset `sandbox` CSP, like `blank.rtl`: the template dropdown offers exactly those
+  files and the editor navigates its iframe to the chosen one, so a sandboxed template made the
+  frame cross-origin and broke editing.
+- `editControl2.js` turns `designMode` on in the editor frame before every template parse
+  (`enableEditorDesignMode()`): the parent's `iframe.onload` runs before the template's own
+  `<body onload>` does, so `seteditControlContents()` used to refuse the write, log
+  "cannot set editor contents" on every new letter, and drop clinic templates' content.
+
+Regression coverage: `AddEForm2ActionPrintAliasTest` (server alias, mapped results),
+`RichTextLetterPrintAssetRegressionTest` (browser assets), `DisplayImage2ActionUnitTest`
+(template serving), `EFormJspMigrationRegressionTest` (the `.do` alias), and the live browser
+check `scripts/eform-rtl-print-pdf-playwright-checks.js`
+(`npm run test:eform-rtl-print-pdf-playwright`), which drives Preventions, Download, the form's
+PDF button, toolbar Print, "Submit & Print" and (with `RTL_TEMPLATE_NAME`) a clinic template
+against a running CARLOS and verifies real PDF bytes come back.
 
 ---
 

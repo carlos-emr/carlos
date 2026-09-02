@@ -406,6 +406,24 @@ function Select(selectname){
  * which change what would be saved; `input` fires for those too. setDirtyFlag() is idempotent, so
  * double-firing on ordinary typing is harmless.
  */
+/**
+ * Turns designMode on in the editor iframe's CURRENT document. Every template load (blank.rtl or a
+ * clinic .rtl) navigates the iframe, and the parent's iframe.onload handler runs BEFORE the template's
+ * own <body onload="document.designMode='on'"> has executed, so parseTemplate() reached
+ * seteditControlContents() with designMode still off. That function refuses to write into a
+ * non-designMode iframe (it is the guard that stops saved letters vanishing), logged a console error
+ * on every new letter, and dropped the parsed template — harmless for the empty blank.rtl, but a
+ * clinic template with letterhead and ##placeholders## never populated. Enabling it here, before the
+ * parse, is order-independent: the template's own onload then finds it already on.
+ */
+function enableEditorDesignMode() {
+	var frame = document.getElementById(cfg_editorname);
+	var frameDoc;
+	try { frameDoc = frame && frame.contentWindow ? frame.contentWindow.document : null; }
+	catch (e) { frameDoc = null; } // cross-origin frame: nothing to do (and nothing we could edit)
+	if (frameDoc && frameDoc.designMode !== 'on') { frameDoc.designMode = 'on'; }
+}
+
 function attachDirtyFlagListener() {
 	if (typeof setDirtyFlag !== 'function') { return; }
 	var frame = document.getElementById(cfg_editorname);
@@ -432,14 +450,14 @@ function loadDefaultTemplate() {
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
 		// The navigation replaced the iframe's Window: re-register the dirty-flag listener on the new one.
-		obj.onload = function() { parseTemplate(); attachDirtyFlagListener(); };
+		obj.onload = function() { enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };
 		//for IE put some delay to ensure that the new src is loaded before we parse it
     	if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
 	} else {
 		var blankTemplate = '<html><head><title>Blank Document Template</title><meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\"><style type=\"text/css\">body {font-size: 1em; font-family:\"Times New Roman\", Times, serif; background-color: #FFFFFF;}</style><style type=\"text/css\" media=\"print\">* {color: #000000;}.DoNotPrint {display: none;}</style></head><body contenteditable onLoad=\"document.designMode = \'on\';\"></body></html>';
 		var blankFrame = document.getElementById(cfg_editorname);
 		// srcdoc navigates the iframe too, so the listener has to follow the new Window here as well.
-		blankFrame.onload = function() { attachDirtyFlagListener(); };
+		blankFrame.onload = function() { enableEditorDesignMode(); attachDirtyFlagListener(); };
 		blankFrame.srcdoc = blankTemplate;
 	}
 }
@@ -460,7 +478,7 @@ function loadTemplate(selectname){
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
 		// The navigation replaced the iframe's Window: re-register the dirty-flag listener on the new one.
-		obj.onload = function() { parseTemplate(); attachDirtyFlagListener(); };
+		obj.onload = function() { enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };
 		//for IE put some delay to ensure that the new src is loaded before we parse it
     		if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
     	}
@@ -1110,6 +1128,12 @@ function submitFaxButton() {
 			// set the HTML contents of this edit control from the value saved in OSCAR (if any)
 			var contents = document.getElementById('Letter').value;
 			if (contents.length == 0) {
+				// A NEW letter: the template dropdown has not loaded yet, so this parses the editor's
+				// initial about:blank document. Its designMode is off until enabled here, and
+				// seteditControlContents() refuses to write into a non-designMode frame — which
+				// logged "cannot set editor contents" on every new letter. The real template is
+				// parsed again from loadDefaultTemplate()'s onload once it has loaded.
+				enableEditorDesignMode();
 				parseTemplate();
 			} else {
 				// Decode HTML entities that saveRTL() encoded before saving.
