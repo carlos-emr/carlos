@@ -60,6 +60,11 @@ class RichTextLetterPrintAssetRegressionTest {
         return Files.readString(path, StandardCharsets.UTF_8);
     }
 
+    /** The script with block and line comments removed, so assertions see only what executes. */
+    private static String executableCode(String script) {
+        return script.replaceAll("(?s)/\\*.*?\\*/", "").replaceAll("(?m)^\\s*//.*$", "");
+    }
+
     @Test
     @DisplayName("should post the legacy print flag and serialize the letter through saveRTL when present")
     void shouldSerializeThroughSaveRtl_whenPostingPrintFlag() throws IOException {
@@ -68,7 +73,10 @@ class RichTextLetterPrintAssetRegressionTest {
         assertThat(script).contains("name='print' value='true'");
         // The hidden inputs must be created on an emptiness test, not on a jQuery object's truthiness.
         assertThat(script).contains("jQuery('#printHolder').length === 0");
-        assertThat(script).doesNotContain("if (printHolder == null || !printHolder) {");
+        // Whitespace-insensitive and comment-blind: the old guard must not survive as executable code,
+        // however the file is reformatted or the fix is described in a comment.
+        assertThat(executableCode(script).replaceAll("\\s+", ""))
+                .doesNotContain("if(printHolder==null||!printHolder)");
         assertThat(script).contains("typeof saveRTL === \"function\"");
         // Raw fallback stays for non-letter forms that declare #Letter without the RTL serializer.
         assertThat(script).contains("document.getElementById('Letter').value = editControlContents('edit');");
@@ -120,7 +128,11 @@ class RichTextLetterPrintAssetRegressionTest {
                 .as("one initial registration plus one per template-load path")
                 .isGreaterThanOrEqualTo(4);
         assertThat(packaged).contains("obj.onload = function() { enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };");
-        // The old single registration on the pre-template window must be gone.
-        assertThat(packaged).doesNotContain(".addEventListener('keypress', setDirtyFlag, true);\n\t\t\t}");
+        // The old single registration on the pre-template window must be gone: in Start() it was
+        // the last statement of an if-block, so the listener call was followed directly by the
+        // block's closing brace. The surviving registration inside attachDirtyFlagListener() is
+        // followed by the 'input' registration instead. Comment-blind and whitespace-insensitive.
+        assertThat(executableCode(packaged).replaceAll("\\s+", ""))
+                .doesNotContain("addEventListener('keypress',setDirtyFlag,true);}");
     }
 }

@@ -84,11 +84,10 @@ function submitPrintButton(save) {
     }
 
     jQuery("form")[0].submit();
-    if (save) {
-        // Function form: the eForm pages run under a CSP without 'unsafe-eval', so a string timer
-        // only survives through the runtime compatibility shim.
-        setTimeout(function () { window.close(); }, 3000);
-    }
+    // No fixed close timer after "Submit & PDF": the response IS the PDF download (rendered
+    // server-side, which can take longer than the 3 s the legacy string timer allowed), so closing
+    // the window on a clock could tear the page down before the download page ran and lose the
+    // PDF. The download result page owns any auto-close.
     printHolder.val("false");
     saveHolder.val("false");
 

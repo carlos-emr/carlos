@@ -76,9 +76,11 @@ overwriting clinic-customized versions.
 
 ## Print and PDF
 
-The RTL page exposes three print/PDF entry points. All of them work from the **saved** record:
-every server render (`DocumentAttachmentManager.renderEFormPacketWithCompleteness`) needs an
-`fdid`, so there is no "PDF without saving" path.
+The RTL page exposes three print/PDF entry points. The server-rendered Download and PDF-button
+flows work from the **saved** record: every server render
+(`DocumentAttachmentManager.renderEFormPacketWithCompleteness`) needs an `fdid`, so there is no
+"PDF without saving" path. Toolbar Print is the exception: it prints the editor iframe as it
+stands and only then saves, when the letter is dirty.
 
 | Control | Path |
 |---------|------|

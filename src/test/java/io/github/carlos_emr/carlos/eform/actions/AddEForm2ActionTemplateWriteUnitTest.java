@@ -221,23 +221,46 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
     // already covers the positive case: if the write never ran at all, it would fail.
 
     @Test
-    @DisplayName("should not write the eForm template on the print path")
-    void shouldNotWriteTemplate_onPrintPath() throws Exception {
+    @DisplayName("should not write the eForm template on the PDF preview path (print with skipSave)")
+    void shouldNotWriteTemplate_onPrintPreviewPath() throws Exception {
         // Guards the hoist: the write moved above the eDoc block, and it must still be skipped for
         // the workflow paths that never performed it. writeEformTemplate is not idempotent, so
         // running it here would duplicate every CPP note, tickler and consult request.
         // print=true is the legacy printControl.js alias of the save-and-download workflow, so the
         // path now renders and returns the mapped "download" result instead of an unmapped "print".
+        // printControl.js's "PDF" button sends skipSave=true: a preview, not a submission.
         mockRequest.setParameter("print", "true");
-        when(mockDocumentAttachmentManager.renderEFormPacketWithCompleteness(any(), any(), isNull()))
-                .thenReturn(new EformDataManager.EformPdfRender(java.nio.file.Path.of("letter.pdf"),
-                        new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, false, false)));
-        when(mockDocumentAttachmentManager.convertPDFToBase64(any())).thenReturn("JVBERi0=");
+        mockRequest.setParameter("skipSave", "true");
+        stubPrintRender();
 
         AddEForm2Action action = new AddEForm2Action();
         String result = action.execute();
 
         assertThat(result).isEqualTo("download");
         verifyTemplateWritten(false);
+    }
+
+    @Test
+    @DisplayName("should still write the eForm template on Submit & PDF (print without skipSave)")
+    void shouldWriteTemplate_onSubmitAndPdfPath() throws Exception {
+        // Before the print alias these buttons reached the server as a plain save (their print flag
+        // never arrived), so a generated eForm's configured notes, ticklers and consults were
+        // created. "Submit & PDF" is still a submission and must keep those side effects.
+        mockRequest.setParameter("print", "true");
+        mockRequest.setParameter("skipSave", "false");
+        stubPrintRender();
+
+        AddEForm2Action action = new AddEForm2Action();
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("download");
+        verifyTemplateWritten(true);
+    }
+
+    private void stubPrintRender() throws Exception {
+        when(mockDocumentAttachmentManager.renderEFormPacketWithCompleteness(any(), any(), isNull()))
+                .thenReturn(new EformDataManager.EformPdfRender(java.nio.file.Path.of("letter.pdf"),
+                        new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, false, false)));
+        when(mockDocumentAttachmentManager.convertPDFToBase64(any())).thenReturn("JVBERi0=");
     }
 }

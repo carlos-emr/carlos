@@ -161,9 +161,12 @@ public class AddEForm2Action extends ActionSupport {
         // latent error page, masked in practice by a printControl.js bug that never appended the
         // input at all, so those buttons were a plain Save with no PDF. It is folded into the
         // save-and-download workflow below, which is what the toolbar's Download PDF button does.
-        // The accompanying `skipSave` flag cannot be honoured: every render works from a stored
-        // fdid, so there is no "PDF without saving" path to route it to.
+        // The accompanying `skipSave` flag cannot mean "no save": every render works from a stored
+        // fdid, so there is no "PDF without saving" path to route it to. It still carries the
+        // clinician's intent — "PDF" (skipSave=true) is a preview, "Submit & PDF" (skipSave=false)
+        // is a submission — and that is what decides the template side effects below.
         boolean print = "true".equals(request.getParameter("print"));
+        boolean printPreviewOnly = print && "true".equals(request.getParameter("skipSave"));
         boolean saveAsEdoc = "true".equals(request.getParameter("saveAsEdoc"));
         boolean isDownloadEForm = "true".equals(request.getParameter("saveAndDownloadEForm")) || print;
         boolean isEmailEForm = "true".equals(request.getParameter("emailEForm"));
@@ -334,13 +337,17 @@ public class AddEForm2Action extends ActionSupport {
             // them: writeEformTemplate assigns a fresh UUID and persists unconditionally, so it is
             // not idempotent and a later retry would duplicate rather than reconcile.
             //
-            // The condition reproduces that `else` exactly — fax, print, download and email each
-            // return before reaching it, and each has its own reason not to write the template.
-            // Hoisting this WITHOUT the condition would run it on those paths too and duplicate
-            // every note, which is a worse defect than the one being fixed here. (`print` is
-            // already folded into isDownloadEForm; it is kept here so the exclusion reads as the
-            // list of workflows it covers.)
-            if (!fax && !print && !isDownloadEForm && !isEmailEForm) {
+            // The condition reproduces that `else` — fax, download and email each return before
+            // reaching it, and each has its own reason not to write the template. Hoisting this
+            // WITHOUT the condition would run it on those paths too and duplicate every note, which
+            // is a worse defect than the one being fixed here.
+            //
+            // The printControl.js buttons are the exception. Until the alias above, "PDF" and
+            // "Submit & PDF" reached this block as a plain save (their print flag never arrived),
+            // so a generated eForm's chart notes, ticklers, preventions and consults were created.
+            // "Submit & PDF" is still a submission and keeps that behaviour; only the "PDF" preview
+            // (skipSave=true) skips it, matching what its label promises.
+            if (!fax && !isEmailEForm && (!isDownloadEForm || (print && !printPreviewOnly))) {
                 //write template message to echart
                 String program_no = new EctProgram(se).getProgram(providerNo);
                 String path = request.getRequestURL().toString();

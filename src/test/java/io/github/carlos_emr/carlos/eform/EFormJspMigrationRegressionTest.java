@@ -238,7 +238,8 @@ class EFormJspMigrationRegressionTest {
         String letterMigration = Files.readString(RTL_MODERNIZE_MIGRATION, StandardCharsets.UTF_8);
 
         // The stored form_html hardcodes the .do spelling; the alias must exist as long as it does.
-        assertThat(letterMigration).contains("rtlPreventions.do");
+        // The relative URL form appears only in the stored form_html, not in the file's SQL comment.
+        assertThat(letterMigration).contains("../eform/rtlPreventions.do");
         assertThat(struts).contains("<action name=\"eform/rtlPreventions\"");
         assertThat(struts).contains("<action name=\"eform/rtlPreventions.do\"");
     }

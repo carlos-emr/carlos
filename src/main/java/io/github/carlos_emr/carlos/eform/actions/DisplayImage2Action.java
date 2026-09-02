@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Locale;
 
 import io.github.carlos_emr.carlos.eform.util.EFormAssetContentType;
 
@@ -124,7 +125,10 @@ public class DisplayImage2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static boolean isLetterTemplate(String fileName) {
-        return fileName != null && "rtl".equalsIgnoreCase(FilenameUtils.getExtension(fileName));
+        // A plain suffix test rather than FilenameUtils.getExtension (WEAK_FILENAMEUTILS): this only
+        // classifies the name; path containment is enforced by getValidatedImageFile before anything
+        // is read. ROOT keeps the comparison locale-independent.
+        return fileName != null && fileName.toLowerCase(Locale.ROOT).endsWith(".rtl");
     }
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();

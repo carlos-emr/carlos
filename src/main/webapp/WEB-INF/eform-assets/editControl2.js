@@ -394,19 +394,6 @@ function Select(selectname){
 }
 
 /**
- * Marks the letter dirty on edits so remotePrint() ("Save and then print") and confirmExit() know
- * there is something to save. Registered on the iframe's CURRENT window and re-registered after
- * every template load: loading blank.rtl (or a clinic .rtl) navigates the iframe, which replaces
- * its Window object and silently drops every listener registered on the old one. Registering once
- * from Start() therefore only ever covered the pre-template about:blank document, so on every NEW
- * letter typing never set needToConfirm — the toolbar's Print printed the letter without saving it,
- * and closing the window never warned about the unsaved text.
- *
- * `keypress` alone misses Backspace/Delete, paste, and the toolbar's execCommand formatting, all of
- * which change what would be saved; `input` fires for those too. setDirtyFlag() is idempotent, so
- * double-firing on ordinary typing is harmless.
- */
-/**
  * Turns designMode on in the editor iframe's CURRENT document. Every template load (blank.rtl or a
  * clinic .rtl) navigates the iframe, and the parent's iframe.onload handler runs BEFORE the template's
  * own <body onload="document.designMode='on'"> has executed, so parseTemplate() reached
@@ -424,6 +411,19 @@ function enableEditorDesignMode() {
 	if (frameDoc && frameDoc.designMode !== 'on') { frameDoc.designMode = 'on'; }
 }
 
+/**
+ * Marks the letter dirty on edits so remotePrint() ("Save and then print") and confirmExit() know
+ * there is something to save. Registered on the iframe's CURRENT window and re-registered after
+ * every template load: loading blank.rtl (or a clinic .rtl) navigates the iframe, which replaces
+ * its Window object and silently drops every listener registered on the old one. Registering once
+ * from Start() therefore only ever covered the pre-template about:blank document, so on every NEW
+ * letter typing never set needToConfirm — the toolbar's Print printed the letter without saving it,
+ * and closing the window never warned about the unsaved text.
+ *
+ * `keypress` alone misses Backspace/Delete, paste, and the toolbar's execCommand formatting, all of
+ * which change what would be saved; `input` fires for those too. setDirtyFlag() is idempotent, so
+ * double-firing on ordinary typing is harmless.
+ */
 function attachDirtyFlagListener() {
 	if (typeof setDirtyFlag !== 'function') { return; }
 	var frame = document.getElementById(cfg_editorname);

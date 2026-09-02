@@ -37,12 +37,12 @@
  */
 
 const fs = require('fs');
-const path = require('path');
 const { chromium } = require('playwright');
 const {
   assert,
   assertNoPageErrors,
   assertNotErrorPage,
+  buildArtifactPath,
   buildFailureDetails,
   createRecorder,
   findLibraryEform,
@@ -126,7 +126,8 @@ async function clickAndDownloadPdf(page, locator, label) {
   const downloadPromise = page.waitForEvent('download', { timeout: 120000 });
   await locator.click();
   const download = await downloadPromise;
-  const target = path.join(config.screenshotDir, `rtl-${label}-${Date.now()}.pdf`);
+  // buildArtifactPath keeps the file under the validated artifact directory and creates it.
+  const target = buildArtifactPath(config.screenshotDir, `rtl-${label}-${Date.now()}`, '.pdf');
   await download.saveAs(target);
   const bytes = fs.readFileSync(target);
   assert(download.suggestedFilename().toLowerCase().endsWith('.pdf'), `${label}: download is not a .pdf (${download.suggestedFilename()})`);
@@ -163,7 +164,10 @@ async function savedFdid(page) {
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   const printLog = [];
   try {
-    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    // A self-signed front door is only acceptable on the loopback install the runbook describes;
+    // a remote HTTPS target must present a certificate the test user actually trusts.
+    const loopbackTarget = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(config.baseUrl);
+    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: loopbackTarget, viewport: { width: 1440, height: 1100 } });
     // Record window.print() from EVERY frame on the Node side (the pages navigate right after printing),
     // and neutralize window.close() so the post-save auto-close does not tear the page down under us.
     await context.exposeBinding('__carlosRecordPrint', (source, info) => { printLog.push(info); });
@@ -187,8 +191,11 @@ async function savedFdid(page) {
     const pr = await preventionsResponse;
     const preventionsBody = await editorFrame(page).evaluate(() => document.body.innerText);
     step('Preventions button loads through the rtlPreventions route with HTTP 200', pr.status() === 200, `${pr.status()} ${pr.url()}`);
+    // Detail carries shape only, never the editor text: on a real patient that is clinical data,
+    // and this log ends up in consoles and CI output.
     step('Preventions content lands in the editor (table or "No preventions on file.")',
-      /No preventions on file|Prevention|Date/i.test(preventionsBody) && !/Error loading preventions/i.test(preventionsBody), preventionsBody.slice(0, 120).replace(/\s+/g, ' '));
+      /No preventions on file|Prevention|Date/i.test(preventionsBody) && !/Error loading preventions/i.test(preventionsBody),
+      `${preventionsBody.length} chars, ${/No preventions on file/i.test(preventionsBody) ? 'empty-list message' : 'prevention rows'}`);
     await page.close();
 
     // ---------- 2. New letter: typing marks it dirty; toolbar Download yields a real PDF ----------

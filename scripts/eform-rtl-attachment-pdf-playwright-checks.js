@@ -281,7 +281,8 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
     return t && t.innerText.trim().length > 0;
   }, null, { timeout: 30000 }).catch(() => {});
   const panelText = (await saved.locator('#tdAttachedDocs').innerText().catch(() => '')).trim();
-  const panelEntry = new RegExp(`${family.panelPrefix} #${value}(?!\\d)`);
+  // Plain string matching (no RegExp built from page values): "Doc #3" must not match "Doc #31".
+  const panelEntry = { test: (text) => (text || '').split(/\r?\n/).some((line) => line.trim() === `${family.panelPrefix} #${value}`) };
   record(family.key, 'Attached Files panel lists it', panelEntry.test(panelText), JSON.stringify(panelText.slice(0, 80)));
   const hidden = await saved.locator(`input[name="${family.inputName}"]`).evaluateAll((els) => els.map((e) => e.value));
   record(family.key, 'saved view re-submits it as a hidden input', hidden.includes(value), JSON.stringify(hidden));
