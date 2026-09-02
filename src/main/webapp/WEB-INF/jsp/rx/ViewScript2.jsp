@@ -160,14 +160,6 @@
             } else {
                 createAnewRx = "javascript:clearPending('')";
             }
-            // Faxing persists a FaxJob, so FrmCustomedPDFServlet requires _rx WRITE for the script's
-            // patient; gate the Fax buttons on the same right so the page never offers a fax the
-            // server will refuse (a read-only reprint of a signed script would otherwise show an
-            // enabled Fax button and then a refusal).
-            boolean canFaxScript = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
-                    .hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request),
-                            "_rx", "w", String.valueOf(bean.getDemographicNo()));
-
 // for satellite clinics
             Vector vecAddressName = null;
             Vector vecAddress = null;
@@ -628,6 +620,29 @@
                     request.getAttribute("scriptId") == null ? "" : String.valueOf(request.getAttribute("scriptId")),
                     (bean.getStashSize() > 0 && bean.getStashItem(0).getScript_no() != null)
                             ? bean.getStashItem(0).getScript_no() : "");
+
+            // Faxing persists a FaxJob, so FrmCustomedPDFServlet requires _rx WRITE for the script's
+            // patient; gate the Fax buttons on the same right so the page never offers a fax the
+            // server will refuse (a read-only reprint of a signed script would otherwise show an
+            // enabled Fax button and then a refusal).
+            //
+            // The gate MUST resolve the same target the server authorizes: the persisted prescription
+            // named by scriptIdForFax, NOT the session bean's demographic. scriptIdForFax can come
+            // from a request parameter, so it may name a script belonging to a different patient than
+            // the chart the bean holds; gating on the bean would then enable Fax for a fax the server
+            // refuses (or hide one it would allow). No id, or an id that resolves to nothing or to a
+            // row with no patient, means there is nothing faxable — closed, not open.
+            boolean canFaxScript = false;
+            if (!scriptIdForFax.isEmpty()) {
+                io.github.carlos_emr.carlos.commn.model.Prescription faxTarget =
+                        SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.PrescriptionDao.class)
+                                .find(Integer.parseInt(scriptIdForFax));
+                if (faxTarget != null && faxTarget.getDemographicId() != null) {
+                    canFaxScript = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
+                            .hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request),
+                                    "_rx", "w", String.valueOf(faxTarget.getDemographicId()));
+                }
+            }
         %>
         <script type="text/javascript">
             var POLL_TIME = 1500;

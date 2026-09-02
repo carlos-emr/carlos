@@ -145,9 +145,21 @@ public class PrescriptionSignatureStampService {
         // only a GLOBAL _rx write check (null target), which proves nothing about this chart, and
         // scriptId is request-supplied. The prescriber guard below narrows this to the caller's own
         // scripts, but a clinician who keeps global _rx write after losing access to a particular
-        // patient could still stamp a script they wrote for them. Refuse rather than throw: this
-        // runs inside a print/fax page render, and every other failure here leaves the pad available.
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", String.valueOf(patientId))) {
+        // patient could still stamp a script they wrote for them.
+        //
+        // Never let this throw. hasPrivilege swallows most failures and returns false, but it
+        // deliberately RETHROWS PatientDirectiveException (SecurityInfoManagerImpl), a
+        // RuntimeException — and escaping here would abort the print/fax render from inside an
+        // optional convenience. Treat any failure as "no stamp": the pad stays available, and a
+        // directive block yields no stamp rather than an error page.
+        boolean mayWritePatient;
+        try {
+            mayWritePatient = securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", String.valueOf(patientId));
+        } catch (RuntimeException e) {
+            MiscUtils.getLogger().error("Error checking _rx write for script " + LogSafe.sanitize(scriptId), e);
+            return null;
+        }
+        if (!mayWritePatient) {
             MiscUtils.getLogger().debug("Rx stamp not applied: no _rx write on script {}'s patient",
                     LogSafe.sanitize(scriptId));
             return null;

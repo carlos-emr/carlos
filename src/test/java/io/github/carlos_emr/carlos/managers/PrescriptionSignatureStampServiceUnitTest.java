@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
+import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
@@ -296,6 +297,20 @@ class PrescriptionSignatureStampServiceUnitTest {
         // the row here was written by this very provider, who has since lost access to the patient.
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), eq(String.valueOf(DEMOGRAPHIC_NO))))
                 .thenReturn(false);
+
+        assertThat(service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID)).isNull();
+        verifyNoInteractions(digitalSignatureManager, prescriptionManager);
+        assertThat(stashItem.getDigitalSignatureId()).isNull();
+    }
+
+    @Test
+    @DisplayName("should leave the pad available when the privilege check itself throws")
+    void shouldSkipStamp_whenPrivilegeCheckThrows() {
+        // hasPrivilege swallows most failures, but it deliberately rethrows PatientDirectiveException
+        // (a RuntimeException). Escaping here would abort the print/fax page render from inside an
+        // optional convenience, which the service contract forbids.
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), anyString()))
+                .thenThrow(new PatientDirectiveException("directive blocks this chart"));
 
         assertThat(service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID)).isNull();
         verifyNoInteractions(digitalSignatureManager, prescriptionManager);
