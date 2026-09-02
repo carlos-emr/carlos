@@ -119,6 +119,20 @@ check `scripts/eform-rtl-print-pdf-playwright-checks.js`
 PDF button, toolbar Print, "Submit & Print" and (with `RTL_TEMPLATE_NAME`) a clinic template
 against a running CARLOS and verifies real PDF bytes come back.
 
+Attachments ride the same download: both paths save the letter first and then render the packet
+(`DocumentAttachmentManager.renderEFormPacketWithCompleteness`), which appends every eDoc, lab,
+HRM report, other eForm and PDF-ready encounter form attached to that `fdid`, in that order. The
+letter offers two ways to attach: the floating toolbar's Attach dialog (selections travel as
+hidden `docNo`/`labNo`/`hrmNo`/`eFormNo`/`formNo` inputs and are persisted on save) and the
+editor's own paperclip, which posts to `eform/attachDoc` against the saved `fdid` and is what the
+"Attached Files" panel (`eform/displayAttachedFiles`) reflects. A save re-submits the hidden
+inputs as the complete set, so the saved view embeds every current attachment before any
+download. `scripts/eform-rtl-attachment-pdf-playwright-checks.js`
+(`npm run test:eform-rtl-attachment-pdf-playwright`) attaches one item of each family to its own
+letter and proves it shows on the saved letter and adds pages to the PDF from both paths; HRM
+needs the report fixture in `.devcontainer/db/db_data/hrm/`, and
+`HRMReportParserFixtureUnitTest` pins the JAXB enum mappings that fixture depends on.
+
 ---
 
 ## Required Directories

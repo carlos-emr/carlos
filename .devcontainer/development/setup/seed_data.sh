@@ -18,4 +18,8 @@ mkdir -p /var/lib/CarlosDocument/carlos/incomingdocs
 
 # Seeding initial database files for documents
 cp -vn /db-data/documents/* /var/lib/CarlosDocument/carlos/document/
+# HRM reports live in the same document directory. The snapshot's HRM rows name
+# files that never shipped; demo-hrm-report.sql (populate_db.sh) points one
+# demographic-1 report at this fixture so the HRM attachment family works.
+cp -vn /db-data/hrm/*.xml /var/lib/CarlosDocument/carlos/document/
 echo "[Bootstrap] Finished copying documents."
