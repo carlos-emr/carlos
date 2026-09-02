@@ -13,6 +13,9 @@ import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderExtDao;
+import io.github.carlos_emr.carlos.casemgmt.model.ProviderExt;
+import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
@@ -46,6 +49,7 @@ import javax.imageio.ImageIO;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -74,6 +78,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     private PrescriptionDao prescriptionDao;
     private DigitalSignatureManager digitalSignatureManager;
     private SecurityInfoManager securityInfoManager;
+    private DrugDao drugDao;
+    private ProviderExtDao providerExtDao;
 
     @BeforeEach
     void setUp() {
@@ -91,7 +97,33 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         registerMock(ProviderDao.class, mock(ProviderDao.class));
         registerMock(DemographicDao.class, mock(DemographicDao.class));
         registerMock(PrescriptionDao.class, prescriptionDao);
-        registerMock(DrugDao.class, mock(DrugDao.class));
+        drugDao = mock(DrugDao.class);
+        registerMock(DrugDao.class, drugDao);
+        providerExtDao = mock(ProviderExtDao.class);
+        registerMock(ProviderExtDao.class, providerExtDao);
+    }
+
+    private static final String RECORD_DRUG_LINE = "Amoxicillin 500 mg capsule\n1 cap PO TID x 7 days";
+    private static final String SECOND_DRUG_LINE = "Ibuprofen 400 mg tablet\n1 tab PO q6h PRN pain";
+
+    /** A persisted drugs row of script {@value #SCRIPT_ID} whose full out line is {@code special}. */
+    private static Drug drugRow(int id, String special) {
+        Drug drug = new Drug();
+        drug.setId(id);
+        drug.setScriptNo(SCRIPT_ID);
+        drug.setDemographicId(DEMOGRAPHIC_NO);
+        drug.setProviderNo("999998");
+        drug.setSpecial(special);
+        return drug;
+    }
+
+    /** Makes the record of script {@value #SCRIPT_ID} carry the given drug rows. */
+    private void stubRecordDrugs(Prescription prescription, Drug... drugs) {
+        List<Object[]> pairs = new java.util.ArrayList<>();
+        for (Drug drug : drugs) {
+            pairs.add(new Object[] {drug, prescription});
+        }
+        when(drugDao.findDrugsAndPrescriptionsByScriptNumber(SCRIPT_ID)).thenReturn(pairs);
     }
 
     /**
@@ -102,8 +134,11 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     private void stubStoredSignature() throws Exception {
         Prescription prescription = new Prescription();
         prescription.setDemographicId(DEMOGRAPHIC_NO);
+        prescription.setProviderNo("999998");
         prescription.setDigitalSignatureId(SIGNATURE_ID);
         when(prescriptionDao.find(SCRIPT_ID)).thenReturn(prescription);
+        // The record has one drug, so a fax has something legitimate to render.
+        stubRecordDrugs(prescription, drugRow(5, RECORD_DRUG_LINE));
 
         DigitalSignature metadata = new DigitalSignature();
         metadata.setDemographicId(DEMOGRAPHIC_NO);
@@ -350,6 +385,89 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(response.getContentAsString()).contains("fax-failure").contains("permission").doesNotContain("not signed");
             verify(faxJobDao, never()).persist(any());
             verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
+        }
+    }
+
+    @Test
+    @DisplayName("should fax the drug lines and prescriber of the prescription record, not the request body")
+    void shouldBindFaxBody_toPrescriptionRecord() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        // A caller with _rx write on the patient posts their OWN text and name with the scriptId
+        // of a signed prescription: the fax must carry the record, not the request.
+        request.setParameter("rx", "Oxycodone 80 mg tablet" + System.lineSeparator() + "#100, refills x 5" + System.lineSeparator() + System.lineSeparator());
+        request.setParameter("sigDoctorName", "Dr Somebody Else");
+        stubStoredSignature();
+        ProviderExt ext = new ProviderExt();
+        ext.setSignature("Dr A. Prescriber");
+        when(providerExtDao.find("999998")).thenReturn(ext);
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        assertThat(bound).isNotNull();
+        assertThat(bound.getParameter("rx")).contains("Amoxicillin 500 mg capsule").contains("1 cap PO TID x 7 days").doesNotContain("Oxycodone");
+        assertThat(bound.getParameter("sigDoctorName")).isEqualTo("Dr A. Prescriber");
+        assertThat(bound.getParameter("pharmaFax")).isEqualTo("4165551212"); // untouched
+        assertThat(bound.getParameterMap().get("rx")).containsExactly(bound.getParameter("rx"));
+    }
+
+    @Test
+    @DisplayName("should keep the previewed drug order when the request body is a reordering of the record")
+    void shouldKeepPreviewOrder_whenRequestBodyMatchesRecord() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        Prescription prescription = prescriptionDao.find(SCRIPT_ID);
+        stubRecordDrugs(prescription, drugRow(5, RECORD_DRUG_LINE), drugRow(6, SECOND_DRUG_LINE));
+        String nl = System.lineSeparator();
+        // Preview2.jsp posts getFullOutLine() per drug joined by ";;" with ";" -> newline; the second
+        // drug first here, i.e. the reverse of the record's order.
+        String posted = (SECOND_DRUG_LINE.replace("\n", "; ") + ";;" + RECORD_DRUG_LINE.replace("\n", "; ") + ";;").replace(";", nl);
+        request.setParameter("rx", posted);
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        String rx = bound.getParameter("rx");
+        assertThat(rx.indexOf("Ibuprofen")).isLessThan(rx.indexOf("Amoxicillin"));
+        assertThat(rx).contains("Amoxicillin 500 mg capsule").contains("Ibuprofen 400 mg tablet");
+    }
+
+    @Test
+    @DisplayName("should fall back to the prescriber's provider name when no signature text is on file")
+    void shouldUsePrescriberName_whenNoSignatureTextOnFile() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        io.github.carlos_emr.carlos.commn.model.Provider provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+        provider.setFirstName("Ada");
+        provider.setLastName("Prescriber");
+        ProviderDao providerDao = mock(ProviderDao.class);
+        when(providerDao.getProvider("999998")).thenReturn(provider);
+        registerMock(ProviderDao.class, providerDao);
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        assertThat(bound.getParameter("sigDoctorName")).isEqualTo("Ada Prescriber");
+    }
+
+    @Test
+    @DisplayName("should refuse to fax when the prescription record has no drug lines")
+    void shouldRefuseFax_whenPrescriptionRecordHasNoDrugs() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        stubStoredSignature();
+        when(drugDao.findDrugsAndPrescriptionsByScriptNumber(SCRIPT_ID)).thenReturn(Collections.emptyList());
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+
+            servlet.service(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentAsString()).contains("fax-failure").contains("no drugs");
+            verify(faxJobDao, never()).persist(any());
         }
     }
 

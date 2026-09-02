@@ -45,6 +45,7 @@ import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.openpdf.text.*;
@@ -57,6 +58,10 @@ import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.providers.data.ProSignatureData;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -112,6 +117,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     private final PrescriptionDao prescriptionDao = SpringUtils.getBean(PrescriptionDao.class);
     private final DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
     /** Parses a positive script number (prescription.script_no is a signed int); -1 when invalid. */
     private static int parsePositiveInt(String value) {
@@ -175,7 +181,20 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             return;
         }
 
-        try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), signatureImage)) {
+        // A fax is rendered from the prescription RECORD, never from the request body: the stored
+        // signature drawn on it belongs to that record, so the drug lines above it and the signing
+        // name must be the record's too (see bindFaxContentToRecord).
+        HttpServletRequest pdfRequest = req;
+        if (isFax) {
+            pdfRequest = bindFaxContentToRecord(req);
+            if (pdfRequest == null) {
+                res.setContentType("text/html");
+                res.getWriter().println("<div id='fax-failure'><h3>Error: the prescription record has no drugs to fax.</h3></div>");
+                return;
+            }
+        }
+
+        try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytes(pdfRequest, this.getServletContext(), signatureImage)) {
 
             if (isFax) {
                 // this fax method shouldn't be here and will be removed in future edits.
@@ -752,6 +771,141 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      * @return decoded image bytes, or {@code null} when no signature applies or the caller is not
      *         authorized for the prescription's patient
      */
+    /**
+     * Binds an outbound fax to the prescription RECORD named by {@code scriptId}. The drug lines
+     * are regenerated from the script's drugs rows (the same {@code getFullOutLine} text
+     * Preview2.jsp built the request from) and the signing name from the script's prescriber, so
+     * the stored signature the fax is drawn with can only ever appear above that prescriber's own
+     * prescription. Every other field (pharmacy, clinic, patient header) is still taken from the
+     * request as before. When the request body is exactly a reordering of the record, its order is
+     * kept so an honest fax is what the prescriber previewed; anything else is replaced by the
+     * record and logged, because {@code scriptId} and the body are independent request parameters
+     * and a caller with {@code _rx} write on the patient could otherwise fax arbitrary text under
+     * another prescriber's stored signature.
+     *
+     * @return the request to render the fax from, or {@code null} when the record has no drugs
+     *         (nothing legitimate to fax) or cannot be loaded
+     */
+    HttpServletRequest bindFaxContentToRecord(HttpServletRequest req) {
+        int scriptNo = parsePositiveInt(req.getParameter("scriptId"));
+        Prescription prescription = scriptNo > 0 ? prescriptionDao.find(scriptNo) : null;
+        if (prescription == null || prescription.getDemographicId() == null) {
+            return null;
+        }
+        String newline = System.getProperty("line.separator");
+        List<String> recordLines = new ArrayList<>();
+        for (RxPrescriptionData.Prescription drug
+                : new RxPrescriptionData().getPrescriptionsByScriptNo(scriptNo, prescription.getDemographicId())) {
+            String line = drug.getFullOutLine();
+            if (line != null && !line.isBlank()) {
+                recordLines.add(line);
+            }
+        }
+        if (recordLines.isEmpty()) {
+            logger.warn("Refusing to fax prescription {}: its record has no drug lines", LogSafe.sanitize(String.valueOf(scriptNo)));
+            return null;
+        }
+
+        // Keep the prescriber's preview order where the request is a reordering of the record.
+        List<String> remaining = new ArrayList<>(recordLines);
+        List<String> ordered = new ArrayList<>();
+        List<String> requestBlocks = splitRxBlocks(req.getParameter("rx"), newline);
+        for (String block : requestBlocks) {
+            String wanted = normalizeRxBlock(block);
+            for (Iterator<String> it = remaining.iterator(); it.hasNext(); ) {
+                String candidate = it.next();
+                if (normalizeRxBlock(candidate).equals(wanted)) {
+                    ordered.add(candidate);
+                    it.remove();
+                    break;
+                }
+            }
+        }
+        if (!remaining.isEmpty() || ordered.size() != requestBlocks.size()) {
+            logger.warn("Fax body for prescription {} did not match its record; faxing the record instead",
+                    LogSafe.sanitize(String.valueOf(scriptNo)));
+            ordered.addAll(remaining);
+        }
+        StringBuilder body = new StringBuilder();
+        for (String line : ordered) {
+            body.append(line).append(";;");
+        }
+
+        String prescriber = prescription.getProviderNo();
+        String signingName = "";
+        if (prescriber != null && !prescriber.isBlank()) {
+            ProSignatureData signatureData = new ProSignatureData();
+            if (signatureData.hasSignature(prescriber)) {
+                signingName = signatureData.getSignature(prescriber);
+            } else {
+                Provider provider = providerDao.getProvider(prescriber);
+                if (provider != null) {
+                    signingName = ((provider.getFirstName() == null ? "" : provider.getFirstName()) + " "
+                            + (provider.getLastName() == null ? "" : provider.getLastName())).trim();
+                }
+            }
+        }
+        Map<String, String> bound = new HashMap<>();
+        bound.put("rx", body.toString().replace(";", newline));
+        bound.put("sigDoctorName", signingName == null ? "" : signingName);
+        return new RecordBoundRequest(req, bound);
+    }
+
+    /** The blank-line-separated blocks of a posted {@code rx} body, as generatePDFDocumentBytes groups them. */
+    static List<String> splitRxBlocks(String rx, String newline) {
+        List<String> blocks = new ArrayList<>();
+        if (rx == null) {
+            return blocks;
+        }
+        StringBuilder current = new StringBuilder();
+        for (String s : rx.split(newline)) {
+            if (s.isEmpty() || s.equals(newline) || s.length() == 1) {
+                if (current.length() > 0) {
+                    blocks.add(current.toString());
+                }
+                current.setLength(0);
+            } else {
+                current.append(s).append(newline);
+            }
+        }
+        if (current.length() > 0) {
+            blocks.add(current.toString());
+        }
+        return blocks;
+    }
+
+    /** Whitespace- and separator-insensitive form of a drug block ("; " and line breaks both collapse). */
+    static String normalizeRxBlock(String block) {
+        return block == null ? "" : block.replace(";", " ").replaceAll("\\s+", " ").trim();
+    }
+
+    /** A request whose {@code rx} and {@code sigDoctorName} come from the prescription record. */
+    private static final class RecordBoundRequest extends HttpServletRequestWrapper {
+        private final Map<String, String> overrides;
+
+        RecordBoundRequest(HttpServletRequest request, Map<String, String> overrides) {
+            super(request);
+            this.overrides = overrides;
+        }
+
+        @Override
+        public String getParameter(String name) {
+            return overrides.containsKey(name) ? overrides.get(name) : super.getParameter(name);
+        }
+
+        @Override
+        public String[] getParameterValues(String name) {
+            return overrides.containsKey(name) ? new String[] {overrides.get(name)} : super.getParameterValues(name);
+        }
+
+        @Override
+        public Map<String, String[]> getParameterMap() {
+            Map<String, String[]> merged = new LinkedHashMap<>(super.getParameterMap());
+            overrides.forEach((key, value) -> merged.put(key, new String[] {value}));
+            return Collections.unmodifiableMap(merged);
+        }
+    }
+
     /**
      * True only when the prescription named by {@code scriptId} exists with a patient and the
      * caller lacks {@code _rx} WRITE for that patient. A missing session, malformed id, or absent
