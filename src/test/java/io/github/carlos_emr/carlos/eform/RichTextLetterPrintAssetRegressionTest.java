@@ -101,7 +101,7 @@ class RichTextLetterPrintAssetRegressionTest {
         String exclusions = read(Path.of("debian", "assets", "modsecurity",
                 "REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf"));
         int ruleStart = exclusions.indexOf("id:1045,");
-        assertThat(ruleStart).as("exclusion 1045 for ARGS:Letter is present").isGreaterThan(0);
+        assertThat(ruleStart).as("exclusion 1045 for ARGS:Letter is present").isGreaterThanOrEqualTo(0);
         String rule = exclusions.substring(exclusions.lastIndexOf("SecRule REQUEST_URI", ruleStart),
                 exclusions.indexOf("ARGS:Letter\"", ruleStart) + "ARGS:Letter\"".length());
         assertThat(rule).contains("^/carlos/eform/addEForm(?:[;?]|$)");
