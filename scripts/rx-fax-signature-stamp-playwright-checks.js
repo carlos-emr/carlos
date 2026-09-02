@@ -106,8 +106,10 @@ const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 // there while giving a 10-million-value space, making a same-number collision between two concurrent
 // runs negligible. The drug name (customName is varchar(60)) carries the full timestamp + suffix.
 const runFaxSuffix = String(randomInt(1000000, 10000000)); // 7 digits (crypto RNG; CodeQL-clean)
-// Destination number staged on the patient's pharmacy; obviously synthetic and restored on cleanup.
-const pharmacyFaxNumber = '555-0100';
+// Destination number staged on the patient's pharmacy: obviously synthetic (555-0100 is a reserved
+// fictional number) and unique per run, so cleanup restores only this run's fixture and never one a
+// concurrent run is still using. The fax path strips non-digits and requires seven; this satisfies it.
+const pharmacyFaxNumber = `555-0100-${runFaxSuffix}`;
 const faxNumber = `416${runFaxSuffix}`; // 10 chars — fits fax_config.faxNumber varchar(10)
 // Per-run-unique custom-drug name for this fixture. It lands in drugs.customName, which lets the
 // checks identify exactly the prescription(s) THIS run created — immune to a concurrent prescription
@@ -255,7 +257,6 @@ function seedPharmacyFax() {
       text: `patient ${demographicNo} has no active pharmacy, so a prescription for them can never be faxed`,
     });
   }
-  return rows.length > 0;
 }
 
 function cleanupFixtures() {

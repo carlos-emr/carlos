@@ -103,8 +103,6 @@ const testPin = process.env.TEST_PIN || '2026';
 const demographicNo = String(process.env.RX_FAX_DEMOGRAPHIC_NO || '1').trim();
 const providerNo = String(process.env.RX_FAX_PROVIDER_NO || '999998').trim();
 const expectedBuildTag = (process.env.RX_EXPECTED_BUILD_TAG || '').trim();
-// Obviously-synthetic, and restored to its original value in cleanupFixtures().
-const FIXTURE_FAX_NUMBER = '555-0100';
 
 const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'localhost');
 const mysqlUser = process.env.MYSQL_USER || 'root';
@@ -114,6 +112,10 @@ const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 // Per-run identifier so a concurrent or crashed-then-rerun invocation is never correlated with,
 // nor cleaned up by, another run. drugs.customName is varchar(60).
 const runSuffix = String(randomInt(1000000, 10000000));
+// Obviously-synthetic (555-0100 is a reserved fictional number) and unique per run, so the
+// cleanup predicate can tell THIS run's fixture from a concurrent run's and never restores over
+// one still in use. The fax path strips non-digits and requires seven, which this still satisfies.
+const FIXTURE_FAX_NUMBER = `555-0100-${runSuffix}`;
 const customDrugName = `PW RX REPRINT ${Date.now()}${runSuffix}`;
 
 if (!/^\d+$/.test(demographicNo)) throw new Error(`RX_FAX_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
@@ -234,10 +236,13 @@ function sql(query) {
     // which are PHI-correlating. Keep only the first stderr line with quoted fragments and digit
     // runs redacted, and never include the query itself.
     const raw = String((e && e.stderr) || (e && e.message) || e);
-    const detail = raw.split('\n')[0]
-      .replace(/'[^']*'/g, "'<redacted>'")
-      .replace(/\d+/g, '<n>')
-      .slice(0, 160);
+    // The mysql client writes a '----' rule and then ECHOES THE STATEMENT before the ERROR line,
+    // so taking the first line would both hide the real reason and print back the very query text
+    // withheld above. Pick the ERROR line itself, and say nothing specific when there isn't one.
+    const errorLine = raw.split('\n').find((l) => l.startsWith('ERROR '));
+    const detail = errorLine
+      ? errorLine.replace(/'[^']*'/g, "'<redacted>'").replace(/\d+/g, '<n>').slice(0, 160)
+      : 'no ERROR line in client output';
     throw new Error(`SQL failed: ${detail}`);
   }
 }
