@@ -1251,7 +1251,24 @@ def _target_db(dev_target: bool) -> str:
     return ""  # unreachable
 
 
+def _guarded(fn):
+    """Run a verb body; a failed client statement (server unreachable, a
+    refused privilege) ends in one clear error line, never a traceback."""
+    try:
+        return fn()
+    except o19etl.QueryError as exc:
+        die(str(exc))
+
+
 def cmd_o19_preflight(argv) -> int:
+    return _guarded(lambda: _cmd_o19_preflight(argv))
+
+
+def cmd_import_o19(argv) -> int:
+    return _guarded(lambda: _cmd_import_o19(argv))
+
+
+def _cmd_o19_preflight(argv) -> int:
     args = _parser("carlos-ctl o19-preflight", import_mode=False).parse_args(
         list(argv))
     if os.geteuid() != 0 and not args.mariadb_arg:
@@ -1270,7 +1287,7 @@ def cmd_o19_preflight(argv) -> int:
     return int(report["exit_code"])
 
 
-def cmd_import_o19(argv) -> int:
+def _cmd_import_o19(argv) -> int:
     args = _parser("carlos-ctl import-o19", import_mode=True).parse_args(
         list(argv))
     if os.geteuid() != 0 and not args.mariadb_arg:
