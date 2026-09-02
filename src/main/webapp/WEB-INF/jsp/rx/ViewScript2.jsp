@@ -673,6 +673,14 @@
             // digits there, so the page would offer a Fax the server then refuses.
             boolean hasPharmacyFax = pharmacy != null && pharmacy.getFax() != null
                     && pharmacy.getFax().trim().replaceAll("\\D", "").length() >= 7;
+            // The fourth condition, and the reason it is a variable both halves of the gate read:
+            // sendFax() reads frames['preview'].document, and the #preview iframe is only emitted
+            // inside `if (bean.getStashSize() > 0)` further down. With an empty stash the buttons
+            // would look live and the click would die on an undefined frame with nothing shown to
+            // the user. The signature pad, by contrast, IS rendered when the stash is empty, so a
+            // pad event can reach signatureHandler there — the JavaScript gate must carry this
+            // term too, or it re-enables buttons the server deliberately rendered disabled.
+            boolean previewAvailable = bean.getStashSize() > 0;
         %>
         <script type="text/javascript">
             var POLL_TIME = 1500;
@@ -715,6 +723,9 @@
             // or a signature saved earlier). The fax servlet signs from it whenever no fresh pad
             // capture is present, so pad strokes or Clear must not grey out Fax for such a script.
             var hasStoredSignature = <%= faxTargetSigned ? "true" : "false" %>;
+            // Same stash term the server-rendered disabled attribute uses, so a pad event cannot
+            // re-enable Fax on a page that has no #preview iframe for sendFax() to read.
+            var hasPreview = <%= previewAvailable ? "true" : "false" %>;
             <% } %>
 
             function signatureHandler(e) {
@@ -722,7 +733,7 @@
                 isSignatureSaved = e.isSave;
                 e.target.onbeforeunload = null;
                 <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { //%>
-                let disabled = !hasFaxNumber || !canFaxScript || !(e.isSave || hasStoredSignature);
+                let disabled = !hasPreview || !hasFaxNumber || !canFaxScript || !(e.isSave || hasStoredSignature);
                 toggleFaxButtons(disabled);
                 <% } %>
                 if (e.isSave) {
@@ -998,13 +1009,9 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 						// same prescription for both halves (the persisted row scriptIdForFax names,
 						// never the session stash), and the same pharmacy-fax requirement.
 						//
-						// The stash term is separate and must stay: sendFax() reads
-						// frames['preview'].document, and the #preview iframe is only emitted inside
-						// `if (bean.getStashSize() > 0)` above. With an empty stash the buttons would
-						// look live and the click would die on an undefined frame with nothing shown
-						// to the user. Enabling Fax requires BOTH a faxable record and the preview
-						// the handler depends on.
-						boolean previewAvailable = bean.getStashSize() > 0;
+						// previewAvailable is declared once with the other gate terms above and
+						// read by both halves: enabling Fax requires BOTH a faxable record and the
+						// preview sendFax() depends on.
 						String isFaxDisabled =
 								(!canFaxScript || !faxTargetSigned || !hasPharmacyFax || !previewAvailable)
 										? "disabled" : "";
