@@ -58,6 +58,8 @@ import static org.mockito.Mockito.when;
  * for, when a stash counts as already persisted, and when the stamp is applied. The real
  * {@code saveScript} path needs patient/provider data and is covered by the Playwright check; here
  * every scenario either skips the save or is asserted on the persistence decision directly.
+ *
+ * @since 2026-09-02
  */
 @DisplayName("RxViewScript2Action persistence and stamp decisions")
 @Tag("unit")

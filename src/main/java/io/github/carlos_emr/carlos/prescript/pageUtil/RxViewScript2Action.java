@@ -64,6 +64,22 @@ public final class RxViewScript2Action extends ActionSupport {
         this.signatureStampService = signatureStampService;
     }
 
+    /**
+     * Builds the prescription view, saving and stamping the script first when that is warranted.
+     *
+     * <p>Three paths, in order:</p>
+     * <ul>
+     *   <li><strong>Reprint</strong> — renders the reprinted stash read-only. Nothing is saved and
+     *       nothing is stamped, so reprinting a historical script cannot duplicate or re-sign it.</li>
+     *   <li><strong>Already persisted</strong> — the stash's script number is reused as-is.</li>
+     *   <li><strong>Unsaved</strong> — requires {@code _rx} write, then saves the script and applies
+     *       the prescriber's signature stamp when one is configured.</li>
+     * </ul>
+     *
+     * @return {@code "viewScript"} to render the view, or {@code null} when the request has already
+     *         been answered with a redirect
+     * @throws SecurityException when an unsaved stash would be persisted without {@code _rx} write
+     */
     public String execute()
             throws IOException, ServletException {
 
@@ -177,7 +193,13 @@ public final class RxViewScript2Action extends ActionSupport {
         if (bean.getStashSize() == 0) {
             return null;
         }
-        String first = bean.getStashItem(0).getScript_no();
+        // A non-empty stash can still hold a null first item; this helper's contract is that any
+        // null item yields null, so guard rather than letting the preview path throw.
+        RxPrescriptionData.Prescription firstItem = bean.getStashItem(0);
+        if (firstItem == null) {
+            return null;
+        }
+        String first = firstItem.getScript_no();
         // Only a value the whole downstream chain (stamping + FrmCustomedPDFServlet.parsePositiveInt)
         // would accept counts as "already persisted": 1-10 digits parsing to a positive int. A "0" or
         // an overflow value must fall through to a real saveScript rather than being reused as a

@@ -819,7 +819,15 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         }
         StringBuilder body = new StringBuilder();
         for (String line : ordered) {
-            body.append(line).append(";;");
+            // Emit the block structure directly. generatePDFDocumentBytes splits rx on the platform
+            // separator and starts a new block on an empty or one-character line, so a blank line
+            // between drugs is all that is needed. Do NOT join with ";;" and then substitute every
+            // ';' for a newline: this body is built from the record's own text, and a semicolon a
+            // prescriber typed inside an instruction ("1 tab PO BID; hold if SBP<100") would become
+            // a line break — and a one-character remainder a spurious block separator. Ordering was
+            // already matched above through normalizeRxBlock, which ignores semicolons, so nothing
+            // downstream depends on this body reproducing the page's ';'-encoded wire format.
+            body.append(line.replace("\r\n", "\n").replace("\n", newline)).append(newline).append(newline);
         }
 
         String prescriber = prescription.getProviderNo();
@@ -837,7 +845,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             }
         }
         Map<String, String> bound = new HashMap<>();
-        bound.put("rx", body.toString().replace(";", newline));
+        bound.put("rx", body.toString());
         bound.put("sigDoctorName", signingName == null ? "" : signingName);
         return new RecordBoundRequest(req, bound);
     }
@@ -1049,7 +1057,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // signed with a blank signature line. Treat undecodable bytes as no signature at all.
         if (!isRenderableImage(signature.getSignatureImage())) {
             logger.warn("Stored signature {} for prescription {} is not a readable image; treating the script as unsigned",
-                    signatureId, LogSafe.sanitize(String.valueOf(scriptNo)));
+                    LogSafe.sanitize(String.valueOf(signatureId)), LogSafe.sanitize(String.valueOf(scriptNo)));
             return null;
         }
         return signature.getSignatureImage();

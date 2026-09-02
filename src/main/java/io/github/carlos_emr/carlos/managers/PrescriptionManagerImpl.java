@@ -390,6 +390,22 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
 
     }
 
+    /**
+     * Links a digital signature to a prescription, or clears the existing link.
+     *
+     * <p>This link is what marks a script as signed for the Fax gate, so callers must treat a
+     * {@code false} result as a failure rather than assuming the script is now signed.</p>
+     *
+     * <p><strong>Authorization is the caller's responsibility.</strong> This method resolves the row
+     * by {@code scriptNo} alone and performs no patient-scoped check; callers reached from a request
+     * must first confirm the caller may write the prescription's own patient. See issue #3581.</p>
+     *
+     * @param loggedInInfo the calling session, for audit context
+     * @param scriptNo     the prescription (script) number to update
+     * @param digitalSignatureId the signature to link, or {@code null} to clear the existing link
+     * @return {@code true} when the prescription existed and was updated; {@code false} when no
+     *         prescription carries that script number, in which case nothing was written
+     */
     @Override
     public boolean setPrescriptionSignature(LoggedInInfo loggedInInfo, int scriptNo, Integer digitalSignatureId) {
 

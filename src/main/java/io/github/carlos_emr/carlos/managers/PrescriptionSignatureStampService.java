@@ -74,6 +74,13 @@ public class PrescriptionSignatureStampService {
     private final PrescriptionManager prescriptionManager;
     private final io.github.carlos_emr.carlos.commn.dao.PrescriptionDao prescriptionDao;
 
+    /**
+     * @param digitalSignatureManager stores the stamp image and yields the signature id that is
+     *                                linked to the script
+     * @param prescriptionManager     performs the signature link on the persisted prescription
+     * @param prescriptionDao         reads the persisted prescription so the stamp can be bound to
+     *                                the prescriber who actually wrote it, not to the caller
+     */
     public PrescriptionSignatureStampService(DigitalSignatureManager digitalSignatureManager,
                                              PrescriptionManager prescriptionManager,
                                              io.github.carlos_emr.carlos.commn.dao.PrescriptionDao prescriptionDao) {

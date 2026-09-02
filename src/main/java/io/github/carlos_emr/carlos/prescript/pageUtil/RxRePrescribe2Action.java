@@ -294,6 +294,24 @@ public String saveDigitalSignature() throws IOException {
     
     // Update the prescription with the digital signature
     PrescriptionManager prescriptionManager = SpringUtils.getBean(PrescriptionManager.class);
+
+    // scriptId is request-supplied, and the check above is a GLOBAL _rx write check (null target).
+    // Without this, any user holding _rx write could attach or clear a signature on any patient's
+    // prescription by walking script ids. Resolve the row first and re-check the right against the
+    // patient it actually belongs to. (Verifying the signature's own ownership is tracked in #3581.)
+    // Fully qualified: this file's unqualified `Prescription` is RxPrescriptionData.Prescription,
+    // while the manager returns the persisted model type.
+    io.github.carlos_emr.carlos.commn.model.Prescription targetPrescription =
+        prescriptionManager.getPrescription(loggedInInfo, Integer.valueOf(scriptId));
+    if (targetPrescription == null || targetPrescription.getDemographicId() == null) {
+        logger.warn("Digital signature not linked: prescription not found");
+        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        return NONE;
+    }
+    if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", PRIVILEGE_WRITE,
+            String.valueOf(targetPrescription.getDemographicId()))) {
+        throw new SecurityException("missing required sec object (_rx)");
+    }
     // The link is what makes the script "signed" for the fax gate. If the row does not exist the
     // manager returns false; report that as a failure rather than a 200, otherwise the page would
     // treat the script as stored-signed (and enable Fax) for a signature that was never linked.

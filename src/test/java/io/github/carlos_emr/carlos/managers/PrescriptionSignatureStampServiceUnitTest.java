@@ -55,6 +55,8 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for {@link PrescriptionSignatureStampService}: the stamp is persisted and linked to the
  * script and the stash when eligible, and every guard leaves the script untouched.
+ *
+ * @since 2026-09-01
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

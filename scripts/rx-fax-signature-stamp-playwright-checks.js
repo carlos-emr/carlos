@@ -187,11 +187,44 @@ function resolveMysqlBinary() {
   throw new Error('Neither mariadb nor mysql client is on PATH; this check needs one to read/stage/clean rows');
 }
 
+/**
+ * A value safe to place on the right-hand side of a my.cnf option.
+ *
+ * Unquoted, a '#' truncates the line and a backslash starts an escape sequence, so an operator
+ * password containing either would silently produce a different credential than intended. Kept
+ * local to this script, per the repository's convention for self-contained check scripts.
+ */
+function encodeOptionFileValue(value) {
+  return `"${String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+/**
+ * A page URL with its query string removed.
+ *
+ * Rx URLs carry demographicNo and script numbers, which CLAUDE.md classifies as PHI-correlating:
+ * they join straight back to a patient record. The path alone is what makes a diagnostic useful.
+ */
+function safeUrl(rawUrl) {
+  try {
+    const u = new URL(rawUrl);
+    return `${u.origin}${u.pathname}`;
+  } catch (error) {
+    return '<unparseable url>';
+  }
+}
+
 function createMysqlDefaultsFile() {
+  // A newline in ANY of these injects an extra option into the [client] section, which quoting
+  // cannot neutralise — so reject rather than encode.
+  for (const [name, value] of [['MYSQL_USER', mysqlUser], ['MYSQL_PASSWORD', mysqlPassword], ['MYSQL_HOST', mysqlHost]]) {
+    if (/[\r\n]/.test(value)) {
+      throw new Error(`${name} must not contain a newline`);
+    }
+  }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rx-fax-stamp-'));
   const file = path.join(dir, 'mysql-defaults.cnf');
   try {
-    fs.writeFileSync(file, `[client]\nuser=${mysqlUser}\npassword=${mysqlPassword}\nhost=${mysqlHost}\n`, { mode: 0o600 });
+    fs.writeFileSync(file, `[client]\nuser=${encodeOptionFileValue(mysqlUser)}\npassword=${encodeOptionFileValue(mysqlPassword)}\nhost=${encodeOptionFileValue(mysqlHost)}\n`, { mode: 0o600 });
   } catch (error) {
     // Never leave a half-written defaults file (it carries the cleartext DB password) behind.
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch (cleanupError) { /* best effort */ }
@@ -326,16 +359,21 @@ function sql(query) {
     ).trim();
   } catch (error) {
     // Do not echo the full command/SQL (it can carry identifiers); surface a bounded reason.
+    // Neither the query nor raw stderr may reach the log: this check's queries carry demographic
+    // and script numbers, and the mysql client echoes the offending statement back before its
+    // ERROR line. Report the reason only.
     const reason = (error && error.code === 'ETIMEDOUT') ? 'timed out' : 'failed';
-    throw new Error(`database query ${reason} (first 40 chars: ${String(query).slice(0, 40)})`);
+    throw new Error(`database query ${reason}`);
   }
 }
 
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
     const text = error.stack || error.message || '';
-    // Known-benign legacy noise on the Rx preview: expandPreview runs before its
-    // target node exists on some render orders. Matches the shared util's whitelist.
+    // Known pre-existing defect, tracked by issue #3578: expandPreview writes into the preview
+    // iframe from an async fetch callback before that iframe has parsed, so the target node does
+    // not exist on some render orders. Named here so the suppression stays auditable — an entry
+    // without an issue behind it would let a real regression pass unnoticed.
     if (/Cannot set properties of null \(setting 'innerHTML'\)/.test(text) && /expandPreview/.test(text)) {
       return;
     }
@@ -381,7 +419,7 @@ async function login(context) {
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  visited.push({ label: 'login', url: page.url() });
+  visited.push({ label: 'login', url: safeUrl(page.url()) });
   return page;
 }
 
@@ -422,7 +460,7 @@ function stageFaxConfig() {
 async function writeCustomRxThroughUi(page) {
   await gotoApp(page, `/rx/choosePatient?demographicNo=${demographicNo}`);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  visited.push({ label: 'rx-search', url: page.url() });
+  visited.push({ label: 'rx-search', url: safeUrl(page.url()) });
 
   const rangeStart = Number(sql(`SELECT COALESCE(MAX(script_no),0) FROM prescription WHERE provider_no='${providerNo}' AND demographic_no=${demographicNo};`) || '0');
 

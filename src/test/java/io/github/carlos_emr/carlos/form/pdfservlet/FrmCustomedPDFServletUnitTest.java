@@ -451,6 +451,26 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep a semicolon a prescriber typed inside an instruction intact in the faxed body")
+    void shouldPreserveTypedSemicolon_whenBindingFaxContentToRecord() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        Prescription prescription = prescriptionDao.find(SCRIPT_ID);
+        // A conditional Sig, which is exactly the phrasing that carries a semicolon. The old body
+        // encoding joined blocks with ";;" and then replaced EVERY ";" with a line separator, so
+        // this instruction was split mid-sentence — and because the remainder began with a
+        // one-character token, generatePDFDocumentBytes would have started a new drug block there.
+        String conditionalSig = "Metoprolol 25 mg tablet\n1 tab PO BID; hold if SBP<100";
+        stubRecordDrugs(prescription, drugRow(7, conditionalSig));
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        String rx = bound.getParameter("rx");
+        assertThat(rx).contains("1 tab PO BID; hold if SBP<100");
+        assertThat(rx).doesNotContain("BID" + System.lineSeparator() + " hold");
+    }
+
+    @Test
     @DisplayName("should keep a one-character line inside its drug block and split only on blank lines")
     void shouldSplitRxBlocks_onBlankLinesOnly() {
         String nl = System.lineSeparator();

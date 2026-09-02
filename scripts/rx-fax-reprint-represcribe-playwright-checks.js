@@ -203,8 +203,12 @@ function encodeOptionFileValue(value) {
 }
 
 function createMysqlDefaultsFile() {
-  if (/[\r\n]/.test(mysqlPassword)) {
-    throw new Error('MYSQL_PASSWORD must not contain a newline');
+  // A newline in ANY of these injects an extra option into the [client] section, which quoting
+  // cannot neutralise — so reject rather than encode.
+  for (const [name, value] of [['MYSQL_USER', mysqlUser], ['MYSQL_PASSWORD', mysqlPassword], ['MYSQL_HOST', mysqlHost]]) {
+    if (/[\r\n]/.test(value)) {
+      throw new Error(`${name} must not contain a newline`);
+    }
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-rx-reprint-'));
   const file = path.join(dir, 'my.cnf');
