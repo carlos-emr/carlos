@@ -112,10 +112,11 @@ const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 // Per-run identifier so a concurrent or crashed-then-rerun invocation is never correlated with,
 // nor cleaned up by, another run. drugs.customName is varchar(60).
 const runSuffix = String(randomInt(1000000, 10000000));
-// Obviously-synthetic (555-0100 is a reserved fictional number) and unique per run, so the
-// cleanup predicate can tell THIS run's fixture from a concurrent run's and never restores over
-// one still in use. The fax path strips non-digits and requires seven, which this still satisfies.
-const FIXTURE_FAX_NUMBER = `555-0100-${runSuffix}`;
+// This check never clicks Fax, but the number still lands in a pharmacy record, so it is held to
+// the same rule as the fax check's: NPA 555 is not assignable in the NANP, so 555-xxx-xxxx can
+// never reach a real fax machine. Unique per run so the cleanup predicate can tell THIS run's
+// fixture from a concurrent run's and never restores over one still in use.
+const FIXTURE_FAX_NUMBER = `555${runSuffix}`;
 const customDrugName = `PW RX REPRINT ${Date.now()}${runSuffix}`;
 
 if (!/^\d+$/.test(demographicNo)) throw new Error(`RX_FAX_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
