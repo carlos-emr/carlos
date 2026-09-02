@@ -140,7 +140,7 @@ the Flyway-seeded rows, so the V1.0.17 digital-signatures default survives.
 if the two ever disagree about the RTL chain, that script and
 `debian/assets/carlos_ctl/dbops.py` are the authorities.)
 
-One database tweak and three fixtures remain:
+One database tweak and four fixtures remain:
 
 ```bash
 # The seed row ships forcePasswordReset=1; the checks need a direct login.
