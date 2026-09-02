@@ -38,25 +38,101 @@ MASK = "********"
 # parsing / dispatch (pure)
 # --------------------------------------------------------------------------
 
-def load_clinic_properties(path: str) -> List[Tuple[str, str]]:
-    """Ordered active key=value pairs; a repeated key keeps its LAST value
-    (java.util.Properties semantics) but its first position."""
+_UNESCAPE = {"n": "\n", "t": "\t", "r": "\r", "f": "\f"}
+
+
+def _unescape_property(text: str) -> str:
+    """java.util.Properties escape handling for a key or value."""
+    out = []
+    i = 0
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c == "\\" and i + 1 < n:
+            nxt = text[i + 1]
+            if nxt == "u" and \
+                    re.match(r"[0-9A-Fa-f]{4}$", text[i + 2:i + 6]):
+                out.append(chr(int(text[i + 2:i + 6], 16)))
+                i += 6
+                continue
+            out.append(_UNESCAPE.get(nxt, nxt))
+            i += 2
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def parse_properties_text(text: str) -> List[Tuple[str, str]]:
+    """Ordered active key/value pairs with java.util.Properties semantics:
+    `=`, `:` or whitespace separate key and value; leading whitespace is
+    skipped but TRAILING whitespace in a value is significant (a
+    credential ending in a space must survive); a trailing unescaped
+    backslash continues the logical line; `\\n`, `\\t`, `\\uXXXX` and
+    `\\x` escapes are decoded. A repeated key keeps its LAST value but its
+    first position."""
     order: List[str] = []
     values: Dict[str, str] = {}
-    with open(path, "rb") as fh:
-        text = fh.read().decode("latin-1")
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or line[0] in ("#", "!"):
+    logical: List[str] = []
+    physical = text.splitlines()
+    i = 0
+    while i < len(physical):
+        line = physical[i].lstrip()
+        i += 1
+        if not logical and (not line or line[0] in ("#", "!")):
             continue
-        m = re.match(r"([A-Za-z0-9_.\-]+)\s*[=:]\s*(.*)$", line)
-        if not m:
+        # continuation: an odd number of trailing backslashes
+        stripped = line.rstrip("\\")
+        if (len(line) - len(stripped)) % 2 == 1:
+            logical.append(stripped)
             continue
-        key, value = m.group(1), m.group(2).strip()
+        logical.append(line)
+        full = "".join(logical)
+        logical = []
+        # key ends at the first unescaped '=', ':' or whitespace
+        j = 0
+        key_chars: List[str] = []
+        while j < len(full):
+            c = full[j]
+            if c == "\\" and j + 1 < len(full):
+                key_chars.append(full[j:j + 2])
+                j += 2
+                continue
+            if c in "=: \t\f":
+                break
+            key_chars.append(c)
+            j += 1
+        key = _unescape_property("".join(key_chars))
+        if not key:
+            continue
+        rest = full[j:]
+        rest = rest.lstrip(" \t\f")
+        if rest[:1] in ("=", ":"):
+            rest = rest[1:].lstrip(" \t\f")
+        value = _unescape_property(rest)
         if key not in values:
             order.append(key)
         values[key] = value
     return [(k, values[k]) for k in order]
+
+
+def escape_property_value(value: str) -> str:
+    """Inverse of the value decoding above, so a carried value round-trips
+    through the fragment exactly (backslashes, line breaks, tabs and a
+    leading space are the characters java.util.Properties would misread)."""
+    out = (value.replace("\\", "\\\\").replace("\n", "\\n")
+           .replace("\r", "\\r").replace("\t", "\\t").replace("\f", "\\f"))
+    if out[:1] == " ":
+        out = "\\" + out
+    return out
+
+
+def load_clinic_properties(path: str) -> List[Tuple[str, str]]:
+    """Ordered active key=value pairs of a deployed oscar.properties
+    (see parse_properties_text for the java.util.Properties semantics)."""
+    with open(path, "rb") as fh:
+        text = fh.read().decode("latin-1")
+    return parse_properties_text(text)
 
 
 def disposition(key: str) -> dict:
@@ -78,7 +154,12 @@ def translate_docpath(value: str,
     if not m:
         return None
     tail = (m.group(3) or "/").lstrip("/")
-    new = os.path.join(documents_root, TARGET_CTX, tail)
+    ctx_root = os.path.join(documents_root, TARGET_CTX)
+    new = os.path.normpath(os.path.join(ctx_root, tail))
+    # a tail with '..' components would carry a setting that points outside
+    # the CARLOS document tree — refuse it (the caller reports needs-review)
+    if new != ctx_root and not new.startswith(ctx_root + os.sep):
+        return None
     if value.endswith("/") and not new.endswith("/"):
         new += "/"
     return new
@@ -95,6 +176,11 @@ def translate_all(clinic: List[Tuple[str, str]],
     {fragment: [(key, value)], rows: [(key, disposition, note)],
      advisories: {name: [keys]}, secrets: [keys], unknown: [keys]}."""
     defaults = o19map_props.O19_DEFAULTS
+    # secret-bearing stock defaults are deliberately NOT shipped in the
+    # manifest: such a key is always surfaced for review, so a clinic still
+    # running an O19 stock credential sees it flagged rather than silently
+    # inheriting CARLOS's default
+    secret_defaults = set(getattr(o19map_props, "SECRET_DEFAULT_KEYS", ()))
     fragment: List[Tuple[str, str]] = []
     rows: List[Tuple[str, str, str]] = []
     advisories: Dict[str, List[str]] = {}
@@ -104,6 +190,8 @@ def translate_all(clinic: List[Tuple[str, str]],
     for key, value in clinic:
         if defaults.get(key) == value:
             continue  # untouched default — CARLOS's own default wins
+        if key in secret_defaults and value == "":
+            continue  # an empty credential is "not configured", not a secret
         spec = disposition(key)
         d = spec["d"]
         if d == "carry":
@@ -112,8 +200,12 @@ def translate_all(clinic: List[Tuple[str, str]],
         elif d == "carry-secret":
             fragment.append((key, value))
             secrets.append(key)
-            rows.append((key, "carry-secret",
-                         "imported credential — rotate/verify"))
+            note = "imported credential — rotate/verify"
+            if key in secret_defaults:
+                note += (" (O19 ships a stock value for this key that is "
+                         "not compared here — confirm it is not the stock "
+                         "default)")
+            rows.append((key, "carry-secret", note))
         elif d == "translate":
             kind = spec.get("t")
             if kind == "docpath":
@@ -167,7 +259,7 @@ def render_fragment(result: dict) -> str:
         "",
     ]
     for key, value in result["fragment"]:
-        lines.append("{0}={1}".format(key, value))
+        lines.append("{0}={1}".format(key, escape_property_value(value)))
     return "\n".join(lines) + "\n"
 
 

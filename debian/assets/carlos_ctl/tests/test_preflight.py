@@ -99,6 +99,28 @@ class TestVerdicts(unittest.TestCase):
         self.assertEqual(report["verdict"], "go-with-acknowledgements")
         self.assertIn("unknown-as-archive", report["required_accepts"])
 
+    def test_unknown_table_with_unusual_name_is_still_counted(self):
+        db = FakeDb(base_tables(**{"custom$table": 3}))
+        report = pf.run_checks(db, clean_props())
+        ids = {f["id"] for f in report["findings"]}
+        self.assertIn("B2-unknown-tables", ids)
+        self.assertTrue(any("`custom$table`" in q for q in db.queries))
+
+    def test_uncountable_table_is_a_hard_no_go(self):
+        class Denied(FakeDb):
+            def __call__(self, sql):
+                if sql.startswith("SELECT COUNT(*) FROM `vendor_x`"):
+                    raise RuntimeError("ERROR 1142: SELECT command denied")
+                return FakeDb.__call__(self, sql)
+        db = Denied(base_tables(vendor_x=5))
+        report = pf.run_checks(db, clean_props(),
+                               accepted=["unknown-as-archive"])
+        self.assertEqual(report["verdict"], "no-go")
+        errors = [f for f in report["findings"] if f["id"] == "query-errors"]
+        self.assertEqual(len(errors), 1)
+        self.assertIsNone(errors[0].get("accept"))
+        self.assertIn("vendor_x", errors[0]["data"])
+
     def test_empty_unknown_table_is_ignored(self):
         report = pf.run_checks(FakeDb(base_tables(well_custom_widget=0)),
                                properties=clean_props())
@@ -218,6 +240,29 @@ class TestReportContract(unittest.TestCase):
         self.assertIn("--accept archived-forms", text)
         self.assertIn("technical review", text)
         self.assertIn("go-with-acknowledgements", text)
+
+    def test_interactive_password_arg_is_detected(self):
+        self.assertEqual(pf.interactive_password_arg(["-uroot", "-p"]), "-p")
+        self.assertEqual(pf.interactive_password_arg(["--password"]),
+                         "--password")
+        self.assertIsNone(pf.interactive_password_arg(
+            ["-uroot", "--defaults-extra-file=/root/.my.cnf"]))
+
+    def test_main_refuses_interactive_password(self):
+        import io
+        import contextlib
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            rc = pf.main(["--db", "x", "--mysql-arg=-uroot",
+                          "--mysql-arg=-p"])
+        self.assertEqual(rc, 2)
+        self.assertIn("--mysql-password-file", err.getvalue())
+
+    def test_properties_parser_has_java_semantics(self):
+        props = pf.parse_properties_text(
+            "a=1 \nb : two\nc=x\\\n  y\n#z=9\nd=\\u0041\n")
+        self.assertEqual(props, {"a": "1 ", "b": "two", "c": "xy",
+                                 "d": "A"})
 
     def test_generated_data_is_populated(self):
         self.assertNotEqual(pf.SCHEMA_MAP_VERSION, "unpopulated")

@@ -30,10 +30,20 @@ from typing import Dict, List, Optional, Tuple
 from .util import die, log, run
 
 GZIP_MAGIC = b"\x1f\x8b"
-# ustar magic at offset 257 covers every tar the tools here produce; a
-# v7 tar without it would also fail `tar -t`, which is checked as well.
+# A tar header is 512 bytes; ustar/gnu archives carry "ustar" at offset 257,
+# a v7 tar does not — so validity is decided by the header CHECKSUM (bytes
+# 148..155, octal sum of the header with the checksum field as spaces),
+# which every tar variant carries.
+TAR_HEADER_LEN = 512
+TAR_CHECKSUM_OFFSET = 148
+TAR_CHECKSUM_LEN = 8
 TAR_MAGIC_OFFSET = 257
 TAR_MAGIC = b"ustar"
+
+# tar -tv mode-letter -> member type; only plain files (and, for the
+# documents tar, directories) may be extracted from clinic-supplied input.
+TAR_TYPE_FILE = "-"
+TAR_TYPE_DIR = "d"
 
 DEFAULT_CIPHER = "aes-256-cbc"
 DEFAULT_DERIVATION = ["-pbkdf2", "-iter", "200000"]
@@ -80,10 +90,15 @@ def classify_members(names: List[str]) -> Dict[str, Optional[str]]:
     props: List[str] = []
     unknown: List[str] = []
     for raw in names:
-        name = raw.rstrip("/")
-        if not name or name != raw and raw.endswith("/") and "/" not in name:
-            # a lone top-level directory entry — not expected, refuse below
-            pass
+        if raw.endswith("/") or not raw:
+            # a directory entry (or an empty name) can never be one of the
+            # three inputs — refusing it here keeps the later chmod/sha256
+            # from ever touching a directory
+            problems.append("member '{0}' is a directory — bundle members "
+                            "must be the three plain files at the archive "
+                            "root".format(raw))
+            continue
+        name = raw
         if "/" in name or name.startswith(".") or ".." in name.split("/"):
             problems.append("member '{0}' carries a path — bundle members "
                             "must sit at the archive root with paths "
@@ -116,12 +131,87 @@ def classify_members(names: List[str]) -> Dict[str, Optional[str]]:
             "properties": props[0]}
 
 
+def parse_tar_listing(verbose_lines: List[str]) -> List[Tuple[str, str]]:
+    """(type_letter, member_name) pairs from `tar -tv` output.
+
+    GNU/bsdtar verbose lines are `mode owner/group size date time name`;
+    link entries append ` -> target` / ` link to target`, which is kept in
+    the name so that a link never masquerades as a plain member."""
+    out: List[Tuple[str, str]] = []
+    for line in verbose_lines:
+        if not line.strip():
+            continue
+        parts = line.split(None, 5)
+        if len(parts) < 6 or not parts[0]:
+            raise ValueError("unparseable tar listing line: " + line)
+        out.append((parts[0][0], parts[5]))
+    return out
+
+
+def validate_tar_members(entries: List[Tuple[str, str]],
+                         allow_dirs: bool) -> List[str]:
+    """Refuse anything but plain files (and directories when allowed) with
+    relative, traversal-free names. Returns the member names.
+
+    Clinic-supplied archives are extracted as root: a symlink, hardlink or
+    device entry could redirect the later chmod/hash/reads to an arbitrary
+    host path, and an absolute or `..` name could write outside the
+    work directory. GNU tar refuses most of these itself, but the rule is
+    enforced here so it does not depend on the tar flavour installed."""
+    problems: List[str] = []
+    names: List[str] = []
+    allowed = {TAR_TYPE_FILE}
+    if allow_dirs:
+        allowed.add(TAR_TYPE_DIR)
+    for type_letter, name in entries:
+        if type_letter not in allowed:
+            problems.append("member '{0}' is not a plain file (tar type "
+                            "'{1}': symlinks, hardlinks, devices and fifos "
+                            "are refused)".format(name, type_letter))
+            continue
+        clean = name[2:] if name.startswith("./") else name
+        if clean.startswith("/") or not clean:
+            problems.append("member '{0}' has an absolute or empty name"
+                            .format(name))
+        elif ".." in clean.split("/"):
+            problems.append("member '{0}' contains a '..' path component"
+                            .format(name))
+        names.append(name)
+    if problems:
+        raise ValueError("archive rejected:\n  " + "\n  ".join(problems))
+    return names
+
+
+def tar_header_checksum_ok(header: bytes) -> bool:
+    """True if a 512-byte tar header's stored checksum matches its content
+    (the one validity test common to v7, ustar, gnu and pax archives)."""
+    if len(header) < TAR_HEADER_LEN or not header.strip(b"\0"):
+        return False
+    field = header[TAR_CHECKSUM_OFFSET:TAR_CHECKSUM_OFFSET + TAR_CHECKSUM_LEN]
+    digits = field.strip(b"\0 ").split(b"\0")[0].strip()
+    try:
+        stored = int(digits, 8)
+    except ValueError:
+        return False
+    body = (header[:TAR_CHECKSUM_OFFSET] + b" " * TAR_CHECKSUM_LEN
+            + header[TAR_CHECKSUM_OFFSET + TAR_CHECKSUM_LEN:TAR_HEADER_LEN])
+    return stored == sum(body)
+
+
 def openssl_decrypt_argv(cipher: str, openssl_opts: List[str],
-                         pass_spec: str) -> List[str]:
-    """openssl argv reading the bundle on stdin, plaintext to stdout."""
+                         pass_spec: str, in_path: str) -> List[str]:
+    """openssl argv reading the bundle from -in (NOT stdin, so that
+    `-pass stdin` keeps working), plaintext to stdout."""
     opts = list(openssl_opts) if openssl_opts else list(DEFAULT_DERIVATION)
     return (["openssl", "enc", "-d", "-" + cipher] + opts
-            + ["-pass", pass_spec])
+            + ["-pass", pass_spec, "-in", in_path])
+
+
+def pass_spec_fd(pass_spec: str) -> Optional[int]:
+    """The descriptor number of an `fd:N` -pass spec, else None."""
+    if pass_spec.startswith("fd:") and pass_spec[3:].isdigit():
+        return int(pass_spec[3:])
+    return None
 
 
 def validate_bundle_args(bundle: str, pass_spec: Optional[str]) -> None:
@@ -140,7 +230,7 @@ def validate_bundle_args(bundle: str, pass_spec: Optional[str]) -> None:
 def check_magic(path: str, gzipped: bool) -> None:
     """Cross-check the file's magic bytes against what its name claims."""
     with open(path, "rb") as fh:
-        head = fh.read(TAR_MAGIC_OFFSET + len(TAR_MAGIC))
+        head = fh.read(TAR_HEADER_LEN)
     if gzipped:
         if not head.startswith(GZIP_MAGIC):
             raise ValueError(
@@ -148,10 +238,12 @@ def check_magic(path: str, gzipped: bool) -> None:
                 "bytes — the file is not what its name claims"
                 .format(os.path.basename(path)))
     else:
+        # ustar magic is sufficient; a v7 archive has none, so fall back to
+        # the header checksum every tar variant carries
         if head[TAR_MAGIC_OFFSET:TAR_MAGIC_OFFSET + len(TAR_MAGIC)] \
-                != TAR_MAGIC:
+                != TAR_MAGIC and not tar_header_checksum_ok(head):
             raise ValueError(
-                "'{0}' is not a tar archive (magic check failed)"
+                "'{0}' is not a tar archive (header check failed)"
                 .format(os.path.basename(path)))
 
 
@@ -169,9 +261,14 @@ def sha256_file(path: str) -> str:
 
 def _decrypt_to(bundle: str, dest_tar: str, cipher: str,
                 openssl_opts: List[str], pass_spec: str) -> None:
-    argv = openssl_decrypt_argv(cipher, openssl_opts, pass_spec)
-    with open(bundle, "rb") as src, open(dest_tar, "wb") as out:
-        cp = subprocess.run(argv, stdin=src, stdout=out)  # nosec B603
+    argv = openssl_decrypt_argv(cipher, openssl_opts, pass_spec, bundle)
+    # `-pass fd:N` needs that descriptor inherited (close_fds is the
+    # default); `-pass stdin` needs stdin left alone (the bundle goes via
+    # -in). Both are validated by openssl itself if unusable.
+    fd = pass_spec_fd(pass_spec)
+    extra = {"pass_fds": (fd,)} if fd is not None and fd > 2 else {}
+    with open(dest_tar, "wb") as out:
+        cp = subprocess.run(argv, stdout=out, **extra)  # nosec B603
     if cp.returncode != 0:
         try:
             os.unlink(dest_tar)
@@ -182,12 +279,13 @@ def _decrypt_to(bundle: str, dest_tar: str, cipher: str,
 
 def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
                 cipher: str = DEFAULT_CIPHER,
-                openssl_opts: Optional[List[str]] = None) -> Dict[str, str]:
+                openssl_opts: Optional[List[str]] = None) -> Dict[str, object]:
     """Decrypt (if needed), verify, classify and extract a bundle.
 
     Members land directly in workdir (0700, created if needed). Returns
     {"dump": path, "documents": path-or-None, "properties": path,
-     "bundle_sha256": hex, "members": {name: sha256}}.
+     "bundle_sha256": hex, "members": {name: sha256}} — a heterogeneous
+    dict (str / None / nested dict), hence the `object` value type.
     """
     validate_bundle_args(bundle, pass_spec)
     encrypted, gzipped = bundle_kind(bundle)
@@ -208,18 +306,22 @@ def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
     else:
         check_magic(tar_path, gzipped)
 
-    tar_flags = "-tzf" if gzipped else "-tf"
+    tar_flags = "-tvzf" if gzipped else "-tvf"
     cp = run(["tar", tar_flags, tar_path], capture_output=True)
     if cp.returncode != 0:
         die("cannot list bundle contents: {0}".format(cp.stderr.strip()))
-    names = [line for line in cp.stdout.splitlines() if line]
     try:
+        names = validate_tar_members(
+            parse_tar_listing(cp.stdout.splitlines()), allow_dirs=False)
         members = classify_members(names)
     except ValueError as exc:
         die(str(exc))
 
     extract_flags = "-xzf" if gzipped else "-xf"
-    cp = run(["tar", extract_flags, tar_path, "-C", workdir]
+    # ownership/permissions come from the host policy (chmod below), never
+    # from a clinic-authored archive
+    cp = run(["tar", extract_flags, tar_path, "-C", workdir,
+              "--no-same-owner", "--no-same-permissions"]
              + [m for m in members.values() if m])
     if cp.returncode != 0:
         die("bundle extraction failed")
@@ -234,6 +336,9 @@ def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
             result[role] = None
             continue
         path = os.path.join(workdir, name)
+        if os.path.islink(path) or not os.path.isfile(path):
+            die("bundle member '{0}' did not extract as a plain file"
+                .format(name))
         os.chmod(path, 0o600)
         result[role] = path
         result["members"][name] = sha256_file(path)

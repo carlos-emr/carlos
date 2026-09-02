@@ -323,7 +323,7 @@ Beyond the mysqldump and the OscarDocument tar, capture:
 
 | Item | Why / where it goes |
 |---|---|
-| `oscar.properties` (+ any override file, often in `$CATALINA_HOME` or `/usr/share/oscar*`) | **Required input** — translated (not copied) into an `over_ride_config.properties` fragment by the importer's `props` phase; see §8.1 |
+| `oscar.properties` (+ any override file, often in `$CATALINA_HOME` or `/usr/share/oscar*`) | **Required input** — translated (not copied) into a reviewed properties fragment (`o19-derived-carlos.properties`, appended by the operator to the deployment's override file — `/etc/carlos-emr/carlos.properties` on the deb) by the importer's `props` phase; see §8.1 |
 | `drugref.properties` / drugref DB | **Not needed** — CARLOS runs its own fresh drugref (`drugref2026`); no clinic data lives there |
 | MCEDT/EDT credentials (MOH GO-Secure user, MCEDT keystore/cert if configured) | Ontario billing upload/download continuity |
 | HRM SFTP private key + HRM decryption key (`OMD HRM` config) | HRM feed continuity (CARLOS retains HRM tables) |
@@ -349,7 +349,7 @@ into place; the importer *translates* it.
 WAR, then applies the file named by the `carlos_override_properties` system
 property (`over_ride_config.properties` in the devcontainer/podman deployments) —
 see `io.github.carlos_emr.CarlosProperties`. The importer therefore emits a
-reviewed fragment, `o19-derived-over_ride_config.properties`, that the operator
+reviewed fragment, `o19-derived-carlos.properties`, that the operator
 merges into the deployment's override file. The WAR's `carlos.properties` is
 never edited.
 
@@ -605,6 +605,68 @@ admin's auto-ids are bumped above the clinic's range;
 `measurementGroup`/`measurementGroupStyle` became merge-class (seeded via
 statements the seed counter cannot count). Operator guide:
 `docs/o19-import-deb.md`. Suite: 132 tests passing.
+
+**Review round (PR #3583) — hardening from automated review, re-rehearsed
+(done):** the bot findings (Copilot, Codex, cubic) that verified as real
+were fixed and pinned by tests; the full bundle rehearsal was rerun on a
+freshly provisioned Flyway target with the final code (verification passed,
+`--cleanup` ran). What changed in behaviour:
+
+- **Surrogate-id remap (was a data-loss bug):** every merge-class table with
+  a surrogate PK now records `o19_archive.<table>__idmap` (old → new id,
+  built from the natural-key join), and children curated in
+  `FK_REMAP` (`LookupListItem`, `criteria_type_option`, `criteria`,
+  `consultationRequests`, `serviceSpecialists`, `tickler`,
+  `measurementType.validation`) read their key through the map; parents
+  are ordered before children. The rehearsal showed 10 parents reassigning
+  ids (e.g. 305 `measurementType` rows) with zero dangling children.
+- **Unknown schema is preserved, not dropped:** staging tables the manifest
+  does not know are archived whole; unmapped columns of known tables are
+  shadow-captured as `<table>__unknown_cols` — so the `unknown-as-archive`
+  sign-off is a real promise.
+- **Resume semantics:** a rerun over recorded state REQUIRES `--resume`;
+  once the ETL has started, a resumed run skips only the emptiness sweep
+  (schema/replica/disk gates still run); the ETL ledger is bound to the
+  staged dump's digest; seed reconciliation is resumable in two recorded
+  steps (partial admin rows are cleared and re-created); a resumed chunked
+  copy clears its first unconfirmed PK window before re-copying.
+- **Fail-closed checks:** a preflight count that errors is a hard no-go
+  (`query-errors`, no accept flag) and every unknown table is counted
+  (identifiers are quoted, not filtered); a failed charset-scan query
+  aborts instead of passing as clean; enum fallbacks use the introspected
+  column default and are counted in the report; the row-parity gate
+  tolerates exactly the break-glass admin's own rows, nothing else.
+- **Pristine sweep is class-aware:** copy-class tables must hold exactly
+  their counted Flyway seeds (else none); merge-class reference tables
+  must hold at least them (later migrations grow them with
+  `INSERT … SELECT`, invisible to a static count). The seed counter now
+  strips comments between VALUES tuples (`appointment_status` was
+  under-counted 7 vs 15, which would have refused every fresh deb host).
+- **Input hardening:** bundle and documents archives are listed verbosely
+  and any symlink/hardlink/device member, absolute or `..` name is refused
+  before extraction (`--no-same-owner --no-same-permissions`); v7 tars are
+  validated by header checksum; `-pass stdin`/`fd:N` work (bundle read via
+  `-in`); document rows and eForm image references must resolve inside the
+  restored tree; the HRM context name is validated and SQL/LIKE-escaped;
+  `--admin-user` is validated and escaped; docpath translation refuses
+  traversal; the properties parser follows `java.util.Properties`
+  (continuations, escapes, trailing whitespace preserved) and the fragment
+  re-escapes values.
+- **No credentials in the repo or the manifest:** the vendored stock
+  `oscar_mcmaster.properties` has every credential-bearing value replaced
+  with `<redacted-in-fixture>` (noted in `PROVENANCE.md`), and the generator
+  never emits such keys' defaults (`SECRET_DEFAULT_KEYS`); the props phase
+  always surfaces them for review. `INCOMINGDOCUMENT_RECYCLEBIN` (boolean)
+  and `mcedt.last.downloadedID.file` (bare filename) carry instead of being
+  mis-translated as document paths.
+- **Tooling:** the disk check measures the dump's real uncompressed size
+  and includes the documents tar; the restore pipeline survives a client
+  that exits early; the standalone preflight refuses an interactive `-p`
+  and takes `--mysql-password-file` (MYSQL_PWD); the fixture builder
+  refuses `-pSECRET` in argv; the bundle script requires exactly one dump;
+  `--check` covers the preflight block and outputs carry no wall-clock
+  stamp; Flyway files are parsed in numeric version order;
+  `ADD COLUMN IF NOT EXISTS` parses. Suite: 201 tests passing.
 
 **All seven milestones complete.** Next steps beyond this round: run the
 Playwright UI suite against a migrated database under a full app deploy,

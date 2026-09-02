@@ -81,6 +81,20 @@ class TestCopyStatement(unittest.TestCase):
         sql = o19etl.copy_statement("t", entry, "src", "dst", strict)
         self.assertIn("ELSE 'a'", sql)
 
+    def test_enum_out_of_set_prefers_the_introspected_default(self):
+        entry = {"class": "copy", "cols": ["e"]}
+        info = col("enum", nullable=True, column_type="enum('a','b')",
+                   has_default=True)
+        info["default"] = "b"
+        sql = o19etl.copy_statement("t", entry, "src", "dst", {"e": info})
+        self.assertIn("ELSE 'b' END", sql)
+        counts = o19etl.enum_fallback_count_sql("t", entry, "src",
+                                                {"e": info})
+        self.assertEqual(len(counts), 1)
+        self.assertEqual(counts[0][0], "e")
+        self.assertIn("s.`e` NOT IN ('a', 'b')", counts[0][1])
+        self.assertIn("s.`e` IS NOT NULL", counts[0][1])
+
     def test_charset_repair_wraps_only_flagged_columns(self):
         entry = {"class": "copy", "cols": ["name", "note"]}
         dst = {"name": col(), "note": col()}
@@ -110,6 +124,147 @@ class TestMergeStatement(unittest.TestCase):
         sql = o19etl.merge_statement("t", entry, "src", "dst", dst)
         self.assertNotIn("`id`", sql.split("SELECT")[0])
         self.assertIn("(`type`)", sql)
+
+
+class TestSurrogateIdRemap(unittest.TestCase):
+    """A merged parent's appended rows get new ids; children declared in
+    fk_remap read their key through the parent's id map."""
+
+    PARENT = {"class": "merge", "cols": ["id", "name"],
+              "merge_keys": ["name"], "surrogate_pk": "id"}
+    CHILD = {"class": "merge", "cols": ["id", "lookupListId", "value"],
+             "merge_keys": ["lookupListId", "value"], "surrogate_pk": "id",
+             "fk_remap": {"lookupListId": "LookupList"}}
+    DST = {"id": col("int"), "lookupListId": col("int"), "value": col()}
+
+    def test_idmap_is_built_from_the_natural_key_join(self):
+        stmts = o19etl.idmap_statements("LookupList", self.PARENT, "src",
+                                        "dst", "arch")
+        self.assertEqual(len(stmts), 3)
+        self.assertIn("`arch`.`LookupList__idmap`", stmts[1])
+        self.assertIn("old_id BIGINT NOT NULL PRIMARY KEY", stmts[1])
+        self.assertIn("SELECT s.`id`, MIN(d.`id`) FROM `src`.`LookupList` s "
+                      "JOIN `dst`.`LookupList` d ON d.`name` <=> s.`name` "
+                      "GROUP BY s.`id`", stmts[2])
+
+    def test_no_idmap_without_surrogate(self):
+        self.assertEqual(o19etl.idmap_statements(
+            "t", {"class": "merge", "cols": ["k"], "merge_keys": ["k"]},
+            "src", "dst", "arch"), [])
+
+    def test_child_reads_the_fk_through_the_map(self):
+        expr = o19etl.source_expr(self.CHILD, "lookupListId",
+                                  archive_schema="arch")
+        self.assertEqual(
+            expr, "IFNULL((SELECT m.new_id FROM `arch`.`LookupList__idmap` "
+                  "m WHERE m.old_id = s.`lookupListId`), s.`lookupListId`)")
+        # without an archive schema (pure golden tests) the raw column
+        self.assertEqual(o19etl.source_expr(self.CHILD, "lookupListId"),
+                         "s.`lookupListId`")
+
+    def test_child_merge_anti_join_uses_the_remapped_key(self):
+        sql = o19etl.merge_statement("LookupListItem", self.CHILD, "src",
+                                     "dst", self.DST, archive_schema="arch")
+        self.assertIn("d.`lookupListId` <=> IFNULL((SELECT m.new_id", sql)
+        self.assertIn("d.`value` <=> s.`value`", sql)
+
+    def test_copy_statement_also_remaps(self):
+        entry = dict(self.CHILD, **{"class": "copy"})
+        sql = o19etl.copy_statement("LookupListItem", entry, "src", "dst",
+                                    self.DST, archive_schema="arch")
+        self.assertIn("`LookupList__idmap`", sql)
+
+    def test_etl_order_puts_parents_first(self):
+        tables = {"a_child": {"class": "copy", "fk_remap": {"x": "z_parent"}},
+                  "z_parent": {"class": "merge"},
+                  "m": {"class": "copy"}}
+        order = o19etl.etl_order(tables)
+        self.assertLess(order.index("z_parent"), order.index("a_child"))
+        self.assertEqual(sorted(order), sorted(tables))
+
+    def test_manifest_fk_parents_are_merge_tables_with_surrogates(self):
+        seen = 0
+        for t, e in o19map_schema.TABLES.items():
+            for colname, parent in e.get("fk_remap", {}).items():
+                seen += 1
+                self.assertIn(colname, e["cols"], t)
+                p = o19map_schema.TABLES[parent]
+                self.assertEqual(p["class"], "merge", parent)
+                self.assertTrue(p.get("surrogate_pk"), parent)
+        self.assertGreaterEqual(seen, 2)
+        order = o19etl.etl_order(o19map_schema.TABLES)
+        self.assertLess(order.index("LookupList"),
+                        order.index("LookupListItem"))
+        self.assertLess(order.index("criteria_type"),
+                        order.index("criteria_type_option"))
+
+
+class TestResumeIdempotency(unittest.TestCase):
+
+    def test_window_delete_clears_exactly_the_window(self):
+        entry = {"class": "copy", "cols": ["id"], "chunk_by": "id"}
+        self.assertEqual(
+            o19etl.window_delete_statement("t", entry, "dst", (100, 150)),
+            "DELETE FROM `dst`.`t` WHERE `id` > 100 AND `id` <= 150")
+
+    def test_progress_ledger_is_bound_to_the_dump_digest(self):
+        import shutil
+        import tempfile
+        d = tempfile.mkdtemp(prefix="o19progress-")
+        self.addCleanup(shutil.rmtree, d)
+        o19etl.save_progress(d, {"tables": {"demographic": {"done": True}},
+                                 "dump_sha256": "aaa"})
+        same = o19etl.load_progress(d, "aaa")
+        self.assertTrue(same["tables"]["demographic"]["done"])
+        other = o19etl.load_progress(d, "bbb")
+        self.assertEqual(other["tables"], {})
+        self.assertEqual(other["dump_sha256"], "bbb")
+        # no digest given: ledger returned as-is (read-only consumers)
+        self.assertIn("demographic", o19etl.load_progress(d)["tables"])
+
+
+class TestUnknownSchemaCapture(unittest.TestCase):
+
+    ENTRY = {"class": "copy", "cols": ["id", "name"], "chunk_by": "id",
+             "dropped": {"legacy": {"nondefault": "s.`legacy` <> ''"}}}
+
+    def test_unknown_columns_exclude_mapped_dropped_and_case_variants(self):
+        src = {"id": col("int"), "NAME": col(), "legacy": col(),
+               "vendor_flag": col(), "vendor_note": col()}
+        self.assertEqual(o19etl.unknown_columns(self.ENTRY, src),
+                         ["vendor_flag", "vendor_note"])
+
+    def test_unknown_column_shadow_keeps_row_context(self):
+        src = {"id": col("int"), "name": col(), "legacy": col(),
+               "vendor_flag": col()}
+        stmts = o19etl.unknown_column_shadow_statements(
+            "t", self.ENTRY, "src", "arch", src)
+        self.assertEqual(len(stmts), 2)
+        self.assertIn("`arch`.`t__unknown_cols`", stmts[1])
+        self.assertIn("SELECT s.`id`, s.`vendor_flag` FROM `src`.`t` s "
+                      "WHERE s.`vendor_flag` IS NOT NULL", stmts[1])
+
+    def test_nothing_unknown_yields_no_statements(self):
+        src = {"id": col("int"), "name": col(), "legacy": col()}
+        self.assertEqual(o19etl.unknown_column_shadow_statements(
+            "t", self.ENTRY, "src", "arch", src), [])
+
+
+class TestCharsetScanFailures(unittest.TestCase):
+
+    def test_scan_error_propagates_instead_of_passing_as_clean(self):
+        def q(sql):
+            raise RuntimeError("ERROR 1142 (42000): SELECT command denied")
+        with self.assertRaises(RuntimeError):
+            o19etl.detect_repairs(q, "src", ["charset-repair"])
+
+    def test_absent_column_is_skipped_with_a_note(self):
+        def q(sql):
+            raise RuntimeError("ERROR 1054 (42S22): Unknown column 'x'")
+        notes = []
+        self.assertEqual(o19etl.detect_repairs(q, "src", [], notes), {})
+        self.assertTrue(notes)
+        self.assertIn("not in this dump", notes[0])
 
 
 class TestArchiveAndShadow(unittest.TestCase):

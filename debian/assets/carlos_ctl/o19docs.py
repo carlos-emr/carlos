@@ -19,7 +19,7 @@ import re
 import shutil
 from typing import Dict, List, Optional, Tuple
 
-from . import o19map_schema
+from . import o19bundle, o19map_schema
 from .util import STATE, die, log, run, warn
 
 DOCUMENTS_ROOT = os.path.join(STATE, "OscarDocument")
@@ -31,6 +31,34 @@ SERVICE_USER = "carlos"
 CACHE_DIR_NAMES = {"document_cache", ".o19-incoming"}
 
 IMAGE_REF_RE = re.compile(r"\$\{oscar_image_path\}([^\"'\s)<>]+)")
+
+# an OscarDocument context directory is a plain directory basename; the
+# name is interpolated into SQL (HRM path rewrite) and into filesystem
+# paths, so anything else is refused outright
+CONTEXT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.\-]*$")
+
+
+def _sql_str(value: str) -> str:
+    """SQL string-literal escaping for values interpolated into generated
+    statements (mirrors dbops.sql_escape; kept local so the pure helpers
+    stay importable without the deployment modules)."""
+    return value.replace("\\", "\\\\").replace("'", "\\'")
+
+
+def _like_str(value: str) -> str:
+    """Escape a literal for use inside a LIKE pattern (backslash escape
+    of the wildcards, then the usual string-literal escaping)."""
+    return _sql_str(value.replace("\\", "\\\\").replace("%", "\\%")
+                    .replace("_", "\\_"))
+
+
+def contained(root: str, relative: str) -> bool:
+    """True if root/relative resolves (symlinks followed) to a path inside
+    root — the guard that keeps a document row or an eForm image reference
+    from pointing reconciliation at an unrelated host file."""
+    root_real = os.path.realpath(root)
+    full = os.path.realpath(os.path.join(root, relative))
+    return full == root_real or full.startswith(root_real + os.sep)
 
 
 # --------------------------------------------------------------------------
@@ -44,7 +72,10 @@ def detect_context_dir(member_names: List[str]) -> str:
     tops = set()
     loose = []
     for name in member_names:
-        name = name.lstrip("./")
+        # only a literal "./" prefix is cosmetic; anything else (".." or
+        # an absolute name) must surface as a bad context name below
+        if name.startswith("./"):
+            name = name[2:]
         if not name:
             continue
         head = name.split("/", 1)[0]
@@ -61,7 +92,12 @@ def detect_context_dir(member_names: List[str]) -> str:
         raise ValueError(
             "documents tar must hold exactly ONE top-level context "
             "directory, found {0}: {1}".format(len(tops), sorted(tops)))
-    return tops.pop()
+    ctx = tops.pop()
+    if not CONTEXT_NAME_RE.match(ctx):
+        raise ValueError(
+            "context directory name {0!r} is not a plain directory name "
+            "(letters, digits, '_', '.', '-' only)".format(ctx))
+    return ctx
 
 
 def hrm_rewrite_sql(dst_schema: str, old_ctx: str,
@@ -69,14 +105,17 @@ def hrm_rewrite_sql(dst_schema: str, old_ctx: str,
     """(update_sql, leftover_count_sql): rewrite HRMDocument.reportFile
     absolute O19 paths onto the CARLOS tree, and count what did not
     match for the report."""
+    if not CONTEXT_NAME_RE.match(old_ctx):
+        raise ValueError("unsafe context name {0!r}".format(old_ctx))
     marker = "/{0}/".format(old_ctx)
     new_prefix = os.path.join(new_root, TARGET_CTX) + "/"
     update = ("UPDATE `{0}`.HRMDocument SET reportFile = CONCAT('{1}', "
               "SUBSTRING_INDEX(reportFile, '{2}', -1)) WHERE reportFile "
-              "LIKE '%{2}%'".format(dst_schema, new_prefix, marker))
+              "LIKE '%{3}%'".format(dst_schema, _sql_str(new_prefix),
+                                     _sql_str(marker), _like_str(marker)))
     leftover = ("SELECT COUNT(*) FROM `{0}`.HRMDocument WHERE reportFile "
                 "<> '' AND reportFile IS NOT NULL AND reportFile NOT LIKE "
-                "'{1}%'".format(dst_schema, new_prefix))
+                "'{1}%'".format(dst_schema, _like_str(new_prefix)))
     return update, leftover
 
 
@@ -110,6 +149,12 @@ def classify_document_files(rows: List[Tuple[str, str]],
     missing, empty = [], []
     for doc_no, filename in rows:
         if not filename:
+            continue
+        if not contained(doc_dir, filename):
+            # absolute or traversal filename — never let it be satisfied
+            # by a file outside the restored tree
+            missing.append("document {0}: {1} (path escapes the document "
+                           "directory)".format(doc_no, filename))
             continue
         path = os.path.join(doc_dir, filename)
         if not os.path.isfile(path):
@@ -173,9 +218,15 @@ def apply_ownership(root: str, dev_target: bool) -> None:
               "{0}:{0}".format(SERVICE_USER), root])
     if cp.returncode != 0:
         die("chown of the documents tree failed")
-    # directories setgid 2750, files 0640 (matches the tmpfiles skeleton)
-    run(["find", root, "-type", "d", "-exec", "chmod", "2750", "{}", "+"])
-    run(["find", root, "-type", "f", "-exec", "chmod", "0640", "{}", "+"])
+    # directories setgid 2750, files 0640 (matches the tmpfiles skeleton);
+    # a failed repair would leave files the service cannot read, which the
+    # root-run reconciliation below would not notice — so it is fatal
+    for kind, mode in (("d", "2750"), ("f", "0640")):
+        cp = run(["find", root, "-type", kind, "-exec", "chmod", mode,
+                  "{}", "+"])
+        if cp.returncode != 0:
+            die("permission repair of the documents tree failed (find "
+                "-type {0} -exec chmod {1})".format(kind, mode))
 
 
 # --------------------------------------------------------------------------
@@ -214,7 +265,11 @@ def reconcile(query, dst_schema: str, ctx_root: str
         fid, form_name, html = r[0], r[1], unescape_batch_field(r[2])
         for ref in image_refs(html):
             checked += 1
-            if not os.path.isfile(os.path.join(image_dir, ref)):
+            if not contained(image_dir, ref):
+                problems.append(
+                    "eForm '{0}' (fid {1}) image reference escapes "
+                    "eform/images: {2}".format(form_name, fid, ref))
+            elif not os.path.isfile(os.path.join(image_dir, ref)):
                 problems.append(
                     "eForm '{0}' (fid {1}) references missing image "
                     "asset: {2}".format(form_name, fid, ref))
@@ -243,7 +298,10 @@ def export_archive_csv(query, archive_schema: str, out_dir: str
             writer = csv.writer(fh)
             writer.writerow(cols)
             for r in rows:
-                writer.writerow([unescape_batch_field(v) for v in r])
+                # the batch client prints SQL NULL as the two characters
+                # \N — that is not a value, so it becomes an empty field
+                writer.writerow([None if v == "\\N"
+                                 else unescape_batch_field(v) for v in r])
         os.chmod(path, 0o640)
         lines.append("{0}.csv: {1} row(s)".format(table, len(rows)))
     return lines
@@ -284,12 +342,17 @@ def run_docs(ctx) -> None:
 
     if not already_restored:
         gz = tar_path.endswith(".gz")
-        cp = run(["tar", "-tzf" if gz else "-tf", tar_path],
+        cp = run(["tar", "-tvzf" if gz else "-tvf", tar_path],
                  capture_output=True)
         if cp.returncode != 0:
             die("cannot read documents tar: " + cp.stderr.strip())
         try:
-            old_ctx = detect_context_dir(cp.stdout.splitlines())
+            # plain files + directories only, relative traversal-free
+            # names: the tree is extracted as root
+            names = o19bundle.validate_tar_members(
+                o19bundle.parse_tar_listing(cp.stdout.splitlines()),
+                allow_dirs=True)
+            old_ctx = detect_context_dir(names)
         except ValueError as exc:
             die(str(exc))
 
@@ -298,8 +361,11 @@ def run_docs(ctx) -> None:
             shutil.rmtree(incoming)
         os.makedirs(incoming, mode=0o700)
         log("extracting documents tar (context '{0}') ...".format(old_ctx))
+        # ownership/permissions are applied by apply_ownership from the
+        # host policy, never restored from the clinic's archive
         cp = run(["tar", "-xzf" if gz else "-xf", tar_path,
-                  "-C", incoming])
+                  "-C", incoming, "--no-same-owner",
+                  "--no-same-permissions"])
         if cp.returncode != 0:
             die("documents tar extraction failed")
 

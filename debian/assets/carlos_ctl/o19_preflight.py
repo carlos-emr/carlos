@@ -11,9 +11,13 @@ in two modes with identical checks:
   found on 2014-era Ubuntu (no f-strings, stdlib only) and talks to MySQL by
   shelling out to the mysql/mariadb command-line client:
 
-      python3 o19_preflight.py --db oscar \\
-          --mysql-cmd mysql --mysql-arg -uroot --mysql-arg -p \\
+      python3 o19_preflight.py --db oscar --mysql-cmd mysql \\
+          --mysql-arg=-uroot --mysql-password-file /root/.o19pw \\
           --properties /path/to/oscar.properties
+
+  (--mysql-arg values start with '-', so the =form is required; the
+  password travels via MYSQL_PWD from --mysql-password-file, never argv —
+  a bare interactive -p would prompt once per query and is refused.)
 
 * IMPORT MODE: `carlos-ctl import-o19` imports this module and calls
   run_checks() against the restored o19_import staging schema, passing the
@@ -759,29 +763,104 @@ def finding(fid, severity, title, detail="", accept=None, data=None):
     return f
 
 
-def parse_properties(path):
-    """Active key=value pairs of a java .properties file (last wins)."""
-    props = {}
-    with open(path, "rb") as fh:
-        for raw in fh.read().decode("latin-1").splitlines():
-            line = raw.strip()
-            if not line or line[0] in ("#", "!"):
+_UNESCAPE = {"n": "\n", "t": "\t", "r": "\r", "f": "\f"}
+
+
+def _unescape_property(text):
+    out = []
+    i = 0
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c == "\\" and i + 1 < n:
+            nxt = text[i + 1]
+            if nxt == "u" and re.match(r"[0-9A-Fa-f]{4}$", text[i + 2:i + 6]):
+                out.append(chr(int(text[i + 2:i + 6], 16)))
+                i += 6
                 continue
-            m = re.match(r"([A-Za-z0-9_.\-]+)\s*[=:]\s*(.*)$", line)
-            if m:
-                props[m.group(1)] = m.group(2).strip()
+            out.append(_UNESCAPE.get(nxt, nxt))
+            i += 2
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def parse_properties_text(text):
+    """Active key/value pairs with java.util.Properties semantics ('=', ':'
+    or whitespace separators, backslash line continuation, escapes,
+    trailing whitespace preserved); last occurrence wins. Mirrors
+    o19props.parse_properties_text (this file must stay standalone)."""
+    props = {}
+    logical = []
+    for raw in text.splitlines():
+        line = raw.lstrip()
+        if not logical and (not line or line[0] in ("#", "!")):
+            continue
+        stripped = line.rstrip("\\")
+        if (len(line) - len(stripped)) % 2 == 1:
+            logical.append(stripped)
+            continue
+        logical.append(line)
+        full = "".join(logical)
+        logical = []
+        j = 0
+        key_chars = []
+        while j < len(full):
+            c = full[j]
+            if c == "\\" and j + 1 < len(full):
+                key_chars.append(full[j:j + 2])
+                j += 2
+                continue
+            if c in "=: \t\f":
+                break
+            key_chars.append(c)
+            j += 1
+        key = _unescape_property("".join(key_chars))
+        if not key:
+            continue
+        rest = full[j:].lstrip(" \t\f")
+        if rest[:1] in ("=", ":"):
+            rest = rest[1:].lstrip(" \t\f")
+        props[key] = _unescape_property(rest)
     return props
 
 
-def _safe_ident(name):
-    return re.match(r"^[A-Za-z0-9_]+$", name) is not None
+def parse_properties(path):
+    """Active key=value pairs of a java .properties file (last wins)."""
+    with open(path, "rb") as fh:
+        text = fh.read().decode("latin-1")
+    return parse_properties_text(text)
 
 
-def make_cli_query(mysql_cmd, mysql_args, db):
-    """Return query(sql) -> list of rows (lists of strings) via the CLI."""
+def _ident(name):
+    """Backtick-quote an identifier so EVERY table name the dump carries
+    can be counted — a vendor-fork table with an unusual name must be
+    checked, never filtered out of the unknown-table blocker."""
+    return "`" + name.replace("`", "``") + "`"
+
+
+INTERACTIVE_PASSWORD_ARGS = ("-p", "--password")
+
+
+def interactive_password_arg(mysql_args):
+    """The client argument that would PROMPT for a password, if any: every
+    preflight query is a fresh client process, so an interactive prompt
+    would repeat dozens of times — the password must come from
+    --mysql-password-file (MYSQL_PWD) or a client defaults file."""
+    for a in mysql_args:
+        if a in INTERACTIVE_PASSWORD_ARGS:
+            return a
+    return None
+
+
+def make_cli_query(mysql_cmd, mysql_args, db, env=None):
+    """Return query(sql) -> list of rows (lists of strings) via the CLI.
+    env, when given, replaces the client's environment (used to hand the
+    password over as MYSQL_PWD instead of argv)."""
     def query(sql):
         argv = [mysql_cmd] + list(mysql_args) + ["-N", "-B", "-e", sql, db]
-        out = subprocess.check_output(argv)
+        out = subprocess.check_output(argv, env=env)
         text = out.decode("utf-8", "replace")
         rows = []
         for line in text.splitlines():
@@ -791,14 +870,19 @@ def make_cli_query(mysql_cmd, mysql_args, db):
 
 
 def _count(query, table, where=None):
-    sql = "SELECT COUNT(*) FROM `{0}`".format(table)
+    """Row count, or an ("error", message) tuple when the count could not
+    be taken (missing privilege, odd storage engine, ...). Callers route
+    the tuple into the query-errors blocker: an unreadable table can never
+    be reported as empty."""
+    sql = "SELECT COUNT(*) FROM {0}".format(_ident(table))
     if where:
         sql += " WHERE {0}".format(where)
     try:
         rows = query(sql)
         return int(rows[0][0])
     except Exception as exc:  # table missing, permission, ...
-        return ("error", str(exc).strip().splitlines()[-1] if str(exc) else "")
+        text = str(exc).strip()
+        return ("error", text.splitlines()[-1] if text else "")
 
 
 def run_checks(query, properties=None, province="on", accepted=(),
@@ -815,6 +899,19 @@ def run_checks(query, properties=None, province="on", accepted=(),
     """
     accepted = set(accepted)
     findings = []
+    query_errors = {}
+
+    def count(table, where=None):
+        """_count that FAILS CLOSED: an error is recorded (and becomes a
+        no-go blocker below) and counts as 0 only for the purpose of not
+        double-reporting the table."""
+        n = _count(query, table, where)
+        if isinstance(n, tuple):
+            label = table if where is None else "{0} [{1}]".format(
+                table, where[:60])
+            query_errors[label] = n[1]
+            return 0
+        return n
 
     # --- province gate ----------------------------------------------------
     if province != "on":
@@ -838,11 +935,10 @@ def run_checks(query, properties=None, province="on", accepted=(),
             tables[row[0]] = True
 
     # --- B2: tables the manifest does not know ---------------------------
-    unknown = sorted(t for t in tables
-                     if t not in KNOWN_TABLES and _safe_ident(t))
+    unknown = sorted(t for t in tables if t not in KNOWN_TABLES)
     unknown_with_rows = {}
     for t in unknown:
-        n = _count(query, t)
+        n = count(t)
         if n == 0:
             continue
         unknown_with_rows[t] = n
@@ -861,8 +957,8 @@ def run_checks(query, properties=None, province="on", accepted=(),
     for t in PATIENT_DATA_TABLES:
         if t not in tables:
             continue
-        n = _count(query, t)
-        if isinstance(n, int) and n > 0:
+        n = count(t)
+        if n > 0:
             patient_rows[t] = n
     if patient_rows:
         findings.append(finding(
@@ -880,8 +976,8 @@ def run_checks(query, properties=None, province="on", accepted=(),
     for t, cls in KNOWN_TABLES.items():
         if cls != "archive" or t in PATIENT_DATA_TABLES or t not in tables:
             continue
-        n = _count(query, t)
-        if isinstance(n, int) and n > 0:
+        n = count(t)
+        if n > 0:
             if t.upper().startswith("OLIS"):
                 olis_rows[t] = n
             else:
@@ -906,8 +1002,8 @@ def run_checks(query, properties=None, province="on", accepted=(),
         if t not in tables:
             continue
         for col, predicate in cols.items():
-            n = _count(query, t, predicate)
-            if isinstance(n, int) and n > 0:
+            n = count(t, predicate)
+            if n > 0:
                 b3_hits["{0}.{1}".format(t, col)] = n
     if b3_hits:
         findings.append(finding(
@@ -963,9 +1059,8 @@ def run_checks(query, properties=None, province="on", accepted=(),
         if t not in tables:
             continue
         for col in cols:
-            n = _count(query, t,
-                       "HEX(`{0}`) LIKE '%{1}%'".format(col, MOJIBAKE_HEX))
-            if isinstance(n, int) and n > 0:
+            n = count(t, "HEX(`{0}`) LIKE '%{1}%'".format(col, MOJIBAKE_HEX))
+            if n > 0:
                 mojibake["{0}.{1}".format(t, col)] = n
     if mojibake:
         findings.append(finding(
@@ -1018,9 +1113,7 @@ def run_checks(query, properties=None, province="on", accepted=(),
     inv = {}
     for t in INVENTORY_TABLES:
         if t in tables:
-            n = _count(query, t)
-            if isinstance(n, int):
-                inv[t] = n
+            inv[t] = count(t)
     try:
         size_rows = query(
             "SELECT ROUND(SUM(DATA_LENGTH + INDEX_LENGTH)/1048576) FROM "
@@ -1032,6 +1125,15 @@ def run_checks(query, properties=None, province="on", accepted=(),
     inv["_tables"] = len(tables)
     findings.append(finding("inventory", INFO, "database inventory",
                             data=inv))
+
+    # --- query errors: a check that could not run is a hard no-go --------
+    if query_errors:
+        findings.append(finding(
+            "query-errors", BLOCKER,
+            "{0} check(s) could not be completed".format(len(query_errors)),
+            "A count failed (privilege, corrupt table, ...). An unreadable "
+            "table is never treated as empty: fix the access and rerun. "
+            "No --accept flag exists for this.", data=query_errors))
 
     # --- verdict ----------------------------------------------------------
     outstanding = []
@@ -1119,8 +1221,14 @@ def main(argv=None):
                     help="mysql/mariadb client command (default: mysql)")
     ap.add_argument("--mysql-arg", action="append", default=[],
                     metavar="ARG",
-                    help="argument passed to the client (repeatable), "
-                         "e.g. --mysql-arg -uroot --mysql-arg -p")
+                    help="argument passed to the client (repeatable); use "
+                         "the =form for values starting with '-', e.g. "
+                         "--mysql-arg=-uroot --mysql-arg=--host=127.0.0.1")
+    ap.add_argument("--mysql-password-file", metavar="PATH",
+                    help="file holding the client password (handed over "
+                         "as MYSQL_PWD, never on the command line); "
+                         "alternatively use a client defaults file via "
+                         "--mysql-arg=--defaults-extra-file=PATH")
     ap.add_argument("--properties", help="path to the deployed "
                     "oscar.properties (recommended)")
     ap.add_argument("--province", default="on", choices=["on", "bc"])
@@ -1141,7 +1249,23 @@ def main(argv=None):
     if args.properties:
         props = parse_properties(args.properties)
 
-    query = make_cli_query(args.mysql_cmd, args.mysql_arg, args.db)
+    bad = interactive_password_arg(args.mysql_arg)
+    if bad:
+        print("ERROR: '{0}' would prompt for the password on every query "
+              "(each check runs a fresh client). Pass the password via "
+              "--mysql-password-file PATH or "
+              "--mysql-arg=--defaults-extra-file=PATH instead."
+              .format(bad), file=sys.stderr)
+        return 2
+    env = None
+    if args.mysql_password_file:
+        import os
+        with open(args.mysql_password_file, "rb") as fh:
+            password = fh.read().decode("utf-8", "replace").rstrip("\r\n")
+        env = dict(os.environ)
+        env["MYSQL_PWD"] = password
+
+    query = make_cli_query(args.mysql_cmd, args.mysql_arg, args.db, env=env)
     try:
         query("SELECT 1")
     except Exception as exc:

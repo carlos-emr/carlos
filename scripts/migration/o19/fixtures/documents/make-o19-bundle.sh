@@ -16,7 +16,16 @@ IN="${1:?usage: make-o19-bundle.sh <inputs-dir> <output-dir>}"
 OUT="${2:?usage: make-o19-bundle.sh <inputs-dir> <output-dir>}"
 TEST_PASSWORD="o19-fixture-test-password"
 
-dump="$(ls "$IN"/*.sql.gz 2>/dev/null | head -1)"
+# exactly ONE dump, mirroring the importer's own ambiguity rule (never
+# silently bundle the first of several)
+shopt -s nullglob
+dumps=("$IN"/*.sql.gz)
+shopt -u nullglob
+if [ "${#dumps[@]}" -ne 1 ]; then
+  echo "expected exactly one *.sql.gz in $IN, found ${#dumps[@]}: ${dumps[*]:-none}" >&2
+  exit 1
+fi
+dump="${dumps[0]}"
 docs="$IN/o19-documents.tar.gz"
 props="$IN/oscar.properties"
 for f in "$dump" "$docs" "$props"; do

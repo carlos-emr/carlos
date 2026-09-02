@@ -100,18 +100,92 @@ class TestForceReset(unittest.TestCase):
 class TestRowParityExpectations(unittest.TestCase):
 
     def test_parity_helper_itemizes_admin_delta(self):
-        # fake query: staging has 5 providers, target has 6 (5 + admin)
+        # fake query: staging has 5 providers, target has 6 (5 + admin);
+        # the admin's own row is counted EXACTLY on the target
         def q(sql):
             if "information_schema" in sql:
                 return [["provider"]]
+            if "`carlos`.`provider` WHERE provider_no = '100001'" in sql:
+                return [["1"]]
             if "`stage`.`provider`" in sql:
                 return [["5"]]
             if "`carlos`.`provider`" in sql:
                 return [["6"]]
             return [["0"]]
-        ok, bad = o19etl.row_parity(q, "stage", "carlos")
+        ok, bad = o19etl.row_parity(q, "stage", "carlos",
+                                    admin_user="breakglass",
+                                    admin_provider_no="100001")
         self.assertEqual(bad, [])
-        self.assertTrue(any("break-glass admin" in line for line in ok))
+        self.assertTrue(any("+1 break-glass admin" in line for line in ok))
+
+    def test_parity_rejects_extra_rows_beyond_the_admin(self):
+        # target has 7 providers: 5 copied + admin + one unexplained row
+        def q(sql):
+            if "information_schema" in sql:
+                return [["provider"]]
+            if "WHERE provider_no = '100001'" in sql:
+                return [["1"]]
+            if "`stage`.`provider`" in sql:
+                return [["5"]]
+            if "`carlos`.`provider`" in sql:
+                return [["7"]]
+            return [["0"]]
+        ok, bad = o19etl.row_parity(q, "stage", "carlos",
+                                    admin_user="breakglass",
+                                    admin_provider_no="100001")
+        self.assertEqual(len(bad), 1)
+
+    def test_parity_without_admin_identity_tolerates_nothing(self):
+        def q(sql):
+            if "information_schema" in sql:
+                return [["ProviderPreference"]]
+            if "`stage`." in sql:
+                return [["3"]]
+            return [["4"]]
+        ok, bad = o19etl.row_parity(q, "stage", "carlos")
+        self.assertEqual(len(bad), 1)
+
+    def test_admin_row_predicates_cover_only_identity_tables(self):
+        self.assertEqual(set(o19etl.ADMIN_ROW_PREDICATES),
+                         {"provider", "security", "secUserRole"})
+        self.assertIsNone(o19etl.admin_row_count_sql(
+            "ProviderPreference", "carlos", "a", "1"))
+        sql = o19etl.admin_row_count_sql("security", "carlos", "a'b", "1")
+        self.assertIn("user_name = 'a\\'b'", sql)
+
+
+class TestAdminUserSafety(unittest.TestCase):
+
+    def test_plain_names_pass(self):
+        for name in ("breakglass", "it.admin@clinic", "ops-2", "A"):
+            self.assertEqual(o19etl.validate_admin_user(name), name)
+
+    def test_quotes_and_sql_fragments_are_refused(self):
+        for bad in ("x'; DROP TABLE security; --", "a b", "", None,
+                    "x" * 31, "-lead", "semi;colon"):
+            with self.assertRaises(ValueError):
+                o19etl.validate_admin_user(bad)
+
+    def test_seed_statements_refuse_unsafe_user(self):
+        with self.assertRaises(ValueError):
+            o19etl.seed_admin_statements("carlos", "x'y", "1", "h", "1234")
+        with self.assertRaises(ValueError):
+            o19etl.seed_admin_cleanup_statements("carlos", "x'y", "1")
+
+    def test_hash_and_pin_are_escaped(self):
+        stmts = o19etl.seed_admin_statements(
+            "carlos", "bg", "100001", "{bcrypt}$2b$12$a'b", "12'4")
+        self.assertIn("'{bcrypt}$2b$12$a\\'b'", stmts[1])
+        self.assertIn("'12\\'4'", stmts[1])
+
+    def test_cleanup_targets_only_the_admin_identity(self):
+        stmts = o19etl.seed_admin_cleanup_statements("carlos", "bg", "100001")
+        self.assertEqual(len(stmts), 3)
+        for sql in stmts:
+            self.assertIn("'100001'", sql)
+        self.assertTrue(stmts[0].startswith("DELETE FROM `carlos`.secUserRole"))
+        self.assertIn("user_name = 'bg' AND provider_no = '100001'", stmts[1])
+        self.assertTrue(stmts[2].startswith("DELETE FROM `carlos`.provider"))
 
     def test_parity_flags_a_short_copy(self):
         def q(sql):

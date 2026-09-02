@@ -80,16 +80,120 @@ class TestBundleKindAndArgs(unittest.TestCase):
             o19bundle.validate_bundle_args("b.tar.gz", "file:x")
 
     def test_openssl_argv_defaults_to_canonical_derivation(self):
-        argv = o19bundle.openssl_decrypt_argv("aes-256-cbc", [], "file:p")
+        argv = o19bundle.openssl_decrypt_argv("aes-256-cbc", [], "file:p",
+                                              "/srv/b.tar.enc")
         self.assertEqual(argv, ["openssl", "enc", "-d", "-aes-256-cbc",
                                 "-pbkdf2", "-iter", "200000",
-                                "-pass", "file:p"])
+                                "-pass", "file:p", "-in", "/srv/b.tar.enc"])
 
     def test_openssl_opts_replace_the_derivation_defaults(self):
         argv = o19bundle.openssl_decrypt_argv(
-            "aes-256-cbc", ["-md", "md5"], "env:P")
+            "aes-256-cbc", ["-md", "md5"], "env:P", "b.enc")
         self.assertEqual(argv, ["openssl", "enc", "-d", "-aes-256-cbc",
-                                "-md", "md5", "-pass", "env:P"])
+                                "-md", "md5", "-pass", "env:P", "-in",
+                                "b.enc"])
+
+    def test_bundle_is_read_via_in_so_pass_stdin_stays_usable(self):
+        # `-pass stdin` reads the password from stdin: the ciphertext must
+        # therefore never be piped through stdin
+        argv = o19bundle.openssl_decrypt_argv("aes-256-cbc", [], "stdin",
+                                              "b.enc")
+        self.assertIn("-in", argv)
+        self.assertEqual(o19bundle.pass_spec_fd("fd:7"), 7)
+        self.assertIsNone(o19bundle.pass_spec_fd("file:x"))
+        self.assertIsNone(o19bundle.pass_spec_fd("fd:x"))
+
+
+class TestTarListingAndMemberTypes(unittest.TestCase):
+
+    LISTING = [
+        "-rw-r--r-- root/root      1234 2020-03-09 00:00 o19.sql.gz",
+        "-rw-r--r-- root/root        12 2020-03-09 00:00 oscar.properties",
+        "lrwxrwxrwx root/root         0 2020-03-09 00:00 o19-docs.tar -> "
+        "/etc/shadow",
+        "drwxr-xr-x root/root         0 2020-03-09 00:00 sub/",
+        "hrw-r--r-- root/root         0 2020-03-09 00:00 x.sql link to "
+        "o19.sql.gz",
+        "crw-rw-rw- root/root       1,3 2020-03-09 00:00 null",
+    ]
+
+    def test_parses_type_letter_and_name_with_spaces(self):
+        entries = o19bundle.parse_tar_listing(
+            ["-rw-r--r-- u/g 5 2020-03-09 00:00 name with spaces.sql"])
+        self.assertEqual(entries, [("-", "name with spaces.sql")])
+
+    def test_symlink_hardlink_device_are_refused(self):
+        entries = o19bundle.parse_tar_listing(self.LISTING)
+        with self.assertRaises(ValueError) as cm:
+            o19bundle.validate_tar_members(entries, allow_dirs=True)
+        msg = str(cm.exception)
+        for name in ("o19-docs.tar", "x.sql", "null"):
+            self.assertIn(name, msg)
+        self.assertNotIn("sub/", msg.split("is not a plain file")[0])
+
+    def test_directories_only_when_allowed(self):
+        entries = o19bundle.parse_tar_listing(self.LISTING[:2] +
+                                              [self.LISTING[3]])
+        names = o19bundle.validate_tar_members(entries, allow_dirs=True)
+        self.assertEqual(names, ["o19.sql.gz", "oscar.properties", "sub/"])
+        with self.assertRaises(ValueError):
+            o19bundle.validate_tar_members(entries, allow_dirs=False)
+
+    def test_absolute_and_traversal_names_are_refused(self):
+        for bad in ("/etc/passwd", "a/../../x", ".."):
+            with self.assertRaises(ValueError):
+                o19bundle.validate_tar_members([("-", bad)],
+                                               allow_dirs=True)
+        # a leading ./ is fine
+        self.assertEqual(
+            o19bundle.validate_tar_members([("-", "./ok.sql")], True),
+            ["./ok.sql"])
+
+    def test_lone_directory_member_is_refused_by_classifier(self):
+        # regression: a directory named like the dump used to classify as
+        # the dump and blow up later in sha256_file
+        with self.assertRaises(ValueError) as cm:
+            o19bundle.classify_members(["o19.sql/", "oscar.properties"])
+        self.assertIn("directory", str(cm.exception))
+
+
+class TestTarHeaderChecksum(unittest.TestCase):
+
+    @staticmethod
+    def v7_header(name=b"o19.sql", size=0):
+        # a v7 (pre-POSIX) header: no ustar magic at 257, checksum only
+        h = bytearray(512)
+        h[0:len(name)] = name
+        h[100:108] = b"0000644\0"
+        h[108:116] = b"0000000\0"
+        h[116:124] = b"0000000\0"
+        h[124:136] = ("%011o" % size).encode() + b"\0"
+        h[136:148] = b"00000000000\0"
+        h[156] = ord("0")
+        h[148:156] = b"        "
+        chk = sum(h)
+        h[148:156] = ("%06o" % chk).encode() + b"\0 "
+        return bytes(h)
+
+    def test_v7_header_without_magic_passes_checksum(self):
+        head = self.v7_header()
+        self.assertNotEqual(head[257:262], b"ustar")
+        self.assertTrue(o19bundle.tar_header_checksum_ok(head))
+
+    def test_corrupt_header_fails(self):
+        head = bytearray(self.v7_header())
+        head[0] ^= 0xFF
+        self.assertFalse(o19bundle.tar_header_checksum_ok(bytes(head)))
+        self.assertFalse(o19bundle.tar_header_checksum_ok(b"\0" * 512))
+        self.assertFalse(o19bundle.tar_header_checksum_ok(b"not a tar"))
+
+    def test_check_magic_accepts_v7_tar_file(self):
+        work = tempfile.mkdtemp(prefix="o19bundle-v7-")
+        self.addCleanup(shutil.rmtree, work)
+        path = os.path.join(work, "b.tar")
+        with open(path, "wb") as fh:
+            fh.write(self.v7_header() + b"\0" * 1024)
+        o19bundle.check_magic(path, gzipped=False)  # must not raise
 
 
 def _have(cmd):
@@ -177,6 +281,30 @@ class TestOpenBundleEndToEnd(unittest.TestCase):
             fh.write(b"not gzip at all")
         with self.assertRaises(ValueError):
             o19bundle.check_magic(bogus, gzipped=True)
+
+    def test_symlink_member_is_refused_before_extraction(self):
+        import tarfile
+        path = os.path.join(self.work, "evil.tar")
+        with tarfile.open(path, "w") as tf:
+            tf.add(os.path.join(self.src, "oscar.properties"),
+                   arcname="oscar.properties")
+            link = tarfile.TarInfo("o19.sql")
+            link.type = tarfile.SYMTYPE
+            link.linkname = "/etc/hostname"
+            tf.addfile(link)
+        dest = tempfile.mkdtemp(dir=self.work)
+        with self.assertRaises(SystemExit):
+            o19bundle.open_bundle(path, dest)
+        self.assertFalse(os.path.lexists(os.path.join(dest, "o19.sql")))
+
+    def test_extracted_members_are_plain_files_with_0600(self):
+        plain = os.path.join(self.work, "b.tar")
+        self._tar(plain, gz=False)
+        dest = tempfile.mkdtemp(dir=self.work)
+        res = o19bundle.open_bundle(plain, dest)
+        for role in ("dump", "properties"):
+            st = os.stat(res[role])
+            self.assertEqual(st.st_mode & 0o777, 0o600)
 
 
 if __name__ == "__main__":

@@ -9,7 +9,6 @@
 SCHEMA_MAP_VERSION = 'o19map-1'
 O19_PROFILE = 'on'
 O19_SOURCE_COMMIT = 'a7900d569d3faf741993e5e1da8c14021bbefede'
-GENERATED_AT = '2026-09-01'
 
 TABLES = {
     'AppDefinition': {
@@ -450,6 +449,9 @@ TABLES = {
             'createdBy',
             'dateCreated',
         ],
+        'fk_remap': {
+            'lookupListId': 'LookupList',
+        },
     },
     'MyGroupAccessRestriction': {
         'class': 'copy',
@@ -1509,6 +1511,9 @@ TABLES = {
             'fdid',
             'source',
         ],
+        'fk_remap': {
+            'serviceId': 'consultationServices',
+        },
         'charset_scan': ['reason', 'clinicalInfo'],
     },
     'consultationResponse': {
@@ -1568,6 +1573,9 @@ TABLES = {
             'MATCH_SCORE_WEIGHT',
             'CAN_BE_ADHOC',
         ],
+        'fk_remap': {
+            'CRITERIA_TYPE_ID': 'criteria_type',
+        },
     },
     'criteria_selection_option': {
         'class': 'copy',
@@ -1600,6 +1608,9 @@ TABLES = {
             'RANGE_START_VALUE',
             'RANGE_END_VALUE',
         ],
+        'fk_remap': {
+            'CRITERIA_TYPE_ID': 'criteria_type',
+        },
     },
     'cssStyles': {
         'class': 'copy',
@@ -9843,6 +9854,9 @@ TABLES = {
             'validation',
             'createDate',
         ],
+        'fk_remap': {
+            'validation': 'validations',
+        },
     },
     'measurementTypeDeleted': {
         'class': 'copy',
@@ -10629,6 +10643,9 @@ TABLES = {
     'serviceSpecialists': {
         'class': 'copy',
         'cols': ['serviceId', 'specId'],
+        'fk_remap': {
+            'serviceId': 'consultationServices',
+        },
     },
     'site': {
         'class': 'copy',
@@ -10757,6 +10774,9 @@ TABLES = {
             'task_assigned_to',
             'category_id',
         ],
+        'fk_remap': {
+            'category_id': 'tickler_category',
+        },
         'charset_scan': ['message'],
     },
     'tickler_category': {
@@ -13139,6 +13159,7 @@ CARLOS_COLUMNS = {
         'oscarUser',
         'demographicNo',
         'sender',
+        'direction',
     ],
     'fileUploadCheck': ['id', 'provider_no', 'filename', 'md5sum', 'date_time'],
     'flowsheet_customization': [
@@ -19644,7 +19665,6 @@ CARLOS_COLUMNS = {
         'ASA_rx',
         'ASA_SideEffects',
         'ASA_RxDecToday',
-        'IF',
     ],
     'formchf': [
         'ID',
@@ -20933,8 +20953,11 @@ CARLOS_COLUMNS = {
     ],
 }
 
-# rows the CARLOS Flyway migrations seed into copy/merge-class tables (P0 pristine
-# sweep compares live counts against these; every other copy-class table must be empty)
+# rows the CARLOS Flyway migrations seed into copy/merge-class tables, counted from
+# literal VALUES tuples. The P0 pristine sweep requires copy-class tables to hold
+# EXACTLY these rows (else none) and merge-class tables AT LEAST these rows: merge
+# tables are CARLOS reference seeds that later migrations may also grow via
+# INSERT ... SELECT, which no static count can see; clinical data never lives there.
 SEED_ROW_COUNTS = {
     'Facility': 1,
     'FunctionalCentre': 5,
@@ -20947,7 +20970,7 @@ SEED_ROW_COUNTS = {
     'agency': 1,
     'app_lookuptable': 13,
     'app_lookuptable_fields': 40,
-    'appointment_status': 7,
+    'appointment_status': 15,
     'bed_type': 1,
     'billcenter': 9,
     'billing_payment_type': 8,

@@ -46,9 +46,49 @@ class TestHrmRewrite(unittest.TestCase):
                       update)
         self.assertIn(
             "CONCAT('/var/lib/carlos-emr/OscarDocument/carlos/'", update)
-        self.assertIn("LIKE '%/oscar_mcmaster/%'", update)
+        # '_' is a LIKE wildcard: the marker must be escaped in the pattern
+        self.assertIn("LIKE '%/oscar\\\\_mcmaster/%'", update)
         self.assertIn("NOT LIKE '/var/lib/carlos-emr/OscarDocument/carlos/%'",
                       leftover)
+
+    def test_context_with_sql_metacharacters_is_refused(self):
+        for bad in ("x'; DROP TABLE HRMDocument; --", "a b", "../etc", ""):
+            with self.assertRaises(ValueError):
+                o19docs.hrm_rewrite_sql("carlos", bad)
+            with self.assertRaises(ValueError):
+                o19docs.detect_context_dir([bad + "/", bad + "/document/"])
+
+
+class TestContainment(unittest.TestCase):
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp(prefix="o19docs-contain-")
+        self.addCleanup(shutil.rmtree, self.root)
+        self.outside = tempfile.mkdtemp(prefix="o19docs-outside-")
+        self.addCleanup(shutil.rmtree, self.outside)
+        with open(os.path.join(self.outside, "secret.pdf"), "w") as fh:
+            fh.write("x")
+
+    def test_relative_names_are_contained(self):
+        self.assertTrue(o19docs.contained(self.root, "a.pdf"))
+        self.assertTrue(o19docs.contained(self.root, "sub/a.pdf"))
+
+    def test_absolute_and_traversal_escape(self):
+        self.assertFalse(o19docs.contained(
+            self.root, os.path.join(self.outside, "secret.pdf")))
+        self.assertFalse(o19docs.contained(self.root, "../x.pdf"))
+
+    def test_symlink_pointing_outside_escapes(self):
+        os.symlink(self.outside, os.path.join(self.root, "link"))
+        self.assertFalse(o19docs.contained(self.root, "link/secret.pdf"))
+
+    def test_escaping_document_row_is_blocking_not_satisfied(self):
+        rows = [("9", os.path.join(self.outside, "secret.pdf")),
+                ("10", "../../etc/passwd")]
+        missing, empty = o19docs.classify_document_files(rows, self.root)
+        self.assertEqual(len(missing), 2)
+        self.assertIn("escapes", missing[0])
+        self.assertEqual(empty, [])
 
 
 class TestBatchUnescape(unittest.TestCase):
@@ -127,6 +167,9 @@ class TestReconciliationClassification(unittest.TestCase):
         self.assertEqual(orphans, ["orphan.pdf"])
 
 
+NULL_ROWS = []
+
+
 class TestArchiveCsvExport(unittest.TestCase):
 
     def test_exports_tables_with_unescaped_values(self):
@@ -138,6 +181,9 @@ class TestArchiveCsvExport(unittest.TestCase):
                 return [["formONAR"]]
             if "information_schema.COLUMNS" in sql:
                 return [["ID"], ["note"]]
+            if sql.startswith("SELECT * FROM `arch`.`formONAR`") \
+                    and NULL_ROWS:
+                return NULL_ROWS
             return [["1", "line1\\nline2"], ["2", "plain"]]
 
         lines = o19docs.export_archive_csv(q, "o19_archive", out)
@@ -146,6 +192,26 @@ class TestArchiveCsvExport(unittest.TestCase):
             content = fh.read()
         self.assertIn("ID,note", content)
         self.assertIn('"line1\nline2"', content)
+
+
+class TestArchiveCsvNulls(unittest.TestCase):
+
+    def test_batch_null_marker_becomes_empty_field(self):
+        out = tempfile.mkdtemp(prefix="o19docs-csvnull-")
+        self.addCleanup(shutil.rmtree, out)
+
+        def q(sql):
+            if "information_schema.TABLES" in sql:
+                return [["t"]]
+            if "information_schema.COLUMNS" in sql:
+                return [["a"], ["b"]]
+            return [["1", "\\N"], ["\\N", "x\\ty"]]
+        o19docs.export_archive_csv(q, "arch", out)
+        with open(os.path.join(out, "t.csv"), newline="") as fh:
+            text = fh.read()
+        self.assertNotIn("\\N", text)
+        self.assertIn("1,\r\n", text)
+        self.assertIn(",x\ty", text)
 
 
 if __name__ == "__main__":

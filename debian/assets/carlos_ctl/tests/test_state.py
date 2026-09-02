@@ -95,6 +95,26 @@ class TestPristineGate(unittest.TestCase):
         self.assertNotIn("non-pristine", o19import.ACCEPT_CLASSES)
         self.assertNotIn("pristine", " ".join(o19import.ACCEPT_CLASSES))
 
+    def test_merge_tables_take_a_seed_floor_not_an_exact_count(self):
+        # reference seeds grown by INSERT ... SELECT migrations are not
+        # statically countable: more rows is fine, fewer is not
+        counts = self.seeds()
+        merge = [t for t in counts
+                 if o19map_schema.TABLES[t]["class"] == "merge"]
+        if not merge:
+            self.skipTest("no seeded merge table in manifest")
+        counts[merge[0]] += 5
+        self.assertEqual(o19import.pristine_violations(counts), [])
+        counts[merge[0]] = 0
+        v = o19import.pristine_violations(counts)
+        self.assertTrue(any(merge[0] in x and "at least" in x for x in v))
+
+    def test_copy_tables_are_exact(self):
+        counts = self.seeds()
+        counts["provider"] = counts.get("provider", 0) + 1
+        v = o19import.pristine_violations(counts)
+        self.assertTrue(any(x.startswith("provider:") for x in v))
+
     def test_provider_and_security_seeds_are_expected(self):
         # provider/security ARE seeded — the sweep must expect their seed
         # rows rather than demanding zero.
@@ -113,6 +133,57 @@ class TestDiskHeadroom(unittest.TestCase):
         msg = o19import.check_disk_headroom(1 << 60, 0)
         self.assertIsNotNone(msg)
         self.assertIn("insufficient disk", msg)
+
+    def test_documents_tar_counts_on_the_state_volume(self):
+        self.assertIsNone(o19import.check_disk_headroom(1024, 0, 0))
+        msg = o19import.check_disk_headroom(1024, 0, documents_size=1 << 60)
+        self.assertIsNotNone(msg)
+        self.assertIn("state volume", msg)
+
+    def test_uncompressed_size_measures_the_expanded_dump(self):
+        import gzip
+        work = tempfile.mkdtemp(prefix="o19size-")
+        self.addCleanup(shutil.rmtree, work)
+        payload = b"INSERT INTO t VALUES (1);\n" * 20000
+        path = os.path.join(work, "d.sql.gz")
+        with gzip.open(path, "wb") as fh:
+            fh.write(payload)
+        self.assertLess(os.path.getsize(path), len(payload) // 10)
+        self.assertEqual(o19import.uncompressed_size(path), len(payload))
+        plain = os.path.join(work, "d.sql")
+        with open(plain, "wb") as fh:
+            fh.write(payload)
+        self.assertEqual(o19import.uncompressed_size(plain), len(payload))
+
+
+class TestResumeContract(unittest.TestCase):
+    """--resume is the only way to continue recorded state (never implied)."""
+
+    def test_fresh_state_needs_no_flag(self):
+        self.assertIsNone(o19import.require_resume_for_existing_state(
+            {"phases": {}}, resume=False, dry_run=False))
+
+    def test_existing_state_without_resume_is_refused(self):
+        msg = o19import.require_resume_for_existing_state(
+            {"phases": {"stage": {"status": "done"}}}, False, False)
+        self.assertIsNotNone(msg)
+        self.assertIn("--resume", msg)
+        self.assertIn("stage", msg)
+
+    def test_resume_or_dry_run_proceeds(self):
+        state = {"phases": {"stage": {"status": "done"}}}
+        self.assertIsNone(o19import.require_resume_for_existing_state(
+            state, True, False))
+        self.assertIsNone(o19import.require_resume_for_existing_state(
+            state, False, True))
+
+    def test_etl_started_reads_the_ledger(self):
+        from carlos_ctl import o19etl
+        d = tempfile.mkdtemp(prefix="o19resume-")
+        self.addCleanup(shutil.rmtree, d)
+        self.assertFalse(o19import.etl_started(d))
+        o19etl.save_progress(d, {"tables": {}, "admin_provider_no": "7"})
+        self.assertTrue(o19import.etl_started(d))
 
 
 class TestHeadCollations(unittest.TestCase):

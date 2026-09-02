@@ -38,15 +38,25 @@ class `unknown`, which `test_manifest_integrity.py` refuses — classify it in
 `overrides_schema.py` and bump `SCHEMA_MAP_VERSION` (`o19map-N`; deliberately
 not CalVer-shaped so it can't be misread as a CARLOS release version).
 
-`--check` regenerates in memory and exits non-zero on drift (for review).
+`--check` regenerates in memory and exits non-zero on drift (for review);
+it covers both manifest modules and the generated block in
+`o19_preflight.py`. The outputs carry no wall-clock stamp, only the O19
+source commit, so an unchanged input regenerates byte-identical output.
+Credential-bearing stock defaults are never emitted (`SECRET_DEFAULT_KEYS`
+lists the keys instead; the props phase always surfaces them for review).
 
 ## Building the rehearsal fixture
 
 ```bash
 scripts/migration/o19/build-o19-fixture.sh \
     --oscar-src /tmp/oscar19 --out /tmp/o19-inputs \
-    --mysql-cmd mariadb --mysql-arg -uroot --mysql-arg -pSECRET
+    --mysql-cmd mariadb --mysql-arg -uroot --mysql-password-file /root/.o19pw
 ```
+
+The password never goes on the command line (`-pSECRET` is refused): use
+`--mysql-password-file` (exported as `MYSQL_PWD` for the client), a client
+defaults file (`--mysql-arg --defaults-extra-file=FILE`), or a pre-set
+`MYSQL_PWD`.
 
 Creates a **latin1** `o19_fixture` database (init scripts in
 `createdatabase_generic.sh` order, then the vendored `release/demo.sql` demo

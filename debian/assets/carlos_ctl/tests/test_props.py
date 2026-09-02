@@ -135,6 +135,91 @@ class TestTranslateDocpath(unittest.TestCase):
         self.assertIsNone(
             o19props.translate_docpath("/opt/somewhere/else", ROOT))
 
+    def test_traversal_tail_is_refused(self):
+        self.assertIsNone(o19props.translate_docpath(
+            "/var/lib/OscarDocument/oscar/../../../etc/", ROOT))
+        self.assertIsNone(o19props.translate_docpath(
+            "/var/lib/OscarDocument/oscar/billing/../../..", ROOT))
+        # a normalising tail that STAYS inside is fine
+        self.assertEqual(o19props.translate_docpath(
+            "/var/lib/OscarDocument/oscar/billing/./download/", ROOT),
+            ROOT + "/carlos/billing/download/")
+
+
+class TestJavaPropertiesParser(unittest.TestCase):
+
+    def parse(self, text):
+        return dict(o19props.parse_properties_text(text))
+
+    def test_trailing_whitespace_in_values_is_preserved(self):
+        self.assertEqual(self.parse("k=secret  \n"), {"k": "secret  "})
+        self.assertEqual(self.parse("k = v\n"), {"k": "v"})
+
+    def test_whitespace_and_colon_separators(self):
+        self.assertEqual(self.parse("a b\nc:d\ne  =  f\n"),
+                         {"a": "b", "c": "d", "e": "f"})
+
+    def test_line_continuation(self):
+        text = "key=first \\\n    second\nnext=1\n"
+        self.assertEqual(self.parse(text), {"key": "first second",
+                                            "next": "1"})
+        # an ESCAPED backslash at the end does not continue
+        self.assertEqual(self.parse("k=a\\\\\nn=1\n"),
+                         {"k": "a\\", "n": "1"})
+
+    def test_escapes_are_decoded(self):
+        text = "k=a\\tb\\nc\\\\d\\u00e9\\=x\n"
+        self.assertEqual(self.parse(text), {"k": "a\tb\nc\\d\u00e9=x"})
+        self.assertEqual(self.parse("password_group_special = \\! @\\#$\n"),
+                         {"password_group_special": "! @#$"})
+
+    def test_comments_blank_lines_and_last_wins(self):
+        text = "# c\n! d\n\nk=1\nk=2\n"
+        parsed = o19props.parse_properties_text(text)
+        self.assertEqual(parsed, [("k", "2")])
+
+    def test_fragment_round_trips_special_values(self):
+        for value in ("a\\b", "tab\there", " lead", "trail ", "x=y:z",
+                      "multi\nline"):
+            text = "k=" + o19props.escape_property_value(value) + "\n"
+            self.assertEqual(self.parse(text), {"k": value}, repr(value))
+
+
+class TestSecretDefaultsAndDispositions(unittest.TestCase):
+
+    def test_secret_default_keys_are_not_in_the_baseline(self):
+        self.assertTrue(o19map_props.SECRET_DEFAULT_KEYS)
+        for key in o19map_props.SECRET_DEFAULT_KEYS:
+            self.assertNotIn(key, o19map_props.O19_DEFAULTS)
+        self.assertIn("hcv.service.pass", o19map_props.SECRET_DEFAULT_KEYS)
+        self.assertIn("db_password", o19map_props.SECRET_DEFAULT_KEYS)
+
+    def test_stock_credential_is_always_surfaced(self):
+        # even a value identical to the O19 stock default cannot be
+        # baseline-skipped: the default is not shipped, so it is flagged
+        result = o19props.translate_all(
+            [("hcv.service.pass", "Password0!")], documents_root=ROOT)
+        rows = {k: (d, n) for k, d, n in result["rows"]}
+        self.assertEqual(rows["hcv.service.pass"][0], "carry-secret")
+        self.assertIn("stock", rows["hcv.service.pass"][1])
+        self.assertIn(("hcv.service.pass", "Password0!"), result["fragment"])
+
+    def test_empty_credential_is_not_carried(self):
+        result = o19props.translate_all([("email.password", "")],
+                                        documents_root=ROOT)
+        self.assertEqual(result["fragment"], [])
+        self.assertEqual(result["rows"], [])
+
+    def test_recyclebin_boolean_and_mcedt_checkpoint_carry(self):
+        result = o19props.translate_all(
+            [("INCOMINGDOCUMENT_RECYCLEBIN", "false"),
+             ("mcedt.last.downloadedID.file", ".clinicCheckpoint")],
+            documents_root=ROOT)
+        fragment = dict(result["fragment"])
+        self.assertEqual(fragment["INCOMINGDOCUMENT_RECYCLEBIN"], "false")
+        self.assertEqual(fragment["mcedt.last.downloadedID.file"],
+                         ".clinicCheckpoint")
+
 
 if __name__ == "__main__":
     unittest.main()

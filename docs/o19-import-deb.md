@@ -16,9 +16,15 @@ Copy ONE file to the OSCAR 19 server and run it against the live database:
 ```bash
 scp /usr/lib/carlos-emr/carlos_ctl/o19_preflight.py o19-server:
 ssh o19-server python3 o19_preflight.py --db oscar \
-    --mysql-cmd mysql --mysql-arg -uroot --mysql-arg -p \
+    --mysql-cmd mysql --mysql-arg=-uroot --mysql-password-file /root/.o19pw \
     --properties /path/to/oscar.properties --json preflight.json
 ```
+
+Client options that start with `-` need the `--mysql-arg=VALUE` form. The
+password goes through `--mysql-password-file` (handed to the client as
+`MYSQL_PWD`) or a client defaults file
+(`--mysql-arg=--defaults-extra-file=/root/.my.cnf`); a bare interactive
+`-p` is refused because every check runs its own client process.
 
 Exit 0 = go. Exit 1 = go, once the listed `--accept` sign-offs are agreed
 with the clinic (data in removed modules becomes archive-only). Exit 2 =
@@ -67,10 +73,22 @@ sudo carlos-ctl import-o19 \
     [--accept CLASS ...]        # the sign-offs preflight listed
 ```
 
-Phases (resumable with `--resume`; state under
-`/var/lib/carlos-emr/o19-import/`): stock-deploy gate → staged restore →
-preflight → pre-import backup → data copy with row-parity gate → documents
-restore with blocking reconciliation → properties translation → verify.
+Phases (state under `/var/lib/carlos-emr/o19-import/`): stock-deploy gate
+→ staged restore → preflight → pre-import backup → data copy with
+row-parity gate → documents restore with blocking reconciliation →
+properties translation → verify. A rerun over existing state requires
+`--resume`; it is never continued implicitly. Once the data copy has
+started, a resumed run re-checks the schema, replica and disk gates but not
+the emptiness sweep (the target is mid-import by design) — the row-parity
+gate still verifies the outcome.
+
+Clinic-defined lookup lists, waiting-list criteria and similar merge-class
+rows may receive new ids where a CARLOS seed already holds the old one;
+their dependent rows are remapped through `o19_archive.<table>__idmap`, and
+the report itemizes every table whose ids changed. Tables and columns the
+manifest does not know are never dropped: whole tables are archived under
+`o19_archive`, unmapped columns of known tables are shadow-captured as
+`<table>__unknown_cols`.
 
 What the import does with credentials: every clinic login keeps working
 (legacy password hashes upgrade to bcrypt on first login) but **all users

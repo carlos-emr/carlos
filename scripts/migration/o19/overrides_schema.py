@@ -111,6 +111,21 @@ CLASS_MERGE = {
     "measurementGroupStyle": ["groupName"],
 }
 
+# Child tables whose foreign key points at a merge-class parent with a
+# surrogate PK: appended parent rows get fresh ids, so the child reads its
+# key through the parent's o19_archive.<parent>__idmap (see o19etl).
+# child -> {column: parent}. Parents are processed before children.
+FK_REMAP = {
+    "LookupListItem": {"lookupListId": "LookupList"},
+    "criteria_type_option": {"CRITERIA_TYPE_ID": "criteria_type"},
+    "criteria": {"CRITERIA_TYPE_ID": "criteria_type"},
+    "consultationRequests": {"serviceId": "consultationServices"},
+    "serviceSpecialists": {"serviceId": "consultationServices"},
+    "tickler": {"category_id": "tickler_category"},
+    # measurementType.validation is a varchar holding validations.id
+    "measurementType": {"validation": "validations"},
+}
+
 # --- O19-only table dispositions ------------------------------------------
 
 ARCHIVE_PATIENT = {

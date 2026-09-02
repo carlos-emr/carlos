@@ -14,11 +14,16 @@
 # Usage:
 #   build-o19-fixture.sh --oscar-src /path/to/oscar --out /path/out \
 #       [--db o19_fixture] [--with-olis] [--mysql-cmd mariadb] \
-#       [--mysql-arg -uroot] [--mysql-arg -pSECRET] ...
+#       [--mysql-arg -uroot] [--mysql-arg --host=127.0.0.1] ... \
+#       [--mysql-password-file /path/to/passfile]
 #
 # --with-olis loads olis/olisinit.sql (not in the stock createdatabase order,
 # but present on real OLIS sites; exercises the OLIS-dropped path).
-# Repeatable --mysql-arg values pass client credentials/host through.
+# Repeatable --mysql-arg values pass client options through. The password
+# never travels on the command line (visible in process listings and shell
+# history): give it via --mysql-password-file (exported as MYSQL_PWD for
+# the client and dump tools only), a client defaults file
+# (--mysql-arg --defaults-extra-file=FILE), or an already-set MYSQL_PWD.
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,6 +38,7 @@ while [ $# -gt 0 ]; do
     --with-olis) WITH_OLIS=1; shift ;;
     --mysql-cmd) MYSQL_CMD="$2"; shift 2 ;;
     --mysql-arg) MYSQL_ARGS+=("$2"); shift 2 ;;
+    --mysql-password-file) MYSQL_PWD="$(head -c 4096 "$2" | tr -d '\r\n')"; export MYSQL_PWD; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -45,8 +51,15 @@ SQLDIR="$OSCAR_SRC/database/mysql"
   echo "ERROR: $OSCAR_SRC is not an OSCAR checkout (no database/mysql/oscarinit.sql)" >&2
   exit 1
 }
-case "$DB" in (*[!A-Za-z0-9_]*|"")
-  echo "ERROR: invalid database name '$DB'" >&2; exit 1 ;;
+for a in ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"}; do
+  case "$a" in
+    -p?*|--password=*)
+      echo "ERROR: do not pass the password in argv ($a) — use --mysql-password-file" >&2
+      exit 2 ;;
+  esac
+done
+case "$DB" in
+  (*[!A-Za-z0-9_]*|"") echo "ERROR: invalid database name '$DB'" >&2; exit 1 ;;
 esac
 
 run_sql() { "$MYSQL_CMD" ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"} "$@"; }

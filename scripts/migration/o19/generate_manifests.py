@@ -32,7 +32,6 @@ The CARLOS migration directory is only ever READ.
 from __future__ import annotations
 
 import argparse
-import datetime
 import importlib.util
 import os
 import re
@@ -298,8 +297,8 @@ class Schema:
                         cols[pm.group(1)] = re.sub(
                             r"\s+", " ", pm.group(2)).strip()
                 continue
-            m = re.match(r"add\s+(?:column\s+)?`?(\w+)`?\s+(.+)", clause,
-                         re.I | re.S)
+            m = re.match(r"add\s+(?:column\s+)?(?:if\s+not\s+exists\s+)?"
+                         r"`?(\w+)`?\s+(.+)", clause, re.I | re.S)
             if m and m.group(1).lower() not in COLUMN_KEYWORDS:
                 cols[m.group(1)] = re.sub(r"\s+", " ", m.group(2)).strip()
                 continue
@@ -415,6 +414,24 @@ def load_schema(files: List[Path],
     return schema
 
 
+def flyway_version(path: Path) -> Tuple[int, ...]:
+    """Numeric Flyway version of V<major>[.<minor>...]__desc.sql: the
+    migrations must be applied in VERSION order (V1.0.10 after V1.0.9),
+    which a lexicographic sort gets wrong."""
+    m = re.match(r"V(\d+(?:\.\d+)*)__", path.name)
+    if not m:
+        raise SystemExit("not a Flyway migration file name: {}".format(path))
+    return tuple(int(x) for x in m.group(1).split("."))
+
+
+def carlos_migration_files(dirs: List[Path]) -> List[Path]:
+    """All migration files of the given directories as ONE list in Flyway
+    version order (the baseline V1 first, province and common deltas
+    interleaved by version exactly as Flyway applies them)."""
+    files = [f for d in dirs for f in d.glob("V*__*.sql")]
+    return sorted(files, key=lambda f: (flyway_version(f), f.name))
+
+
 def expand_sources(base: Path, patterns: List[str]) -> List[Path]:
     out: List[Path] = []
     for pat in patterns:
@@ -435,16 +452,38 @@ def expand_sources(base: Path, patterns: List[str]) -> List[Path]:
 # --------------------------------------------------------------------------
 
 def parse_properties(path: Path) -> Dict[str, str]:
-    """Active (uncommented) key=value pairs; last occurrence wins."""
-    out: Dict[str, str] = {}
-    for raw in path.read_text(encoding="latin-1").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or line.startswith("!"):
-            continue
-        m = re.match(r"([A-Za-z0-9_.\-]+)\s*[=:]\s*(.*)$", line)
-        if m:
-            out[m.group(1)] = m.group(2).strip()
-    return out
+    """Active key=value pairs with java.util.Properties semantics (the same
+    parser the props phase uses, so the baseline diff compares like with
+    like); last occurrence wins."""
+    sys.path.insert(0, str(REPO_ROOT / "debian" / "assets"))
+    from carlos_ctl.o19props import parse_properties_text
+    return dict(parse_properties_text(
+        path.read_text(encoding="latin-1")))
+
+
+# keys whose stock value is a credential. Their defaults are NEVER emitted
+# into the shipped manifest (a plaintext password in a package is a
+# finding, whatever its origin); the props phase always surfaces such a
+# key for review instead of baseline-diffing it.
+SECRET_KEY_RE = re.compile(
+    r"(^|[._])(password|passwd|pass|secret|api_key|apikey|conformancekey|"
+    r"token|pgp_key|user|username|userid)$", re.I)
+
+
+def is_secret_key(key: str, ov_props=None) -> bool:
+    """Credential-shaped key names (passwords, keys, tokens, and the account
+    names that pair with them). Decided by NAME, not by disposition: a
+    carry-secret prefix such as `email.` also covers plain settings
+    (host, port) whose stock defaults are harmless to compare."""
+    return SECRET_KEY_RE.search(key) is not None
+
+
+def split_secret_defaults(defaults: Dict[str, str], ov_props
+                          ) -> Tuple[Dict[str, str], List[str]]:
+    """(defaults without secret keys, sorted secret key names)."""
+    kept = {k: v for k, v in defaults.items() if not is_secret_key(k, ov_props)}
+    secret = sorted(k for k in defaults if is_secret_key(k, ov_props))
+    return kept, secret
 
 
 # --------------------------------------------------------------------------
@@ -478,6 +517,7 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
     drop = set(ov.DROP)
     renames = dict(getattr(ov, "RENAMES", {}))          # table -> {target: source}
     value_exprs = dict(getattr(ov, "VALUE_EXPRS", {}))  # table -> {target: expr}
+    fk_remap = dict(getattr(ov, "FK_REMAP", {}))        # child -> {col: parent}
     b3 = set(ov.B3_COLUMNS)                             # {(table, col)}
     b3_exprs = dict(getattr(ov, "B3_NONDEFAULT_EXPRS", {}))
     chunk_tables = set(ov.CHUNK_TABLES)
@@ -541,6 +581,16 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
             entry["dropped"] = dropped
         if t in value_exprs:
             entry["value_exprs"] = dict(value_exprs[t])
+        if t in fk_remap:
+            for col, parent in fk_remap[t].items():
+                if col not in cols:
+                    raise SystemExit("fk_remap {}.{} is not a copied column"
+                                     .format(t, col))
+                if parent not in merge_keys or parent not in carlos.tables:
+                    raise SystemExit(
+                        "fk_remap {}.{} names {} which is not a merge-class "
+                        "table".format(t, col, parent))
+            entry["fk_remap"] = dict(fk_remap[t])
         if t in chunk_tables:
             pk = carlos.pks.get(t) or o19.pks.get(t) or []
             if len(pk) != 1:
@@ -633,14 +683,18 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
     out.append('"""OSCAR 19 -> CARLOS schema manifest (Ontario profile)."""\n')
     out.append("SCHEMA_MAP_VERSION = {!r}".format(ov.SCHEMA_MAP_VERSION))
     out.append("O19_PROFILE = 'on'")
-    out.append("O19_SOURCE_COMMIT = {!r}".format(o19_commit))
-    out.append("GENERATED_AT = {!r}\n".format(
-        datetime.date.today().isoformat()))
+    # provenance is the O19 commit only — no wall-clock stamp, so --check
+    # compares content, not the day it was generated
+    out.append("O19_SOURCE_COMMIT = {!r}\n".format(o19_commit))
     out.append("TABLES = " + _fmt(tables) + "\n")
     out.append("CARLOS_COLUMNS = " + _fmt(carlos_columns) + "\n")
     out.append("# rows the CARLOS Flyway migrations seed into copy/merge-class"
-               " tables (P0 pristine\n# sweep compares live counts against"
-               " these; every other copy-class table must be empty)")
+               " tables, counted from\n# literal VALUES tuples. The P0 pristine"
+               " sweep requires copy-class tables to hold\n# EXACTLY these"
+               " rows (else none) and merge-class tables AT LEAST these rows:"
+               " merge\n# tables are CARLOS reference seeds that later"
+               " migrations may also grow via\n# INSERT ... SELECT, which no"
+               " static count can see; clinical data never lives there.")
     out.append("SEED_ROW_COUNTS = " + _fmt(seeded) + "\n")
     out.append("CARLOSDOC_SEED_DELETES = "
                + _fmt(list(ov.CARLOSDOC_SEED_DELETES)) + "\n")
@@ -650,14 +704,20 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
 
 
 def emit_props_module(o19_defaults, ov) -> str:
+    defaults, secret_keys = split_secret_defaults(o19_defaults, ov)
     out = [GENERATED_HEADER]
     out.append('"""OSCAR 19 -> CARLOS properties manifest."""\n')
     out.append("PROPS_MAP_VERSION = {!r}\n".format(ov.PROPS_MAP_VERSION))
     out.append("# active keys of the stock O19 oscar_mcmaster.properties —"
                " the baseline-diff\n# reference: clinic keys equal to these"
                " defaults are ignored (CARLOS defaults win)")
-    out.append("O19_DEFAULTS = " + _fmt(dict(sorted(o19_defaults.items())))
+    out.append("O19_DEFAULTS = " + _fmt(dict(sorted(defaults.items())))
                + "\n")
+    out.append("# stock keys whose value is a credential: their defaults are"
+               " deliberately not\n# shipped — the props phase always"
+               " surfaces these for review instead of\n# baseline-diffing"
+               " them")
+    out.append("SECRET_DEFAULT_KEYS = " + _fmt(secret_keys) + "\n")
     out.append("KEYS = " + _fmt(dict(sorted(ov.KEYS.items()))) + "\n")
     out.append("PREFIX_RULES = " + _fmt(list(ov.PREFIX_RULES)) + "\n")
     return "\n".join(out) + "\n"
@@ -722,13 +782,15 @@ def main() -> int:
 
     o19 = load_schema(expand_sources(oscar, O19_SQL_SOURCES),
                       if_not_exists_mode="union")
-    carlos_files = sorted((MIGRATION_DIR / "common").glob("*.sql")) + \
-        sorted((MIGRATION_DIR / "on").glob("*.sql"))
+    carlos_files = carlos_migration_files(
+        [MIGRATION_DIR / "common", MIGRATION_DIR / "on"])
     carlos = load_schema(carlos_files)
 
+    # comments are stripped first: a `-- note` between VALUES tuples would
+    # otherwise end the tuple walk early and under-count the seed
     seed_counts: Dict[str, int] = {}
     for f in carlos_files:
-        for t, n in count_insert_rows(read_sql(f)).items():
+        for t, n in count_insert_rows(strip_line_comments(read_sql(f))).items():
             seed_counts[t] = seed_counts.get(t, 0) + n
 
     commit = "unknown"
@@ -757,15 +819,33 @@ def main() -> int:
     props_out = emit_props_module(o19_defaults, ov_props)
     preflight_block = emit_preflight_data(tables, ov_schema)
 
+    for t, e in tables.items():
+        for col, parent in e.get("fk_remap", {}).items():
+            if not tables.get(parent, {}).get("surrogate_pk"):
+                raise SystemExit(
+                    "fk_remap {}.{} -> {}: the parent has no surrogate PK "
+                    "to remap".format(t, col, parent))
+
     targets = [
         (CTL_DIR / "o19map_schema.py", schema_out),
         (CTL_DIR / "o19map_props.py", props_out),
     ]
+    preflight = CTL_DIR / "o19_preflight.py"
     if args.check:
         rc = 0
         for path, content in targets:
             if not path.is_file() or path.read_text(encoding="utf-8") != content:
                 print("DRIFT: {} differs from regenerated content".format(path))
+                rc = 1
+        # the embedded preflight data is generated too — drift there is
+        # exactly the stale-classification case --check exists to catch
+        if preflight.is_file():
+            text = preflight.read_text(encoding="utf-8")
+            b, e = text.find(MARKER_BEGIN), text.find(MARKER_END)
+            current = text[b:e + len(MARKER_END)] if b != -1 and e > b else ""
+            if current != preflight_block:
+                print("DRIFT: generated-data block in {} differs".format(
+                    preflight))
                 rc = 1
         return rc
 
@@ -773,7 +853,6 @@ def main() -> int:
         path.write_text(content, encoding="utf-8")
         print("wrote {}".format(path))
 
-    preflight = CTL_DIR / "o19_preflight.py"
     if preflight.is_file():
         if rewrite_markers(preflight, preflight_block):
             print("rewrote generated-data block in {}".format(preflight))

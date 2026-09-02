@@ -4,7 +4,11 @@
 
 Phase pipeline (docs/oscar19-to-carlos-migration-plan.md §9a; each phase
 records its completion + input digests in state.json under
-/var/lib/carlos-emr/o19-import/ and is resumable with --resume):
+/var/lib/carlos-emr/o19-import/). A rerun over existing state REQUIRES
+--resume (or --cleanup); nothing is silently continued. Once the ETL has
+started, the target is mid-import by design, so a resumed run re-checks
+the schema/replica/disk gates but not the emptiness sweep P0 already
+passed:
 
   P0 check-pristine  stock-initial-deploy gate (manifest-driven emptiness
                      sweep; hard refusal, no --accept; --dev-target
@@ -130,16 +134,26 @@ def make_query(mariadb_args: Optional[List[str]]) -> Callable:
 def pristine_violations(counts: Dict[str, int]) -> List[str]:
     """Pure gate logic: live row counts vs the manifest's expectations.
 
-    counts covers every copy-class table that exists on the target. Seeded
-    tables must hold exactly their Flyway seed count; every other
-    copy-class table must be empty. Returns human-readable violations.
+    counts covers every copy/merge-class table that exists on the target.
+    Copy-class tables (where clinical and demo data live) must hold
+    EXACTLY their counted Flyway seed rows, else be empty. Merge-class
+    tables are CARLOS reference seeds (statuses, lookup lists, measurement
+    groups) that migrations may also populate with INSERT ... SELECT — not
+    statically countable — so they must hold AT LEAST the counted seeds.
+    Returns human-readable violations.
     """
     violations = []
     seeds = o19map_schema.SEED_ROW_COUNTS
     for table in sorted(counts):
         expected = seeds.get(table, 0)
         actual = counts[table]
-        if actual != expected:
+        cls = o19map_schema.TABLES.get(table, {}).get("class")
+        if cls == "merge":
+            if actual < expected:
+                violations.append(
+                    "{0}: {1} row(s), expected at least {2} (Flyway "
+                    "reference seed)".format(table, actual, expected))
+        elif actual != expected:
             violations.append(
                 "{0}: {1} row(s), expected {2} (Flyway seed)"
                 .format(table, actual, expected))
@@ -174,12 +188,39 @@ def _statvfs_nearest(path: str) -> os.statvfs_result:
             p = parent
 
 
-def check_disk_headroom(dump_size: int, bundle_size: int) -> Optional[str]:
-    """None if fine, else a message. Staging needs roughly dump x 2.5
-    (uncompressed restore + archive schema), plus bundle extraction x 2."""
-    needed = int(dump_size * 2.5) + bundle_size * 2
-    for label, path in (("database volume", "/var/lib/mysql"),
-                        ("state volume", STATE)):
+def uncompressed_size(path: str) -> int:
+    """Exact byte size of a dump once decompressed (a streamed gzip pass
+    for .gz — one read of the file; a gzip trailer only holds the size
+    modulo 4 GiB, which is useless for exactly the dumps that matter)."""
+    if not path.endswith(".gz"):
+        return os.path.getsize(path)
+    total = 0
+    proc = subprocess.Popen(["gzip", "-dc", path],          # nosec B603
+                            stdout=subprocess.PIPE)
+    try:
+        while True:
+            chunk = proc.stdout.read(1 << 20)
+            if not chunk:
+                break
+            total += len(chunk)
+    finally:
+        proc.stdout.close()
+    if proc.wait() != 0:
+        die("cannot decompress {0} (corrupt gzip?)".format(path))
+    return total
+
+
+def check_disk_headroom(dump_bytes: int, bundle_size: int,
+                        documents_size: int = 0) -> Optional[str]:
+    """None if fine, else a message. dump_bytes is the UNCOMPRESSED dump
+    size: the database volume needs roughly 2.5x that (staging restore +
+    the copy into the target + archive schema); the state volume needs
+    the bundle expanded (x2) plus the documents tar extracted (x2)."""
+    needs = (("database volume", "/var/lib/mysql", int(dump_bytes * 2.5)),
+             ("state volume", STATE, bundle_size * 2 + documents_size * 2))
+    for label, path, needed in needs:
+        if needed <= 0:
+            continue
         st = _statvfs_nearest(path)
         free = st.f_bavail * st.f_frsize
         if free < needed:
@@ -187,6 +228,13 @@ def check_disk_headroom(dump_size: int, bundle_size: int) -> Optional[str]:
                     "~{3} MB needed".format(
                         label, path, free // 1048576, needed // 1048576))
     return None
+
+
+def etl_started(state_dir: str) -> bool:
+    """True once the ETL has written anything to the target (the progress
+    ledger exists with a seed step or a table entry)."""
+    progress = o19etl.load_progress(state_dir)
+    return bool(progress.get("admin_provider_no") or progress.get("tables"))
 
 
 def run_p0(ctx) -> None:
@@ -205,7 +253,13 @@ def run_p0(ctx) -> None:
         die("this database server has replicas attached — the import's "
             "binlog-off bulk copy is not replica-safe. Detach them first.")
 
-    headroom = check_disk_headroom(ctx["dump_size"], ctx.get("bundle_size", 0))
+    if not phase_done(ctx["state"], "stage"):
+        log("measuring the dump's uncompressed size for the disk check ...")
+        dump_bytes = uncompressed_size(ctx["dump"])
+    else:
+        dump_bytes = ctx["dump_size"]  # already restored; only the copy left
+    headroom = check_disk_headroom(dump_bytes, ctx.get("bundle_size", 0),
+                                   ctx.get("documents_size", 0))
     if headroom:
         die(headroom)
 
@@ -214,6 +268,18 @@ def run_p0(ctx) -> None:
         if rc != 0:
             die("flyway validate failed — the carlos schema does not match "
                 "the deployed application (run carlos-ctl db-migrate first)")
+
+    if ctx.get("resume") and phase_done(ctx["state"], "check-pristine") \
+            and etl_started(ctx["state_dir"]):
+        # the sweep passed before the ETL began writing; the target is
+        # mid-import by design now, so re-sweeping would refuse every
+        # legitimate resume (the row-parity gate still verifies the result)
+        log("resume: pristine gate passed at {0}; the target is mid-import "
+            "— emptiness sweep not repeated".format(
+                ctx["state"]["phases"]["check-pristine"].get("at")))
+        report_append(ctx["state_dir"], "P0 check-pristine",
+                      "resumed: sweep passed on the original run")
+        return
 
     counts = gather_copy_counts(query, ctx["target_db"])
     violations = pristine_violations(counts)
@@ -237,10 +303,16 @@ def run_p0(ctx) -> None:
         else:
             die(text)
     report_append(ctx["state_dir"], "P0 check-pristine",
-                  "target {0}: {1} copy-class tables checked; "
-                  "pristine={2}{3}".format(
+                  "target {0}: {1} copy/merge-class tables checked (copy: "
+                  "exact seed rows or empty; merge: at least the reference "
+                  "seeds); pristine={2}{3}{4}".format(
                       ctx["target_db"], len(counts), not violations,
-                      " (DEV TARGET — sweep advisory only)" if dev else ""))
+                      " (DEV TARGET — sweep advisory only)" if dev else "",
+                      ("\n  " + "\n  ".join(violations[:25]))
+                      if violations else ""))
+    if not ctx.get("dry_run"):
+        mark_done(ctx["state_dir"], ctx["state"], "check-pristine",
+                  pristine=not violations, dev_target=dev)
 
 
 # --------------------------------------------------------------------------
@@ -266,6 +338,14 @@ def run_p1(ctx) -> None:
         if not ctx["restage"]:
             die("a different dump was already staged — pass --restage to "
                 "drop {0} and restore this one".format(STAGING_SCHEMA))
+    if ctx["restage"] and etl_started(ctx["state_dir"]):
+        die("the ETL already copied from the previously staged dump into "
+            "the target — restaging a different dump now would mix two "
+            "sources. Restore the pre-import snapshot and start over.")
+    if ctx["restage"]:
+        progress = o19etl._progress_path(ctx["state_dir"])
+        if os.path.exists(progress):
+            os.unlink(progress)
 
     gz = dump.endswith(".gz")
     opener = ["gzip", "-dc", dump] if gz else ["cat", dump]
@@ -296,18 +376,32 @@ def run_p1(ctx) -> None:
     sink = subprocess.Popen(restore_argv,                    # nosec B603
                             stdin=subprocess.PIPE)
     tail = b""
+    broken = False
     try:
         while True:
             chunk = src.stdout.read(1 << 20)
             if not chunk:
                 break
-            sink.stdin.write(chunk)
+            try:
+                sink.stdin.write(chunk)
+            except BrokenPipeError:
+                # the client died on a bad statement: stop feeding it, let
+                # both children be reaped and report through rc below
+                broken = True
+                break
             tail = (tail + chunk)[-8192:]
     finally:
         src.stdout.close()
-        sink.stdin.close()
+        try:
+            sink.stdin.close()
+        except BrokenPipeError:
+            broken = True
+    if broken and src.poll() is None:
+        src.terminate()
     src.wait()
     rc = sink.wait()
+    if broken and rc == 0:
+        rc = 1
     if src.returncode != 0:
         query("DROP DATABASE IF EXISTS `{0}`".format(STAGING_SCHEMA))
         die("reading the dump failed (corrupt archive?)")
@@ -437,6 +531,16 @@ def make_etl_query(base_argv: List[str]) -> Callable:
     return query
 
 
+def _row_parity(ctx):
+    """Parity with the exact break-glass delta (the admin identity the ETL
+    recorded in its ledger)."""
+    progress = o19etl.load_progress(ctx["state_dir"])
+    return o19etl.row_parity(ctx["query"], STAGING_SCHEMA, ctx["target_db"],
+                             admin_user=ctx.get("admin_user"),
+                             admin_provider_no=progress.get(
+                                 "admin_provider_no"))
+
+
 def run_p4(ctx) -> None:
     if phase_done(ctx["state"], "etl"):
         log("etl: already complete — skipping")
@@ -444,6 +548,8 @@ def run_p4(ctx) -> None:
     ctx["query_etl"] = make_etl_query(ctx["query"].base_argv)
     ctx["src_schema"] = STAGING_SCHEMA
     ctx["archive_schema"] = ARCHIVE_SCHEMA
+    ctx["dump_sha256"] = ctx["state"].get("phases", {}).get(
+        "stage", {}).get("dump_sha256")
     ctx["report"] = lambda body: report_append(ctx["state_dir"], "P4 etl",
                                                body)
     log("etl: copying clinic data into '{0}' (manifest {1}) ..."
@@ -454,8 +560,7 @@ def run_p4(ctx) -> None:
         die("ETL aborted: {0}\nFix the cause and re-run with --resume — "
             "chunked tables continue from their checkpoint.".format(exc))
 
-    ok, bad = o19etl.row_parity(ctx["query"], STAGING_SCHEMA,
-                                ctx["target_db"])
+    ok, bad = _row_parity(ctx)
     report_append(ctx["state_dir"], "P4 row parity",
                   "{0} table(s) match; {1} mismatch\n".format(
                       len(ok), len(bad))
@@ -503,7 +608,7 @@ def run_p7(ctx) -> None:
     problems: List[str] = []
     lines: List[str] = []
 
-    ok, bad = o19etl.row_parity(query, src, dst)
+    ok, bad = _row_parity(ctx)
     lines.append("row parity: {0} table(s) match".format(len(ok)))
     problems.extend(bad)
 
@@ -637,7 +742,9 @@ def _parser(prog: str, import_mode: bool) -> argparse.ArgumentParser:
         ap.add_argument("--dry-run", action="store_true",
                         help="run P0-P2 + reports only; no writes beyond "
                              "the throwaway staging schema")
-        ap.add_argument("--resume", action="store_true")
+        ap.add_argument("--resume", action="store_true",
+                        help="continue a previous run from its recorded "
+                             "state (required whenever state exists)")
         ap.add_argument("--restage", action="store_true",
                         help="drop and re-restore the staging schema")
         ap.add_argument("--cleanup", action="store_true",
@@ -729,13 +836,29 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
         "documents": inputs["documents"],
         "properties": inputs["properties"],
         "dump_size": os.path.getsize(inputs["dump"]) if inputs["dump"] else 0,
+        "documents_size": (os.path.getsize(inputs["documents"])
+                           if inputs.get("documents") else 0),
         "bundle_size": (os.path.getsize(args.bundle)
                         if getattr(args, "bundle", None) else 0),
         "target_db": _target_db(),
         "restage": getattr(args, "restage", False),
+        "resume": getattr(args, "resume", False),
         "dry_run": getattr(args, "dry_run", False),
         "admin_user": getattr(args, "admin_user", None),
     }
+
+
+def require_resume_for_existing_state(state: Dict, resume: bool,
+                                      dry_run: bool) -> Optional[str]:
+    """The message refusing a rerun over recorded state without --resume
+    (None when the run may proceed). Pure, for the state tests."""
+    phases = state.get("phases", {})
+    if not phases or resume or dry_run:
+        return None
+    done = ", ".join(sorted(phases))
+    return ("a previous import left state behind ({0}). Pass --resume to "
+            "continue it, or --cleanup after a verified import; state is "
+            "never continued implicitly.".format(done))
 
 
 def _target_db() -> str:
@@ -772,6 +895,15 @@ def cmd_import_o19(argv) -> int:
     if not args.dry_run and not args.admin_user:
         die("--admin-user is required for a real import (the break-glass "
             "administrator created before the seeded clinician is removed)")
+    if args.admin_user:
+        try:
+            o19etl.validate_admin_user(args.admin_user)
+        except ValueError as exc:
+            die(str(exc))
+    refusal = require_resume_for_existing_state(
+        load_state(STATE_DIR), args.resume, args.dry_run)
+    if refusal:
+        die(refusal)
 
     ctx = _make_ctx(args, import_mode=True)
     log("import-o19 (experimental) — manifest {0}, province {1}{2}".format(

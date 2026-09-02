@@ -140,11 +140,13 @@ KEYS = {
     "hl7_a04_fail_dir": {"d": "translate", "t": "docpath"},
     "l7_a04_sent_dir": {"d": "translate", "t": "docpath"},
     "INCOMINGDOCUMENT_DIR": {"d": "translate", "t": "docpath"},
-    "INCOMINGDOCUMENT_RECYCLEBIN": {"d": "translate", "t": "docpath"},
+    # a boolean (recycle bin on/off), not a path — CARLOS reads it the same
+    "INCOMINGDOCUMENT_RECYCLEBIN": {"d": "carry"},
     "eform_image": {"d": "translate", "t": "docpath"},
     "faxLogo": {"d": "translate", "t": "docpath"},
     "HOME_DIR": {"d": "translate", "t": "docpath"},
-    "mcedt.last.downloadedID.file": {"d": "translate", "t": "docpath"},
+    # a bare checkpoint FILENAME (default .LastDownloadedID), not a path
+    "mcedt.last.downloadedID.file": {"d": "carry"},
     "oscarMeasurement_css": {"d": "translate", "t": "docpath"},
     "drugref_url": {"d": "translate", "t": "drugref"},
     # --- deployment-owned (refused) ---------------------------------------

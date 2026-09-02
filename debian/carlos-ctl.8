@@ -220,7 +220,9 @@ sign-off flags, recorded in the report.
 .B --dry-run
 stages and reports without writing to the EMR schema;
 .B --resume
-continues an interrupted run;
+continues an interrupted run (required whenever a previous run left state
+behind — state is never continued implicitly; once the data copy has
+started, only the emptiness sweep is skipped on resume);
 .B --cleanup
 (after verification) drops the staging schema and keeps the o19_archive
 schema and reports. See docs/oscar19-to-carlos-migration-plan.md in the
