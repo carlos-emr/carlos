@@ -170,8 +170,9 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // signature for a caller without _rx write on the patient, and reporting that as "not
         // signed" would send a read-only user to sign a script that IS signed (and that they could
         // not sign anyway). Only a caller who may already READ the script gets that specific
-        // message; anyone else falls through to the generic refusal so that script ids cannot be
-        // enumerated through the difference in wording.
+        // message. A caller WITHOUT read falls through to the "not signed" reply below — the very
+        // same answer an id that matches no prescription produces — so the wording cannot be used
+        // to tell an existing script from one that does not exist.
         if (isFax && isFaxDeniedByPrivilege(prescription, loggedInInfo)) {
             res.setContentType("text/html");
             res.getWriter().println("<div id='fax-failure'><h3>Error: you do not have permission to fax this prescription.</h3></div>");
@@ -851,11 +852,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     }
 
     /**
-     * The blank-line-separated blocks of a posted {@code rx} body. Only a blank or whitespace-only
-     * line (which includes a stray {@code \r} from CRLF input) separates blocks; a one-character
-     * line such as a quantity of "1" is content and stays inside its block.
-     */
-    /**
      * One drug's fax block, with the record's own line breaks restored.
      *
      * <p>{@code getFullOutLine()} flattens {@code special + "\n" + extra} by joining every line
@@ -896,6 +892,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         return lines.isEmpty() ? flat : String.join(newline, lines);
     }
 
+    /**
+     * The blank-line-separated blocks of a posted {@code rx} body. Only a blank or whitespace-only
+     * line (which includes a stray {@code \r} from CRLF input) separates blocks; a one-character
+     * line such as a quantity of "1" is content and stays inside its block.
+     */
     static List<String> splitRxBlocks(String rx, String newline) {
         List<String> blocks = new ArrayList<>();
         if (rx == null) {
@@ -964,8 +965,12 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     /**
      * As {@link #isFaxDeniedByPrivilege(HttpServletRequest, LoggedInInfo)} with the prescription
      * already loaded. True only for a caller who holds {@code _rx} READ but not WRITE for the
-     * prescription's patient: a caller without READ gets the generic refusal, so the permission
-     * wording never reveals whether a script id exists.
+     * prescription's patient.
+     *
+     * <p>A caller without READ answers {@code false} here and is therefore told the prescription is
+     * "not signed" — identical to the answer for a {@code scriptId} that matches no prescription at
+     * all, since both reach that reply with no signature resolved. That collision is deliberate: it
+     * is what stops the permission wording from revealing whether a script id exists.</p>
      */
     boolean isFaxDeniedByPrivilege(Prescription prescription, LoggedInInfo loggedInInfo) {
         if (loggedInInfo == null || prescription == null || prescription.getDemographicId() == null) {
