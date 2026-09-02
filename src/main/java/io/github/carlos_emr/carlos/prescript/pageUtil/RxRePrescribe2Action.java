@@ -281,9 +281,23 @@ public String saveDigitalSignature() throws IOException {
     }
     Integer digitalSignatureId = digitalSignatureIdParam == null ? null : Integer.valueOf(digitalSignatureIdParam);
 
-    // Extract and validate required script ID parameter
+    // Extract and validate required script ID parameter.
+    //
+    // Accept the same range the callers emit. ViewScript2's firstValidScriptId admits 1-10 digits
+    // that parse to a POSITIVE int, so a 9-digit cap here would reject a legitimate high script
+    // number and leave the drawn signature unlinked while the page believed it was saved. Parse
+    // defensively even so: 10 digits can still overflow an int (9999999999), and that must be a
+    // 400 like any other malformed id, never a 500.
     String scriptId = request.getParameter("scriptId");
-    if (scriptId == null || !scriptId.matches("\\d{1,9}")) {
+    int scriptNo = 0;
+    if (scriptId != null && scriptId.matches("\\d{1,10}")) {
+        try {
+            scriptNo = Integer.parseInt(scriptId);
+        } catch (NumberFormatException ignored) {
+            scriptNo = 0;
+        }
+    }
+    if (scriptNo <= 0) {
         logger.warn("Invalid scriptId rejected");
         response.sendError(HttpServletResponse.SC_BAD_REQUEST);
         return NONE;
@@ -302,7 +316,7 @@ public String saveDigitalSignature() throws IOException {
     // Fully qualified: this file's unqualified `Prescription` is RxPrescriptionData.Prescription,
     // while the manager returns the persisted model type.
     io.github.carlos_emr.carlos.commn.model.Prescription targetPrescription =
-        prescriptionManager.getPrescription(loggedInInfo, Integer.valueOf(scriptId));
+        prescriptionManager.getPrescription(loggedInInfo, Integer.valueOf(scriptNo));
     if (targetPrescription == null || targetPrescription.getDemographicId() == null) {
         logger.warn("Digital signature not linked: prescription not found");
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
@@ -315,7 +329,7 @@ public String saveDigitalSignature() throws IOException {
     // The link is what makes the script "signed" for the fax gate. If the row does not exist the
     // manager returns false; report that as a failure rather than a 200, otherwise the page would
     // treat the script as stored-signed (and enable Fax) for a signature that was never linked.
-    if (!prescriptionManager.setPrescriptionSignature(loggedInInfo, Integer.parseInt(scriptId), digitalSignatureId)) {
+    if (!prescriptionManager.setPrescriptionSignature(loggedInInfo, scriptNo, digitalSignatureId)) {
         logger.warn("Digital signature not linked: prescription not found");
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
         return NONE;

@@ -661,6 +661,13 @@
                 canFaxScript = false;
                 faxTargetSigned = false;
             }
+            // The third condition on the Fax buttons: the servlet refuses a fax with no destination
+            // ("Valid fax number not found!"). Computed once here so the server-rendered disabled
+            // state and the JavaScript gate cannot drift apart — the initial markup must already
+            // reflect it, or the buttons render live until the first signature-pad event fires and
+            // a click in that window submits a fax the servlet rejects.
+            boolean hasPharmacyFax = pharmacy != null && pharmacy.getFax() != null
+                    && !pharmacy.getFax().trim().isEmpty();
         %>
         <script type="text/javascript">
             var POLL_TIME = 1500;
@@ -697,7 +704,7 @@
             var isSignatureDirty = false;
             var isSignatureSaved = false;
             <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { %>
-            var hasFaxNumber = <%= pharmacy != null && pharmacy.getFax() != null && pharmacy.getFax().trim().length() > 0 ? "true" : "false" %>;
+            var hasFaxNumber = <%= hasPharmacyFax ? "true" : "false" %>;
             var canFaxScript = <%= canFaxScript ? "true" : "false" %>;
             // The script already carries a stored signature (the prescriber's stamp applied on write,
             // or a signature saved earlier). The fax servlet signs from it whenever no fresh pad
@@ -982,9 +989,11 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         </tr>
 
 					<%
-						// Same prescription for both halves as the JS gate above: the persisted row
-						// scriptIdForFax names, never the session stash.
-						String isFaxDisabled = (!canFaxScript || !faxTargetSigned) ? "disabled" : "";
+						// Exactly the conditions the JavaScript gate applies, from the same values:
+						// same prescription for both halves (the persisted row scriptIdForFax names,
+						// never the session stash), and the same pharmacy-fax requirement.
+						String isFaxDisabled =
+								(!canFaxScript || !faxTargetSigned || !hasPharmacyFax) ? "disabled" : "";
 					%>
                                         <tr>
 						<td style="padding-top: 0; padding-bottom: 0"><span><input type=button value="<fmt:message key="ViewScript.msgFax"/>"

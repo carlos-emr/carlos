@@ -186,6 +186,43 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should accept a 10-digit script id the page is able to emit")
+    void shouldAcceptScriptId_withTenDigits() throws Exception {
+        // ViewScript2's firstValidScriptId emits any 1-10 digit id that parses to a positive int, so
+        // a 9-digit cap here would reject a legitimate high script number and silently leave the
+        // drawn signature unlinked while the page reported success.
+        int tenDigitScript = 1234567890;
+        io.github.carlos_emr.carlos.commn.model.Prescription target =
+                new io.github.carlos_emr.carlos.commn.model.Prescription();
+        target.setDemographicId(SIGNATURE_DEMOGRAPHIC_NO);
+        when(mockPrescriptionManager.getPrescription(any(), eq(tenDigitScript))).thenReturn(target);
+        when(mockPrescriptionManager.setPrescriptionSignature(any(), eq(tenDigitScript), any())).thenReturn(true);
+        request.setParameter("scriptId", String.valueOf(tenDigitScript));
+        request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
+
+        String result = action.saveDigitalSignature();
+
+        assertThat(result).isNull();
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        verify(mockPrescriptionManager).setPrescriptionSignature(mockLoggedInInfo, tenDigitScript, SIGNATURE_ID);
+    }
+
+    @Test
+    @DisplayName("should reject a 10-digit script id that overflows an int")
+    void shouldRejectScriptId_whenTenDigitsOverflowInt() throws Exception {
+        // 9999999999 matches the widened digit pattern but does not fit an int; it must be a 400
+        // like any other malformed id, never a NumberFormatException escaping as a 500.
+        request.setParameter("scriptId", "9999999999");
+        request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
+
+        String result = action.saveDigitalSignature();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
+    }
+
+    @Test
     @DisplayName("should report not found when the prescription row does not exist")
     void shouldReturnNotFound_whenPrescriptionMissing() throws Exception {
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
