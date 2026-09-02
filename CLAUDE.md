@@ -1357,6 +1357,7 @@ make install --run-unit-tests     # Only unit tests (fast, no database)
 docs/Password_System.md                           # Security architecture details
 docs/struts-actions-detailed.md                   # Action mapping documentation
 docs/struts-web-endpoints.md                      # Current Struts route + WEB-INF JSP guidance
+docs/build-identity.md                            # Build stamp (About page, REST headers, HL7 SFT; never the login page): carlos-build.properties + BuildInfo, not carlos.properties
 pom.xml                                            # Complete dependency list with versions
 README.md                                          # Project setup and overview
 ```

@@ -268,15 +268,15 @@ override_dh_auto_install:
 	# Config skeletons the maintainer scripts instantiate (never conffiles:
 	# they carry generated credentials).
 	install -d $(STAGE)/$(SHAREDIR)/skel
-	# The skeleton comes from the BUILT WAR, not from src/main/resources.
-	# Those two files are not the same: the pom's antrun step substitutes the
-	# build stamp into target/classes/carlos.properties
-	# (buildDate=$${build.dateTime}, buildVersion=$${build.JOB_NAME}
-	# $${build.BUILD_NUMBER}) and only the WAR's copy has the real values.
-	# Since /etc/carlos-emr/carlos.properties is loaded as an OVERRIDE on top
-	# of the in-WAR file, shipping the unsubstituted source copy put the raw
-	# placeholder text back — and the application prints it in the corner of
-	# the LOGIN page, to every unauthenticated visitor. Verified live.
+	# The skeleton comes from the BUILT WAR, not from src/main/resources, so
+	# the file an operator edits is byte-for-byte the one the deployed WAR
+	# would otherwise fall back to (Maven resource filtering runs on it).
+	# The build stamp is deliberately NOT in this file any more: it lives in
+	# WEB-INF/classes/carlos-build.properties and is read by BuildInfo. Since
+	# /etc/carlos-emr/carlos.properties is loaded as an OVERRIDE on top of the
+	# in-WAR file, a stamp carried here was frozen at first install and never
+	# followed a package upgrade (verified live on the alpha line); carlos-ctl
+	# init-config comments out the legacy buildDate/buildVersion keys.
 	install -m 0644 \
 	    $(STAGE)/$(SHAREDIR)/webapp/carlos/WEB-INF/classes/carlos.properties \
 	    $(STAGE)/$(SHAREDIR)/skel/carlos.properties
