@@ -1307,6 +1307,8 @@ def render_text(report):
     lines.append("    | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt "
                  "-pass file:PASSFILE \\")
     lines.append("    -out o19-bundle.tar.gz.enc")
+    lines.append("  sha256sum o19-bundle.tar.gz.enc   # send the digest with the "
+                 "password, separately from the file")
     lines.append("Migration output must receive a technical review before "
                  "clinical use.")
     return "\n".join(lines) + "\n"
@@ -1348,7 +1350,7 @@ def main(argv=None):
         print("ERROR: this copy of o19_preflight.py carries no generated "
               "manifest data;\nregenerate it with "
               "scripts/migration/o19/generate_manifests.py", file=sys.stderr)
-        return 2
+        return EXIT_TOOL_ERROR
 
     props = None
     if args.properties:

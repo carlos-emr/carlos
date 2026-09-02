@@ -409,9 +409,12 @@ def run_props(ctx) -> None:
     text = render_fragment(result)
     if dry:
         text = "# DRY RUN — regenerate with the real import\n" + text
-    with open(fragment_path, "w", encoding="latin-1") as fh:
+    # created with the final mode — the fragment holds carried credentials
+    # in clear, so no umask window may expose it
+    fd = os.open(fragment_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="latin-1") as fh:
         fh.write(text)
-    os.chmod(fragment_path, 0o600)
+    os.chmod(fragment_path, 0o600)  # a pre-existing file keeps its mode
 
     o19import.report_append(
         state_dir, "P6 props" + (" (dry run)" if dry else ""),

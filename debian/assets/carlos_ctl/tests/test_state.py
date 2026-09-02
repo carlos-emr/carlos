@@ -338,6 +338,33 @@ class TestStagingRestore(unittest.TestCase):
         self.assertTrue(any(s.startswith("DROP USER") for s in seen[-2:]))
 
 
+class TestBundleDigest(unittest.TestCase):
+    """openssl enc has no integrity check: the digest the clinic conveys
+    separately must match, or the operator must sign off on skipping it."""
+
+    ACTUAL = "ab" * 32
+
+    def test_matching_digest_opens(self):
+        self.assertIsNone(o19import.bundle_digest_refusal(
+            "AB" * 32, self.ACTUAL, []))
+
+    def test_mismatch_is_refused_without_bypass(self):
+        msg = o19import.bundle_digest_refusal("cd" * 32, self.ACTUAL,
+                                              ["unverified-bundle"])
+        self.assertIn("mismatch", msg)
+
+    def test_malformed_digest_is_refused(self):
+        self.assertIn("64 hex", o19import.bundle_digest_refusal(
+            "not-a-digest", self.ACTUAL, []))
+
+    def test_missing_digest_needs_the_sign_off(self):
+        self.assertIn("--bundle-sha256",
+                      o19import.bundle_digest_refusal(None, self.ACTUAL, []))
+        self.assertIsNone(o19import.bundle_digest_refusal(
+            None, self.ACTUAL, ["unverified-bundle"]))
+        self.assertIn("unverified-bundle", o19import.ACCEPT_CLASSES)
+
+
 class TestAcceptIdDriftLock(unittest.TestCase):
 
     def test_every_preflight_accept_id_is_a_cli_class(self):

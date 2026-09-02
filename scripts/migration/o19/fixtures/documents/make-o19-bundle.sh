@@ -56,4 +56,8 @@ openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass "file:$passfile" \
 openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass "file:$passfile" \
     -in "$OUT/o19-bundle.tar.gz" -out "$OUT/o19-bundle.tar.gz.enc"
 
-echo "wrote 4 bundle variants + $passfile in $OUT"
+# the digests the importer verifies (--bundle-sha256): a real clinic sends
+# these with the password, through a channel separate from the file
+(cd "$OUT" && sha256sum o19-bundle.tar o19-bundle.tar.gz o19-bundle.tar.enc \
+    o19-bundle.tar.gz.enc > o19-bundle.sha256)
+echo "wrote 4 bundle variants + $passfile + o19-bundle.sha256 in $OUT"

@@ -435,7 +435,12 @@ def shadow_statements(table: str, entry: dict, src_schema: str,
                          "nothing to capture".format(table, c))
     if not dropped:
         return []
-    context = [c for c in _context_cols(entry) if c in src_cols]
+    # context columns under their STAGED (source) names: a renamed column
+    # such as `isactive` -> `isActive` must be read as the dump spells it
+    # or it silently drops out of the capture
+    renames = entry.get("renames", {})
+    context = [renames.get(c, c) for c in _context_cols(entry)
+               if renames.get(c, c) in src_cols]
     select_cols = list(dict.fromkeys(context + sorted(dropped)))
     predicate = " OR ".join(
         "({0})".format(d["nondefault"]) for d in dropped.values())

@@ -49,8 +49,8 @@ Key core-table deltas (O19 → CARLOS):
   survive migration. PINs carry over.
 - `document`: CARLOS adds `receivedDate`, `abnormal`, `report_media`,
   `sent_date_time`; drops `fileSignature`.
-- `drugs`: CARLOS adds pharmacy/protocol columns; drops `dispensingUnits`,
-  `outside_provider` (drug-dispensing module removed).
+- `drugs`: CARLOS adds pharmacy/protocol columns; drops `dispensingUnits`
+  (drug-dispensing module removed); `outside_provider` survives and copies.
 - `provider`, `tickler`, `preventions`, `consultationRequests`: additive only —
   straight copy of shared columns.
 - Charset: O19 init scripts declare no charset (live DBs are typically the MySQL 5.x
@@ -132,7 +132,7 @@ Principles:
 - **O19-dropped columns** (39 tables): logged per-table with a non-null/non-default
   row count. Ones worth an explicit implementation decision:
   `demographic.preferred_lang`, `document.fileSignature`,
-  `drugs.dispensingUnits`/`outside_provider`, `formLabReq07` PSA/FOBT tick-boxes,
+  `drugs.dispensingUnits`, `formLabReq07` PSA/FOBT tick-boxes,
   `formRourke2009` "No" checkbox variants, `eChart` legacy form columns. Where a
   CARLOS equivalent exists, map; otherwise the values go to `o19_archive` shadow
   tables.

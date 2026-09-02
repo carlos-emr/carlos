@@ -255,6 +255,15 @@ class TestEformImageRefs(unittest.TestCase):
                          sorted(["logo.png", "sig.png", "stamp.gif",
                                  "form.pdf?x=1"]))
 
+    def test_query_string_and_fragment_are_not_part_of_the_asset_name(self):
+        # a cache-busting `?v=2` is addressed to the servlet: the file on
+        # disk is logo.png, and the reference must not block the import
+        self.assertEqual(o19docs.image_ref_path("logo.png?v=2"), "logo.png")
+        self.assertEqual(o19docs.image_ref_path("form.pdf#page=2"),
+                         "form.pdf")
+        self.assertEqual(o19docs.image_ref_path("plain.gif"), "plain.gif")
+        self.assertEqual(o19docs.image_ref_path("?only=query"), "")
+
     def test_unrelated_html_has_no_refs(self):
         self.assertEqual(o19docs.image_refs("<p>no images</p>"), [])
 

@@ -348,6 +348,18 @@ class TestArchiveAndShadow(unittest.TestCase):
         self.assertIn("WHERE (s.`legacy` IS NOT NULL)", stmts[1])
         self.assertIn("s.`id`", stmts[1])
 
+    def test_shadow_context_columns_use_their_source_spelling(self):
+        # the manifest names the CARLOS column (isActive); the dump spells
+        # it isactive — the capture must read the staged name
+        entry = {"class": "copy", "cols": ["id", "isActive"],
+                 "renames": {"isActive": "isactive"},
+                 "dropped": {"legacy": {
+                     "nondefault": "s.`legacy` IS NOT NULL"}}}
+        src = {"id": col("int"), "isactive": col(), "legacy": col()}
+        stmts = o19etl.shadow_statements("t", entry, "src", "arch", src)
+        self.assertIn("s.`isactive`", stmts[1])
+        self.assertNotIn("s.`isActive`", stmts[1])
+
 
 class TestChunkWindows(unittest.TestCase):
 

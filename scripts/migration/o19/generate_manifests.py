@@ -474,19 +474,20 @@ SECRET_KEY_RE = re.compile(
     r"token|pgp_key|user|username|userid)$", re.I)
 
 
-def is_secret_key(key: str, ov_props=None) -> bool:
+def is_secret_key(key: str) -> bool:
     """Credential-shaped key names (passwords, keys, tokens, and the account
-    names that pair with them). Decided by NAME, not by disposition: a
-    carry-secret prefix such as `email.` also covers plain settings
-    (host, port) whose stock defaults are harmless to compare."""
+    names that pair with them). Decided by NAME only — the props overlay's
+    dispositions never participate, so a carry-secret prefix such as
+    `email.` still lets plain settings (host, port) keep their harmless
+    stock defaults in the baseline."""
     return SECRET_KEY_RE.search(key) is not None
 
 
-def split_secret_defaults(defaults: Dict[str, str], ov_props
+def split_secret_defaults(defaults: Dict[str, str]
                           ) -> Tuple[Dict[str, str], List[str]]:
     """(defaults without secret keys, sorted secret key names)."""
-    kept = {k: v for k, v in defaults.items() if not is_secret_key(k, ov_props)}
-    secret = sorted(k for k in defaults if is_secret_key(k, ov_props))
+    kept = {k: v for k, v in defaults.items() if not is_secret_key(k)}
+    secret = sorted(k for k in defaults if is_secret_key(k))
     return kept, secret
 
 
@@ -750,7 +751,7 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
 
 
 def emit_props_module(o19_defaults, ov) -> str:
-    defaults, secret_keys = split_secret_defaults(o19_defaults, ov)
+    defaults, secret_keys = split_secret_defaults(o19_defaults)
     out = [GENERATED_HEADER]
     out.append('"""OSCAR 19 -> CARLOS properties manifest."""\n')
     out.append("PROPS_MAP_VERSION = {!r}\n".format(ov.PROPS_MAP_VERSION))

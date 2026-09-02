@@ -166,6 +166,13 @@ def unescape_batch_field(value: str) -> str:
     return "".join(out)
 
 
+def image_ref_path(ref: str) -> str:
+    """The on-disk asset name of an eForm image reference: a query string
+    or fragment (`logo.png?v=2`, a cache-buster) is addressed to the
+    servlet, never to the filesystem."""
+    return re.split(r"[?#]", ref, 1)[0]
+
+
 def image_refs(form_html: str) -> List[str]:
     return sorted(set(IMAGE_REF_RE.findall(form_html)))
 
@@ -378,11 +385,14 @@ def reconcile(query, dst_schema: str, ctx_root: str
         fid, form_name, html = r[0], r[1], unescape_batch_field(r[2])
         for ref in image_refs(html):
             checked += 1
-            if not contained(image_dir, ref):
+            asset = image_ref_path(ref)
+            if not asset:
+                continue
+            if not contained(image_dir, asset):
                 problems.append(
                     "eForm '{0}' (fid {1}) image reference escapes "
                     "eform/images: {2}".format(form_name, fid, ref))
-            elif not os.path.isfile(os.path.join(image_dir, ref)):
+            elif not os.path.isfile(os.path.join(image_dir, asset)):
                 problems.append(
                     "eForm '{0}' (fid {1}) references missing image "
                     "asset: {2}".format(form_name, fid, ref))
@@ -415,7 +425,9 @@ def export_archive_csv(query, archive_schema: str, out_dir: str
         rows = query("SELECT * FROM `{0}`.`{1}`".format(
             archive_schema, table))
         path = os.path.join(out_dir, table + ".csv")
-        with open(path, "w", encoding="utf-8", newline="") as fh:
+        # created with the final mode: the rows are archived clinical data
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640)
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
             writer = csv.writer(fh)
             writer.writerow(cols)
             for r in rows:

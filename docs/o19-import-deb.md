@@ -58,7 +58,15 @@ tar -czf - o19.sql.gz o19-documents.tar.gz oscar.properties \
       -pass file:PASSFILE -out o19-bundle.tar.gz.enc
 ```
 
-Ship the bundle and the password (separately) to the CARLOS host.
+```bash
+sha256sum o19-bundle.tar.gz.enc
+```
+
+Ship the bundle to the CARLOS host; send the password **and the digest**
+through a separate channel. `openssl enc` provides confidentiality only
+(no integrity check): the digest, conveyed apart from the file, is what
+proves the bundle arrived unaltered, and the importer refuses to open a
+bundle whose digest does not match.
 
 ## 3. Import on the CARLOS host
 
@@ -71,6 +79,7 @@ fresh schema, there is no override) — and configured backups
 ```bash
 sudo carlos-ctl import-o19 \
     --bundle /srv/migration/o19-bundle.tar.gz.enc \
+    --bundle-sha256 <digest the clinic conveyed separately> \
     --bundle-pass file:/srv/migration/passfile \
     --admin-user <break-glass-admin-name> \
     [--accept CLASS ...]        # the sign-offs preflight listed
@@ -117,7 +126,9 @@ Useful variants: `--dry-run` (stage + preflight + properties report only;
 its `--accept` flags are not recorded — sign-offs persist only from a real
 run), `--dump/--documents/--properties` instead of a bundle,
 `--bundle-openssl-opt` for bundles encrypted by an older openssl
-(`-md md5`, no `-pbkdf2`), `--skip-documents` with `--accept no-documents`.
+(`-md md5`, no `-pbkdf2`), `--skip-documents` with `--accept no-documents`,
+`--accept unverified-bundle` to open a bundle whose digest was never
+conveyed (a recorded sign-off, never a default).
 
 `carlos-ctl o19-preflight` is the assessment-only form on the CARLOS host:
 capacity checks, staged restore and the go/no-go report, with the exit

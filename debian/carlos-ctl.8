@@ -206,7 +206,11 @@ override). Inputs: either
 .I FILE
 \(em one archive (.tar/.tar.gz/.tar.enc/.tar.gz.enc; .enc is
 openssl password-based encryption, unlocked with
-.BR --bundle-pass )
+.BR --bundle-pass ;
+the digest the clinic conveyed separately is checked with
+.B --bundle-sha256
+before the bundle is opened, because openssl enc has no integrity check of
+its own)
 holding the dump, the OscarDocument tar and oscar.properties at its root
 \(em or the three
 .BR --dump / --documents / --properties

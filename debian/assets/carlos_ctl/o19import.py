@@ -55,6 +55,7 @@ ARCHIVE_SCHEMA = "o19_archive"
 ACCEPT_CLASSES = (
     "archived-forms", "unknown-as-archive", "dropped-columns",
     "charset-repair", "olis-gone", "no-documents", "no-pre-backup",
+    "unverified-bundle",
 )
 
 DUMP_COMPLETED_MARKER = b"-- Dump completed"
@@ -1009,6 +1010,12 @@ def _parser(prog: str, import_mode: bool) -> argparse.ArgumentParser:
                     help="openssl -pass spec for an .enc bundle "
                          "(file:PATH, env:VAR, fd:N, stdin; 'pass:' works "
                          "but lands in argv/history)")
+    ap.add_argument("--bundle-sha256", metavar="HEX",
+                    help="the bundle's sha256 as conveyed by the clinic "
+                         "through a channel separate from the file "
+                         "(openssl enc has no integrity check of its own); "
+                         "required for --bundle unless --accept "
+                         "unverified-bundle is given")
     ap.add_argument("--bundle-cipher", default=o19bundle.DEFAULT_CIPHER)
     ap.add_argument("--bundle-openssl-opt", action="append", default=[],
                     metavar="OPT",
@@ -1077,6 +1084,14 @@ def _resolve_inputs(args, state_dir: str) -> Dict:
             o19bundle.validate_bundle_args(args.bundle, args.bundle_pass)
         except ValueError as exc:
             die(str(exc))
+        # integrity first: openssl enc's CBC output carries no MAC, so a
+        # ciphertext altered in transit can still decrypt to a valid-looking
+        # archive. The digest travels with the password, not the file.
+        refusal = bundle_digest_refusal(args.bundle_sha256,
+                                        sha256_file(args.bundle),
+                                        args.accept)
+        if refusal:
+            die(refusal)
         opened = o19bundle.open_bundle(
             args.bundle, os.path.join(state_dir, "bundle"),
             pass_spec=args.bundle_pass, cipher=args.bundle_cipher,
@@ -1085,8 +1100,9 @@ def _resolve_inputs(args, state_dir: str) -> Dict:
             die("--skip-documents contradicts a bundle that CONTAINS a "
                 "documents member — drop one of the two")
         return opened
-    if args.bundle_pass or args.bundle_openssl_opt:
-        die("--bundle-pass/--bundle-openssl-opt need --bundle")
+    if args.bundle_pass or args.bundle_openssl_opt or args.bundle_sha256:
+        die("--bundle-pass/--bundle-openssl-opt/--bundle-sha256 need "
+            "--bundle")
     if not args.dump or not args.properties:
         die("either --bundle, or all of --dump and --properties (and "
             "--documents unless --skip-documents), are required")
@@ -1100,6 +1116,32 @@ def _resolve_inputs(args, state_dir: str) -> Dict:
     return {"dump": args.dump, "documents": docs,
             "properties": args.properties, "bundle_sha256": None,
             "members": {}}
+
+
+def bundle_digest_refusal(expected: Optional[str], actual: str,
+                          accepted) -> Optional[str]:
+    """Why the bundle may not be opened (None when it may): the digest the
+    clinic conveyed separately must match the file, and skipping the check
+    is a recorded sign-off (--accept unverified-bundle), never a default.
+    Pure, for the state tests."""
+    if expected:
+        want = expected.strip().lower()
+        if not (len(want) == 64 and all(c in "0123456789abcdef"
+                                        for c in want)):
+            return "--bundle-sha256 must be 64 hex characters"
+        if want != actual.lower():
+            return ("bundle sha256 mismatch: the file on disk is {0}..., "
+                    "the clinic conveyed {1}... — the bundle was altered or "
+                    "truncated in transit; obtain it again. (Never bypass "
+                    "this by re-typing the digest from the file.)".format(
+                        actual[:12], want[:12]))
+        return None
+    if "unverified-bundle" in (accepted or ()):
+        return None
+    return ("--bundle-sha256 is required: openssl enc has no integrity "
+            "check, so the digest the clinic sends separately from the file "
+            "is what proves the bundle arrived intact. Pass the digest, or "
+            "record the sign-off with --accept unverified-bundle.")
 
 
 def dev_mode_refusal(dev_target: bool, mariadb_arg: Optional[List[str]],
