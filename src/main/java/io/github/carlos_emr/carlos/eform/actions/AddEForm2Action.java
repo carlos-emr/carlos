@@ -154,9 +154,18 @@ public class AddEForm2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         boolean fax = "true".equals(request.getParameter("faxEForm"));
+        // `print=true` is the legacy contract of library/eforms/printControl.js: the "PDF" and
+        // "Submit & PDF" buttons it injects beside SubmitButton (the Rich Text Letter loads it, and
+        // the eForm Generator / Visual Editor emit it into every generated clinic eForm). Before
+        // this alias the flag resolved to a `print` result that struts-eform.xml never mapped — a
+        // latent error page, masked in practice by a printControl.js bug that never appended the
+        // input at all, so those buttons were a plain Save with no PDF. It is folded into the
+        // save-and-download workflow below, which is what the toolbar's Download PDF button does.
+        // The accompanying `skipSave` flag cannot be honoured: every render works from a stored
+        // fdid, so there is no "PDF without saving" path to route it to.
         boolean print = "true".equals(request.getParameter("print"));
         boolean saveAsEdoc = "true".equals(request.getParameter("saveAsEdoc"));
-        boolean isDownloadEForm = "true".equals(request.getParameter("saveAndDownloadEForm"));
+        boolean isDownloadEForm = "true".equals(request.getParameter("saveAndDownloadEForm")) || print;
         boolean isEmailEForm = "true".equals(request.getParameter("emailEForm"));
 
         String[] attachedDocuments = (request.getParameterValues("docNo") != null ? request.getParameterValues("docNo") : new String[0]);
@@ -328,7 +337,9 @@ public class AddEForm2Action extends ActionSupport {
             // The condition reproduces that `else` exactly — fax, print, download and email each
             // return before reaching it, and each has its own reason not to write the template.
             // Hoisting this WITHOUT the condition would run it on those paths too and duplicate
-            // every note, which is a worse defect than the one being fixed here.
+            // every note, which is a worse defect than the one being fixed here. (`print` is
+            // already folded into isDownloadEForm; it is kept here so the exclusion reads as the
+            // list of workflows it covers.)
             if (!fax && !print && !isDownloadEForm && !isEmailEForm) {
                 //write template message to echart
                 String program_no = new EctProgram(se).getProgram(providerNo);
@@ -356,8 +367,6 @@ public class AddEForm2Action extends ActionSupport {
             if (fax) {
                 redirectToPreparedFax(fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
                 return NONE;
-            } else if (print) {
-                return "print";
             } else if (isDownloadEForm) {
                 /*
                  * For now, this download code is added here and will be moved to the appropriate place after refactoring is done.
@@ -423,8 +432,6 @@ public class AddEForm2Action extends ActionSupport {
                  */
                 redirectToPreparedFax(prev_fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
                 return NONE;
-            } else if (print) {
-                return "print";
             } else if (isDownloadEForm) {
                 /*
                  * For now, this download code is added here and will be moved to the appropriate place after refactoring is done.

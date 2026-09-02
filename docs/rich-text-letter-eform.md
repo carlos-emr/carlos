@@ -70,6 +70,35 @@ overwriting clinic-customized versions.
 | `eform/displayAttachedFiles.jsp` | JSP | AJAX endpoint returning attached file list HTML |
 | `eform/attachDoc.do` | `EFormAttachDocs2Action` | Handles attachment form submission |
 | `eform/displayImage.do` | `DisplayImage2Action` | Serves `editControl2.js` and other assets from the eForm images directory |
+| `eform/addEForm` | `AddEForm2Action` | Save; also the PDF/print workflows below |
+
+---
+
+## Print and PDF
+
+The RTL page exposes three print/PDF entry points. All of them work from the **saved** record:
+every server render (`DocumentAttachmentManager.renderEFormPacketWithCompleteness`) needs an
+`fdid`, so there is no "PDF without saving" path.
+
+| Control | Path |
+|---------|------|
+| Toolbar **Print** (`remotePrint()` in `eform_floating_toolbar.js`) | Clicks the form's hidden `PrintButton`, which calls `print()` on the **editor iframe** (so only the letter prints, not the sidebar), then saves through `remoteSave()` when the letter is dirty (`needToConfirm`). |
+| Toolbar **Download** (`remoteDownload()`) | Posts `saveAndDownloadEForm=true`; `AddEForm2Action` saves, renders the PDF, and hands it back base64-encoded on `efmshowform_data.jsp`, which triggers the browser download. |
+| Form **PDF** / **Submit & PDF** buttons (injected by `library/eforms/printControl.js`) | Post `print=true`. `AddEForm2Action` treats that flag as the legacy alias of `saveAndDownloadEForm=true`. Before 2026.09 these buttons were a plain Save with no PDF: `printControl.js` guarded its hidden inputs on a jQuery object's truthiness (never false), so the flag was never posted — and had it been, the action returned a `print` result that `struts-eform.xml` never mapped. `skipSave` is advisory only. The eForm Generator and Visual Editor emit `printControl.js` into generated clinic eForms too, so the alias covers them as well. |
+
+Two invariants keep these working:
+
+- `printControl.js` serializes the letter through `saveRTL()` when it is defined, so the stored
+  `Letter` value carries the same entity escaping as a plain Save. Both readers of that value
+  (`editControl2.js` on reopen and `EFormRenderPdfHtmlComposer.decodeStoredLetter()` for PDF)
+  decode unconditionally, so a raw write would come back mangled.
+- `editControl2.js` re-registers its dirty-flag listener (`attachDirtyFlagListener()`) after every
+  template load. Loading `blank.rtl` navigates the editor iframe, which replaces its `Window` and
+  drops listeners registered on the old one; before this, typing into a new letter never set
+  `needToConfirm`, so toolbar Print printed without saving and closing never warned.
+
+Regression coverage: `AddEForm2ActionPrintAliasTest` (server alias, mapped results) and
+`RichTextLetterPrintAssetRegressionTest` (browser assets).
 
 ---
 
@@ -259,7 +288,7 @@ src/main/webapp/eform/displayAttachedFiles.jsp
 ### Configuration
 ```
 src/main/resources/applicationContext.xml          (bean: eFormAssetDeployer)
-src/main/webapp/WEB-INF/classes/struts.xml          (action: eform/rtlPreventions)
+src/main/webapp/WEB-INF/classes/struts-eform.xml    (actions: eform/rtlPreventions, eform/addEForm)
 ```
 
 ### Database

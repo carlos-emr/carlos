@@ -222,16 +222,22 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should not write the eForm template on the print path")
-    void shouldNotWriteTemplate_onPrintPath() {
+    void shouldNotWriteTemplate_onPrintPath() throws Exception {
         // Guards the hoist: the write moved above the eDoc block, and it must still be skipped for
         // the workflow paths that never performed it. writeEformTemplate is not idempotent, so
         // running it here would duplicate every CPP note, tickler and consult request.
+        // print=true is the legacy printControl.js alias of the save-and-download workflow, so the
+        // path now renders and returns the mapped "download" result instead of an unmapped "print".
         mockRequest.setParameter("print", "true");
+        when(mockDocumentAttachmentManager.renderEFormPacketWithCompleteness(any(), any(), isNull()))
+                .thenReturn(new EformDataManager.EformPdfRender(java.nio.file.Path.of("letter.pdf"),
+                        new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, false, false)));
+        when(mockDocumentAttachmentManager.convertPDFToBase64(any())).thenReturn("JVBERi0=");
 
         AddEForm2Action action = new AddEForm2Action();
         String result = action.execute();
 
-        assertThat(result).isEqualTo("print");
+        assertThat(result).isEqualTo("download");
         verifyTemplateWritten(false);
     }
 }
