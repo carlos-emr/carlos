@@ -707,6 +707,14 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 		headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
 		credentials: 'same-origin',
 		body: 'method=saveDigitalSignature&digitalSignatureId=' + encodeURIComponent(digitalSignatureId) + '&scriptId=' + encodeURIComponent(scriptId)
+	}).then(function (response) {
+		// Once the drawn signature is linked to the script it is a STORED signature like the stamp
+		// was, so a later pad stroke or Clear must keep Fax enabled (see signatureHandler).
+		if (response.ok && typeof hasStoredSignature !== 'undefined') {
+			hasStoredSignature = true;
+		}
+	}).catch(function (error) {
+		console.error(error);
 	});
 }
 

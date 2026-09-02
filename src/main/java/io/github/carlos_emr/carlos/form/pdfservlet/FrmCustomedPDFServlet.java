@@ -162,11 +162,17 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         boolean isFax = "oscarRxFax".equals(req.getParameter("__method"));
         boolean responseOutputStreamOpened = false;
 
+        // The prescription named by scriptId is loaded ONCE here and shared by the privilege
+        // pre-check, the signature gate and the fax content binding below.
+        Prescription prescription = requestedPrescription(req);
+
         // An authorization refusal must be reported as one. resolveSignatureImage withholds the
         // signature for a caller without _rx write on the patient, and reporting that as "not
         // signed" would send a read-only user to sign a script that IS signed (and that they could
-        // not sign anyway). Decide it first, with the same lookup the signature gate uses.
-        if (isFax && isFaxDeniedByPrivilege(req, loggedInInfo)) {
+        // not sign anyway). Only a caller who may already READ the script gets that specific
+        // message; anyone else falls through to the generic refusal so that script ids cannot be
+        // enumerated through the difference in wording.
+        if (isFax && isFaxDeniedByPrivilege(prescription, loggedInInfo)) {
             res.setContentType("text/html");
             res.getWriter().println("<div id='fax-failure'><h3>Error: you do not have permission to fax this prescription.</h3></div>");
             return;
@@ -174,7 +180,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
         // Resolve the prescriber's signature before touching the document: a fax is an outbound
         // legal copy and must never leave unsigned, whatever the page's Fax button gating said.
-        byte[] signatureImage = resolveSignatureImage(req, loggedInInfo);
+        byte[] signatureImage = resolveSignatureImage(req, loggedInInfo, prescription);
         if (isFax && signatureImage == null) {
             res.setContentType("text/html");
             res.getWriter().println("<div id='fax-failure'><h3>Error: the prescription is not signed. Sign it before faxing.</h3></div>");
@@ -186,7 +192,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // name must be the record's too (see bindFaxContentToRecord).
         HttpServletRequest pdfRequest = req;
         if (isFax) {
-            pdfRequest = bindFaxContentToRecord(req);
+            pdfRequest = bindFaxContentToRecord(req, prescription);
             if (pdfRequest == null) {
                 res.setContentType("text/html");
                 res.getWriter().println("<div id='fax-failure'><h3>Error: the prescription record has no drugs to fax.</h3></div>");
@@ -750,28 +756,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     }
 
     /**
-     * Resolves the prescriber's signature image for the PDF.
-     *
-     * <p>Authorization comes first and is derived from the prescription itself: the script named by
-     * {@code scriptId} is loaded, and everything below is released only to a caller holding
-     * {@code _rx} read for THAT prescription's patient — the same gate {@code ImageRenderingServlet}
-     * applies to the on-screen preview. Neither the caller-supplied {@code demographic_no} nor the
-     * caller-supplied {@code imgFile} can widen that: the patient context is the prescription's.</p>
-     *
-     * <p>With that established, the image is, in priority order:</p>
-     * <ol>
-     *   <li>the signature-pad capture named by {@code imgFile} — only THIS provider's capture
-     *       ({@code signature_<loggedInProviderNo><digits>.jpg}) inside {@code java.io.tmpdir}, and
-     *       only if it decodes as an image;</li>
-     *   <li>the {@link DigitalSignature} stored on the prescription: a hand-drawn signature saved
-     *       earlier, or the stamp applied on write. This is also what a reprint renders. It is used
-     *       only when it is a prescription signature for the same patient.</li>
-     * </ol>
-     *
-     * @return decoded image bytes, or {@code null} when no signature applies or the caller is not
-     *         authorized for the prescription's patient
-     */
-    /**
      * Binds an outbound fax to the prescription RECORD named by {@code scriptId}. The drug lines
      * are regenerated from the script's drugs rows (the same {@code getFullOutLine} text
      * Preview2.jsp built the request from) and the signing name from the script's prescriber, so
@@ -787,11 +771,16 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      *         (nothing legitimate to fax) or cannot be loaded
      */
     HttpServletRequest bindFaxContentToRecord(HttpServletRequest req) {
-        int scriptNo = parsePositiveInt(req.getParameter("scriptId"));
-        Prescription prescription = scriptNo > 0 ? prescriptionDao.find(scriptNo) : null;
+        return bindFaxContentToRecord(req, requestedPrescription(req));
+    }
+
+    /** As {@link #bindFaxContentToRecord(HttpServletRequest)} with the prescription already loaded. */
+    HttpServletRequest bindFaxContentToRecord(HttpServletRequest req, Prescription prescription) {
         if (prescription == null || prescription.getDemographicId() == null) {
             return null;
         }
+        // The row was loaded by this very id (requestedPrescription), so it is the script number.
+        int scriptNo = parsePositiveInt(req.getParameter("scriptId"));
         String newline = System.getProperty("line.separator");
         List<String> recordLines = new ArrayList<>();
         for (RxPrescriptionData.Prescription drug
@@ -908,40 +897,71 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     /**
      * True only when the prescription named by {@code scriptId} exists with a patient and the
-     * caller lacks {@code _rx} WRITE for that patient. A missing session, malformed id, or absent
-     * row is NOT a privilege denial (it returns {@code false}) and is left to the signature gate,
-     * which reports those as "not signed" exactly as before.
+     * caller may READ it but lacks {@code _rx} WRITE for that patient. A missing session,
+     * malformed id, absent row, or a caller without READ is NOT reported as a privilege denial
+     * (it returns {@code false}) and is left to the signature gate, which reports those as
+     * "not signed" exactly as before.
      */
     boolean isFaxDeniedByPrivilege(HttpServletRequest req, LoggedInInfo loggedInInfo) {
-        if (loggedInInfo == null) {
-            return false;
-        }
-        int scriptNo = parsePositiveInt(req.getParameter("scriptId"));
-        if (scriptNo <= 0) {
-            return false;
-        }
-        Prescription prescription = prescriptionDao.find(scriptNo);
-        if (prescription == null || prescription.getDemographicId() == null) {
-            return false;
-        }
-        return !securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE,
-                String.valueOf(prescription.getDemographicId()));
+        return isFaxDeniedByPrivilege(requestedPrescription(req), loggedInInfo);
     }
 
+    /**
+     * As {@link #isFaxDeniedByPrivilege(HttpServletRequest, LoggedInInfo)} with the prescription
+     * already loaded. True only for a caller who holds {@code _rx} READ but not WRITE for the
+     * prescription's patient: a caller without READ gets the generic refusal, so the permission
+     * wording never reveals whether a script id exists.
+     */
+    boolean isFaxDeniedByPrivilege(Prescription prescription, LoggedInInfo loggedInInfo) {
+        if (loggedInInfo == null || prescription == null || prescription.getDemographicId() == null) {
+            return false;
+        }
+        String patient = String.valueOf(prescription.getDemographicId());
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, patient)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, patient);
+    }
+
+    /** The prescription named by the request's {@code scriptId}, or {@code null} when absent or malformed. */
+    Prescription requestedPrescription(HttpServletRequest req) {
+        int scriptNo = parsePositiveInt(req.getParameter("scriptId"));
+        return scriptNo > 0 ? prescriptionDao.find(scriptNo) : null;
+    }
+
+    /**
+     * Resolves the prescriber's signature image for the PDF.
+     *
+     * <p>Authorization comes first and is derived from the prescription itself: the script named by
+     * {@code scriptId} is loaded, and everything below is released only to a caller holding
+     * {@code _rx} read for THAT prescription's patient — the same gate {@code ImageRenderingServlet}
+     * applies to the on-screen preview. Neither the caller-supplied {@code demographic_no} nor the
+     * caller-supplied {@code imgFile} can widen that: the patient context is the prescription's.</p>
+     *
+     * <p>With that established, the image is, in priority order:</p>
+     * <ol>
+     *   <li>the signature-pad capture named by {@code imgFile} — only THIS provider's capture
+     *       ({@code signature_<loggedInProviderNo><digits>.jpg}) inside {@code java.io.tmpdir}, and
+     *       only if it decodes as an image;</li>
+     *   <li>the {@link DigitalSignature} stored on the prescription: a hand-drawn signature saved
+     *       earlier, or the stamp applied on write. This is also what a reprint renders. It is used
+     *       only when it is a prescription signature for the same patient.</li>
+     * </ol>
+     *
+     * @return decoded image bytes, or {@code null} when no signature applies or the caller is not
+     *         authorized for the prescription's patient
+     */
     // FindSecBugs PATH_TRAVERSAL_IN: the pad file name is reduced to its base name and confined to java.io.tmpdir by PathValidationUtils.validatePath
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "the pad file name is reduced to its base name and confined to java.io.tmpdir by PathValidationUtils.validatePath")
     byte[] resolveSignatureImage(HttpServletRequest req, LoggedInInfo loggedInInfo) {
-        if (loggedInInfo == null) {
+        return resolveSignatureImage(req, loggedInInfo, loggedInInfo == null ? null : requestedPrescription(req));
+    }
+
+    /** As {@link #resolveSignatureImage(HttpServletRequest, LoggedInInfo)} with the prescription already loaded. */
+    byte[] resolveSignatureImage(HttpServletRequest req, LoggedInInfo loggedInInfo, Prescription prescription) {
+        if (loggedInInfo == null || prescription == null) {
             return null;
         }
+        // The row was loaded by this very id (requestedPrescription), so it is the script number.
         int scriptNo = parsePositiveInt(req.getParameter("scriptId"));
-        if (scriptNo <= 0) {
-            return null;
-        }
-        Prescription prescription = prescriptionDao.find(scriptNo);
-        if (prescription == null) {
-            return null;
-        }
         Integer demographicId = prescription.getDemographicId();
         // Authorize once, up front, by the prescription's OWN patient. Both the pad capture and the
         // stored signature are gated behind this, so a caller cannot fax another patient's (or a
