@@ -106,6 +106,8 @@ const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 // there while giving a 10-million-value space, making a same-number collision between two concurrent
 // runs negligible. The drug name (customName is varchar(60)) carries the full timestamp + suffix.
 const runFaxSuffix = String(randomInt(1000000, 10000000)); // 7 digits (crypto RNG; CodeQL-clean)
+// Destination number staged on the patient's pharmacy; obviously synthetic and restored on cleanup.
+const pharmacyFaxNumber = '555-0100';
 const faxNumber = `416${runFaxSuffix}`; // 10 chars — fits fax_config.faxNumber varchar(10)
 // Per-run-unique custom-drug name for this fixture. It lands in drugs.customName, which lets the
 // checks identify exactly the prescription(s) THIS run created — immune to a concurrent prescription
@@ -203,6 +205,8 @@ function removeSecretsDir() {
 // the normal finally AND from a signal handler, and so an interrupted run cannot leave rows behind.
 let throwawayUnsignedScriptId = null;
 let faxConfig = null;
+// Pharmacy fax numbers this run seeded, restored by cleanupFixtures(): [{ recordId, originalFax }].
+const seededPharmacyFaxes = [];
 
 /**
  * Remove every row this run seeded, keyed on its per-run-unique identifiers (customDrugName,
@@ -210,6 +214,37 @@ let faxConfig = null;
  * touched. Idempotent and synchronous (safe to call from a signal handler); records a finding on
  * failure rather than throwing.
  */
+/**
+ * Give the patient's active pharmacies a destination fax number.
+ *
+ * The fax servlet refuses a prescription whose pharmacy has no fax number ("Valid fax number not
+ * found"), and ViewScript2.jsp folds the same fact into the Fax button via `hasFaxNumber`. The demo
+ * dataset ships its pharmacies with a blank fax, so without this the signed-fax assertion would be
+ * measuring the missing pharmacy number rather than the signature gate it exists to pin. Every
+ * active pharmacy for the patient is seeded because which one the Rx page carries through is a
+ * property of the patient's saved preference, not of this check.
+ */
+function seedPharmacyFax() {
+  const rows = sql(`SELECT p.recordId, IFNULL(p.fax,'') FROM pharmacyInfo p
+    JOIN demographicPharmacy dp ON dp.pharmacyID = p.recordId
+    WHERE dp.demographic_no = ${demographicNo} AND dp.status = '1';`)
+    .split('\n').map((r) => r.split('\t')).filter((r) => /^\d+$/.test((r[0] || '').trim()));
+  for (const [rawId, rawFax] of rows) {
+    const recordId = rawId.trim();
+    const originalFax = (rawFax || '').trim();
+    if (originalFax) continue;
+    sql(`UPDATE pharmacyInfo SET fax = '${pharmacyFaxNumber}' WHERE recordId = ${recordId};`);
+    seededPharmacyFaxes.push({ recordId, originalFax });
+  }
+  visited.push({ label: 'pharmacy-fax', seeded: seededPharmacyFaxes.map((r) => r.recordId), active: rows.length });
+  if (!rows.length) {
+    findings.push({
+      label: 'pharmacy-fax', type: 'no-active-pharmacy',
+      text: `patient ${demographicNo} has no active pharmacy, so a prescription for them can never be faxed`,
+    });
+  }
+}
+
 function cleanupFixtures() {
   // Each target is deleted in its own try so one failure cannot suppress cleanup of the others;
   // failures are aggregated as findings rather than aborting the sweep.
@@ -252,6 +287,10 @@ function cleanupFixtures() {
   attempt('fax_config', () => {
     if (faxConfig && faxConfig.created) sql(`DELETE FROM fax_config WHERE id=${faxConfig.id};`);
   });
+  while (seededPharmacyFaxes.length) {
+    const { recordId, originalFax } = seededPharmacyFaxes.pop();
+    attempt(`pharmacy-fax ${recordId}`, () => sql(`UPDATE pharmacyInfo SET fax = '${originalFax.replace(/'/g, "''")}' WHERE recordId = ${recordId};`));
+  }
 }
 
 // On interruption (Ctrl-C / CI termination) run the same idempotent DB cleanup, then remove the
@@ -411,6 +450,7 @@ async function runChecks(context) {
   // throwawayUnsignedScriptId and faxConfig are module-scoped (see cleanupFixtures); assign, not redeclare.
   try {
     faxConfig = stageFaxConfig();
+    seedPharmacyFax();
 
     const { modalFrame, scriptId, createdCount } = await writeCustomRxThroughUi(page);
     createdScriptId = scriptId;
